@@ -1,0 +1,343 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { PanelLeftClose, PanelLeft } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { resolveBreadcrumb, type ActiveNav, GTG_NAVIGATION } from '@/lib/gtg-navigation'
+import { useAuth } from '@/lib/gtg-auth'
+import { GtgSidebar } from './gtg-sidebar'
+import { GtgHeader } from './gtg-header'
+import { GtgBreadcrumb } from './gtg-breadcrumb'
+import { GtgPageHeader } from './gtg-page-header'
+import { OrganizationInformation } from '@/components/org/organization-information'
+import { OrganizationDetailsForm } from '@/components/org/organization-details'
+import { DepartmentList } from '@/components/org/department-list'
+import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
+import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import type { ReactNode } from 'react'
+
+const DEFAULT_ACTIVE: ActiveNav = {
+  moduleId: 'm1',
+  menuId: 'org-setup',
+  submenuId: 'org-profile',
+}
+
+// Map navigation state to route paths
+function getRoutePath(active: ActiveNav): string {
+  return `/module/${active.moduleId}/${active.menuId}/${active.submenuId}`
+}
+
+// Parse route path to navigation state
+function parseRoutePath(pathname: string): ActiveNav | null {
+  const match = pathname.match(/^\/module\/([^/]+)\/([^/]+)\/([^/]+)/)
+  if (match) {
+    return {
+      moduleId: match[1],
+      menuId: match[2],
+      submenuId: match[3],
+    }
+  }
+  return null
+}
+
+// Placeholder for submenus that don't have content yet
+function ComingSoonScreen({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
+      <div
+        className="mb-5 flex size-14 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+        aria-hidden="true"
+      >
+        <PanelLeftClose className="size-7 opacity-50" />
+      </div>
+      <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      <p className="mt-2 max-w-md text-pretty text-sm leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  )
+}
+
+// Render content based on active navigation — used when no children are provided
+function renderContent(active: ActiveNav, userRole: string) {
+  // M1 — Organizational Management
+  if (active.moduleId === 'm1') {
+    switch (active.submenuId) {
+      case 'org-profile':
+        return <OrganizationInformation role={userRole as any} />
+      case 'dept-management':
+        return <DepartmentList role={userRole as any} />
+      case 'hierarchy':
+        return <DepartmentHierarchy role={userRole as any} />
+      case 'employee-directory':
+        return (
+          <ComingSoonScreen
+            title="Employee Directory"
+            description="Search, filter, and manage employee records across the organization. Coming soon."
+          />
+        )
+      case 'role-responsibility':
+        return (
+          <ComingSoonScreen
+            title="Role & Responsibility"
+            description="Define roles, responsibilities, and access permissions for your workforce. Coming soon."
+          />
+        )
+      case 'task-assignment':
+        return (
+          <ComingSoonScreen
+            title="Task Assignment"
+            description="Assign and prioritize tasks across teams and departments. Coming soon."
+          />
+        )
+      case 'task-tracking':
+        return (
+          <ComingSoonScreen
+            title="Task Tracking"
+            description="Monitor task progress, deadlines, and completion status in real time. Coming soon."
+          />
+        )
+      case 'compliance-management':
+        return (
+          <ComingSoonScreen
+            title="Compliance Management"
+            description="Track regulatory compliance, audits, and policy adherence. Coming soon."
+          />
+        )
+      case 'disciplinary-management':
+        return (
+          <ComingSoonScreen
+            title="Disciplinary Management"
+            description="Record and manage disciplinary actions and appeals workflow. Coming soon."
+          />
+        )
+    }
+  }
+
+  // M2 — Competency Management
+  if (active.moduleId === 'm2') {
+    switch (active.submenuId) {
+      case 'taxonomy-library':
+        return (
+          <ComingSoonScreen
+            title="Taxonomy & Library"
+            description="Manage competency frameworks, skills taxonomy, and library mappings. Coming soon."
+          />
+        )
+      case 'job-role-catalogue':
+        return (
+          <ComingSoonScreen
+            title="Job Role Catalogue"
+            description="Define and maintain job roles with associated competencies and levels. Coming soon."
+          />
+        )
+      case 'employee-rating':
+        return (
+          <ComingSoonScreen
+            title="Employee Rating"
+            description="View and manage competency ratings for employees across roles. Coming soon."
+          />
+        )
+    }
+  }
+
+  // M3 — Talent Management
+  if (active.moduleId === 'm3') {
+    switch (active.submenuId) {
+      case 'recruitment-dashboard':
+        return (
+          <ComingSoonScreen
+            title="Recruitment Dashboard"
+            description="Overview of hiring pipelines, open requisitions, and recruitment metrics. Coming soon."
+          />
+        )
+      case 'job-postings':
+        return (
+          <ComingSoonScreen
+            title="Job Postings"
+            description="Create, manage, and publish job openings across channels. Coming soon."
+          />
+        )
+      case 'interview-management':
+        return (
+          <ComingSoonScreen
+            title="Interview Management"
+            description="Schedule, track, and evaluate candidate interviews. Coming soon."
+          />
+        )
+      case 'manager-hub':
+        return (
+          <ComingSoonScreen
+            title="Manager Hub"
+            description="Centralized view for managers to review hiring progress and candidate feedback. Coming soon."
+          />
+        )
+      case 'performance-reviews':
+        return (
+          <ComingSoonScreen
+            title="Performance Reviews"
+            description="Conduct and track employee performance reviews and 360-degree feedback. Coming soon."
+          />
+        )
+      case 'appraisals-succession':
+        return (
+          <ComingSoonScreen
+            title="Appraisals & Succession"
+            description="Manage annual appraisals and succession planning workflows. Coming soon."
+          />
+        )
+      case 'document-templates':
+        return (
+          <ComingSoonScreen
+            title="Document Templates"
+            description="Create and manage HR document templates for offers, letters, and policies. Coming soon."
+          />
+        )
+    }
+  }
+
+  // M4 — LMS
+  if (active.moduleId === 'm4') {
+    switch (active.submenuId) {
+      case 'learning-dashboard':
+        return (
+          <ComingSoonScreen
+            title="Learning Dashboard"
+            description="Track enrollment, completion rates, and learning paths across the organization. Coming soon."
+          />
+        )
+      case 'course-catalogue':
+        return (
+          <ComingSoonScreen
+            title="Course Catalogue"
+            description="Browse, assign, and manage training courses and learning resources. Coming soon."
+          />
+        )
+      case 'assessment-centre':
+        return (
+          <ComingSoonScreen
+            title="Assessment Centre"
+            description="Create and manage assessments, quizzes, and certification exams. Coming soon."
+          />
+        )
+    }
+  }
+
+  // M5 — HRIT Solutions
+  if (active.moduleId === 'm5') {
+    switch (active.submenuId) {
+      case 'attendance-tracking':
+        return (
+          <ComingSoonScreen
+            title="Attendance Tracking"
+            description="Monitor daily attendance, shifts, and work-hour compliance. Coming soon."
+          />
+        )
+      case 'attendance-reports':
+        return (
+          <ComingSoonScreen
+            title="Attendance Reports"
+            description="Generate attendance summaries, leave balances, and overtime reports. Coming soon."
+          />
+        )
+      case 'leave-operations':
+        return (
+          <ComingSoonScreen
+            title="Leave Operations"
+            description="Process leave requests, approvals, and policy management. Coming soon."
+          />
+        )
+      case 'payroll-processing':
+        return (
+          <ComingSoonScreen
+            title="Payroll Processing"
+            description="Run payroll cycles, manage salary components, and generate payslips. Coming soon."
+          />
+        )
+    }
+  }
+
+  return (
+    <ComingSoonScreen
+      title="Application Shell Ready"
+      description="This is the GapstoGrowth master application layout. Select a module in the sidebar to get started."
+    />
+  )
+}
+
+interface GtgAppShellProps {
+  /** Override the default content renderer with custom page content */
+  children?: ReactNode
+  /** Override the initial active navigation state (defaults to Org Profile) */
+  initialActive?: ActiveNav
+}
+
+export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) {
+  const { user } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(false)
+  const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
+
+  // Parse active state from URL only when no children override is active
+  useEffect(() => {
+    if (children) return
+    const parsed = parseRoutePath(pathname)
+    if (parsed) {
+      setActive(parsed)
+    }
+  }, [pathname, children])
+
+  // Navigate when active state changes (skip when children provide their own content)
+  const handleNavSelect = (next: ActiveNav) => {
+    setActive(next)
+    // Always navigate to the canonical /module/ route so the URL stays in sync
+    router.push(getRoutePath(next))
+  }
+
+  const crumb = resolveBreadcrumb(active)
+
+  return (
+    <div
+      role="application"
+      aria-label="GapstoGrowth HRMS"
+      className="h-screen w-full overflow-hidden bg-background"
+    >
+      <GtgSidebar
+        collapsed={collapsed}
+        active={active}
+        onSelect={handleNavSelect}
+        role={user?.role || 'employee'}
+      />
+
+      <div
+        className={cn(
+          'flex h-screen flex-col transition-[padding] duration-240',
+          collapsed ? 'pl-[72px]' : 'pl-[260px]',
+        )}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
+      >
+        <GtgHeader
+          collapsed={collapsed}
+          onToggleSidebar={() => setCollapsed((v) => !v)}
+        />
+        <GtgBreadcrumb
+          module={crumb.module}
+          menu={crumb.menu}
+          submenu={crumb.submenu}
+        />
+
+        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background">
+          <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+            <GtgPageHeader
+              title={crumb.submenu}
+              description={`${crumb.module} · ${crumb.menu}`}
+            />
+            {children ?? renderContent(active, user?.role || 'employee')}
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
