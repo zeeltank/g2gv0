@@ -381,7 +381,7 @@ export function OrganizationDetailsForm({
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground">Company Logo</label>
-              <div className="g2g-brand-gradient mt-2 flex size-32 items-center justify-center rounded-lg text-2xl font-bold text-brand-foreground">
+              <div className="mt-2 flex size-32 items-center justify-center rounded-lg bg-primary text-2xl font-bold text-primary-foreground">
                 {formData.brandName?.slice(0, 3)}
               </div>
             </div>
@@ -397,7 +397,7 @@ export function OrganizationDetailsForm({
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-foreground">Company Logo</label>
-              <div className="g2g-brand-gradient mt-2 flex size-32 items-center justify-center rounded-lg text-2xl font-bold text-brand-foreground">
+              <div className="mt-2 flex size-32 items-center justify-center rounded-lg bg-primary text-2xl font-bold text-primary-foreground">
                 {formData.brandName?.slice(0, 3)}
               </div>
               <Button variant="outline" size="sm" className="mt-3 w-full">
@@ -499,7 +499,7 @@ export function OrganizationDetailsForm({
                         <Button size="sm" variant="ghost">
                           <Edit className="size-4" aria-hidden="true" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-danger hover:text-danger">
+                        <Button size="sm" variant="ghost" className="text-danger hover:bg-danger/10 hover:text-danger">
                           <Trash2 className="size-4" aria-hidden="true" />
                         </Button>
                       </div>
@@ -621,11 +621,12 @@ export function OrganizationDetailsForm({
                   <button
                     key={day}
                     onClick={() => toggleWorkingDay(day)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
                       formData.workingDays.includes(day)
-                        ? 'border-brand bg-brand/10 text-brand'
-                        : 'border-border text-muted-foreground hover:border-input'
-                    }`}
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-input',
+                    )}
                   >
                     {day}
                   </button>

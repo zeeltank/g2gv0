@@ -2,32 +2,27 @@ import * as React from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface BreadcrumbProps extends React.OlHTMLAttributes<HTMLOListElement> {}
+interface BreadcrumbProps extends React.HTMLAttributes<HTMLElement> {}
 
-const Breadcrumb = React.forwardRef<HTMLOListElement, BreadcrumbProps>(
+const Breadcrumb = React.forwardRef<HTMLElement, BreadcrumbProps>(
   ({ className, ...props }, ref) => (
     <nav
+      ref={ref}
       aria-label="breadcrumb"
-      className={cn('flex w-full', className)}
+      className={cn('flex items-center', className)}
       {...props}
-    >
-      <ol
-        ref={ref}
-        className="flex flex-wrap items-center gap-1.5"
-        {...props}
-      />
-    </nav>
+    />
   ),
 )
 Breadcrumb.displayName = 'Breadcrumb'
 
-interface BreadcrumbItemProps extends React.LiHTMLAttributes<HTMLLIElement> {}
+interface BreadcrumbItemProps extends React.HTMLAttributes<HTMLLIElement> {}
 
 const BreadcrumbItem = React.forwardRef<HTMLLIElement, BreadcrumbItemProps>(
   ({ className, ...props }, ref) => (
     <li
       ref={ref}
-      className={cn('inline-flex items-center gap-1.5', className)}
+      className={cn('flex items-center', className)}
       {...props}
     />
   ),
@@ -46,7 +41,7 @@ const BreadcrumbLink = React.forwardRef<
   <a
     ref={ref}
     className={cn(
-      'text-sm transition-colors hover:text-foreground',
+      'text-sm transition-colors hover:text-foreground truncate max-w-[200px]',
       isActive
         ? 'text-foreground font-medium'
         : 'text-muted-foreground',
@@ -63,10 +58,8 @@ const BreadcrumbSeparator = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     role="presentation"
-    className={cn(
-      'text-muted-foreground',
-      className,
-    )}
+    aria-hidden="true"
+    className={cn('text-muted-foreground shrink-0', className)}
     {...props}
   >
     <ChevronRight className="size-4" />

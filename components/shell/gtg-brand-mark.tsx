@@ -10,7 +10,7 @@ export function GtgBrandMark({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div
-        className="g2g-brand-gradient flex size-9 shrink-0 items-center justify-center rounded-md text-brand-foreground shadow-sm"
+        className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm"
         aria-hidden="true"
       >
         <span className="font-mono text-sm font-bold tracking-tight">G2G</span>

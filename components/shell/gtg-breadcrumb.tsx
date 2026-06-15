@@ -20,17 +20,17 @@ export function GtgBreadcrumb({
         <BreadcrumbItem>
           <BreadcrumbLink href="/">Home</BreadcrumbLink>
         </BreadcrumbItem>
-        {trail.map((item, index) => (
-          <div key={item}>
+        {trail.map((item) => (
+          <>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink href="#">{item}</BreadcrumbLink>
             </BreadcrumbItem>
-          </div>
+          </>
         ))}
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <span className="text-sm font-medium text-foreground">{submenu}</span>
+          <span className="truncate text-sm font-medium text-foreground">{submenu}</span>
         </BreadcrumbItem>
       </Breadcrumb>
     </nav>

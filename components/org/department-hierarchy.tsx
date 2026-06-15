@@ -43,7 +43,7 @@ function TreeNode({
   return (
     <li>
       <div
-        className="group flex items-center gap-2 rounded-md border border-transparent px-2 py-2 transition-colors duration-200 hover:border-border hover:bg-secondary/60"
+        className="group flex items-center gap-2 rounded-md border border-transparent px-2 py-2 transition-colors duration-200 hover:border-border hover:bg-surface-muted"
         style={{ marginLeft: depth * 24 }}
       >
         {canReorder && (
@@ -79,7 +79,7 @@ function TreeNode({
           className={cn(
             'flex size-8 shrink-0 items-center justify-center rounded-md',
             depth === 0
-              ? 'g2g-brand-gradient text-brand-foreground'
+              ? 'bg-primary text-primary-foreground'
               : 'bg-secondary text-secondary-foreground',
           )}
           aria-hidden="true"

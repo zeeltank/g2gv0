@@ -79,7 +79,7 @@ export function OrganizationInformation({ role }: { role: Role }) {
         <SectionCard title="Company Logo" className="lg:col-span-1">
           <div className="flex flex-col items-center gap-4">
             <div
-              className="g2g-brand-gradient flex size-28 items-center justify-center rounded-2xl text-3xl font-bold text-brand-foreground shadow-md"
+              className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
               aria-hidden="true"
             >
               GTG
@@ -159,7 +159,7 @@ export function OrganizationInformation({ role }: { role: Role }) {
               <ReadField
                 label="Website"
                 value={
-                  <span className="inline-flex items-center gap-1.5 text-brand">
+                    <span className="inline-flex items-center gap-1.5 text-primary">
                     <Globe className="size-3.5" aria-hidden="true" />
                     {org.website}
                   </span>
@@ -301,7 +301,7 @@ export function OrganizationInformation({ role }: { role: Role }) {
         description="A high-level view of the reporting structure."
       >
         <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border bg-surface-muted p-6">
-          <div className="g2g-brand-gradient rounded-md px-4 py-2 text-sm font-semibold text-brand-foreground">
+          <div className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
             {org.name}
           </div>
           <div className="h-5 w-px bg-border" aria-hidden="true" />

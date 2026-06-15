@@ -86,11 +86,10 @@
 
   --sidebar: var(--surface);
   --sidebar-foreground: var(--foreground);
-  --sidebar-hover: hsl(214 32% 94%);
-  --sidebar-active: hsl(221 83% 94%);
-  --sidebar-active-foreground: hsl(221 83% 35%);
+  --sidebar-hover: var(--surface-muted);
+  --sidebar-active: color-mix(in srgb, var(--primary) 10%, white);
+  --sidebar-active-foreground: var(--primary);
   --sidebar-border: var(--border);
-
 
   --success: hsl(142 71% 45%);
   --success-foreground: hsl(0 0% 100%);
@@ -150,12 +149,12 @@
   --info: var(--primary);
   --info-foreground: var(--primary-foreground);
 
- --sidebar: hsl(222 47% 7%);
+  --sidebar: hsl(222 47% 7%);
   --sidebar-foreground: hsl(210 40% 98%);
-  --sidebar-hover: hsl(217 33% 14%);
-  --sidebar-active: hsl(221 83% 25%);
-  --sidebar-active-foreground: hsl(221 83% 70%);
-  --sidebar-border: hsl(217 33% 17%);
+  --sidebar-hover: hsl(217 33% 12%);
+  --sidebar-active: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  --sidebar-active-foreground: var(--primary);
+  --sidebar-border: var(--border);
 }
 
 @layer base {

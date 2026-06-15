@@ -9,15 +9,15 @@ const statusBadgeVariants = cva(
       variant: {
         default:
           'border border-border bg-background text-foreground',
-        active: 'border border-success/30 bg-success/10 text-success dark:border-success/50 dark:bg-success/20',
+        active: 'border border-success/30 bg-success/10 text-success',
         inactive:
           'border border-muted-foreground/30 bg-muted text-muted-foreground',
         pending:
-          'border border-warning/30 bg-warning/10 text-warning dark:border-warning/50 dark:bg-warning/20',
+          'border border-warning/30 bg-warning/10 text-warning',
         error:
-          'border border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/50 dark:bg-destructive/20',
+          'border border-destructive/30 bg-destructive/10 text-destructive',
         processing:
-          'border border-primary/30 bg-primary/10 text-primary dark:border-primary/50 dark:bg-primary/20',
+          'border border-primary/30 bg-primary/10 text-primary',
       },
       size: {
         sm: 'text-xs px-2 py-0.5',
@@ -36,13 +36,20 @@ interface StatusBadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof statusBadgeVariants> {
   icon?: React.ReactNode
+  status?: 'Active' | 'Inactive' | 'Draft'
+}
+
+const statusVariantMap: Record<NonNullable<StatusBadgeProps['status']>, VariantProps<typeof statusBadgeVariants>['variant']> = {
+  Active: 'active',
+  Inactive: 'inactive',
+  Draft: 'pending',
 }
 
 const StatusBadge = React.forwardRef<HTMLDivElement, StatusBadgeProps>(
-  ({ className, variant, size, icon, children, ...props }, ref) => (
+  ({ className, variant, status, size, icon, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(statusBadgeVariants({ variant, size, className }))}
+      className={cn(statusBadgeVariants({ variant: status ? statusVariantMap[status] : variant, size, className }))}
       {...props}
     >
       {icon && <span>{icon}</span>}
