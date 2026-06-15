@@ -49,7 +49,7 @@ function RoleSwitcher({
       >
         <ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
         <span className="hidden sm:inline">Viewing as</span>
-        <span className="font-semibold text-brand">{current.label}</span>
+        <span className="font-semibold text-primary">{current.label}</span>
         <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
       </button>
 
@@ -190,7 +190,7 @@ function UserProfileMenu() {
         className="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 transition-colors duration-200 outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span
-          className="flex size-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-brand-foreground"
+          className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
           aria-hidden="true"
         >
           {userInitials}
@@ -239,7 +239,7 @@ function UserProfileMenu() {
               type="button"
               role="menuitem"
               onClick={handleLogout}
-              className="g2g-brand-gradient flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold text-brand-foreground transition-opacity duration-200 outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex w-full items-center gap-2.5 rounded-md bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition-colors duration-200 outline-none hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <LogOut className="size-4" aria-hidden="true" />
               Sign Out

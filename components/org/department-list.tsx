@@ -238,7 +238,7 @@ export function DepartmentList({ role }: { role: Role }) {
                 {pageRows.map((d: Department) => (
                   <tr
                     key={d.id}
-                    className="border-b border-border transition-colors duration-200 hover:bg-secondary/60"
+                    className="border-b border-border transition-colors duration-200 hover:bg-surface-muted"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -332,7 +332,7 @@ export function DepartmentList({ role }: { role: Role }) {
                   className={cn(
                     'flex size-9 items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     current === i + 1
-                      ? 'g2g-brand-gradient text-brand-foreground shadow-sm'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-secondary hover:text-secondary-foreground',
                   )}
                 >

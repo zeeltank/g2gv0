@@ -277,7 +277,21 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('sidebar-collapsed')
+      return stored ? stored === 'true' : false
+    }
+    return false
+  })
+
+  useEffect(() => {
+    sessionStorage.setItem('sidebar-collapsed', String(collapsed))
+  }, [collapsed])
+
+  useEffect(() => {
+    sessionStorage.setItem('sidebar-collapsed', String(collapsed))
+  }, [collapsed])
   const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
 
   // Parse active state from URL only when no children override is active
@@ -302,7 +316,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
     <div
       role="application"
       aria-label="GapstoGrowth HRMS"
-      className="h-screen w-full overflow-hidden bg-background"
+      className="flex h-screen w-full bg-background"
     >
       <GtgSidebar
         collapsed={collapsed}
@@ -313,7 +327,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
 
       <div
         className={cn(
-          'flex h-screen flex-col transition-[padding] duration-240',
+          'flex h-screen w-full flex-col transition-[padding] duration-240',
           collapsed ? 'pl-[72px]' : 'pl-[260px]',
         )}
         style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
@@ -329,7 +343,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
         />
 
         <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background">
-          <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+          <div className="w-full px-6 py-8">
             <GtgPageHeader
               title={crumb.submenu}
               description={`${crumb.module} · ${crumb.menu}`}

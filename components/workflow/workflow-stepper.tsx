@@ -113,21 +113,13 @@ const WorkflowStepper = React.forwardRef<HTMLDivElement, WorkflowStepperProps>(
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  'bg-border',
                   isVertical
-                    ? 'w-0.5 h-8 ml-3 bg-gradient-to-b'
-                    : 'flex-1 h-0.5 mx-2 bg-gradient-to-r',
+                    ? 'w-0.5 h-8 ml-3'
+                    : 'flex-1 h-0.5 mx-2',
                   index < steps.findIndex((s) => s.status === 'upcoming')
                     ? 'bg-success opacity-100'
-                    : 'opacity-30',
+                    : 'bg-border opacity-30',
                 )}
-                style={{
-                  background: `linear-gradient(${isVertical ? 'to bottom' : 'to right'}, ${
-                    index < steps.findIndex((s) => s.status === 'upcoming')
-                      ? 'hsl(143 65% 30%)'
-                      : 'hsl(219 39% 91%)'
-                  }, ${index < steps.findIndex((s) => s.status === 'upcoming') ? 'hsl(143 65% 30%)' : 'hsl(219 39% 91%)'})`,
-                }}
               />
             )}
           </React.Fragment>

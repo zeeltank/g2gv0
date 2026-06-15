@@ -15,6 +15,7 @@ import {
   CalendarClock,
   CalendarDays,
   Wallet,
+  Network,
 } from 'lucide-react'
 
 export type NavSubmenu = {
@@ -33,6 +34,7 @@ export type NavModule = {
   id: string
   label: string
   short: string
+  icon: LucideIcon
   menus: NavMenu[]
 }
 
@@ -45,6 +47,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     id: 'm1',
     label: 'Organizational Management',
     short: 'M1',
+    icon: Network,
     menus: [
       {
         id: 'org-setup',
@@ -88,6 +91,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     id: 'm2',
     label: 'Competency Management',
     short: 'M2',
+    icon: Library,
     menus: [
       {
         id: 'competency-library',
@@ -113,6 +117,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     id: 'm3',
     label: 'Talent Management',
     short: 'M3',
+    icon: UserPlus,
     menus: [
       {
         id: 'talent-acquisition',
@@ -146,6 +151,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     id: 'm4',
     label: 'LMS',
     short: 'M4',
+    icon: BookOpen,
     menus: [
       {
         id: 'content-library',
@@ -168,6 +174,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     id: 'm5',
     label: 'HRIT Solutions',
     short: 'M5',
+    icon: CalendarClock,
     menus: [
       {
         id: 'attendance-management',

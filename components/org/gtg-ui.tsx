@@ -6,7 +6,7 @@ export { Badge, type BadgeProps } from '@/components/ui/badge'
 export { Button } from '@/components/ui/button'
 export { Input } from '@/components/ui/input'
 export { Textarea } from '@/components/ui/textarea'
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+export { Select } from '@/components/ui/select'
 export { Label } from '@/components/ui/label'
 export { EmptyState } from '@/components/ui/empty-state'
 export { StatusBadge } from '@/components/ui/status-badge'
@@ -33,7 +33,7 @@ export function SectionCard({
   className?: string
 }) {
   return (
-    <Card className={className}>
+    <Card className={cn('rounded-xl', className)}>
       {(title || actions) && (
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -248,7 +248,7 @@ export function Tabs({
             className={cn(
               'relative -mb-px h-10 px-4 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
               isActive
-                ? 'text-foreground'
+                ? 'text-primary'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

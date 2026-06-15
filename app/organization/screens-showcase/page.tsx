@@ -43,7 +43,7 @@ export default function OrgScreensShowcasePage() {
               onClick={() => setSelectedRole(role.value)}
               className={`rounded-lg border-2 px-4 py-3 text-left transition-all ${
                 selectedRole === role.value
-                  ? 'border-brand bg-brand/10 text-foreground'
+                  ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border hover:border-input bg-surface text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -67,7 +67,7 @@ export default function OrgScreensShowcasePage() {
               onClick={() => setSelectedPage(id as typeof selectedPage)}
               className={`px-4 py-2 font-medium transition-colors ${
                 selectedPage === id
-                  ? 'border-b-2 border-brand text-brand'
+                  ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -107,7 +107,7 @@ export default function OrgScreensShowcasePage() {
             <li>✗ Cannot edit details</li>
             <li>✗ Cannot add new organizations</li>
             <li>✗ Cannot upload logo</li>
-            <li className="text-amber-600">View-only mode enabled</li>
+            <li className="text-warning">View-only mode enabled</li>
           </ul>
         </div>
 

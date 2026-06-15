@@ -1,13 +1,18 @@
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { ReactNode } from 'react'
+
+interface GtgPageHeaderProps {
+  title: string
+  description: string
+  actions?: ReactNode
+}
 
 export function GtgPageHeader({
   title,
   description,
-}: {
-  title: string
-  description: string
-}) {
+  actions,
+}: GtgPageHeaderProps) {
   return (
     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="flex flex-col gap-2">
@@ -18,15 +23,11 @@ export function GtgPageHeader({
           {description}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <Button variant="outline" size="lg">
-          Export
-        </Button>
-        <Button size="lg">
-          <Plus aria-hidden="true" />
-          New Record
-        </Button>
-      </div>
+      {actions && (
+        <div className="flex shrink-0 items-center gap-3">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }
