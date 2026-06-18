@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Chrome } from 'lucide-react'
+import { AlertCircle, Globe } from 'lucide-react'
 
 function GlassmorphismLogoSection() {
   return (
@@ -159,7 +159,7 @@ export function LoginPage() {
               variant="outline"
               className="mt-3 w-full"
             >
-              <Chrome className="size-5" aria-hidden="true" />
+              <Globe className="size-5" aria-hidden="true" />
               Sign in with Google
             </Button>
           </form>

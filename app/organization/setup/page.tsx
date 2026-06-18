@@ -1,60 +1,831 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Building2,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit2,
+  FileSpreadsheet,
+  Plus,
+  Search,
+  Trash2,
+  UploadCloud,
+  Users,
+} from 'lucide-react'
+import { GtgAppShell } from '@/components/shell/gtg-app-shell'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
-import { useAuth } from '@/lib/gtg-auth'
-import { Tabs } from '@/components/org/gtg-ui'
-import { OrganizationInformation } from '@/components/org/organization-information'
-import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+
+type WizardStep = 'organization' | 'departments' | 'employees'
+
+interface StepConfig {
+  id: WizardStep
+  title: string
+  description: string
+}
+
+interface OrganizationForm {
+  organizationName: string
+  organizationCode: string
+  organizationType: string
+  businessType: string
+  industryType: string
+  email: string
+  phone: string
+  website: string
+  country: string
+  state: string
+  city: string
+  registrationNumber: string
+  gstNumber: string
+  panNumber: string
+  establishedDate: string
+  addressLine1: string
+  addressLine2: string
+  postalCode: string
+  companyDescription: string
+}
+
+interface EmployeeRow {
+  id: string
+  employeeId: string
+  name: string
+  email: string
+  department: string
+  designation: string
+  joiningDate: string
+  status: 'Ready' | 'Needs Review'
+}
+
+const steps: StepConfig[] = [
+  {
+    id: 'organization',
+    title: 'Organization Details',
+    description: 'Complete legal, contact, and address information.',
+  },
+  {
+    id: 'departments',
+    title: 'Department Selection',
+    description: 'Choose departments suggested for your industry.',
+  },
+  {
+    id: 'employees',
+    title: 'Employee Import',
+    description: 'Upload, validate, and review employee records.',
+  },
+]
+
+const initialOrganization: OrganizationForm = {
+  organizationName: 'ABC Technologies Pvt. Ltd.',
+  organizationCode: 'ABC123',
+  organizationType: 'Company',
+  businessType: 'Private Limited',
+  industryType: 'Information Technology',
+  email: 'info@abctech.com',
+  phone: '079-12345678',
+  website: 'www.abctech.com',
+  country: 'India',
+  state: 'Gujarat',
+  city: 'Ahmedabad',
+  registrationNumber: '',
+  gstNumber: '',
+  panNumber: '',
+  establishedDate: '',
+  addressLine1: '',
+  addressLine2: '',
+  postalCode: '',
+  companyDescription: '',
+}
+
+const departmentSuggestions: Record<string, string[]> = {
+  'Information Technology': [
+    'Engineering',
+    'Product Management',
+    'Quality Assurance',
+    'DevOps',
+    'UI/UX Design',
+    'Human Resources',
+    'Finance',
+    'Sales',
+    'Marketing',
+    'Customer Support',
+    'Administration',
+  ],
+  Manufacturing: [
+    'Production',
+    'Quality Control',
+    'Maintenance',
+    'Procurement',
+    'Warehouse',
+    'Human Resources',
+    'Finance',
+    'Sales',
+  ],
+  Healthcare: [
+    'Clinical Operations',
+    'Nursing',
+    'Patient Support',
+    'Compliance',
+    'Human Resources',
+    'Finance',
+    'Administration',
+  ],
+}
+
+const sampleEmployees: EmployeeRow[] = [
+  {
+    id: '1',
+    employeeId: 'EMP-001',
+    name: 'Aarav Mehta',
+    email: 'aarav.mehta@abctech.com',
+    department: 'Engineering',
+    designation: 'Senior Software Engineer',
+    joiningDate: '2024-04-15',
+    status: 'Ready',
+  },
+  {
+    id: '2',
+    employeeId: 'EMP-002',
+    name: 'Nisha Shah',
+    email: 'nisha.shah@abctech.com',
+    department: 'Human Resources',
+    designation: 'HR Manager',
+    joiningDate: '2023-11-01',
+    status: 'Ready',
+  },
+  {
+    id: '3',
+    employeeId: 'EMP-003',
+    name: 'Rohan Iyer',
+    email: '',
+    department: 'Quality Assurance',
+    designation: 'QA Analyst',
+    joiningDate: '2025-01-20',
+    status: 'Needs Review',
+  },
+]
+
+const requiredOrganizationFields: Array<keyof OrganizationForm> = [
+  'registrationNumber',
+  'gstNumber',
+  'panNumber',
+  'establishedDate',
+  'addressLine1',
+  'postalCode',
+  'companyDescription',
+]
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string
+  required?: boolean
+  children: ReactNode
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-xs font-semibold text-foreground">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function SetupProgressRail({
+  activeStep,
+  completed,
+}: {
+  activeStep: WizardStep
+  completed: Record<WizardStep, boolean>
+}) {
+  const completedCount = steps.filter((step) => completed[step.id]).length
+  const progress = Math.round((completedCount / steps.length) * 100)
+
+  return (
+    <aside className="rounded-lg border border-border bg-card p-5 shadow-sm lg:sticky lg:top-4">
+      <div className="mb-5">
+        <p className="text-sm font-semibold text-foreground">Setup Progress</p>
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{progress}% Complete</span>
+          <span>
+            {completedCount}/{steps.length} steps
+          </span>
+        </div>
+        <Progress value={progress} className="mt-2" />
+      </div>
+
+      <div className="space-y-0">
+        {steps.map((step, index) => {
+          const isCompleted = completed[step.id]
+          const isCurrent = step.id === activeStep && !isCompleted
+          const status = isCompleted ? 'Completed' : isCurrent ? 'In Progress' : 'Pending'
+
+          return (
+            <div key={step.id} className="relative flex gap-3 pb-6 last:pb-0">
+              {index < steps.length - 1 && (
+                <div
+                  className={cn(
+                    'absolute left-[15px] top-8 h-[calc(100%-2rem)] w-px',
+                    isCompleted ? 'bg-primary' : 'bg-border',
+                  )}
+                />
+              )}
+              <div
+                className={cn(
+                  'z-10 flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
+                  isCompleted && 'border-primary bg-primary text-primary-foreground',
+                  isCurrent && 'border-primary bg-primary/10 text-primary',
+                  !isCompleted && !isCurrent && 'border-border bg-background text-muted-foreground',
+                )}
+              >
+                {isCompleted ? <Check className="size-4" /> : index + 1}
+              </div>
+              <div className="min-w-0 pt-0.5">
+                <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                <p
+                  className={cn(
+                    'mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                    isCompleted && 'bg-success/10 text-success',
+                    isCurrent && 'bg-primary/10 text-primary',
+                    !isCompleted && !isCurrent && 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {status}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </aside>
+  )
+}
 
 export default function OrganizationSetupPage() {
-  const { user, isLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState('org-info')
+  const router = useRouter()
+  const [activeStep, setActiveStep] = useState<WizardStep>('organization')
+  const [completed, setCompleted] = useState<Record<WizardStep, boolean>>({
+    organization: false,
+    departments: false,
+    employees: false,
+  })
+  const [organization, setOrganization] = useState<OrganizationForm>(initialOrganization)
+  const [departmentSearch, setDepartmentSearch] = useState('')
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
+  const [customDepartment, setCustomDepartment] = useState('')
+  const [employees, setEmployees] = useState<EmployeeRow[]>([])
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-8 animate-spin rounded-full border-4 border-border border-t-brand" />
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        </div>
-      </div>
+  const completionCount = steps.filter((step) => completed[step.id]).length
+  const isComplete = completionCount === steps.length
+
+  const filteredDepartments = useMemo(() => {
+    const suggestions =
+      departmentSuggestions[organization.industryType] ?? departmentSuggestions['Information Technology']
+
+    return suggestions.filter((department) =>
+      department.toLowerCase().includes(departmentSearch.toLowerCase()),
+    )
+  }, [departmentSearch, organization.industryType])
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((employee) => {
+      const search = employeeSearch.toLowerCase()
+      return [
+        employee.employeeId,
+        employee.name,
+        employee.email,
+        employee.department,
+        employee.designation,
+        employee.status,
+      ].some((value) => value.toLowerCase().includes(search))
+    })
+  }, [employeeSearch, employees])
+
+  const pageSize = 5
+  const pageCount = Math.max(1, Math.ceil(filteredEmployees.length / pageSize))
+  const visibleEmployees = filteredEmployees.slice((page - 1) * pageSize, page * pageSize)
+  const invalidEmployees = employees.filter((employee) => employee.status === 'Needs Review')
+  const isOrganizationReady = requiredOrganizationFields.every((field) =>
+    organization[field].trim(),
+  )
+
+  const updateOrganization = (field: keyof OrganizationForm, value: string) => {
+    setOrganization((current) => ({ ...current, [field]: value }))
+  }
+
+  const completeStep = (step: WizardStep, next?: WizardStep) => {
+    setCompleted((current) => ({ ...current, [step]: true }))
+    if (next) setActiveStep(next)
+  }
+
+  const saveOrganization = () => {
+    const hasMissing = requiredOrganizationFields.some((field) => !organization[field].trim())
+    if (hasMissing) return
+    completeStep('organization', 'departments')
+  }
+
+  const toggleDepartment = (department: string) => {
+    setSelectedDepartments((current) =>
+      current.includes(department)
+        ? current.filter((item) => item !== department)
+        : [...current, department],
     )
   }
 
-  if (!user) return null
+  const addCustomDepartment = () => {
+    const value = customDepartment.trim()
+    if (!value || selectedDepartments.includes(value)) return
+    setSelectedDepartments((current) => [...current, value])
+    setCustomDepartment('')
+  }
 
-  const tabs = [
-    { id: 'org-info', label: 'Organization Information' },
-    { id: 'add-detail', label: 'Add Organization Detail' },
-  ]
+  const importEmployees = () => {
+    setEmployees(sampleEmployees)
+    setEmployeeSearch('')
+    setPage(1)
+  }
+
+  const downloadTemplate = () => {
+    const csv = [
+      'Employee ID,Employee Name,Email,Department,Designation,Joining Date',
+      'EMP-001,Aarav Mehta,aarav.mehta@abctech.com,Engineering,Software Engineer,2024-04-15',
+    ].join('\n')
+    const link = document.createElement('a')
+    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
+    link.download = 'employee-import-template.csv'
+    link.click()
+  }
+
+  const deleteEmployee = (id: string) => {
+    setEmployees((current) => current.filter((employee) => employee.id !== id))
+  }
+
+  const markEmployeeReady = (id: string) => {
+    setEmployees((current) =>
+      current.map((employee) =>
+        employee.id === id
+          ? {
+              ...employee,
+              email: employee.email || `${employee.name.toLowerCase().replace(/\s+/g, '.')}@abctech.com`,
+              status: 'Ready',
+            }
+          : employee,
+      ),
+    )
+  }
 
   return (
     <ProtectedLayout>
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[1200px] px-6 py-8">
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Organization Setup</h1>
-              <p className="mt-2 text-muted-foreground">
-                Manage organization profile, details, and structure.
-              </p>
-            </div>
+      <GtgAppShell>
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <SetupProgressRail activeStep={activeStep} completed={completed} />
 
-            <div className="rounded-xl border border-border bg-card">
-              <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
-              <div className="p-6">
-                {activeTab === 'org-info' && (
-                  <OrganizationInformation role={user.role} />
-                )}
-                {activeTab === 'add-detail' && (
-                  <AddOrganizationDetail role={user.role} />
-                )}
+          <section className="min-w-0">
+            {!isComplete && (
+              <div className="mb-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase text-primary">
+                  Step {steps.findIndex((step) => step.id === activeStep) + 1} of {steps.length}
+                </p>
+                <h2 className="mt-1 text-2xl font-bold text-foreground">
+                  {steps.find((step) => step.id === activeStep)?.title}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {steps.find((step) => step.id === activeStep)?.description}
+                </p>
               </div>
-            </div>
-          </div>
+            )}
+
+            {activeStep === 'organization' && !isComplete && (
+              <div className="space-y-5">
+                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <div className="mb-5 flex items-center gap-2">
+                    <Building2 className="size-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Organization Information</h3>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Field label="Organization Name" required>
+                      <Input value={organization.organizationName} readOnly />
+                    </Field>
+                    <Field label="Organization Code" required>
+                      <Input value={organization.organizationCode} readOnly />
+                    </Field>
+                    <Field label="Organization Type" required>
+                      <Input value={organization.organizationType} readOnly />
+                    </Field>
+                    <Field label="Business Type" required>
+                      <Input value={organization.businessType} readOnly />
+                    </Field>
+                    <Field label="Industry Type" required>
+                      <Input value={organization.industryType} readOnly />
+                    </Field>
+                    <Field label="Established Date" required>
+                      <Input
+                        type="date"
+                        value={organization.establishedDate}
+                        onChange={(event) => updateOrganization('establishedDate', event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Registration No." required>
+                      <Input
+                        value={organization.registrationNumber}
+                        onChange={(event) => updateOrganization('registrationNumber', event.target.value)}
+                        placeholder="U72900GJ2010PTC061222"
+                      />
+                    </Field>
+                    <Field label="GST No." required>
+                      <Input
+                        value={organization.gstNumber}
+                        onChange={(event) => updateOrganization('gstNumber', event.target.value)}
+                        placeholder="24AACCA1234A1Z5"
+                      />
+                    </Field>
+                    <Field label="PAN No." required>
+                      <Input
+                        value={organization.panNumber}
+                        onChange={(event) => updateOrganization('panNumber', event.target.value)}
+                        placeholder="AACCA1234A"
+                      />
+                    </Field>
+                    <Field label="Website">
+                      <Input value={organization.website} readOnly />
+                    </Field>
+                    <div className="md:col-span-2">
+                      <Field label="Company Description" required>
+                        <Textarea
+                          value={organization.companyDescription}
+                          onChange={(event) =>
+                            updateOrganization('companyDescription', event.target.value)
+                          }
+                          placeholder="Describe your company, services, and operating model."
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <div className="mb-5 flex items-center gap-2">
+                    <Users className="size-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Contact Information</h3>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Email" required>
+                      <Input value={organization.email} readOnly />
+                    </Field>
+                    <Field label="Phone" required>
+                      <Input value={organization.phone} readOnly />
+                    </Field>
+                    <Field label="Address Line 1" required>
+                      <Input
+                        value={organization.addressLine1}
+                        onChange={(event) => updateOrganization('addressLine1', event.target.value)}
+                        placeholder="401, Dev City, Prahladnagar"
+                      />
+                    </Field>
+                    <Field label="Address Line 2">
+                      <Input
+                        value={organization.addressLine2}
+                        onChange={(event) => updateOrganization('addressLine2', event.target.value)}
+                        placeholder="Near Corporate Road"
+                      />
+                    </Field>
+                    <Field label="Country" required>
+                      <Input value={organization.country} readOnly />
+                    </Field>
+                    <Field label="State" required>
+                      <Input value={organization.state} readOnly />
+                    </Field>
+                    <Field label="City" required>
+                      <Input value={organization.city} readOnly />
+                    </Field>
+                    <Field label="Postal Code" required>
+                      <Input
+                        value={organization.postalCode}
+                        onChange={(event) => updateOrganization('postalCode', event.target.value)}
+                        placeholder="380015"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button size="lg" disabled={!isOrganizationReady} onClick={saveOrganization}>
+                    Save & Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeStep === 'departments' && !isComplete && (
+              <div className="space-y-5">
+                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">
+                        Suggested Departments for {organization.industryType}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Select one or more departments to create your initial organization structure.
+                      </p>
+                    </div>
+                    <div className="relative w-full md:w-72">
+                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={departmentSearch}
+                        onChange={(event) => setDepartmentSearch(event.target.value)}
+                        placeholder="Search departments"
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {filteredDepartments.map((department) => (
+                      <label
+                        key={department}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border border-border bg-background p-3 text-sm font-medium transition-colors',
+                          selectedDepartments.includes(department) && 'border-primary bg-primary/5 text-primary',
+                        )}
+                      >
+                        <Checkbox
+                          checked={selectedDepartments.includes(department)}
+                          onChange={() => toggleDepartment(department)}
+                        />
+                        {department}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-3 rounded-lg border border-dashed border-border bg-background p-4 sm:flex-row">
+                    <Input
+                      value={customDepartment}
+                      onChange={(event) => setCustomDepartment(event.target.value)}
+                      placeholder="Add new department"
+                    />
+                    <Button type="button" variant="outline" onClick={addCustomDepartment}>
+                      <Plus className="size-4" />
+                      Add New Department
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <h3 className="text-base font-semibold text-foreground">Selected Departments</h3>
+                  {selectedDepartments.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedDepartments.map((department) => (
+                        <span
+                          key={department}
+                          className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+                        >
+                          {department}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">No departments selected yet.</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    size="lg"
+                    disabled={selectedDepartments.length === 0}
+                    onClick={() => completeStep('departments', 'employees')}
+                  >
+                    Save & Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeStep === 'employees' && !isComplete && (
+              <div className="space-y-5">
+                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Bulk Employee Import</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Upload CSV or Excel files and review employee records before saving.
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={downloadTemplate}>
+                      <Download className="size-4" />
+                      Download Sample Template
+                    </Button>
+                  </div>
+
+                  <div
+                    className="mt-5 flex min-h-44 flex-col items-center justify-center rounded-lg border border-dashed border-primary/40 bg-primary/5 px-6 py-8 text-center"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      importEmployees()
+                    }}
+                  >
+                    <UploadCloud className="size-10 text-primary" />
+                    <p className="mt-3 text-sm font-semibold text-foreground">
+                      Drag & drop employee file here
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">CSV, XLS, or XLSX up to 10 MB</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.xls,.xlsx"
+                      className="hidden"
+                      onChange={importEmployees}
+                    />
+                    <Button
+                      className="mt-4"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <FileSpreadsheet className="size-4" />
+                      Upload File
+                    </Button>
+                  </div>
+                </div>
+
+                {employees.length > 0 && (
+                  <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">Imported Employees</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {employees.length} records imported. {invalidEmployees.length} records need review.
+                        </p>
+                      </div>
+                      <div className="relative w-full md:w-72">
+                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={employeeSearch}
+                          onChange={(event) => {
+                            setEmployeeSearch(event.target.value)
+                            setPage(1)
+                          }}
+                          placeholder="Search employees"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    {invalidEmployees.length > 0 && (
+                      <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                        Validation errors found: missing email addresses must be fixed before final import.
+                      </div>
+                    )}
+
+                    <div className="mt-4 rounded-lg border border-border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Employee ID</TableHead>
+                            <TableHead>Employee Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Department</TableHead>
+                            <TableHead>Designation</TableHead>
+                            <TableHead>Joining Date</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleEmployees.map((employee) => (
+                            <TableRow key={employee.id}>
+                              <TableCell className="font-medium">{employee.employeeId}</TableCell>
+                              <TableCell>{employee.name}</TableCell>
+                              <TableCell>{employee.email || 'Missing email'}</TableCell>
+                              <TableCell>{employee.department}</TableCell>
+                              <TableCell>{employee.designation}</TableCell>
+                              <TableCell>{employee.joiningDate}</TableCell>
+                              <TableCell>
+                                <span
+                                  className={cn(
+                                    'rounded-full px-2 py-1 text-xs font-semibold',
+                                    employee.status === 'Ready'
+                                      ? 'bg-success/10 text-success'
+                                      : 'bg-warning/10 text-warning',
+                                  )}
+                                >
+                                  {employee.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label="Edit row"
+                                    onClick={() => markEmployeeReady(employee.id)}
+                                  >
+                                    <Edit2 className="size-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label="Delete row"
+                                    onClick={() => deleteEmployee(employee.id)}
+                                  >
+                                    <Trash2 className="size-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Page {page} of {pageCount}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          disabled={page === 1}
+                          onClick={() => setPage((current) => Math.max(1, current - 1))}
+                          aria-label="Previous page"
+                        >
+                          <ChevronLeft className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          disabled={page === pageCount}
+                          onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                          aria-label="Next page"
+                        >
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button
+                    size="lg"
+                    disabled={employees.length === 0 || invalidEmployees.length > 0}
+                    onClick={() => completeStep('employees')}
+                  >
+                    Save & Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {isComplete && (
+              <div className="rounded-lg border border-border bg-card px-6 py-14 text-center shadow-sm">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
+                  <Check className="size-7" />
+                </div>
+                <h2 className="mt-5 text-2xl font-bold text-foreground">
+                  Organization Setup Completed Successfully
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Your organization is now configured and ready to use.
+                </p>
+                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                  <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/module/m1/org-setup/employee-directory')}
+                  >
+                    Manage Employees
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
-      </div>
+      </GtgAppShell>
     </ProtectedLayout>
   )
 }

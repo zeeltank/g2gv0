@@ -11,6 +11,18 @@ import { ModuleCard, type Module } from '@/components/settings/module-card'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { SetupWizardIllustration } from '@/components/illustration/setup-wizard-illustration'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
+import { SetupProgressTracker, type SetupStep } from '@/components/settings/setup-progress-tracker'
+
+const SETUP_STEPS: SetupStep[] = [
+  { id: 'profile', label: 'Profile Setup' },
+  { id: 'modules', label: 'Module Selection' },
+  { id: 'organization', label: 'Organization Details' },
+  { id: 'department', label: 'Department Setup' },
+  { id: 'employee', label: 'Employee Import' },
+  { id: 'additional', label: 'Additional Module Setup' },
+  { id: 'review', label: 'Portal Review' },
+  { id: 'golive', label: 'Go Live' },
+]
 
 const INITIAL_MODULES: Module[] = [
   {
@@ -26,9 +38,9 @@ const INITIAL_MODULES: Module[] = [
   {
     id: 'competency',
     title: 'Competency Management',
-    mandatory: true,
+    mandatory: false,
     duration: '6–8 mins',
-    selected: true,
+    selected: false,
     description: 'Define skills, job roles, competencies and manage competency framework.',
     screens: 12,
     features: 36,
@@ -68,6 +80,7 @@ const INITIAL_MODULES: Module[] = [
 export default function ModuleConfigurationPage() {
   const router = useRouter()
   const [modules, setModules] = useState<Module[]>(INITIAL_MODULES)
+  const currentStep = 2
 
   const handleToggle = (id: string) => {
     setModules((prev) =>
@@ -87,13 +100,16 @@ export default function ModuleConfigurationPage() {
         {/* Onboarding Header */}
         <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
           <GtgBrandMark />
-          <a
-            href="#"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            <HelpCircle className="size-4" />
-            Need Help?
-          </a>
+          <div className="flex items-center gap-4">
+            <SetupProgressTracker currentStep={currentStep} steps={SETUP_STEPS} />
+            <a
+              href="#"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <HelpCircle className="size-4" />
+              Need Help?
+            </a>
+          </div>
         </div>
         <div className="g2g-page-scroll g2g-scrollbar flex-1">
           <div className="w-full px-4 py-6 sm:px-6 sm:py-3">
@@ -190,9 +206,10 @@ export default function ModuleConfigurationPage() {
                     .filter((m) => m.selected)
                     .map((m) => m.id)
                   console.info('Continue setup for:', payload)
+                  router.push('/organization/setup')
                 }}
               >
-                Continue to Setup →
+                Continue Setup →
               </Button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground sm:text-right">
