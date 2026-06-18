@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
+  Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ROLES, type Role } from '@/lib/gtg-roles'
@@ -172,7 +173,19 @@ function UserProfileMenu() {
   const items = [
     { id: 'profile', label: 'My Profile', icon: User },
     { id: 'settings', label: 'Account Settings', icon: Settings },
+    { id: 'module-config', label: 'Module Configuration', icon: Settings2 },
   ]
+
+  const handleItemClick = (itemId: string) => {
+    setOpen(false)
+    if (itemId === 'profile') {
+      router.push('/profile')
+    } else if (itemId === 'settings') {
+      router.push('/settings')
+    } else if (itemId === 'module-config') {
+      router.push('/settings/module-configuration')
+    }
+  }
 
   const userInitials = user?.name
     .split(' ')
@@ -226,6 +239,7 @@ function UserProfileMenu() {
                   key={item.id}
                   type="button"
                   role="menuitem"
+                  onClick={() => handleItemClick(item.id)}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:bg-secondary"
                 >
                   <Icon className="size-4 text-muted-foreground" aria-hidden="true" />

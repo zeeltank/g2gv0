@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 
 export function GtgBreadcrumb({
@@ -20,13 +21,13 @@ export function GtgBreadcrumb({
         <BreadcrumbItem>
           <BreadcrumbLink href="/">Home</BreadcrumbLink>
         </BreadcrumbItem>
-        {trail.map((item) => (
-          <>
+        {trail.map((item, index) => (
+          <React.Fragment key={index}>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink href="#">{item}</BreadcrumbLink>
             </BreadcrumbItem>
-          </>
+          </React.Fragment>
         ))}
         <BreadcrumbSeparator />
         <BreadcrumbItem>
