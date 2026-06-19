@@ -1,16 +1,23 @@
-'use client'
+"use client";
 
-import { HelpCircle } from 'lucide-react'
-import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
-import { SetupProgressTracker, type SetupStep } from '@/components/settings/setup-progress-tracker'
+import { HelpCircle } from "lucide-react";
+import { GtgBrandMark } from "@/components/shell/gtg-brand-mark";
+import {
+  SetupProgressTracker,
+  type SetupStep,
+} from "@/components/settings/setup-progress-tracker";
 
 interface SetupWizardLayoutProps {
-  currentStep: number
-  steps: SetupStep[]
-  children: React.ReactNode
+  currentStep: number;
+  steps: SetupStep[];
+  children: React.ReactNode;
 }
 
-export function SetupWizardLayout({ currentStep, steps, children }: SetupWizardLayoutProps) {
+export function SetupWizardLayout({
+  currentStep,
+  steps,
+  children,
+}: SetupWizardLayoutProps) {
   return (
     <div className="flex h-screen w-full flex-col">
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
@@ -26,9 +33,7 @@ export function SetupWizardLayout({ currentStep, steps, children }: SetupWizardL
           </a>
         </div>
       </div>
-      <div className="g2g-page-scroll g2g-scrollbar flex-1">
-        <div className="w-full px-4 py-6 sm:px-6 sm:py-3">{children}</div>
-      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">{children}</div>
     </div>
-  )
+  );
 }
