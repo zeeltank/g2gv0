@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2,
@@ -10,14 +10,18 @@ import {
   Download,
   Edit2,
   FileSpreadsheet,
+  ArrowRight,
+  Globe,
+  Phone,
   Plus,
   Search,
+  Settings,
+  SlidersHorizontal,
   Trash2,
   UploadCloud,
-  Users,
 } from 'lucide-react'
-import { GtgAppShell } from '@/components/shell/gtg-app-shell'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
+import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -31,7 +35,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  SectionCard,
+  ReadField,
+  FormField,
+  Badge,
+  SelectInput,
+} from '@/components/org/gtg-ui'
+import { SISTER_COMPANIES } from '@/lib/gtg-org-data'
 import { cn } from '@/lib/utils'
+import { SetupStep } from '@/components/settings/setup-progress-tracker'
+
+const SETUP_STEPS: SetupStep[] = [
+  { id: 'modules', label: 'Module Selection' },
+  { id: 'organization', label: 'Organization Details' },
+  { id: 'department', label: 'Department Setup' },
+  { id: 'employee', label: 'Employee Import' },
+  { id: 'review', label: 'Portal Review' },
+  { id: 'golive', label: 'Go Live' },
+]
 
 type WizardStep = 'organization' | 'departments' | 'employees'
 
@@ -183,6 +205,16 @@ const sampleEmployees: EmployeeRow[] = [
 ]
 
 const requiredOrganizationFields: Array<keyof OrganizationForm> = [
+  'organizationName',
+  'organizationCode',
+  'organizationType',
+  'businessType',
+  'industryType',
+  'email',
+  'phone',
+  'country',
+  'state',
+  'city',
   'registrationNumber',
   'gstNumber',
   'panNumber',
@@ -192,23 +224,432 @@ const requiredOrganizationFields: Array<keyof OrganizationForm> = [
   'companyDescription',
 ]
 
-function Field({
-  label,
-  required,
-  children,
+function getOrganizationInitials(name: string) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+
+  return initials.slice(0, 3) || 'ORG'
+}
+
+function getEstablishedYear(value: string) {
+  const year = value.slice(0, 4)
+  return /^\d{4}$/.test(year) ? year : value || 'Pending'
+}
+
+function OrganizationProfileStep({
+  organization,
+  updateOrganization,
+  isOrganizationReady,
+  saveOrganization,
+  employeeCount,
 }: {
-  label: string
-  required?: boolean
-  children: ReactNode
+  organization: OrganizationForm
+  updateOrganization: (field: keyof OrganizationForm, value: string) => void
+  isOrganizationReady: boolean
+  saveOrganization: () => void
+  employeeCount: number
 }) {
+  const [sisterCompanySearch, setSisterCompanySearch] = useState('')
+  const logoText = getOrganizationInitials(organization.organizationName)
+  const filteredSisterCompanies = SISTER_COMPANIES.filter((company) =>
+    company.name.toLowerCase().includes(sisterCompanySearch.toLowerCase()),
+  )
+  const settingsSummary = [
+    { label: 'Time Zone', value: '(IST) Asia/Kolkata' },
+    { label: 'Currency', value: 'INR - Indian Rupee (₹)' },
+    { label: 'Financial Year', value: 'April - March' },
+    { label: 'Date Format', value: 'DD/MM/YYYY' },
+    { label: 'Language', value: 'English' },
+    { label: 'Number Format', value: '1,234.56' },
+  ]
+  const workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  const completeOrganization = () => {
+    if (!isOrganizationReady) return
+    saveOrganization()
+  }
+
   return (
-    <label className="space-y-1.5">
-      <span className="text-xs font-semibold text-foreground">
-        {label}
-        {required && <span className="text-destructive"> *</span>}
-      </span>
-      {children}
-    </label>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge tone="secondary">
+            <Building2 className="size-3.5" aria-hidden="true" />
+            {organization.organizationType}
+          </Badge>
+        </div>
+        <Button
+          type="button"
+          disabled={!isOrganizationReady}
+          onClick={completeOrganization}
+        >
+          Save &amp; Continue
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <SectionCard title="Company Logo" className="lg:col-span-1">
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
+              aria-hidden="true"
+            >
+              {logoText}
+            </div>
+            <div className="flex w-full flex-col gap-3 pt-2">
+              <ReadField label="Founded" value={getEstablishedYear(organization.establishedDate)} />
+              <ReadField
+                label="Total Employees"
+                value={employeeCount > 0 ? employeeCount.toLocaleString() : 'Pending'}
+              />
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Company Details"
+          description="Core registration and identity information."
+          className="lg:col-span-2"
+        >
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <FormField label="Company Name" required>
+              <Input
+                value={organization.organizationName}
+                onChange={(event) => updateOrganization('organizationName', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Company Code" required>
+              <Input
+                value={organization.organizationCode}
+                onChange={(event) => updateOrganization('organizationCode', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Registration Number" required>
+              <Input
+                value={organization.registrationNumber}
+                onChange={(event) => updateOrganization('registrationNumber', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Industry" required>
+              <SelectInput
+                value={organization.industryType}
+                onChange={(value) => updateOrganization('industryType', value)}
+                options={[
+                  { value: 'Information Technology', label: 'Information Technology' },
+                  { value: 'Manufacturing', label: 'Manufacturing' },
+                  { value: 'Healthcare', label: 'Healthcare' },
+                ]}
+              />
+            </FormField>
+            <FormField label="Organization Type" required>
+              <SelectInput
+                value={organization.organizationType}
+                onChange={(value) => updateOrganization('organizationType', value)}
+                options={[
+                  { value: 'Company', label: 'Company' },
+                  { value: 'Partnership', label: 'Partnership' },
+                  { value: 'LLP', label: 'LLP' },
+                  { value: 'Public Limited', label: 'Public Limited' },
+                ]}
+              />
+            </FormField>
+            <FormField label="Business Type" required>
+              <SelectInput
+                value={organization.businessType}
+                onChange={(value) => updateOrganization('businessType', value)}
+                options={[
+                  { value: 'Private Limited', label: 'Private Limited' },
+                  { value: 'Public Limited', label: 'Public Limited' },
+                  { value: 'Partnership', label: 'Partnership' },
+                ]}
+              />
+            </FormField>
+            <FormField label="Established Date" required>
+              <Input
+                type="date"
+                value={organization.establishedDate}
+                onChange={(event) => updateOrganization('establishedDate', event.target.value)}
+              />
+            </FormField>
+            <FormField label="GST No." required>
+              <Input
+                value={organization.gstNumber}
+                onChange={(event) => updateOrganization('gstNumber', event.target.value)}
+              />
+            </FormField>
+            <FormField label="PAN No." required>
+              <Input
+                value={organization.panNumber}
+                onChange={(event) => updateOrganization('panNumber', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Website">
+              <Input
+                value={organization.website}
+                onChange={(event) => updateOrganization('website', event.target.value)}
+              />
+            </FormField>
+            <div className="sm:col-span-2">
+              <FormField label="Company Description" required>
+                <Textarea
+                  value={organization.companyDescription}
+                  onChange={(event) => updateOrganization('companyDescription', event.target.value)}
+                  rows={3}
+                />
+              </FormField>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard title="Contact Information">
+          <div className="grid grid-cols-1 gap-5">
+            <FormField label="Email Address" required>
+              <Input
+                type="email"
+                value={organization.email}
+                onChange={(event) => updateOrganization('email', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Phone Number" required>
+              <Input
+                value={organization.phone}
+                onChange={(event) => updateOrganization('phone', event.target.value)}
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Registered Address">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <FormField label="Address Line 1" required>
+                <Input
+                  value={organization.addressLine1}
+                  onChange={(event) => updateOrganization('addressLine1', event.target.value)}
+                />
+              </FormField>
+            </div>
+            <div className="sm:col-span-2">
+              <FormField label="Address Line 2">
+                <Input
+                  value={organization.addressLine2}
+                  onChange={(event) => updateOrganization('addressLine2', event.target.value)}
+                />
+              </FormField>
+            </div>
+            <FormField label="City" required>
+              <Input
+                value={organization.city}
+                onChange={(event) => updateOrganization('city', event.target.value)}
+              />
+            </FormField>
+            <FormField label="State" required>
+              <Input
+                value={organization.state}
+                onChange={(event) => updateOrganization('state', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Postal Code" required>
+              <Input
+                value={organization.postalCode}
+                onChange={(event) => updateOrganization('postalCode', event.target.value)}
+              />
+            </FormField>
+            <FormField label="Country" required>
+              <Input
+                value={organization.country}
+                onChange={(event) => updateOrganization('country', event.target.value)}
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
+              <Building2 className="size-5 text-primary" aria-hidden="true" />
+              Sister Companies
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="self-start border-primary/40 text-primary md:self-auto"
+            >
+              <Plus aria-hidden="true" />
+              Add Sister Company
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:max-w-md">
+              <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={sisterCompanySearch}
+                onChange={(event) => setSisterCompanySearch(event.target.value)}
+                placeholder="Search companies..."
+                className="h-9 pr-9 text-sm"
+              />
+            </div>
+            <Button variant="outline" size="sm" type="button">
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              Filter
+            </Button>
+          </div>
+
+          <div className="overflow-hidden rounded-md border border-border">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-10 text-[11px] normal-case text-foreground">
+                    Company Name
+                  </TableHead>
+                  <TableHead className="h-10 text-[11px] normal-case text-foreground">
+                    Relationship Type
+                  </TableHead>
+                  <TableHead className="h-10 text-[11px] normal-case text-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="h-10 text-center text-[11px] normal-case text-foreground">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSisterCompanies.map((company, index) => {
+                  const isActive = index < 2
+
+                  return (
+                    <TableRow key={company.id}>
+                      <TableCell className="py-3 text-sm font-medium text-foreground">
+                        {company.name}
+                      </TableCell>
+                      <TableCell className="py-3 text-sm text-muted-foreground">
+                        Sister Company
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge
+                          tone={isActive ? 'success' : 'destructive'}
+                          className="rounded-md px-2 py-1 text-[11px]"
+                        >
+                          {isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            type="button"
+                            aria-label={`Edit ${company.name}`}
+                          >
+                            <Edit2 className="size-4 text-primary" />
+                          </Button>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            type="button"
+                            aria-label={`Delete ${company.name}`}
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex flex-col gap-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing {filteredSisterCompanies.length > 0 ? 1 : 0} to{' '}
+              {filteredSisterCompanies.length} of {filteredSisterCompanies.length} entries
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="icon-sm"
+                variant="outline"
+                type="button"
+                disabled
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button size="icon-sm" type="button" aria-label="Page 1">
+                1
+              </Button>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                type="button"
+                disabled
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card px-5 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <h3 className="inline-flex items-center gap-2 text-base font-semibold leading-none text-foreground">
+              <Settings className="size-4 text-primary" aria-hidden="true" />
+              Settings (Overview)
+            </h3>
+            <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+              {settingsSummary.map((item) => (
+                <div key={item.label} className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground">{item.label}</p>
+                  <p className="mt-2 break-words text-sm text-muted-foreground">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+              <div className="min-w-0 sm:col-span-2 xl:col-span-3">
+                <p className="text-xs font-semibold text-foreground">Working Days</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {workingDays.map((day, index) => (
+                    <span
+                      key={day}
+                      className={cn(
+                        'inline-flex h-7 min-w-9 shrink-0 items-center justify-center rounded-md border px-2.5 py-1 text-xs font-semibold',
+                        index < 5
+                          ? 'border-primary/30 bg-primary/5 text-primary'
+                          : 'border-border bg-muted/40 text-foreground',
+                      )}
+                    >
+                      {day}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="self-start text-primary xl:-mt-1"
+          >
+            View &amp; Edit Settings
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -400,7 +841,7 @@ export default function OrganizationSetupPage() {
 
   return (
     <ProtectedLayout>
-      <GtgAppShell>
+      <SetupWizardLayout currentStep={3} steps={SETUP_STEPS}>
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <SetupProgressRail activeStep={activeStep} completed={completed} />
 
@@ -420,124 +861,13 @@ export default function OrganizationSetupPage() {
             )}
 
             {activeStep === 'organization' && !isComplete && (
-              <div className="space-y-5">
-                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-                  <div className="mb-5 flex items-center gap-2">
-                    <Building2 className="size-5 text-primary" />
-                    <h3 className="text-lg font-semibold text-foreground">Organization Information</h3>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Field label="Organization Name" required>
-                      <Input value={organization.organizationName} readOnly />
-                    </Field>
-                    <Field label="Organization Code" required>
-                      <Input value={organization.organizationCode} readOnly />
-                    </Field>
-                    <Field label="Organization Type" required>
-                      <Input value={organization.organizationType} readOnly />
-                    </Field>
-                    <Field label="Business Type" required>
-                      <Input value={organization.businessType} readOnly />
-                    </Field>
-                    <Field label="Industry Type" required>
-                      <Input value={organization.industryType} readOnly />
-                    </Field>
-                    <Field label="Established Date" required>
-                      <Input
-                        type="date"
-                        value={organization.establishedDate}
-                        onChange={(event) => updateOrganization('establishedDate', event.target.value)}
-                      />
-                    </Field>
-                    <Field label="Registration No." required>
-                      <Input
-                        value={organization.registrationNumber}
-                        onChange={(event) => updateOrganization('registrationNumber', event.target.value)}
-                        placeholder="U72900GJ2010PTC061222"
-                      />
-                    </Field>
-                    <Field label="GST No." required>
-                      <Input
-                        value={organization.gstNumber}
-                        onChange={(event) => updateOrganization('gstNumber', event.target.value)}
-                        placeholder="24AACCA1234A1Z5"
-                      />
-                    </Field>
-                    <Field label="PAN No." required>
-                      <Input
-                        value={organization.panNumber}
-                        onChange={(event) => updateOrganization('panNumber', event.target.value)}
-                        placeholder="AACCA1234A"
-                      />
-                    </Field>
-                    <Field label="Website">
-                      <Input value={organization.website} readOnly />
-                    </Field>
-                    <div className="md:col-span-2">
-                      <Field label="Company Description" required>
-                        <Textarea
-                          value={organization.companyDescription}
-                          onChange={(event) =>
-                            updateOrganization('companyDescription', event.target.value)
-                          }
-                          placeholder="Describe your company, services, and operating model."
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-                  <div className="mb-5 flex items-center gap-2">
-                    <Users className="size-5 text-primary" />
-                    <h3 className="text-lg font-semibold text-foreground">Contact Information</h3>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Email" required>
-                      <Input value={organization.email} readOnly />
-                    </Field>
-                    <Field label="Phone" required>
-                      <Input value={organization.phone} readOnly />
-                    </Field>
-                    <Field label="Address Line 1" required>
-                      <Input
-                        value={organization.addressLine1}
-                        onChange={(event) => updateOrganization('addressLine1', event.target.value)}
-                        placeholder="401, Dev City, Prahladnagar"
-                      />
-                    </Field>
-                    <Field label="Address Line 2">
-                      <Input
-                        value={organization.addressLine2}
-                        onChange={(event) => updateOrganization('addressLine2', event.target.value)}
-                        placeholder="Near Corporate Road"
-                      />
-                    </Field>
-                    <Field label="Country" required>
-                      <Input value={organization.country} readOnly />
-                    </Field>
-                    <Field label="State" required>
-                      <Input value={organization.state} readOnly />
-                    </Field>
-                    <Field label="City" required>
-                      <Input value={organization.city} readOnly />
-                    </Field>
-                    <Field label="Postal Code" required>
-                      <Input
-                        value={organization.postalCode}
-                        onChange={(event) => updateOrganization('postalCode', event.target.value)}
-                        placeholder="380015"
-                      />
-                    </Field>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button size="lg" disabled={!isOrganizationReady} onClick={saveOrganization}>
-                    Save & Continue
-                  </Button>
-                </div>
-              </div>
+              <OrganizationProfileStep
+                organization={organization}
+                updateOrganization={updateOrganization}
+                isOrganizationReady={isOrganizationReady}
+                saveOrganization={saveOrganization}
+                employeeCount={employees.length}
+              />
             )}
 
             {activeStep === 'departments' && !isComplete && (
@@ -825,7 +1155,7 @@ export default function OrganizationSetupPage() {
             )}
           </section>
         </div>
-      </GtgAppShell>
+      </SetupWizardLayout>
     </ProtectedLayout>
   )
 }
