@@ -2,12 +2,26 @@ import * as React from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface CheckboxProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   size?: 'sm' | 'default' | 'lg'
+  checked?: boolean
+  onCheckedChange?: (checked: boolean) => void
+  indeterminate?: boolean
 }
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, size = 'default', ...props }, ref) => {
+  ({ className, size = 'default', checked, onCheckedChange, indeterminate, onChange, ...props }, ref) => {
+    const localRef = React.useRef<HTMLInputElement>(null)
+    
+    React.useImperativeHandle(ref, () => localRef.current!, [])
+    
+    React.useEffect(() => {
+      if (localRef.current) {
+        localRef.current.indeterminate = indeterminate ?? false
+      }
+    }, [indeterminate])
+
     const sizeClass = {
       sm: 'size-4',
       default: 'size-5',
@@ -20,11 +34,18 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
       lg: 'size-4',
     }[size]
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange?.(e)
+      onCheckedChange?.(e.target.checked)
+    }
+
     return (
       <div className="relative inline-flex">
         <input
-          ref={ref}
+          ref={localRef}
           type="checkbox"
+          checked={checked}
+          onChange={handleChange}
           className={cn(
             'peer appearance-none cursor-pointer rounded border border-input bg-background transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary checked:bg-primary dark:checked:border-primary dark:checked:bg-primary',
             sizeClass,
