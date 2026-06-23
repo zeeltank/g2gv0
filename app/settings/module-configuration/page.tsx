@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
@@ -10,6 +10,8 @@ import { SetupWizardIllustration } from '@/components/illustration/setup-wizard-
 import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
 import { Info } from 'lucide-react'
+import { useAuth } from '@/lib/gtg-auth'
+import { updateOnboarding } from '@/lib/onboarding'
 
 const SETUP_STEPS: SetupStep[] = [
   { id: 'profile', label: 'Profile Setup' },
@@ -77,8 +79,24 @@ const INITIAL_MODULES: Module[] = [
 
 export default function ModuleConfigurationPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [modules, setModules] = useState<Module[]>(INITIAL_MODULES)
-  const currentStep = 2
+  const [modulesCompleted, setModulesCompleted] = useState(false)
+
+  const completedSteps = modulesCompleted ? new Set(['profile', 'modules']) : new Set(['profile'])
+  const currentStep = modulesCompleted ? 3 : 2
+
+  useEffect(() => {
+    if (!user) return
+    fetch(`/api/onboarding?userId=${encodeURIComponent(user.id)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data?.selectedModules?.length) return
+        const selected = new Set<string>(data.selectedModules.map((module: { id: string }) => module.id))
+        setModules((current) => current.map((module) => ({ ...module, selected: selected.has(module.id) })))
+      })
+      .catch(() => undefined)
+  }, [user])
 
   const handleToggle = (id: string) => {
     setModules((prev) =>
@@ -94,7 +112,7 @@ export default function ModuleConfigurationPage() {
 
   return (
     <ProtectedLayout>
-      <SetupWizardLayout currentStep={currentStep} steps={SETUP_STEPS}>
+      <SetupWizardLayout currentStep={currentStep} steps={SETUP_STEPS} completedSteps={completedSteps}>
         <div className="mb-7 flex flex-col gap-4 sm:mb-6 sm:gap-6 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <span className="inline-flex items-center rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-accent-foreground">
@@ -175,11 +193,10 @@ export default function ModuleConfigurationPage() {
         <div className="mt-4 sm:mt-6 flex flex-col gap-2 sm:gap-3 sm:flex-row sm:justify-end sm:items-center">
           <Button
             size="lg"
-            onClick={() => {
-              const payload = modules
-                .filter((m) => m.selected)
-                .map((m) => m.id)
-              console.info('Continue setup for:', payload)
+            onClick={async () => {
+              setModulesCompleted(true)
+              const selectedModules = modules.filter((module) => module.selected).map((module) => ({ id: module.id, name: module.title }))
+              if (user) await updateOnboarding(user.id, { selectedModules })
               router.push('/organization/setup')
             }}
           >

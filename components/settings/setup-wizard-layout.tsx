@@ -10,12 +10,14 @@ import {
 interface SetupWizardLayoutProps {
   currentStep: number;
   steps: SetupStep[];
+  completedSteps?: Set<string>;
   children: React.ReactNode;
 }
 
 export function SetupWizardLayout({
   currentStep,
   steps,
+  completedSteps,
   children,
 }: SetupWizardLayoutProps) {
   return (
@@ -23,7 +25,7 @@ export function SetupWizardLayout({
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
         <GtgBrandMark />
         <div className="flex items-center gap-4">
-          <SetupProgressTracker currentStep={currentStep} steps={steps} />
+          <SetupProgressTracker currentStep={currentStep} steps={steps} completedSteps={completedSteps} />
           <a
             href="#"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"

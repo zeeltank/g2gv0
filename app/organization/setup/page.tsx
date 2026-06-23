@@ -43,6 +43,8 @@ import {
   SelectInput,
 } from "@/components/org/gtg-ui";
 import { SISTER_COMPANIES, type SisterCompany } from "@/lib/gtg-org-data";
+import { useAuth } from "@/lib/gtg-auth";
+import { updateOnboarding } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { SetupStep } from "@/components/settings/setup-progress-tracker";
 
@@ -310,20 +312,36 @@ function OrganizationProfileStep({
   isOrganizationReady,
   saveOrganization,
   employeeCount,
+  timeZone,
+  currency,
+  financialYear,
+  language,
+  updateTimeZone,
+  updateCurrency,
+  updateFinancialYear,
+  updateLanguage,
   sisterCompanyMode,
   onSisterCompanyCreate,
   onSisterCompanyEdit,
   onSisterCompanyDelete,
 }: {
-    organization: OrganizationForm;
-    updateOrganization: (field: keyof OrganizationForm, value: string) => void;
-    isOrganizationReady: boolean;
-    saveOrganization: () => void;
-    employeeCount: number;
-    sisterCompanyMode?: SisterCompanyMode;
-    onSisterCompanyCreate?: () => void;
-    onSisterCompanyEdit?: (company: SisterCompany) => void;
-    onSisterCompanyDelete?: (id: string) => void;
+  organization: OrganizationForm;
+  updateOrganization: (field: keyof OrganizationForm, value: string) => void;
+  isOrganizationReady: boolean;
+  saveOrganization: () => void;
+  employeeCount: number;
+  timeZone: string;
+  currency: string;
+  financialYear: string;
+  language: string;
+  updateTimeZone: (value: string) => void;
+  updateCurrency: (value: string) => void;
+  updateFinancialYear: (value: string) => void;
+  updateLanguage: (value: string) => void;
+  sisterCompanyMode?: SisterCompanyMode;
+  onSisterCompanyCreate?: () => void;
+  onSisterCompanyEdit?: (company: SisterCompany) => void;
+  onSisterCompanyDelete?: (id: string) => void;
 }) {
   const [sisterCompanySearch, setSisterCompanySearch] = useState("");
   const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
@@ -341,10 +359,10 @@ function OrganizationProfileStep({
     company.name.toLowerCase().includes(sisterCompanySearch.toLowerCase()),
   );
   const settingsSummary = [
-    { label: "Time Zone", value: "(IST) Asia/Kolkata" },
-    { label: "Currency", value: "INR - Indian Rupee (₹)" },
-    { label: "Financial Year", value: "April - March" },
-    { label: "Language", value: "English" },
+    { label: "Time Zone", value: timeZone, options: ["(IST) Asia/Kolkata", "(PST) America/Los_Angeles", "(CET) Europe/Paris"] },
+    { label: "Currency", value: currency, options: ["INR - Indian Rupee (₹)", "USD - US Dollar ($)", "EUR - Euro (€)"] },
+    { label: "Financial Year", value: financialYear, options: ["April - March", "January - December", "July - June"] },
+    { label: "Language", value: language, options: ["English", "Hindi", "Gujarati"] },
     { label: "Number Format", value: "1,234.56" },
   ];
   const allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -750,39 +768,35 @@ function OrganizationProfileStep({
                   </label>
                   {item.label === "Language" ? (
                     <select
-                      defaultValue={item.value}
+                      value={item.value}
+                      onChange={(event) => updateLanguage(event.target.value)}
                       className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option>English</option>
-                      <option>Hindi</option>
-                      <option>Gujarati</option>
+                      {item.options?.map((option) => <option key={option}>{option}</option>)}
                     </select>
                   ) : item.label === "Time Zone" ? (
                     <select
-                      defaultValue={item.value}
+                      value={item.value}
+                      onChange={(event) => updateTimeZone(event.target.value)}
                       className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option>(IST) Asia/Kolkata</option>
-                      <option>(PST) America/Los_Angeles</option>
-                      <option>(CET) Europe/Paris</option>
+                      {item.options?.map((option) => <option key={option}>{option}</option>)}
                     </select>
                   ) : item.label === "Currency" ? (
                     <select
-                      defaultValue={item.value}
+                      value={item.value}
+                      onChange={(event) => updateCurrency(event.target.value)}
                       className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option>INR - Indian Rupee (₹)</option>
-                      <option>USD - US Dollar ($)</option>
-                      <option>EUR - Euro (€)</option>
+                      {item.options?.map((option) => <option key={option}>{option}</option>)}
                     </select>
                   ) : item.label === "Financial Year" ? (
                     <select
-                      defaultValue={item.value}
+                      value={item.value}
+                      onChange={(event) => updateFinancialYear(event.target.value)}
                       className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option>April - March</option>
-                      <option>January - December</option>
-                      <option>July - June</option>
+                      {item.options?.map((option) => <option key={option}>{option}</option>)}
                     </select>
                   ) : (
                     <Input
@@ -949,16 +963,30 @@ function SetupProgressRail({
 
 export default function OrganizationSetupPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeStep, setActiveStep] = useState<WizardStep>("organization");
   const [completed, setCompleted] = useState<Record<WizardStep, boolean>>({
     organization: false,
     departments: false,
     employees: false,
   });
+
+  const mainCompletedSteps = useMemo(() => {
+    const completedIds: string[] = [];
+    if (completed.organization) completedIds.push("organization");
+    if (completed.departments) completedIds.push("department");
+    if (completed.employees) completedIds.push("employee");
+    return new Set(["modules", ...completedIds]);
+  }, [completed]);
+  const currentStep = mainCompletedSteps.size + 1;
   const [mainOrganization, setMainOrganization] =
     useState<OrganizationForm>(initialOrganization);
   const [organization, setOrganization] =
     useState<OrganizationForm>(initialOrganization);
+  const [timeZone, setTimeZone] = useState("(IST) Asia/Kolkata");
+  const [currency, setCurrency] = useState("INR - Indian Rupee (₹)");
+  const [financialYear, setFinancialYear] = useState("April - March");
+  const [language, setLanguage] = useState("English");
   const [newSisterOrganization, setNewSisterOrganization] =
     useState<OrganizationForm>(initialNewSisterCompany);
   const [sisterCompanyForms, setSisterCompanyForms] = useState<
@@ -1039,7 +1067,7 @@ export default function OrganizationSetupPage() {
     if (next) setActiveStep(next);
   };
 
-  const saveOrganization = () => {
+  const saveOrganization = async () => {
     const hasMissing = requiredOrganizationFields.some(
       (field) => !organization[field].trim(),
     );
@@ -1057,6 +1085,18 @@ export default function OrganizationSetupPage() {
       return;
     }
 
+    if (user) {
+      await updateOnboarding(user.id, {
+        organization: {
+          companyName: organization.organizationName,
+          timeZone,
+          currency,
+          financialYear,
+          country: organization.country,
+          industry: organization.industryType,
+        },
+      });
+    }
     completeStep("organization", "departments");
   };
 
@@ -1079,6 +1119,26 @@ export default function OrganizationSetupPage() {
     setEmployees(sampleEmployees);
     setEmployeeSearch("");
     setPage(1);
+  };
+
+  const saveDepartments = async () => {
+    if (user) await updateOnboarding(user.id, { departments: selectedDepartments });
+    completeStep("departments", "employees");
+  };
+
+  const saveEmployees = async () => {
+    const warnings = employees.filter((employee) => employee.status === "Needs Review").length;
+    if (user) {
+      await updateOnboarding(user.id, {
+        employees: {
+          total: employees.length,
+          successful: employees.length - warnings,
+          warnings,
+          errors: 0,
+        },
+      });
+    }
+    completeStep("employees");
   };
 
   const downloadTemplate = () => {
@@ -1155,7 +1215,7 @@ export default function OrganizationSetupPage() {
 
   return (
     <ProtectedLayout>
-      <SetupWizardLayout currentStep={3} steps={SETUP_STEPS}>
+      <SetupWizardLayout currentStep={currentStep} steps={SETUP_STEPS} completedSteps={mainCompletedSteps}>
         <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
           <aside className="h-full min-h-0 p-4 lg:sticky lg:top-4">
             <SetupProgressRail activeStep={activeStep} completed={completed} />
@@ -1204,6 +1264,14 @@ export default function OrganizationSetupPage() {
                 isOrganizationReady={isOrganizationReady}
                 saveOrganization={saveOrganization}
                 employeeCount={employees.length}
+                timeZone={timeZone}
+                currency={currency}
+                financialYear={financialYear}
+                language={language}
+                updateTimeZone={setTimeZone}
+                updateCurrency={setCurrency}
+                updateFinancialYear={setFinancialYear}
+                updateLanguage={setLanguage}
                 sisterCompanyMode={sisterCompanyMode}
                 onSisterCompanyCreate={openSisterCompanyCreator}
                 onSisterCompanyEdit={openSisterCompanyEditor}
@@ -1301,7 +1369,7 @@ export default function OrganizationSetupPage() {
                   <Button
                     size="lg"
                     disabled={selectedDepartments.length === 0}
-                    onClick={() => completeStep("departments", "employees")}
+                    onClick={saveDepartments}
                   >
                     Save & Continue
                   </Button>
@@ -1501,7 +1569,7 @@ export default function OrganizationSetupPage() {
                     disabled={
                       employees.length === 0 || invalidEmployees.length > 0
                     }
-                    onClick={() => completeStep("employees")}
+                    onClick={saveEmployees}
                   >
                     Save & Continue
                   </Button>
@@ -1521,8 +1589,8 @@ export default function OrganizationSetupPage() {
                   Your organization is now configured and ready to use.
                 </p>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Button onClick={() => router.push("/dashboard")}>
-                    Go to Dashboard
+                  <Button onClick={() => router.push("/settings/portal-review")}>
+                    Continue to Portal Review
                   </Button>
                   <Button
                     variant="outline"
