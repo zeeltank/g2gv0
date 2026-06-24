@@ -39,6 +39,9 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
       )}
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
     >
+      {/* Signature bevel accent */}
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-primary" />
+
       <div className="flex flex-col gap-4">
         {/* Top row: Icon + Trend */}
         <div className="flex items-start justify-between">
