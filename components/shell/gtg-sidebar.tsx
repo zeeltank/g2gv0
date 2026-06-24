@@ -84,7 +84,7 @@ export function GtgSidebar({
           <GtgBrandMark collapsed={collapsed} />
         </div>
 
-        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2" : "px-3 py-2")}>
+        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 py-4" : "px-3 py-4")}>
           <div className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
             {filteredNav.map((module) => {
               const Icon = module.icon
