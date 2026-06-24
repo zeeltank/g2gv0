@@ -15,6 +15,7 @@ import { OrganizationDetailsForm } from '@/components/org/organization-details'
 import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -228,12 +229,7 @@ function renderContent(active: ActiveNav, userRole: string) {
   if (active.moduleId === 'm5') {
     switch (active.submenuId) {
       case 'attendance-tracking':
-        return (
-          <ComingSoonScreen
-            title="Attendance Tracking"
-            description="Monitor daily attendance, shifts, and work-hour compliance. Coming soon."
-          />
-        )
+        return <AttendanceDashboard />
       case 'attendance-reports':
         return (
           <ComingSoonScreen
