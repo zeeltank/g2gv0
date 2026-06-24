@@ -35,7 +35,7 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
         'group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-5',
         'transition-all duration-300 ease-out',
         'hover:shadow-md hover:-translate-y-0.5 hover:bg-card/80',
-        'shadow-[inset_0_2px_0_0_hsl(var(--primary))]', // iOS signature thin blue bevel
+        'shadow-[inset_0_2px_0_0_var(--primary)]', // iOS signature thin blue bevel
         'animate-in fade-in slide-in-from-bottom-3',
       )}
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
