@@ -103,7 +103,7 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
         <Sparkline data={card.chartData} index={index} />
       )}
 
-      <div className="relative z-10 flex flex-col gap-4 h-full">
+      <div className="relative z-10 flex flex-col gap-4 h-full pb-6">
         {/* Top row: Icon + Trend */}
         <div className="flex items-start justify-between">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105">
@@ -125,26 +125,6 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
           </div>
           <div className="text-sm font-semibold text-foreground/80">{card.title}</div>
         </div>
-
-        {/* Subtitle */}
-        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2 mt-auto">
-          {card.subtitle}
-        </p>
-
-        {/* Action link */}
-        {card.actionLabel && (
-          <button
-            type="button"
-            onClick={card.onAction}
-            className={cn(
-              'mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary cursor-pointer w-fit',
-              'transition-all duration-200 opacity-80 hover:opacity-100',
-            )}
-          >
-            {card.actionLabel}
-            <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </button>
-        )}
       </div>
     </div>
   )
