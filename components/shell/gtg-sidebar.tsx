@@ -9,16 +9,15 @@ import { filterNavigationByRole } from '@/lib/gtg-nav-visibility'
 import { GtgBrandMark } from './gtg-brand-mark'
 
 export function GtgSidebar({
-  collapsed,
   active,
   onSelect,
   role = 'admin',
 }: {
-  collapsed: boolean
   active: ActiveNav
   onSelect: (next: ActiveNav) => void
   role?: Role
 }) {
+  const collapsed = true
   const [flyoutModuleId, setFlyoutModuleId] = useState<string | null>(null)
   const [flyoutMenuId, setFlyoutMenuId] = useState<string | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number } | null>(null)
@@ -85,7 +84,7 @@ export function GtgSidebar({
           <GtgBrandMark collapsed={collapsed} />
         </div>
 
-        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2" : "px-3 py-2")}>
+        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 py-4" : "px-3 py-4")}>
           <div className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
             {filteredNav.map((module) => {
               const Icon = module.icon
