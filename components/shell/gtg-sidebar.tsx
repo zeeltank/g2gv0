@@ -175,12 +175,16 @@ export function GtgSidebar({
                         <button
                           type="button"
                           onClick={() => {
-                            const firstSubmenu = menu.submenus[0]
-                            if (firstSubmenu) {
+                            // If the menu has no submenus, it would be a standalone page (currently none exist)
+                            if (menu.submenus.length === 0) {
                               setFlyoutModuleId(null)
                               setFlyoutMenuId(null)
                               setFlyoutPosition(null)
-                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: firstSubmenu.id })
+                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: '' })
+                            } else {
+                              // Force the user to explicitly select a submenu
+                              // For touch devices, this ensures the menu opens
+                              setFlyoutMenuId(menu.id)
                             }
                           }}
                           className={cn(
