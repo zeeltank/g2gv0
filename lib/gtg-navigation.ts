@@ -64,7 +64,7 @@ export const GTG_NAVIGATION: NavModule[] = [
         icon: Users,
         submenus: [
           { id: 'employee-directory', label: 'Employee Directory' },
-          { id: 'role-responsibility', label: 'Role & Responsibility' },
+          { id: 'role-permissions', label: 'Role & Permissions' },
         ],
       },
       {

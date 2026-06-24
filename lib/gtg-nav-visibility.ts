@@ -17,7 +17,7 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   'org-profile': ['admin', 'hr', 'dept-head', 'employee'],
   'dept-management': ['admin', 'hr', 'dept-head', 'employee'],
   'employee-directory': ['admin', 'hr', 'dept-head', 'employee'],
-  'role-responsibility': ['admin', 'hr', 'dept-head'],
+  'role-permissions': ['admin', 'hr', 'dept-head'],
   'task-assignment': ['admin', 'hr', 'dept-head', 'employee'],
   'task-tracking': ['admin', 'hr', 'dept-head', 'employee'],
   'compliance-management': ['admin', 'hr', 'dept-head', 'employee'],

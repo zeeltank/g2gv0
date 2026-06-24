@@ -59,7 +59,7 @@ const MOCK_MODULES: ModulePermission[] = [
       { id: 's1', name: 'Organization Profile', actions: { view: true, add: false, edit: false, delete: false, dashboard: true, mobile: true } },
       { id: 's2', name: 'Department Hierarchy', actions: { view: true, add: true, edit: true, delete: false, dashboard: false, mobile: false } },
       { id: 's3', name: 'Employee Directory', actions: { view: true, add: true, edit: true, delete: false, dashboard: true, mobile: true } },
-      { id: 's4', name: 'Role & Responsibility', actions: { view: true, add: true, edit: true, delete: true, dashboard: false, mobile: false } }
+      { id: 's4', name: 'Role & Permissions', actions: { view: true, add: true, edit: true, delete: true, dashboard: false, mobile: false } }
     ]
   },
   {
@@ -82,7 +82,7 @@ const MOCK_MODULES: ModulePermission[] = [
   }
 ]
 
-export function RoleResponsibility() {
+export function RolePermissions() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeRoleId, setActiveRoleId] = useState<string>('2') // Default to HR Manager
   const [permissions, setPermissions] = useState<ModulePermission[]>(MOCK_MODULES)
