@@ -57,7 +57,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            'flex w-full items-center justify-between rounded-lg border border-input bg-transparent py-1.5 text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 appearance-none cursor-pointer',
+            'flex w-full items-center justify-between rounded-lg border border-input bg-transparent py-1.5 text-foreground transition-all duration-200 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 appearance-none cursor-pointer active:scale-95',
             sizeClass,
             className,
           )}

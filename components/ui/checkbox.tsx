@@ -58,7 +58,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           checked={checked}
           onChange={handleChange}
           className={cn(
-            'peer appearance-none cursor-pointer rounded border border-input bg-background transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary checked:bg-primary dark:checked:border-primary dark:checked:bg-primary',
+            'peer appearance-none cursor-pointer rounded border border-input bg-background transition-all duration-200 hover:scale-[1.05] active:scale-[0.9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary checked:bg-primary dark:checked:border-primary dark:checked:bg-primary',
             sizeClass,
             className,
           )}
@@ -66,7 +66,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         />
         <Check
           className={cn(
-            'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 peer-checked:opacity-100',
+            'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 transition-all duration-200 scale-50 peer-checked:opacity-100 peer-checked:scale-100 peer-active:scale-[0.8]',
             iconSize,
           )}
         />

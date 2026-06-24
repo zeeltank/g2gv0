@@ -631,11 +631,12 @@ export function EmployeeDirectory() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTopTab(tab.id)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                      className={cn(
+                        "px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap cursor-pointer active:scale-95",
                         activeTopTab === tab.id
-                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
+                      )}
                     >
                       {tab.label}
                     </button>
@@ -644,7 +645,7 @@ export function EmployeeDirectory() {
               </div>
 
               {/* Tab Content Area */}
-              <div className="flex-1 overflow-hidden p-6 bg-surface">
+              <div key={activeTopTab} className="flex-1 overflow-hidden p-6 bg-surface animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {activeTopTab === 'personal-info' && (
                   <PersonalInfoTab 
                     employee={activeEmployee} 

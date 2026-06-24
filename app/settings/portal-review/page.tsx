@@ -94,7 +94,7 @@ export default function PortalReviewPage() {
     },
     {
       title: "Roles & Permissions", icon: ShieldCheck, tone: "warning",
-      route: "/module/m1/user-management/role-responsibility", action: "View Roles",
+      route: "/module/m1/user-management/role-permissions", action: "View Roles",
       configured: Boolean(summary.roles),
       details: [["Total Roles", String(summary.roles?.roles.length ?? 0)], ["Role Names", summary.roles?.roles.join(", ") || "Not configured"], ["Permissions Set", String(summary.roles?.permissionCount ?? 0)]],
     },
