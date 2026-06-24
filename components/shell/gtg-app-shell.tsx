@@ -268,22 +268,6 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState<boolean>(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    const stored = sessionStorage.getItem('sidebar-collapsed')
-    if (stored) {
-      setCollapsed(stored === 'true')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      sessionStorage.setItem('sidebar-collapsed', String(collapsed))
-    }
-  }, [collapsed, mounted])
   const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
 
   // Parse active state from URL only when no children override is active
@@ -311,23 +295,15 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
       className="flex h-screen w-full bg-background"
     >
       <GtgSidebar
-        collapsed={collapsed}
         active={active}
         onSelect={handleNavSelect}
         role={user?.role || 'employee'}
       />
 
       <div
-        className={cn(
-          'flex h-screen w-full flex-col transition-[padding] duration-240',
-          collapsed ? 'pl-[72px]' : 'pl-[260px]',
-        )}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
+        className="flex h-screen w-full flex-col pl-[260px]"
       >
-        <GtgHeader
-          collapsed={collapsed}
-          onToggleSidebar={() => setCollapsed((v) => !v)}
-        />
+        <GtgHeader />
         <GtgBreadcrumb
           module={crumb.module}
           menu={crumb.menu}

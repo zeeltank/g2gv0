@@ -265,13 +265,7 @@ function UserProfileMenu() {
   )
 }
 
-export function GtgHeader({
-  collapsed,
-  onToggleSidebar,
-}: {
-  collapsed: boolean
-  onToggleSidebar: () => void
-}) {
+export function GtgHeader() {
   const { user, switchRole } = useAuth()
 
   return (
@@ -279,19 +273,6 @@ export function GtgHeader({
       className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-6 shadow-sm"
       role="banner"
     >
-      <button
-        type="button"
-        onClick={onToggleSidebar}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {collapsed ? (
-          <PanelLeft className="size-5" aria-hidden="true" />
-        ) : (
-          <PanelLeftClose className="size-5" aria-hidden="true" />
-        )}
-      </button>
-
       <div className="relative flex w-full max-w-md items-center">
         <Search
           className="pointer-events-none absolute left-3 size-4 text-muted-foreground"
