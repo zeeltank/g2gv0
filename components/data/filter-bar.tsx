@@ -35,27 +35,28 @@ const FilterBar = React.forwardRef<HTMLDivElement, FilterBarProps>(
 
     return (
       <div ref={ref} className={cn('space-y-3', className)} {...props}>
-        <div className="flex flex-wrap gap-2 items-end">
+        <div className="flex flex-wrap gap-2 items-end justify-end">
           {filters.map((filter) => (
-            <div key={filter.id} className="flex flex-col gap-1">
+            <div key={filter.id} className={cn("flex flex-col gap-1", filter.type === 'search' && "mr-auto")}>
               <label className="text-xs font-medium text-muted-foreground">{filter.label}</label>
               {filter.type === 'search' && (
                 <Input
                   placeholder="Search..."
                   value={filter.value as string}
                   onChange={(e) => filter.onChange(e.target.value)}
-                  className="w-48"
+                  className="w-96 max-w-[100vw]"
                 />
               )}
               {filter.type === 'select' && (
-                <Select value={filter.value as string} onChange={(e) => filter.onChange(e.target.value)}>
-                  <option value="">All</option>
-                  {filter.options?.map((opt) => (
-                    <option key={opt.id} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
+                <Select
+                  value={filter.value as string}
+                  onChange={(val) => filter.onChange(val)}
+                  className="w-40"
+                  options={[
+                    { label: 'All', value: '' },
+                    ...(filter.options || []).map(opt => ({ label: opt.label, value: opt.value }))
+                  ]}
+                />
               )}
               {filter.type === 'date' && (
                 <input

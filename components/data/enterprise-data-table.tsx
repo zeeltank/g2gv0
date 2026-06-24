@@ -95,7 +95,7 @@ const EnterpriseDataTable = React.forwardRef<
     }
 
     return (
-      <div ref={ref} className={cn('overflow-x-auto rounded-lg border border-border', className)} {...props}>
+      <div ref={ref} className={cn('rounded-lg border border-border', className)} {...props}>
         <Table className={tableVariants({ density, striped })}>
           <TableHeader className="bg-surface-muted">
             <TableRow>
@@ -150,7 +150,7 @@ const EnterpriseDataTable = React.forwardRef<
                   )}
                 >
                   {selectable && (
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.includes(String(index))}
                         onChange={() => handleSelectRow(index)}

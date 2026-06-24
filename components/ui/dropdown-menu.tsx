@@ -2,6 +2,21 @@ import * as React from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+interface DropdownMenuContextValue {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const DropdownMenuContext = React.createContext<DropdownMenuContextValue | null>(null);
+
+const useDropdownMenu = () => {
+  const context = React.useContext(DropdownMenuContext);
+  if (!context) {
+    throw new Error('DropdownMenu components must be used within a DropdownMenu');
+  }
+  return context;
+};
+
 interface DropdownMenuProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -23,52 +38,54 @@ const DropdownMenu = ({ open, onOpenChange, children }: DropdownMenuProps) => {
   }
 
   return (
-    <>
-      {React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child, {
-            open: isOpen,
-            onOpenChange: handleOpenChange,
-          } as any)
-        }
-        return child
-      })}
-    </>
+    <DropdownMenuContext.Provider value={{ open: isOpen, onOpenChange: handleOpenChange }}>
+      {children}
+    </DropdownMenuContext.Provider>
   )
 }
 
 interface DropdownMenuTriggerProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  asChild?: boolean // keeping this in case they use it though it's not implemented yet
 }
 
 const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
   DropdownMenuTriggerProps
->(({ onClick, onOpenChange, ...props }, ref) => (
-  <button
-    ref={ref}
-    onClick={(e) => {
-      onClick?.(e)
-      onOpenChange?.(true)
-    }}
-    {...props}
-  />
-))
+>(({ onClick, asChild, ...props }, ref) => {
+  const { open, onOpenChange } = useDropdownMenu();
+  return (
+    <button
+      ref={ref}
+      onClick={(e) => {
+        onClick?.(e)
+        onOpenChange(!open)
+      }}
+      {...props}
+    />
+  )
+})
 DropdownMenuTrigger.displayName = 'DropdownMenuTrigger'
 
 interface DropdownMenuContentProps
-  extends React.HTMLAttributes<HTMLDivElement> {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-}
+  extends React.HTMLAttributes<HTMLDivElement> {}
 
 const DropdownMenuContent = React.forwardRef<
   HTMLDivElement,
   DropdownMenuContentProps
->(({ className, open, onOpenChange, children, ...props }, ref) => {
+>(({ className, children, ...props }, ref) => {
+  const { open, onOpenChange } = useDropdownMenu();
   const contentRef = React.useRef<HTMLDivElement>(null)
+  const [isMounted, setIsMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    if (open) {
+      setIsMounted(true)
+    } else {
+      const timer = setTimeout(() => setIsMounted(false), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [open])
 
   React.useEffect(() => {
     if (!open) return
@@ -78,7 +95,7 @@ const DropdownMenuContent = React.forwardRef<
         contentRef.current &&
         !contentRef.current.contains(event.target as Node)
       ) {
-        onOpenChange?.(false)
+        onOpenChange(false)
       }
     }
 
@@ -87,47 +104,48 @@ const DropdownMenuContent = React.forwardRef<
       document.removeEventListener('mousedown', handleClickOutside)
   }, [open, onOpenChange])
 
+  if (!isMounted && !open) return null
+
   return (
-    <>
-      {open && (
-        <div
-          ref={contentRef}
-          className={cn(
-            'absolute z-50 min-w-[200px] overflow-hidden rounded-lg border border-border bg-card p-1 shadow-lg',
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </div>
+    <div
+      ref={contentRef}
+      className={cn(
+        'absolute z-50 min-w-[200px] overflow-hidden rounded-xl border border-border/50 bg-surface/80 backdrop-blur-xl p-1.5 shadow-xl ring-1 ring-black/5',
+        'origin-top-right transition-all duration-150 ease-out',
+        open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
+        className,
       )}
-    </>
+      {...props}
+    >
+      {children}
+    </div>
   )
 })
 DropdownMenuContent.displayName = 'DropdownMenuContent'
 
 interface DropdownMenuItemProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  onOpenChange?: (open: boolean) => void
-}
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
 
 const DropdownMenuItem = React.forwardRef<
   HTMLButtonElement,
   DropdownMenuItemProps
->(({ className, onClick, onOpenChange, ...props }, ref) => (
-  <button
-    ref={ref}
-    className={cn(
-      'w-full px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted rounded outline-none focus-visible:bg-muted transition-colors',
-      className,
-    )}
-    onClick={(e) => {
-      onClick?.(e)
-      onOpenChange?.(false)
-    }}
-    {...props}
-  />
-))
+>(({ className, onClick, ...props }, ref) => {
+  const { onOpenChange } = useDropdownMenu();
+  return (
+    <button
+      ref={ref}
+      className={cn(
+        'w-full flex items-center gap-2 px-2.5 py-2 text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary rounded-md outline-none focus-visible:bg-primary/10 transition-all cursor-pointer',
+        className,
+      )}
+      onClick={(e) => {
+        onClick?.(e)
+        onOpenChange(false)
+      }}
+      {...props}
+    />
+  )
+})
 DropdownMenuItem.displayName = 'DropdownMenuItem'
 
 const DropdownMenuSeparator = ({

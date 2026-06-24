@@ -9,13 +9,14 @@ import { useAuth } from '@/lib/gtg-auth'
 import { GtgSidebar } from './gtg-sidebar'
 import { GtgHeader } from './gtg-header'
 import { GtgBreadcrumb } from './gtg-breadcrumb'
-import { GtgPageHeader } from './gtg-page-header'
 import { OrganizationInformation } from '@/components/org/organization-information'
 import { OrganizationDetailsForm } from '@/components/org/organization-details'
 import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
+import { EmployeeDirectory } from '@/components/org/employee-directory'
+import { RolePermissions } from '@/components/org/role-permissions'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -72,19 +73,9 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'hierarchy':
         return <DepartmentHierarchy role={userRole as any} />
       case 'employee-directory':
-        return (
-          <ComingSoonScreen
-            title="Employee Directory"
-            description="Search, filter, and manage employee records across the organization. Coming soon."
-          />
-        )
-      case 'role-responsibility':
-        return (
-          <ComingSoonScreen
-            title="Role & Responsibility"
-            description="Define roles, responsibilities, and access permissions for your workforce. Coming soon."
-          />
-        )
+        return <EmployeeDirectory />
+      case 'role-permissions':
+        return <RolePermissions />
       case 'task-assignment':
         return (
           <ComingSoonScreen
@@ -273,21 +264,22 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('sidebar-collapsed')
-      return stored ? stored === 'true' : false
+  const [collapsed, setCollapsed] = useState<boolean>(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const stored = sessionStorage.getItem('sidebar-collapsed')
+    if (stored) {
+      setCollapsed(stored === 'true')
     }
-    return false
-  })
+  }, [])
 
   useEffect(() => {
-    sessionStorage.setItem('sidebar-collapsed', String(collapsed))
-  }, [collapsed])
-
-  useEffect(() => {
-    sessionStorage.setItem('sidebar-collapsed', String(collapsed))
-  }, [collapsed])
+    if (mounted) {
+      sessionStorage.setItem('sidebar-collapsed', String(collapsed))
+    }
+  }, [collapsed, mounted])
   const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
 
   // Parse active state from URL only when no children override is active
@@ -340,10 +332,6 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
 
         <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background">
           <div className="w-full px-6 py-8">
-            <GtgPageHeader
-              title={crumb.submenu}
-              description={`${crumb.module} · ${crumb.menu}`}
-            />
             {children ?? renderContent(active, user?.role || 'employee')}
           </div>
         </main>

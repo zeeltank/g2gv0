@@ -246,7 +246,7 @@ export function Tabs({
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
             className={cn(
-              'relative -mb-px h-10 px-4 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'relative -mb-px h-10 px-4 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
               isActive
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-foreground',
