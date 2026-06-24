@@ -310,7 +310,6 @@ export function EmployeeDirectory() {
         icon: Users,
         trend: loading ? undefined : { direction: 'up' as const, label: `${employeesData.length} total` },
         actionLabel: 'View workforce breakdown',
-        chartData: [12, 15, 14, 18, 22, 21, 26, 30, 28, 35],
       },
       {
         id: 'compliance-risk',
@@ -324,7 +323,6 @@ export function EmployeeDirectory() {
           ? { direction: 'up' as const, label: 'Needs review' }
           : { direction: 'down' as const, label: 'All clear' },
         actionLabel: complianceAtRisk > 0 ? 'Review incomplete profiles' : undefined,
-        chartData: [5, 4, 7, 5, 3, 4, 2, 3, 2, 1],
       },
       {
         id: 'pending-onboarding',
@@ -338,7 +336,6 @@ export function EmployeeDirectory() {
           ? { direction: 'up' as const, label: 'Action needed' }
           : { direction: 'down' as const, label: 'Complete' },
         actionLabel: pendingOnboarding > 0 ? 'Complete onboarding setup' : undefined,
-        chartData: [10, 12, 15, 11, 8, 9, 5, 4, 3, 2],
       },
       {
         id: 'skill-deficit',
@@ -354,7 +351,6 @@ export function EmployeeDirectory() {
           ? { direction: 'up' as const, label: `${skillDeficit} unmapped` }
           : { direction: 'down' as const, label: 'Fully mapped' },
         actionLabel: skillDeficit > 0 ? 'Map competencies' : undefined,
-        chartData: [20, 22, 18, 15, 16, 12, 10, 8, 6, 4],
       },
     ]
   }, [employeesData, loading])

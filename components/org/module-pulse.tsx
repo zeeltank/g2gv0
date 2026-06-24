@@ -17,65 +17,6 @@ export interface PulseCardData {
   }
   actionLabel?: string
   onAction?: () => void
-  chartData?: number[] // Array of data points for the dynamic graph
-}
-
-/* ─── Sparkline Component ─── */
-function Sparkline({ data, index }: { data: number[]; index: number }) {
-  if (!data || data.length < 2) return null
-
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-
-  const width = 100
-  const height = 30 // Internal viewBox height
-
-  // Normalize points to fit within SVG
-  const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * width
-    const y = height - ((val - min) / range) * height
-    const paddedY = 2 + y * 0.8 // Padding to prevent clipping stroke
-    return { x, y: paddedY }
-  })
-
-  // Create smooth cubic bezier path
-  let d = `M ${points[0].x},${points[0].y}`
-  for (let i = 0; i < points.length - 1; i++) {
-    const curr = points[i]
-    const next = points[i + 1]
-    const midX = (curr.x + next.x) / 2
-    d += ` C ${midX},${curr.y} ${midX},${next.y} ${next.x},${next.y}`
-  }
-
-  // Create closed path for the gradient fill
-  const fillD = `${d} L ${width},${height + 5} L 0,${height + 5} Z`
-  const gradId = `pulse-grad-${index}`
-
-  return (
-    <svg
-      className="absolute bottom-0 left-0 w-full h-16 text-primary pointer-events-none opacity-80"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity={0.25} />
-          <stop offset="100%" stopColor="currentColor" stopOpacity={0.0} />
-        </linearGradient>
-      </defs>
-      <path d={fillD} fill={`url(#${gradId})`} stroke="none" />
-      <path
-        d={d}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="drop-shadow-sm"
-      />
-    </svg>
-  )
 }
 
 /* ─── Individual Pulse Card ─── */
@@ -98,12 +39,7 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
       )}
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
     >
-      {/* Background Sparkline Graph */}
-      {card.chartData && card.chartData.length > 0 && (
-        <Sparkline data={card.chartData} index={index} />
-      )}
-
-      <div className="relative z-10 flex flex-col gap-4 h-full pb-6">
+      <div className="flex flex-col gap-4">
         {/* Top row: Icon + Trend */}
         <div className="flex items-start justify-between">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105">
@@ -111,7 +47,7 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
           </div>
 
           {card.trend && (
-            <div className="flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm border border-border/50">
+            <div className="flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
               {TrendIcon && <TrendIcon className="size-3" />}
               {card.trend.label}
             </div>
@@ -119,12 +55,32 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
         </div>
 
         {/* Value + Title */}
-        <div className="space-y-0.5 mt-2">
+        <div className="space-y-0.5">
           <div className="text-3xl font-bold tracking-tight text-foreground">
             {card.value}
           </div>
           <div className="text-sm font-semibold text-foreground/80">{card.title}</div>
         </div>
+
+        {/* Subtitle */}
+        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+          {card.subtitle}
+        </p>
+
+        {/* Action link */}
+        {card.actionLabel && (
+          <button
+            type="button"
+            onClick={card.onAction}
+            className={cn(
+              'mt-auto flex items-center gap-1.5 text-xs font-semibold text-primary cursor-pointer',
+              'transition-all duration-200 opacity-70 group-hover:opacity-100',
+            )}
+          >
+            {card.actionLabel}
+            <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </button>
+        )}
       </div>
     </div>
   )

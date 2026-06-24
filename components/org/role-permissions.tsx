@@ -186,7 +186,7 @@ export function RolePermissions() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-12.5rem)] gap-6 overflow-hidden">
       
       {/* Left Sidebar: Roles List */}
       <div className="flex w-80 flex-col rounded-xl border bg-card shadow-sm overflow-hidden shrink-0">
