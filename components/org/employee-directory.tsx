@@ -6,6 +6,7 @@ import {
   User, Briefcase, Shield, CheckCircle2, 
   Mail, Phone, Building, Calendar, MapPin, BadgeCheck
 } from 'lucide-react'
+import { ModulePulse } from '@/components/org/module-pulse'
 import { EnterpriseDataTable, type Column } from '@/components/data/enterprise-data-table'
 import { FilterBar, type Filter } from '@/components/data/filter-bar'
 import { Button } from '@/components/ui/button'
@@ -286,7 +287,10 @@ export function EmployeeDirectory() {
   }, [searchQuery, departmentFilter, jobRoleFilter, statusFilter, employeesData])
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+      {/* Module Pulse — Intelligence Layer */}
+      <ModulePulse employees={employeesData} loading={loading} />
+
       {/* Premium Actions Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card/50 backdrop-blur-xl border border-border/50 p-4 rounded-2xl shadow-xs">
         <div className="flex items-center gap-3">
