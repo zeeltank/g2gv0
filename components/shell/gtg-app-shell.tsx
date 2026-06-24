@@ -282,14 +282,23 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
     if (children) return
     const parsed = parseRoutePath(pathname)
     if (parsed) {
-      setActive(parsed)
+      setActive((prev) => {
+        if (
+          prev.moduleId === parsed.moduleId &&
+          prev.menuId === parsed.menuId &&
+          prev.submenuId === parsed.submenuId
+        ) {
+          return prev
+        }
+        return parsed
+      })
     }
   }, [pathname, children])
 
   // Navigate when active state changes (skip when children provide their own content)
   const handleNavSelect = (next: ActiveNav) => {
-    setActive(next)
     // Always navigate to the canonical /module/ route so the URL stays in sync
+    // State will naturally update via URL parsing on the new route
     router.push(getRoutePath(next))
   }
 
