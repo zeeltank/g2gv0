@@ -15,6 +15,7 @@ import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
+import { RoleResponsibility } from '@/components/org/role-responsibility'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -73,12 +74,7 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'employee-directory':
         return <EmployeeDirectory />
       case 'role-responsibility':
-        return (
-          <ComingSoonScreen
-            title="Role & Responsibility"
-            description="Define roles, responsibilities, and access permissions for your workforce. Coming soon."
-          />
-        )
+        return <RoleResponsibility />
       case 'task-assignment':
         return (
           <ComingSoonScreen
