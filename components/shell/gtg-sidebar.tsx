@@ -182,9 +182,8 @@ export function GtgSidebar({
                               setFlyoutPosition(null)
                               onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: '' })
                             } else {
-                              // Force the user to explicitly select a submenu
-                              // For touch devices, this ensures the menu opens
-                              setFlyoutMenuId(menu.id)
+                              // Toggle the submenu open/close on click
+                              setFlyoutMenuId(isFlyoutMenuOpen ? null : menu.id)
                             }
                           }}
                           className={cn(
