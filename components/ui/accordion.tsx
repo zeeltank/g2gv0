@@ -129,7 +129,7 @@ const AccordionTrigger = React.forwardRef<
     ref={ref}
     onClick={onToggle}
     className={cn(
-      'flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors',
+      'flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer',
       className,
     )}
     {...props}

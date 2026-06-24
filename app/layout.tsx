@@ -26,8 +26,9 @@ export default function RootLayout({
       lang="en"
       data-brand="gaps-to-growth"
       className={`${inter.variable} ${geistMono.variable} bg-background`}
+      suppressHydrationWarning
     >
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <AuthProvider>
           {children}
           {process.env.NODE_ENV === 'production' && <Analytics />}

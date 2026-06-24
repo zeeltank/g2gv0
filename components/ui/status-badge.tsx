@@ -36,26 +36,34 @@ interface StatusBadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof statusBadgeVariants> {
   icon?: React.ReactNode
-  status?: 'Active' | 'Inactive' | 'Draft'
+  status?: string
 }
 
-const statusVariantMap: Record<NonNullable<StatusBadgeProps['status']>, VariantProps<typeof statusBadgeVariants>['variant']> = {
+const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>['variant']> = {
   Active: 'active',
+  active: 'active',
   Inactive: 'inactive',
+  inactive: 'inactive',
   Draft: 'pending',
+  draft: 'pending',
+  'on-leave': 'pending',
 }
 
 const StatusBadge = React.forwardRef<HTMLDivElement, StatusBadgeProps>(
-  ({ className, variant, status, size, icon, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(statusBadgeVariants({ variant: status ? statusVariantMap[status] : variant, size, className }))}
-      {...props}
-    >
-      {icon && <span>{icon}</span>}
-      {children}
-    </div>
-  ),
+  ({ className, variant, status, size, icon, children, ...props }, ref) => {
+    const activeVariant = status ? (statusVariantMap[status] || variant || 'default') : variant;
+    
+    return (
+      <div
+        ref={ref}
+        className={cn(statusBadgeVariants({ variant: activeVariant, size, className }))}
+        {...props}
+      >
+        {icon && <span>{icon}</span>}
+        {children || (status ? status.replace('-', ' ') : null)}
+      </div>
+    )
+  },
 )
 StatusBadge.displayName = 'StatusBadge'
 

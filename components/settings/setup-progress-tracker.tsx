@@ -11,6 +11,7 @@ export interface SetupStep {
 interface SetupProgressTrackerProps {
   currentStep: number
   steps: SetupStep[]
+  completedSteps?: Set<string>
 }
 
 const stepIcons = {
@@ -19,7 +20,7 @@ const stepIcons = {
   upcoming: '○',
 }
 
-export function SetupProgressTracker({ currentStep, steps }: SetupProgressTrackerProps) {
+export function SetupProgressTracker({ currentStep, steps, completedSteps }: SetupProgressTrackerProps) {
   const [open, setOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
@@ -34,7 +35,9 @@ export function SetupProgressTracker({ currentStep, steps }: SetupProgressTracke
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
-  const completedCount = currentStep - 1
+  const completedCount = completedSteps
+    ? completedSteps.size
+    : currentStep - 1
 
   return (
     <div className="relative" ref={containerRef}>
@@ -62,8 +65,8 @@ export function SetupProgressTracker({ currentStep, steps }: SetupProgressTracke
         <div className="space-y-1">
           {steps.map((step, index) => {
             const stepNumber = index + 1
-            const isCompleted = stepNumber < currentStep
-            const isCurrent = stepNumber === currentStep
+            const isCompleted = completedSteps ? completedSteps.has(step.id) : stepNumber < currentStep
+            const isCurrent = stepNumber === currentStep && !isCompleted
             const isUpcoming = stepNumber > currentStep
 
             return (
