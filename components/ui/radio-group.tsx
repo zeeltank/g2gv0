@@ -59,7 +59,7 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
             ref={ref}
             type="radio"
             className={cn(
-              'peer appearance-none cursor-pointer rounded-full border-2 border-input bg-background transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary checked:bg-primary dark:checked:border-primary dark:checked:bg-primary',
+              'peer appearance-none cursor-pointer rounded-full border border-input bg-background transition-all duration-200 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary dark:checked:border-primary',
               sizeClass,
               className,
             )}

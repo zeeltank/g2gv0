@@ -18,6 +18,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 // Mock Data
 type ActionKey = 'view' | 'add' | 'edit' | 'delete' | 'dashboard' | 'mobile'
@@ -78,14 +87,35 @@ export function RoleResponsibility() {
   const [activeRoleId, setActiveRoleId] = useState<string>('2') // Default to HR Manager
   const [permissions, setPermissions] = useState<ModulePermission[]>(MOCK_MODULES)
   const [hasChanges, setHasChanges] = useState(false)
+  const [roles, setRoles] = useState(MOCK_ROLES)
+  const [isAddRoleOpen, setIsAddRoleOpen] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDesc, setNewRoleDesc] = useState('')
+  const [animateKey, setAnimateKey] = useState(0) // Used to trigger animation on role change
 
-  const activeRole = useMemo(() => MOCK_ROLES.find(r => r.id === activeRoleId), [activeRoleId])
-  const filteredRoles = useMemo(() => MOCK_ROLES.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())), [searchQuery])
+  const activeRole = useMemo(() => roles.find(r => r.id === activeRoleId), [activeRoleId, roles])
+  const filteredRoles = useMemo(() => roles.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())), [searchQuery, roles])
 
   React.useEffect(() => {
     // In a real app, this would fetch from API based on activeRoleId
     setHasChanges(false)
+    setAnimateKey(prev => prev + 1)
   }, [activeRoleId])
+
+  const handleAddRole = () => {
+    if (!newRoleName.trim()) return
+    const newRole = {
+      id: Date.now().toString(),
+      name: newRoleName,
+      description: newRoleDesc,
+      users: 0
+    }
+    setRoles([...roles, newRole])
+    setActiveRoleId(newRole.id)
+    setIsAddRoleOpen(false)
+    setNewRoleName('')
+    setNewRoleDesc('')
+  }
 
   const handleActionToggle = (moduleId: string, screenId: string, action: ActionKey) => {
     setPermissions(prev => {
@@ -166,7 +196,12 @@ export function RoleResponsibility() {
               <ShieldCheck className="h-5 w-5 text-primary" />
               Access Roles
             </h2>
-            <Button size="sm" variant="ghost" className="h-8 px-2 text-primary cursor-pointer hover:bg-primary/10">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => setIsAddRoleOpen(true)}
+              className="h-8 px-2 text-primary cursor-pointer hover:bg-primary/10 active:scale-95 transition-all duration-200"
+            >
               <Plus className="h-4 w-4 mr-1" /> Add
             </Button>
           </div>
@@ -187,10 +222,10 @@ export function RoleResponsibility() {
               key={role.id}
               onClick={() => setActiveRoleId(role.id)}
               className={cn(
-                "w-full text-left px-3 py-3 rounded-lg transition-all cursor-pointer flex flex-col gap-1",
+                "w-full text-left px-3 py-3 rounded-lg transition-all duration-300 cursor-pointer flex flex-col gap-1 active:scale-[0.98]",
                 activeRoleId === role.id 
-                  ? "bg-primary/10 border border-primary/20" 
-                  : "hover:bg-muted border border-transparent"
+                  ? "bg-primary/10 border border-primary/20 shadow-sm" 
+                  : "hover:bg-muted/60 border border-transparent hover:shadow-sm"
               )}
             >
               <div className="flex justify-between items-center w-full">
@@ -235,8 +270,10 @@ export function RoleResponsibility() {
                 onClick={handleSave}
                 disabled={!hasChanges}
                 className={cn(
-                  "cursor-pointer shadow-sm transition-all",
-                  hasChanges ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  "cursor-pointer shadow-sm transition-all duration-300 active:scale-95",
+                  hasChanges 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md hover:-translate-y-0.5" 
+                    : "bg-muted text-muted-foreground"
                 )}
               >
                 <Save className="mr-2 h-4 w-4" />
@@ -245,17 +282,17 @@ export function RoleResponsibility() {
             </div>
 
             {/* Permissions List */}
-            <div className="flex-1 overflow-y-auto p-6 bg-surface">
+            <div key={animateKey} className="flex-1 overflow-y-auto p-6 bg-surface animate-in fade-in slide-in-from-bottom-4 duration-500">
               <Accordion type="multiple" defaultValue={MOCK_MODULES.map(m => m.id)} className="space-y-4">
                 {permissions.map((module) => (
                   <AccordionItem 
                     key={module.id} 
                     value={module.id} 
-                    className="border rounded-xl bg-card overflow-hidden shadow-sm data-[state=open]:border-primary/20 transition-all px-0"
+                    className="border rounded-xl bg-card overflow-hidden shadow-sm data-[state=open]:border-primary/20 transition-all duration-300 px-0 hover:shadow-md"
                   >
-                    <AccordionTrigger className="hover:no-underline px-6 py-4 bg-muted/20 cursor-pointer">
+                    <AccordionTrigger className="hover:no-underline px-6 py-4 bg-muted/10 hover:bg-muted/30 cursor-pointer transition-colors duration-300 group">
                       <div className="flex items-center gap-3 text-left">
-                        <div className="p-2 bg-primary/10 rounded-md shrink-0">
+                        <div className="p-2 bg-primary/10 rounded-md shrink-0 group-hover:bg-primary/20 transition-colors duration-300">
                           <Settings2 className="h-5 w-5 text-primary" />
                         </div>
                         <div>
@@ -276,61 +313,73 @@ export function RoleResponsibility() {
                               <th className="px-4 py-3 font-semibold text-center w-24">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>View</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.view)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'view', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.view)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'view', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-4 py-3 font-semibold text-center w-24">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>Add</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.add)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'add', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.add)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'add', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-4 py-3 font-semibold text-center w-24">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>Edit</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.edit)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'edit', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.edit)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'edit', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-4 py-3 font-semibold text-center w-24">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>Delete</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.delete)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'delete', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.delete)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'delete', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-4 py-3 font-semibold text-center w-28 border-l">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>Dashboard</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.dashboard)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'dashboard', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.dashboard)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'dashboard', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-4 py-3 font-semibold text-center w-24">
                                 <div className="flex flex-col items-center gap-2">
                                   <span>Mobile</span>
-                                  <Checkbox 
-                                    className="cursor-pointer"
-                                    checked={module.screens.length > 0 && module.screens.every(s => s.actions.mobile)}
-                                    onCheckedChange={(c) => handleModuleToggleAll(module.id, 'mobile', !!c)}
-                                  />
+                                  <div className="hover:scale-110 active:scale-95 transition-transform">
+                                    <Checkbox 
+                                      className="cursor-pointer"
+                                      checked={module.screens.length > 0 && module.screens.every(s => s.actions.mobile)}
+                                      onCheckedChange={(c) => handleModuleToggleAll(module.id, 'mobile', !!c)}
+                                    />
+                                  </div>
                                 </div>
                               </th>
                               <th className="px-6 py-3 font-semibold text-right border-l w-32">Quick Select</th>
@@ -348,53 +397,65 @@ export function RoleResponsibility() {
                                     {screen.name}
                                   </td>
                                   <td className="px-4 py-4 text-center">
-                                    <Checkbox 
-                                      checked={screen.actions.view} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'view')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.view} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'view')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-4 text-center">
-                                    <Checkbox 
-                                      checked={screen.actions.add} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'add')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.add} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'add')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-4 text-center">
-                                    <Checkbox 
-                                      checked={screen.actions.edit} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'edit')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.edit} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'edit')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-4 text-center">
-                                    <Checkbox 
-                                      checked={screen.actions.delete} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'delete')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.delete} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'delete')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-4 text-center border-l bg-muted/5">
-                                    <Checkbox 
-                                      checked={screen.actions.dashboard} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'dashboard')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.dashboard} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'dashboard')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-4 text-center bg-muted/5">
-                                    <Checkbox 
-                                      checked={screen.actions.mobile} 
-                                      onCheckedChange={() => handleActionToggle(module.id, screen.id, 'mobile')}
-                                      className="cursor-pointer"
-                                    />
+                                    <div className="hover:scale-110 active:scale-95 transition-transform inline-block">
+                                      <Checkbox 
+                                        checked={screen.actions.mobile} 
+                                        onCheckedChange={() => handleActionToggle(module.id, screen.id, 'mobile')}
+                                        className="cursor-pointer"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-6 py-4 text-right border-l">
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleScreenToggleAll(module.id, screen.id, !isAllSelected)}
-                                      className="h-7 text-xs cursor-pointer hover:bg-primary/10 hover:text-primary"
+                                      className="h-7 text-xs cursor-pointer hover:bg-primary/10 hover:text-primary active:scale-95 transition-all duration-200"
                                     >
                                       {isAllSelected ? 'Deselect All' : 'Select All'}
                                     </Button>
@@ -413,12 +474,49 @@ export function RoleResponsibility() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col">
-            <ShieldCheck className="h-12 w-12 opacity-20 mb-4" />
+            <ShieldCheck className="h-12 w-12 opacity-20 mb-4 animate-pulse" />
             <p>Select a role from the sidebar to configure permissions.</p>
           </div>
         )}
       </div>
 
+      <Dialog open={isAddRoleOpen} onOpenChange={setIsAddRoleOpen}>
+        <DialogContent className="sm:max-w-[425px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Add New Role</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Role Name</Label>
+              <Input
+                id="name"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                placeholder="e.g. Sales Director"
+                className="transition-all duration-200 focus-visible:ring-primary/50"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={newRoleDesc}
+                onChange={(e) => setNewRoleDesc(e.target.value)}
+                placeholder="Brief description of responsibilities"
+                className="transition-all duration-200 focus-visible:ring-primary/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddRoleOpen(false)} className="active:scale-95 transition-transform">
+              Cancel
+            </Button>
+            <Button onClick={handleAddRole} disabled={!newRoleName.trim()} className="active:scale-95 transition-transform">
+              Save Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
