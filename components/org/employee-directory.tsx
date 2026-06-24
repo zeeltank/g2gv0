@@ -4,9 +4,10 @@ import * as React from 'react'
 import { 
   Plus, Download, Upload, MoreHorizontal, 
   User, Briefcase, Shield, CheckCircle2, 
-  Mail, Phone, Building, Calendar, MapPin, BadgeCheck
+  Mail, Phone, Building, Calendar, MapPin, BadgeCheck,
+  Users, ShieldAlert, UserPlus, Target
 } from 'lucide-react'
-import { ModulePulse } from '@/components/org/module-pulse'
+import { ModulePulse, type PulseCardData } from '@/components/org/module-pulse'
 import { EnterpriseDataTable, type Column } from '@/components/data/enterprise-data-table'
 import { FilterBar, type Filter } from '@/components/data/filter-bar'
 import { Button } from '@/components/ui/button'
@@ -286,10 +287,78 @@ export function EmployeeDirectory() {
     })
   }, [searchQuery, departmentFilter, jobRoleFilter, statusFilter, employeesData])
 
+  // ─── Module Pulse Cards (computed from employee data) ───
+  const pulseCards = React.useMemo<PulseCardData[]>(() => {
+    const totalActive = employeesData.filter(e => e.status?.toLowerCase() === 'active').length
+    const totalInactive = employeesData.filter(e => e.status?.toLowerCase() !== 'active').length
+    const complianceAtRisk = employeesData.filter(e =>
+      !e.email || e.email === 'N/A' || !e.mobile || e.mobile === 'N/A' || !e.department_name || e.department_name === 'N/A'
+    ).length
+    const pendingOnboarding = employeesData.filter(e =>
+      !e.jobRole || e.jobRole === 'N/A' || !e.designation || e.designation === 'N/A'
+    ).length
+    const skillDeficit = employeesData.filter(e =>
+      !e.skills || e.skills.length === 0 || !e.profile_name || e.profile_name === 'Unknown'
+    ).length
+
+    return [
+      {
+        id: 'active-headcount',
+        title: 'Active Headcount',
+        value: loading ? '—' : totalActive,
+        subtitle: loading ? 'Calculating...' : `${totalInactive} inactive · ${employeesData.length} total workforce`,
+        icon: Users,
+        trend: loading ? undefined : { direction: 'up' as const, label: `${employeesData.length} total` },
+        actionLabel: 'View workforce breakdown',
+      },
+      {
+        id: 'compliance-risk',
+        title: 'Compliance At Risk',
+        value: loading ? '—' : complianceAtRisk,
+        subtitle: loading ? 'Scanning...' : complianceAtRisk > 0
+          ? `${complianceAtRisk} employee${complianceAtRisk !== 1 ? 's' : ''} missing critical profile data`
+          : 'All employees have complete profile records',
+        icon: ShieldAlert,
+        trend: loading ? undefined : complianceAtRisk > 0
+          ? { direction: 'up' as const, label: 'Needs review' }
+          : { direction: 'down' as const, label: 'All clear' },
+        actionLabel: complianceAtRisk > 0 ? 'Review incomplete profiles' : undefined,
+      },
+      {
+        id: 'pending-onboarding',
+        title: 'Pending Onboarding',
+        value: loading ? '—' : pendingOnboarding,
+        subtitle: loading ? 'Checking...' : pendingOnboarding > 0
+          ? `${pendingOnboarding} employee${pendingOnboarding !== 1 ? 's' : ''} awaiting role assignment`
+          : 'All employees fully onboarded',
+        icon: UserPlus,
+        trend: loading ? undefined : pendingOnboarding > 0
+          ? { direction: 'up' as const, label: 'Action needed' }
+          : { direction: 'down' as const, label: 'Complete' },
+        actionLabel: pendingOnboarding > 0 ? 'Complete onboarding setup' : undefined,
+      },
+      {
+        id: 'skill-deficit',
+        title: 'Skill Deficit',
+        value: loading ? '—' : employeesData.length > 0
+          ? `${Math.round((skillDeficit / employeesData.length) * 100)}%`
+          : '0%',
+        subtitle: loading ? 'Analyzing...' : skillDeficit > 0
+          ? `${skillDeficit} of ${employeesData.length} employees lack competency mapping`
+          : 'All employees have complete competency profiles',
+        icon: Target,
+        trend: loading ? undefined : skillDeficit > 0
+          ? { direction: 'up' as const, label: `${skillDeficit} unmapped` }
+          : { direction: 'down' as const, label: 'Fully mapped' },
+        actionLabel: skillDeficit > 0 ? 'Map competencies' : undefined,
+      },
+    ]
+  }, [employeesData, loading])
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       {/* Module Pulse — Intelligence Layer */}
-      <ModulePulse employees={employeesData} loading={loading} />
+      <ModulePulse cards={pulseCards} />
 
       {/* Premium Actions Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card/50 backdrop-blur-xl border border-border/50 p-4 rounded-2xl shadow-xs">
