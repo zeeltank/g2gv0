@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Settings2,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/gtg-auth'
@@ -210,6 +211,13 @@ export function GtgHeader() {
 
       <div className="ml-auto flex items-center gap-2">
         <NotificationsMenu />
+        <button
+          type="button"
+          aria-label="AI Chatbot"
+          className="relative flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Bot className="size-5" aria-hidden="true" />
+        </button>
         <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
         <UserProfileMenu />
       </div>
