@@ -264,7 +264,14 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
+  const [active, setActive] = useState<ActiveNav>(() => {
+    if (initialActive) return initialActive
+    if (!children && pathname) {
+      const parsed = parseRoutePath(pathname)
+      if (parsed) return parsed
+    }
+    return DEFAULT_ACTIVE
+  })
 
   // Parse active state from URL only when no children override is active
   useEffect(() => {
