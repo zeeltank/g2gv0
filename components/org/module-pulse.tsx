@@ -32,10 +32,9 @@ function PulseCard({ card, index }: { card: PulseCardData; index: number }) {
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-5',
+        'group relative overflow-hidden rounded-2xl border border-primary/20 bg-card/50 backdrop-blur-sm p-5',
         'transition-all duration-300 ease-out',
-        'hover:shadow-md hover:-translate-y-0.5 hover:bg-card/80',
-        'shadow-[inset_0_2px_0_0_var(--primary)]', // iOS signature thin blue bevel
+        'hover:shadow-md hover:-translate-y-0.5 hover:bg-card/80 hover:border-primary/40',
         'animate-in fade-in slide-in-from-bottom-3',
       )}
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
