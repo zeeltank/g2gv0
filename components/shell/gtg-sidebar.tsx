@@ -17,7 +17,7 @@ export function GtgSidebar({
   onSelect: (next: ActiveNav) => void
   role?: Role
 }) {
-  const collapsed = false
+  const collapsed = true
   const [flyoutModuleId, setFlyoutModuleId] = useState<string | null>(null)
   const [flyoutMenuId, setFlyoutMenuId] = useState<string | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number } | null>(null)
@@ -137,7 +137,7 @@ export function GtgSidebar({
         </nav>
       </aside>
 
-      {/* Flyout Panel - positioned next to the hovered module item */}
+      {/* Flyout Panel -  positioned next to the hovered module item */}
       {flyoutModuleId && flyoutPosition && (
         <div
           className={cn(
