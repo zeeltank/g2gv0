@@ -186,12 +186,12 @@ export function RolePermissions() {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-8rem)] gap-6 overflow-hidden">
       
       {/* Left Sidebar: Roles List */}
       <div className="flex w-80 flex-col rounded-xl border bg-card shadow-sm overflow-hidden shrink-0">
-        <div className="px-4 border-b bg-muted/20 shrink-0 h-[116px] flex flex-col justify-center gap-3">
-          <div className="flex items-center justify-between">
+        <div className="p-4 border-b bg-muted/20">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
               Access Roles
@@ -257,7 +257,7 @@ export function RolePermissions() {
         {activeRole ? (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 border-b bg-muted/10 shrink-0 h-[116px]">
+            <div className="flex items-center justify-between p-6 border-b bg-muted/10 shrink-0">
               <div>
                 <h1 className="text-2xl font-bold text-foreground tracking-tight">
                   {activeRole.name} Permissions

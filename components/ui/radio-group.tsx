@@ -18,12 +18,11 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
       >
         {React.Children.map(children, (child) => {
           if (React.isValidElement(child)) {
-            const childProps = child.props as any;
             return React.cloneElement(child, {
-              ...childProps,
-              checked: childProps.value === value,
-              onChange: () => onValueChange?.(childProps.value),
-              disabled: disabled || childProps.disabled,
+              ...child.props,
+              checked: child.props.value === value,
+              onChange: () => onValueChange?.(child.props.value),
+              disabled: disabled || child.props.disabled,
             } as any)
           }
           return child
@@ -34,7 +33,7 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
 )
 RadioGroup.displayName = 'RadioGroup'
 
-interface RadioProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface RadioProps extends React.InputHTMLAttributes<HTMLInputElement> {
   size?: 'sm' | 'default' | 'lg'
   label?: React.ReactNode
 }
