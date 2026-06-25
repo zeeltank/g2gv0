@@ -31,7 +31,7 @@ export function EventDetailsDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent>
+      <SheetContent className="p-6">
         <SheetHeader>
           <SheetTitle>Events & Holidays</SheetTitle>
           <SheetDescription>

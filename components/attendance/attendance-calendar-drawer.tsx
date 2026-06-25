@@ -31,7 +31,7 @@ export function AttendanceCalendarDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent className="w-3/5 max-w-lg">
+      <SheetContent className="w-3/5 max-w-lg p-6">
         <SheetHeader>
           <SheetTitle>Monthly Calendar</SheetTitle>
           <SheetDescription>

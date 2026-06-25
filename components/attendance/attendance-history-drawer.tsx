@@ -56,7 +56,7 @@ export function AttendanceHistoryDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent className="w-2/3 max-w-3xl">
+      <SheetContent className="w-2/3 max-w-3xl p-6">
         <SheetHeader>
           <SheetTitle>Attendance History</SheetTitle>
           <SheetDescription>
