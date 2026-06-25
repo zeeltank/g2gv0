@@ -264,37 +264,37 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState<boolean>(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    const stored = sessionStorage.getItem('sidebar-collapsed')
-    if (stored) {
-      setCollapsed(stored === 'true')
+  const [active, setActive] = useState<ActiveNav>(() => {
+    if (initialActive) return initialActive
+    if (!children && pathname) {
+      const parsed = parseRoutePath(pathname)
+      if (parsed) return parsed
     }
-  }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      sessionStorage.setItem('sidebar-collapsed', String(collapsed))
-    }
-  }, [collapsed, mounted])
-  const [active, setActive] = useState<ActiveNav>(initialActive ?? DEFAULT_ACTIVE)
+    return DEFAULT_ACTIVE
+  })
 
   // Parse active state from URL only when no children override is active
   useEffect(() => {
     if (children) return
     const parsed = parseRoutePath(pathname)
     if (parsed) {
-      setActive(parsed)
+      setActive((prev) => {
+        if (
+          prev.moduleId === parsed.moduleId &&
+          prev.menuId === parsed.menuId &&
+          prev.submenuId === parsed.submenuId
+        ) {
+          return prev
+        }
+        return parsed
+      })
     }
   }, [pathname, children])
 
   // Navigate when active state changes (skip when children provide their own content)
   const handleNavSelect = (next: ActiveNav) => {
-    setActive(next)
     // Always navigate to the canonical /module/ route so the URL stays in sync
+    // State will naturally update via URL parsing on the new route
     router.push(getRoutePath(next))
   }
 
@@ -307,23 +307,15 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
       className="flex h-screen w-full bg-background"
     >
       <GtgSidebar
-        collapsed={collapsed}
         active={active}
         onSelect={handleNavSelect}
         role={user?.role || 'employee'}
       />
 
       <div
-        className={cn(
-          'flex h-screen w-full flex-col transition-[padding] duration-240',
-          collapsed ? 'pl-[72px]' : 'pl-[260px]',
-        )}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
+        className="flex h-screen w-full flex-col pl-[72px]"
       >
-        <GtgHeader
-          collapsed={collapsed}
-          onToggleSidebar={() => setCollapsed((v) => !v)}
-        />
+        <GtgHeader />
         <GtgBreadcrumb
           module={crumb.module}
           menu={crumb.menu}
