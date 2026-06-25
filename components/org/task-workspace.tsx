@@ -386,6 +386,7 @@ export function TaskWorkspace() {
               })}
             </div>
           </div>
+        )}
       </div>
 
       <TaskDetailsDrawer 
