@@ -19,10 +19,16 @@ import { Button } from '@/components/ui/button'
 import { mockTasks } from '@/lib/mock-data/task-management'
 import { cn } from '@/lib/utils'
 
+import { TaskDetailsDrawer } from './task-details-drawer'
+import { CreateTaskModal } from './create-task-modal'
+import { Task } from '@/types/task-management'
+
 export function TaskWorkspace() {
   const [view, setView] = useState<'list' | 'board'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   // Derived metrics for Pulse Cards
   const activeTasks = mockTasks.filter(t => t.status === 'in_progress' || t.status === 'draft').length
@@ -101,7 +107,10 @@ export function TaskWorkspace() {
               Manage, monitor, and execute operational tasks across all projects.
             </p>
           </div>
-          <Button className="cursor-pointer shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 transition-all duration-300">
+          <Button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="cursor-pointer shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 transition-all duration-300"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Task
           </Button>
@@ -178,7 +187,11 @@ export function TaskWorkspace() {
               </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-muted/20 transition-colors group">
+                  <tr 
+                    key={task.id} 
+                    onClick={() => setSelectedTask(task)}
+                    className="hover:bg-muted/20 transition-colors group cursor-pointer"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-semibold text-foreground group-hover:text-primary transition-colors cursor-pointer">{task.title}</span>
@@ -251,7 +264,11 @@ export function TaskWorkspace() {
                   </div>
                   <div className="flex-1 p-2 flex flex-col gap-2 overflow-y-auto g2g-scrollbar min-h-0">
                     {colTasks.map(task => (
-                       <div key={task.id} className="group flex flex-col gap-2 rounded-xl border border-primary/20 bg-card p-4 shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 cursor-grab">
+                       <div 
+                         key={task.id} 
+                         onClick={() => setSelectedTask(task)}
+                         className="group flex flex-col gap-2 rounded-xl border border-primary/20 bg-card p-4 shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                       >
                          <div className="flex justify-between items-start">
                             <span className={cn("text-[10px] font-bold uppercase tracking-wider", getPriorityColor(task.priority))}>{task.priority}</span>
                             <span className="text-xs text-muted-foreground">{task.id}</span>
@@ -280,6 +297,17 @@ export function TaskWorkspace() {
           </div>
         )}
       </div>
+
+      <TaskDetailsDrawer 
+        task={selectedTask}
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+      />
+
+      <CreateTaskModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   )
 }
