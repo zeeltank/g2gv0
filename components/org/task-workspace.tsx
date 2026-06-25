@@ -20,6 +20,7 @@ import { ModulePulse } from './module-pulse'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Tooltip } from '@/components/ui/tooltip'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { mockTasks } from '@/lib/mock-data/task-management'
 import { cn } from '@/lib/utils'
 
@@ -129,7 +130,7 @@ export function TaskWorkspace() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center justify-between bg-card/50 backdrop-blur-sm border border-primary/10 rounded-xl p-2 shadow-sm shrink-0">
+      <div className="flex items-center justify-between bg-card/50 backdrop-blur-sm border border-primary/10 rounded-xl p-2 shadow-sm shrink-0 relative z-20">
         <div className="flex items-center gap-2 flex-1 max-w-md ml-2 relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
@@ -153,9 +154,17 @@ export function TaskWorkspace() {
             ]}
             className="w-[160px]"
           />
-          <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground">
-            <Filter className="mr-2 h-4 w-4" /> More
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors outline-none cursor-pointer">
+              <Filter className="mr-2 h-4 w-4" /> More
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem>Assigned to me</DropdownMenuItem>
+              <DropdownMenuItem>Created by me</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-danger">Clear all filters</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="h-5 w-px bg-border mx-1" />
           <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
             <Tooltip content="List View">
