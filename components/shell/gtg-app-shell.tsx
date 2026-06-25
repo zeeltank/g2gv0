@@ -322,8 +322,8 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
           submenu={crumb.submenu}
         />
 
-        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background">
-          <div className="w-full px-6 py-8">
+        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
+          <div className="w-full p-6 flex flex-col flex-1 min-h-0">
             {children ?? renderContent(active, user?.role || 'employee')}
           </div>
         </main>
