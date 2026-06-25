@@ -251,8 +251,7 @@ export function TaskWorkspace() {
                   </div>
                   <div className="flex-1 p-2 flex flex-col gap-2 overflow-y-auto g2g-scrollbar min-h-0">
                     {colTasks.map(task => (
-                       <div key={task.id} className="group relative flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md cursor-grab">
-                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                       <div key={task.id} className="group flex flex-col gap-2 rounded-xl border border-primary/20 bg-card p-4 shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 cursor-grab">
                          <div className="flex justify-between items-start">
                             <span className={cn("text-[10px] font-bold uppercase tracking-wider", getPriorityColor(task.priority))}>{task.priority}</span>
                             <span className="text-xs text-muted-foreground">{task.id}</span>

@@ -33,9 +33,6 @@ export function ModulePulse({ cards }: ModulePulseProps) {
               "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-br before:from-primary/5 before:to-transparent before:opacity-0 before:transition-opacity hover:before:opacity-100"
             )}
           >
-            {/* Signature iOS-style top bevel edge */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-            
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">
                 {card.title}
