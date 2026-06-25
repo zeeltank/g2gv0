@@ -63,6 +63,14 @@ export function TaskWorkspace() {
       icon: AlertCircle,
       trend: blockedTasks > 0 ? { direction: 'down' as const, label: 'Critical' } : undefined,
       actionLabel: blockedTasks > 0 ? 'Unblock tasks' : undefined,
+    },
+    {
+      id: 'completed',
+      title: 'Completed',
+      value: completedTasks,
+      subtitle: 'Tasks finished this month',
+      icon: CheckCircle2,
+      trend: { direction: 'up' as const, label: '+12% from last month' }
     }
   ]
 
