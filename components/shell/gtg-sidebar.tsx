@@ -17,7 +17,7 @@ export function GtgSidebar({
   onSelect: (next: ActiveNav) => void
   role?: Role
 }) {
-  const collapsed = true
+  const collapsed = false
   const [flyoutModuleId, setFlyoutModuleId] = useState<string | null>(null)
   const [flyoutMenuId, setFlyoutMenuId] = useState<string | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number } | null>(null)
@@ -101,7 +101,7 @@ export function GtgSidebar({
                     onClick={(e) => handleModuleClick(module.id, e.currentTarget)}
                     onMouseLeave={closeFlyout}
                     className={cn(
-                      'flex items-center rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'flex items-center cursor-pointer rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       collapsed
                         ? cn(
                             'size-12 justify-center',
@@ -175,16 +175,19 @@ export function GtgSidebar({
                         <button
                           type="button"
                           onClick={() => {
-                            const firstSubmenu = menu.submenus[0]
-                            if (firstSubmenu) {
+                            // If the menu has no submenus, it would be a standalone page (currently none exist)
+                            if (menu.submenus.length === 0) {
                               setFlyoutModuleId(null)
                               setFlyoutMenuId(null)
                               setFlyoutPosition(null)
-                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: firstSubmenu.id })
+                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: '' })
+                            } else {
+                              // Toggle the submenu open/close on click
+                              setFlyoutMenuId(isFlyoutMenuOpen ? null : menu.id)
                             }
                           }}
                           className={cn(
-                            'flex h-10 w-full items-center justify-between gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-200 outline-none',
+                            'flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-200 outline-none',
                             'focus-visible:ring-2 focus-visible:ring-ring',
                             isMenuActive || hasActiveSubmenu
                               ? 'bg-primary/15 text-primary font-semibold'
@@ -221,7 +224,7 @@ export function GtgSidebar({
                                     onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: submenu.id })
                                   }}
                                   className={cn(
-                                    'flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-medium transition-colors duration-200 outline-none',
+                                    'flex h-9 w-full cursor-pointer items-center rounded-md px-3 text-left text-sm font-medium transition-colors duration-200 outline-none',
                                     'focus-visible:ring-2 focus-visible:ring-ring',
                                     isSubmenuActive
                                       ? 'bg-primary/15 text-primary font-semibold'
