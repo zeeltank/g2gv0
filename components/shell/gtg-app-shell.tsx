@@ -302,7 +302,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
       />
 
       <div
-        className="flex h-screen w-full flex-col pl-[260px]"
+        className="flex h-screen w-full flex-col pl-[72px]"
       >
         <GtgHeader />
         <GtgBreadcrumb
