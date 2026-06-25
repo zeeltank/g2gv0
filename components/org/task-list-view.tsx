@@ -2,6 +2,7 @@ import React from 'react'
 import { CalendarDays, MoreVertical, ListChecks } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { Task } from '@/types/task-management'
 import { getStatusColor, getPriorityColor } from '@/lib/task-utils'
@@ -23,7 +24,7 @@ export function TaskListView({ tasks, onSelectTask }: TaskListViewProps) {
             <th className="px-6 py-4 font-medium">Priority</th>
             <th className="px-6 py-4 font-medium">Status</th>
             <th className="px-6 py-4 font-medium">Due Date</th>
-            <th className="px-6 py-4 font-medium text-right">Actions</th>
+            <th className="px-6 py-4 font-medium text-right"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/50">
@@ -69,13 +70,21 @@ export function TaskListView({ tasks, onSelectTask }: TaskListViewProps) {
                   {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </div>
               </td>
-              <td className="px-6 py-4 text-right">
+              <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-primary hover:bg-primary/10">Start</Button>
                   <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-success hover:bg-success/10">Complete</Button>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer outline-none transition-colors">
+                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem>Edit Task</DropdownMenuItem>
+                      <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-danger">Delete Task</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </td>
             </tr>
