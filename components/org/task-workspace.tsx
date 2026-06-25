@@ -12,7 +12,9 @@ import {
   LayoutGrid,
   List,
   CalendarDays,
-  MoreVertical
+  MoreVertical,
+  CheckSquare,
+  BarChart2
 } from 'lucide-react'
 import { ModulePulse } from './module-pulse'
 import { Button } from '@/components/ui/button'
@@ -24,7 +26,7 @@ import { CreateTaskModal } from './create-task-modal'
 import { Task } from '@/types/task-management'
 
 export function TaskWorkspace() {
-  const [view, setView] = useState<'list' | 'board'>('list')
+  const [view, setView] = useState<'list' | 'board' | 'approvals' | 'workload'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -149,21 +151,43 @@ export function TaskWorkspace() {
           <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
             <button
               onClick={() => setView('list')}
+              title="List View"
               className={cn(
                 "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'list' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                view === 'list' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
               )}
             >
               <List className="h-4 w-4" />
             </button>
             <button
               onClick={() => setView('board')}
+              title="Board View"
               className={cn(
                 "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'board' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                view === 'board' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
               )}
             >
               <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setView('approvals')}
+              title="Approvals Workbench"
+              className={cn(
+                "p-1.5 rounded-md transition-all cursor-pointer",
+                view === 'approvals' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              )}
+            >
+              <CheckSquare className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setView('workload')}
+              title="Workload & Capacity"
+              className={cn(
+                "p-1.5 rounded-md transition-all cursor-pointer",
+                view === 'workload' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              )}
+            >
+              <BarChart2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -246,7 +270,7 @@ export function TaskWorkspace() {
               </div>
             )}
           </div>
-        ) : (
+        ) : view === 'board' ? (
           <div className="flex-1 flex gap-4 p-4 overflow-x-auto g2g-scrollbar bg-background">
             {[
               { id: 'draft', label: 'To Do', border: 'border-muted' },
@@ -295,7 +319,73 @@ export function TaskWorkspace() {
               )
             })}
           </div>
-        )}
+        ) : view === 'approvals' ? (
+          <div className="p-6 flex-1 flex flex-col overflow-y-auto g2g-scrollbar">
+            <h2 className="text-lg font-semibold mb-4">Pending Approvals</h2>
+            <div className="grid gap-4 max-w-4xl">
+              {filteredTasks.filter(t => t.status === 'review').length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border">
+                  <CheckSquare className="h-8 w-8 mb-2 opacity-20" />
+                  <p className="text-sm">No tasks pending approval. You're all caught up!</p>
+                </div>
+              ) : (
+                filteredTasks.filter(t => t.status === 'review').map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-4 bg-card border border-warning/20 rounded-xl shadow-sm hover:border-warning/40 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center text-sm font-medium text-warning border border-warning/20 shrink-0">
+                        {task.assignee.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground cursor-pointer hover:text-primary" onClick={() => setSelectedTask(task)}>{task.title}</span>
+                          <span className="text-xs text-muted-foreground">{task.project}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Submitted by {task.assignee} for review.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                      <Button variant="outline" size="sm" className="h-9 border-danger/30 text-danger hover:bg-danger/10 hover:text-danger">Reject</Button>
+                      <Button size="sm" className="h-9 bg-success hover:bg-success/90 text-success-foreground">Approve</Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 flex-1 flex flex-col overflow-y-auto g2g-scrollbar">
+            <h2 className="text-lg font-semibold mb-6">Team Workload & Capacity</h2>
+            <div className="grid gap-6">
+              {Array.from(new Set(mockTasks.map(t => t.assignee))).map(assignee => {
+                const assigneeTasks = mockTasks.filter(t => t.assignee === assignee)
+                const activeCount = assigneeTasks.filter(t => t.status === 'in_progress').length
+                const totalCount = assigneeTasks.length
+                const percentage = Math.min(100, Math.round((activeCount / 5) * 100)) // assuming 5 active tasks is 100% capacity
+                
+                return (
+                  <div key={assignee} className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary border border-primary/20">
+                          {assignee.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <span className="font-medium text-sm">{assignee}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {activeCount} active / {totalCount} total tasks
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden flex">
+                      <div 
+                        className={cn("h-full transition-all duration-1000", percentage > 80 ? "bg-danger" : percentage > 50 ? "bg-warning" : "bg-success")} 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
       </div>
 
       <TaskDetailsDrawer 
