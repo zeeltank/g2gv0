@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 export function TaskWorkspace() {
   const [view, setView] = useState<'list' | 'board'>('list')
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
 
   // Derived metrics for Pulse Cards
   const activeTasks = mockTasks.filter(t => t.status === 'in_progress' || t.status === 'draft').length
@@ -57,10 +58,18 @@ export function TaskWorkspace() {
     }
   ]
 
-  const filteredTasks = mockTasks.filter(t => 
+  let filteredTasks = mockTasks.filter(t => 
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.assignee.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (filterStatus === 'my_tasks') {
+    filteredTasks = filteredTasks.filter(t => t.assignee === 'Sarah Chen')
+  } else if (filterStatus === 'high_priority') {
+    filteredTasks = filteredTasks.filter(t => t.priority === 'urgent' || t.priority === 'high')
+  } else if (filterStatus === 'due_today') {
+    filteredTasks = filteredTasks.filter(t => new Date(t.dueDate) <= new Date())
+  }
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -114,8 +123,18 @@ export function TaskWorkspace() {
         </div>
         
         <div className="flex items-center gap-2 pr-2">
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            <option value="all">All Tasks</option>
+            <option value="my_tasks">My Tasks</option>
+            <option value="high_priority">High Priority</option>
+            <option value="due_today">Due Today</option>
+          </select>
           <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground">
-            <Filter className="mr-2 h-4 w-4" /> Filter
+            <Filter className="mr-2 h-4 w-4" /> More
           </Button>
           <div className="h-5 w-px bg-border mx-1" />
           <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
@@ -195,9 +214,13 @@ export function TaskWorkspace() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-primary hover:bg-primary/10">Start</Button>
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-success hover:bg-success/10">Complete</Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -211,10 +234,50 @@ export function TaskWorkspace() {
             )}
           </div>
         ) : (
-          <div className="p-6 flex-1 flex items-center justify-center text-muted-foreground flex-col">
-             <LayoutGrid className="h-16 w-16 mb-4 opacity-10 text-primary" />
-             <p className="text-lg font-medium text-foreground">Board View</p>
-             <p className="text-sm">Drag and drop functionality coming in Phase 2.</p>
+          <div className="flex-1 flex gap-4 p-4 overflow-x-auto g2g-scrollbar bg-background">
+            {[
+              { id: 'draft', label: 'To Do', border: 'border-muted' },
+              { id: 'in_progress', label: 'In Progress', border: 'border-primary' },
+              { id: 'review', label: 'Review', border: 'border-warning' },
+              { id: 'blocked', label: 'Blocked', border: 'border-danger' },
+              { id: 'completed', label: 'Done', border: 'border-success' },
+            ].map(col => {
+              const colTasks = filteredTasks.filter(t => t.status === col.id)
+              return (
+                <div key={col.id} className="flex flex-col w-80 shrink-0 bg-muted/10 rounded-xl border border-border/50">
+                  <div className={cn("p-4 border-t-2 rounded-t-xl flex justify-between items-center", col.border, "bg-muted/30")}>
+                    <h3 className="font-semibold text-sm">{col.label}</h3>
+                    <span className="text-xs font-medium bg-background px-2 py-0.5 rounded-full border">{colTasks.length}</span>
+                  </div>
+                  <div className="flex-1 p-2 flex flex-col gap-2 overflow-y-auto g2g-scrollbar min-h-0">
+                    {colTasks.map(task => (
+                       <div key={task.id} className="group relative flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md cursor-grab">
+                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                         <div className="flex justify-between items-start">
+                            <span className={cn("text-[10px] font-bold uppercase tracking-wider", getPriorityColor(task.priority))}>{task.priority}</span>
+                            <span className="text-xs text-muted-foreground">{task.id}</span>
+                         </div>
+                         <h4 className="text-sm font-semibold text-foreground line-clamp-2">{task.title}</h4>
+                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <CalendarDays className="h-3 w-3" />
+                              {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary border border-primary/20" title={task.assignee}>
+                              {task.assignee.split(' ').map(n => n[0]).join('')}
+                            </div>
+                         </div>
+                       </div>
+                    ))}
+                    {colTasks.length === 0 && (
+                      <div className="h-24 border-2 border-dashed border-border/50 rounded-lg flex items-center justify-center text-xs text-muted-foreground">
+                        Drop tasks here
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
