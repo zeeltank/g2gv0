@@ -72,8 +72,7 @@ export const GTG_NAVIGATION: NavModule[] = [
         label: 'Task Management',
         icon: ListChecks,
         submenus: [
-          { id: 'task-assignment', label: 'Task Assignment' },
-          { id: 'task-tracking', label: 'Task Tracking' },
+          { id: 'task-workspace', label: 'Task Workspace' },
         ],
       },
       {
