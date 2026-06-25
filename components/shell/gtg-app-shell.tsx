@@ -14,9 +14,9 @@ import { OrganizationDetailsForm } from '@/components/org/organization-details'
 import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
-import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -322,8 +322,8 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
           submenu={crumb.submenu}
         />
 
-        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
-          <div className="w-full p-6 flex flex-col flex-1 min-h-0">
+        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background">
+          <div className="w-full px-6 py-8">
             {children ?? renderContent(active, user?.role || 'employee')}
           </div>
         </main>
