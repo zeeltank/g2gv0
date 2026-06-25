@@ -137,7 +137,7 @@ export function GtgSidebar({
         </nav>
       </aside>
 
-      {/* Flyout Panel - positioned next to the hovered module item */}
+      {/* Flyout Panel -  positioned next to the hovered module item */}
       {flyoutModuleId && flyoutPosition && (
         <div
           className={cn(
