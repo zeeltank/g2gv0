@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import { ModulePulse } from './module-pulse'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
+import { Tooltip } from '@/components/ui/tooltip'
 import { mockTasks } from '@/lib/mock-data/task-management'
 import { cn } from '@/lib/utils'
 
@@ -113,11 +115,9 @@ export function TaskWorkspace() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Task Workspace</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage, monitor, and execute operational tasks across all projects.
-            </p>
+            
           </div>
-          <Button 
+          <Button
             onClick={() => setIsCreateModalOpen(true)}
             className="cursor-pointer shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 transition-all duration-300"
           >
@@ -142,61 +142,66 @@ export function TaskWorkspace() {
         </div>
         
         <div className="flex items-center gap-2 pr-2">
-          <select 
+          <Select 
             value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer hover:bg-muted/50 transition-colors"
-          >
-            <option value="all">All Tasks</option>
-            <option value="my_tasks">My Tasks</option>
-            <option value="high_priority">High Priority</option>
-            <option value="due_today">Due Today</option>
-          </select>
+            onChange={setFilterStatus}
+            options={[
+              { label: 'All Tasks', value: 'all' },
+              { label: 'My Tasks', value: 'my_tasks' },
+              { label: 'High Priority', value: 'high_priority' },
+              { label: 'Due Today', value: 'due_today' }
+            ]}
+            className="w-[160px]"
+          />
           <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground">
             <Filter className="mr-2 h-4 w-4" /> More
           </Button>
           <div className="h-5 w-px bg-border mx-1" />
           <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
-            <button
-              onClick={() => setView('list')}
-              title="List View"
-              className={cn(
-                "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'list' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setView('board')}
-              title="Board View"
-              className={cn(
-                "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'board' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setView('approvals')}
-              title="Approvals Workbench"
-              className={cn(
-                "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'approvals' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              <CheckSquare className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setView('workload')}
-              title="Workload & Capacity"
-              className={cn(
-                "p-1.5 rounded-md transition-all cursor-pointer",
-                view === 'workload' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              <BarChart2 className="h-4 w-4" />
-            </button>
+            <Tooltip content="List View">
+              <button
+                onClick={() => setView('list')}
+                className={cn(
+                  "p-1.5 rounded-md transition-all cursor-pointer",
+                  view === 'list' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Board View">
+              <button
+                onClick={() => setView('board')}
+                className={cn(
+                  "p-1.5 rounded-md transition-all cursor-pointer",
+                  view === 'board' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Approvals Workbench">
+              <button
+                onClick={() => setView('approvals')}
+                className={cn(
+                  "p-1.5 rounded-md transition-all cursor-pointer",
+                  view === 'approvals' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <CheckSquare className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Workload & Capacity">
+              <button
+                onClick={() => setView('workload')}
+                className={cn(
+                  "p-1.5 rounded-md transition-all cursor-pointer",
+                  view === 'workload' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <BarChart2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -233,9 +238,11 @@ export function TaskWorkspace() {
                     <td className="px-6 py-4 text-muted-foreground">{task.project}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary border border-primary/20">
-                          {task.assignee.split(' ').map(n => n[0]).join('')}
-                        </div>
+                        <Tooltip content={task.assignee}>
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary border border-primary/20">
+                            {task.assignee.split(' ').map(n => n[0]).join('')}
+                          </div>
+                        </Tooltip>
                         <span className="text-foreground">{task.assignee}</span>
                       </div>
                     </td>
@@ -311,9 +318,11 @@ export function TaskWorkspace() {
                               <CalendarDays className="h-3 w-3" />
                               {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </div>
-                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary border border-primary/20" title={task.assignee}>
-                              {task.assignee.split(' ').map(n => n[0]).join('')}
-                            </div>
+                            <Tooltip content={task.assignee}>
+                              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary border border-primary/20">
+                                {task.assignee.split(' ').map(n => n[0]).join('')}
+                              </div>
+                            </Tooltip>
                          </div>
                        </div>
                     ))}

@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { CalendarDays, AlertCircle, FileText, Users, Link as LinkIcon, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -93,24 +94,28 @@ export function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProps) {
                   <label className="text-sm font-semibold flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" /> Assignee
                   </label>
-                  <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all cursor-pointer">
-                    <option value="">Select Assignee...</option>
-                    <option value="1">Sarah Chen</option>
-                    <option value="2">John Doe</option>
-                    <option value="3">Alex Miller</option>
-                  </select>
+                  <Select 
+                    options={[
+                      { label: 'Sarah Chen', value: '1' },
+                      { label: 'John Doe', value: '2' },
+                      { label: 'Alex Miller', value: '3' }
+                    ]}
+                    placeholder="Select Assignee..."
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold flex items-center gap-2">
                     <LinkIcon className="h-4 w-4 text-primary" /> Project
                   </label>
-                  <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all cursor-pointer">
-                    <option value="">Select Project...</option>
-                    <option value="1">G2G Platform v2</option>
-                    <option value="2">Q3 Financial Planning</option>
-                    <option value="3">HR Policy Update</option>
-                  </select>
+                  <Select 
+                    options={[
+                      { label: 'G2G Platform v2', value: '1' },
+                      { label: 'Q3 Financial Planning', value: '2' },
+                      { label: 'HR Policy Update', value: '3' }
+                    ]}
+                    placeholder="Select Project..."
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
