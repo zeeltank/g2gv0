@@ -16,7 +16,7 @@ import {
   CheckSquare,
   BarChart2
 } from 'lucide-react'
-import { ModulePulse } from './module-pulse'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Tooltip } from '@/components/ui/tooltip'
@@ -30,11 +30,12 @@ import { TaskListView } from './task-list-view'
 import { TaskBoardView } from './task-board-view'
 import { TaskApprovalsView } from './task-approvals-view'
 import { TaskWorkloadView } from './task-workload-view'
+import { TaskCalendarView } from './task-calendar-view'
 import { Task } from '@/types/task-management'
 
 export function TaskWorkspace() {
   const [scope, setScope] = useState<'all' | 'team' | 'department' | 'archived'>('all')
-  const [view, setView] = useState<'list' | 'board' | 'approvals' | 'workload'>('list')
+  const [view, setView] = useState<'list' | 'board' | 'approvals' | 'workload' | 'calendar'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -125,7 +126,25 @@ export function TaskWorkspace() {
             Create Task
           </Button>
         </div>
-        {scope !== 'archived' && <ModulePulse cards={pulseData} />}
+        {scope !== 'archived' && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {pulseData.map((card, idx) => {
+  const Icon = card.icon;
+  return (
+              <Card key={card.id} className="animate-in fade-in slide-in-from-bottom-3" style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{card.value}</div>
+                  <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+                </CardContent>
+              </Card>
+            );
+})}
+          </div>
+        )}
       </div>
 
       {/* Action Bar */}
@@ -177,7 +196,7 @@ export function TaskWorkspace() {
           <div className="h-5 w-px bg-border mx-1" />
           <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50">
             <Tooltip content="List View">
-              <button
+              <Button variant="ghost"
                 onClick={() => setView('list')}
                 className={cn(
                   "p-1.5 rounded-md transition-all cursor-pointer",
@@ -185,10 +204,10 @@ export function TaskWorkspace() {
                 )}
               >
                 <List className="h-4 w-4" />
-              </button>
+              </Button>
             </Tooltip>
             <Tooltip content="Board View">
-              <button
+              <Button variant="ghost"
                 onClick={() => setView('board')}
                 className={cn(
                   "p-1.5 rounded-md transition-all cursor-pointer",
@@ -196,10 +215,10 @@ export function TaskWorkspace() {
                 )}
               >
                 <LayoutGrid className="h-4 w-4" />
-              </button>
+              </Button>
             </Tooltip>
             <Tooltip content="Approvals Workbench">
-              <button
+              <Button variant="ghost"
                 onClick={() => setView('approvals')}
                 className={cn(
                   "p-1.5 rounded-md transition-all cursor-pointer",
@@ -207,10 +226,10 @@ export function TaskWorkspace() {
                 )}
               >
                 <CheckSquare className="h-4 w-4" />
-              </button>
+              </Button>
             </Tooltip>
             <Tooltip content="Workload & Capacity">
-              <button
+              <Button variant="ghost"
                 onClick={() => setView('workload')}
                 className={cn(
                   "p-1.5 rounded-md transition-all cursor-pointer",
@@ -218,7 +237,7 @@ export function TaskWorkspace() {
                 )}
               >
                 <BarChart2 className="h-4 w-4" />
-              </button>
+              </Button>
             </Tooltip>
           </div>
         </div>
@@ -230,6 +249,7 @@ export function TaskWorkspace() {
         {view === 'board' && <TaskBoardView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
         {view === 'approvals' && <TaskApprovalsView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
         {view === 'workload' && <TaskWorkloadView tasks={baseTasks} />}
+        {view === 'calendar' && <TaskCalendarView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
       </div>
 
       <TaskDetailsDrawer 
@@ -245,3 +265,4 @@ export function TaskWorkspace() {
     </div>
   )
 }
+

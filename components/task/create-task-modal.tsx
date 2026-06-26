@@ -193,18 +193,18 @@ export function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProps) {
                     <Activity className="h-4 w-4 text-primary" /> Priority
                   </label>
                   <div className="flex bg-muted/50 rounded-lg p-1 border border-border/50 h-10">
-                    <button 
+                    <Button variant={priority === 'low' ? 'default' : 'ghost'}
                       onClick={() => setPriority('low')}
                       className={cn("flex-1 text-xs font-medium rounded-md transition-all", priority === 'low' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50")}
-                    >Low</button>
-                    <button 
+                    >Low</Button>
+                    <Button variant={priority === 'medium' ? 'default' : 'ghost'}
                       onClick={() => setPriority('medium')}
                       className={cn("flex-1 text-xs font-medium rounded-md transition-all", priority === 'medium' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50")}
-                    >Med</button>
-                    <button 
+                    >Med</Button>
+                    <Button variant={priority === 'high' ? 'default' : 'ghost'}
                       onClick={() => setPriority('high')}
                       className={cn("flex-1 text-xs font-medium rounded-md transition-all", priority === 'high' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground hover:bg-background/50")}
-                    >High</button>
+                    >High</Button>
                   </div>
                 </div>
               </div>
