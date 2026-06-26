@@ -33,17 +33,25 @@ import { TaskWorkloadView } from './task-workload-view'
 import { Task } from '@/types/task-management'
 
 export function TaskWorkspace() {
+  const [scope, setScope] = useState<'all' | 'team' | 'department' | 'archived'>('all')
   const [view, setView] = useState<'list' | 'board' | 'approvals' | 'workload'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
+  // Apply base scope filtering to mock data
+  const baseTasks = mockTasks.filter(t => {
+    if (scope === 'archived') return t.status === 'completed' // mock assumption
+    if (scope === 'team' || scope === 'department') return t.status !== 'completed' // just mock subset logic
+    return true
+  })
+
   // Derived metrics for Pulse Cards
-  const activeTasks = mockTasks.filter(t => t.status === 'in_progress' || t.status === 'draft').length
-  const reviewTasks = mockTasks.filter(t => t.status === 'review').length
-  const blockedTasks = mockTasks.filter(t => t.status === 'blocked').length
-  const completedTasks = mockTasks.filter(t => t.status === 'completed').length
+  const activeTasks = baseTasks.filter(t => t.status === 'in_progress' || t.status === 'draft').length
+  const reviewTasks = baseTasks.filter(t => t.status === 'review').length
+  const blockedTasks = baseTasks.filter(t => t.status === 'blocked').length
+  const completedTasks = baseTasks.filter(t => t.status === 'completed').length
 
   const pulseData = [
     {
@@ -81,7 +89,7 @@ export function TaskWorkspace() {
     }
   ]
 
-  let filteredTasks = mockTasks.filter(t => 
+  let filteredTasks = baseTasks.filter(t => 
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.assignee.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -102,8 +110,12 @@ export function TaskWorkspace() {
       <div className="flex flex-col gap-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Task Workspace</h1>
-            
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {scope === 'all' && 'All Tasks Workspace'}
+              {scope === 'team' && 'Team Tasks'}
+              {scope === 'department' && 'Department Tasks'}
+              {scope === 'archived' && 'Archived Tasks'}
+            </h1>
           </div>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
@@ -113,7 +125,7 @@ export function TaskWorkspace() {
             Create Task
           </Button>
         </div>
-        <ModulePulse cards={pulseData} />
+        {scope !== 'archived' && <ModulePulse cards={pulseData} />}
       </div>
 
       {/* Action Bar */}
@@ -131,15 +143,25 @@ export function TaskWorkspace() {
         
         <div className="flex items-center gap-2 pr-2">
           <Select 
+            value={scope} 
+            onChange={(val) => setScope(val as any)}
+            options={[
+              { label: 'All Tasks Workspace', value: 'all' },
+              { label: 'Team Tasks', value: 'team' },
+              { label: 'Department Tasks', value: 'department' },
+              { label: 'Archived Tasks', value: 'archived' }
+            ]}
+            className="w-[200px]"
+          />
+          <Select 
             value={filterStatus} 
             onChange={setFilterStatus}
             options={[
-              { label: 'All Tasks', value: 'all' },
-              { label: 'My Tasks', value: 'my_tasks' },
+              { label: 'All Statuses', value: 'all' },
               { label: 'High Priority', value: 'high_priority' },
               { label: 'Due Today', value: 'due_today' }
             ]}
-            className="w-[160px]"
+            className="w-[140px]"
           />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors outline-none cursor-pointer">
@@ -207,7 +229,7 @@ export function TaskWorkspace() {
         {view === 'list' && <TaskListView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
         {view === 'board' && <TaskBoardView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
         {view === 'approvals' && <TaskApprovalsView tasks={filteredTasks} onSelectTask={setSelectedTask} />}
-        {view === 'workload' && <TaskWorkloadView tasks={mockTasks} />}
+        {view === 'workload' && <TaskWorkloadView tasks={baseTasks} />}
       </div>
 
       <TaskDetailsDrawer 

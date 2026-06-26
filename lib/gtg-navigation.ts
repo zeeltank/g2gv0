@@ -16,6 +16,14 @@ import {
   CalendarDays,
   Wallet,
   Network,
+  LayoutDashboard,
+  CheckSquare,
+  Link,
+  CheckCircle,
+  Calendar,
+  FileDown,
+  Settings,
+  Shield
 } from 'lucide-react'
 
 export type NavSubmenu = {
@@ -67,14 +75,7 @@ export const GTG_NAVIGATION: NavModule[] = [
           { id: 'role-permissions', label: 'Role & Permissions' },
         ],
       },
-      {
-        id: 'task-management',
-        label: 'Task Management',
-        icon: ListChecks,
-        submenus: [
-          { id: 'task-workspace', label: 'Task Workspace' },
-        ],
-      },
+
       {
         id: 'compliance-discipline',
         label: 'Compliance & Discipline',
@@ -195,6 +196,76 @@ export const GTG_NAVIGATION: NavModule[] = [
         label: 'Payroll Management',
         icon: Wallet,
         submenus: [{ id: 'payroll-processing', label: 'Payroll Processing' }],
+      },
+    ],
+  },
+  {
+    id: 'm6',
+    label: 'Task Management',
+    short: 'TM',
+    icon: ListChecks,
+    menus: [
+      {
+        id: 'tm-dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        submenus: [{ id: 'task-workspace', label: 'Workspace' }],
+      },
+      {
+        id: 'tm-tasks',
+        label: 'Tasks',
+        icon: CheckSquare,
+        submenus: [
+          { id: 'my-tasks', label: 'My Tasks' },
+        ],
+      },
+      {
+        id: 'tm-projects',
+        label: 'Projects & Workstreams',
+        icon: Briefcase,
+        submenus: [{ id: 'projects-list', label: 'Projects List' }],
+      },
+      {
+        id: 'tm-dependencies',
+        label: 'Dependencies',
+        icon: Link,
+        submenus: [{ id: 'dependencies-view', label: 'Dependencies View' }],
+      },
+      {
+        id: 'tm-approvals',
+        label: 'Approvals',
+        icon: CheckCircle,
+        submenus: [{ id: 'approvals-list', label: 'Approvals List' }],
+      },
+      {
+        id: 'tm-calendar',
+        label: 'Calendar',
+        icon: Calendar,
+        submenus: [{ id: 'calendar-view', label: 'Calendar View' }],
+      },
+      {
+        id: 'tm-reports',
+        label: 'Reports Export',
+        icon: FileDown,
+        submenus: [{ id: 'reports-dashboard', label: 'Reports Dashboard' }],
+      },
+      {
+        id: 'tm-admin',
+        label: 'Administration',
+        icon: Shield,
+        submenus: [
+          { id: 'status-management', label: 'Status Management' },
+          { id: 'priority-management', label: 'Priority Management' },
+          { id: 'permissions', label: 'Permissions' },
+          { id: 'integrations', label: 'Integrations' },
+          { id: 'audit-logs', label: 'Audit Logs' },
+        ],
+      },
+      {
+        id: 'tm-settings',
+        label: 'Settings',
+        icon: Settings,
+        submenus: [{ id: 'general-settings', label: 'General Settings' }],
       },
     ],
   },

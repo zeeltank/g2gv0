@@ -69,7 +69,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         {(isMounted || open) && (
           <div
             className={cn(
-              'absolute z-50 mt-1 max-h-60 w-full min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-surface/80 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
+              'absolute z-50 mt-1 max-h-60 w-full min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
               'origin-top transition-all duration-150 ease-out',
               open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
             )}

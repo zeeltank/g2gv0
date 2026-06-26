@@ -18,6 +18,9 @@ import { AttendanceDashboard } from '@/components/attendance/attendance-dashboar
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import { TaskWorkspace } from '@/components/org/task-workspace'
+import { MyTasksView } from '@/components/org/my-tasks-view'
+import { ProjectsListView } from '@/components/org/projects-list-view'
+import { DependenciesView } from '@/components/org/dependencies-view'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -77,8 +80,6 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <EmployeeDirectory />
       case 'role-permissions':
         return <RolePermissions />
-      case 'task-workspace':
-        return <TaskWorkspace />
       case 'compliance-management':
         return (
           <ComingSoonScreen
@@ -231,6 +232,20 @@ function renderContent(active: ActiveNav, userRole: string) {
             description="Run payroll cycles, manage salary components, and generate payslips. Coming soon."
           />
         )
+    }
+  }
+
+  // M6 — Task Management
+  if (active.moduleId === 'm6') {
+    switch (active.submenuId) {
+      case 'task-workspace':
+        return <TaskWorkspace />
+      case 'my-tasks':
+        return <MyTasksView />
+      case 'projects-list':
+        return <ProjectsListView />
+      case 'dependencies-view':
+        return <DependenciesView />
     }
   }
 

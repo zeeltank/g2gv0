@@ -70,12 +70,14 @@ const DropdownMenuTrigger = React.forwardRef<
 DropdownMenuTrigger.displayName = 'DropdownMenuTrigger'
 
 interface DropdownMenuContentProps
-  extends React.HTMLAttributes<HTMLDivElement> {}
+  extends React.HTMLAttributes<HTMLDivElement> {
+  align?: 'start' | 'center' | 'end'
+}
 
 const DropdownMenuContent = React.forwardRef<
   HTMLDivElement,
   DropdownMenuContentProps
->(({ className, children, ...props }, ref) => {
+>(({ className, children, align = 'end', ...props }, ref) => {
   const { open, onOpenChange } = useDropdownMenu();
   const contentRef = React.useRef<HTMLDivElement>(null)
   const [isMounted, setIsMounted] = React.useState(false)
@@ -112,8 +114,9 @@ const DropdownMenuContent = React.forwardRef<
     <div
       ref={contentRef}
       className={cn(
-        'absolute z-[100] mt-2 right-0 min-w-[200px] overflow-hidden rounded-xl border border-primary/20 bg-card/95 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black/5',
-        'origin-top-right transition-all duration-200 ease-out',
+        'absolute z-[100] mt-2 min-w-[200px] overflow-hidden rounded-xl border border-primary/20 bg-card/98 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black/5',
+        align === 'end' ? 'right-0 origin-top-right' : align === 'start' ? 'left-0 origin-top-left' : 'left-1/2 -translate-x-1/2 origin-top',
+        'transition-all duration-200 ease-out',
         open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
         className,
       )}
