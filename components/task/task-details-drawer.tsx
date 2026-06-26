@@ -118,10 +118,11 @@ export function TaskDetailsDrawer({ task, isOpen, onClose, readOnly = false }: T
           <div className="flex items-center w-full mt-8 border-b border-primary/10">
             {(['overview', 'activity', 'comments'] as const).map(tab => (
               <Button
+                variant="ghost"
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "flex-1 pb-3.5 text-sm font-semibold transition-all relative capitalize outline-none cursor-pointer text-center",
+                  "flex-1 pb-3.5 text-sm font-semibold transition-all relative capitalize outline-none cursor-pointer text-center border-0 rounded-none h-auto px-1 hover:bg-transparent",
                   activeTab === tab ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >

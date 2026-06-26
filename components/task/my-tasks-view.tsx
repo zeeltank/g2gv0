@@ -88,6 +88,7 @@ export function MyTasksView() {
   const [view, setView] = useState<'list' | 'board'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterPriority, setFilterPriority] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [taskGroup, setTaskGroup] = useState<'all' | 'today' | 'upcoming' | 'recent' | 'subordinates'>('all')
 
@@ -163,10 +164,11 @@ export function MyTasksView() {
     t.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  if (filterStatus === 'high_priority') {
-    filteredTasks = filteredTasks.filter(t => t.priority === 'urgent' || t.priority === 'high')
-  } else if (filterStatus === 'in_progress') {
-    filteredTasks = filteredTasks.filter(t => t.status === 'in_progress')
+  if (filterStatus !== 'all') {
+    filteredTasks = filteredTasks.filter(t => t.status === filterStatus)
+  }
+  if (filterPriority !== 'all') {
+    filteredTasks = filteredTasks.filter(t => t.priority === filterPriority)
   }
 
   return (
@@ -240,9 +242,25 @@ export function MyTasksView() {
               value={filterStatus}
               onChange={setFilterStatus}
               options={[
-                { label: 'All My Tasks', value: 'all' },
+                { label: 'All Statuses', value: 'all' },
+                { label: 'To Do', value: 'todo' },
                 { label: 'In Progress', value: 'in_progress' },
-                { label: 'High Priority', value: 'high_priority' }
+                { label: 'Review', value: 'review' },
+                { label: 'Blocked', value: 'blocked' },
+                { label: 'Completed', value: 'completed' }
+              ]}
+              className="w-[160px] h-10 bg-background/50 rounded-xl"
+            />
+
+            <Select
+              value={filterPriority}
+              onChange={setFilterPriority}
+              options={[
+                { label: 'All Priorities', value: 'all' },
+                { label: 'Urgent', value: 'urgent' },
+                { label: 'High', value: 'high' },
+                { label: 'Medium', value: 'medium' },
+                { label: 'Low', value: 'low' }
               ]}
               className="w-[160px] h-10 bg-background/50 rounded-xl"
             />
