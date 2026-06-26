@@ -141,12 +141,13 @@ export function GtgSidebar({
       {flyoutModuleId && flyoutPosition && (
         <div
           className={cn(
-            'fixed z-30 w-64 rounded-lg border border-border bg-surface shadow-md transition-all duration-150 ease-out',
+            'fixed z-30 w-64 flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-md transition-all duration-150 ease-out',
             flyoutModuleId ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 pointer-events-none',
           )}
           style={{
             left: collapsed ? '72px' : '260px',
             top: flyoutPosition?.top,
+            maxHeight: `calc(100vh - ${flyoutPosition?.top}px - 24px)`,
           }}
           onMouseEnter={handleFlyoutEnter}
           onMouseLeave={handleFlyoutLeave}
@@ -157,10 +158,10 @@ export function GtgSidebar({
 
             return (
               <>
-                <div className="border-b border-border px-4 py-2.5 bg-surface-muted">
+                <div className="shrink-0 border-b border-border px-4 py-2.5 bg-surface-muted">
                   <h2 className="text-sm font-semibold text-foreground">{module.label}</h2>
                 </div>
-                <div className="flex flex-col gap-0.5 px-2 py-2">
+                <div className="flex-1 flex flex-col gap-0.5 px-2 py-2 overflow-y-auto g2g-scrollbar">
                   {module.menus.map((menu) => {
                     const isFlyoutMenuOpen = flyoutMenuId === menu.id
                     const isMenuActive = active.menuId === menu.id && active.moduleId === flyoutModuleId

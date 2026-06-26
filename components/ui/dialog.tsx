@@ -104,7 +104,7 @@ const DialogContent = React.forwardRef<
         {children}
         <button
           onClick={() => onOpenChange?.(false)}
-          className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+          className="absolute right-4 top-4 text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-muted p-1 rounded-full cursor-pointer hover:rotate-90 hover:scale-110 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-4" />
         </button>
