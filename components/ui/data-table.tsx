@@ -40,7 +40,7 @@ interface Column<T> {
   width?: string
 }
 
-interface EnterpriseDataTableProps<T extends Record<string, any>>
+export interface DataTableProps<T extends Record<string, any>>
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof tableVariants> {
   columns: Column<T>[]
@@ -59,9 +59,9 @@ interface EnterpriseDataTableProps<T extends Record<string, any>>
   }
 }
 
-const EnterpriseDataTable = React.forwardRef<
+export const DataTable = React.forwardRef<
   HTMLDivElement,
-  EnterpriseDataTableProps<any>
+  DataTableProps<any>
 >(
   (
     {
@@ -198,6 +198,6 @@ const EnterpriseDataTable = React.forwardRef<
     )
   },
 )
-EnterpriseDataTable.displayName = 'EnterpriseDataTable'
+DataTable.displayName = 'DataTable'
 
-export { EnterpriseDataTable, type EnterpriseDataTableProps, type Column }
+export { type Column }

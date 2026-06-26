@@ -7,10 +7,10 @@ import {
   Mail, Phone, Building, Calendar, MapPin, BadgeCheck,
   Users, ShieldAlert, UserPlus, Target
 } from 'lucide-react'
-import { ModulePulse, type PulseCardData } from '@/components/org/module-pulse'
-import { EnterpriseDataTable, type Column } from '@/components/data/enterprise-data-table'
-import { FilterBar, type Filter } from '@/components/data/filter-bar'
+import { DataTable, type Column } from '@/components/ui/data-table'
+import { FilterBar, type Filter } from '@/components/ui/filter-bar'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { PersonalInfoTab } from '@/components/org/edit-employee/personal-info-tab'
@@ -20,7 +20,6 @@ import { JobroleTasksTab } from '@/components/org/edit-employee/jobrole-tasks-ta
 import { LorTab } from '@/components/org/edit-employee/lor-tab'
 import { CompetencyRatingTab } from '@/components/org/edit-employee/competency-rating-tab'
 import { ExpectedCompetencyTab } from '@/components/org/edit-employee/expected-competency-tab'
-import { Card, CardContent } from '@/components/ui/card'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -357,8 +356,24 @@ export function EmployeeDirectory() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
-      {/* Module Pulse — Intelligence Layer */}
-      <ModulePulse cards={pulseCards} />
+      {/* Pulse Metrics */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {pulseCards.map((card, idx) => {
+  const Icon = card.icon;
+  return (
+          <Card key={card.id} className="animate-in fade-in slide-in-from-bottom-3" style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{card.value}</div>
+              <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+            </CardContent>
+          </Card>
+        );
+})}
+      </div>
 
       {/* Premium Actions Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card/50 backdrop-blur-xl border border-border/50 p-4 rounded-2xl shadow-xs">
@@ -392,7 +407,7 @@ export function EmployeeDirectory() {
           <FilterBar filters={filters} onReset={handleResetFilters} />
         </div>
         <CardContent className="p-0">
-          <EnterpriseDataTable
+          <DataTable
             columns={columns}
             data={filteredData}
             isLoading={loading}
@@ -893,3 +908,4 @@ export function EmployeeDirectory() {
     </div>
   )
 }
+

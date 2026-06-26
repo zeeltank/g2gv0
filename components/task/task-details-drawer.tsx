@@ -117,7 +117,7 @@ export function TaskDetailsDrawer({ task, isOpen, onClose, readOnly = false }: T
           {/* Tabs */}
           <div className="flex items-center w-full mt-8 border-b border-primary/10">
             {(['overview', 'activity', 'comments'] as const).map(tab => (
-              <button
+              <Button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
@@ -129,7 +129,7 @@ export function TaskDetailsDrawer({ task, isOpen, onClose, readOnly = false }: T
                 {activeTab === tab && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(var(--primary),0.8)]" />
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         </SheetHeader>

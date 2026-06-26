@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ModulePulse } from '@/components/org/module-pulse'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -377,7 +377,23 @@ export function DependenciesView() {
         </div>
 
         {/* Stats Row */}
-        <ModulePulse cards={pulseData} className="md:grid-cols-3 xl:grid-cols-6" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
+          {pulseData.map((card, idx) => {
+  const Icon = card.icon;
+  return (
+            <Card key={card.id} className="animate-in fade-in slide-in-from-bottom-3" style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+              </CardContent>
+            </Card>
+          );
+})}
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -387,7 +403,7 @@ export function DependenciesView() {
           {(['Dependency Map', 'Timeline', 'Workstream', 'Milestone View']).map((tab, i) => {
             const id = ['map', 'timeline', 'workstream', 'milestone'][i] as any
             return (
-              <button
+              <Button variant="ghost"
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={cn(
@@ -396,7 +412,7 @@ export function DependenciesView() {
                 )}
               >
                 {tab}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -615,3 +631,4 @@ export function DependenciesView() {
     </div>
   )
 }
+
