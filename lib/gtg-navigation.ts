@@ -230,12 +230,6 @@ export const GTG_NAVIGATION: NavModule[] = [
         submenus: [],
       },
       {
-        id: 'tm-approvals',
-        label: 'Approvals',
-        icon: CheckCircle,
-        submenus: [],
-      },
-      {
         id: 'tm-calendar',
         label: 'Calendar',
         icon: Calendar,

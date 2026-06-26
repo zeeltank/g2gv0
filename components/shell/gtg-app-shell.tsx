@@ -252,8 +252,6 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'tm-dependencies':
       case 'dependencies-view':
         return <DependenciesView />
-      case 'tm-approvals':
-        return <ComingSoonScreen title="Approvals" description="Manage and track task approvals." />
       case 'tm-calendar':
       case 'calendar-view':
         return <TaskCalendarView />
