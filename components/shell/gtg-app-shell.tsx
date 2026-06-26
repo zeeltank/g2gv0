@@ -15,6 +15,7 @@ import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
+import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import type { ReactNode } from 'react'
@@ -216,18 +217,13 @@ function renderContent(active: ActiveNav, userRole: string) {
     }
   }
 
-  // M5 — HRIT Solutions
+// M5 — HRIT Solutions
   if (active.moduleId === 'm5') {
     switch (active.submenuId) {
       case 'attendance-tracking':
         return <AttendanceDashboard />
       case 'attendance-reports':
-        return (
-          <ComingSoonScreen
-            title="Attendance Reports"
-            description="Generate attendance summaries, leave balances, and overtime reports. Coming soon."
-          />
-        )
+        return <AttendanceReportsPage />
       case 'leave-operations':
         return (
           <ComingSoonScreen
