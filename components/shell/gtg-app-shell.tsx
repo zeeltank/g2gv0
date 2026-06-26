@@ -18,6 +18,7 @@ import { AttendanceDashboard } from '@/components/attendance/attendance-dashboar
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
+import { TaskWorkspace } from '@/components/org/task-workspace'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -77,20 +78,8 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <EmployeeDirectory />
       case 'role-permissions':
         return <RolePermissions />
-      case 'task-assignment':
-        return (
-          <ComingSoonScreen
-            title="Task Assignment"
-            description="Assign and prioritize tasks across teams and departments. Coming soon."
-          />
-        )
-      case 'task-tracking':
-        return (
-          <ComingSoonScreen
-            title="Task Tracking"
-            description="Monitor task progress, deadlines, and completion status in real time. Coming soon."
-          />
-        )
+      case 'task-workspace':
+        return <TaskWorkspace />
       case 'compliance-management':
         return (
           <ComingSoonScreen
@@ -309,7 +298,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
       />
 
       <div
-        className="flex h-screen w-full flex-col pl-[260px]"
+        className="flex h-screen w-full flex-col pl-[72px]"
       >
         <GtgHeader />
         <GtgBreadcrumb

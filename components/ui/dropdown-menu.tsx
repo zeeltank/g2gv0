@@ -39,7 +39,9 @@ const DropdownMenu = ({ open, onOpenChange, children }: DropdownMenuProps) => {
 
   return (
     <DropdownMenuContext.Provider value={{ open: isOpen, onOpenChange: handleOpenChange }}>
-      {children}
+      <div className="relative inline-block">
+        {children}
+      </div>
     </DropdownMenuContext.Provider>
   )
 }
@@ -110,8 +112,8 @@ const DropdownMenuContent = React.forwardRef<
     <div
       ref={contentRef}
       className={cn(
-        'absolute z-50 min-w-[200px] overflow-hidden rounded-xl border border-border/50 bg-surface/80 backdrop-blur-xl p-1.5 shadow-xl ring-1 ring-black/5',
-        'origin-top-right transition-all duration-150 ease-out',
+        'absolute z-[100] mt-2 right-0 min-w-[200px] overflow-hidden rounded-xl border border-primary/20 bg-card/95 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black/5',
+        'origin-top-right transition-all duration-200 ease-out',
         open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
         className,
       )}
