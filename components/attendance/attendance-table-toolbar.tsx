@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Filter, Columns } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Search } from 'lucide-react'
-import type { Column } from '@/components/data/enterprise-data-table'
+import type { Column } from '@/components/ui/data-table'
 
 interface TableToolbarProps extends React.HTMLAttributes<HTMLDivElement> {
   totalEntries: number

@@ -217,7 +217,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                   <label className="text-sm font-semibold text-foreground mb-1.5 block">Expected Team Size</label>
                   <div className="flex gap-2">
                     {['1-5', '6-15', '16-50', '50+'].map(size => (
-                      <button
+                      <Button variant="ghost"
                         key={size}
                         onClick={() => setProjectData({ ...projectData, teamSize: size })}
                         className={cn(
@@ -226,7 +226,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                         )}
                       >
                         {size}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -254,12 +254,12 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                       {projectData.members.map(member => (
                         <div key={member} className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full text-sm font-medium">
                           {member}
-                          <button 
+                          <Button variant="ghost"
                             onClick={() => setProjectData({ ...projectData, members: projectData.members.filter(m => m !== member) })}
                             className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
                           >
                             <X className="h-3.5 w-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -278,7 +278,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                       { id: 'medium', label: 'Medium' },
                       { id: 'low', label: 'Low' }
                     ].map(p => (
-                      <button
+                      <Button variant="ghost"
                         key={p.id}
                         onClick={() => setProjectData({ ...projectData, priority: p.id })}
                         className={cn(
@@ -289,7 +289,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                         )}
                       >
                         {p.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -355,7 +355,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                     ].map(flag => {
                       const isSelected = projectData.regulatoryFlags.includes(flag.id)
                       return (
-                        <button
+                        <Button variant="ghost"
                           key={flag.id}
                           onClick={() => {
                             if (isSelected) {
@@ -376,7 +376,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                             {isSelected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
                           </div>
                           {flag.label}
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>

@@ -18,10 +18,16 @@ import { AttendanceDashboard } from '@/components/attendance/attendance-dashboar
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
-import { TaskWorkspace } from '@/components/org/task-workspace'
-import { MyTasksView } from '@/components/org/my-tasks-view'
-import { ProjectsListView } from '@/components/org/projects-list-view'
-import { DependenciesView } from '@/components/org/dependencies-view'
+import { TaskWorkspace } from '@/components/task/task-workspace'
+import { MyTasksView } from '@/components/task/my-tasks-view'
+import { ProjectsListView } from '@/components/task/projects-list-view'
+import { DependenciesView } from '@/components/task/dependencies-view'
+import { TaskCalendarView } from '@/components/task/task-calendar-view'
+import { TmStatusManagement } from '@/components/task/tm-status-management'
+import { TmPriorityManagement } from '@/components/task/tm-priority-management'
+import { TmPermissions } from '@/components/task/tm-permissions'
+import { TmIntegrations } from '@/components/task/tm-integrations'
+import { TmAuditLogs } from '@/components/task/tm-audit-logs'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -234,14 +240,31 @@ function renderContent(active: ActiveNav, userRole: string) {
   // M6 — Task Management
   if (active.moduleId === 'm6') {
     switch (active.submenuId) {
+      case 'tm-dashboard':
       case 'task-workspace':
         return <TaskWorkspace />
+      case 'tm-tasks':
       case 'my-tasks':
         return <MyTasksView />
+      case 'tm-projects':
       case 'projects-list':
         return <ProjectsListView />
+      case 'tm-dependencies':
       case 'dependencies-view':
         return <DependenciesView />
+      case 'tm-calendar':
+      case 'calendar-view':
+        return <TaskCalendarView />
+      case 'status-management':
+        return <TmStatusManagement />
+      case 'priority-management':
+        return <TmPriorityManagement />
+      case 'permissions':
+        return <TmPermissions />
+      case 'integrations':
+        return <TmIntegrations />
+      case 'audit-logs':
+        return <TmAuditLogs />
     }
   }
 
