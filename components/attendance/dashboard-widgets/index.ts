@@ -1,0 +1,6 @@
+export { EmployeeSnapshotWidget } from './employee-snapshot-widget'
+export { QuickActionsWidget } from './quick-actions-widget'
+export { AttendanceAlertsWidget } from './attendance-alerts-widget'
+export { MyRequestsWidget } from './my-requests-widget'
+export { UpcomingEventsWidget } from './upcoming-events-widget'
+export type { QuickAction, AttendanceAlert, MyRequest } from './widget-types'
