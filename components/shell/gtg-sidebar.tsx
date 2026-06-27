@@ -181,7 +181,7 @@ export function GtgSidebar({
                               setFlyoutModuleId(null)
                               setFlyoutMenuId(null)
                               setFlyoutPosition(null)
-                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: '' })
+                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: menu.id })
                             } else {
                               // Toggle the submenu open/close on click
                               setFlyoutMenuId(isFlyoutMenuOpen ? null : menu.id)

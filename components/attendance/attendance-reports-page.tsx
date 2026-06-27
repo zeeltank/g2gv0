@@ -20,7 +20,7 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Eye } from 'lucide-react'
-import { type Column } from '@/components/data/enterprise-data-table'
+import type { Column } from '@/components/ui/data-table'
 
 const viewTabs: ViewTab[] = [
   { id: 'table-focus', label: 'Table Focus' },

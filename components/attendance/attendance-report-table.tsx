@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { EnterpriseDataTable, type Column } from '@/components/data/enterprise-data-table'
+import { DataTable, type Column } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { TableToolbar } from './attendance-table-toolbar'
 import { AttendancePagination } from './attendance-pagination'
@@ -52,7 +52,7 @@ export function AttendanceReportTable<T extends Record<string, any>>({
         onFilterClick={() => {}}
       />
 
-      <EnterpriseDataTable
+      <DataTable
         columns={columns}
         data={isLoading ? [] : data}
         isLoading={isLoading}
