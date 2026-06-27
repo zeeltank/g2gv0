@@ -151,7 +151,7 @@ const SheetContent = React.forwardRef<
         <div
           ref={ref}
           className={cn(
-            'fixed z-50 border-border bg-card transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'fixed z-50 border-border bg-card transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] p-6',
             sideClass,
             animationClass,
             className,
