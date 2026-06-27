@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { EnhancedAttendanceFilters } from './enhanced-attendance-filters'
-import { AttendanceSummaryCards } from './attendance-summary-cards'
 import { AttendanceReportTable } from './attendance-report-table'
 import { AttendanceReportHeader } from './attendance-report-header'
 import { AttendanceTabs as ReportViewTabs, type ReportTab as ViewTab } from './attendance-tabs'
@@ -24,13 +23,12 @@ import { Eye } from 'lucide-react'
 import { type Column } from '@/components/data/enterprise-data-table'
 
 const viewTabs: ViewTab[] = [
-  { id: 'summary', label: 'Summary' },
   { id: 'table-focus', label: 'Table Focus' },
   { id: 'trend-focus', label: 'Trend Focus' },
   { id: 'daily-details', label: 'Daily Details' },
 ]
 
-type ViewTabId = 'summary' | 'table-focus' | 'trend-focus' | 'daily-details'
+type ViewTabId = 'table-focus' | 'trend-focus' | 'daily-details'
 
 function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
   return [
@@ -69,7 +67,7 @@ function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
 }
 
 export function AttendanceReportsPage() {
-  const [viewMode, setViewMode] = React.useState<ViewTabId>('summary')
+  const [viewMode, setViewMode] = React.useState<ViewTabId>('table-focus')
   const [dateRange, setDateRange] = React.useState({ from: '2026-06-01', to: '2026-06-26' })
   const [groupBy, setGroupBy] = React.useState('organization')
   const [department, setDepartment] = React.useState('all')
@@ -149,32 +147,6 @@ export function AttendanceReportsPage() {
   const handleSearchClick = () => {
     setPage(1)
   }
-
-  const earlygoingCards = React.useMemo(() => {
-    const totalEmployees = earlyGoingData.length
-    const earlyGoingCount = earlyGoingData.filter((d) => d.earlyByMin > 0).length
-    const avgEarly = earlyGoingData.length > 0
-      ? Math.round(earlyGoingData.reduce((sum, d) => sum + d.earlyByMin, 0) / earlyGoingData.length)
-      : 0
-    const deptCounts = earlyGoingData.reduce(
-      (acc, d) => {
-        acc[d.department] = (acc[d.department] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>,
-    )
-    const deptEntries = Object.entries(deptCounts)
-    const highestDept = deptEntries.length > 0
-      ? deptEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)[0] as string
-      : ''
-
-    return [
-      { id: 'total-employees', label: 'Total Employees', value: totalEmployees },
-      { id: 'early-going-count', label: 'Early Going Count', value: earlyGoingCount },
-      { id: 'avg-early-minutes', label: 'Average Early Minutes', value: avgEarly, unit: 'min' },
-      { id: 'highest-early-dept', label: 'Highest Early Going Department', value: highestDept },
-    ]
-  }, [earlyGoingData])
 
   const handleExport = () => {
     console.log('Export clicked')
@@ -338,12 +310,11 @@ export function AttendanceReportsPage() {
   const renderDailyDetails = () => {
     const data = earlyGoingData
     const total = earlyGoingData.length
-    const cards = earlygoingCards
     const columns = getEarlyGoingColumns()
 
     return (
       <div className="flex flex-col gap-6">
-        <AttendanceSummaryCards cards={cards} />
+        <AttendanceKPICards cards={enhancedCards} />
         <AttendanceReportTable
           columns={columns as any}
           data={data as any}
@@ -358,41 +329,34 @@ export function AttendanceReportsPage() {
     )
   }
 
-  const renderSummary = () => (
-    <div className="flex flex-col gap-6">
-      <AttendanceKPICards cards={enhancedCards} />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <AttendanceTrendChart data={trendData} />
-        <AttendanceDonutChart data={distributionData} />
-      </div>
-      <AttendanceHighlights data={highlightsData} />
-    </div>
-  )
-
   const renderTrendFocus = () => (
     <div className="flex flex-col gap-6">
-      <AttendanceTrendChart data={trendData} className="lg:col-span-2" />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <AttendanceDonutChart data={distributionData} />
-        <AttendanceHighlights data={highlightsData} />
+      <AttendanceKPICards cards={enhancedCards} />
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <AttendanceTrendChart data={trendData} />
+        <div className="flex flex-col gap-6">
+          <AttendanceDonutChart data={distributionData} />
+          <AttendanceHighlights data={highlightsData} />
+        </div>
       </div>
     </div>
   )
 
   const renderTableFocus = () => (
-    <AttendanceGroupedTable
-      records={groupedTableData}
-      groupBy={groupBy}
-      searchValue={search}
-      onSearchChange={setSearch}
-      className="sm:col-span-2"
-    />
+    <div className="flex flex-col gap-6">
+      <AttendanceKPICards cards={enhancedCards} />
+      <AttendanceGroupedTable
+        records={groupedTableData}
+        groupBy={groupBy}
+        searchValue={search}
+        onSearchChange={setSearch}
+        className="sm:col-span-2"
+      />
+    </div>
   )
 
   const renderContent = () => {
     switch (viewMode) {
-      case 'summary':
-        return renderSummary()
       case 'table-focus':
         return renderTableFocus()
       case 'trend-focus':
@@ -400,7 +364,7 @@ export function AttendanceReportsPage() {
       case 'daily-details':
         return renderDailyDetails()
       default:
-        return renderSummary()
+        return renderTableFocus()
     }
   }
 
