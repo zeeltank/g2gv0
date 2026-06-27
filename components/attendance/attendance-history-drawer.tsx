@@ -74,15 +74,16 @@ export function AttendanceHistoryDrawer({
             />
             <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={setStatusFilter}
               className="w-40"
-            >
-              <option value="">All Status</option>
-              <option value="present">Present</option>
-              <option value="late">Late</option>
-              <option value="absent">Absent</option>
-              <option value="leave">Leave</option>
-            </Select>
+              options={[
+                { value: '', label: 'All Status' },
+                { value: 'present', label: 'Present' },
+                { value: 'late', label: 'Late' },
+                { value: 'absent', label: 'Absent' },
+                { value: 'leave', label: 'Leave' },
+              ]}
+            />
             <Button variant="outline" onClick={handleExport}>
               Export
             </Button>

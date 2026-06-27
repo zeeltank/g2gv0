@@ -1,32 +1,36 @@
 'use client'
 
 import * as React from 'react'
-import { GtgPageHeader } from '@/components/shell/gtg-page-header'
-import { AttendanceTabs } from './attendance-tabs'
-import { AttendanceFilters } from './attendance-filters'
+import { EnhancedAttendanceFilters } from './enhanced-attendance-filters'
 import { AttendanceSummaryCards } from './attendance-summary-cards'
 import { AttendanceReportTable } from './attendance-report-table'
+import { AttendanceReportHeader } from './attendance-report-header'
+import { AttendanceTabs as ReportViewTabs, type ReportTab as ViewTab } from './attendance-tabs'
+import { AttendanceKPICards, type AttendanceKPICard, getEnhancedSummaryCards } from './attendance-kpi-cards'
+import { AttendanceTrendChart, type AttendanceTrendData } from './attendance-trend-chart'
+import { AttendanceDonutChart, type AttendanceDistributionData } from './attendance-donut-chart'
+import { AttendanceHighlights, type AttendanceHighlightsData } from './attendance-highlights'
+import { AttendanceGroupedTable, type GroupedRecord } from './attendance-grouped-table'
 import {
   earlyGoingMockData,
-  departmentReportMockData,
-  employeeReportMockData,
   departments,
   employees,
   savedReports,
   type EarlyGoingRecord,
-  type DepartmentReport,
-  type EmployeeReport,
 } from './report-data'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Eye } from 'lucide-react'
 import type { Column } from '@/components/ui/data-table'
 
-const earlyGoingTabs = [
-  { id: 'early-going', label: 'Early Going Report' },
-  { id: 'department-wise', label: 'Department Wise Report' },
-  { id: 'employee-wise', label: 'Employee Wise Report' },
+const viewTabs: ViewTab[] = [
+  { id: 'summary', label: 'Summary' },
+  { id: 'table-focus', label: 'Table Focus' },
+  { id: 'trend-focus', label: 'Trend Focus' },
+  { id: 'daily-details', label: 'Daily Details' },
 ]
+
+type ViewTabId = 'summary' | 'table-focus' | 'trend-focus' | 'daily-details'
 
 function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
   return [
@@ -64,124 +68,105 @@ function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
   ]
 }
 
-function getDepartmentColumns(): Column<DepartmentReport>[] {
-  return [
-    { id: 'id', header: '#' },
-    { id: 'department', header: 'Department' },
-    { id: 'totalEmployees', header: 'Total Employees' },
-    { id: 'present', header: 'Present' },
-    { id: 'absent', header: 'Absent' },
-    { id: 'late', header: 'Late' },
-    { id: 'earlyGoing', header: 'Early Going' },
-    { id: 'averageWorkingHours', header: 'Average Working Hours' },
-    {
-      id: 'attendancePercentage',
-      header: 'Attendance %',
-      render: (value) => `${value}%`,
-    },
-    {
-      id: 'actions' as keyof DepartmentReport,
-      header: 'Actions',
-      render: () => (
-        <Button variant="ghost" size="icon" className="size-8 rounded-full">
-          <Eye className="size-4" />
-        </Button>
-      ),
-    },
-  ]
-}
-
-function getEmployeeColumns(): Column<EmployeeReport>[] {
-  return [
-    { id: 'id', header: '#' },
-    { id: 'date', header: 'Date' },
-    { id: 'punchIn', header: 'Punch In' },
-    { id: 'punchOut', header: 'Punch Out' },
-    { id: 'expectedIn', header: 'Expected In' },
-    { id: 'expectedOut', header: 'Expected Out' },
-    { id: 'workingHours', header: 'Working Hours' },
-    { id: 'lateBy', header: 'Late By' },
-    { id: 'earlyBy', header: 'Early By' },
-    {
-      id: 'status',
-      header: 'Status',
-      render: (value) => (
-        <StatusBadge
-          variant={value === 'present' ? 'active' : value === 'late' ? 'pending' : 'error'}
-          className="h-6 px-2.5 text-xs font-semibold"
-        >
-          {value === 'present' ? 'Present' : value === 'late' ? 'Late' : 'Absent'}
-        </StatusBadge>
-      ),
-    },
-    {
-      id: 'actions' as keyof EmployeeReport,
-      header: 'Actions',
-      render: () => (
-        <Button variant="ghost" size="icon" className="size-8 rounded-full">
-          <Eye className="size-4" />
-        </Button>
-      ),
-    },
-  ]
-}
-
 export function AttendanceReportsPage() {
-  const [activeTab, setActiveTab] = React.useState('early-going')
+  const [viewMode, setViewMode] = React.useState<ViewTabId>('summary')
   const [dateRange, setDateRange] = React.useState({ from: '2026-06-01', to: '2026-06-26' })
-  const [department, setDepartment] = React.useState('')
-  const [employee, setEmployee] = React.useState('')
+  const [groupBy, setGroupBy] = React.useState('organization')
+  const [department, setDepartment] = React.useState('all')
+  const [employee, setEmployee] = React.useState('all')
+  const [quickFilter, setQuickFilter] = React.useState('custom')
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
-  const pageSize = 10
-  const [filtersApplied, setFiltersApplied] = React.useState(false)
+   const pageSize = 10
 
-  const showEmployeeFilter = activeTab === 'employee-wise'
+  const formatDate = (date: Date) => {
+    const yyyy = date.getFullYear()
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
 
-  const earlyGoingData = filtersApplied
-    ? earlyGoingMockData.filter((d) => {
-        if (search && !d.employee.toLowerCase().includes(search.toLowerCase())) return false
-        if (department && d.department.toLowerCase() !== department.toLowerCase()) return false
-        if (dateRange.from && d.date) {
-          if (d.date < dateRange.from || d.date > dateRange.to) return false
-        }
-        return true
-      })
-    : earlyGoingMockData
+  React.useEffect(() => {
+    const today = new Date()
+    switch (quickFilter) {
+      case 'today':
+        const todayStr = formatDate(today)
+        setDateRange({ from: todayStr, to: todayStr })
+        break
+      case 'week': {
+        const day = today.getDay()
+        const diff = today.getDate() - day
+        const start = new Date(today)
+        start.setDate(diff)
+        const end = new Date(start)
+        end.setDate(end.getDate() + 6)
+        setDateRange({ from: formatDate(start), to: formatDate(end) })
+        break
+      }
+      case 'month': {
+        const start = new Date(today.getFullYear(), today.getMonth(), 1)
+        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        setDateRange({ from: formatDate(start), to: formatDate(end) })
+        break
+      }
+      case 'custom':
+      default:
+        break
+    }
+  }, [quickFilter])
 
-  const departmentData = filtersApplied
-    ? departmentReportMockData.filter((d) => {
-        if (department && d.department.toLowerCase() !== department.toLowerCase()) return false
-        return true
-      })
-    : departmentReportMockData
+  React.useEffect(() => {
+    setPage(1)
+  }, [dateRange.from, dateRange.to, groupBy, department, employee, search])
 
-  const employeeData = filtersApplied
-    ? employeeReportMockData.filter((d) => {
-        if (employee && d.employeeId?.toLowerCase() !== employee.toLowerCase()) return false
-        if (dateRange.from && d.date) {
-          if (d.date < dateRange.from || d.date > dateRange.to) return false
-        }
-        return true
-      })
-    : employeeReportMockData
+  const handleDateRangeChange = (range: { from: string; to: string }) => {
+    setDateRange(range)
+    setQuickFilter('custom')
+  }
+
+  const handleReset = () => {
+    setDateRange({ from: '2026-06-01', to: '2026-06-26' })
+    setGroupBy('organization')
+    setDepartment('all')
+    setEmployee('all')
+    setQuickFilter('custom')
+    setSearch('')
+    setPage(1)
+  }
+
+  const earlyGoingData = React.useMemo(() => {
+    return earlyGoingMockData.filter((d) => {
+      if (search && !d.employee.toLowerCase().includes(search.toLowerCase())) return false
+      if (department && department !== 'all' && d.department.toLowerCase() !== department.toLowerCase()) return false
+      if (employee && employee !== 'all' && d.employeeId.toLowerCase() !== employee.toLowerCase()) return false
+      if (dateRange.from && d.date) {
+        if (d.date < dateRange.from || d.date > dateRange.to) return false
+      }
+      return true
+    })
+  }, [search, department, employee, dateRange])
+
+  const handleSearchClick = () => {
+    setPage(1)
+  }
 
   const earlygoingCards = React.useMemo(() => {
-    const totalEmployees = earlyGoingMockData.length
-    const earlyGoingCount = earlyGoingMockData.filter((d) => d.earlyByMin > 0).length
-    const avgEarly = Math.round(
-      earlyGoingMockData.reduce((sum, d) => sum + d.earlyByMin, 0) / earlyGoingMockData.length,
-    )
-    const deptCounts = earlyGoingMockData.reduce(
+    const totalEmployees = earlyGoingData.length
+    const earlyGoingCount = earlyGoingData.filter((d) => d.earlyByMin > 0).length
+    const avgEarly = earlyGoingData.length > 0
+      ? Math.round(earlyGoingData.reduce((sum, d) => sum + d.earlyByMin, 0) / earlyGoingData.length)
+      : 0
+    const deptCounts = earlyGoingData.reduce(
       (acc, d) => {
         acc[d.department] = (acc[d.department] || 0) + 1
         return acc
       },
       {} as Record<string, number>,
     )
-    const highestDept = Object.entries(deptCounts).reduce((max, curr) =>
-      curr[1] > max[1] ? curr : max,
-    )[0] as string
+    const deptEntries = Object.entries(deptCounts)
+    const highestDept = deptEntries.length > 0
+      ? deptEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)[0] as string
+      : ''
 
     return [
       { id: 'total-employees', label: 'Total Employees', value: totalEmployees },
@@ -189,41 +174,7 @@ export function AttendanceReportsPage() {
       { id: 'avg-early-minutes', label: 'Average Early Minutes', value: avgEarly, unit: 'min' },
       { id: 'highest-early-dept', label: 'Highest Early Going Department', value: highestDept },
     ]
-  }, [earlyGoingMockData])
-
-  const departmentCards = React.useMemo(() => {
-    const totalDepts = departmentReportMockData.length
-    const bestDept = departmentReportMockData.reduce((max, d) =>
-      d.attendancePercentage > max.attendancePercentage ? d : max,
-    ).department
-    const lowestDept = departmentReportMockData.reduce((min, d) =>
-      d.attendancePercentage < min.attendancePercentage ? d : min,
-    ).department
-    const highestEarlyDept = departmentReportMockData.reduce((max, d) =>
-      d.earlyGoing > max.earlyGoing ? d : max,
-    ).department
-
-    return [
-      { id: 'total-depts', label: 'Total Departments', value: totalDepts },
-      { id: 'best-attendance', label: 'Best Attendance Department', value: bestDept },
-      { id: 'lowest-attendance', label: 'Lowest Attendance Department', value: lowestDept },
-      { id: 'highest-early', label: 'Highest Early Going Department', value: highestEarlyDept },
-    ]
-  }, [])
-
-  const employeeCards = React.useMemo(() => {
-    const workingDays = employeeReportMockData.length
-    const presentDays = employeeReportMockData.filter((d) => d.status === 'present').length
-    const absentDays = employeeReportMockData.filter((d) => d.status === 'absent').length
-    const lateEarlyDays = employeeReportMockData.filter((d) => d.lateBy !== '--' || d.earlyBy !== '--').length
-
-    return [
-      { id: 'working-days', label: 'Working Days', value: workingDays },
-      { id: 'present-days', label: 'Present Days', value: presentDays },
-      { id: 'absent-days', label: 'Absent Days', value: absentDays },
-      { id: 'late-early', label: 'Late / Early Days', value: lateEarlyDays },
-    ]
-  }, [])
+  }, [earlyGoingData])
 
   const handleExport = () => {
     console.log('Export clicked')
@@ -237,82 +188,256 @@ export function AttendanceReportsPage() {
     console.log('Saved report:', value)
   }
 
-  const handleSearchClick = () => {
-    setFiltersApplied(true)
-    setPage(1)
+  const groupedTableData = React.useMemo((): GroupedRecord[] => {
+    const dataSource = earlyGoingData
+    switch (groupBy) {
+      case 'organization': {
+        const deptMap = new Map<string, { employees: number; present: number; absent: number; late: number; earlyGoing: number }>()
+        dataSource.forEach((d) => {
+          if (!deptMap.has(d.department)) {
+            deptMap.set(d.department, { employees: 0, present: 0, absent: 0, late: 0, earlyGoing: 0 })
+          }
+          const entry = deptMap.get(d.department)!
+          if (d.status === 'present') entry.present += 1
+          if (d.status === 'absent') entry.absent += 1
+          if (d.status === 'late') entry.late += 1
+          if (d.earlyByMin > 0) entry.earlyGoing += 1
+        })
+        return Array.from(deptMap.entries()).map(([dept, vals]) => ({
+          id: dept,
+          department: dept,
+          employees: vals.present + vals.absent + vals.late,
+          present: vals.present,
+          absent: vals.absent,
+          late: vals.late,
+          earlyGoing: vals.earlyGoing,
+          attendancePercentage: vals.employees > 0 ? Math.round((vals.present / vals.employees) * 100) : 0,
+          recentRecords: dataSource.filter((r) => r.department === dept).slice(-3),
+        }))
+      }
+      case 'department':
+        const deptMap = new Map<string, { employees: number; present: number; absent: number; late: number; earlyGoing: number }>()
+        dataSource.forEach((d) => {
+          if (!deptMap.has(d.department)) {
+            deptMap.set(d.department, { employees: 0, present: 0, absent: 0, late: 0, earlyGoing: 0 })
+          }
+          const entry = deptMap.get(d.department)!
+          entry.employees += 1
+          if (d.status === 'present') entry.present += 1
+          if (d.status === 'absent') entry.absent += 1
+          if (d.status === 'late') entry.late += 1
+          if (d.earlyByMin > 0) entry.earlyGoing += 1
+        })
+        return Array.from(deptMap.entries()).map(([dept, vals]) => ({
+          id: dept,
+          department: dept,
+          employees: vals.employees,
+          present: vals.present,
+          absent: vals.absent,
+          late: vals.late,
+          earlyGoing: vals.earlyGoing,
+          attendancePercentage: Math.round((vals.present / vals.employees) * 100),
+          recentRecords: dataSource.filter((r) => r.department === dept).slice(-3),
+        }))
+      default:
+        return dataSource.map((d) => ({
+          id: d.id,
+          employee: d.employee,
+          employeeId: d.employeeId,
+          department: d.department,
+          date: d.date,
+          punchIn: d.punchIn,
+          punchOut: d.punchOut,
+          earlyBy: d.earlyBy,
+          earlyByMin: d.earlyByMin,
+          status: d.status,
+          recentRecords: dataSource.filter((r) => r.employee === d.employee).slice(-5),
+        }))
+    }
+  }, [groupBy, earlyGoingData])
+
+  const trendData = React.useMemo((): AttendanceTrendData[] => {
+    const dataSource = earlyGoingData
+    const dateMap = new Map<string, { present: number; late: number; early: number; absent: number }>()
+    dataSource.forEach((r: any) => {
+      const date = r.date
+      if (!dateMap.has(date)) dateMap.set(date, { present: 0, late: 0, early: 0, absent: 0 })
+      const entry = dateMap.get(date)!
+      if (r.status === 'present') entry.present += 1
+      else if (r.status === 'late') entry.late += 1
+      else if (r.status === 'absent') entry.absent += 1
+      if (r.earlyByMin > 0) entry.early += 1
+    })
+    return Array.from(dateMap.entries()).map(([label, vals]) => ({
+      label,
+      present: vals.present,
+      late: vals.late,
+      earlyGoing: vals.early,
+      absent: vals.absent,
+    }))
+  }, [earlyGoingData])
+
+  const distributionData = React.useMemo((): AttendanceDistributionData => {
+    const dataSource = earlyGoingData
+    const present = dataSource.filter((r: any) => r.status === 'present').length
+    const late = dataSource.filter((r: any) => r.status === 'late').length
+    const absent = dataSource.filter((r: any) => r.status === 'absent').length
+    const earlyGoing = dataSource.filter((r: any) => r.earlyByMin > 0).length
+
+    return { present, late, earlyGoing, absent }
+  }, [earlyGoingData])
+
+  const highlightsData = React.useMemo((): AttendanceHighlightsData => {
+    const dataSource = earlyGoingData
+    const deptCounts = new Map<string, { present: number; absent: number; early: number; total: number }>()
+    dataSource.forEach((r: any) => {
+      const dept = r.department
+      if (!deptCounts.has(dept)) deptCounts.set(dept, { present: 0, absent: 0, early: 0, total: 0 })
+      const entry = deptCounts.get(dept)!
+      entry.total += 1
+      if (r.status === 'present') entry.present += 1
+      if (r.status === 'absent') entry.absent += 1
+      if (r.earlyByMin > 0) entry.early += 1
+    })
+
+    let bestDept = '', worstDept = '', earlyDept = ''
+    let bestPct = 0, worstPct = 100, earlyCnt = 0
+    deptCounts.forEach((vals, dept) => {
+      const pct = (vals.present / vals.total) * 100
+      if (pct > bestPct) { bestPct = pct; bestDept = dept }
+      if (pct < worstPct) { worstPct = pct; worstDept = dept }
+      if (vals.early > earlyCnt) { earlyCnt = vals.early; earlyDept = dept }
+    })
+
+    return {
+      highestAttendanceDept: bestDept,
+      highestAbsenteeismDept: worstDept,
+      highestEarlyGoingDept: earlyDept,
+    }
+  }, [earlyGoingData])
+
+  const enhancedCards = React.useMemo<AttendanceKPICard[]>(() => {
+    const dist = distributionData
+    const total = dist.present + dist.late + dist.earlyGoing + dist.absent
+    if (total === 0) return []
+
+    const attendancePct = Math.round((dist.present / total) * 100)
+    const latePct = Math.round((dist.late / total) * 100)
+    const earlyPct = Math.round((dist.earlyGoing / total) * 100)
+    const absentPct = Math.round((dist.absent / total) * 100)
+
+    return getEnhancedSummaryCards({
+      totalEmployees: total,
+      attendancePercentage: attendancePct,
+      latePercentage: latePct,
+      earlyGoingPercentage: earlyPct,
+      absentPercentage: absentPct,
+    })
+  }, [distributionData])
+
+  const renderDailyDetails = () => {
+    const data = earlyGoingData
+    const total = earlyGoingData.length
+    const cards = earlygoingCards
+    const columns = getEarlyGoingColumns()
+
+    return (
+      <div className="flex flex-col gap-6">
+        <AttendanceSummaryCards cards={cards} />
+        <AttendanceReportTable
+          columns={columns as any}
+          data={data as any}
+          searchValue={search}
+          onSearchChange={setSearch}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+        />
+      </div>
+    )
+  }
+
+  const renderSummary = () => (
+    <div className="flex flex-col gap-6">
+      <AttendanceKPICards cards={enhancedCards} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AttendanceTrendChart data={trendData} />
+        <AttendanceDonutChart data={distributionData} />
+      </div>
+      <AttendanceHighlights data={highlightsData} />
+    </div>
+  )
+
+  const renderTrendFocus = () => (
+    <div className="flex flex-col gap-6">
+      <AttendanceTrendChart data={trendData} className="lg:col-span-2" />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AttendanceDonutChart data={distributionData} />
+        <AttendanceHighlights data={highlightsData} />
+      </div>
+    </div>
+  )
+
+  const renderTableFocus = () => (
+    <AttendanceGroupedTable
+      records={groupedTableData}
+      groupBy={groupBy}
+      searchValue={search}
+      onSearchChange={setSearch}
+      className="sm:col-span-2"
+    />
+  )
+
+  const renderContent = () => {
+    switch (viewMode) {
+      case 'summary':
+        return renderSummary()
+      case 'table-focus':
+        return renderTableFocus()
+      case 'trend-focus':
+        return renderTrendFocus()
+      case 'daily-details':
+        return renderDailyDetails()
+      default:
+        return renderSummary()
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <GtgPageHeader
-        title="Attendance Reports"
-        description="View and analyze attendance data with detailed reports."
-      />
-
-      <AttendanceTabs
-        tabs={earlyGoingTabs}
-        active={activeTab}
-        onChange={setActiveTab}
-      />
-
-      <AttendanceFilters
-        dateRange={dateRange}
-        department={department}
-        employee={employee}
-        onDateRangeChange={setDateRange}
-        onDepartmentChange={setDepartment}
-        onEmployeeChange={setEmployee}
-        onSavedReportChange={handleSavedReportChange}
+      <AttendanceReportHeader
+        onSave={() => console.log('Save clicked')}
         onExport={handleExport}
         onPrint={handlePrint}
-        onSearch={handleSearchClick}
+      />
+
+      <EnhancedAttendanceFilters
+        dateRange={dateRange}
+        groupBy={groupBy}
+        department={department}
+        employee={employee}
+        quickFilter={quickFilter}
         departments={departments}
         employees={employees}
         savedReports={savedReports}
-        showEmployee={showEmployeeFilter}
+        onDateRangeChange={handleDateRangeChange}
+        onGroupByChange={setGroupBy}
+        onDepartmentChange={setDepartment}
+        onEmployeeChange={setEmployee}
+        onQuickFilterChange={setQuickFilter}
+        onSavedReportChange={handleSavedReportChange}
+        onReset={handleReset}
+        onSearch={handleSearchClick}
       />
 
-      <AttendanceSummaryCards
-        cards={
-          activeTab === 'early-going'
-            ? earlygoingCards
-            : activeTab === 'department-wise'
-              ? departmentCards
-              : employeeCards
-        }
+      <ReportViewTabs
+        tabs={viewTabs}
+        active={viewMode}
+        onChange={(id) => setViewMode(id as ViewTabId)}
       />
 
-      <AttendanceReportTable
-        columns={(
-          activeTab === 'early-going'
-            ? getEarlyGoingColumns()
-            : activeTab === 'department-wise'
-              ? getDepartmentColumns()
-              : getEmployeeColumns()
-        ) as any}
-        data={
-          (
-            activeTab === 'early-going'
-              ? earlyGoingData
-              : activeTab === 'department-wise'
-                ? departmentData
-              : employeeData
-          ) as any
-        }
-        searchValue={search}
-        onSearchChange={setSearch}
-        page={page}
-        pageSize={pageSize}
-        total={
-          activeTab === 'early-going'
-            ? earlyGoingData.length
-            : activeTab === 'department-wise'
-              ? departmentData.length
-              : employeeData.length
-        }
-        onPageChange={setPage}
-        filtersApplied={filtersApplied}
-      />
+      {renderContent()}
     </div>
   )
 }

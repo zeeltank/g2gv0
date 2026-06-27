@@ -539,7 +539,7 @@ export function OrganizationDetailsForm({
               </label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {allDays.map((day) => (
-                  <Badge key={day} tone={formData.workingDays.includes(day) ? 'navy' : 'outline'}>
+                  <Badge key={day} tone={formData.workingDays.includes(day) ? 'primary' : 'outline'}>
                     {day}
                   </Badge>
                 ))}

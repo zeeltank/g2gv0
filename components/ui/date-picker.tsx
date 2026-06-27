@@ -14,13 +14,15 @@ import {
 } from "@/components/ui/popover"
 
 interface DatePickerProps {
-  value?: Date
-  onChange?: (date?: Date) => void
+  value?: Date | string
+  onChange?: (date?: Date | string) => void
   placeholder?: string
   className?: string
 }
 
 export function DatePicker({ value, onChange, placeholder = "Pick a date", className }: DatePickerProps) {
+  const dateValue = typeof value === 'string' ? (value ? new Date(value) : undefined) : value
+  
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -33,13 +35,13 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date", class
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? dateFns.format(value, "PPP") : <span>{placeholder}</span>}
+          {dateValue ? dateFns.format(dateValue, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
-          selected={value}
+          selected={dateValue}
           onSelect={onChange}
           initialFocus
           captionLayout="dropdown-buttons"
