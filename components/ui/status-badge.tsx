@@ -37,6 +37,7 @@ interface StatusBadgeProps
     VariantProps<typeof statusBadgeVariants> {
   icon?: React.ReactNode
   status?: string
+  label?: string
 }
 
 const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>['variant']> = {
@@ -50,7 +51,7 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
 }
 
 const StatusBadge = React.forwardRef<HTMLDivElement, StatusBadgeProps>(
-  ({ className, variant, status, size, icon, children, ...props }, ref) => {
+  ({ className, variant, status, label, size, icon, children, ...props }, ref) => {
     const activeVariant = status ? (statusVariantMap[status] || variant || 'default') : variant;
     
     return (
@@ -60,7 +61,7 @@ const StatusBadge = React.forwardRef<HTMLDivElement, StatusBadgeProps>(
         {...props}
       >
         {icon && <span>{icon}</span>}
-        {children || (status ? status.replace('-', ' ') : null)}
+        {children || label || (status ? status.replace('-', ' ') : null)}
       </div>
     )
   },

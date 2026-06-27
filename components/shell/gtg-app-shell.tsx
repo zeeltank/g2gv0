@@ -14,6 +14,9 @@ import { OrganizationDetailsForm } from '@/components/org/organization-details'
 import { DepartmentList } from '@/components/org/department-list'
 import { DepartmentHierarchy } from '@/components/org/department-hierarchy'
 import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import { CmCommandCenter } from '@/components/competency/cm-command-center'
+import { CmCompetencyLibrary } from '@/components/competency/cm-competency-library'
+import { CmFrameworkMapping } from '@/components/competency/cm-framework-mapping'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
@@ -106,26 +109,19 @@ function renderContent(active: ActiveNav, userRole: string) {
 
   // M2 — Competency Management
   if (active.moduleId === 'm2') {
-    switch (active.submenuId) {
-      case 'taxonomy-library':
+    const routeId = active.submenuId || active.menuId
+    switch (routeId) {
+      case 'cm-command-center':
+        return <CmCommandCenter />
+      case 'cm-competency-library':
+        return <CmCompetencyLibrary />
+      case 'cm-framework-mapping':
+        return <CmFrameworkMapping />
+      default:
         return (
           <ComingSoonScreen
-            title="Taxonomy & Library"
-            description="Manage competency frameworks, skills taxonomy, and library mappings. Coming soon."
-          />
-        )
-      case 'job-role-catalogue':
-        return (
-          <ComingSoonScreen
-            title="Job Role Catalogue"
-            description="Define and maintain job roles with associated competencies and levels. Coming soon."
-          />
-        )
-      case 'employee-rating':
-        return (
-          <ComingSoonScreen
-            title="Employee Rating"
-            description="View and manage competency ratings for employees across roles. Coming soon."
+            title="Competency Management"
+            description="Manage and track workforce capabilities. Coming soon."
           />
         )
     }
