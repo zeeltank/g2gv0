@@ -4,20 +4,21 @@ import * as React from 'react'
 import {
   AlarmClock,
   BarChart3,
-  CalendarCheck,
   CalendarDays,
   ChevronDown,
   ChevronRight,
-  Gift,
+  Clock,
+  Download,
+  Home,
   LogIn,
   LogOut,
   MapPin,
   MoreVertical,
+  CalendarPlus,
 } from 'lucide-react'
 
 import { AttendanceCalendarDrawer } from './attendance-calendar-drawer'
 import { AttendanceHistoryDrawer } from './attendance-history-drawer'
-import { LeaveBalanceModal } from './leave-balance-modal'
 import { EventDetailsDrawer } from './event-details-drawer'
 import { useAttendance } from './use-attendance'
 import { Badge } from '@/components/ui/badge'
@@ -25,8 +26,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import {
+  EmployeeSnapshotWidget,
+  QuickActionsWidget,
+  AttendanceAlertsWidget,
+  MyRequestsWidget,
+  UpcomingEventsWidget,
+} from '@/components/attendance/dashboard-widgets'
+import type { QuickAction, AttendanceAlert, MyRequest } from './dashboard-widgets/widget-types'
 
-import type { AttendanceRecord, AttendanceStatus, Event, LeaveBalance } from './types'
+import type { AttendanceRecord, AttendanceStatus, Event } from './types'
 
 const SHIFT_END = '06:00 PM'
 const SHIFT_TOTAL_MINUTES = 510
@@ -63,8 +72,36 @@ export function AttendanceDashboard() {
 
   const [calendarOpen, setCalendarOpen] = React.useState(false)
   const [historyOpen, setHistoryOpen] = React.useState(false)
-  const [leaveModalOpen, setLeaveModalOpen] = React.useState(false)
   const [eventsOpen, setEventsOpen] = React.useState(false)
+
+  const quickActions: QuickAction[] = [
+    { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => {} },
+    { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => {} },
+    { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => {} },
+    { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => {} },
+    { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => {} },
+  ]
+
+  const attendanceAlerts: AttendanceAlert[] = [
+    { id: 'a1', text: 'Missing Punch-Out (Jun 18)', severity: 'critical' },
+    { id: 'a2', text: 'Regularization Pending (1)', severity: 'warning' },
+    { id: 'a3', text: 'Attendance Locked in 2 Days', severity: 'info' },
+    { id: 'a4', text: 'Early Exit on Jun 20', severity: 'warning' },
+  ]
+
+  const myRequests: MyRequest[] = [
+    { id: 'r1', type: 'Regularization', status: 'Pending', count: 1 },
+    { id: 'r2', type: 'Leave Requests', status: 'Pending', count: 2 },
+    { id: 'r3', type: 'WFH Requests', status: 'Approved', count: 1 },
+    { id: 'r4', type: 'Attendance Corrections', status: 'Rejected', count: 1 },
+  ]
+
+  const attendancePercentage = React.useMemo(() => {
+    if (!monthlySummary) return 0
+    const total = monthlySummary.present + monthlySummary.late + monthlySummary.leave + monthlySummary.absent
+    if (total === 0) return 0
+    return Math.round((monthlySummary.present / total) * 100)
+  }, [monthlySummary])
 
   return (
     <div className="relative space-y-4 lg:space-y-5">
@@ -85,7 +122,7 @@ export function AttendanceDashboard() {
           aria-label="Open monthly attendance calendar"
         >
           <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-            <CalendarDays className="size-5" />
+            c
           </span>
           <span className="flex-1 text-left">{CURRENT_DATE_LABEL}</span>
           <ChevronDown className="size-4 text-muted-foreground" />
@@ -107,18 +144,17 @@ export function AttendanceDashboard() {
         onPunch={punch}
       />
 
-      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.35fr_1.1fr]">
-        <LeaveBalancePanel
-          balance={leaveBalance}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <EmployeeSnapshotWidget
+          leaveBalance={leaveBalance}
+          nextHoliday={upcomingEvents[0] || null}
+          attendance={attendancePercentage}
           loading={loading}
-          onViewBalance={() => setLeaveModalOpen(true)}
         />
-        <TodaySummaryPanel record={todayRecord} loading={loading} />
-        <NextHolidayPanel
-          events={upcomingEvents}
-          loading={loading}
-          onViewEvents={() => setEventsOpen(true)}
-        />
+        <QuickActionsWidget actions={quickActions} loading={loading} />
+        <AttendanceAlertsWidget alerts={attendanceAlerts} loading={loading} />
+        <MyRequestsWidget requests={myRequests} loading={loading} onViewAll={() => {}} />
+        <UpcomingEventsWidget events={upcomingEvents} loading={loading} onViewCalendar={() => setEventsOpen(true)} />
       </section>
 
       <RecentAttendancePanel
@@ -138,13 +174,6 @@ export function AttendanceDashboard() {
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         records={attendanceHistory}
-        loading={loading}
-      />
-
-      <LeaveBalanceModal
-        open={leaveModalOpen}
-        onOpenChange={setLeaveModalOpen}
-        balance={leaveBalance || null}
         loading={loading}
       />
 
@@ -311,151 +340,6 @@ function TodayAttendancePanel({
               tone="primary"
             />
 
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-interface TodaySummaryPanelProps {
-  record: AttendanceRecord | null
-  loading: boolean
-}
-
-function TodaySummaryPanel({ record, loading }: TodaySummaryPanelProps) {
-  const currentTime = useCurrentTime()
-  const activeShift = !!record?.punchIn && !record?.punchOut
-  const workingDuration = activeShift
-    ? formatDuration(currentTime, record?.punchIn)
-    : record?.totalHours || '--'
-  const status = record?.status || 'absent'
-
-  if (loading) {
-    return <Skeleton className="min-h-[190px] rounded-2xl" />
-  }
-
-  return (
-    <Card className="rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="p-5">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <span className="grid size-14 place-items-center rounded-2xl bg-success/10 text-success">
-              <BarChart3 className="size-8" />
-            </span>
-            <h2 className="text-lg font-bold text-foreground">Today's Summary</h2>
-          </div>
-          <Button variant="ghost" size="icon" className="size-10 rounded-full bg-muted" aria-label="Open today summary">
-            <ChevronRight className="size-5" />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 text-sm sm:text-base">
-          <SummaryMetric label="Punch In" value={record?.punchIn || '--'} highlight />
-          <SummaryMetric label="Punch Out" value={record?.punchOut || '--'} />
-          <SummaryMetric label="Total Hours" value={workingDuration} highlight />
-          <SummaryMetric label="Break Time" value={record?.breakTime || '--'} />
-          <SummaryMetric label="Overtime" value={record?.overtime || '--'} />
-          <div>
-            <p className="mb-2 font-medium text-muted-foreground">Status</p>
-            <Badge variant={statusVariantMap[status]} className="h-9 gap-2 rounded-full px-4 text-base font-bold">
-              <span className="size-2 rounded-full bg-current" />
-              {statusLabelMap[status]}
-            </Badge>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SummaryMetric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="border-r border-border pr-4 last:border-r-0 [&:nth-child(3n)]:border-r-0">
-      <p className="mb-2 font-medium text-muted-foreground">{label}</p>
-      <p className={cn('text-lg font-bold text-foreground', highlight && 'text-success')}>{value}</p>
-    </div>
-  )
-}
-
-interface LeaveBalancePanelProps {
-  balance: LeaveBalance | null
-  loading: boolean
-  onViewBalance: () => void
-}
-
-function LeaveBalancePanel({ balance, loading, onViewBalance }: LeaveBalancePanelProps) {
-  const availableLeave = (balance?.casual ?? 0) + (balance?.earned ?? 0)
-
-  if (loading) {
-    return <Skeleton className="min-h-[190px] rounded-2xl" />
-  }
-
-  return (
-    <Card className="rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-              <CalendarCheck className="size-8" />
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Leave Balance</h2>
-              <p className="text-lg font-bold text-foreground">{availableLeave} Days</p>
-              <p className=" text-sm font-medium text-muted-foreground">Available Leave</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" className="size-10 shrink-0 rounded-full bg-muted" onClick={onViewBalance} aria-label="View leave balance">
-            <ChevronRight className="size-5" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-interface NextHolidayPanelProps {
-  events: Event[]
-  loading: boolean
-  onViewEvents: () => void
-}
-
-function NextHolidayPanel({ events, loading, onViewEvents }: NextHolidayPanelProps) {
-  const event = events[0]
-
-  if (loading) {
-    return <Skeleton className="min-h-[190px] rounded-2xl" />
-  }
-
-  return (
-    <Card className="overflow-hidden rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="relative p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <span className="grid size-14 place-items-center rounded-2xl bg-violet-100 text-violet-600">
-              <Gift className="size-8" />
-            </span>
-            <h2 className="text-lg font-bold text-foreground">Next Holiday</h2>
-          </div>
-          <Button variant="ghost" size="icon" className="size-10 shrink-0 rounded-full bg-muted" onClick={onViewEvents} aria-label="View upcoming holidays">
-            <ChevronRight className="size-5" />
-          </Button>
-        </div>
-
-        <div className="mt-7 grid grid-cols-[1fr_auto] items-end gap-4">
-          <div>
-            <p className="text-lg font-bold text-foreground">{event?.title || 'No holiday scheduled'}</p>
-            <p className="mt-2 text-sm font-medium text-muted-foreground">
-              {event ? formatEventDate(event.date) : '--'}
-            </p>
-          </div>
-          <div className="relative h-24 w-28 shrink-0">
-            <div className="absolute bottom-0 left-2 right-0 h-20 rounded-lg border border-primary/20 bg-primary/10 shadow-sm" />
-            <div className="absolute bottom-3 left-0 right-3 rounded-lg border border-border bg-card text-center shadow-md">
-              <div className="h-4 rounded-t-lg bg-destructive" />
-              <p className="pt-2 text-2xl font-bold leading-none text-primary">{event ? getDayOfMonth(event.date) : '--'}</p>
-              <p className="pb-2 text-xs font-bold uppercase text-primary">{event ? getShortMonth(event.date) : ''}</p>
-            </div>
           </div>
         </div>
       </CardContent>
