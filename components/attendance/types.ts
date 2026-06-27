@@ -24,7 +24,7 @@ export interface Event {
   id: string
   title: string
   date: string
-  type: 'holiday' | 'event'
+  type: 'holiday' | 'event' | 'leave'
   description?: string
 }
 
