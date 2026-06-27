@@ -19,6 +19,7 @@ const badgeVariants = cva(
           'border border-warning/20 bg-warning/10 text-warning hover:bg-warning/15',
         muted:
           'border border-border bg-muted text-muted-foreground hover:bg-muted/80',
+        navy: 'border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15',
       },
     },
     defaultVariants: {

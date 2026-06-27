@@ -19,11 +19,10 @@ interface AttendanceReportTableProps<T extends Record<string, any>> extends Reac
   pageSize: number
   total: number
   onPageChange: (page: number) => void
-  filtersApplied?: boolean
 }
 
 export function AttendanceReportTable<T extends Record<string, any>>({
-  columns,
+   columns,
   data,
   isLoading,
   searchValue,
@@ -32,7 +31,6 @@ export function AttendanceReportTable<T extends Record<string, any>>({
   pageSize,
   total,
   onPageChange,
-  filtersApplied,
   className,
   ...props
 }: AttendanceReportTableProps<T>) {
@@ -63,8 +61,8 @@ export function AttendanceReportTable<T extends Record<string, any>>({
         emptyState={
           <EmptyState
             icon={<FileText className="size-8" />}
-            title={filtersApplied ? 'No records found' : 'No records found'}
-            description={filtersApplied ? 'No attendance records found for the selected criteria.' : 'No attendance records match your current filters.'}
+            title="No records found"
+            description="No attendance records match your current filters."
           />
         }
       />

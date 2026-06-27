@@ -15,13 +15,12 @@ interface AttendanceTabsProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const AttendanceTabs = React.forwardRef<HTMLDivElement, AttendanceTabsProps>(
-  ({ tabs, active, onChange, className, ...props }, ref) => {
+  ({ tabs, active, onChange, className }, ref) => {
     return (
       <div
         ref={ref}
         role="tablist"
         className={cn('flex items-center gap-1 border-b border-border', className)}
-        {...props}
       >
         {tabs.map((tab) => {
           const isActive = tab.id === active
