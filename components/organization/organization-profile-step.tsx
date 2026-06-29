@@ -336,7 +336,7 @@ export function OrganizationProfileStep({
               />
             </FormField>
             <FormField label="Industry" required>
-              <SelectInput
+              <Select
                 value={currentOrg.industryType}
                 onChange={(value) => updateOrganization('industryType', value)}
                 options={[
@@ -350,7 +350,7 @@ export function OrganizationProfileStep({
               />
             </FormField>
             <FormField label="Organization Type" required>
-              <SelectInput
+              <Select
                 value={currentOrg.organizationType}
                 onChange={(value) =>
                   updateOrganization('organizationType', value)
@@ -364,7 +364,7 @@ export function OrganizationProfileStep({
               />
             </FormField>
             <FormField label="Business Type" required>
-              <SelectInput
+              <Select
                 value={currentOrg.businessType}
                 onChange={(value) => updateOrganization('businessType', value)}
                 options={[

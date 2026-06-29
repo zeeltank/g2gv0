@@ -196,13 +196,6 @@ export default function OrganizationSetupPage() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
 
-  if (isLoading) return null
-  if (!user || !['admin', 'hr'].includes(user.role)) {
-    return (
-      <AccessDeniedPage reason="Organization setup is accessible to Admin and HR roles only." />
-    )
-  }
-
   const [activeStep, setActiveStep] = useState<WizardStep>('organization')
   const [completed, setCompleted] = useState<Record<WizardStep, boolean>>({
     organization: false,
@@ -243,6 +236,13 @@ export default function OrganizationSetupPage() {
   const currentStep = mainCompletedSteps.size + 1
   const completionCount = steps.filter((step) => completed[step.id as WizardStep]).length
   const isComplete = completionCount === steps.length
+
+  if (isLoading) return null
+  if (!user || !['admin', 'hr'].includes(user.role)) {
+    return (
+      <AccessDeniedPage reason="Organization setup is accessible to Admin and HR roles only." />
+    )
+  }
 
   const updateOrganization = (field: keyof OrganizationForm, value: string) => {
     setOrganization((current) => {
