@@ -106,9 +106,7 @@ export const GTG_NAVIGATION: NavModule[] = [
       { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },
       { id: 'cm-development-career', label: 'Development & Career Paths', icon: Target, submenus: [] },
       { id: 'cm-certifications', label: 'Certifications', icon: Award, submenus: [] },
-      { id: 'cm-reports', label: 'Reports', icon: BarChart3, submenus: [] },
       { id: 'cm-audit', label: 'Audit & Activity Center', icon: ShieldCheck, submenus: [] },
-      { id: 'cm-admin', label: 'Administration', icon: Settings, submenus: [] },
     ],
   },
   {
