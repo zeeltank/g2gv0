@@ -52,9 +52,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 export function CmFrameworkMapping() {
   const [activeTab, setActiveTab] = useState('matrix')
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6 p-6 min-h-max">
@@ -79,16 +87,14 @@ export function CmFrameworkMapping() {
             <Download className="w-4 h-4" /> Export
           </Button>
           
+          <Button onClick={() => setIsCreateOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
+            <Plus className="w-4 h-4 stroke-[3]" /> Create Framework
+          </Button>
           <DropdownMenu>
-            <div className="flex items-center rounded-xl bg-primary shadow-md shadow-primary/20 overflow-hidden group">
-              <DropdownMenuTrigger className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-10 px-4 flex items-center gap-2 rounded-none border-r border-primary-foreground/20">
-                <Plus className="w-4 h-4 stroke-[3]" /> Create Framework
-              </DropdownMenuTrigger>
-              <DropdownMenuTrigger className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 outline-none transition-colors">
-                <ChevronDown className="w-4 h-4" />
-              </DropdownMenuTrigger>
-            </div>
-            <DropdownMenuContent align="end">
+            <DropdownMenuTrigger className="w-10 h-10 p-0 rounded-xl bg-background border border-border flex items-center justify-center hover:bg-accent hover:text-accent-foreground outline-none transition-colors">
+              <ChevronDown className="w-4 h-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem>New Empty Framework</DropdownMenuItem>
               <DropdownMenuItem>From Template</DropdownMenuItem>
             </DropdownMenuContent>
@@ -694,6 +700,36 @@ export function CmFrameworkMapping() {
           </div>
         </div>
       )}
+
+      {/* Create Framework Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-primary/10 m-0">
+            <DialogTitle className="text-xl font-bold text-foreground">Create Framework</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 flex flex-col gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">Framework Name</label>
+              <Input placeholder="Enter framework name" className="bg-background border-border" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">Description</label>
+              <textarea 
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[100px] resize-none" 
+                placeholder="Enter description..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-6 pt-4 border-t border-primary/5 bg-muted/10 m-0">
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="h-9 px-6 rounded-lg font-bold border-border bg-background">
+              Cancel
+            </Button>
+            <Button onClick={() => setIsCreateOpen(false)} className="h-9 px-6 rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90">
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

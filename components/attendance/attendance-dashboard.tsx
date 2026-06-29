@@ -111,7 +111,7 @@ export function AttendanceDashboard() {
             Good Morning, Amit! <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
-            Here's your attendance overview for today.
+            Here's your attenance overview for today.
           </p>
         </div>
 
