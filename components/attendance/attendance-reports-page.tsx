@@ -16,7 +16,11 @@ import { Button } from '@/components/ui/button'
 import { Eye } from 'lucide-react'
 import type { Column } from '@/components/ui/data-table'
 import { AttendanceTabs } from './attendance-tabs'
-import { AttendanceKPICards } from './attendance-kpi-cards'
+import {
+  AttendanceKPICards,
+  type AttendanceKPICard,
+  getEnhancedSummaryCards,
+} from './attendance-kpi-cards'
 import { AttendanceTrendChart } from './attendance-trend-chart'
 import { AttendanceDonutChart} from './attendance-donut-chart'
 import { AttendanceHighlights } from './attendance-highlights'
@@ -67,28 +71,6 @@ type AttendanceHighlightsData = {
   highestEarlyGoingDept: string
 }
 
-type AttendanceKPICard = {
-  title: string
-  value: string | number
-  icon?: React.ReactNode
-  variant?: string
-}
-
-function getEnhancedSummaryCards(opts: {
-  totalEmployees: number
-  attendancePercentage: number
-  latePercentage: number
-  earlyGoingPercentage: number
-  absentPercentage: number
-}): AttendanceKPICard[] {
-  return [
-    { title: 'Total Employees', value: opts.totalEmployees },
-    { title: 'Attendance', value: `${opts.attendancePercentage}%`, variant: 'success' },
-    { title: 'Late', value: `${opts.latePercentage}%`, variant: 'warning' },
-    { title: 'Early Going', value: `${opts.earlyGoingPercentage}%`, variant: 'muted' },
-    { title: 'Absent', value: `${opts.absentPercentage}%`, variant: 'danger' },
-  ]
-}
 
 const viewTabs: ViewTab[] = [
   { id: 'table-focus', label: 'Table Focus' },
