@@ -45,10 +45,10 @@ export function OrganizationInformation({ role }: { role: Role }) {
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Badge tone="navy">
+          {/* <Badge tone="navy">
             <Building2 className="size-3.5" aria-hidden="true" />
             {org.organizationType}
-          </Badge>
+          </Badge> */}
           {access === 'view' && <Badge tone="outline">View Only</Badge>}
         </div>
         {canEdit && (
