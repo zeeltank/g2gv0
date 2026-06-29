@@ -1,15 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { GtgPageHeader } from '@/components/shell/gtg-page-header'
 import { EnhancedAttendanceFilters } from './enhanced-attendance-filters'
 import { AttendanceReportTable } from './attendance-report-table'
-import { AttendanceReportHeader } from './attendance-report-header'
-import { AttendanceTabs as ReportViewTabs, type ReportTab as ViewTab } from './attendance-tabs'
-import { AttendanceKPICards, type AttendanceKPICard, getEnhancedSummaryCards } from './attendance-kpi-cards'
-import { AttendanceTrendChart, type AttendanceTrendData } from './attendance-trend-chart'
-import { AttendanceDonutChart, type AttendanceDistributionData } from './attendance-donut-chart'
-import { AttendanceHighlights, type AttendanceHighlightsData } from './attendance-highlights'
-import { AttendanceGroupedTable, type GroupedRecord } from './attendance-grouped-table'
 import {
   earlyGoingMockData,
   departments,
@@ -21,14 +15,86 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Eye } from 'lucide-react'
 import type { Column } from '@/components/ui/data-table'
+import { AttendanceTabs } from './attendance-tabs'
+import { AttendanceKPICards } from './attendance-kpi-cards'
+import { AttendanceTrendChart } from './attendance-trend-chart'
+import { AttendanceDonutChart} from './attendance-donut-chart'
+import { AttendanceHighlights } from './attendance-highlights'
+import {AttendanceGroupedTable} from './attendance-grouped-table'
+
+
+type ViewTab = { id: ViewTabId; label: string }
+type ViewTabId = 'table-focus' | 'trend-focus' | 'daily-details'
+
+type GroupedRecord = {
+  id: string
+  department?: string
+  employee?: string
+  employeeId?: string
+  date?: string
+  punchIn?: string
+  punchOut?: string
+  earlyBy?: string
+  earlyByMin?: number
+  status?: string
+  employees?: number
+  present?: number
+  absent?: number
+  late?: number
+  earlyGoing?: number
+  attendancePercentage?: number
+  recentRecords?: EarlyGoingRecord[]
+}
+
+type AttendanceTrendData = {
+  label: string
+  present: number
+  late: number
+  earlyGoing: number
+  absent: number
+}
+
+type AttendanceDistributionData = {
+  present: number
+  late: number
+  earlyGoing: number
+  absent: number
+}
+
+type AttendanceHighlightsData = {
+  highestAttendanceDept: string
+  highestAbsenteeismDept: string
+  highestEarlyGoingDept: string
+}
+
+type AttendanceKPICard = {
+  title: string
+  value: string | number
+  icon?: React.ReactNode
+  variant?: string
+}
+
+function getEnhancedSummaryCards(opts: {
+  totalEmployees: number
+  attendancePercentage: number
+  latePercentage: number
+  earlyGoingPercentage: number
+  absentPercentage: number
+}): AttendanceKPICard[] {
+  return [
+    { title: 'Total Employees', value: opts.totalEmployees },
+    { title: 'Attendance', value: `${opts.attendancePercentage}%`, variant: 'success' },
+    { title: 'Late', value: `${opts.latePercentage}%`, variant: 'warning' },
+    { title: 'Early Going', value: `${opts.earlyGoingPercentage}%`, variant: 'muted' },
+    { title: 'Absent', value: `${opts.absentPercentage}%`, variant: 'danger' },
+  ]
+}
 
 const viewTabs: ViewTab[] = [
   { id: 'table-focus', label: 'Table Focus' },
   { id: 'trend-focus', label: 'Trend Focus' },
   { id: 'daily-details', label: 'Daily Details' },
 ]
-
-type ViewTabId = 'table-focus' | 'trend-focus' | 'daily-details'
 
 function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
   return [
@@ -314,7 +380,7 @@ export function AttendanceReportsPage() {
 
     return (
       <div className="flex flex-col gap-6">
-        <AttendanceKPICards cards={enhancedCards} />
+        <AttendanceKPICards cards={enhancedCards as any} />
         <AttendanceReportTable
           columns={columns as any}
           data={data as any}
@@ -331,7 +397,7 @@ export function AttendanceReportsPage() {
 
   const renderTrendFocus = () => (
     <div className="flex flex-col gap-6">
-      <AttendanceKPICards cards={enhancedCards} />
+      <AttendanceKPICards cards={enhancedCards as any} />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <AttendanceTrendChart data={trendData} />
         <div className="flex flex-col gap-6">
@@ -344,9 +410,9 @@ export function AttendanceReportsPage() {
 
   const renderTableFocus = () => (
     <div className="flex flex-col gap-6">
-      <AttendanceKPICards cards={enhancedCards} />
+      <AttendanceKPICards cards={enhancedCards as any} />
       <AttendanceGroupedTable
-        records={groupedTableData}
+        records={groupedTableData as any}
         groupBy={groupBy}
         searchValue={search}
         onSearchChange={setSearch}
@@ -370,10 +436,9 @@ export function AttendanceReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <AttendanceReportHeader
-        onSave={() => console.log('Save clicked')}
-        onExport={handleExport}
-        onPrint={handlePrint}
+      <GtgPageHeader
+        title="Attendance Report"
+        description="View and analyze attendance data with detailed reports."
       />
 
       <EnhancedAttendanceFilters
@@ -395,10 +460,10 @@ export function AttendanceReportsPage() {
         onSearch={handleSearchClick}
       />
 
-      <ReportViewTabs
+      <AttendanceTabs
         tabs={viewTabs}
         active={viewMode}
-        onChange={(id) => setViewMode(id as ViewTabId)}
+        onChange={(id: string) => setViewMode(id as ViewTabId)}
       />
 
       {renderContent()}
