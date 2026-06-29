@@ -75,11 +75,11 @@ export function AttendanceDashboard() {
   const [eventsOpen, setEventsOpen] = React.useState(false)
 
   const quickActions: QuickAction[] = [
-    { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => {} },
-    { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => {} },
-    { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => {} },
-    { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => {} },
-    { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => {} },
+    { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => { } },
+    { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => { } },
+    { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => { } },
+    { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => { } },
+    { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => { } },
   ]
 
   const attendanceAlerts: AttendanceAlert[] = [
@@ -111,7 +111,7 @@ export function AttendanceDashboard() {
             Good Morning, Amit! <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
-            Here's your attenance overview for today.
+            Here's your attendance overview for today.
           </p>
         </div>
 
@@ -153,7 +153,7 @@ export function AttendanceDashboard() {
         />
         <QuickActionsWidget actions={quickActions} loading={loading} />
         <AttendanceAlertsWidget alerts={attendanceAlerts} loading={loading} />
-        <MyRequestsWidget requests={myRequests} loading={loading} onViewAll={() => {}} />
+        <MyRequestsWidget requests={myRequests} loading={loading} onViewAll={() => { }} />
         <UpcomingEventsWidget events={upcomingEvents} loading={loading} onViewCalendar={() => setEventsOpen(true)} />
       </section>
 
