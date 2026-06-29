@@ -17,6 +17,11 @@ import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
 import { CmCommandCenter } from '@/components/competency/cm-command-center'
 import { CmCompetencyLibrary } from '@/components/competency/cm-competency-library'
 import { CmFrameworkMapping } from '@/components/competency/cm-framework-mapping'
+import { CmAssessmentWorkspace } from '@/components/competency/cm-assessment-workspace'
+import { CmEmployeeProfiles } from '@/components/competency/cm-employee-profiles'
+import { CmDevelopmentCareer } from '@/components/competency/cm-development-career'
+import { CmCertifications } from '@/components/competency/cm-certifications'
+import { CmAudit } from '@/components/competency/cm-audit'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
@@ -117,6 +122,16 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <CmCompetencyLibrary />
       case 'cm-framework-mapping':
         return <CmFrameworkMapping />
+      case 'cm-assessments':
+        return <CmAssessmentWorkspace />
+      case 'cm-employee-profiles':
+        return <CmEmployeeProfiles />
+      case 'cm-development-career':
+        return <CmDevelopmentCareer />
+      case 'cm-certifications':
+        return <CmCertifications />
+      case 'cm-audit':
+        return <CmAudit />
       default:
         return (
           <ComingSoonScreen

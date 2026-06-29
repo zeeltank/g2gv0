@@ -42,6 +42,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 interface Competency {
@@ -407,19 +414,16 @@ export function CmCompetencyLibrary() {
         </SheetContent>
       </Sheet>
 
-      {/* Create Competency Modal / Sheet (Dummy) */}
-      <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:w-[500px] p-0 bg-card border-l border-primary/10 flex flex-col shadow-2xl [&>button]:hidden">
-          <div className="flex items-center justify-between p-6 pb-4 border-b border-primary/5">
-            <SheetTitle className="text-xl font-bold text-foreground">Create Competency</SheetTitle>
-            <Button variant="ghost" onClick={() => setIsCreateOpen(false)} className="w-9 h-9 p-0 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground">
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-          <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto g2g-scrollbar">
+      {/* Create Competency Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-primary/10 m-0">
+            <DialogTitle className="text-xl font-bold text-foreground">Create Competency</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 flex flex-col gap-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Competency Name</label>
-              <Input placeholder="Enter name" className="bg-background/50 border-border" />
+              <Input placeholder="Enter name" className="bg-background border-border" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Category</label>
@@ -428,21 +432,21 @@ export function CmCompetencyLibrary() {
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Description</label>
               <textarea 
-                className="flex w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[100px] resize-none" 
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[100px] resize-none" 
                 placeholder="Enter description..."
               />
             </div>
           </div>
-          <div className="p-6 border-t border-primary/5 flex items-center justify-end gap-3 bg-muted/10 mt-auto">
+          <DialogFooter className="p-6 pt-4 border-t border-primary/5 bg-muted/10 m-0">
             <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="h-9 px-6 rounded-lg font-bold border-border bg-background">
               Cancel
             </Button>
             <Button onClick={() => setIsCreateOpen(false)} className="h-9 px-6 rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90">
               Create
             </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
