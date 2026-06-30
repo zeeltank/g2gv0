@@ -150,19 +150,35 @@ export const GTG_NAVIGATION: NavModule[] = [
     icon: BookOpen,
     menus: [
       {
-        id: 'content-library',
-        label: 'Content Library',
+        id: 'learning',
+        label: 'Learning',
         icon: BookOpen,
         submenus: [
-          { id: 'learning-dashboard', label: 'Learning Dashboard' },
-          { id: 'course-catalogue', label: 'Course Catalogue' },
+          { id: 'lms-dashboard', label: 'Dashboard' },
+          { id: 'my-learning', label: 'My Learning' },
+          { id: 'learning-catalog', label: 'Learning Catalog' },
+          { id: 'learning-paths', label: 'Learning Paths' },
         ],
       },
       {
-        id: 'assessment-library',
-        label: 'Assessment Library',
-        icon: ClipboardCheck,
-        submenus: [{ id: 'assessment-centre', label: 'Assessment Centre' }],
+        id: 'training-records',
+        label: 'Training & Records',
+        icon: CalendarClock,
+        submenus: [
+          { id: 'sessions-calendar', label: 'Sessions & Calendar' },
+          { id: 'certifications', label: 'Certifications' },
+          { id: 'transcript', label: 'Transcript' },
+        ],
+      },
+      {
+        id: 'lms-administration',
+        label: 'Administration',
+        icon: Settings,
+        submenus: [
+          { id: 'assignments', label: 'Assignments' },
+          { id: 'reports', label: 'Reports' },
+          { id: 'governance', label: 'Governance & Settings' },
+        ],
       },
     ],
   },

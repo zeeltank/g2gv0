@@ -36,6 +36,7 @@ import { TmPriorityManagement } from '@/components/task/tm-priority-management'
 import { TmPermissions } from '@/components/task/tm-permissions'
 import { TmIntegrations } from '@/components/task/tm-integrations'
 import { TmAuditLogs } from '@/components/task/tm-audit-logs'
+import { LmsDashboard } from '@/components/lms/dashboard/lms-dashboard'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -200,27 +201,26 @@ function renderContent(active: ActiveNav, userRole: string) {
   // M4 — LMS
   if (active.moduleId === 'm4') {
     switch (active.submenuId) {
-      case 'learning-dashboard':
-        return (
-          <ComingSoonScreen
-            title="Learning Dashboard"
-            description="Track enrollment, completion rates, and learning paths across the organization. Coming soon."
-          />
-        )
-      case 'course-catalogue':
-        return (
-          <ComingSoonScreen
-            title="Course Catalogue"
-            description="Browse, assign, and manage training courses and learning resources. Coming soon."
-          />
-        )
-      case 'assessment-centre':
-        return (
-          <ComingSoonScreen
-            title="Assessment Centre"
-            description="Create and manage assessments, quizzes, and certification exams. Coming soon."
-          />
-        )
+      case 'lms-dashboard':
+        return <LmsDashboard />
+      case 'my-learning':
+        return <ComingSoonScreen title="My Learning" description="Track your enrolled courses, resume progress, and access learning history. Coming soon." />
+      case 'learning-catalog':
+        return <ComingSoonScreen title="Learning Catalog" description="Browse and search for courses, programs, and certifications. Coming soon." />
+      case 'learning-paths':
+        return <ComingSoonScreen title="Learning Paths" description="Structured curricula and skill-based learning journeys. Coming soon." />
+      case 'sessions-calendar':
+        return <ComingSoonScreen title="Sessions & Calendar" description="Instructor-led training schedules and classroom management. Coming soon." />
+      case 'certifications':
+        return <ComingSoonScreen title="Certifications" description="Track credentials, compliance requirements, and renewals. Coming soon." />
+      case 'transcript':
+        return <ComingSoonScreen title="Learning Transcript" description="Your complete historical record of all completed training. Coming soon." />
+      case 'assignments':
+        return <ComingSoonScreen title="Assignments" description="Manage mandatory training enrollments and approvals. Coming soon." />
+      case 'reports':
+        return <ComingSoonScreen title="Reports" description="Analytics on learning consumption and compliance rates. Coming soon." />
+      case 'governance':
+        return <ComingSoonScreen title="Governance & Settings" description="Configure LMS rules, external vendors, and platform settings. Coming soon." />
     }
   }
 
