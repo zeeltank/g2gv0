@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { resolveBreadcrumb, type ActiveNav, GTG_NAVIGATION } from '@/lib/gtg-navigation'
+import { resolveBreadcrumb, type ActiveNav } from '@/lib/gtg-navigation'
 import { useAuth } from '@/lib/gtg-auth'
 import { GtgSidebar } from './gtg-sidebar'
 import { GtgHeader } from './gtg-header'
+import { FloatingToolbar } from './gtg-floating-toolbar'
 import { GtgBreadcrumb } from './gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { OrganizationInformation } from '@/components/org/organization-information'
@@ -351,7 +352,7 @@ export function GtgAppShell({
 
   const crumb = resolveBreadcrumb(active)
 
-  return (
+return (
     <div
       role="application"
       aria-label="GapstoGrowth HRMS"
@@ -394,6 +395,8 @@ export function GtgAppShell({
             </div>
           </aside>
         </div>
+
+        <FloatingToolbar />
       </div>
     </div>
   )
