@@ -110,6 +110,8 @@
   --brand-accent: var(--primary);
   --info: var(--primary);
   --info-foreground: var(--primary-foreground);
+
+  --agent-panel-width: 24rem;
 }
 
 .dark {
@@ -171,6 +173,18 @@
   }
   html {
     @apply font-sans bg-background;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --agent-panel-width: 20rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --agent-panel-width: 100%;
   }
 }
 
