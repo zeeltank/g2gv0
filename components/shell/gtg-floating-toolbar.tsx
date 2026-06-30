@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/ui/tooltip'
-import { Lightbulb, Workflow, Bot, X } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Lightbulb, Workflow, Bot } from 'lucide-react'
 
 type ToolbarItem = {
   id: string
@@ -38,93 +38,6 @@ interface FloatingToolbarProps {
   onOpenPanelChange?: (panel: string | null) => void
 }
 
-const SheetOverlay = ({ open, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void }) => {
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    if (open) setIsMounted(true)
-    else {
-      const t = setTimeout(() => setIsMounted(false), 300)
-      return () => clearTimeout(t)
-    }
-  }, [open])
-
-  if (!isMounted && !open) return null
-
-  return (
-    <div
-      className={cn(
-        'fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm transition-all duration-300 ease-in-out',
-        open ? 'opacity-100' : 'opacity-0 pointer-events-none',
-      )}
-      onClick={() => onOpenChange?.(false)}
-    />
-  )
-}
-
-function SheetContentWrapper({
-  open,
-  onOpenChange,
-  activeItem,
-  activePanel,
-}: {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  activeItem?: ToolbarItem
-  activePanel?: string | null
-}) {
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    if (open) setIsMounted(true)
-    else {
-      const t = setTimeout(() => setIsMounted(false), 300)
-      return () => clearTimeout(t)
-    }
-  }, [open])
-
-  const animationClass = open ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'
-
-  return (
-    <>
-      <SheetOverlay open={open} onOpenChange={onOpenChange} />
-      {(isMounted || open) && (
-        <div
-          className={cn(
-            'fixed z-50 right-0 top-0 h-full w-3/4 max-w-sm border-l border-border bg-card transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] p-6',
-            animationClass,
-          )}
-        >
-          <button
-            onClick={() => onOpenChange?.(false)}
-            className="absolute right-4 top-4 text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-muted p-1 rounded-full cursor-pointer hover:rotate-90 hover:scale-110 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X className="size-4" />
-          </button>
-
-          {activeItem && (
-            <>
-              <div className="mb-4 flex flex-col gap-1.5">
-                <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                  <activeItem.icon className="size-5" aria-hidden="true" />
-                  {activeItem.label}
-                </h2>
-                <p className="text-sm text-muted-foreground">{activeItem.description}</p>
-              </div>
-
-              <div className="mt-6 flex-1 overflow-y-auto">
-                {activePanel === 'recommendations' && <RecommendationsPanel />}
-                {activePanel === 'workflows' && <WorkflowsPanel />}
-                {activePanel === 'agents' && <AgentsPanel />}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </>
-  )
-}
-
 export function FloatingToolbar({ openPanel, onOpenPanelChange }: FloatingToolbarProps = {}) {
   const [internalOpenPanel, setInternalOpenPanel] = useState<string | null>(null)
   const activePanel = openPanel ?? internalOpenPanel
@@ -133,30 +46,23 @@ export function FloatingToolbar({ openPanel, onOpenPanelChange }: FloatingToolba
     onOpenPanelChange?.(panel)
   }
 
-  const handleItemClick = (itemId: string) => {
-    setActivePanel(itemId)
-  }
-
-  const activeItem = TOOLBAR_ITEMS.find((item) => item.id === activePanel)
-
   return (
-    <>
-      <aside
-        aria-label="Floating Toolbar"
-        className={cn(
-          'fixed top-1/2 right-4 -translate-y-1/2 z-50 flex flex-col items-center gap-1 p-1.5 w-16 rounded-xl',
-          'bg-background/95 dark:bg-card/95 border border-border shadow-lg backdrop-blur-sm',
-        )}
-      >
-        {TOOLBAR_ITEMS.map((item) => {
-          const Icon = item.icon
-          const isActive = activePanel === item.id
+    <aside
+      aria-label="Floating Toolbar"
+      className={cn(
+        'fixed top-1/2 right-4 -translate-y-1/2 z-50 flex flex-col items-center gap-1 p-1.5 w-16 rounded-xl',
+        'bg-background/95 dark:bg-card/95 border border-border shadow-lg backdrop-blur-sm',
+      )}
+    >
+      {TOOLBAR_ITEMS.map((item) => {
+        const Icon = item.icon
+        const isActive = activePanel === item.id
 
-          return (
-            <Tooltip key={item.id} content={item.label} side="left">
+        return (
+          <Popover key={item.id} open={isActive} onOpenChange={(open) => setActivePanel(open ? item.id : null)}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
-                onClick={() => handleItemClick(item.id)}
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
@@ -168,20 +74,26 @@ export function FloatingToolbar({ openPanel, onOpenPanelChange }: FloatingToolba
                 )}
               >
                 <Icon className="size-4" aria-hidden="true" />
-                {/* <span className="text-[9px] font-medium leading-none text-center">{item.label}</span> */}
               </button>
-            </Tooltip>
-          )
-        })}
-      </aside>
-
-      <SheetContentWrapper
-        open={!!activePanel}
-        onOpenChange={(open) => !open && setActivePanel(null)}
-        activeItem={activeItem}
-        activePanel={activePanel}
-      />
-    </>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="center" sideOffset={12} className="w-80 rounded-xl shadow-lg p-6">
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
+                  <Icon className="size-5" aria-hidden="true" />
+                  {item.label}
+                </h2>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
+              </div>
+              <div className="mt-4 max-h-96 overflow-y-auto">
+                {item.id === 'recommendations' && <RecommendationsPanel />}
+                {item.id === 'workflows' && <WorkflowsPanel />}
+                {item.id === 'agents' && <AgentsPanel />}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )
+      })}
+    </aside>
   )
 }
 
