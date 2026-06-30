@@ -1,7 +1,7 @@
 'use client'
 
 import { Bot, X } from 'lucide-react'
-import { AgentChat } from './agent-chat'
+import { AgentChat, type Message } from './agent-chat'
 import { SuggestedPrompts } from './suggested-prompts'
 import { IconButton } from '@/components/ui/icon-button'
 
@@ -42,10 +42,7 @@ export function AgentPanel({ onClose, onSendMessage }: AgentPanelProps) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6">
-        <SuggestedPrompts prompts={SUGGESTED_PROMPTS} onSelect={onSendMessage} />
-        <AgentChat onSendMessage={onSendMessage} />
-      </div>
+      <AgentChat onSendMessage={onSendMessage} />
     </div>
   )
 }

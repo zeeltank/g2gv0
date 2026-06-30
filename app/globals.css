@@ -61,8 +61,6 @@
   --shadow-md: 0 10px 28px rgba(31, 42, 109, 0.1);
   --shadow-lg: 0 18px 48px rgba(31, 42, 109, 0.14);
   --shadow-xl: 0 24px 70px rgba(31, 42, 109, 0.18);
-
-  --agent-panel-width: 24rem;
 }
 
 :root {
@@ -112,6 +110,8 @@
   --brand-accent: var(--primary);
   --info: var(--primary);
   --info-foreground: var(--primary-foreground);
+
+  --agent-panel-width: 24rem;
 }
 
 .dark {
@@ -173,6 +173,18 @@
   }
   html {
     @apply font-sans bg-background;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --agent-panel-width: 20rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --agent-panel-width: 100%;
   }
 }
 

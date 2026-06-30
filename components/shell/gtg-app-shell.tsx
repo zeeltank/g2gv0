@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { PanelLeftClose, PanelLeft } from 'lucide-react'
+import { PanelLeftClose } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { resolveBreadcrumb, type ActiveNav, GTG_NAVIGATION } from '@/lib/gtg-navigation'
 import { useAuth } from '@/lib/gtg-auth'
@@ -363,41 +363,38 @@ export function GtgAppShell({
         role={user?.role || 'employee'}
       />
 
-      <div
-        className="flex h-screen flex-col transition-[width] duration-300"
-        style={{
-          width: agentOpenState ? 'calc(100% - var(--agent-panel-width))' : '100%',
-          transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
-        }}
-      >
-        <div className="flex h-full flex-col min-w-0 pl-[72px]">
-          <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
-          <GtgBreadcrumb
-            module={crumb.module}
-            menu={crumb.menu}
-            submenu={crumb.submenu}
-          />
+      <div className="flex h-screen w-full flex-col pl-[72px]">
+        <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
 
-          <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
-            <div className="w-full p-6 flex flex-col flex-1 min-h-0">
-              {children ?? renderContent(active, user?.role || 'employee')}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+            <GtgBreadcrumb
+              module={crumb.module}
+              menu={crumb.menu}
+              submenu={crumb.submenu}
+            />
+
+            <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
+              <div className="w-full min-h-full p-6">
+                {children ?? renderContent(active, user?.role || 'employee')}
+              </div>
+            </main>
+          </div>
+
+          <aside
+            aria-label="AI Agent Panel"
+            className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
+            style={{
+              width: agentOpenState ? 'var(--agent-panel-width)' : '0px',
+              transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
+            }}
+          >
+            <div className="h-full">
+              <AgentPanel onClose={() => setAgentOpen(false)} />
             </div>
-          </main>
+          </aside>
         </div>
       </div>
-
-      <aside
-        aria-label="AI Agent Panel"
-        className="flex-shrink-0 h-screen border-l border-border bg-background overflow-hidden transition-[width] duration-300"
-        style={{
-          width: agentOpenState ? 'var(--agent-panel-width)' : '0px',
-          transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
-        }}
-      >
-        <div className="h-full" style={{ width: 'var(--agent-panel-width)' }}>
-          <AgentPanel onClose={() => setAgentOpen(false)} />
-        </div>
-      </aside>
     </div>
   )
 }

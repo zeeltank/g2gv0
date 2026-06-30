@@ -51,7 +51,7 @@ export function AgentDropdown({ open, onOpenChange, onSendPrompt }: AgentDropdow
   return (
     <div
       ref={ref}
-      className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border bg-card p-4 shadow-lg"
+      className="absolute right-0 z-50 mt-2 w-[27rem] rounded-xl border border-border bg-card p-4 shadow-lg"
       role="menu"
     >
       <div className="space-y-3">
@@ -65,7 +65,8 @@ export function AgentDropdown({ open, onOpenChange, onSendPrompt }: AgentDropdow
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask or describe what you need..."
-            className="min-h-[80px] resize-none"
+            className="w-full resize-none"
+            size="lg"
           />
         </div>
         <div>

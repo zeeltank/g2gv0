@@ -3,12 +3,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, User, Bot as BotIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SuggestedPrompts } from './suggested-prompts'
 
 export interface Message {
   id: string
   content: string
   role: 'user' | 'assistant'
 }
+
+const SUGGESTED_PROMPTS = [
+  'Help me write a professional email',
+  'Explain React hooks in simple terms',
+  'Create a todo list for my project',
+  'Review my code for best practices',
+]
 
 interface AgentChatProps {
   messages?: Message[]
@@ -41,55 +49,47 @@ export function AgentChat({ messages: externalMessages, onSendMessage }: AgentCh
 
   return (
     <div className="flex flex-col h-full">
-      {displayMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 py-10">
-          <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-            <BotIcon className="size-8 text-primary" aria-hidden="true" />
-          </div>
-          <div className="text-center">
-            <h3 className="text-sm font-semibold text-foreground">Ask me anything</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              I can help with writing, coding, and more
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto py-4 space-y-4">
-          {displayMessages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                'flex gap-3',
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              )}
-            >
-              {message.role === 'assistant' && (
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <BotIcon className="size-4 text-primary" aria-hidden="true" />
-                </div>
-              )}
+      <div className="flex-1 overflow-y-auto px-6">
+        {displayMessages.length === 0 ? (
+          <SuggestedPrompts prompts={SUGGESTED_PROMPTS} onSelect={onSendMessage} />
+        ) : (
+          <div className="py-4 space-y-4">
+            {displayMessages.map((message) => (
               <div
+                key={message.id}
                 className={cn(
-                  'max-w-[80%] rounded-lg px-3 py-2 text-sm',
-                  message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground'
+                  'flex gap-3',
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
                 )}
               >
-                {message.content}
-              </div>
-              {message.role === 'user' && (
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
-                  <User className="size-4 text-secondary-foreground" aria-hidden="true" />
+                {message.role === 'assistant' && (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    'max-w-[80%] rounded-lg px-3 py-2 text-sm',
+                    message.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground'
+                  )}
+                >
+                  {message.content}
                 </div>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      )}
+                {message.role === 'user' && (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <User className="size-4 text-secondary-foreground" aria-hidden="true" />
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
 
-      <div className="border-t border-border pt-4">
+      <div className="border-t border-border px-6 py-4">
         <div className="flex gap-2">
           <input
             type="text"

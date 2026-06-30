@@ -36,13 +36,13 @@ export function AgentButton({ agentOpen, onAgentOpenChange, onSendMessage }: Age
 
   return (
     <div className="relative" ref={containerRef}>
-      <div className="flex items-center">
+      <div className="flex items-stretch">
         <button
           type="button"
           onClick={handleAgentToggle}
           aria-label={agentOpen ? 'Close AI Agent' : 'Open AI Agent'}
           className={cn(
-            'flex items-center gap-2 rounded-l-md border border-r-0 border-border bg-background px-3 py-1.5',
+            'flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-3 h-8',
             'text-sm font-medium text-foreground transition-all duration-200 outline-none',
             'hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring',
           )}
@@ -57,7 +57,7 @@ export function AgentButton({ agentOpen, onAgentOpenChange, onSendMessage }: Age
           aria-haspopup="menu"
           aria-expanded={dropdownOpen}
           className={cn(
-            'flex items-center justify-center rounded-r-md border border-border bg-background px-2 py-1.5',
+            'flex items-center justify-center rounded-r-lg border border-border bg-background w-9 h-8',
             'text-muted-foreground transition-all duration-200 outline-none',
             'hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring'
           )}
