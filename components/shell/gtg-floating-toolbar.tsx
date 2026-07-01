@@ -1,252 +1,292 @@
-'use client'
+'use client';
 
-import { useState, useRef } from 'react'
-import { cn } from '@/lib/utils'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
-import { Lightbulb, Workflow, Bot } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  ChartColumnIncreasing,
+  Image as ImageIcon,
+  LayoutGrid,
+  PencilLine,
+  Search,
+  SquareStack,
+  Table2,
+  Type,
+  Sparkles,
+} from 'lucide-react';
 
-type ToolbarItem = {
-  id: string
-  label: string
-  icon: React.ElementType
-  description: string
+type ToolbarOption = {
+  title: string;
+  description: string;
+};
+
+type ToolbarMenu = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  accent: string;
+  options: ToolbarOption[];
+};
+
+const toolbarMenus: ToolbarMenu[] = [
+  {
+    id: 'search',
+    label: 'Search',
+    icon: Search,
+    accent: 'from-sky-500 to-cyan-500',
+    options: [
+      { title: 'Quick Search', description: 'Find pages, blocks, or content instantly.' },
+      { title: 'Advanced Filter', description: 'Search by tags, type, or usage frequency.' },
+      { title: 'Recent Items', description: 'Jump back into recently used elements.' },
+      { title: 'Saved Searches', description: 'Reuse common searches with one click.' },
+    ],
+  },
+  {
+    id: 'text',
+    label: 'Text / Basic Blocks',
+    icon: Type,
+    accent: 'from-indigo-500 to-blue-500',
+    options: [
+      { title: 'Heading 1', description: 'Large title for primary sections.' },
+      { title: 'Heading 2', description: 'Secondary heading for grouped content.' },
+      { title: 'Heading 3', description: 'Tertiary heading for cards and fields.' },
+      { title: 'Heading 4', description: 'Compact section label or subheading.' },
+      { title: 'Blockquote', description: 'Call out quoted or highlighted content.' },
+      { title: 'Label', description: 'Small uppercase label for forms and metadata.' },
+      { title: 'Tables', description: 'Structured tabular content and comparisons.' },
+      { title: 'Lists', description: 'Bulleted or numbered content blocks.' },
+    ],
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    icon: ImageIcon,
+    accent: 'from-emerald-500 to-teal-500',
+    options: [
+      { title: 'Upload Image', description: 'Add an image from local storage.' },
+      { title: 'Image Gallery', description: 'Browse reusable assets and media.' },
+      { title: 'Hero Banner', description: 'Insert a wide visual with text overlay.' },
+      { title: 'Image Card', description: 'Combine an image with title and description.' },
+    ],
+  },
+  {
+    id: 'layout',
+    label: 'Layout / Components',
+    icon: LayoutGrid,
+    accent: 'from-violet-500 to-fuchsia-500',
+    options: [
+      { title: 'Two Column', description: 'Split the canvas into two balanced areas.' },
+      { title: 'Three Column', description: 'Create a wider multi-column layout.' },
+      { title: 'Stack', description: 'Vertical content flow with generous spacing.' },
+      { title: 'Tabs', description: 'Segment content into switchable panels.' },
+      { title: 'Accordion', description: 'Hide and reveal grouped sections.' },
+      { title: 'Modal', description: 'Open focused actions without leaving the page.' },
+    ],
+  },
+  {
+    id: 'chart',
+    label: 'Chart',
+    icon: ChartColumnIncreasing,
+    accent: 'from-amber-500 to-orange-500',
+    options: [
+      { title: 'Bar Chart', description: 'Compare values across categories.' },
+      { title: 'Line Chart', description: 'Show trends over time.' },
+      { title: 'Pie Chart', description: 'Display proportions of a whole.' },
+      { title: 'Area Chart', description: 'Visualize a cumulative trend.' },
+      { title: 'Metric Card', description: 'Highlight a key KPI or summary.' },
+    ],
+  },
+  {
+    id: 'table',
+    label: 'Table',
+    icon: Table2,
+    accent: 'from-slate-600 to-slate-900',
+    options: [
+      { title: 'Data Table', description: 'Grid rows and columns for structured data.' },
+      { title: 'Compact Table', description: 'Dense layout for admin screens.' },
+      { title: 'Sortable Table', description: 'Enable column sorting controls.' },
+      { title: 'Export Table', description: 'Prepare a table for CSV or print export.' },
+    ],
+  },
+  {
+    id: 'card',
+    label: 'Card / Section',
+    icon: SquareStack,
+    accent: 'from-rose-500 to-pink-500',
+    options: [
+      { title: 'Content Card', description: 'Framed section for any block of content.' },
+      { title: 'Stat Card', description: 'Display a quick summary or number.' },
+      { title: 'Section Header', description: 'Introduce a grouped area with title and note.' },
+      { title: 'Feature Card', description: 'Show a prominent item with icon and copy.' },
+    ],
+  },
+  {
+    id: 'design',
+    label: 'Edit / Design',
+    icon: PencilLine,
+    accent: 'from-slate-500 to-gray-800',
+    options: [
+      { title: 'Align Left', description: 'Keep content aligned to the left edge.' },
+      { title: 'Center Align', description: 'Center content in the available space.' },
+      { title: 'Align Right', description: 'Push content to the right side.' },
+      { title: 'Code Block', description: 'Insert a monospaced code region.' },
+      { title: 'Divider', description: 'Separate sections with a visual rule.' },
+      { title: 'Shape', description: 'Add a decorative shape or callout.' },
+    ],
+  },
+];
+
+function OptionCard({ option }: { option: ToolbarOption }) {
+  return (
+    <button className="group w-full rounded-2xl border border-border bg-background p-4 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border transition-colors group-hover:bg-primary/10 group-hover:text-primary group-hover:ring-primary/20">
+          <Sparkles className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">{option.title}</div>
+          <div className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</div>
+        </div>
+      </div>
+    </button>
+  );
 }
 
-const TOOLBAR_ITEMS: ToolbarItem[] = [
-  {
-    id: 'recommendations',
-    label: 'Recommendations',
-    icon: Lightbulb,
-    description: 'AI-generated suggestions, best practices, and insights to help you improve your work and make better decisions.',
-  },
-  {
-    id: 'workflows',
-    label: 'Workflows',
-    icon: Workflow,
-    description: 'Create, manage, and automate workflows. View existing workflows, create new ones, and monitor execution.',
-  },
-  {
-    id: 'agents',
-    label: 'Agents',
-    icon: Bot,
-    description: 'Available AI agents for performing tasks, answering questions, and automating business processes.',
-  },
-]
+export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boolean }) {
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPeekHovered, setIsPeekHovered] = useState(false);
 
-interface FloatingToolbarProps {
-  openPanel?: string | null
-  onOpenPanelChange?: (panel: string | null) => void
-}
+  const activeMenu = toolbarMenus.find((menu) => menu.id === activeMenuId) ?? null;
+  const isVisible = isHovered || isPeekHovered;
 
-export function FloatingToolbar({ openPanel, onOpenPanelChange }: FloatingToolbarProps = {}) {
-  const [internalOpenPanel, setInternalOpenPanel] = useState<string | null>(null)
-  const activePanel = openPanel ?? internalOpenPanel
-  const setActivePanel = (panel: string | null) => {
-    setInternalOpenPanel(panel)
-    onOpenPanelChange?.(panel)
+  useEffect(() => {
+    if (isAgentOpen || !isVisible) {
+      setActiveMenuId(null);
+    }
+  }, [isAgentOpen, isVisible]);
+
+  useEffect(() => {
+    if (!activeMenuId) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (containerRef.current?.contains(target)) {
+        return;
+      }
+
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveMenuId(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [activeMenuId]);
+
+  if (isAgentOpen) {
+    return null;
   }
 
   return (
-    <aside
-      aria-label="Floating Toolbar"
-      className={cn(
-        'fixed top-1/2 right-4 -translate-y-1/2 z-50 flex flex-col items-center gap-1 p-1.5 w-16 rounded-xl',
-        'bg-background/95 dark:bg-card/95 border border-border shadow-lg backdrop-blur-sm',
-      )}
+    <div
+      ref={containerRef}
+      className="fixed bottom-4 right-0 z-50 flex items-end md:bottom-auto md:right-0 md:top-1/2 md:-translate-y-1/2 md:items-center"
+      aria-label="Floating editor toolbar"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {TOOLBAR_ITEMS.map((item) => {
-        const Icon = item.icon
-        const isActive = activePanel === item.id
+      <div
+        className="pointer-events-auto flex flex-col-reverse items-end gap-3 md:flex-row md:items-center md:gap-3 transition-transform duration-300 ease-out will-change-transform"
+        style={{
+          transform: isVisible
+            ? 'translateX(0px)'
+            : 'translateX(calc(100% - var(--radius-3xl)))',
+        }}
+      >
+        {activeMenu && (
+          <aside
+            className="w-[min(88vw,20rem)] overflow-hidden rounded-3xl border border-border bg-background/95 shadow-xl backdrop-blur-xl md:w-[22rem] lg:w-[24rem]"
+            role="dialog"
+            aria-label={activeMenu.label}
+            onMouseEnter={() => setIsPeekHovered(true)}
+            onMouseLeave={() => setIsPeekHovered(false)}
+          >
+            <div className={`bg-gradient-to-r ${activeMenu.accent} px-5 py-4 text-white`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">
+                Toolbox
+              </p>
+              <h2 className="mt-1 text-xl font-semibold leading-tight">{activeMenu.label}</h2>
+              <p className="mt-1 text-sm text-white/80">
+                Browse the matching components and insert the one you need.
+              </p>
+            </div>
 
-        return (
-          <Popover key={item.id} open={isActive} onOpenChange={(open) => setActivePanel(open ? item.id : null)}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label={item.label}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 rounded-lg transition-all duration-200 ease-out',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  isActive
-                    ? 'bg-primary/15 text-primary w-full'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground w-full',
-                )}
-              >
-                <Icon className="size-4" aria-hidden="true" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="left" align="center" sideOffset={12} className="w-80 rounded-xl shadow-lg p-6">
-              <div className="flex flex-col gap-1.5">
-                <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                  <Icon className="size-5" aria-hidden="true" />
-                  {item.label}
-                </h2>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+            <div className="max-h-[min(70vh,34rem)] overflow-y-auto p-4 md:max-h-[min(72vh,38rem)]">
+              <div className="grid gap-3">
+                {activeMenu.options.map((option) => (
+                  <OptionCard key={option.title} option={option} />
+                ))}
               </div>
-              <div className="mt-4 max-h-96 overflow-y-auto">
-                {item.id === 'recommendations' && <RecommendationsPanel />}
-                {item.id === 'workflows' && <WorkflowsPanel />}
-                {item.id === 'agents' && <AgentsPanel />}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )
-      })}
-    </aside>
-  )
-}
+            </div>
+          </aside>
+        )}
 
-function RecommendationsPanel() {
-  const recommendations = [
-    {
-      id: 1,
-      title: 'Optimize your workflow',
-      description: 'Consider automating repetitive tasks to improve efficiency',
-      time: '2 hours ago',
-    },
-    {
-      id: 2,
-      title: 'Team collaboration tip',
-      description: 'Schedule a weekly sync to align on project priorities',
-      time: '1 day ago',
-    },
-    {
-      id: 3,
-      title: 'Data quality improvement',
-      description: 'Some records are missing required fields. Run the data audit tool.',
-      time: '2 days ago',
-    },
-  ]
-
-  return (
-    <div className="space-y-4">
-      {recommendations.map((rec) => (
         <div
-          key={rec.id}
-          className="rounded-lg border border-border bg-surface-muted p-4 hover:bg-secondary transition-colors duration-200"
+          className="flex flex-col gap-2 rounded-3xl border border-border bg-background/90 p-2 shadow-lg backdrop-blur-xl"
+          onMouseEnter={() => setIsPeekHovered(true)}
+          onMouseLeave={() => setIsPeekHovered(false)}
         >
-          <h3 className="font-medium text-foreground">{rec.title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{rec.description}</p>
-          <time className="mt-2 block text-xs text-muted-foreground">{rec.time}</time>
+          {toolbarMenus.map((menu) => {
+            const isActive = activeMenuId === menu.id;
+            const Icon = menu.icon;
+
+            return (
+              <button
+                key={menu.id}
+                type="button"
+                onClick={() => setActiveMenuId((current) => (current === menu.id ? null : menu.id))}
+                className={`group relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-200 ${isActive
+                  ? 'border-primary/20 bg-primary/10 text-primary shadow-lg'
+                  : 'border-transparent bg-background text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground'
+                  }`}
+                title={menu.label}
+                aria-pressed={isActive}
+              >
+                <span
+                  className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${menu.accent} opacity-0 transition-opacity duration-200 group-hover:opacity-[0.08] ${isActive ? 'opacity-10' : ''
+                    }`}
+                />
+                <Icon className="relative h-5 w-5" />
+              </button>
+            );
+          })}
         </div>
-      ))}
-    </div>
-  )
-}
-
-function WorkflowsPanel() {
-  const workflows = [
-    {
-      id: 1,
-      name: 'Employee Onboarding',
-      status: 'Active',
-      runs: 12,
-    },
-    {
-      id: 2,
-      name: 'Performance Review',
-      status: 'Draft',
-      runs: 0,
-    },
-    {
-      id: 3,
-      name: 'Leave Approval',
-      status: 'Active',
-      runs: 24,
-    },
-  ]
-
-  return (
-    <div className="space-y-4">
-      <button
-        type="button"
-        className="w-full rounded-lg border border-dashed border-border bg-background p-4 text-center hover:bg-secondary transition-colors duration-200"
-      >
-        <span className="text-sm font-medium text-foreground">+ Create New Workflow</span>
-      </button>
-
-      <div className="space-y-2">
-        {workflows.map((workflow) => (
-          <div
-            key={workflow.id}
-            className="flex items-center justify-between rounded-lg border border-border bg-surface-muted p-3 hover:bg-secondary transition-colors duration-200 cursor-pointer"
-          >
-            <div>
-              <h3 className="font-medium text-foreground">{workflow.name}</h3>
-              <p className="text-xs text-muted-foreground">{workflow.runs} runs</p>
-            </div>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-xs font-medium',
-                workflow.status === 'Active' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning',
-              )}
-            >
-              {workflow.status}
-            </span>
-          </div>
-        ))}
       </div>
+
+      {!isVisible && (
+        <div
+          className="pointer-events-auto absolute inset-y-0 right-0 w-5 cursor-pointer md:w-1"
+          onMouseEnter={() => setIsPeekHovered(true)}
+          onMouseLeave={() => setIsPeekHovered(false)}
+          aria-label="Show floating toolbar"
+        />
+      )}
     </div>
-  )
-}
-
-function AgentsPanel() {
-  const agents = [
-    {
-      id: 1,
-      name: 'Assistant',
-      description: 'General purpose AI assistant',
-      available: true,
-    },
-    {
-      id: 2,
-      name: 'HR Specialist',
-      description: 'Human resources expertise',
-      available: true,
-    },
-    {
-      id: 3,
-      name: 'Analytics Pro',
-      description: 'Data analysis and insights',
-      available: false,
-    },
-  ]
-
-  return (
-    <div className="space-y-4">
-      <button
-        type="button"
-        className="w-full rounded-lg border border-dashed border-border bg-background p-4 text-center hover:bg-secondary transition-colors duration-200"
-      >
-        <span className="text-sm font-medium text-foreground">+ Create New Agent</span>
-      </button>
-
-      <div className="space-y-2">
-        {agents.map((agent) => (
-          <div
-            key={agent.id}
-            className={cn(
-              'flex items-center gap-3 rounded-lg border border-border p-3',
-              agent.available ? 'bg-surface-muted hover:bg-secondary cursor-pointer' : 'opacity-60',
-              'transition-colors duration-200',
-            )}
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Bot className="size-5 text-primary" aria-hidden="true" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-medium text-foreground">{agent.name}</h3>
-              <p className="text-xs text-muted-foreground">{agent.description}</p>
-            </div>
-            {!agent.available && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                Coming Soon
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  );
 }
