@@ -162,7 +162,7 @@ const getStatusDetails = (status: CertificateStatus) => {
     case 'active':
       return { variant: 'active' as const, label: 'Active' }
     case 'expiring-soon':
-      return { variant: 'warning' as const, label: 'Expiring Soon' }
+      return { variant: 'pending' as const, label: 'Expiring Soon' }
     case 'expired':
       return { variant: 'error' as const, label: 'Expired' }
   }
