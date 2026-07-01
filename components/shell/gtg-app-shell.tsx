@@ -37,6 +37,13 @@ import { TmPermissions } from '@/components/task/tm-permissions'
 import { TmIntegrations } from '@/components/task/tm-integrations'
 import { TmAuditLogs } from '@/components/task/tm-audit-logs'
 import { LmsDashboard } from '@/components/lms/dashboard/lms-dashboard'
+import { LearningCatalog } from '@/components/lms/catalog/learning-catalog'
+import { CreateCoursePage } from '@/components/lms/course-builder/create-course-page'
+import { LearningAssignments } from '@/components/lms/assignments/learning-assignments'
+import { LearningDeliveryWorkspace } from '@/components/lms/delivery/learning-delivery-workspace'
+import { SessionsCalendar } from '@/components/lms/sessions/sessions-calendar'
+import { CertificationsRecords } from '@/components/lms/records/certifications-records'
+import { LmsGovernance } from '@/components/lms/governance/lms-governance'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -203,24 +210,20 @@ function renderContent(active: ActiveNav, userRole: string) {
     switch (active.submenuId) {
       case 'lms-dashboard':
         return <LmsDashboard />
-      case 'my-learning':
-        return <ComingSoonScreen title="My Learning" description="Track your enrolled courses, resume progress, and access learning history. Coming soon." />
       case 'learning-catalog':
-        return <ComingSoonScreen title="Learning Catalog" description="Browse and search for courses, programs, and certifications. Coming soon." />
-      case 'learning-paths':
-        return <ComingSoonScreen title="Learning Paths" description="Structured curricula and skill-based learning journeys. Coming soon." />
-      case 'sessions-calendar':
-        return <ComingSoonScreen title="Sessions & Calendar" description="Instructor-led training schedules and classroom management. Coming soon." />
-      case 'certifications':
-        return <ComingSoonScreen title="Certifications" description="Track credentials, compliance requirements, and renewals. Coming soon." />
-      case 'transcript':
-        return <ComingSoonScreen title="Learning Transcript" description="Your complete historical record of all completed training. Coming soon." />
+        return <LearningCatalog />
+      case 'my-learning':
+        return <LearningDeliveryWorkspace />
+      case 'create-course':
+        return <CreateCoursePage />
       case 'assignments':
-        return <ComingSoonScreen title="Assignments" description="Manage mandatory training enrollments and approvals. Coming soon." />
-      case 'reports':
-        return <ComingSoonScreen title="Reports" description="Analytics on learning consumption and compliance rates. Coming soon." />
+        return <LearningAssignments />
+      case 'sessions-calendar':
+        return <SessionsCalendar />
+      case 'certifications':
+        return <CertificationsRecords />
       case 'governance':
-        return <ComingSoonScreen title="Governance & Settings" description="Configure LMS rules, external vendors, and platform settings. Coming soon." />
+        return <LmsGovernance />
     }
   }
 
@@ -357,7 +360,7 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
         />
 
         <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
-          <div className="w-full p-6 flex flex-col flex-1 min-h-0">
+          <div className="w-full p-6 flex flex-col flex-1 min-h-0 relative">
             {children ?? renderContent(active, user?.role || 'employee')}
           </div>
         </main>
