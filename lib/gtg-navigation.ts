@@ -155,9 +155,8 @@ export const GTG_NAVIGATION: NavModule[] = [
         icon: BookOpen,
         submenus: [
           { id: 'lms-dashboard', label: 'Dashboard' },
-          { id: 'my-learning', label: 'My Learning' },
           { id: 'learning-catalog', label: 'Learning Catalog' },
-          { id: 'learning-paths', label: 'Learning Paths' },
+          { id: 'my-learning', label: 'My Learning' },
         ],
       },
       {
@@ -165,9 +164,9 @@ export const GTG_NAVIGATION: NavModule[] = [
         label: 'Training & Records',
         icon: CalendarClock,
         submenus: [
+          { id: 'assignments', label: 'Assignments' },
           { id: 'sessions-calendar', label: 'Sessions & Calendar' },
-          { id: 'certifications', label: 'Certifications' },
-          { id: 'transcript', label: 'Transcript' },
+          { id: 'certifications', label: 'Certifications & Records' },
         ],
       },
       {
@@ -175,9 +174,8 @@ export const GTG_NAVIGATION: NavModule[] = [
         label: 'Administration',
         icon: Settings,
         submenus: [
-          { id: 'assignments', label: 'Assignments' },
-          { id: 'reports', label: 'Reports' },
-          { id: 'governance', label: 'Governance & Settings' },
+          { id: 'create-course', label: 'Course Builder' },
+          { id: 'governance', label: 'Admin & Governance' },
         ],
       },
     ],
