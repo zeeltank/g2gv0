@@ -370,9 +370,6 @@ return (
       <div className="flex h-screen w-full flex-col pl-[72px]">
         <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
 
-        <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
-          <div className="w-full p-6 flex flex-col flex-1 min-h-0 relative">
-            {children ?? renderContent(active, user?.role || 'employee')}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
             <GtgBreadcrumb
