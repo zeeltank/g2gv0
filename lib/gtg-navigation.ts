@@ -29,7 +29,10 @@ import {
   Award,
   Megaphone,
   BarChart3,
-  ListChecks
+  ListChecks,
+  ArrowRightLeft,
+  LogOut,
+  DollarSign
 } from 'lucide-react'
 
 export type NavSubmenu = {
@@ -115,32 +118,15 @@ export const GTG_NAVIGATION: NavModule[] = [
     short: 'M3',
     icon: UserPlus,
     menus: [
-      {
-        id: 'talent-acquisition',
-        label: 'Talent Acquisition',
-        icon: UserPlus,
-        submenus: [
-          { id: 'recruitment-dashboard', label: 'Recruitment Dashboard' },
-          { id: 'job-postings', label: 'Job Postings' },
-          { id: 'interview-management', label: 'Interview Management' },
-          { id: 'manager-hub', label: 'Manager Hub' },
-        ],
-      },
-      {
-        id: 'performance-management',
-        label: 'Performance Management',
-        icon: TrendingUp,
-        submenus: [
-          { id: 'performance-reviews', label: 'Performance Reviews' },
-          { id: 'appraisals-succession', label: 'Appraisals & Succession' },
-        ],
-      },
-      {
-        id: 'hr-template-engine',
-        label: 'HR Template Engine',
-        icon: FileText,
-        submenus: [{ id: 'document-templates', label: 'Document Templates' }],
-      },
+      { id: 'tm-dashboard', label: 'Dashboard', icon: LayoutDashboard, submenus: [] },
+      { id: 'recruitment', label: 'Recruitment', icon: Briefcase, submenus: [] },
+      { id: 'onboarding', label: 'Onboarding', icon: UserPlus, submenus: [] },
+      { id: 'performance', label: 'Performance', icon: TrendingUp, submenus: [] },
+      { id: 'compensation', label: 'Compensation', icon: DollarSign, submenus: [] },
+      { id: 'mobility-succession', label: 'Mobility & Succession', icon: ArrowRightLeft, submenus: [] },
+      { id: 'offboarding', label: 'Offboarding', icon: LogOut, submenus: [] },
+      { id: 'administration', label: 'Administration', icon: Settings, submenus: [] },
+      { id: 'audit-activity', label: 'Audit & Activity', icon: FileText, submenus: [] },
     ],
   },
   {
