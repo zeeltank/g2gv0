@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { PanelLeftClose, PanelLeft } from 'lucide-react'
+import { PanelLeftClose } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { resolveBreadcrumb, type ActiveNav, GTG_NAVIGATION } from '@/lib/gtg-navigation'
+import { resolveBreadcrumb, type ActiveNav } from '@/lib/gtg-navigation'
 import { useAuth } from '@/lib/gtg-auth'
 import { GtgSidebar } from './gtg-sidebar'
 import { GtgHeader } from './gtg-header'
+import { FloatingToolbar } from './gtg-floating-toolbar'
 import { GtgBreadcrumb } from './gtg-breadcrumb'
+import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { OrganizationInformation } from '@/components/org/organization-information'
 import { OrganizationDetailsForm } from '@/components/org/organization-details'
 import { DepartmentList } from '@/components/org/department-list'
@@ -295,9 +297,18 @@ interface GtgAppShellProps {
   children?: ReactNode
   /** Override the initial active navigation state (defaults to Org Profile) */
   initialActive?: ActiveNav
+  /** AI Agent panel state */
+  agentOpen?: boolean
+  /** Callback when AI Agent panel open state changes */
+  onAgentOpenChange?: (open: boolean) => void
 }
 
-export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) {
+export function GtgAppShell({
+  children,
+  initialActive,
+  agentOpen,
+  onAgentOpenChange,
+}: GtgAppShellProps = {}) {
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -335,13 +346,20 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
     router.push(getRoutePath(next))
   }
 
+  const [internalAgentOpen, setInternalAgentOpen] = useState(false)
+  const agentOpenState = agentOpen ?? internalAgentOpen
+  const setAgentOpen = useCallback((next: boolean) => {
+    setInternalAgentOpen(next)
+    onAgentOpenChange?.(next)
+  }, [onAgentOpenChange])
+
   const crumb = resolveBreadcrumb(active)
 
-  return (
+return (
     <div
       role="application"
       aria-label="GapstoGrowth HRMS"
-      className="flex h-screen w-full bg-background"
+      className="flex h-screen w-full bg-background overflow-hidden"
     >
       <GtgSidebar
         active={active}
@@ -349,21 +367,42 @@ export function GtgAppShell({ children, initialActive }: GtgAppShellProps = {}) 
         role={user?.role || 'employee'}
       />
 
-      <div
-        className="flex h-screen w-full flex-col pl-[72px]"
-      >
-        <GtgHeader />
-        <GtgBreadcrumb
-          module={crumb.module}
-          menu={crumb.menu}
-          submenu={crumb.submenu}
-        />
+      <div className="flex h-screen w-full flex-col pl-[72px]">
+        <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
 
         <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background flex flex-col">
           <div className="w-full p-6 flex flex-col flex-1 min-h-0 relative">
             {children ?? renderContent(active, user?.role || 'employee')}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+            <GtgBreadcrumb
+              module={crumb.module}
+              menu={crumb.menu}
+              submenu={crumb.submenu}
+            />
+
+            <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
+              <div className="w-full min-h-full p-6">
+                {children ?? renderContent(active, user?.role || 'employee')}
+              </div>
+            </main>
           </div>
-        </main>
+
+          <aside
+            aria-label="AI Agent Panel"
+            className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
+            style={{
+              width: agentOpenState ? 'var(--agent-panel-width)' : '0px',
+              transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
+            }}
+          >
+            <div className="h-full">
+              <AgentPanel onClose={() => setAgentOpen(false)} />
+            </div>
+          </aside>
+        </div>
+
+        <FloatingToolbar />
       </div>
     </div>
   )
