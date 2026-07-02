@@ -27,6 +27,7 @@ import { CmAudit } from '@/components/competency/cm-audit'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
 import LeaveManagementDashboard from '@/components/leave-managemnt/LeaveManagementtDashboard'
+import LeaveRequestsPage from '@/components/leave-managemnt/LeaveRequestsPage'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import { TaskWorkspace } from '@/components/task/task-workspace'
@@ -241,12 +242,7 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'leave-operations':
         return <LeaveManagementDashboard />
       case 'leave-requests':
-        return (
-          <ComingSoonScreen
-            title="Leave Requests"
-            description="Review, filter, and process employee leave requests. Coming soon."
-          />
-        )
+        return <LeaveRequestsPage />
       case 'leave-reports':
         return (
           <ComingSoonScreen
