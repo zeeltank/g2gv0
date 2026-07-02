@@ -6,7 +6,7 @@ export type LeaveType =
   | 'Maternity Leave'
   | 'Paternity Leave'
 
-export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected'
+export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'sent-back' | 'cancelled'
 
 export type ActivityType = 'application' | 'approval' | 'rejection'
 
@@ -37,6 +37,7 @@ export interface DashboardStat {
 
 export interface LeaveRequest {
   id: string
+  employeeId: string
   employee: {
     id: string
     name: string
@@ -54,6 +55,8 @@ export interface LeaveRequest {
   fromDate: string
   toDate: string
   status: LeaveRequestStatus
+  approver?: string
+  submittedDate?: string
   reason?: string
   backupEmployee?: string
   pendingTasks?: string

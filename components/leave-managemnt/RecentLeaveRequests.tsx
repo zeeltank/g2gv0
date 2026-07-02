@@ -27,10 +27,12 @@ interface RecentLeaveRequestsProps {
   requests: LeaveRequest[]
 }
 
-const statusBadgeToneMap: Record<LeaveRequest['status'], 'warning' | 'success' | 'destructive'> = {
+const statusBadgeToneMap: Record<LeaveRequest['status'], 'warning' | 'success' | 'destructive' | 'navy' | 'muted'> = {
   pending: 'warning',
   approved: 'success',
   rejected: 'destructive',
+  'sent-back': 'navy',
+  cancelled: 'muted',
 }
 
 export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
@@ -103,18 +105,13 @@ export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                      <DropdownMenuTrigger className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors">
+                        <MoreVertical className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[160px]">
                         <DropdownMenuItem onClick={() => console.log('View', request.id)}>
                           View
+
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
