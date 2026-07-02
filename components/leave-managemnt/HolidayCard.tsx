@@ -1,8 +1,9 @@
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, ArrowRight } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/Leavemanagment-data'
 import type { Holiday } from '@/types/Leavedashboard'
+import { Button } from '@/components/ui/button'
 
 interface HolidayCardProps {
   holidays: Holiday[]
@@ -10,10 +11,25 @@ interface HolidayCardProps {
 
 export function HolidayCard({ holidays }: HolidayCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Upcoming Holidays</CardTitle>
-        <CardDescription>Company holidays scheduled ahead</CardDescription>
+    <Card className="h-full">
+      <CardHeader className="flex flex-row items-start justify-between pb-3">
+        <div className="flex flex-col">
+          <CardTitle className="text-base">
+            Upcoming Holidays
+          </CardTitle>
+
+          <CardDescription>
+            Company holidays scheduled ahead
+          </CardDescription>
+        </div>
+
+        <Button
+          variant="link"
+          className="h-auto px-0 text-xs font-semibold"
+        >
+          View all
+          <ArrowRight className="ml-1 size-3.5" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-3">
         {holidays.map((holiday) => (

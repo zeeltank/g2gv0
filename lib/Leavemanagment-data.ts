@@ -8,6 +8,8 @@ import type {
   LeaveRequest,
   LeaveTrendData,
   LeaveTypeDistribution,
+  LeaveBalanceSnapshot,
+  LeaveQuickAction,
 } from '@/types/Leavedashboard'
 
 export const currentUser: DashboardUser = {
@@ -235,6 +237,20 @@ export const upcomingLeaves: EmployeeLeave[] = [
     toDate: '2026-07-25',
     duration: '2 days',
   },
+]
+
+export const leaveBalances: LeaveBalanceSnapshot[] = [
+  { id: 'casual', label: 'Casual Leave', used: 8, total: 12, tone: 'primary' },
+  { id: 'sick', label: 'Sick Leave', used: 4, total: 12, tone: 'success' },
+  { id: 'earned', label: 'Earned Leave', used: 6, total: 20, tone: 'warning' },
+  { id: 'comp-off', label: 'Comp-Off', used: 2, total: 4, tone: 'destructive' },
+]
+
+export const quickActions: LeaveQuickAction[] = [
+  { id: 'apply', icon: 'calendar-plus', label: 'Apply Leave', description: 'Request time off from work' },
+  { id: 'requests', icon: 'clipboard-list', label: 'My Requests', description: 'View your leave history' },
+  { id: 'balance', icon: 'calendar-days', label: 'Leave Balance', description: 'Check your remaining leaves' },
+  { id: 'reports', icon: 'chart-bar', label: 'Leave Reports', description: 'View team analytics' },
 ]
 
 export const formatDate = (dateString: string): string =>

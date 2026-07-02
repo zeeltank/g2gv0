@@ -95,3 +95,18 @@ export interface EmployeeLeave {
   toDate: string
   duration: string
 }
+
+export interface LeaveBalanceSnapshot {
+  id: string
+  label: string
+  used: number
+  total: number
+  tone: DashboardStatTone
+}
+
+export interface LeaveQuickAction {
+  id: string
+  icon: string
+  label: string
+  description: string
+}

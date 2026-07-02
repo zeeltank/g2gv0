@@ -1,34 +1,53 @@
-import { CalendarDays, UserRound } from 'lucide-react'
+'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
-import type { DashboardUser } from '@/types/Leavedashboard'
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { LeaveCalendarDrawer } from './LeaveCalendarDrawer'
+import type { EmployeeLeave } from '@/types/Leavedashboard'
 
 interface DashboardHeaderProps {
-  user: DashboardUser
+  userName: string
   currentDate: string
+  upcomingLeaves: EmployeeLeave[]
 }
 
-export function DashboardHeader({ user, currentDate }: DashboardHeaderProps) {
+export function DashboardHeader({ userName, currentDate, upcomingLeaves }: DashboardHeaderProps) {
+  const [calendarOpen, setCalendarOpen] = useState(false)
+
   return (
-    <Card className="overflow-hidden border-border/80 bg-card">
-      <CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="min-w-0 space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">Welcome back,</p>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
-              {user.name}
-            </h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <UserRound className="size-4" />
-              <span>{user.role}</span>
-            </div>
-          </div>
+    <>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold tracking-tight text-foreground lg:text-xl">
+            Good Morning, {userName}! <span aria-hidden="true">👋</span>
+          </h1>
+          <p className="text-sm font-medium text-muted-foreground lg:text-sm">
+            Here's your leave management overview for today.
+          </p>
         </div>
-        <div className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface-muted px-4 py-3 text-sm text-muted-foreground sm:w-auto">
-          <CalendarDays className="size-4 text-primary" />
-          <span className="font-medium text-foreground">{currentDate}</span>
-        </div>
-      </CardContent>
-    </Card>
+
+        <Button
+          variant="outline"
+          className="h-14 justify-between gap-3 rounded-2xl border-border/80 bg-card px-4 text-base font-semibold shadow-sm sm:min-w-72"
+          onClick={() => setCalendarOpen(true)}
+          aria-label="Open monthly leave calendar"
+        >
+          <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+            L
+          </span>
+          <span className="flex-1 text-left">{currentDate}</span>
+          <ChevronDown className="size-4 text-muted-foreground" />
+        </Button>
+      </header>
+
+      <LeaveCalendarDrawer
+        open={calendarOpen}
+        onOpenChange={setCalendarOpen}
+        upcomingLeaves={upcomingLeaves}
+        currentDate={currentDate}
+      />
+    </>
   )
 }
