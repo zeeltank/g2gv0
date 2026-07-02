@@ -8,6 +8,7 @@ const progressVariants = cva(
     variants: {
       variant: {
         default: '[&>div]:bg-primary',
+        primary: '[&>div]:bg-primary',
         success: '[&>div]:bg-success',
         warning: '[&>div]:bg-warning',
         destructive: '[&>div]:bg-destructive',

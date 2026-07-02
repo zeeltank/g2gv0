@@ -161,7 +161,7 @@ export function DepartmentList({ role }: { role: Role }) {
 
       <SectionCard className="overflow-hidden">
         {/* Filter bar */}
-        <div className="flex flex-col gap-3 pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 pb-5 pt-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative flex w-full max-w-sm items-center">
             <Search
               className="pointer-events-none absolute left-3 size-4 text-muted-foreground"

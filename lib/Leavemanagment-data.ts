@@ -8,6 +8,8 @@ import type {
   LeaveRequest,
   LeaveTrendData,
   LeaveTypeDistribution,
+  LeaveBalanceSnapshot,
+  LeaveQuickAction,
 } from '@/types/Leavedashboard'
 
 export const currentUser: DashboardUser = {
@@ -235,6 +237,94 @@ export const upcomingLeaves: EmployeeLeave[] = [
     toDate: '2026-07-25',
     duration: '2 days',
   },
+]
+
+export const leaveBalances: LeaveBalanceSnapshot[] = [
+  { id: 'casual', label: 'Casual Leave', used: 8, total: 12, tone: 'primary' },
+  { id: 'sick', label: 'Sick Leave', used: 4, total: 12, tone: 'success' },
+  { id: 'earned', label: 'Earned Leave', used: 6, total: 20, tone: 'warning' },
+  { id: 'comp-off', label: 'Comp-Off', used: 2, total: 4, tone: 'destructive' },
+]
+
+export const recentLeaveRequests: LeaveRequest[] = [
+  {
+    id: 'leave-101',
+    employee: { id: 'emp-002', name: 'Rahul Kumar' },
+    department: 'Engineering',
+    leaveType: 'Casual Leave',
+    duration: '2 days',
+    fromDate: '2026-07-08',
+    toDate: '2026-07-09',
+    appliedDate: '2026-07-01',
+    status: 'pending',
+    reason: 'Personal work',
+  },
+  {
+    id: 'leave-102',
+    employee: { id: 'emp-003', name: 'Sneha Patel' },
+    department: 'HR',
+    leaveType: 'Sick Leave',
+    duration: '1 day',
+    fromDate: '2026-07-04',
+    toDate: '2026-07-04',
+    appliedDate: '2026-07-01',
+    status: 'rejected',
+    reason: 'Medical appointment',
+  },
+  {
+    id: 'leave-103',
+    employee: { id: 'emp-004', name: 'Amit Singh' },
+    department: 'Sales',
+    leaveType: 'Earned Leave',
+    duration: '3 days',
+    fromDate: '2026-07-15',
+    toDate: '2026-07-17',
+    appliedDate: '2026-06-29',
+    status: 'approved',
+    reason: 'Family trip',
+  },
+  {
+    id: 'leave-104',
+    employee: { id: 'emp-005', name: 'Neha Gupta' },
+    department: 'Finance',
+    leaveType: 'Work From Home',
+    duration: '1 day',
+    fromDate: '2026-07-06',
+    toDate: '2026-07-06',
+    appliedDate: '2026-06-30',
+    status: 'pending',
+  },
+  {
+    id: 'leave-105',
+    employee: { id: 'emp-006', name: 'Vikram Reddy' },
+    department: 'Marketing',
+    leaveType: 'Casual Leave',
+    duration: '2 days',
+    fromDate: '2026-07-21',
+    toDate: '2026-07-22',
+    appliedDate: '2026-06-28',
+    status: 'rejected',
+    reason: 'Personal',
+  },
+  {
+    id: 'leave-106',
+    employee: { id: 'emp-007', name: 'Priya Sharma' },
+    department: 'Engineering',
+    leaveType: 'Maternity Leave',
+    duration: '5 days',
+    fromDate: '2026-07-10',
+    toDate: '2026-07-14',
+    appliedDate: '2026-06-25',
+    status: 'approved',
+    reason: 'Maternity leave',
+  },
+]
+
+export const quickActions: LeaveQuickAction[] = [
+  { id: 'apply', icon: 'calendar-plus', label: 'Apply Leave', description: 'Request time off from work' },
+  { id: 'requests', icon: 'clipboard-list', label: 'My Requests', description: 'View your leave history' },
+  { id: 'balance', icon: 'calendar-days', label: 'Leave Balance', description: 'Check your remaining leaves' },
+  { id: 'reports', icon: 'chart-bar', label: 'Leave Reports', description: 'View team analytics' },
 ]
 
 export const formatDate = (dateString: string): string =>

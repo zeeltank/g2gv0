@@ -6,11 +6,12 @@ import { DashboardHeader } from '@/components/leave-managemnt/Leave_managemntHea
 import { DashboardStats } from '@/components/leave-managemnt/Leave_managemntStats'
 import { DepartmentChart } from '@/components/leave-managemnt/Leave_managemntChart'
 import { HolidayCard } from '@/components/leave-managemnt/HolidayCard'
-import { LeaveTrendChart } from '@/components/leave-managemnt/LeaveTrendChart'
 import { LeaveTypeChart } from '@/components/leave-managemnt/LeaveTypeChart'
-import { PendingApprovalTable } from '@/components/leave-managemnt/PendingApprovalTable'
+import { PendingApprovalsCard } from '@/components/leave-managemnt/PendingApprovalCard'
 import { RecentActivity } from '@/components/leave-managemnt/RecentActivity'
-import { UpcomingLeaveCard } from '@/components/leave-managemnt/UpcomingLeaveCard'
+import { RecentLeaveRequests } from '@/components/leave-managemnt/RecentLeaveRequests'
+import { LeaveBalanceSnapshotCard } from '@/components/leave-managemnt/LeaveBalanceSnapshot'
+import { LeaveQuickActionsCard } from '@/components/leave-managemnt/LeaveQuickActionsCard'
 import {
   currentUser,
   dashboardStats,
@@ -20,8 +21,11 @@ import {
   leaveTypeData,
   pendingLeaveRequests,
   recentActivities,
+  recentLeaveRequests,
   upcomingHolidays,
   upcomingLeaves,
+  leaveBalances,
+  quickActions,
 } from '@/lib/Leavemanagment-data'
 import type { LeaveRequest } from '@/types/Leavedashboard'
 
@@ -34,24 +38,23 @@ export default function DashboardPage() {
 
   return (
       <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
-        <DashboardHeader user={currentUser} currentDate={currentDate} />
+      <DashboardHeader userName={currentUser.name} currentDate={currentDate} upcomingLeaves={upcomingLeaves} />
         <DashboardStats stats={dashboardStats} />
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-          <LeaveTrendChart data={leaveTrendData} />
+        <DepartmentChart data={departmentLeaveData} />
           <LeaveTypeChart data={leaveTypeData} />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.55fr)]">
-          <DepartmentChart data={departmentLeaveData} />
-          <UpcomingLeaveCard leaves={upcomingLeaves} />
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-1">
-            <HolidayCard holidays={upcomingHolidays} />
-          </div>
+        <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <PendingApprovalsCard requests={pendingLeaveRequests} onViewDetails={handleViewDetails} />
+          <LeaveBalanceSnapshotCard balances={leaveBalances} />
+          <HolidayCard holidays={upcomingHolidays} />
+          <LeaveQuickActionsCard actions={quickActions} />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-          <PendingApprovalTable requests={pendingLeaveRequests} onViewDetails={handleViewDetails} />
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <RecentLeaveRequests requests={recentLeaveRequests} />
           <RecentActivity activities={recentActivities} />
         </section>
       </div>

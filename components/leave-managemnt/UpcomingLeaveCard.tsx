@@ -11,7 +11,7 @@ interface UpcomingLeaveCardProps {
 
 export function UpcomingLeaveCard({ leaves }: UpcomingLeaveCardProps) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Upcoming Leaves</CardTitle>
         <CardDescription>Approved leave plans coming up soon</CardDescription>
