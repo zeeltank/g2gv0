@@ -9,6 +9,7 @@ import { HolidayCard } from '@/components/leave-managemnt/HolidayCard'
 import { LeaveTypeChart } from '@/components/leave-managemnt/LeaveTypeChart'
 import { PendingApprovalsCard } from '@/components/leave-managemnt/PendingApprovalCard'
 import { RecentActivity } from '@/components/leave-managemnt/RecentActivity'
+import { RecentLeaveRequests } from '@/components/leave-managemnt/RecentLeaveRequests'
 import { LeaveBalanceSnapshotCard } from '@/components/leave-managemnt/LeaveBalanceSnapshot'
 import { LeaveQuickActionsCard } from '@/components/leave-managemnt/LeaveQuickActionsCard'
 import {
@@ -20,6 +21,7 @@ import {
   leaveTypeData,
   pendingLeaveRequests,
   recentActivities,
+  recentLeaveRequests,
   upcomingHolidays,
   upcomingLeaves,
   leaveBalances,
@@ -51,7 +53,8 @@ export default function DashboardPage() {
           <LeaveQuickActionsCard actions={quickActions} />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <RecentLeaveRequests requests={recentLeaveRequests} />
           <RecentActivity activities={recentActivities} />
         </section>
       </div>

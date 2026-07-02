@@ -41,15 +41,27 @@ export interface LeaveRequest {
     id: string
     name: string
     avatar?: string
+    designation?: string
+    email?: string
+    mobileNumber?: string
   }
   department: string
   leaveType: LeaveType
+  leaveBalanceBefore?: number
   duration: string
+  session?: 'Full Day' | 'Half Day'
   appliedDate: string
   fromDate: string
   toDate: string
   status: LeaveRequestStatus
   reason?: string
+  backupEmployee?: string
+  pendingTasks?: string
+  handoverNotes?: string
+  approvalWorkflow?: {
+    stage: string
+    status: LeaveRequestStatus | 'completed'
+  }[]
 }
 
 export interface Holiday {
