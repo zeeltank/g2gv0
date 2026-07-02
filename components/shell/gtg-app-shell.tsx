@@ -26,6 +26,7 @@ import { CmCertifications } from '@/components/competency/cm-certifications'
 import { CmAudit } from '@/components/competency/cm-audit'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
+import LeaveManagementDashboard from '@/components/leave-managemnt/LeaveManagementtDashboard'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import { TaskWorkspace } from '@/components/task/task-workspace'
@@ -236,11 +237,28 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <AttendanceDashboard />
       case 'attendance-reports':
         return <AttendanceReportsPage />
+      case 'leave-dashboard':
       case 'leave-operations':
+        return <LeaveManagementDashboard />
+      case 'leave-requests':
         return (
           <ComingSoonScreen
-            title="Leave Operations"
-            description="Process leave requests, approvals, and policy management. Coming soon."
+            title="Leave Requests"
+            description="Review, filter, and process employee leave requests. Coming soon."
+          />
+        )
+      case 'leave-reports':
+        return (
+          <ComingSoonScreen
+            title="Reports"
+            description="Analyze leave trends, balances, and approval performance. Coming soon."
+          />
+        )
+      case 'leave-configuration':
+        return (
+          <ComingSoonScreen
+            title="Configuration"
+            description="Configure leave policies, calendars, and approval workflows. Coming soon."
           />
         )
       case 'payroll-processing':

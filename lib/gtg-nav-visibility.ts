@@ -68,7 +68,11 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   // Submenus
   'attendance-tracking': ['admin', 'hr', 'dept-head', 'employee'],
   'attendance-reports': ['admin', 'hr'],
+  'leave-dashboard': ['admin', 'hr', 'dept-head', 'employee'],
   'leave-operations': ['admin', 'hr', 'dept-head', 'employee'],
+  'leave-requests': ['admin', 'hr', 'dept-head', 'employee'],
+  'leave-reports': ['admin', 'hr'],
+  'leave-configuration': ['admin', 'hr'],
   'payroll-processing': ['admin', 'hr'],
 }
 

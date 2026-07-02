@@ -199,7 +199,12 @@ export const GTG_NAVIGATION: NavModule[] = [
         id: 'leave-management',
         label: 'Leave Management',
         icon: CalendarDays,
-        submenus: [{ id: 'leave-operations', label: 'Leave Operations' }],
+        submenus: [
+          { id: 'leave-dashboard', label: 'Dashboard' },
+          { id: 'leave-requests', label: 'Leave Requests' },
+          { id: 'leave-reports', label: 'Reports' },
+          { id: 'leave-configuration', label: 'Configuration' },
+        ],
       },
       {
         id: 'payroll-management',
