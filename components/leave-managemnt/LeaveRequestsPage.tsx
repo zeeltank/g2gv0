@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Download, Plus, ChevronDown, MoreVertical, Search, ListFilter, Columns3 } from 'lucide-react'
+import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { DataTable, type Column } from '@/components/ui/data-table'
+import { LeaveRequestDetailsDrawer } from '@/components/leave-managemnt/LeaveRequestDetailsDrawer'
+import { ApplyLeaveDrawer } from '@/components/leave-managemnt/LeaveApplyDrawer'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/Leavedashboard'
 import { recentLeaveRequests as allLeaveRequests } from '@/lib/Leavemanagment-data'
 import { formatDateShort } from '@/lib/Leavemanagment-data'
@@ -77,6 +79,9 @@ export default function LeaveRequestsPage() {
   const [page, setPage] = useState(1)
   const pageSize = 8
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [applyLeaveOpen, setApplyLeaveOpen] = useState(false)
 
   const filteredData = useMemo(() => {
     return allLeaveRequests.filter((request) => {
@@ -115,7 +120,7 @@ export default function LeaveRequestsPage() {
   }
 
   const handleApplyLeave = () => {
-    console.log('Open Apply Leave modal')
+    setApplyLeaveOpen(true)
   }
 
   const handleSavedFilterClick = (filters: Record<string, string | undefined>) => {
@@ -212,24 +217,18 @@ export default function LeaveRequestsPage() {
     {
       id: 'actions' as keyof LeaveRequest,
       header: 'Actions',
-      render: () => (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors">
-              <MoreVertical className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuItem onClick={() => console.log('View details')}>View Details</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => console.log('Approve')}>Approve</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log('Reject')}>Reject</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log('Send Back')}>Send Back</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log('Edit')}>Edit</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log('Escalate')}>Escalate</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => console.log('Cancel')}>Cancel</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      render: (_, row) => (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSelectedRequest(row)
+              setDrawerOpen(true)
+            }}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
         </div>
       ),
     },
@@ -347,19 +346,27 @@ export default function LeaveRequestsPage() {
         Export
       </Button>
 
-      {selectedIds.length > 0 && (
-        <>
-          <Button onClick={handleBulkApprove}>Bulk Approve</Button>
-          <Button variant="destructive" onClick={handleBulkReject}>
-            Bulk Reject
-          </Button>
-        </>
-      )}
+            {selectedIds.length > 0 && (
+              <>
+                <Button onClick={handleBulkApprove}>Bulk Approve</Button>
+                <Button variant="destructive" onClick={handleBulkReject}>
+                  Bulk Reject
+                </Button>
+              </>
+            )}
     </div>
   </div>
-</div>
+      </div>
 
-      {/* Leave Requests Table */}
+      <LeaveRequestDetailsDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        request={selectedRequest}
+      />
+      <ApplyLeaveDrawer
+        open={applyLeaveOpen}
+        onOpenChange={setApplyLeaveOpen}
+      />
       <div className="rounded-xl border border-border bg-card">
         <DataTable
           columns={columns}
