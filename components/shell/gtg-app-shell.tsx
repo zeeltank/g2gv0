@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
-import { cn } from '@/lib/utils'
+// import { cn } from '@/lib/utils'
 import { resolveBreadcrumb, type ActiveNav } from '@/lib/gtg-navigation'
 import { useAuth } from '@/lib/gtg-auth'
 import { GtgSidebar } from './gtg-sidebar'
 import { GtgHeader } from './gtg-header'
-import { FloatingToolbar } from './gtg-floating-toolbar'
+import FloatingToolbar from './gtg-floating-toolbar'
 import { GtgBreadcrumb } from './gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { OrganizationInformation } from '@/components/org/organization-information'
@@ -26,6 +26,9 @@ import { CmCertifications } from '@/components/competency/cm-certifications'
 import { CmAudit } from '@/components/competency/cm-audit'
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
 import { AttendanceReportsPage } from '@/components/attendance/attendance-reports-page'
+import LeaveManagementDashboard from '@/components/leave-managemnt/LeaveManagementtDashboard'
+import LeaveRequestsPage from '@/components/leave-managemnt/LeaveRequestsPage'
+import LeaveReportsPage from '@/components/leave-managemnt/LeaveReportsPage'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import { TaskWorkspace } from '@/components/task/task-workspace'
@@ -215,11 +218,18 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <AttendanceDashboard />
       case 'attendance-reports':
         return <AttendanceReportsPage />
+      case 'leave-dashboard':
       case 'leave-operations':
+        return <LeaveManagementDashboard />
+      case 'leave-requests':
+        return <LeaveRequestsPage />
+      case 'leave-reports':
+        return <LeaveReportsPage />
+      case 'leave-configuration':
         return (
           <ComingSoonScreen
-            title="Leave Operations"
-            description="Process leave requests, approvals, and policy management. Coming soon."
+            title="Configuration"
+            description="Configure leave policies, calendars, and approval workflows. Coming soon."
           />
         )
       case 'payroll-processing':
@@ -378,7 +388,7 @@ return (
           </aside>
         </div>
 
-        <FloatingToolbar />
+        <FloatingToolbar isAgentOpen={agentOpenState} />
       </div>
     </div>
   )
