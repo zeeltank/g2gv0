@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
@@ -122,29 +122,29 @@ export default function ApprovalWorkflowTab() {
                 <span className="text-xs text-foreground sm:text-sm">Employee</span>
               </div>
               {hasCircleSteps && (
-                <ChevronDown className="h-5 w-5 rotate-90 text-muted-foreground sm:rotate-90" />
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
               )}
               {reportingManagerEnabled && (
                 <div className="text-center">
                   <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
-                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👨\u200D💼</span>
+                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👨</span>
                   </div>
                   <span className="text-xs text-foreground sm:text-sm">Reporting Manager</span>
                 </div>
               )}
               {reportingManagerEnabled && departmentHeadEnabled && (
-                <ChevronDown className="hidden h-5 w-5 rotate-90 text-muted-foreground sm:block sm:rotate-90" />
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
               )}
               {departmentHeadEnabled && (
                 <div className="text-center">
                   <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
-                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👩\u200D💼</span>
+                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👩</span>
                   </div>
                   <span className="text-xs text-foreground sm:text-sm">Department Head</span>
                 </div>
               )}
               {departmentHeadEnabled && hrEnabled && (
-                <ChevronDown className="hidden h-5 w-5 rotate-90 text-muted-foreground sm:block sm:rotate-90" />
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
               )}
               {hrEnabled && (
                 <div className="text-center">
@@ -155,7 +155,7 @@ export default function ApprovalWorkflowTab() {
                 </div>
               )}
             </div>
-            <ChevronDown className="h-5 w-5 rotate-90 text-muted-foreground" />
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
             <div className="text-center">
               <div className="mx-auto size-12 rounded-full bg-success/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
                 <span className="text-xs font-semibold text-success sm:text-sm md:text-sm">✓</span>
