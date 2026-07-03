@@ -29,6 +29,7 @@ import { AttendanceReportsPage } from '@/components/attendance/attendance-report
 import LeaveManagementDashboard from '@/components/leave-managemnt/LeaveManagementtDashboard'
 import LeaveRequestsPage from '@/components/leave-managemnt/LeaveRequestsPage'
 import LeaveReportsPage from '@/components/leave-managemnt/LeaveReportsPage'
+import LeaveConfigurationPage from '@/components/leave-managemnt/LeaveConfigurationPage'
 import { EmployeeDirectory } from '@/components/org/employee-directory'
 import { RolePermissions } from '@/components/org/role-permissions'
 import { TaskWorkspace } from '@/components/task/task-workspace'
@@ -246,13 +247,8 @@ function renderContent(active: ActiveNav, userRole: string) {
         return <LeaveRequestsPage />
       case 'leave-reports':
         return <LeaveReportsPage />
-      case 'leave-configuration':
-        return (
-          <ComingSoonScreen
-            title="Configuration"
-            description="Configure leave policies, calendars, and approval workflows. Coming soon."
-          />
-        )
+case 'leave-configuration':
+         return <LeaveConfigurationPage />
       case 'payroll-processing':
         return (
           <ComingSoonScreen
