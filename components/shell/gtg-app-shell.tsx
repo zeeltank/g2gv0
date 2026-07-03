@@ -50,6 +50,13 @@ import { LearningDeliveryWorkspace } from '@/components/lms/delivery/learning-de
 import { SessionsCalendar } from '@/components/lms/sessions/sessions-calendar'
 import { CertificationsRecords } from '@/components/lms/records/certifications-records'
 import { LmsGovernance } from '@/components/lms/governance/lms-governance'
+import { TalentDashboard } from '@/components/talent/dashboard/talent-dashboard'
+import { RecruitmentCenter } from '@/components/talent/recruitment/recruitment-center'
+import { OnboardingCenter } from '@/components/talent/onboarding/onboarding-center'
+import { PerformanceCenter } from '@/components/talent/performance/performance-center'
+import { MobilityCenter } from '@/components/talent/mobility-succession/mobility-center'
+import { OffboardingCenter } from '@/components/talent/offboarding/offboarding-center'
+import { AdminCenter } from '@/components/talent/administration/admin-center'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -158,56 +165,28 @@ function renderContent(active: ActiveNav, userRole: string) {
 
   // M3 — Talent Management
   if (active.moduleId === 'm3') {
-    switch (active.submenuId) {
-      case 'recruitment-dashboard':
+    switch (active.menuId) {
+      case 'tm-dashboard':
+        return <TalentDashboard />
+      case 'recruitment':
+        return <RecruitmentCenter />
+      case 'onboarding':
+        return <OnboardingCenter />
+      case 'performance':
+        return <PerformanceCenter />
+      case 'compensation':
         return (
           <ComingSoonScreen
-            title="Recruitment Dashboard"
-            description="Overview of hiring pipelines, open requisitions, and recruitment metrics. Coming soon."
+            title="Compensation"
+            description="Manage salaries, bonuses, and equity grants. Coming soon."
           />
         )
-      case 'job-postings':
-        return (
-          <ComingSoonScreen
-            title="Job Postings"
-            description="Create, manage, and publish job openings across channels. Coming soon."
-          />
-        )
-      case 'interview-management':
-        return (
-          <ComingSoonScreen
-            title="Interview Management"
-            description="Schedule, track, and evaluate candidate interviews. Coming soon."
-          />
-        )
-      case 'manager-hub':
-        return (
-          <ComingSoonScreen
-            title="Manager Hub"
-            description="Centralized view for managers to review hiring progress and candidate feedback. Coming soon."
-          />
-        )
-      case 'performance-reviews':
-        return (
-          <ComingSoonScreen
-            title="Performance Reviews"
-            description="Conduct and track employee performance reviews and 360-degree feedback. Coming soon."
-          />
-        )
-      case 'appraisals-succession':
-        return (
-          <ComingSoonScreen
-            title="Appraisals & Succession"
-            description="Manage annual appraisals and succession planning workflows. Coming soon."
-          />
-        )
-      case 'document-templates':
-        return (
-          <ComingSoonScreen
-            title="Document Templates"
-            description="Create and manage HR document templates for offers, letters, and policies. Coming soon."
-          />
-        )
+      case 'mobility-succession':
+        return <MobilityCenter />
+      case 'offboarding':
+        return <OffboardingCenter />
+      case 'administration':
+        return <AdminCenter />
     }
   }
 

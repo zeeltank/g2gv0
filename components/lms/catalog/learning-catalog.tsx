@@ -105,9 +105,9 @@ export function LearningCatalog() {
       type: 'select',
       value: selectedCategory,
       options: [
-        { label: 'Compliance', value: 'Compliance' },
-        { label: 'Soft Skills', value: 'Soft Skills' },
-        { label: 'Technical', value: 'Technical' },
+        { id: 'compliance', label: 'Compliance', value: 'Compliance' },
+        { id: 'soft-skills', label: 'Soft Skills', value: 'Soft Skills' },
+        { id: 'technical', label: 'Technical', value: 'Technical' },
       ],
       onChange: (val) => setSelectedCategory(val as string),
     },
@@ -117,11 +117,11 @@ export function LearningCatalog() {
       type: 'select',
       value: selectedType,
       options: [
-        { label: 'eLearning', value: 'eLearning' },
-        { label: 'Video', value: 'Video' },
-        { label: 'Blended', value: 'Blended' },
-        { label: 'PDF', value: 'PDF' },
-        { label: 'SCORM', value: 'SCORM' },
+        { id: 'elearning', label: 'eLearning', value: 'eLearning' },
+        { id: 'video', label: 'Video', value: 'Video' },
+        { id: 'blended', label: 'Blended', value: 'Blended' },
+        { id: 'pdf', label: 'PDF', value: 'PDF' },
+        { id: 'scorm', label: 'SCORM', value: 'SCORM' },
       ],
       onChange: (val) => setSelectedType(val as string),
     },
@@ -131,8 +131,8 @@ export function LearningCatalog() {
       type: 'select',
       value: selectedMandatory,
       options: [
-        { label: 'Yes', value: 'Yes' },
-        { label: 'No', value: 'No' },
+        { id: 'yes', label: 'Yes', value: 'Yes' },
+        { id: 'no', label: 'No', value: 'No' },
       ],
       onChange: (val) => setSelectedMandatory(val as string),
     },
@@ -142,10 +142,10 @@ export function LearningCatalog() {
       type: 'select',
       value: selectedStatus,
       options: [
-        { label: 'Published', value: 'Published' },
-        { label: 'Draft', value: 'Draft' },
-        { label: 'Archived', value: 'Archived' },
-        { label: 'Under Review', value: 'Under Review' },
+        { id: 'published', label: 'Published', value: 'Published' },
+        { id: 'draft', label: 'Draft', value: 'Draft' },
+        { id: 'archived', label: 'Archived', value: 'Archived' },
+        { id: 'under-review', label: 'Under Review', value: 'Under Review' },
       ],
       onChange: (val) => setSelectedStatus(val as string),
     },
@@ -196,11 +196,11 @@ export function LearningCatalog() {
       id: 'status',
       header: 'Status',
       render: (val) => {
-        let variant: 'success' | 'warning' | 'default' | 'error' = 'default'
-        if (val === 'Published') variant = 'success'
-        if (val === 'Under Review') variant = 'warning'
+        let variant: 'default' | 'error' | 'active' | 'inactive' | 'pending' | 'processing' = 'default'
+        if (val === 'Published') variant = 'active'
+        if (val === 'Under Review') variant = 'pending'
         if (val === 'Draft') variant = 'default'
-        if (val === 'Archived') variant = 'error'
+        if (val === 'Archived') variant = 'inactive'
         
         return (
           <StatusBadge variant={variant} className="text-[10px] uppercase font-bold tracking-wider">

@@ -36,7 +36,7 @@ export function CourseDetailsSheet({
           {/* Header Info */}
           <div className="flex flex-col gap-2">
             <StatusBadge 
-              variant={course.status === 'Published' ? 'success' : course.status === 'Draft' ? 'default' : course.status === 'Under Review' ? 'warning' : 'error'} 
+              variant={course.status === 'Published' ? 'active' : course.status === 'Draft' ? 'default' : course.status === 'Under Review' ? 'pending' : 'error'} 
               className="w-fit text-[10px] uppercase font-bold tracking-wider"
             >
               {course.status}
