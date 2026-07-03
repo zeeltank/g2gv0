@@ -126,7 +126,6 @@ export const GTG_NAVIGATION: NavModule[] = [
       { id: 'mobility-succession', label: 'Mobility & Succession', icon: ArrowRightLeft, submenus: [] },
       { id: 'offboarding', label: 'Offboarding', icon: LogOut, submenus: [] },
       { id: 'administration', label: 'Administration', icon: Settings, submenus: [] },
-      { id: 'audit-activity', label: 'Audit & Activity', icon: FileText, submenus: [] },
     ],
   },
   {
