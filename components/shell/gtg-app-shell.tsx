@@ -57,6 +57,8 @@ import { PerformanceCenter } from '@/components/talent/performance/performance-c
 import { MobilityCenter } from '@/components/talent/mobility-succession/mobility-center'
 import { OffboardingCenter } from '@/components/talent/offboarding/offboarding-center'
 import { AdminCenter } from '@/components/talent/administration/admin-center'
+import { ComplianceLibraryManagement } from '@/components/compliance-discipline/compliance-library-management'
+import { DisciplinaryManagement } from '@/components/compliance-discipline/disciplinary-management'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -117,18 +119,10 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'role-permissions':
         return <RolePermissions />
       case 'compliance-management':
-        return (
-          <ComingSoonScreen
-            title="Compliance Management"
-            description="Track regulatory compliance, audits, and policy adherence. Coming soon."
-          />
-        )
+        return <ComplianceLibraryManagement />
       case 'disciplinary-management':
         return (
-          <ComingSoonScreen
-            title="Disciplinary Management"
-            description="Record and manage disciplinary actions and appeals workflow. Coming soon."
-          />
+          <DisciplinaryManagement />
         )
     }
   }
@@ -389,3 +383,4 @@ return (
     </div>
   )
 }
+
