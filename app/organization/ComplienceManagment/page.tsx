@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { ComplianceManagement } from '@/components/compliance-discipline/compliance-library-management'
+import { ComplianceLibraryManagement } from '@/components/compliance-discipline/compliance-library-management'
 
 export default function ComplianceManagementPage() {
   const { user, isLoading } = useAuth()
@@ -20,7 +20,7 @@ export default function ComplianceManagementPage() {
   return (
     <ProtectedLayout>
       <GtgAppShell>
-        <ComplianceManagement />
+        <ComplianceLibraryManagement />
       </GtgAppShell>
     </ProtectedLayout>
   )
