@@ -50,6 +50,12 @@ import { SessionsCalendar } from '@/components/lms/sessions/sessions-calendar'
 import { CertificationsRecords } from '@/components/lms/records/certifications-records'
 import { LmsGovernance } from '@/components/lms/governance/lms-governance'
 import { TalentDashboard } from '@/components/talent/dashboard/talent-dashboard'
+import { RecruitmentCenter } from '@/components/talent/recruitment/recruitment-center'
+import { OnboardingCenter } from '@/components/talent/onboarding/onboarding-center'
+import { PerformanceCenter } from '@/components/talent/performance/performance-center'
+import { MobilityCenter } from '@/components/talent/mobility-succession/mobility-center'
+import { OffboardingCenter } from '@/components/talent/offboarding/offboarding-center'
+import { AdminCenter } from '@/components/talent/administration/admin-center'
 import type { ReactNode } from 'react'
 
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -162,26 +168,11 @@ function renderContent(active: ActiveNav, userRole: string) {
       case 'tm-dashboard':
         return <TalentDashboard />
       case 'recruitment':
-        return (
-          <ComingSoonScreen
-            title="Recruitment"
-            description="Manage job openings, candidate pipelines, and interviews. Coming soon."
-          />
-        )
+        return <RecruitmentCenter />
       case 'onboarding':
-        return (
-          <ComingSoonScreen
-            title="Onboarding"
-            description="Manage new hire checklists, welcome packages, and compliance. Coming soon."
-          />
-        )
+        return <OnboardingCenter />
       case 'performance':
-        return (
-          <ComingSoonScreen
-            title="Performance"
-            description="Conduct and track employee performance reviews and feedback. Coming soon."
-          />
-        )
+        return <PerformanceCenter />
       case 'compensation':
         return (
           <ComingSoonScreen
@@ -190,33 +181,11 @@ function renderContent(active: ActiveNav, userRole: string) {
           />
         )
       case 'mobility-succession':
-        return (
-          <ComingSoonScreen
-            title="Mobility & Succession"
-            description="Track internal transfers and manage succession planning. Coming soon."
-          />
-        )
+        return <MobilityCenter />
       case 'offboarding':
-        return (
-          <ComingSoonScreen
-            title="Offboarding"
-            description="Process employee exits and conduct exit interviews. Coming soon."
-          />
-        )
+        return <OffboardingCenter />
       case 'administration':
-        return (
-          <ComingSoonScreen
-            title="Administration"
-            description="Configure Talent Management module settings. Coming soon."
-          />
-        )
-      case 'audit-activity':
-        return (
-          <ComingSoonScreen
-            title="Audit & Activity"
-            description="View logs and history of Talent actions. Coming soon."
-          />
-        )
+        return <AdminCenter />
     }
   }
 
