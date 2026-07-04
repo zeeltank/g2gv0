@@ -13,6 +13,7 @@ import { Profile } from '@/components/profile/mock-profile-data'
 
 interface BankCardProps {
   profile: Profile
+  isActive?: boolean
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -28,9 +29,9 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function BankCard({ profile }: BankCardProps) {
+export function BankCard({ profile, isActive }: BankCardProps) {
   return (
-    <Card>
+    <Card className={isActive ? 'border-warning' : ''}>
       <div className="flex items-start justify-between p-6 pb-0">
         <CardHeader className="p-0">
           <CardTitle>Deposit (Bank Details)</CardTitle>

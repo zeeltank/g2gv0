@@ -15,11 +15,12 @@ import { Profile } from '@/components/profile/mock-profile-data'
 
 interface AttendanceCardProps {
   profile: Profile
+  isActive?: boolean
 }
 
-export function AttendanceCard({ profile }: AttendanceCardProps) {
+export function AttendanceCard({ profile, isActive }: AttendanceCardProps) {
   return (
-    <Card>
+    <Card className={isActive ? 'border-warning' : ''}>
       <div className="flex items-start justify-between p-6 pb-0">
         <CardHeader className="p-0">
           <CardTitle>Attendance Schedule</CardTitle>

@@ -159,18 +159,18 @@ export function ProfileDashboard({ user }: ProfileProps) {
         <div className="flex-1 space-y-6">
           {/* Row 1: Personal Details + Address */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PersonalCard profile={profile} />
-            <AddressCard profile={profile} />
+            <PersonalCard profile={profile} isActive={activeTab === 'personal'} />
+            <AddressCard profile={profile} isActive={activeTab === 'address'} />
           </div>
 
           {/* Row 2: Reporting + Attendance */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ReportingCard profile={profile} />
-            <AttendanceCard profile={profile} />
+            <ReportingCard profile={profile} isActive={activeTab === 'reporting'} />
+            <AttendanceCard profile={profile} isActive={activeTab === 'attendance'} />
           </div>
 
           {/* Row 3: Bank Details (Full Width) */}
-          <BankCard profile={profile} />
+          <BankCard profile={profile} isActive={activeTab === 'bank'} />
         </div>
       </div>
     </div>
