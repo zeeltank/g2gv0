@@ -4,7 +4,7 @@
 
 // import { Button } from '@/components/ui/button'
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-// import { formatDateShort } from '@/lib/Leavemanagment-data'
+// import { formatDateShort } from '@/lib/leave-management-data'
 // import type { LeaveRequest } from '@/types/Leavedashboard'
 
 // interface PendingApprovalsCardProps {
@@ -61,7 +61,7 @@ import { ArrowRight, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatDateShort } from '@/lib/Leavemanagment-data'
+import { formatDateShort } from '@/lib/leave-management-data'
 import type { LeaveRequest } from '@/types/Leavedashboard'
 
 interface PendingApprovalsCardProps {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

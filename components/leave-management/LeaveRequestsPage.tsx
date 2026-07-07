@@ -15,11 +15,11 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { DataTable, type Column } from '@/components/ui/data-table'
-import { LeaveRequestDetailsDrawer } from '@/components/leave-managemnt/LeaveRequestDetailsDrawer'
-import { ApplyLeaveDrawer } from '@/components/leave-managemnt/LeaveApplyDrawer'
+import { LeaveRequestDetailsDrawer } from '@/components/leave-management/LeaveRequestDetailsDrawer'
+import { ApplyLeaveDrawer } from '@/components/leave-management/LeaveApplyDrawer'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/Leavedashboard'
-import { recentLeaveRequests as allLeaveRequests } from '@/lib/Leavemanagment-data'
-import { formatDateShort } from '@/lib/Leavemanagment-data'
+import { recentLeaveRequests as allLeaveRequests } from '@/lib/leave-management-data'
+import { formatDateShort } from '@/lib/leave-management-data'
 
 const leaveStatusOptions = [
   { label: 'All Statuses', value: '' },

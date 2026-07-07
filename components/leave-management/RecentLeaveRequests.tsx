@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { formatDateShort } from '@/lib/Leavemanagment-data'
+import { formatDateShort } from '@/lib/leave-management-data'
 import type { LeaveRequest } from '@/types/Leavedashboard'
 
 interface RecentLeaveRequestsProps {

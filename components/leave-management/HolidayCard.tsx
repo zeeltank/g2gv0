@@ -1,7 +1,7 @@
 import { CalendarDays, ArrowRight } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatDate } from '@/lib/Leavemanagment-data'
+import { formatDate } from '@/lib/leave-management-data'
 import type { Holiday } from '@/types/Leavedashboard'
 import { Button } from '@/components/ui/button'
 

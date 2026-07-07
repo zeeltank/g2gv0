@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import type { LeaveType } from '@/types/Leavedashboard'
-import { currentUser } from '@/lib/Leavemanagment-data'
+import { currentUser } from '@/lib/leave-management-data'
 
 interface ApplyLeaveDrawerProps {
   open: boolean

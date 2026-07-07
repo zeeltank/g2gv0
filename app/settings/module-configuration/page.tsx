@@ -10,7 +10,7 @@ import { SetupWizardIllustration } from '@/components/illustration/setup-wizard-
 import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
 import { Info } from 'lucide-react'
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { updateOnboarding } from '@/lib/onboarding'
 
 const SETUP_STEPS: SetupStep[] = [

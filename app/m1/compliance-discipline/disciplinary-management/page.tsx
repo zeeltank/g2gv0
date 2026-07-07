@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { DisciplinaryManagement } from '@/components/compliance-discipline/disciplinary-management'

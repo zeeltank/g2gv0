@@ -2,16 +2,16 @@
 
 import { useCallback, useMemo } from 'react'
 
-import { DashboardHeader } from '@/components/leave-managemnt/Leave_managemntHeader'
-import { DashboardStats } from '@/components/leave-managemnt/Leave_managemntStats'
-import { DepartmentChart } from '@/components/leave-managemnt/Leave_managemntChart'
-import { HolidayCard } from '@/components/leave-managemnt/HolidayCard'
-import { LeaveTypeChart } from '@/components/leave-managemnt/LeaveTypeChart'
-import { PendingApprovalsCard } from '@/components/leave-managemnt/PendingApprovalCard'
-import { RecentActivity } from '@/components/leave-managemnt/RecentActivity'
-import { RecentLeaveRequests } from '@/components/leave-managemnt/RecentLeaveRequests'
-import { LeaveBalanceSnapshotCard } from '@/components/leave-managemnt/LeaveBalanceSnapshot'
-import { LeaveQuickActionsCard } from '@/components/leave-managemnt/LeaveQuickActionsCard'
+import { DashboardHeader } from '@/components/leave-management/LeaveManagementHeader'
+import { DashboardStats } from '@/components/leave-management/LeaveManagementStats'
+import { DepartmentChart } from '@/components/leave-management/LeaveManagementChart'
+import { HolidayCard } from '@/components/leave-management/HolidayCard'
+import { LeaveTypeChart } from '@/components/leave-management/LeaveTypeChart'
+import { PendingApprovalsCard } from '@/components/leave-management/PendingApprovalCard'
+import { RecentActivity } from '@/components/leave-management/RecentActivity'
+import { RecentLeaveRequests } from '@/components/leave-management/RecentLeaveRequests'
+import { LeaveBalanceSnapshotCard } from '@/components/leave-management/LeaveBalanceSnapshot'
+import { LeaveQuickActionsCard } from '@/components/leave-management/LeaveQuickActionsCard'
 import {
   currentUser,
   dashboardStats,
@@ -26,7 +26,7 @@ import {
   upcomingLeaves,
   leaveBalances,
   quickActions,
-} from '@/lib/Leavemanagment-data'
+} from '@/lib/leave-management-data'
 import type { LeaveRequest } from '@/types/Leavedashboard'
 
 export default function DashboardPage() {

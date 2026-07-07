@@ -2,7 +2,7 @@ import { CalendarRange } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatDateShort } from '@/lib/Leavemanagment-data'
+import { formatDateShort } from '@/lib/leave-management-data'
 import type { EmployeeLeave } from '@/types/Leavedashboard'
 
 interface UpcomingLeaveCardProps {

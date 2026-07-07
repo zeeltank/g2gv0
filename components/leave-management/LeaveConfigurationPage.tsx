@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
 import { Tabs } from '@/components/org/gtg-ui'
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import LeaveTypesTab from './LeaveTypesTab'
 import ApprovalWorkflowTab from './ApprovalWorkflowTab'
 import HolidayCalendarTab from './HolidayCalendarTab'

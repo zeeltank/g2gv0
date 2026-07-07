@@ -20,7 +20,7 @@ import {
 import { AttendanceCalendarDrawer } from './attendance-calendar-drawer'
 import { AttendanceHistoryDrawer } from './attendance-history-drawer'
 import { EventDetailsDrawer } from './event-details-drawer'
-import { useAttendance } from './use-attendance'
+import { useAttendance } from '@/hooks'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

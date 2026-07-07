@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/gtg-auth";
+import { useAuth } from "@/components/auth/gtg-auth";
 import { EMPTY_ONBOARDING, type OnboardingSummary } from "@/lib/onboarding";
 
 const STEPS: SetupStep[] = [
