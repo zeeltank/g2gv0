@@ -28,6 +28,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { Badge, StatusBadge, SelectInput, AccessDenied } from './gtg-ui'
+import { SelectInput, AccessDenied } from './components'
 import {
   DEPARTMENTS,
   ORG_PROFILE,

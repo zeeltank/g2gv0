@@ -16,7 +16,7 @@ import {
   TableHead,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { StatusBadge } from './gtg-ui'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { HOD_TITLES, initials } from './department-utils'
 
 export type SortKey = 'name' | 'code' | 'parent' | 'hod' | 'employees' | 'status'

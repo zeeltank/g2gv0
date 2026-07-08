@@ -1,7 +1,37 @@
 # UI Primitive Component Library Documentation
 
 ## Overview
-Complete production-ready primitive component library built with React, TypeScript, Tailwind CSS v4, and class-variance-authority (CVA). All components are fully accessible, responsive, dark mode compatible, and follow the GTG design system tokens.
+Complete production-ready primitive component library built with React, TypeScript, Tailwind CSS v4, Radix UI primitives, and class-variance-authority (CVA). All components are fully accessible, responsive, dark mode compatible, and follow the GTG design system tokens.
+
+## Architecture
+
+### Radix UI Integration
+All interactive components are built on top of Radix UI primitives for:
+- **Full WCAG 2.1 AA accessibility compliance**
+- **Proper keyboard navigation** (arrow keys, typeahead, escape handling)
+- **Focus management** (focus trap in modals, focus restoration)
+- **Screen reader support** (ARIA attributes, live regions)
+
+Components using Radix UI:
+- `Dialog`, `AlertDialog` → `@radix-ui/react-dialog`
+- `Sheet` → `@radix-ui/react-dialog` (variants)
+- `DropdownMenu` → `@radix-ui/react-dropdown-menu`
+- `Select` → Custom with Radix-like keyboard patterns
+- `Button` → `@radix-ui/react-slot`
+
+### Import Conventions
+
+```typescript
+// ✅ Correct - Import from @/components/ui
+import { Button } from '@/components/ui'
+import { Dialog, DialogContent } from '@/components/ui'
+
+// ✅ Also correct - Direct import
+import { Button } from '@/components/ui/button'
+
+// ❌ Wrong - Do not import from legacy paths
+import { Button } from '@/components/org/gtg-ui'  // Removed!
+```
 
 ## Design System Integration
 - Uses existing `globals.css` design tokens exclusively
@@ -15,11 +45,11 @@ Complete production-ready primitive component library built with React, TypeScri
 ## Component Categories
 
 ### Form Components (10)
-1. **Button** - Primary action component with multiple variants and sizes
+1. **Button** - Primary action component with multiple variants and sizes (Radix Slot)
 2. **Input** - Text input with validation support and responsive sizes
 3. **Textarea** - Multi-line text input with auto-resizing
 4. **Label** - Accessible label with optional required indicator
-5. **Select** - Dropdown select with proper styling
+5. **Select** - Dropdown select with keyboard navigation (arrow keys, typeahead, Escape)
 6. **Checkbox** - Accessible checkbox with multiple sizes
 7. **RadioGroup & Radio** - Radio button group with grouping logic
 8. **Switch** - Toggle switch component with smooth animations
@@ -43,12 +73,12 @@ Complete production-ready primitive component library built with React, TypeScri
 1. **IconButton** - Icon-only button component with size variants
 
 ### Modal Components (3)
-1. **Dialog** - General purpose modal dialog
-2. **AlertDialog** - Confirmation/alert dialog
-3. **Sheet** - Side panel/drawer component (left, right, top, bottom)
+1. **Dialog** - General purpose modal dialog (Radix UI)
+2. **AlertDialog** - Confirmation/alert dialog (Radix UI)
+3. **Sheet** - Side panel/drawer component (Radix UI)
 
 ### Menu Components (2)
-1. **DropdownMenu** - Dropdown menu with trigger and items
+1. **DropdownMenu** - Dropdown menu with trigger and items (Radix UI)
 2. **Accordion** - Collapsible accordion with single/multiple expansion
 
 ### Overlay Components (1)
@@ -99,11 +129,11 @@ Complete production-ready primitive component library built with React, TypeScri
 ```
 components/
 ├── ui/
-│   ├── button.tsx
+│   ├── button.tsx           # Radix Slot-based
 │   ├── input.tsx
 │   ├── textarea.tsx
 │   ├── label.tsx
-│   ├── select.tsx
+│   ├── select.tsx           # Full keyboard accessibility
 │   ├── checkbox.tsx
 │   ├── radio-group.tsx
 │   ├── switch.tsx
@@ -119,16 +149,20 @@ components/
 │   ├── spinner.tsx
 │   ├── progress.tsx
 │   ├── icon-button.tsx
-│   ├── dialog.tsx
-│   ├── alert-dialog.tsx
-│   ├── sheet.tsx
-│   ├── dropdown-menu.tsx
+│   ├── dialog.tsx           # Radix UI
+│   ├── alert-dialog.tsx     # Radix UI
+│   ├── sheet.tsx            # Radix UI
+│   ├── dropdown-menu.tsx    # Radix UI
 │   ├── accordion.tsx
 │   ├── tooltip.tsx
 │   ├── empty-state.tsx
 │   ├── error-state.tsx
 │   ├── data-list.tsx
 │   └── index.ts (barrel export)
+├── org/
+│   └── components.tsx       # Organization-specific components
+└── data/
+    └── index.ts             # Re-exports from @/components/ui
 ```
 
 ## Usage Examples
@@ -140,66 +174,86 @@ import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 
-// Barrel export
+// Barrel export (recommended)
 import { Button, Input, Label, Card } from '@/components/ui'
 ```
 
-### Basic Form
+### Button Usage
 ```tsx
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
-export function MyForm() {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="name" required>Name</Label>
-        <Input id="name" placeholder="Enter your name" />
-      </div>
-      <Button variant="default" size="default">Submit</Button>
-    </div>
-  )
-}
+// Variants
+<Button variant="default">Default</Button>
+<Button variant="outline">Outline</Button>
+<Button variant="ghost">Ghost</Button>
+<Button variant="destructive">Destructive</Button>
+
+// Sizes
+<Button size="xs">Extra Small</Button>
+<Button size="sm">Small</Button>
+<Button size="default">Default</Button>
+<Button size="lg">Large</Button>
+<Button size="icon">Icon</Button>
+
+// asChild for wrapping
+<Button asChild>
+  <Link href="/dashboard">Go to Dashboard</Link>
+</Button>
 ```
 
-### Card Layout
-```tsx
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-
-export function MyCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Card Title</CardTitle>
-        <CardDescription>Card description goes here</CardDescription>
-      </CardHeader>
-      <CardContent>Card content</CardContent>
-    </Card>
-  )
-}
-```
-
-### Modal
+### Dialog Usage
 ```tsx
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 
-export function MyModal() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button>Open Dialog</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Dialog Title</DialogTitle>
-        </DialogHeader>
-        Dialog content here
-      </DialogContent>
-    </Dialog>
-  )
-}
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Dialog Title</DialogTitle>
+    </DialogHeader>
+    Dialog content here
+  </DialogContent>
+</Dialog>
+```
+
+### DropdownMenu Usage
+```tsx
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="outline">Open Menu</Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem>Edit</DropdownMenuItem>
+    <DropdownMenuItem>Delete</DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+### Select with Keyboard Support
+```tsx
+import { Select } from '@/components/ui/select'
+
+<Select
+  options={[
+    { value: 'option1', label: 'Option 1' },
+    { value: 'option2', label: 'Option 2' },
+  ]}
+  value={value}
+  onChange={setValue}
+  placeholder="Select an option"
+/>
+
+// Keyboard shortcuts:
+// - Arrow Up/Down: Navigate options
+// - Enter/Space: Select option
+// - Escape: Close dropdown
+// - Home/End: Jump to first/last option
+// - Typeahead: Jump to matching option
 ```
 
 ## Component Variants Reference
@@ -207,6 +261,7 @@ export function MyModal() {
 ### Button
 - Variants: `default`, `outline`, `secondary`, `ghost`, `destructive`, `link`
 - Sizes: `xs`, `sm`, `default`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg`
+- Props: `asChild`, `disabled`, `type`
 
 ### Badge
 - Variants: `default`, `secondary`, `destructive`, `outline`, `success`, `warning`, `muted`
@@ -231,22 +286,29 @@ export function MyModal() {
 
 ## Best Practices
 
-1. **Always use design tokens** - Don't add inline Tailwind classes outside the design system
-2. **Combine variants** - Use multiple variant props for complex styling needs
-3. **Accessibility first** - All components include ARIA attributes by default
-4. **Responsive design** - Use Tailwind responsive prefixes (md:, lg:, etc.)
-5. **Dark mode** - All components work automatically in dark mode
-6. **TypeScript** - Leverage full type safety with component props
-7. **ForwardRef** - Use refs when direct DOM access is needed
+### ✅ Do
+1. **Use design tokens** - Don't add inline Tailwind classes outside the design system
+2. **Use Button component** - Always prefer `<Button>` over raw `<button>` elements
+3. **Use Dialog/Sheet from @/components/ui** - These are built on Radix UI for accessibility
+4. **Use cn() utility** - Always use `cn()` from `@/lib/utils` for className merging
+5. **Combine variants** - Use multiple variant props for complex styling needs
+6. **Use asChild** - Use `asChild` prop to compose with other elements (links, etc.)
+7. **Leverage keyboard support** - Select and DropdownMenu support full keyboard navigation
+
+### ❌ Don't
+1. **Raw button elements** - Avoid `<button className="...rounded...">`. Use `<Button>` instead
+2. **Custom dialogs** - Don't create custom modal implementations. Use `Dialog` or `Sheet`
+3. **Duplicate components** - Don't create duplicate versions of existing components
+4. **Legacy imports** - Don't import from `@/components/org/gtg-ui` (removed)
 
 ## Production Readiness
 ✓ Full TypeScript support
-✓ Comprehensive accessibility
+✓ Comprehensive accessibility (WCAG 2.1 AA)
 ✓ Complete test coverage ready
 ✓ Dark mode support
 ✓ Responsive design
 ✓ Performance optimized
 ✓ Tree-shakeable exports
-✓ Zero external dependencies (except React)
+✓ Radix UI primitives
 ✓ Tailwind CSS v4 compatible
 ✓ shadcn/ui patterns compliant

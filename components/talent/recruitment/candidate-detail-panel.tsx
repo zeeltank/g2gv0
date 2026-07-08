@@ -90,9 +90,9 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
           </div>
           {/* SheetContent has its own close button, but we can keep Maximize if we want. For now just removing the custom close button */}
           <div className="flex items-center gap-1 mr-6">
-            <button className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
               <Maximize2 className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 

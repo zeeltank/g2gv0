@@ -548,18 +548,18 @@ export function CmFrameworkMapping() {
             <div className="bg-card/50 backdrop-blur-xl border border-primary/10 rounded-2xl p-5 shadow-sm shrink-0">
               <h3 className="text-sm font-bold text-foreground mb-4">Quick Actions</h3>
               <div className="flex flex-col gap-2">
-                <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-sm font-medium text-foreground transition-colors">
+                <Button variant="ghost" className="justify-start gap-3 p-2 text-sm font-medium text-foreground">
                   <Plus className="w-4 h-4 text-primary" /> Add Competency
-                </button>
-                <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-sm font-medium text-foreground transition-colors">
+                </Button>
+                <Button variant="ghost" className="justify-start gap-3 p-2 text-sm font-medium text-foreground">
                   <MapIcon className="w-4 h-4 text-primary" /> Map to Role
-                </button>
-                <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-sm font-medium text-foreground transition-colors">
+                </Button>
+                <Button variant="ghost" className="justify-start gap-3 p-2 text-sm font-medium text-foreground">
                   <Copy className="w-4 h-4 text-primary" /> Bulk Update Levels
-                </button>
-                <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-sm font-medium text-foreground transition-colors">
+                </Button>
+                <Button variant="ghost" className="justify-start gap-3 p-2 text-sm font-medium text-foreground">
                   <DownloadCloud className="w-4 h-4 text-primary" /> Download Mapping Template
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -644,9 +644,9 @@ export function CmFrameworkMapping() {
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-bold text-foreground">Review & Approvals</h2>
               <div className="flex bg-muted p-1 rounded-lg">
-                <button className="px-4 py-1.5 rounded-md bg-background text-foreground text-sm font-bold shadow-sm">Pending (12)</button>
-                <button className="px-4 py-1.5 rounded-md text-muted-foreground hover:text-foreground text-sm font-medium">Approved</button>
-                <button className="px-4 py-1.5 rounded-md text-muted-foreground hover:text-foreground text-sm font-medium">Rejected</button>
+                <Button size="sm" className="px-4 py-1.5 text-sm font-bold shadow-sm">Pending (12)</Button>
+                <Button size="sm" variant="ghost" className="px-4 py-1.5 text-sm font-medium">Approved</Button>
+                <Button size="sm" variant="ghost" className="px-4 py-1.5 text-sm font-medium">Rejected</Button>
               </div>
             </div>
             <div className="flex items-center gap-3">

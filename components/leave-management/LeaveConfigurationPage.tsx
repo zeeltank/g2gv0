@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
-import { Tabs } from '@/components/org/gtg-ui'
+import { Tabs } from '@/components/org/components'
 import { useAuth } from '@/components/auth/gtg-auth'
 import LeaveTypesTab from './LeaveTypesTab'
 import ApprovalWorkflowTab from './ApprovalWorkflowTab'

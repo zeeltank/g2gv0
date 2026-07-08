@@ -1,20 +1,11 @@
 'use client'
 
-// Re-export reusable primitives for backward compatibility
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-export { Badge, type BadgeProps } from '@/components/ui/badge'
-export { Button } from '@/components/ui/button'
-export { Input } from '@/components/ui/input'
-export { Textarea } from '@/components/ui/textarea'
-export { Select } from '@/components/ui/select'
-export { Label } from '@/components/ui/label'
-export { EmptyState } from '@/components/ui/empty-state'
-export { StatusBadge } from '@/components/ui/status-badge'
-
-// Legacy component exports for backward compatibility during migration
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import * as React from 'react'
 import { Lock } from 'lucide-react'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -118,17 +109,12 @@ export function TextInput({
   disabled?: boolean
 }) {
   return (
-    <input
+    <Input
       id={id}
       type={type}
       placeholder={placeholder}
       defaultValue={defaultValue}
       disabled={disabled}
-      className={cn(
-        'h-10 w-full rounded-md border border-input bg-surface px-3 text-[15px] text-foreground transition-colors duration-200 outline-none',
-        'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-        'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
-      )}
     />
   )
 }
@@ -150,24 +136,14 @@ export function SelectInput({
   disabled?: boolean
 }) {
   return (
-    <select
+    <Select
       id={id}
       defaultValue={defaultValue}
       value={value}
-      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      onChange={onChange}
+      options={options}
       disabled={disabled}
-      className={cn(
-        'h-10 w-full rounded-md border border-input bg-surface px-3 text-[15px] text-foreground transition-colors duration-200 outline-none',
-        'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-        'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
-      )}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    />
   )
 }
 
@@ -186,17 +162,12 @@ export function TextArea({
   disabled?: boolean
 }) {
   return (
-    <textarea
+    <Textarea
       id={id}
       rows={rows}
       placeholder={placeholder}
       defaultValue={defaultValue}
       disabled={disabled}
-      className={cn(
-        'w-full rounded-md border border-input bg-surface px-3 py-2 text-[15px] leading-relaxed text-foreground transition-colors duration-200 outline-none',
-        'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-        'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
-      )}
     />
   )
 }
