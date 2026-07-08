@@ -30,3 +30,7 @@ export type {
   TaskAttachment,
   Task,
 } from './task-management'
+
+// Role types
+export type { Role, Access } from './role'
+export { ROLES, roleLabel, getAccess } from './role'

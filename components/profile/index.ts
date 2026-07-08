@@ -1,3 +1,5 @@
 export { ProfileDashboard } from './profile-dashboard'
-export { MockProfileData } from './mock-profile-data'
+// Re-export profile types and mock data from central location
+export type { Profile, ProfileProps, TabId } from '@/lib/mock-data/profile'
+export { mockProfile } from '@/lib/mock-data/profile'
 export * from './cards'

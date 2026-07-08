@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth/gtg-auth'
-import { AgentButton } from './agent/agent-button'
+import { AgentButton } from '@/components/shell/agent/agent-button'
 
 
 function NotificationsMenu() {

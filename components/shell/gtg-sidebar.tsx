@@ -3,10 +3,10 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronRight } from 'lucide-react'
-import { GTG_NAVIGATION, type ActiveNav } from '@/lib/gtg-navigation'
-import { type Role } from '@/lib/gtg-roles'
-import { filterNavigationByRole } from '@/lib/gtg-nav-visibility'
-import { GtgBrandMark } from './gtg-brand-mark'
+import { GTG_NAVIGATION, type ActiveNav } from '@/hooks/use-navigation'
+import { type Role } from '@/hooks/use-role-visibility'
+import { filterNavigationByRole } from '@/hooks/use-role-visibility'
+import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 
 export function GtgSidebar({
   active,

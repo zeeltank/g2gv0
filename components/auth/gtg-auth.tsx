@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { type Role } from '@/lib/gtg-roles'
+import { type Role } from '@/types/role'
 
 export interface User {
   id: string
