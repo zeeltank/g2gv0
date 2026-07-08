@@ -50,6 +50,11 @@
   --radius-xl: calc(var(--radius) * 1.75);
   --radius-2xl: calc(var(--radius) * 2);
   --radius-3xl: calc(var(--radius) * 2.5);
+
+  /* Custom shadows as Tailwind utilities */
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --shadow-card-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
 :root {
