@@ -222,7 +222,7 @@ export function DepartmentList({ role }: { role: Role }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 text-[#071446]">
+    <div className="flex flex-col gap-4 text-foreground">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -607,7 +607,7 @@ function SortHead({
 function Person({ name }: { name?: string | null }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f3c7a5] text-xs font-semibold text-[#3f220f]">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
         {initials(name)}
       </div>
       <div className="min-w-0">

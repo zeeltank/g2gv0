@@ -79,18 +79,18 @@ export function LorTab({ data }: LorTabProps) {
       <div className="shrink-0 mb-6 px-1">
         
         {/* Dynamic Level Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0575E6] via-[#56AAFF] to-[#0575E6] p-6 text-white shadow-md mb-6">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-primary/80 to-primary p-6 text-primary-foreground shadow-md mb-6">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
           <div className="relative z-10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md shrink-0">
-              <Zap className="w-6 h-6 text-white" />
+              <Zap className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-white/80 font-medium tracking-wider uppercase text-xs mb-1">
+              <p className="text-primary-foreground/80 font-medium tracking-wider uppercase text-xs mb-1">
                 Level of Responsibility
               </p>
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                Level {lorData.level || "Unknown"}: <span className="font-medium text-white/90">"{cleanText(lorData.guiding_phrase)}"</span>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-primary-foreground">
+                Level {lorData.level || "Unknown"}: <span className="font-medium text-primary-foreground/90">"{cleanText(lorData.guiding_phrase)}"</span>
               </h1>
             </div>
           </div>

@@ -70,10 +70,9 @@ export function GtgSidebar({
       <aside
         aria-label="Primary Navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200',
+          'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 sidebar-transition',
           collapsed ? 'w-[72px]' : 'w-[260px]',
         )}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
       >
         <div
           className={cn(
