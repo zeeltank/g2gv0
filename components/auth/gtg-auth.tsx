@@ -24,6 +24,18 @@ interface AuthContextType extends Session {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const SESSION_COOKIE = 'gtg-session'
+
+function setSessionCookie(session: Session) {
+  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
+    JSON.stringify(session)
+  )}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`
+}
+
+function clearSessionCookie() {
+  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax`
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session>({
     user: null,
@@ -90,11 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newSession: Session = { user, isAuthenticated: true, isLoading: false }
     setSession(newSession)
     localStorage.setItem('gtg-session', JSON.stringify(newSession))
+    setSessionCookie(newSession)
   }
 
   const logout = () => {
     setSession({ user: null, isAuthenticated: false, isLoading: false })
     localStorage.removeItem('gtg-session')
+    clearSessionCookie()
   }
 
   const switchRole = (role: Role) => {
@@ -102,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = { ...session, user: { ...session.user, role } }
       setSession(updated)
       localStorage.setItem('gtg-session', JSON.stringify(updated))
+      setSessionCookie(updated)
     }
   }
 

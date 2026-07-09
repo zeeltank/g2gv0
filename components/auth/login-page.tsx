@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { Button } from '@/components/ui/button'
@@ -154,7 +154,16 @@ function BrandIllustrationSection() {
 
 export function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login } = useAuth()
+
+  const getRedirectTarget = () => {
+    const redirect = searchParams.get('redirect')
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return redirect
+    }
+    return '/dashboard'
+  }
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -169,7 +178,7 @@ export function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/dashboard')
+      router.push(getRedirectTarget())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
@@ -182,7 +191,7 @@ export function LoginPage() {
     setIsLoading(true)
     try {
       await login('hr@gtg.local', 'password')
-      router.push('/dashboard')
+      router.push(getRedirectTarget())
     } catch {
       setError('Google sign-in failed. Please try again.')
     } finally {
