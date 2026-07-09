@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table'
 import { MoreHorizontal, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Profile } from '@/components/profile/mock-profile-data'
+import { Profile } from '@/lib/mock-data/profile'
 
 interface ReportingCardProps {
   profile: Profile

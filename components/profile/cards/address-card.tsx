@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MoreHorizontal, Building2 } from 'lucide-react'
-import { Profile } from '@/components/profile/mock-profile-data'
+import { Profile } from '@/lib/mock-data/profile'
 
 interface AddressCardProps {
   profile: Profile

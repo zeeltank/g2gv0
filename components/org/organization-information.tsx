@@ -15,6 +15,7 @@ import {
   Phone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   SectionCard,
   ReadField,
@@ -22,9 +23,8 @@ import {
   TextInput,
   SelectInput,
   TextArea,
-  Badge,
   AccessDenied,
-} from './gtg-ui'
+} from './components'
 import { ORG_PROFILE, SISTER_COMPANIES } from '@/lib/gtg-org-data'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
 

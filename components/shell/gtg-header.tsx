@@ -12,8 +12,8 @@ import {
   Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/lib/gtg-auth'
-import { AgentButton } from './agent/agent-button'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { AgentButton } from '@/components/shell/agent/agent-button'
 
 
 function NotificationsMenu() {

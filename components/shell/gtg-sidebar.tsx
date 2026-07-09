@@ -3,10 +3,10 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronRight } from 'lucide-react'
-import { GTG_NAVIGATION, type ActiveNav } from '@/lib/gtg-navigation'
-import { type Role } from '@/lib/gtg-roles'
-import { filterNavigationByRole } from '@/lib/gtg-nav-visibility'
-import { GtgBrandMark } from './gtg-brand-mark'
+import { GTG_NAVIGATION, type ActiveNav } from '@/hooks/use-navigation'
+import { type Role } from '@/hooks/use-role-visibility'
+import { filterNavigationByRole } from '@/hooks/use-role-visibility'
+import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 
 export function GtgSidebar({
   active,
@@ -70,10 +70,9 @@ export function GtgSidebar({
       <aside
         aria-label="Primary Navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200',
+          'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 sidebar-transition',
           collapsed ? 'w-[72px]' : 'w-[260px]',
         )}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}
       >
         <div
           className={cn(

@@ -13,6 +13,7 @@ import {
   Type,
   Sparkles,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type ToolbarOption = {
   title: string;
@@ -137,7 +138,7 @@ const toolbarMenus: ToolbarMenu[] = [
 
 function OptionCard({ option }: { option: ToolbarOption }) {
   return (
-    <button className="group w-full rounded-2xl border border-border bg-background p-4 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
+    <Button variant="outline" className="group w-full justify-start p-4 h-auto text-left shadow-xs hover:-translate-y-0.5 hover:shadow-md border-border">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border transition-colors group-hover:bg-primary/10 group-hover:text-primary group-hover:ring-primary/20">
           <Sparkles className="h-4 w-4" />
@@ -147,7 +148,7 @@ function OptionCard({ option }: { option: ToolbarOption }) {
           <div className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</div>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }
 
@@ -257,9 +258,11 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
             const Icon = menu.icon;
 
             return (
-              <button
+              <Button
                 key={menu.id}
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveMenuId((current) => (current === menu.id ? null : menu.id))}
                 className={`group relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-200 ${isActive
                   ? 'border-primary/20 bg-primary/10 text-primary shadow-lg'
@@ -273,7 +276,7 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
                     }`}
                 />
                 <Icon className="relative h-5 w-5" />
-              </button>
+              </Button>
             );
           })}
         </div>

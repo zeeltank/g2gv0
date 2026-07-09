@@ -284,22 +284,22 @@ export function TalentProfileView({ profileId, onBack }: TalentProfileViewProps)
                   <CardTitle className="text-base">Quick Links</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-2 flex flex-col gap-1">
-                  <button className="flex items-center justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors">
+                  <Button variant="ghost" className="justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 h-auto">
                     <div className="flex items-center gap-2"><Network className="size-4 text-muted-foreground" /> View Organizational Chart</div>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
-                  </button>
-                  <button className="flex items-center justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors">
+                  </Button>
+                  <Button variant="ghost" className="justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 h-auto">
                     <div className="flex items-center gap-2"><User className="size-4 text-muted-foreground" /> View Team</div>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
-                  </button>
-                  <button className="flex items-center justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors">
+                  </Button>
+                  <Button variant="ghost" className="justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 h-auto">
                     <div className="flex items-center gap-2"><MessageSquare className="size-4 text-muted-foreground" /> Send Message</div>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
-                  </button>
-                  <button className="flex items-center justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors">
+                  </Button>
+                  <Button variant="ghost" className="justify-between py-2 text-sm text-foreground hover:bg-muted/50 rounded-md px-2 -mx-2 h-auto">
                     <div className="flex items-center gap-2"><FileText className="size-4 text-muted-foreground" /> Request Update</div>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </CardContent>
               </Card>
 

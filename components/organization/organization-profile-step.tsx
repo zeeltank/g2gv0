@@ -7,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchInput } from '@/components/ui/search-input'
-import { Select } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -17,7 +16,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { SectionCard, ReadField, FormField, SelectInput } from '@/components/org/gtg-ui'
+import { Select } from '@/components/ui/select'
+import { SectionCard, ReadField, FormField } from '@/components/org/components'
 import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
 import { cn } from '@/lib/utils'
 

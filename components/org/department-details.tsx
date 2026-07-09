@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from './gtg-ui'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { departmentCode, formatDate } from './department-utils'
 import type { Department } from '@/lib/gtg-org-data'
 import { ORG_PROFILE } from '@/lib/gtg-org-data'

@@ -116,7 +116,7 @@ export function MonthlySummaryCard({
   }
 
   return (
-    <Card className="overflow-hidden rounded-[28px] border border-border bg-background shadow-smoverflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
+    <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-card">
       <CardHeader>
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -124,7 +124,7 @@ export function MonthlySummaryCard({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-slate-900text-lg font-semibold leading-none tracking-tight">
+            <h2 className="text-lg font-bold text-foreground text-lg font-semibold leading-none tracking-tight">
               This Month Summary
             </h2>
 

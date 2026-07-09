@@ -183,15 +183,15 @@ export function OffboardingCenter() {
               </div>
               
               <div className="flex p-0.5 bg-muted rounded-md border ml-2">
-                <button className="p-1.5 bg-background shadow-sm rounded text-primary">
+                <Button size="icon" className="p-1.5 text-primary">
                   <LayoutList className="size-4" />
-                </button>
-                <button className="p-1.5 text-muted-foreground hover:text-foreground">
+                </Button>
+                <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
                   <KanbanSquare className="size-4" />
-                </button>
-                <button className="p-1.5 text-muted-foreground hover:text-foreground">
+                </Button>
+                <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
                   <History className="size-4" />
-                </button>
+                </Button>
               </div>
             </div>
           </div>

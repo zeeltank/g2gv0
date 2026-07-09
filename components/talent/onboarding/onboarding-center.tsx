@@ -428,9 +428,9 @@ export function OnboardingCenter() {
                       <span className="text-xs font-semibold text-foreground">{contact.name}</span>
                       <span className="text-[10px] text-primary hover:underline cursor-pointer">{contact.email}</span>
                     </div>
-                    <button className="p-1.5 rounded-md hover:bg-muted text-muted-foreground transition-colors">
+                    <Button size="icon" variant="ghost" className="p-1.5 h-auto">
                       <Mail className="size-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </CardContent>
@@ -440,9 +440,9 @@ export function OnboardingCenter() {
             <Card className="shadow-sm flex-1 flex flex-col">
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-sm">Notes</CardTitle>
-                <button className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 h-auto p-0">
                   <Plus className="size-3" /> Add Note
-                </button>
+                </Button>
               </CardHeader>
               <CardContent className="p-4 pt-4 flex flex-col items-center justify-center text-center gap-2 bg-muted/10 rounded-b-lg flex-1 min-h-[100px]">
                 <Edit2 className="size-6 text-muted-foreground/30" />

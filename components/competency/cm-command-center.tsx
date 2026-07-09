@@ -197,10 +197,10 @@ export function CmCommandCenter() {
           </div>
           <div className="grid grid-cols-2 gap-3 p-5">
             {quickActions.map((qa, i) => (
-              <button key={i} className="flex flex-col items-center justify-center gap-3 p-4 rounded-xl border border-primary/10 bg-background/50 hover:bg-primary/5 hover:border-primary/30 transition-all group text-center">
+              <Button key={i} variant="outline" className="flex flex-col items-center justify-center gap-3 p-4 h-auto border-primary/10 bg-background/50 hover:bg-primary/5 hover:border-primary/30 transition-all group text-center">
                 <qa.icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-xs font-bold text-foreground">{qa.label}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

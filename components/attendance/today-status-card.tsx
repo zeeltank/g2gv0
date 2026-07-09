@@ -95,7 +95,7 @@ export function TodayStatusCard({
     : '--'
 
   return (
-    <Card className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
+    <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-card">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -104,15 +104,15 @@ export function TodayStatusCard({
             </div>
 
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900text-lg font-semibold leading-none tracking-tight">
-                Today's Attendance
+              <h2 className="text-lg font-bold text-foreground text-lg font-semibold leading-none tracking-tight">
+                Today&apos;s Attendance
               </h2>
 
-              <Info className="h-4 w-4 text-slate-400" />
+              <Info className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
 
-          <div className="rounded-full border border-success bg-success/10 px-5 py-2 text-sm font-semibold text-success">
+          <div className="rounded-full border border-success/20 bg-success/10 px-5 py-2 text-sm font-semibold text-success">
             {statusLabels[record?.status || 'absent']}
           </div>
         </CardTitle>
@@ -138,7 +138,7 @@ export function TodayStatusCard({
                   ? 'Currently working'
                   : 'Not punched in'
               }
-              subtitleClass="text-green-600"
+              subtitleClass="text-success"
             />
 
             <InfoBlock
@@ -158,12 +158,12 @@ export function TodayStatusCard({
                 </div> */}
 
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                     Attendance Location
                   </p>
 
                   <Tooltip content={record.location}>
-                    <p className="max-w-lg truncate text-lg font-semibold text-slate-900">
+                    <p className="max-w-lg truncate text-lg font-semibold text-foreground">
                       {record.location}
                     </p>
                   </Tooltip>
@@ -217,7 +217,7 @@ function InfoBlock({
           {title}
         </p>
 
-        <p className=" text-lg font-bold text-slate-900">
+        <p className="text-lg font-bold text-foreground">
           {value}
         </p>
 

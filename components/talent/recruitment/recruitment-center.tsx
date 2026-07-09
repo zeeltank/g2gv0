@@ -430,9 +430,9 @@ export function RecruitmentCenter() {
                       <ChevronRight className="size-3.5" />
                     </Button>
                   </div>
-                  <button className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors">
+                  <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
                     <Settings className="size-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -602,9 +602,9 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm text-foreground">{req.createdBy}</span></TableCell>
                   <TableCell><span className="text-sm text-muted-foreground">{req.createdOn}</span></TableCell>
                   <TableCell>
-                    <button className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors">
+                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
                       <MoreHorizontal className="size-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -653,9 +653,9 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm text-muted-foreground">{job.postedOn}</span></TableCell>
                   <TableCell><span className="text-sm text-muted-foreground">{job.closingDate}</span></TableCell>
                   <TableCell>
-                    <button className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors">
+                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
                       <MoreHorizontal className="size-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -712,9 +712,9 @@ export function RecruitmentCenter() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <button className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors">
+                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
                       <MoreHorizontal className="size-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -759,9 +759,9 @@ export function RecruitmentCenter() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <button className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors">
+                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
                       <MoreHorizontal className="size-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
