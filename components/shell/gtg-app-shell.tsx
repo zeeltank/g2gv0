@@ -130,7 +130,7 @@ export function GtgAppShell({
     onAgentOpenChange?.(next)
   }, [onAgentOpenChange])
 
-  const crumb = resolveBreadcrumb(active)
+  const breadcrumbItems = resolveBreadcrumb(active)
 
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
@@ -139,7 +139,7 @@ export function GtgAppShell({
         <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-            <GtgBreadcrumb module={crumb.module} menu={crumb.menu} submenu={crumb.submenu} />
+            <GtgBreadcrumb items={breadcrumbItems} />
             <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
               <div className="w-full min-h-full p-6">
                 {children ?? <ContentRenderer active={active} />}

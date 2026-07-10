@@ -1,38 +1,46 @@
 import * as React from 'react'
+import { cn } from '@/lib/utils'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 
-export function GtgBreadcrumb({
-  module,
-  menu,
-  submenu,
-}: {
-  module: string
-  menu: string
-  submenu: string
-}) {
-  const trail = [module, menu].filter(Boolean)
+export interface BreadcrumbItem {
+  label: string
+  href?: string
+}
 
+export function GtgBreadcrumb({
+  items,
+}: {
+  items: BreadcrumbItem[]
+}) {
   return (
     <nav
       aria-label="Breadcrumb"
       className="flex h-11 shrink-0 items-center border-b border-border bg-card px-6"
     >
       <Breadcrumb>
-        <BreadcrumbItem>
-          <BreadcrumbLink href="/">Home</BreadcrumbLink>
-        </BreadcrumbItem>
-        {trail.map((item, index) => (
+        {items.map((item, index) => (
           <React.Fragment key={index}>
-            <BreadcrumbSeparator />
+            {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
-              <BreadcrumbLink href="#">{item}</BreadcrumbLink>
+              {item.href ? (
+                <BreadcrumbLink href={item.href} isActive={index === items.length - 1}>
+                  {item.label}
+                </BreadcrumbLink>
+              ) : (
+                <span
+                  className={cn(
+                    'truncate text-sm max-w-[200px]',
+                    index === items.length - 1
+                      ? 'font-medium text-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {item.label}
+                </span>
+              )}
             </BreadcrumbItem>
           </React.Fragment>
         ))}
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <span className="truncate text-sm font-medium text-foreground">{submenu}</span>
-        </BreadcrumbItem>
       </Breadcrumb>
     </nav>
   )
