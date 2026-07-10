@@ -11,6 +11,7 @@ import {
   LogOut,
   Settings2,
 } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { AgentButton } from '@/components/shell/agent/agent-button'
@@ -185,14 +186,31 @@ function UserProfileMenu() {
   )
 }
 
-export function GtgHeader({ agentOpen, onAgentOpenChange }: { agentOpen?: boolean; onAgentOpenChange?: (open: boolean) => void } = {}) {
+export function GtgHeader({
+  agentOpen,
+  onAgentOpenChange,
+  onMenuClick,
+}: {
+  agentOpen?: boolean
+  onAgentOpenChange?: (open: boolean) => void
+  onMenuClick?: () => void
+} = {}) {
   const { user, switchRole } = useAuth()
 
   return (
     <header
-      className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-6 shadow-sm"
+      className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-4 shadow-sm md:px-6"
       role="banner"
     >
+      <button
+        type="button"
+        onClick={onMenuClick}
+        aria-label="Open navigation"
+        className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      >
+        <Menu className="size-5" aria-hidden="true" />
+      </button>
+
       <div className="relative flex w-full max-w-md items-center">
         <Search
           className="pointer-events-none absolute left-3 size-4 text-muted-foreground"

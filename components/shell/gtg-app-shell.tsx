@@ -132,11 +132,23 @@ export function GtgAppShell({
 
   const breadcrumbItems = resolveBreadcrumb(active)
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
-      <GtgSidebar active={active} onSelect={handleNavSelect} role={user?.role || 'employee'} />
-      <div className="flex h-screen w-full flex-col pl-[72px]">
-        <GtgHeader agentOpen={agentOpenState} onAgentOpenChange={setAgentOpen} />
+      <GtgSidebar
+        active={active}
+        onSelect={handleNavSelect}
+        role={user?.role || 'employee'}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
+      <div className="flex h-screen w-full flex-col pl-0 md:pl-[72px]">
+        <GtgHeader
+          agentOpen={agentOpenState}
+          onAgentOpenChange={setAgentOpen}
+          onMenuClick={() => setMobileNavOpen(true)}
+        />
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
             <GtgBreadcrumb items={breadcrumbItems} />
