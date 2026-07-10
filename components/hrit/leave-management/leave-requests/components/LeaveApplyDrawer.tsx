@@ -204,8 +204,8 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl flex flex-col h-full overflow-hidden">
-        <SheetHeader className="shrink-0">
+      <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="shrink-0 p-6 pb-0 space-y-0 text-left">
           <SheetTitle className="flex items-center gap-2 text-lg font-semibold">
             <Plus className="size-5" />
             Apply Leave
@@ -213,7 +213,7 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto mt-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
             {submitError && (
               <Alert variant="destructive">
                 <AlertDescription>{submitError}</AlertDescription>

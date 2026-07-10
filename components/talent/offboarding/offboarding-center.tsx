@@ -330,7 +330,7 @@ export function OffboardingCenter() {
 
       {/* Detail Drawer (Sheet) */}
       <Sheet open={!!activeCaseId} onOpenChange={(open) => !open && setActiveCaseId(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col border-l">
+        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
           {activeCase && (
             <div className="flex flex-col h-full bg-background">
               {/* Header */}

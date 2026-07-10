@@ -376,7 +376,7 @@ export function CertificationsRecords() {
 
       {/* Detail Sheet */}
       <Sheet open={!!selectedCert} onOpenChange={(open) => !open && setSelectedCert(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col border-l border-border/60">
+        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
           {selectedCert && (
             <>
               {/* Header */}

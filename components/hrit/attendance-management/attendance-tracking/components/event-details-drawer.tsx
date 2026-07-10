@@ -31,15 +31,15 @@ export function EventDetailsDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent className="p-6">
-        <SheetHeader>
+      <SheetContent className="p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="p-6 pb-0 space-y-0 text-left">
           <SheetTitle>Events & Holidays</SheetTitle>
           <SheetDescription>
             Upcoming holidays and events
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
           {upcomingEvents.length === 0 ? (
             <div className="text-center py-8">
               <Calendar className="size-10 mx-auto text-muted-foreground mb-2" />

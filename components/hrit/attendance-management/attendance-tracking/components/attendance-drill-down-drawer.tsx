@@ -56,8 +56,8 @@ export function AttendanceDrillDownDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full max-w-2xl overflow-y-auto">
-        <SheetHeader className="flex flex-row items-start justify-between gap-4">
+      <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="flex flex-row items-start justify-between gap-4 p-6 pb-0 space-y-0 text-left">
           <div>
             <SheetTitle className="text-lg font-semibold">
               {record.department || record.employee || 'Report Details'}
@@ -76,7 +76,7 @@ export function AttendanceDrillDownDrawer({
           </button> */}
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 mt-0">
           {record.attendancePercentage !== undefined && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
