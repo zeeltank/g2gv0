@@ -31,15 +31,15 @@ export function LeaveCalendarDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent className="w-3/5 max-w-lg p-6">
-        <SheetHeader>
+      <SheetContent className="w-3/5 max-w-lg p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="p-6 pb-0 space-y-0 text-left">
           <SheetTitle>Monthly Leave Calendar</SheetTitle>
           <SheetDescription>
             June 2026 leave overview
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
           <div className="grid grid-cols-7 gap-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">

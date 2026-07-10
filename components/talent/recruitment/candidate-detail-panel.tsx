@@ -77,7 +77,7 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col h-full overflow-hidden">
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0 border-l border-border/80 h-full overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between p-5 pb-4 border-b border-border/40">
           <div className="flex flex-col gap-1">

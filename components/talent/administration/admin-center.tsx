@@ -249,7 +249,7 @@ export function AdminCenter() {
 
       {/* Detail Drawer (Sheet) */}
       <Sheet open={!!activeWorkflowId} onOpenChange={(open) => !open && setActiveWorkflowId(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col border-l">
+        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
           {activeWorkflow && (
             <div className="flex flex-col h-full bg-background overflow-hidden">
               {/* Header */}

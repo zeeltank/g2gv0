@@ -422,7 +422,7 @@ export function EmployeeDirectory() {
 
       {/* --- ADD EMPLOYEE SHEET (Premium Stepper Workflow) --- */}
       <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
-        <SheetContent className="sm:max-w-xl p-0 overflow-hidden flex flex-col bg-card/95 backdrop-blur-2xl border-l-border/50 shadow-2xl">
+          <SheetContent className="sm:max-w-xl p-0 overflow-hidden flex flex-col gap-0 bg-card/95 backdrop-blur-2xl border-l border-border/80 shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent pointer-events-none" />
           
           <div className="px-6 py-6 border-b border-border/40 relative z-10 bg-surface/50">
@@ -692,7 +692,7 @@ export function EmployeeDirectory() {
 
       {/* --- EMPLOYEE OVERVIEW SHEET (Premium Profile View) --- */}
       <Sheet open={!!activeEmployee} onOpenChange={(open) => !open && setActiveEmployee(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col border-l">
+        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
           {activeEmployee && (
             <div className="flex flex-col h-full bg-background">
               {/* Header */}

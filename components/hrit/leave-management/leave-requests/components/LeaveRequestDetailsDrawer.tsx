@@ -53,8 +53,8 @@ export function LeaveRequestDetailsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full max-w-xl flex flex-col h-full overflow-hidden">
-        <SheetHeader className="shrink-0">
+      <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="shrink-0 p-6 pb-0 space-y-0 text-left">
           <SheetTitle>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-semibold">{request.leaveType}</span>
@@ -67,7 +67,7 @@ export function LeaveRequestDetailsDrawer({
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
           <AttendanceTabs
             tabs={tabItems}
             active={activeTab}

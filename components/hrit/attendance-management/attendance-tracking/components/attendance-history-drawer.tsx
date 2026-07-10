@@ -56,15 +56,15 @@ export function AttendanceHistoryDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
-      <SheetContent className="w-2/3 max-w-3xl p-6">
-        <SheetHeader>
+      <SheetContent className="w-2/3 max-w-3xl p-0 flex flex-col gap-0 border-l border-border/80">
+        <SheetHeader className="p-6 pb-0 space-y-0 text-left">
           <SheetTitle>Attendance History</SheetTitle>
           <SheetDescription>
             View and manage your complete attendance records
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="flex gap-3">
             <Input
               placeholder="Search by date..."
