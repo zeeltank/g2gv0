@@ -37,7 +37,7 @@ export function TaskBoardView({ tasks, onSelectTask }: TaskBoardViewProps) {
                    <div 
                      key={task.id} 
                      onClick={() => onSelectTask(task)}
-                     className="group flex flex-col gap-3 rounded-xl border border-primary/10 bg-card p-3.5 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:-translate-y-1 relative overflow-hidden"
+                     className="group flex flex-col gap-3 rounded-xl border border-primary/10 bg-card p-3.5 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-card hover:-translate-y-1 relative overflow-hidden"
                    >
                      {/* subtle top highlight based on priority */}
                      <div className={cn(

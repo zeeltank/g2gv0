@@ -202,19 +202,19 @@ export function PerformanceCenter() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <div className="flex p-1 bg-muted/50 rounded-lg border">
-                  <button className="flex items-center gap-2 px-3 py-1.5 bg-background shadow-sm rounded-md text-sm font-semibold text-foreground">
+                  <Button size="sm" className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-foreground">
                     <LayoutList className="size-4" /> Employee List
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground">
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-muted-foreground">
                     <KanbanSquare className="size-4" /> Review Board
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground">
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-muted-foreground">
                     <History className="size-4" /> Cycle Timeline
-                  </button>
+                  </Button>
                 </div>
                 <div className="flex items-center gap-2 ml-2">
                   <span className="text-xs font-semibold text-foreground">{selectedEmployees.length} selected</span>
-                  <button className="text-xs font-medium text-primary hover:underline">Clear Selection</button>
+                  <Button variant="ghost" size="sm" className="text-xs font-medium text-primary hover:underline h-auto p-0">Clear Selection</Button>
                 </div>
               </div>
               

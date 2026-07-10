@@ -56,7 +56,7 @@ export function TaskWorkloadView({ tasks }: TaskWorkloadViewProps) {
           return (
             <div 
               key={assignee} 
-              className="flex flex-col bg-card/60 backdrop-blur-md rounded-2xl border border-primary/10 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-primary/30 transition-all duration-300 overflow-hidden relative group"
+              className="flex flex-col bg-card/60 backdrop-blur-md rounded-2xl border border-primary/10 shadow-card-hover hover:border-primary/30 transition-all duration-300 overflow-hidden relative group"
             >
               {/* Subtle top gradient */}
               <div className="h-1 w-full bg-gradient-to-r from-primary/5 via-primary/20 to-primary/5 absolute top-0 left-0" />

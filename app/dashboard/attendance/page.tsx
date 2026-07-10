@@ -1,10 +1,10 @@
 'use client'
 
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard'
+import { AttendanceDashboard } from '@/components/hrit/attendance-management/attendance-tracking/page'
 
 export default function AttendanceTrackingPage() {
   const { user, isLoading } = useAuth()

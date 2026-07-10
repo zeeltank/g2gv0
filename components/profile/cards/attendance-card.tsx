@@ -11,7 +11,7 @@ import {
 import { MoreHorizontal, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
-import { Profile } from '@/components/profile/mock-profile-data'
+import { Profile } from '@/lib/mock-data/profile'
 
 interface AttendanceCardProps {
   profile: Profile

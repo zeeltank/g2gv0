@@ -228,15 +228,15 @@ export function MobilityCenter() {
                   <span className="bg-muted px-2 py-0.5 rounded text-xs font-semibold text-muted-foreground">18</span>
                 </div>
                 <div className="flex p-1 bg-muted/30 rounded-lg border ml-4">
-                  <button className="flex items-center gap-2 px-3 py-1 bg-background shadow-sm rounded text-xs font-semibold text-primary">
+                  <Button size="sm" className="flex items-center gap-2 px-3 py-1 text-xs font-semibold text-primary">
                     Table
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground">
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
                     Board
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground">
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
                     Timeline
-                  </button>
+                  </Button>
                 </div>
               </div>
               

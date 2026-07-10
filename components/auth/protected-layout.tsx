@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 

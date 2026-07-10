@@ -1,7 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
-import { AuthProvider } from '@/lib/gtg-auth'
+import { AuthProvider } from '@/components/auth/gtg-auth'
 import './globals.css'
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })

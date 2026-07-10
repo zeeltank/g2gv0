@@ -14,24 +14,32 @@ interface SelectProps {
   className?: string
   size?: 'sm' | 'default' | 'lg'
   placeholder?: string
+  disabled?: boolean
+  'aria-label'?: string
 }
 
 const Select = React.forwardRef<HTMLDivElement, SelectProps>(
-  ({ className, size = 'default', value, onChange, options = [], placeholder = 'Select...' }, ref) => {
+  ({ className, size = 'default', value, onChange, options = [], placeholder = 'Select...', disabled, 'aria-label': ariaLabel }, ref) => {
     const [open, setOpen] = React.useState(false)
+    const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const [isMounted, setIsMounted] = React.useState(false)
     const containerRef = React.useRef<HTMLDivElement>(null)
+    const listRef = React.useRef<HTMLDivElement>(null)
+    const typeaheadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+    const typeaheadBufferRef = React.useRef('')
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     React.useEffect(() => {
       if (open) {
         setIsMounted(true)
+        const currentIndex = options.findIndex(o => String(o.value) === String(value))
+        setHighlightedIndex(currentIndex >= 0 ? currentIndex : 0)
       } else {
         const timer = setTimeout(() => setIsMounted(false), 150)
         return () => clearTimeout(timer)
       }
-    }, [open])
+    }, [open, value, options])
 
     React.useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
@@ -43,6 +51,94 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
+    React.useEffect(() => {
+      if (!open || !listRef.current) return
+
+      const items = listRef.current.querySelectorAll('[role="option"]')
+      items.forEach((item, index) => {
+        if (index === highlightedIndex) {
+          item.scrollIntoView({ block: 'nearest' })
+        }
+      })
+    }, [highlightedIndex, open])
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (disabled) return
+
+      switch (e.key) {
+        case 'Enter':
+        case ' ':
+          e.preventDefault()
+          if (open && highlightedIndex >= 0) {
+            onChange?.(options[highlightedIndex].value)
+            setOpen(false)
+          } else {
+            setOpen(true)
+          }
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          if (!open) {
+            setOpen(true)
+          } else {
+            setHighlightedIndex(prev => 
+              prev < options.length - 1 ? prev + 1 : 0
+            )
+          }
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (!open) {
+            setOpen(true)
+          } else {
+            setHighlightedIndex(prev => 
+              prev > 0 ? prev - 1 : options.length - 1
+            )
+          }
+          break
+        case 'Home':
+          e.preventDefault()
+          if (open) {
+            setHighlightedIndex(0)
+          }
+          break
+        case 'End':
+          e.preventDefault()
+          if (open) {
+            setHighlightedIndex(options.length - 1)
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          setOpen(false)
+          break
+        case 'Tab':
+          setOpen(false)
+          break
+        default:
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault()
+            typeaheadBufferRef.current += e.key.toLowerCase()
+            
+            if (typeaheadTimeoutRef.current) {
+              clearTimeout(typeaheadTimeoutRef.current)
+            }
+            
+            typeaheadTimeoutRef.current = setTimeout(() => {
+              typeaheadBufferRef.current = ''
+            }, 500)
+            
+            const matchIndex = options.findIndex(opt => 
+              opt.label.toLowerCase().startsWith(typeaheadBufferRef.current)
+            )
+            
+            if (matchIndex >= 0) {
+              setHighlightedIndex(matchIndex)
+            }
+          }
+      }
+    }
+
     const sizeClass = {
       sm: 'h-7 px-2.5 text-xs',
       default: 'h-8 px-3 text-sm',
@@ -52,13 +148,23 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const selectedLabel = options.find(o => String(o.value) === String(value))?.label || placeholder
 
     return (
-      <div ref={containerRef} className="relative inline-block w-full">
+      <div 
+        ref={containerRef} 
+        className="relative inline-block w-full"
+        onKeyDown={handleKeyDown}
+      >
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          role="combobox"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label={ariaLabel}
+          disabled={disabled}
+          onClick={() => !disabled && setOpen(!open)}
           className={cn(
             'flex w-full items-center justify-between rounded-lg border border-input bg-transparent py-1.5 text-foreground transition-all duration-200 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 appearance-none cursor-pointer active:scale-95',
             sizeClass,
+            disabled && 'cursor-not-allowed opacity-50',
             className,
           )}
         >
@@ -68,6 +174,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
         {(isMounted || open) && (
           <div
+            ref={listRef}
+            role="listbox"
+            aria-label={ariaLabel || 'Select options'}
             className={cn(
               'absolute z-50 mt-1 max-h-60 w-full min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
               'origin-top transition-all duration-150 ease-out',
@@ -75,22 +184,26 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             )}
           >
             <div className="flex flex-col gap-0.5">
-              {options.map((opt) => (
-                <button
+              {options.map((opt, index) => (
+                <div
                   key={opt.value}
-                  type="button"
+                  role="option"
+                  aria-selected={String(value) === String(opt.value)}
+                  data-disabled={opt.value === value}
                   onClick={() => {
                     onChange?.(opt.value)
                     setOpen(false)
                   }}
+                  onMouseEnter={() => setHighlightedIndex(index)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors outline-none cursor-pointer hover:bg-primary/10 hover:text-primary focus-visible:bg-primary/10',
+                    'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors outline-none cursor-pointer hover:bg-accent hover:text-accent-foreground',
+                    highlightedIndex === index && 'bg-accent text-accent-foreground',
                     String(value) === String(opt.value) && 'bg-primary/15 text-primary font-medium'
                   )}
                 >
                   {opt.label}
                   {String(value) === String(opt.value) && <Check className="size-4" />}
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -101,4 +214,4 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 )
 Select.displayName = 'Select'
 
-export { Select }
+export { Select, type SelectOption }

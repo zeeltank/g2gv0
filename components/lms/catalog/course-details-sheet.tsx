@@ -92,32 +92,32 @@ export function CourseDetailsSheet({
 
           {/* Vertical Menu Tabs */}
           <div className="flex flex-col gap-1 mt-4">
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted text-sm font-semibold text-foreground transition-colors">
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-foreground bg-muted">
               <span>Overview</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Content</span>
               <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-bold text-foreground">8</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Learners</span>
               <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-bold text-foreground">{course.assignedLearners}</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Sessions</span>
               <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-bold text-foreground">3</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Certificates</span>
               <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-bold text-foreground">{course.assignedLearners}</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Feedback</span>
               <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-bold text-foreground">32</span>
-            </button>
-            <button className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 text-sm font-semibold text-muted-foreground transition-colors">
+            </Button>
+            <Button variant="ghost" className="justify-between px-3 py-2.5 h-auto text-sm font-semibold text-muted-foreground">
               <span>Activity</span>
-            </button>
+            </Button>
           </div>
         </div>
       </SheetContent>

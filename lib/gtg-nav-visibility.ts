@@ -1,4 +1,4 @@
-import { type Role } from '@/lib/gtg-roles'
+import { type Role } from '@/types/role'
 import { GTG_NAVIGATION } from '@/lib/gtg-navigation'
 
 /**

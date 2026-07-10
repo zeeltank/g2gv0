@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Star, MoreVertical, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Candidate, CandidateStage } from './recruitment-data'
 
@@ -23,12 +24,14 @@ export function CandidateCard({ candidate, onClick }: CandidateCardProps) {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {candidate.starred && <Star className="size-3.5 text-warning fill-warning" />}
-          <button
+          <Button
+            size="icon"
+            variant="ghost"
+            className="p-0.5 size-6 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => { e.stopPropagation() }}
-            className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
           >
             <MoreVertical className="size-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
       <span className="text-[11px] text-muted-foreground">{candidate.lastUpdated}</span>
@@ -68,9 +71,9 @@ export function KanbanColumn({ stage, candidates, count, onCandidateClick }: Kan
         )}
       </div>
       {/* Add candidate button */}
-      <button className="flex items-center gap-1.5 mt-2 px-2 py-1.5 text-xs text-muted-foreground font-medium hover:text-primary hover:bg-primary/5 rounded-md transition-colors">
+      <Button variant="ghost" size="sm" className="flex items-center gap-1.5 mt-2 px-2 py-1.5 text-xs text-muted-foreground font-medium hover:text-primary hover:bg-primary/5 h-auto">
         <Plus className="size-3.5" /> Add Candidate
-      </button>
+      </Button>
     </div>
   )
 }

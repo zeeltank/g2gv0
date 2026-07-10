@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/gtg-auth'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,7 +36,7 @@ function FeatureTile({
 }) {
   return (
     <div
-      className={`absolute z-10 flex w-32 flex-col items-center gap-2 rounded-2xl bg-white/90 px-4 py-4 text-center text-xs font-bold leading-tight text-[#071943] shadow-xl shadow-blue-400/20 backdrop-blur ${className}`}
+      className={`absolute z-10 flex w-32 flex-col items-center gap-2 rounded-2xl bg-surface/90 px-4 py-4 text-center text-xs font-bold leading-tight text-brand-navy shadow-xl shadow-blue-400/20 backdrop-blur ${className}`}
     >
       {icon}
       <span>{label}</span>
@@ -46,7 +46,7 @@ function FeatureTile({
 
 function BrandIllustrationSection() {
   return (
-    <section className="relative hidden h-[100dvh] min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_70%_24%,rgba(37,99,235,0.16),transparent_31%),linear-gradient(135deg,#ffffff_0%,#eff6ff_52%,#dbeafe_100%)] px-6 py-4 text-[#071943] sm:px-10 sm:py-6 lg:flex">
+    <section className="relative hidden h-[100dvh] min-h-0 flex-1 overflow-hidden g2g-login-hero-gradient px-6 py-4 text-brand-navy sm:px-10 sm:py-6 lg:flex">
       <div className="pointer-events-none absolute left-[69%] top-[8%] grid grid-cols-5 gap-3 opacity-35">
         {Array.from({ length: 25 }).map((_, index) => (
           <span key={index} className="size-2 rounded-full bg-blue-200" />
@@ -56,15 +56,15 @@ function BrandIllustrationSection() {
       <div className="pointer-events-none absolute bottom-16 right-14 size-72 rounded-full bg-white/25 blur-sm" />
 
       <div className="relative z-10 flex min-h-0 h-full w-full flex-col">
-        <GtgBrandMark className="[&>div:first-child]:size-14 [&>div:first-child]:rounded-xl [&>div:first-child_span]:text-base [&>div:last-child_span:first-child]:text-2xl [&>div:last-child_span:first-child]:text-[#071943] [&>div:last-child_span:last-child]:text-lg [&>div:last-child_span:last-child]:font-bold [&>div:last-child_span:last-child]:text-orange-500" />
+        <GtgBrandMark className="[&>div:first-child]:size-14 [&>div:first-child]:rounded-xl [&>div:first-child_span]:text-base [&>div:last-child_span:first-child]:text-2xl [&>div:last-child_span:first-child]:text-brand-navy [&>div:last-child_span:last-child]:text-lg [&>div:last-child_span:last-child]:font-bold [&>div:last-child_span:last-child]:text-orange-500" />
 
         <div className="relative z-20 mt-6 max-w-lg">
-          <h1 className="text-3xl font-bold leading-tight text-[#071943] sm:text-4xl lg:text-4xl">
+          <h1 className="text-3xl font-bold leading-tight text-brand-navy sm:text-4xl lg:text-4xl">
             Close Every Gap.
-            <span className="block text-blue-600">Transform Talent,</span>
+            <span className="block text-primary">Transform Talent,</span>
             Unlock Growth.
           </h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-slate-600 sm:text-base">
+          <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground sm:text-base">
             A complete HRMS solution to streamline your workforce, empower your
             people and drive your organization forward.
           </p>
@@ -78,7 +78,7 @@ function BrandIllustrationSection() {
 
           <FeatureTile
             className="left-8 top-16 rotate-[-12deg] sm:top-20"
-            icon={<Users className="size-8 text-blue-600" />}
+            icon={<Users className="size-8 text-primary" />}
             label="People Management"
           />
           <FeatureTile
@@ -104,7 +104,7 @@ function BrandIllustrationSection() {
               <div className="absolute -right-5 top-10 h-14 w-20 rotate-45 rounded-full bg-lime-600" />
             </div>
             <div className="absolute -right-16 bottom-[-18px] h-20 w-20 rounded-b-2xl rounded-t-md bg-gradient-to-b from-white to-blue-100 shadow-lg" />
-            <div className="relative z-10 rotate-[-9deg] rounded-xl bg-[#173c95] p-2 shadow-2xl shadow-blue-500/30">
+            <div className="relative z-10 rotate-[-9deg] rounded-xl g2g-login-card-gradient p-2 shadow-2xl shadow-blue-500/30">
               <div className="rounded-lg bg-gradient-to-br from-blue-50 to-white p-5">
                 <div className="mb-5 flex gap-2">
                   <span className="size-2 rounded-full bg-white sha000dow" />
@@ -114,37 +114,37 @@ function BrandIllustrationSection() {
                 <div className="grid grid-cols-[1fr_0.85fr] gap-5">
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex size-14 items-center justify-center rounded-full bg-blue-100">
-                        <BriefcaseBusiness className="size-8 text-blue-600" />
+                      <div className="flex size-14 items-center justify-center rounded-full bg-primary/10">
+                        <BriefcaseBusiness className="size-8 text-primary" />
                       </div>
                       <div className="flex-1 space-y-2">
-                        <div className="h-3 rounded-full bg-blue-100" />
-                        <div className="h-3 w-4/5 rounded-full bg-blue-100" />
+                        <div className="h-3 rounded-full bg-primary/10" />
+                        <div className="h-3 w-4/5 rounded-full bg-primary/10" />
                       </div>
                     </div>
                     <div className="flex h-24 items-end gap-3">
                       {[34, 54, 78, 98].map((height, index) => (
                         <span
                           key={index}
-                          className="w-7 rounded-t-lg bg-blue-500/80"
+                          className="w-7 rounded-t-lg bg-primary/80"
                           style={{ height }}
                         />
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-4 shadow-sm">
+                  <div className="rounded-lg bg-surface p-4 shadow-sm">
                     <div className="mx-auto mt-3 size-24 rounded-full bg-[conic-gradient(#2563eb_0_72%,#dbeafe_72%_100%)] p-5">
-                      <div className="size-full rounded-full bg-white" />
+                      <div className="size-full rounded-full bg-surface" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="mx-auto h-5 w-[84%] rounded-b-2xl bg-gradient-to-r from-blue-200 via-slate-100 to-blue-300 shadow-lg" />
+            <div className="mx-auto h-5 w-[84%] rounded-b-2xl bg-gradient-to-r from-blue-200 via-muted to-blue-300 shadow-lg" />
           </div>
         </div>
 
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-muted-foreground">
           (c) 2025 Gaps to Growth. All rights reserved.
         </p>
       </div>
@@ -154,7 +154,16 @@ function BrandIllustrationSection() {
 
 export function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login } = useAuth()
+
+  const getRedirectTarget = () => {
+    const redirect = searchParams.get('redirect')
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return redirect
+    }
+    return '/dashboard'
+  }
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -169,7 +178,7 @@ export function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/dashboard')
+      router.push(getRedirectTarget())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
@@ -182,7 +191,7 @@ export function LoginPage() {
     setIsLoading(true)
     try {
       await login('hr@gtg.local', 'password')
-      router.push('/dashboard')
+      router.push(getRedirectTarget())
     } catch {
       setError('Google sign-in failed. Please try again.')
     } finally {
@@ -191,7 +200,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_45%,#f3f8ff_100%)] text-[#071943]">
+    <div className="flex h-[100dvh] overflow-hidden g2g-login-gradient text-brand-navy">
       <BrandIllustrationSection />
 
       <main className="relative flex min-h-[100dvh] flex-1 flex-col items-center justify-center overflow-hidden px-4 py-4 sm:px-8">
@@ -201,24 +210,24 @@ export function LoginPage() {
           </div>
           <button
             type="button"
-            className="inline-flex h-12 items-center gap-3 rounded-xl bg-white px-5 text-base font-semibold text-[#071943] shadow-lg shadow-blue-100/60 ring-1 ring-blue-100"
+            className="inline-flex h-12 items-center gap-3 rounded-xl bg-surface px-5 text-base font-semibold text-brand-navy shadow-lg shadow-primary/10 ring-1 ring-primary/10"
           >
-            <Globe2 className="size-5 text-[#071943]" />
+            <Globe2 className="size-5 text-brand-navy" />
             English
             <ChevronDown className="size-4" />
           </button>
         </div>
 
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[660px] overflow-hidden rounded-2xl border border-blue-100/70 bg-white/95 px-4 py-4 shadow-2xl shadow-slate-200/70 backdrop-blur max-[640px]:px-3 max-[640px]:py-3 sm:px-7 sm:py-6 md:px-10 md:py-7">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[660px] overflow-hidden rounded-2xl border border-primary/20 bg-surface/95 px-4 py-4 shadow-2xl shadow-foreground/5 backdrop-blur max-[640px]:px-3 max-[640px]:py-3 sm:px-7 sm:py-6 md:px-10 md:py-7">
             <div className="mb-4 text-center">
-              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-blue-50 sm:size-14">
-                <Headset className="size-7 text-blue-600 sm:size-8" />
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 sm:size-14">
+                <Headset className="size-7 text-primary sm:size-8" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-[#071943] max-[640px]:text-xl sm:text-3xl">
+              <h2 className="text-2xl font-bold tracking-tight text-brand-navy max-[640px]:text-xl sm:text-3xl">
                 Welcome Back!
               </h2>
-              <p className="mt-1 max-w-md text-xs text-slate-600 max-[640px]:text-[11px] sm:text-sm">
+              <p className="mt-1 max-w-md text-xs text-muted-foreground max-[640px]:text-[11px] sm:text-sm">
                 Sign in to continue to your account
               </p>
             </div>
@@ -234,12 +243,12 @@ export function LoginPage() {
               <div>
                 <Label
                   htmlFor="email"
-                  className="text-base font-bold text-[#071943]"
+                  className="text-base font-bold text-brand-navy"
                 >
                   Email or Employee ID
                 </Label>
                 <div className="relative mt-2">
-                  <Mail className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-slate-500" />
+                  <Mail className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email"
                     type="text"
@@ -247,7 +256,7 @@ export function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     disabled={isLoading}
-                    className="h-14 rounded-xl border-slate-200 bg-white pl-14 pr-5 text-base shadow-sm placeholder:text-slate-500 focus-visible:ring-blue-100 max-[640px]:h-12"
+                    className="h-14 rounded-xl border-input bg-surface pl-14 pr-5 text-base shadow-sm placeholder:text-muted-foreground focus-visible:ring-primary/20 max-[640px]:h-12"
                   />
                 </div>
               </div>
@@ -255,12 +264,12 @@ export function LoginPage() {
               <div>
                 <Label
                   htmlFor="password"
-                  className="text-base font-bold text-[#071943]"
+                  className="text-base font-bold text-brand-navy"
                 >
                   Password
                 </Label>
                 <div className="relative mt-2">
-                  <LockKeyhole className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-slate-500" />
+                  <LockKeyhole className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
@@ -268,9 +277,9 @@ export function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
                     disabled={isLoading}
-                    className="h-14 rounded-xl border-slate-200 bg-white pl-14 pr-12 text-base shadow-sm placeholder:text-slate-500 focus-visible:ring-blue-100 max-[640px]:h-12"
+                    className="h-14 rounded-xl border-input bg-surface pl-14 pr-12 text-base shadow-sm placeholder:text-muted-foreground focus-visible:ring-primary/20 max-[640px]:h-12"
                   />
-                  <Eye className="pointer-events-none absolute right-5 top-1/2 size-6 -translate-y-1/2 text-slate-600" />
+                  <Eye className="pointer-events-none absolute right-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
                 </div>
               </div>
 
@@ -285,14 +294,14 @@ export function LoginPage() {
                   />
                   <Label
                     htmlFor="remember"
-                    className="cursor-pointer text-base font-medium text-slate-600"
+                    className="cursor-pointer text-base font-medium text-muted-foreground"
                   >
                     Remember me
                   </Label>
                 </div>
                 <a
                   href="#"
-                  className="text-base font-semibold text-blue-600 hover:text-blue-700"
+                  className="text-base font-semibold text-primary hover:text-primary/80"
                 >
                   Forgot password?
                 </a>
@@ -301,15 +310,15 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="h-14 w-full rounded-xl bg-blue-600 text-base font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 max-[640px]:h-12"
+                className="h-14 w-full rounded-xl text-base font-bold shadow-lg shadow-primary/20 max-[640px]:h-12"
               >
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <div className="flex items-center gap-6 py-1 text-base text-slate-600">
-                <span className="h-px flex-1 bg-slate-200" />
+              <div className="flex items-center gap-6 py-1 text-base text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
                 or
-                <span className="h-px flex-1 bg-slate-200" />
+                <span className="h-px flex-1 bg-border" />
               </div>
 
               <Button
@@ -317,16 +326,16 @@ export function LoginPage() {
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
                 variant="outline"
-                className="h-14 w-full rounded-xl border-slate-200 bg-white text-base font-bold text-[#071943] shadow-sm hover:bg-slate-50 max-[640px]:h-12"
+                className="h-14 w-full rounded-xl border-input bg-surface text-base font-bold text-brand-navy shadow-sm hover:bg-muted max-[640px]:h-12"
               >
-                <span className="text-2xl font-bold text-blue-600" aria-hidden="true">
+                <span className="text-2xl font-bold text-primary" aria-hidden="true">
                   G
                 </span>
                 Sign in with Google
               </Button>
             </form>
 
-            <div className="mt-3 hidden border-t border-slate-200 pt-3 text-[11px] leading-4 text-slate-500 sm:block">
+            <div className="mt-3 hidden border-t border-border pt-3 text-[11px] leading-4 text-muted-foreground sm:block">
               <p className="text-center">Demo accounts (any password works):</p>
               <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-center font-mono">
                 <p>admin@gtg.local</p>
@@ -336,8 +345,8 @@ export function LoginPage() {
               </div>
             </div>
 
-            <div className="mt-5 hidden items-center justify-center gap-3 text-sm text-slate-600 sm:flex">
-              <ShieldCheck className="size-6 text-slate-600" />
+            <div className="mt-5 hidden items-center justify-center gap-3 text-sm text-muted-foreground sm:flex">
+              <ShieldCheck className="size-6 text-muted-foreground" />
               <span>Your data is secure with enterprise-grade protection</span>
             </div>
           </div>

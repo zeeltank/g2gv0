@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/gtg-auth'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { getDashboardRoute } from '@/lib/gtg-dashboard-routing'
 import { useEffect } from 'react'
 
