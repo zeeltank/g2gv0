@@ -251,19 +251,33 @@ export const GTG_NAVIGATION: NavModule[] = [
   },
 ]
 
+export type BreadcrumbItem = {
+  label: string
+  href?: string
+}
+
 export type ActiveNav = {
   moduleId: string
   menuId: string
   submenuId: string
 }
 
-export function resolveBreadcrumb(active: ActiveNav) {
-  const module = GTG_NAVIGATION.find((m) => m.id === active.moduleId)
-  const menu = module?.menus.find((mn) => mn.id === active.menuId)
+export function resolveBreadcrumb(active: ActiveNav): BreadcrumbItem[] {
+  const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
+
+  const navModule = GTG_NAVIGATION.find((m) => m.id === active.moduleId)
+  const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
   const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
-  return {
-    module: module?.label ?? '',
-    menu: menu?.label ?? '',
-    submenu: submenu?.label ?? '',
+
+  if (navModule?.label) {
+    items.push({ label: navModule.label })
   }
+  if (menu?.label) {
+    items.push({ label: menu.label })
+  }
+  if (submenu?.label) {
+    items.push({ label: submenu.label, href: `/module/${active.moduleId}/${active.menuId}/${active.submenuId}` })
+  }
+
+  return items
 }

@@ -82,6 +82,7 @@ export function CmCompetencyLibrary() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [competencyType, setCompetencyType] = useState('')
   const [selectedItem, setSelectedItem] = useState<Competency | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'proficiency' | 'associations' | 'attachments' | 'history'>('overview')
 
@@ -428,6 +429,16 @@ export function CmCompetencyLibrary() {
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Category</label>
               <Select options={[{label: 'Core', value: 'core'}, {label: 'Leadership', value: 'leadership'}]} placeholder="Select category" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">Type</label>
+              <Select 
+                value={competencyType}
+                onChange={setCompetencyType}
+                options={[{label: 'Select type', value: ''}, {label: 'Behavior', value: 'behavior'}, {label: 'Skill', value: 'skill'}, {label: 'Ability', value: 'ability'}, {label: 'Attitude', value: 'attitude'}, {label: 'Knowledge', value: 'knowledge'}]} 
+                placeholder="Select type" 
+                className="bg-background border-border" 
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Description</label>
