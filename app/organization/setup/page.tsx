@@ -12,7 +12,7 @@ import {
   EmployeeImportStep,
   SetupCompletionStep,
   sampleEmployees,
-} from '@/components/organization'
+} from '@/components/organization-setup'
 import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { updateOnboarding } from '@/lib/onboarding'

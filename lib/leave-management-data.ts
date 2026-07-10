@@ -10,7 +10,7 @@ import type {
   LeaveTypeDistribution,
   LeaveBalanceSnapshot,
   LeaveQuickAction,
-} from '@/types/Leavedashboard'
+} from '@/types/leave-dashboard'
 
 export const currentUser: DashboardUser = {
   id: 'emp-001',

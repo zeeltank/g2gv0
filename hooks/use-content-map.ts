@@ -19,12 +19,12 @@ const CmDevelopmentCareer = () => import('@/components/competency/cm-development
 const CmCertifications = () => import('@/components/competency/cm-certifications').then(m => ({ default: m.CmCertifications }))
 const CmAudit = () => import('@/components/competency/cm-audit').then(m => ({ default: m.CmAudit }))
 
-const AttendanceDashboard = () => import('@/components/attendance/attendance-dashboard').then(m => ({ default: m.AttendanceDashboard }))
-const AttendanceReportsPage = () => import('@/components/attendance/attendance-reports-page').then(m => ({ default: m.AttendanceReportsPage }))
-const LeaveManagementDashboard = () => import('@/components/leave-management').then(m => ({ default: m.LeaveManagementDashboard }))
-const LeaveRequestsPage = () => import('@/components/leave-management').then(m => ({ default: m.LeaveRequestsPage }))
-const LeaveReportsPage = () => import('@/components/leave-management').then(m => ({ default: m.LeaveReportsPage }))
-const LeaveConfigurationPage = () => import('@/components/leave-management').then(m => ({ default: m.LeaveConfigurationPage }))
+const AttendanceDashboard = () => import('@/components/hrit/attendance-management/attendance-tracking/page').then(m => ({ default: m.AttendanceDashboard }))
+const AttendanceReportsPage = () => import('@/components/hrit/attendance-management/attendance-reports/page').then(m => ({ default: m.AttendanceReportsPage }))
+const LeaveManagementDashboard = () => import('@/components/hrit/leave-management/leave-dashboard/page').then(m => ({ default: m.default }))
+const LeaveRequestsPage = () => import('@/components/hrit/leave-management/leave-requests/page').then(m => ({ default: m.default }))
+const LeaveReportsPage = () => import('@/components/hrit/leave-management/leave-reports/page').then(m => ({ default: m.default }))
+const LeaveConfigurationPage = () => import('@/components/hrit/leave-management/leave-configuration/page').then(m => ({ default: m.default }))
 
 const TaskWorkspace = () => import('@/components/task/task-workspace').then(m => ({ default: m.TaskWorkspace }))
 const MyTasksView = () => import('@/components/task/my-tasks-view').then(m => ({ default: m.MyTasksView }))
