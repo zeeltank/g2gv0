@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 const metricCardVariants = cva('', {
   variants: {
     layout: {
-      vertical: 'flex flex-col',
+      vertical: 'space-y-4',
       horizontal: 'flex flex-row items-center justify-between',
     },
   },
@@ -34,33 +34,37 @@ interface MetricCardProps
 }
 
 const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
-  ({ title, subtitle, primary, secondary, action, layout, className, ...props }, ref) => (
-    <Card ref={ref} className={className} {...props}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {subtitle && <CardDescription>{subtitle}</CardDescription>}
-      </CardHeader>
-      <CardContent className={cn('space-y-4', metricCardVariants({ layout }))}>
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {primary.label}
-          </p>
-          <p className="text-3xl font-bold text-foreground">{primary.value}</p>
-        </div>
-        {secondary && secondary.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            {secondary.map((item) => (
-              <div key={item.label} className="space-y-1">
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="text-lg font-semibold text-foreground">{item.value}</p>
-              </div>
-            ))}
+  ({ title, subtitle, primary, secondary, action, layout, className, ...props }, ref) => {
+    const isVertical = layout === 'vertical'
+
+    return (
+      <Card ref={ref} className={className} {...props}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{title}</CardTitle>
+          {subtitle && <CardDescription>{subtitle}</CardDescription>}
+        </CardHeader>
+        <CardContent className={metricCardVariants({ layout })}>
+          <div className={cn(isVertical ? 'space-y-1' : 'space-y-0.5')}>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {primary.label}
+            </p>
+            <p className="text-3xl font-bold text-foreground">{primary.value}</p>
           </div>
-        )}
-        {action && <div className="pt-2">{action}</div>}
-      </CardContent>
-    </Card>
-  ),
+          {secondary && secondary.length > 0 && (
+            <div className={cn('grid gap-4', isVertical ? 'grid-cols-2' : 'grid-cols-2')}>
+              {secondary.map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="text-lg font-semibold text-foreground">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {action && <div className={cn(isVertical ? 'pt-2' : '')}>{action}</div>}
+        </CardContent>
+      </Card>
+    )
+  },
 )
 MetricCard.displayName = 'MetricCard'
 

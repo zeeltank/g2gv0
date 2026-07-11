@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { FileText ,ChevronRight} from 'lucide-react'
+import { FileText, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { MyRequest } from './widget-types'
 
@@ -11,12 +11,6 @@ interface MyRequestsWidgetProps {
   requests: MyRequest[]
   loading?: boolean
   onViewAll?: () => void
-}
-
-const statusVariantMap: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
-  Pending: 'warning',
-  Approved: 'success',
-  Rejected: 'destructive',
 }
 
 export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWidgetProps) {
@@ -56,12 +50,9 @@ export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWid
               <span className="text-sm font-medium text-foreground">
                 {request.type}
               </span>
-              <Badge
-                variant={statusVariantMap[request.status] || 'default'}
-                className="gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-              >
+              <StatusBadge status={request.status} size="sm">
                 {request.status} ({request.count})
-              </Badge>
+              </StatusBadge>
             </div>
           ))}
         </div>
@@ -72,7 +63,7 @@ export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWid
             className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
           >
             View All Requests
-          <ChevronRight className="size-4" />
+            <ChevronRight className="size-4" />
           </button>
         )}
       </CardContent>

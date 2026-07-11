@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -386,12 +386,6 @@ function TableSkeleton() {
   )
 }
 
-function actionVariant(action: ActionTaken) {
-  if (action === 'Suspension' || action === 'Final Warning') return 'destructive'
-  if (action === 'Training Assigned' || action === 'Escalated to HR') return 'warning'
-  return 'navy'
-}
-
 export function DisciplinaryManagement() {
   const [records, setRecords] = useState<IncidentRecord[]>(initialRecords)
   const [form, setForm] = useState<IncidentFormState>(initialForm)
@@ -746,9 +740,7 @@ export function DisciplinaryManagement() {
                           </TableCell>
                           <TableCell>{record.witness}</TableCell>
                           <TableCell>
-                            <Badge variant={actionVariant(record.actionTaken)}>
-                              {record.actionTaken}
-                            </Badge>
+                            <StatusBadge status={record.actionTaken} />
                           </TableCell>
                           <TableCell className="max-w-[220px]">
                             <p className="line-clamp-2 text-muted-foreground">{record.remarks}</p>

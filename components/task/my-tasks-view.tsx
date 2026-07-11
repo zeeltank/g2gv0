@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { TaskDetailsDrawer } from './task-details-drawer'
 import { TaskBoardView } from './task-board-view'
 import { Task } from '@/types/task-management'
-import { getPriorityColor, getStatusColor } from '@/lib/task-utils'
+import { getPriorityColor, getTaskStatusColor } from '@/lib/task-utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 // A specialized list view for an individual employee
@@ -63,7 +63,7 @@ function EmployeeTaskListView({ tasks, onSelectTask }: { tasks: Task[], onSelect
                   </span>
                 </TableCell>
                 <TableCell className="px-6 py-4">
-                  <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium", getStatusColor(task.status))}>
+                  <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium", getTaskStatusColor(task.status))}>
                     <span className="w-1.5 h-1.5 rounded-full bg-current mr-2 opacity-70" />
                     {task.status.replace('_', ' ')}
                   </span>

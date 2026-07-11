@@ -5,8 +5,8 @@ import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizont
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -54,14 +54,6 @@ const savedFilters = [
   { label: 'Engineering – This Month', filters: { department: 'Engineering' } },
   { label: 'Rejected Requests', filters: { status: 'rejected' } },
 ]
-
-const statusBadgeVariantMap: Record<LeaveRequestStatus, 'success' | 'warning' | 'destructive' | 'navy' | 'muted'> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'destructive',
-  'sent-back': 'navy',
-  cancelled: 'muted',
-}
 
 const statusLabelMap: Record<LeaveRequestStatus, string> = {
   pending: 'Pending',
@@ -193,9 +185,7 @@ export default function LeaveRequestsPage() {
       id: 'status',
       header: 'Status',
       render: (_, row) => (
-        <Badge variant={statusBadgeVariantMap[row.status]}>
-          {statusLabelMap[row.status]}
-        </Badge>
+        <StatusBadge status={row.status} label={statusLabelMap[row.status]} />
       ),
     },
     {

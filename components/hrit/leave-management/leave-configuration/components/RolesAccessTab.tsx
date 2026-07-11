@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -166,7 +166,7 @@ export default function RolesAccessTab({ isLoading }: { isLoading: boolean }) {
       id: 'status',
       header: 'Status',
       render: (_, row) => (
-        <Badge variant={row.status === 'Active' ? 'success' : 'muted'}>{row.status}</Badge>
+        <StatusBadge status={row.status} />
       ),
     },
     {

@@ -21,10 +21,10 @@ import { AttendanceCalendarDrawer } from '@/components/hrit/attendance-managemen
 import { AttendanceHistoryDrawer } from '@/components/hrit/attendance-management/attendance-tracking/components/attendance-history-drawer'
 import { EventDetailsDrawer } from '@/components/hrit/attendance-management/attendance-tracking/components/event-details-drawer'
 import { useAttendance } from '@/hooks'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import {
   EmployeeSnapshotWidget,
@@ -40,14 +40,6 @@ import type { AttendanceRecord, AttendanceStatus, Event } from '@/components/hri
 const SHIFT_END = '06:00 PM'
 const SHIFT_TOTAL_MINUTES = 510
 const CURRENT_DATE_LABEL = 'Today, 22 Jun 2026'
-
-const statusVariantMap: Record<AttendanceStatus, 'default' | 'success' | 'warning' | 'destructive'> = {
-  present: 'success',
-  late: 'warning',
-  absent: 'destructive',
-  'half-day': 'warning',
-  leave: 'default',
-}
 
 const statusLabelMap: Record<AttendanceStatus, string> = {
   present: 'Present',
@@ -223,13 +215,10 @@ function TodayAttendancePanel({
           </CardTitle>
 
           {activeShift && (
-            <Badge
-              variant="success"
-              className="h-7 gap-2 rounded-full px-3 text-xs font-semibold"
-            >
-              <span className="size-2 rounded-full bg-success" />
+            <StatusBadge status="Live" size="sm" className="gap-1.5">
+              <span className="size-2 rounded-full bg-current" />
               Live
-            </Badge>
+            </StatusBadge>
           )}
         </div>
       </CardHeader>
@@ -401,10 +390,7 @@ function RecentAttendancePanel({ records, loading, onViewAll }: RecentAttendance
                   </td>
                   <td className="px-4 py-4 font-semibold text-foreground">{record.totalHours || '--'}</td>
                   <td className="px-4 py-4">
-                    <Badge variant={statusVariantMap[record.status]} className="h-9 gap-2 rounded-full px-4 text-base font-bold">
-                      <span className="size-2 rounded-full bg-current" />
-                      {statusLabelMap[record.status]}
-                    </Badge>
+                    <StatusBadge status={record.status} label={statusLabelMap[record.status]} className="h-9 gap-2 rounded-full px-4 text-base font-bold" />
                   </td>
                   <td className="px-4 py-4 font-medium text-muted-foreground">
                     <span className="inline-flex items-center gap-2">

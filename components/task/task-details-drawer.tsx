@@ -23,6 +23,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getTaskStatusStyle, getPriorityColor } from '@/lib/task-utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,25 +45,6 @@ export function TaskDetailsDrawer({ task, isOpen, onClose, readOnly = false }: T
 
   if (!task) return null
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'completed': return 'bg-success/10 text-success border-success/20'
-      case 'in_progress': return 'bg-primary/10 text-primary border-primary/20'
-      case 'review': return 'bg-warning/10 text-warning border-warning/20'
-      case 'blocked': return 'bg-danger/10 text-danger border-danger/20'
-      default: return 'bg-muted/50 text-muted-foreground border-border/50'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch(priority) {
-      case 'urgent': return 'text-danger border-danger/30 bg-danger/5'
-      case 'high': return 'text-warning border-warning/30 bg-warning/5'
-      case 'medium': return 'text-primary border-primary/30 bg-primary/5'
-      default: return 'text-muted-foreground border-border bg-muted/30'
-    }
-  }
-
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-[100vw] sm:max-w-[640px] p-0 flex flex-col border-l border-primary/20 bg-background/95 backdrop-blur-2xl shadow-2xl">
@@ -70,12 +52,12 @@ export function TaskDetailsDrawer({ task, isOpen, onClose, readOnly = false }: T
         {/* Header */}
         <SheetHeader className="p-6 pb-0 shrink-0 relative bg-gradient-to-b from-primary/[0.03] to-transparent">
           <div className="flex items-start justify-between gap-4 pr-10">
-            <div className="flex flex-col gap-2.5">
+                          <div className="flex flex-col gap-2.5">
               <div className="flex items-center gap-3">
                 <span className={cn("inline-flex items-center px-3 py-1 rounded-lg text-[11px] uppercase font-bold tracking-wider border shadow-sm", getPriorityColor(task.priority))}>
                   {task.priority}
                 </span>
-                <span className={cn("inline-flex items-center px-3 py-1 rounded-lg text-[11px] uppercase font-bold tracking-wider border shadow-sm", getStatusColor(task.status))}>
+                <span className={cn("inline-flex items-center px-3 py-1 rounded-lg text-[11px] uppercase font-bold tracking-wider border shadow-sm", getTaskStatusStyle(task.status))}>
                   {task.status.replace('_', ' ')}
                 </span>
               </div>

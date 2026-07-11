@@ -31,11 +31,22 @@ const badgeVariants = cva(
 interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {
+  /**
+   * @deprecated Use `variant` prop instead. `tone` will be removed in a future version.
+   */
   tone?: VariantProps<typeof badgeVariants>['variant']
 }
 
+/**
+ * @deprecated Use `variant` prop instead. `tone` will be removed in a future version.
+ */
 function Badge({ className, variant, tone, ...props }: BadgeProps) {
   const resolvedVariant = tone ?? variant
+  if (process.env.NODE_ENV === 'development' && tone !== undefined) {
+    console.warn(
+      '[Badge] Deprecation warning: `tone` prop is deprecated. Please use `variant` instead.',
+    )
+  }
   return (
     <div
       className={cn(badgeVariants({ variant: resolvedVariant }), className)}

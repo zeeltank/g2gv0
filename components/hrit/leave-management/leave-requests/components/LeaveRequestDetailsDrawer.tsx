@@ -2,10 +2,10 @@
 
 import * as React from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { AttendanceTabs } from '@/components/hrit/attendance-management/attendance-tracking/components/attendance-tabs'
 import { Check, X, FileText, Calendar, MessageSquare, Paperclip, History, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,14 +16,6 @@ interface LeaveRequestDetailsDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   request: LeaveRequest | null
-}
-
-const statusBadgeVariantMap: Record<LeaveRequestStatus, 'success' | 'warning' | 'destructive' | 'navy' | 'muted'> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'destructive',
-  'sent-back': 'navy',
-  cancelled: 'muted',
 }
 
 const statusLabelMap: Record<LeaveRequestStatus, string> = {
@@ -75,9 +67,7 @@ export function LeaveRequestDetailsDrawer({
           />
 
           <div className="flex items-center justify-between py-2">
-            <Badge variant={statusBadgeVariantMap[request.status]} className="capitalize">
-              {statusLabelMap[request.status]}
-            </Badge>
+            <StatusBadge status={request.status} label={statusLabelMap[request.status]} />
             <span className="text-sm text-muted-foreground">
               Submitted {request.submittedDate ? new Date(request.submittedDate).toISOString().split('T')[0] : '—'}
             </span>
@@ -240,9 +230,7 @@ export function LeaveRequestDetailsDrawer({
                         {request.approver} marked this request as
                       </span>
 
-                      <Badge variant="success">
-                        Approved
-                      </Badge>
+                      <StatusBadge status="Approved" />
                     </div>
                   )}
 
@@ -254,9 +242,7 @@ export function LeaveRequestDetailsDrawer({
                         {request.approver} marked this request as
                       </span>
 
-                      <Badge variant="destructive">
-                        Rejected
-                      </Badge>
+                      <StatusBadge status="Rejected" />
                     </div>
                   )}
 

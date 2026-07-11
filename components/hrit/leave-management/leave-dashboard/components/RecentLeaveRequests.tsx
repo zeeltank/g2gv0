@@ -4,7 +4,7 @@ import { ArrowUpRight, MoreVertical } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,14 +25,6 @@ import type { LeaveRequest } from '@/types/leave-dashboard'
 
 interface RecentLeaveRequestsProps {
   requests: LeaveRequest[]
-}
-
-const statusBadgeToneMap: Record<LeaveRequest['status'], 'warning' | 'success' | 'destructive' | 'navy' | 'muted'> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'destructive',
-  'sent-back': 'navy',
-  cancelled: 'muted',
 }
 
 export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
@@ -96,9 +88,7 @@ export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusBadgeToneMap[request.status]}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </Badge>
+                    <StatusBadge status={request.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDateShort(request.appliedDate)}

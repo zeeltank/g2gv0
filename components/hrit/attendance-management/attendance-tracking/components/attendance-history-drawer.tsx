@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { AttendanceRecord, AttendanceStatus } from '@/components/hrit/attendance-management/types'
@@ -123,9 +123,7 @@ export function AttendanceHistoryDrawer({
                       <TableCell>{record.totalHours || '--'}</TableCell>
                       <TableCell>{record.breakTime || '--'}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusVariant(record.status)} className="capitalize">
-                          {record.status.replace('-', ' ')}
-                        </Badge>
+                        <StatusBadge status={record.status} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -137,15 +135,4 @@ export function AttendanceHistoryDrawer({
       </SheetContent>
     </Sheet>
   )
-}
-
-function getStatusVariant(status: AttendanceStatus): 'default' | 'success' | 'warning' | 'destructive' {
-  const map: Record<AttendanceStatus, 'default' | 'success' | 'warning' | 'destructive'> = {
-    present: 'success',
-    late: 'warning',
-    absent: 'destructive',
-    'half-day': 'warning',
-    leave: 'default',
-  }
-  return map[status] || 'default'
 }

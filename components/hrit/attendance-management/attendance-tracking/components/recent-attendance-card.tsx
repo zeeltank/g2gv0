@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   Table,
   TableBody,
@@ -23,17 +23,6 @@ interface RecentAttendanceCardProps {
 
 export function RecentAttendanceCard({ records, loading, onViewAll }: RecentAttendanceCardProps) {
   const recentRecords = records.slice(0, 3)
-
-  const statusVariant = (status: string) => {
-    const map: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
-      present: 'success',
-      late: 'warning',
-      absent: 'destructive',
-      'half-day': 'warning',
-      leave: 'default',
-    }
-    return map[status] || 'default'
-  }
 
   if (loading) {
     return (
@@ -85,9 +74,7 @@ export function RecentAttendanceCard({ records, loading, onViewAll }: RecentAtte
                     <TableCell>{record.punchIn || '--'}</TableCell>
                     <TableCell>{record.punchOut || '--'}</TableCell>
                     <TableCell className="pr-6">
-                      <Badge variant={statusVariant(record.status)} className="capitalize">
-                        {record.status}
-                      </Badge>
+                      <StatusBadge status={record.status} />
                     </TableCell>
                   </TableRow>
                 ))}

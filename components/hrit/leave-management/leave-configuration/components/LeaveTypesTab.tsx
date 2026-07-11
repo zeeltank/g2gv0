@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Plus, MoreHorizontal, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -134,7 +134,7 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
       id: 'status',
       header: 'Status',
       render: (_, row) => (
-        <Badge variant={row.status === 'Active' ? 'success' : 'muted'}>{row.status}</Badge>
+        <StatusBadge status={row.status} />
       ),
     },
     {

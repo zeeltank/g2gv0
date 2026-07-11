@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AttendanceDrillDownDrawer, type DrillDownRecord } from '@/components/hrit/attendance-management/attendance-tracking/components/attendance-drill-down-drawer'
@@ -167,15 +168,7 @@ export function AttendanceGroupedTable({
     }
     if (colId === 'status') {
       return (
-        <Badge
-          tone={
-            row.status === 'present' ? 'success' :
-            row.status === 'late' ? 'warning' : 'destructive'
-          }
-          className="capitalize"
-        >
-          {row.status?.replace('-', ' ')}
-        </Badge>
+        <StatusBadge status={row.status || ''} />
       )
     }
     const val = row[colId as keyof GroupedRecord]
