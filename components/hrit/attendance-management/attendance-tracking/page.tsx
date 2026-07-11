@@ -103,7 +103,7 @@ export function AttendanceDashboard() {
             Good Morning, Amit! <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
-            Here's your attendance overview for today.
+            Here&apos;s your attendance overview for today.
           </p>
         </div>
 
@@ -211,7 +211,7 @@ function TodayAttendancePanel({
       <CardHeader className="flex-row items-center justify-between space-y-0 px-5 pb-2 pt-4">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle className="text-lg font-bold">
-            Today's Attendance
+            Today&apos;s Attendance
           </CardTitle>
 
           {activeShift && (

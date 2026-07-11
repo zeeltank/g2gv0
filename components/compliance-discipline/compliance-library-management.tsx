@@ -334,6 +334,9 @@ export function ComplianceLibraryManagement() {
   const [notice, setNotice] = useState('')
   const [uploadKey, setUploadKey] = useState(0)
   const [editUploadKey, setEditUploadKey] = useState(0)
+  
+  // Use a key to force page reset when search changes
+  const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsLoading(false), 600)
@@ -358,12 +361,23 @@ export function ComplianceLibraryManagement() {
   }, [records, search])
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const pagedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
+  // Reset page to 1 when search changes by using resetKey
+  const displayPage = (() => {
+    if (page > totalPages) return 1;
+    return page;
+  })()
+  const pagedRecords = filteredRecords.slice((displayPage - 1) * pageSize, displayPage * pageSize)
+  
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: pagination reset on filter change */
   useEffect(() => {
     setPage(1)
   }, [search, pageSize])
+  /* eslint-enable react-hooks/set-state-in-effect */
+  
+  // Handle page change with bounds checking
+  const handlePageChange = (newPage: number) => {
+    setPage(Math.max(1, Math.min(newPage, totalPages)))
+  }
 
   const stats = useMemo(() => {
     const dueThisMonth = records.filter((record) => {

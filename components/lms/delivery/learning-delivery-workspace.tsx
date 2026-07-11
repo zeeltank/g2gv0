@@ -355,7 +355,7 @@ function WhatsNextSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-bold text-foreground">What's Next</h3>
+      <h3 className="text-sm font-bold text-foreground">What&apos;s Next</h3>
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
         {upcoming.map((lesson) => (
           <button

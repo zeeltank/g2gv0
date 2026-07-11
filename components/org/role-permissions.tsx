@@ -96,11 +96,13 @@ export function RolePermissions() {
   const activeRole = useMemo(() => roles.find(r => r.id === activeRoleId), [activeRoleId, roles])
   const filteredRoles = useMemo(() => roles.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())), [searchQuery, roles])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: reset state when active role changes */
   React.useEffect(() => {
     // In a real app, this would fetch from API based on activeRoleId
     setHasChanges(false)
     setAnimateKey(prev => prev + 1)
   }, [activeRoleId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleAddRole = () => {
     if (!newRoleName.trim()) return

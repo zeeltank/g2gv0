@@ -32,9 +32,9 @@ export function AttendanceHistoryDrawer({
 }: AttendanceHistoryDrawerProps) {
   const [search, setSearch] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState('')
-  const [filteredRecords, setFilteredRecords] = React.useState(records)
-
-  React.useEffect(() => {
+  
+  // Use useMemo to derive filtered records (avoids setState in useEffect)
+  const filteredRecords = React.useMemo(() => {
     let result = records
 
     if (search) {
@@ -45,7 +45,7 @@ export function AttendanceHistoryDrawer({
       result = result.filter((r) => r.status === statusFilter)
     }
 
-    setFilteredRecords(result)
+    return result
   }, [search, statusFilter, records])
 
   const handleExport = () => {

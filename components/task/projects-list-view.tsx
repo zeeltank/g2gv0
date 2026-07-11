@@ -248,7 +248,7 @@ export function ProjectsListView() {
             </div>
             <h3 className="text-lg font-semibold text-foreground">No projects found</h3>
             <p className="text-sm text-muted-foreground max-w-sm mt-1">
-              Try adjusting your search or filters to find what you're looking for.
+              Try adjusting your search or filters to find what you&apos;re looking for.
             </p>
           </div>
         )}

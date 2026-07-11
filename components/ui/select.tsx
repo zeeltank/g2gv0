@@ -27,6 +27,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const listRef = React.useRef<HTMLDivElement>(null)
     const typeaheadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
     const typeaheadBufferRef = React.useRef('')
+    const listboxId = React.useId()
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
@@ -157,6 +158,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           type="button"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listboxId}
           aria-haspopup="listbox"
           aria-label={ariaLabel}
           disabled={disabled}

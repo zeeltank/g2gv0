@@ -37,25 +37,20 @@ function clearSessionCookie() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  })
-
-  // Simulate session restore from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('gtg-session')
-    if (stored) {
-      try {
-        setSession(JSON.parse(stored))
-      } catch {
-        setSession({ user: null, isAuthenticated: false, isLoading: false })
+  const [session, setSession] = useState<Session>(() => {
+    // Initialize from localStorage synchronously (avoids useEffect setState)
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('gtg-session')
+      if (stored) {
+        try {
+          return JSON.parse(stored)
+        } catch {
+          return { user: null, isAuthenticated: false, isLoading: false }
+        }
       }
-    } else {
-      setSession({ user: null, isAuthenticated: false, isLoading: false })
     }
-  }, [])
+    return { user: null, isAuthenticated: false, isLoading: true }
+  })
 
   const login = async (email: string, password: string) => {
     // Simulate auth delay

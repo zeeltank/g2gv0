@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
-import { useAuth } from '@/components/auth/gtg-auth'
+import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
@@ -60,12 +60,14 @@ function ContentRenderer({ active }: { active: ActiveNav }) {
   const route = getContentRoute(active)
   
   if (route) {
+    /* eslint-disable react-hooks/static-components -- Dynamic component loading requires lazy evaluation */
     const LazyComponent = lazy(route.component)
     return (
       <Suspense fallback={<ContentSkeleton />}>
         <LazyComponent />
       </Suspense>
     )
+    /* eslint-enable react-hooks/static-components */
   }
   
   const comingSoon = COMING_SOON_CONTENT[active.submenuId || active.menuId || '']
@@ -106,6 +108,7 @@ export function GtgAppShell({
     return DEFAULT_ACTIVE
   })
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: sync navigation state with URL */
   useEffect(() => {
     if (children) return
     const parsed = parseRoutePath(pathname)
@@ -118,6 +121,7 @@ export function GtgAppShell({
       })
     }
   }, [pathname, children])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleNavSelect = (next: ActiveNav) => {
     router.push(getRoutePath(next))

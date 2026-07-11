@@ -52,6 +52,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { CreateTaskModal } from './create-task-modal'
+import { taskChartColors } from '@/lib/chart-colors'
 
 // Custom Premium Node Component
 const TaskNode = ({ id, data }: any) => {
@@ -172,21 +173,21 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [
   // Completed solid connections
-  { id: 'e1-2', source: 'T-1001', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' }, style: { stroke: '#10b981', strokeWidth: 3 } },
-  { id: 'e4-2', source: 'T-1004', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' }, style: { stroke: '#10b981', strokeWidth: 3 } },
-  { id: 'e4-5', source: 'T-1004', target: 'T-1005', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' }, style: { stroke: '#10b981', strokeWidth: 3 } },
+  { id: 'e1-2', source: 'T-1001', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
+  { id: 'e4-2', source: 'T-1004', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
+  { id: 'e4-5', source: 'T-1004', target: 'T-1005', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
   
   // In progress animated connections
-  { id: 'e2-3', source: 'T-1002', target: 'T-1003', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }, style: { stroke: '#3b82f6', strokeWidth: 3 } },
-  { id: 'e5-6', source: 'T-1005', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }, style: { stroke: '#3b82f6', strokeWidth: 3 } },
-  { id: 'e5-8', source: 'T-1005', target: 'T-1008', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }, style: { stroke: '#3b82f6', strokeWidth: 3 } },
+  { id: 'e2-3', source: 'T-1002', target: 'T-1003', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
+  { id: 'e5-6', source: 'T-1005', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
+  { id: 'e5-8', source: 'T-1005', target: 'T-1008', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
   
   // Blocked connection (red animated dash)
-  { id: 'e3-6', source: 'T-1003', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: '#f43f5e' }, style: { stroke: '#f43f5e', strokeWidth: 4 } },
+  { id: 'e3-6', source: 'T-1003', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.blocked }, style: { stroke: taskChartColors.blocked, strokeWidth: 4 } },
   
   // Future connections (slate dash)
-  { id: 'e6-7', source: 'T-1006', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' }, style: { stroke: '#64748b', strokeWidth: 2, strokeDasharray: '6 6' } },
-  { id: 'e8-7', source: 'T-1008', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' }, style: { stroke: '#64748b', strokeWidth: 2, strokeDasharray: '6 6' } },
+  { id: 'e6-7', source: 'T-1006', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
+  { id: 'e8-7', source: 'T-1008', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
   { id: 'e7-101', source: 'T-1007', target: 'M-101', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }, style: { stroke: '#a855f7', strokeWidth: 3, strokeDasharray: '6 6' } },
 ]
 

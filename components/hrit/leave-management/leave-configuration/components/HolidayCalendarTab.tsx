@@ -26,18 +26,107 @@ interface Holiday {
   description?: string
 }
 
+interface HolidayDialogProps {
+  isOpen: boolean
+  editingHoliday: Holiday | null
+  newHolidayName: string
+  newHolidayDate: Date | undefined
+  newHolidayYear: string
+  newHolidayDesc: string
+  onOpenChange: (open: boolean) => void
+  onNameChange: (name: string) => void
+  onDateChange: (date: Date | undefined) => void
+  onYearChange: (year: string) => void
+  onDescChange: (desc: string) => void
+  onSave: () => void
+  onCancel: () => void
+}
+
+function HolidayDialogComponent({
+  isOpen,
+  editingHoliday,
+  newHolidayName,
+  newHolidayDate,
+  newHolidayYear,
+  newHolidayDesc,
+  onOpenChange,
+  onNameChange,
+  onDateChange,
+  onYearChange,
+  onDescChange,
+  onSave,
+  onCancel,
+}: HolidayDialogProps) {
+  const yearOptions = [
+    { label: '2026', value: '2026' },
+    { label: '2025', value: '2025' },
+    { label: '2027', value: '2027' },
+  ]
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto">
+          <Plus className="size-4" />
+          Add Holiday
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editingHoliday ? 'Edit Holiday' : 'Add Holiday'}</DialogTitle>
+          <DialogDescription>Configure holiday settings for your organization.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="holidayName">Holiday Name</Label>
+            <Input
+              id="holidayName"
+              placeholder="Enter holiday name"
+              value={newHolidayName}
+              onChange={(e) => onNameChange(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="holidayDate">Holiday Date</Label>
+            <DatePicker
+              value={newHolidayDate}
+              onChange={(date) => onDateChange(typeof date === 'string' ? new Date(date) : date)}
+              placeholder="Select a date"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="holidayYear">Applicable Year</Label>
+            <Select
+              value={newHolidayYear}
+              onChange={onYearChange}
+              options={yearOptions}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="holidayDesc">Description (Optional)</Label>
+            <Textarea
+              id="holidayDesc"
+              placeholder="Enter description"
+              value={newHolidayDesc}
+              onChange={(e) => onDescChange(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={onCancel}>Cancel</Button>
+          <Button className="w-full sm:w-auto" onClick={onSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 const initialHolidays: Holiday[] = [
   { id: '1', name: 'Independence Day', date: '2026-08-15', day: 'Saturday', applicableYear: '2026' },
   { id: '2', name: 'Diwali', date: '2026-11-08', day: 'Sunday', applicableYear: '2026' },
   { id: '3', name: 'Gandhi Jayanti', date: '2026-10-02', day: 'Friday', applicableYear: '2026' },
   { id: '4', name: 'Dussehra', date: '2026-10-24', day: 'Saturday', applicableYear: '2026' },
   { id: '5', name: 'Raksha Bandhan', date: '2026-08-28', day: 'Friday', applicableYear: '2026' },
-]
-
-const yearOptions = [
-  { label: '2026', value: '2026' },
-  { label: '2025', value: '2025' },
-  { label: '2027', value: '2027' },
 ]
 
 export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }) {
@@ -96,6 +185,19 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
     ))
     resetHolidayForm()
     setIsHolidayDialogOpen(false)
+  }
+
+  const handleHolidayDialogSave = () => {
+    if (editingHoliday) {
+      handleUpdateHoliday()
+    } else {
+      handleAddHoliday()
+    }
+  }
+
+  const handleHolidayDialogCancel = () => {
+    setIsHolidayDialogOpen(false)
+    resetHolidayForm()
   }
 
   const handleDeleteHoliday = () => {
@@ -266,7 +368,24 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
           <CardTitle className="text-base sm:text-lg md:text-xl">Holiday Calendar</CardTitle>
           <CardDescription className="text-xs sm:text-sm">Manage organization holidays used during leave calculation.</CardDescription>
         </div>
-        <HolidayDialog />
+        <HolidayDialogComponent
+          isOpen={isHolidayDialogOpen}
+          editingHoliday={editingHoliday}
+          newHolidayName={newHolidayName}
+          newHolidayDate={newHolidayDate}
+          newHolidayYear={newHolidayYear}
+          newHolidayDesc={newHolidayDesc}
+          onOpenChange={(open) => {
+            setIsHolidayDialogOpen(open)
+            if (!open) resetHolidayForm()
+          }}
+          onNameChange={setNewHolidayName}
+          onDateChange={setNewHolidayDate}
+          onYearChange={setNewHolidayYear}
+          onDescChange={setNewHolidayDesc}
+          onSave={handleHolidayDialogSave}
+          onCancel={handleHolidayDialogCancel}
+        />
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">

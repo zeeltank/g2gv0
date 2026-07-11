@@ -92,6 +92,7 @@ export function ModuleCard({ module, onToggle, onViewOrganization }: ModuleCardP
       <CardHeader className="items-center px-4 pb-3 pt-2 text-center">
         <div className="flex justify-center">
           <div className={cn('flex size-14 items-center justify-center rounded-full sm:size-16', iconBgColor)}>
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <IconComponent className={cn('size-6 sm:size-7', iconColor)} aria-hidden="true" />
           </div>
         </div>

@@ -90,7 +90,7 @@ export function LorTab({ data }: LorTabProps) {
                 Level of Responsibility
               </p>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-primary-foreground">
-                Level {lorData.level || "Unknown"}: <span className="font-medium text-primary-foreground/90">"{cleanText(lorData.guiding_phrase)}"</span>
+                Level {lorData.level || "Unknown"}: <span className="font-medium text-primary-foreground/90">&quot;{cleanText(lorData.guiding_phrase)}&quot;</span>
               </h1>
             </div>
           </div>

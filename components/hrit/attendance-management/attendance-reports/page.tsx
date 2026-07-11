@@ -132,6 +132,7 @@ export function AttendanceReportsPage() {
     return `${yyyy}-${mm}-${dd}`
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: reset date range based on quick filter */
   React.useEffect(() => {
     const today = new Date()
     switch (quickFilter) {
@@ -160,10 +161,13 @@ export function AttendanceReportsPage() {
         break
     }
   }, [quickFilter])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: pagination reset on filter change */
   React.useEffect(() => {
     setPage(1)
   }, [dateRange.from, dateRange.to, groupBy, department, employee, search])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleDateRangeChange = (range: { from: string; to: string }) => {
     setDateRange(range)

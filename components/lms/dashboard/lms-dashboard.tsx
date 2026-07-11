@@ -459,7 +459,7 @@ export function LmsDashboard() {
             Welcome back, John! <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
-            Here's what's happening with your learning today.
+            Here&apos;s what&apos;s happening with your learning today.
           </p>
         </div>
         <Button

@@ -2,8 +2,7 @@
 
 import * as React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { attendanceChartColors } from '@/lib/chart-colors'
 
 export interface AttendanceTrendData {
   label: string
@@ -61,10 +60,10 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
     points.map((p, i) => (i === 0 ? `M ${p.x} ${p[key]}` : `L ${p.x} ${p[key]}`)).join(' ')
 
   const strokeColors = {
-    present: '#3b82f6',
-    late: '#f59e0b',
-    earlyGoing: '#8b5cf6',
-    absent: '#ef4444',
+    present: attendanceChartColors.present,
+    late: attendanceChartColors.late,
+    earlyGoing: attendanceChartColors.earlyGoing,
+    absent: attendanceChartColors.absent,
   }
 
   const legendItems = [
@@ -101,7 +100,7 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
                       x2={width - margin.right}
                       y1={y}
                       y2={y}
-                      stroke="#e5e7eb"
+                      stroke="var(--border)"
                       strokeDasharray="4 4"
                     />
                     <text

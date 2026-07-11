@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
-import { Tabs } from '@/components/org/components'
-import { useAuth } from '@/components/auth/gtg-auth'
+import { Tabs } from '@/components/business'
+import { useAuth } from '@/hooks/use-auth'
 import LeaveTypesTab from '@/components/hrit/leave-management/leave-configuration/components/LeaveTypesTab'
 import ApprovalWorkflowTab from '@/components/hrit/leave-management/leave-configuration/components/ApprovalWorkflowTab'
 import HolidayCalendarTab from '@/components/hrit/leave-management/leave-configuration/components/HolidayCalendarTab'

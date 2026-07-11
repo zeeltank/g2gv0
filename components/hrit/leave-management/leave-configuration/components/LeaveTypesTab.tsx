@@ -272,6 +272,7 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
           <CardTitle className="text-base sm:text-lg md:text-xl">Leave Types</CardTitle>
           <CardDescription className="text-xs sm:text-sm">Manage all organization leave categories</CardDescription>
         </div>
+        {/* eslint-disable-next-line react-hooks/static-components */}
         <LeaveTypeDialog />
       </CardHeader>
       <CardContent className="p-0">

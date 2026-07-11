@@ -15,6 +15,13 @@ import {
 import {
   TableHead,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { HOD_TITLES, initials } from './department-utils'

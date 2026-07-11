@@ -24,7 +24,7 @@ export function DashboardHeader({ userName, currentDate, upcomingLeaves }: Dashb
             Good Morning, {userName}! <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
-            Here's your leave management overview for today.
+            Here&apos;s your leave management overview for today.
           </p>
         </div>
 

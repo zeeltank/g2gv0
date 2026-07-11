@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -421,9 +422,11 @@ export function DisciplinaryManagement() {
     return () => window.clearTimeout(timer)
   }, [notice])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: pagination reset on filter change */
   useEffect(() => {
     setPage(1)
   }, [search, pageSize])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) => {

@@ -100,6 +100,7 @@ export function EmployeeDirectory() {
       render: (_, row) => (
         <div className="flex items-center gap-3">
           {row.image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- External URLs may not work with next/image
             <img src={row.image} alt={row.full_name} className="size-10 rounded-full object-cover border border-border" />
           ) : (
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -699,6 +700,7 @@ export function EmployeeDirectory() {
               <div className="px-6 py-5 border-b flex items-center justify-between bg-surface">
                 <div className="flex items-center gap-4">
                   {activeEmployee.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- External URLs may not work with next/image
                     <img src={activeEmployee.image} alt={activeEmployee.full_name} className="size-14 rounded-full object-cover border-2 shadow-sm border-background" />
                   ) : (
                     <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary border-2 shadow-sm border-background">
@@ -897,7 +899,7 @@ export function EmployeeDirectory() {
                     <div className="p-4 rounded-full bg-muted/50">
                       <Briefcase className="size-8 opacity-50" />
                     </div>
-                    <p>The "{topTabs.find(t => t.id === activeTopTab)?.label}" tab is under construction.</p>
+                    <p>The &quot;{topTabs.find(t => t.id === activeTopTab)?.label}&quot; tab is under construction.</p>
                   </div>
                 )}
               </div>

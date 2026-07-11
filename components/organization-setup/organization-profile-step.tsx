@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
-import { SectionCard, ReadField, FormField } from '@/components/org/components'
+import { SectionCard, ReadField, FormField } from '@/components/business'
 import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
 import { cn } from '@/lib/utils'
 

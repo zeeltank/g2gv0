@@ -389,7 +389,7 @@ export function CmAssessmentWorkspace() {
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-primary/20 rounded-2xl bg-card/20 text-muted-foreground p-12 mt-4">
           <p className="text-lg font-bold">This section is coming soon</p>
-          <p className="text-sm">We are currently building this tab's functionality.</p>
+          <p className="text-sm">We are currently building this tab&apos;s functionality.</p>
         </div>
       )}
     </div>

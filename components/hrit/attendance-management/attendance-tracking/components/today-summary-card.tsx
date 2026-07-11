@@ -43,7 +43,7 @@ export function TodaySummaryCard({ record, loading }: TodaySummaryCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today's Summary</CardTitle>
+        <CardTitle>Today&apos;s Summary</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-3 gap-3">

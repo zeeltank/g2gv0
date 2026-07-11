@@ -14,6 +14,7 @@ import {
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DepartmentLeaveData } from '@/types/leave-dashboard'
+import { leaveChartColors } from '@/lib/chart-colors'
 
 interface DepartmentChartProps {
   data: DepartmentLeaveData[]
@@ -44,9 +45,9 @@ export function DepartmentChart({ data }: DepartmentChartProps) {
                 }}
               />
               <Legend />
-              <Bar dataKey="requests" name="Requests" fill="#2563eb" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="approved" name="Approved" fill="#16a34a" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="rejected" name="Rejected" fill="#dc2626" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="requests" name="Requests" fill={leaveChartColors.requests} radius={[6, 6, 0, 0]} />
+              <Bar dataKey="approved" name="Approved" fill={leaveChartColors.approved} radius={[6, 6, 0, 0]} />
+              <Bar dataKey="rejected" name="Rejected" fill={leaveChartColors.rejected} radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

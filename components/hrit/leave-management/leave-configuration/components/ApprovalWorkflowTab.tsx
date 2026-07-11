@@ -58,7 +58,7 @@ export default function ApprovalWorkflowTab() {
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <CardTitle className="text-base sm:text-lg md:text-xl">Approval Workflow</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Configure how leave requests move through the organization's approval hierarchy.</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Configure how leave requests move through the organization&apos;s approval hierarchy.</CardDescription>
           </div>
           <Button className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto" onClick={() => setWorkflowEdit(!workflowEdit)}>
             {workflowEdit ? 'Save Workflow' : 'Edit Workflow'}

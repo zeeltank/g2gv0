@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { attendanceChartColors } from '@/lib/chart-colors'
 
 export interface AttendanceDistributionData {
   present: number
@@ -33,17 +33,16 @@ export function AttendanceDonutChart({ data, className }: AttendanceDonutChartPr
   }
 
   const segments = [
-    { key: 'present', label: 'Present', value: data.present, color: '#3b82f6' },
-    { key: 'late', label: 'Late', value: data.late, color: '#f59e0b' },
-    { key: 'earlyGoing', label: 'Early Going', value: data.earlyGoing, color: '#8b5cf6' },
-    { key: 'absent', label: 'Absent', value: data.absent, color: '#ef4444' },
+    { key: 'present', label: 'Present', value: data.present, color: attendanceChartColors.present },
+    { key: 'late', label: 'Late', value: data.late, color: attendanceChartColors.late },
+    { key: 'earlyGoing', label: 'Early Going', value: data.earlyGoing, color: attendanceChartColors.earlyGoing },
+    { key: 'absent', label: 'Absent', value: data.absent, color: attendanceChartColors.absent },
   ]
 
   const size = 200
   const center = size / 2
   const radius = 80
   const innerRadius = 50
-  const circumference = 2 * Math.PI * radius
 
   let currentAngle = -Math.PI / 2
 
@@ -76,16 +75,6 @@ export function AttendanceDonutChart({ data, className }: AttendanceDonutChartPr
 
     return { ...seg, pathData, percentage }
   })
-
-  const getBadgeTone = (key: string) => {
-    switch (key) {
-      case 'present': return 'success'
-      case 'late': return 'warning'
-      case 'earlyGoing': return 'default'
-      case 'absent': return 'destructive'
-      default: return 'secondary'
-    }
-  }
 
   return (
     <Card className={className}>

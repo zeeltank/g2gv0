@@ -45,23 +45,40 @@ export default function PortalReviewPage() {
   const [checked, setChecked] = useState({ warnings: false, settings: false, year: false });
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(false);
-  const loadSummary = useCallback(async () => {
+  
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: initializing loading state on user change */
+  // Load summary when user changes
+  useEffect(() => {
     if (!user) return;
     setLoadError(false);
-    try {
-      const response = await fetch(`/api/onboarding?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
-      if (!response.ok) throw new Error();
-      setSummary(await response.json());
-    } catch { setLoadError(true); } finally { setLoading(false); }
+    setLoading(true);
+    fetch(`/api/onboarding?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" })
+      .then(response => { if (!response.ok) throw new Error(); return response.json(); })
+      .then(data => setSummary(data))
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, [user]);
-
-  useEffect(() => { loadSummary(); }, [loadSummary]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  
+  // Refresh on focus (using stable reference)
   useEffect(() => {
-    const refresh = () => loadSummary();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
-  }, [loadSummary]);
+    const handleFocus = () => {
+      if (!user) return;
+      setLoadError(false);
+      setLoading(true);
+      fetch(`/api/onboarding?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" })
+        .then(response => { if (!response.ok) throw new Error(); return response.json(); })
+        .then(data => setSummary(data))
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false));
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [user]);
 
   const configuredSections = [summary.selectedModules.length > 0, Boolean(summary.organization), summary.departments.length > 0, Boolean(summary.employees)].filter(Boolean).length;
   const completedSections = configuredSections + Number(Boolean(summary.roles));

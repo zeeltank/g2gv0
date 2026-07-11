@@ -401,16 +401,16 @@ export function GtgSidebar({
             onMouseLeave={handleFlyoutLeave}
           >
           {(() => {
-            const module = GTG_NAVIGATION.find((m) => m.id === flyoutModuleId)
-            if (!module) return null
+            const foundModule = GTG_NAVIGATION.find((m) => m.id === flyoutModuleId)
+            if (!foundModule) return null
 
             return (
               <>
                 <div className="shrink-0 border-b border-border px-4 py-2.5 bg-surface-muted">
-                  <h2 className="text-sm font-semibold text-foreground">{module.label}</h2>
+                  <h2 className="text-sm font-semibold text-foreground">{foundModule.label}</h2>
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5 px-2 py-2 overflow-y-auto g2g-scrollbar">
-                  {module.menus.map((menu) => {
+                  {foundModule.menus.map((menu) => {
                     const isFlyoutMenuOpen = flyoutMenuId === menu.id
                     const isMenuActive = active.menuId === menu.id && active.moduleId === flyoutModuleId
                     const hasActiveSubmenu = menu.submenus.some((s) => s.id === active.submenuId)

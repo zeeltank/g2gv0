@@ -10,3 +10,4 @@ export {
   type LazyComponent, 
   type ContentRoute 
 } from './use-content-map'
+export { useAuth, type User, type Session } from './use-auth'

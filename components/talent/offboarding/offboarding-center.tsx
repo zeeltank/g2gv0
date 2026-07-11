@@ -590,7 +590,7 @@ export function OffboardingCenter() {
                   </div>
                 ) : (
                   <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                    <p>Tab content for "{activeTopTab}" would go here.</p>
+                    <p>Tab content for &quot;{activeTopTab}&quot; would go here.</p>
                   </div>
                 )}
                 
