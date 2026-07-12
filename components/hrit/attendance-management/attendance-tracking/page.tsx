@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { lazy, Suspense } from 'react'
 import {
   AlarmClock,
   BarChart3,
@@ -17,25 +18,61 @@ import {
   CalendarPlus,
 } from 'lucide-react'
 
-import { AttendanceCalendarDrawer } from '@/components/hrit/attendance-management/attendance-tracking/components/attendance-calendar-drawer'
-import { AttendanceHistoryDrawer } from '@/components/hrit/attendance-management/attendance-tracking/components/attendance-history-drawer'
-import { EventDetailsDrawer } from '@/components/hrit/attendance-management/attendance-tracking/components/event-details-drawer'
 import { useAttendance } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
-import {
-  EmployeeSnapshotWidget,
-  QuickActionsWidget,
-  AttendanceAlertsWidget,
-  MyRequestsWidget,
-  UpcomingEventsWidget,
-} from '@/components/hrit/attendance-management/attendance-tracking/components/widgets'
-import type { QuickAction, AttendanceAlert, MyRequest } from '@/components/hrit/attendance-management/attendance-tracking/components/widgets/widget-types'
+import type { AttendanceRecord, AttendanceStatus } from '@/components/hrit/attendance-management/types'
 
-import type { AttendanceRecord, AttendanceStatus, Event } from '@/components/hrit/attendance-management/types'
+const AttendanceCalendarDrawer = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/attendance-calendar-drawer').then((m) => ({
+    default: m.AttendanceCalendarDrawer,
+  })),
+)
+
+const AttendanceHistoryDrawer = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/attendance-history-drawer').then((m) => ({
+    default: m.AttendanceHistoryDrawer,
+  })),
+)
+
+const EventDetailsDrawer = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/event-details-drawer').then((m) => ({
+    default: m.EventDetailsDrawer,
+  })),
+)
+
+const EmployeeSnapshotWidget = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/widgets').then((m) => ({
+    default: m.EmployeeSnapshotWidget,
+  })),
+)
+
+const QuickActionsWidget = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/widgets').then((m) => ({
+    default: m.QuickActionsWidget,
+  })),
+)
+
+const AttendanceAlertsWidget = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/widgets').then((m) => ({
+    default: m.AttendanceAlertsWidget,
+  })),
+)
+
+const MyRequestsWidget = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/widgets').then((m) => ({
+    default: m.MyRequestsWidget,
+  })),
+)
+
+const UpcomingEventsWidget = lazy(() =>
+  import('@/components/hrit/attendance-management/attendance-tracking/components/widgets').then((m) => ({
+    default: m.UpcomingEventsWidget,
+  })),
+)
 
 const SHIFT_END = '06:00 PM'
 const SHIFT_TOTAL_MINUTES = 510
@@ -48,6 +85,36 @@ const statusLabelMap: Record<AttendanceStatus, string> = {
   'half-day': 'Half Day',
   leave: 'Leave',
 }
+
+const QUICK_ACTIONS = [
+  { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => {} },
+  { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => {} },
+  { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => {} },
+  { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => {} },
+  { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => {} },
+]
+
+const ATTENDANCE_ALERTS = [
+  { id: 'a1', text: 'Missing Punch-Out (Jun 18)', severity: 'critical' as const },
+  { id: 'a2', text: 'Regularization Pending (1)', severity: 'warning' as const },
+  { id: 'a3', text: 'Attendance Locked in 2 Days', severity: 'info' as const },
+  { id: 'a4', text: 'Early Exit on Jun 20', severity: 'warning' as const },
+]
+
+const MY_REQUESTS = [
+  { id: 'r1', type: 'Regularization', status: 'Pending', count: 1 },
+  { id: 'r2', type: 'Leave Requests', status: 'Pending', count: 2 },
+  { id: 'r3', type: 'WFH Requests', status: 'Approved', count: 1 },
+  { id: 'r4', type: 'Attendance Corrections', status: 'Rejected', count: 1 },
+]
+
+const widgetFallback = (
+  <Card className="h-full rounded-xl border-border bg-card shadow-sm">
+    <CardContent className="flex h-full items-center justify-center py-10 text-sm text-muted-foreground">
+      Loading...
+    </CardContent>
+  </Card>
+)
 
 export function AttendanceDashboard() {
   const {
@@ -65,28 +132,6 @@ export function AttendanceDashboard() {
   const [calendarOpen, setCalendarOpen] = React.useState(false)
   const [historyOpen, setHistoryOpen] = React.useState(false)
   const [eventsOpen, setEventsOpen] = React.useState(false)
-
-  const quickActions: QuickAction[] = [
-    { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => { } },
-    { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => { } },
-    { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => { } },
-    { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => { } },
-    { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => { } },
-  ]
-
-  const attendanceAlerts: AttendanceAlert[] = [
-    { id: 'a1', text: 'Missing Punch-Out (Jun 18)', severity: 'critical' },
-    { id: 'a2', text: 'Regularization Pending (1)', severity: 'warning' },
-    { id: 'a3', text: 'Attendance Locked in 2 Days', severity: 'info' },
-    { id: 'a4', text: 'Early Exit on Jun 20', severity: 'warning' },
-  ]
-
-  const myRequests: MyRequest[] = [
-    { id: 'r1', type: 'Regularization', status: 'Pending', count: 1 },
-    { id: 'r2', type: 'Leave Requests', status: 'Pending', count: 2 },
-    { id: 'r3', type: 'WFH Requests', status: 'Approved', count: 1 },
-    { id: 'r4', type: 'Attendance Corrections', status: 'Rejected', count: 1 },
-  ]
 
   const attendancePercentage = React.useMemo(() => {
     if (!monthlySummary) return 0
@@ -137,16 +182,26 @@ export function AttendanceDashboard() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <EmployeeSnapshotWidget
-          leaveBalance={leaveBalance}
-          nextHoliday={upcomingEvents[0] || null}
-          attendance={attendancePercentage}
-          loading={loading}
-        />
-        <QuickActionsWidget actions={quickActions} loading={loading} />
-        <AttendanceAlertsWidget alerts={attendanceAlerts} loading={loading} />
-        <MyRequestsWidget requests={myRequests} loading={loading} onViewAll={() => { }} />
-        <UpcomingEventsWidget events={upcomingEvents} loading={loading} onViewCalendar={() => setEventsOpen(true)} />
+        <Suspense fallback={widgetFallback}>
+          <EmployeeSnapshotWidget
+            leaveBalance={leaveBalance}
+            nextHoliday={upcomingEvents[0] || null}
+            attendance={attendancePercentage}
+            loading={loading}
+          />
+        </Suspense>
+        <Suspense fallback={widgetFallback}>
+          <QuickActionsWidget actions={QUICK_ACTIONS} loading={loading} />
+        </Suspense>
+        <Suspense fallback={widgetFallback}>
+          <AttendanceAlertsWidget alerts={ATTENDANCE_ALERTS} loading={loading} />
+        </Suspense>
+        <Suspense fallback={widgetFallback}>
+          <MyRequestsWidget requests={MY_REQUESTS} loading={loading} onViewAll={() => { }} />
+        </Suspense>
+        <Suspense fallback={widgetFallback}>
+          <UpcomingEventsWidget events={upcomingEvents} loading={loading} onViewCalendar={() => setEventsOpen(true)} />
+        </Suspense>
       </section>
 
       <RecentAttendancePanel
@@ -155,25 +210,27 @@ export function AttendanceDashboard() {
         onViewAll={() => setHistoryOpen(true)}
       />
 
-      <AttendanceCalendarDrawer
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        records={attendanceHistory}
-        monthlySummary={monthlySummary}
-      />
+      <Suspense fallback={null}>
+        <AttendanceCalendarDrawer
+          open={calendarOpen}
+          onOpenChange={setCalendarOpen}
+          records={attendanceHistory}
+          monthlySummary={monthlySummary}
+        />
 
-      <AttendanceHistoryDrawer
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-        records={attendanceHistory}
-        loading={loading}
-      />
+        <AttendanceHistoryDrawer
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          records={attendanceHistory}
+          loading={loading}
+        />
 
-      <EventDetailsDrawer
-        open={eventsOpen}
-        onOpenChange={setEventsOpen}
-        events={upcomingEvents}
-      />
+        <EventDetailsDrawer
+          open={eventsOpen}
+          onOpenChange={setEventsOpen}
+          events={upcomingEvents}
+        />
+      </Suspense>
     </div>
   )
 }

@@ -166,7 +166,7 @@ export function OnboardingCenter() {
                     <div className="flex flex-col gap-2 mt-1 pl-[52px]">
                       <span className="text-3xl font-bold text-foreground leading-none">{kpi.value}</span>
                       {kpi.title === 'Onboarding Completion' && (
-                        <Progress value={parseInt(kpi.value)} className="h-1.5 w-full bg-muted mt-1" />
+                        <Progress value={parseInt(String(kpi.value), 10)} className="h-1.5 w-full bg-muted mt-1" />
                       )}
                     </div>
                     <div className="pl-[52px] mt-auto pt-4">

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-interface SwitchProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   size?: 'sm' | 'default' | 'lg'
 }
 

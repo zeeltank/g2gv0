@@ -195,7 +195,7 @@ export function GtgHeader({
   onAgentOpenChange?: (open: boolean) => void
   onMenuClick?: () => void
 } = {}) {
-  const { user, switchRole } = useAuth()
+  const { user } = useAuth()
 
   return (
     <header

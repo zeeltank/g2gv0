@@ -377,7 +377,7 @@ export function GtgSidebar({
         const flyoutDisplay = flyoutStyle ?? {
           top: flyoutPosition.top,
           left: collapsed ? 72 : 260,
-          maxHeight: Number.POSITIVE_INFINITY,
+          maxHeight: Math.max(0, window.innerHeight - 16),
           fromLeft: false,
         }
 

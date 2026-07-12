@@ -8,7 +8,9 @@ interface SelectOption {
 }
 
 interface SelectProps {
+  id?: string
   value?: string
+  defaultValue?: string
   onChange?: (value: string) => void
   options?: SelectOption[]
   className?: string
@@ -19,7 +21,7 @@ interface SelectProps {
 }
 
 const Select = React.forwardRef<HTMLDivElement, SelectProps>(
-  ({ className, size = 'default', value, onChange, options = [], placeholder = 'Select...', disabled, 'aria-label': ariaLabel }, ref) => {
+  ({ id, className, size = 'default', value, onChange, options = [], placeholder = 'Select...', disabled, 'aria-label': ariaLabel }, ref) => {
     const [open, setOpen] = React.useState(false)
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const [isMounted, setIsMounted] = React.useState(false)
@@ -151,6 +153,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     return (
       <div 
         ref={containerRef} 
+        id={id}
         className="relative inline-block w-full"
         onKeyDown={handleKeyDown}
       >

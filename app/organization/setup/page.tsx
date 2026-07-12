@@ -1,22 +1,69 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
-import {
-  OrganizationProfileStep,
-  SetupProgressRail,
-  DepartmentSelectionStep,
-  EmployeeImportStep,
-  SetupCompletionStep,
-  sampleEmployees,
-} from '@/components/organization-setup'
 import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { updateOnboarding } from '@/lib/onboarding'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
+import type { OrganizationForm, SisterCompanyMode } from '@/components/organization-setup/organization-profile-step'
+import type { EmployeeRow } from '@/components/organization-setup/employee-import-step'
+
+const LazySetupProgressRail = lazy(() =>
+  import('@/components/organization-setup/setup-progress-rail').then((module) => ({ default: module.SetupProgressRail })),
+)
+
+const LazyOrganizationProfileStep = lazy(() =>
+  import('@/components/organization-setup/organization-profile-step').then((module) => ({ default: module.OrganizationProfileStep })),
+)
+
+const LazyDepartmentSelectionStep = lazy(() =>
+  import('@/components/organization-setup/department-selection-step').then((module) => ({ default: module.DepartmentSelectionStep })),
+)
+
+const LazyEmployeeImportStep = lazy(() =>
+  import('@/components/organization-setup/employee-import-step').then((module) => ({ default: module.EmployeeImportStep })),
+)
+
+const LazySetupCompletionStep = lazy(() =>
+  import('@/components/organization-setup/setup-completion-step').then((module) => ({ default: module.SetupCompletionStep })),
+)
+
+const sampleEmployees: EmployeeRow[] = [
+  {
+    id: '1',
+    employeeId: 'EMP-001',
+    name: 'Aarav Mehta',
+    email: 'aarav.mehta@abctech.com',
+    department: 'Engineering',
+    designation: 'Senior Software Engineer',
+    joiningDate: '2024-04-15',
+    status: 'Ready',
+  },
+  {
+    id: '2',
+    employeeId: 'EMP-002',
+    name: 'Nisha Shah',
+    email: 'nisha.shah@abctech.com',
+    department: 'Human Resources',
+    designation: 'HR Manager',
+    joiningDate: '2023-11-01',
+    status: 'Ready',
+  },
+  {
+    id: '3',
+    employeeId: 'EMP-003',
+    name: 'Rohan Iyer',
+    email: '',
+    department: 'Quality Assurance',
+    designation: 'QA Analyst',
+    joiningDate: '2025-01-20',
+    status: 'Needs Review',
+  },
+]
 
 const SETUP_STEPS: SetupStep[] = [
   { id: 'modules', label: 'Module Selection' },
@@ -28,40 +75,6 @@ const SETUP_STEPS: SetupStep[] = [
 ]
 
 type WizardStep = 'organization' | 'departments' | 'employees'
-type SisterCompanyMode = 'none' | 'create' | 'edit'
-
-interface EmployeeRow {
-  id: string
-  employeeId: string
-  name: string
-  email: string
-  department: string
-  designation: string
-  joiningDate: string
-  status: 'Ready' | 'Needs Review'
-}
-
-interface OrganizationForm {
-  organizationName: string
-  organizationCode: string
-  organizationType: string
-  businessType: string
-  industryType: string
-  email: string
-  phone: string
-  website: string
-  country: string
-  state: string
-  city: string
-  registrationNumber: string
-  gstNumber: string
-  panNumber: string
-  establishedDate: string
-  addressLine1: string
-  addressLine2: string
-  postalCode: string
-  companyDescription: string
-}
 
 const steps = [
   {
@@ -237,7 +250,6 @@ export default function OrganizationSetupPage() {
   const completionCount = steps.filter((step) => completed[step.id as WizardStep]).length
   const isComplete = completionCount === steps.length
 
-  if (isLoading) return null
   if (!user || !['admin', 'hr'].includes(user.role)) {
     return (
       <AccessDeniedPage reason="Organization setup is accessible to Admin and HR roles only." />
@@ -419,11 +431,9 @@ export default function OrganizationSetupPage() {
       <SetupWizardLayout currentStep={currentStep} steps={SETUP_STEPS} completedSteps={mainCompletedSteps}>
         <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
           <aside className="h-full min-h-0 p-4 lg:sticky lg:top-4">
-            <SetupProgressRail
-              activeStep={activeStep}
-              completed={completed}
-              steps={steps}
-            />
+            <Suspense fallback={<div className="h-[560px] rounded-lg border border-border bg-muted/30" />}>
+              <LazySetupProgressRail activeStep={activeStep} completed={completed} steps={steps} />
+            </Suspense>
           </aside>
           <section className="min-w-0 flex-1 overflow-y-auto g2g-scrollbar px-4 py-6 sm:px-6 sm:py-3">
             {!isComplete && (
@@ -463,64 +473,72 @@ export default function OrganizationSetupPage() {
             )}
 
             {!isComplete && activeStep === 'organization' && (
-              <OrganizationProfileStep
-                organization={organization}
-                updateOrganization={updateOrganization}
-                isOrganizationReady={requiredOrganizationFields.every((field) =>
-                  organization[field].trim(),
-                )}
-                saveOrganization={saveOrganization}
-                employeeCount={employees.length}
-                timeZone={timeZone}
-                currency={currency}
-                financialYear={financialYear}
-                language={language}
-                updateTimeZone={setTimeZone}
-                updateCurrency={setCurrency}
-                updateFinancialYear={setFinancialYear}
-                updateLanguage={setLanguage}
-                sisterCompanyMode={sisterCompanyMode}
-                onSisterCompanyCreate={openSisterCompanyCreator}
-                onSisterCompanyEdit={openSisterCompanyEditor}
-                onSisterCompanyDelete={deleteSisterCompany}
-                editingSisterCompany={editingSisterCompany}
-                sisterCompanyForms={sisterCompanyForms}
-                newSisterOrganization={newSisterOrganization}
-              />
+              <Suspense fallback={<div className="h-[720px] rounded-lg border border-border bg-muted/30" />}>
+                <LazyOrganizationProfileStep
+                  organization={organization}
+                  updateOrganization={updateOrganization}
+                  isOrganizationReady={requiredOrganizationFields.every((field) =>
+                    organization[field].trim(),
+                  )}
+                  saveOrganization={saveOrganization}
+                  employeeCount={employees.length}
+                  timeZone={timeZone}
+                  currency={currency}
+                  financialYear={financialYear}
+                  language={language}
+                  updateTimeZone={setTimeZone}
+                  updateCurrency={setCurrency}
+                  updateFinancialYear={setFinancialYear}
+                  updateLanguage={setLanguage}
+                  sisterCompanyMode={sisterCompanyMode}
+                  onSisterCompanyCreate={openSisterCompanyCreator}
+                  onSisterCompanyEdit={openSisterCompanyEditor}
+                  onSisterCompanyDelete={deleteSisterCompany}
+                  editingSisterCompany={editingSisterCompany}
+                  sisterCompanyForms={sisterCompanyForms}
+                  newSisterOrganization={newSisterOrganization}
+                />
+              </Suspense>
             )}
 
             {!isComplete && activeStep === 'departments' && (
-              <DepartmentSelectionStep
-                industryType={organization.industryType}
-                departmentSearch={departmentSearch}
-                setDepartmentSearch={setDepartmentSearch}
-                selectedDepartments={selectedDepartments}
-                toggleDepartment={toggleDepartment}
-                customDepartment={customDepartment}
-                setCustomDepartment={setCustomDepartment}
-                addCustomDepartment={addCustomDepartment}
-                saveDepartments={saveDepartments}
-              />
+              <Suspense fallback={<div className="h-[560px] rounded-lg border border-border bg-muted/30" />}>
+                <LazyDepartmentSelectionStep
+                  industryType={organization.industryType}
+                  departmentSearch={departmentSearch}
+                  setDepartmentSearch={setDepartmentSearch}
+                  selectedDepartments={selectedDepartments}
+                  toggleDepartment={toggleDepartment}
+                  customDepartment={customDepartment}
+                  setCustomDepartment={setCustomDepartment}
+                  addCustomDepartment={addCustomDepartment}
+                  saveDepartments={saveDepartments}
+                />
+              </Suspense>
             )}
 
             {!isComplete && activeStep === 'employees' && (
-              <EmployeeImportStep
-                employees={employees}
-                setEmployees={setEmployees}
-                employeeSearch={employeeSearch}
-                setEmployeeSearch={setEmployeeSearch}
-                page={page}
-                setPage={setPage}
-                importEmployees={importEmployees}
-                saveEmployees={saveEmployees}
-                markEmployeeReady={markEmployeeReady}
-                deleteEmployee={deleteEmployee}
-                downloadTemplate={downloadTemplate}
-              />
+              <Suspense fallback={<div className="h-[620px] rounded-lg border border-border bg-muted/30" />}>
+                <LazyEmployeeImportStep
+                  employees={employees}
+                  setEmployees={setEmployees}
+                  employeeSearch={employeeSearch}
+                  setEmployeeSearch={setEmployeeSearch}
+                  page={page}
+                  setPage={setPage}
+                  importEmployees={importEmployees}
+                  saveEmployees={saveEmployees}
+                  markEmployeeReady={markEmployeeReady}
+                  deleteEmployee={deleteEmployee}
+                  downloadTemplate={downloadTemplate}
+                />
+              </Suspense>
             )}
 
             {isComplete && (
-              <SetupCompletionStep router={router} />
+              <Suspense fallback={<div className="h-64 rounded-lg border border-border bg-muted/30" />}>
+                <LazySetupCompletionStep router={router} />
+              </Suspense>
             )}
           </section>
         </div>

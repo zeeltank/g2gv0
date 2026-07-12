@@ -145,7 +145,7 @@ export function AttendanceDrillDownDrawer({
                           <TableCell>{r.punchOut ?? '--'}</TableCell>
                           <TableCell>{r.workingHours ?? '--'}</TableCell>
                           <TableCell>
-                            <Badge tone={getStatusBadgeTone(r.status)} className="capitalize">
+                            <Badge variant={getStatusBadgeTone(r.status)} className="capitalize">
                               {r.status.replace('-', ' ')}
                             </Badge>
                           </TableCell>

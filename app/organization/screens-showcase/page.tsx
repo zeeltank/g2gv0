@@ -1,20 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import { Tabs } from '@/components/org/gtg-ui'
-import { OrganizationInformation } from '@/components/org/organization-information'
-import { AddOrganizationDetail } from '@/components/org/add-organization-detail'
+import { lazy, Suspense, useState } from 'react'
 import { type Role } from '@/lib/gtg-roles'
 
+const LazyOrganizationInformation = lazy(() =>
+  import('@/components/org/organization-information').then((module) => ({
+    default: module.OrganizationInformation,
+  })),
+)
+
+const LazyAddOrganizationDetail = lazy(() =>
+  import('@/components/org/add-organization-detail').then((module) => ({
+    default: module.AddOrganizationDetail,
+  })),
+)
+
 export default function OrgScreensShowcasePage() {
-  const [activeTab, setActiveTab] = useState<'view' | 'roles'>('view')
   const [selectedRole, setSelectedRole] = useState<Role>('admin')
   const [selectedPage, setSelectedPage] = useState<'org-info' | 'add-detail'>('org-info')
-
-  const tabs = [
-    { id: 'view', label: 'Organization Information' },
-    { id: 'add', label: 'Add Organization Detail' },
-  ]
+  const panelFallback = <div className="h-96 rounded-xl border border-border bg-muted/20" />
 
   const roles: { value: Role; label: string; description: string }[] = [
     { value: 'admin', label: 'Administrator', description: 'Full edit access to all fields' },
@@ -79,10 +83,14 @@ export default function OrgScreensShowcasePage() {
         {/* Page Content */}
         <div className="pt-4">
           {selectedPage === 'org-info' && (
-            <OrganizationInformation role={selectedRole} />
+            <Suspense fallback={panelFallback}>
+              <LazyOrganizationInformation role={selectedRole} />
+            </Suspense>
           )}
           {selectedPage === 'add-detail' && (
-            <AddOrganizationDetail role={selectedRole} />
+            <Suspense fallback={panelFallback}>
+              <LazyAddOrganizationDetail role={selectedRole} />
+            </Suspense>
           )}
         </div>
       </div>

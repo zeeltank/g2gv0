@@ -183,7 +183,7 @@ export function OrganizationDetailsForm({
         <div className="flex items-center gap-3">
           <StatusBadge status={formData.status} />
           {currentMode === 'view' && access === 'view' && (
-            <Badge tone="outline">View Only</Badge>
+            <Badge variant="outline">View Only</Badge>
           )}
         </div>
 
@@ -612,7 +612,7 @@ export function OrganizationDetailsForm({
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {allDays.map((day) => (
-                    <Badge key={day} tone={formData.workingDays.includes(day) ? 'navy' : 'outline'}>
+                    <Badge key={day} variant={formData.workingDays.includes(day) ? 'navy' : 'outline'}>
                       {day}
                     </Badge>
                   ))}

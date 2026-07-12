@@ -1,13 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Lock } from 'lucide-react'
 import { Tabs } from '@/components/business'
 import { useAuth } from '@/hooks/use-auth'
-import LeaveTypesTab from '@/components/hrit/leave-management/leave-configuration/components/LeaveTypesTab'
-import ApprovalWorkflowTab from '@/components/hrit/leave-management/leave-configuration/components/ApprovalWorkflowTab'
-import HolidayCalendarTab from '@/components/hrit/leave-management/leave-configuration/components/HolidayCalendarTab'
-import RolesAccessTab from '@/components/hrit/leave-management/leave-configuration/components/RolesAccessTab'
+
+const LeaveTypesTab = lazy(() =>
+  import('@/components/hrit/leave-management/leave-configuration/components/LeaveTypesTab').then((module) => ({
+    default: module.default,
+  })),
+)
+
+const ApprovalWorkflowTab = lazy(() =>
+  import('@/components/hrit/leave-management/leave-configuration/components/ApprovalWorkflowTab').then((module) => ({
+    default: module.default,
+  })),
+)
+
+const HolidayCalendarTab = lazy(() =>
+  import('@/components/hrit/leave-management/leave-configuration/components/HolidayCalendarTab').then((module) => ({
+    default: module.default,
+  })),
+)
+
+const RolesAccessTab = lazy(() =>
+  import('@/components/hrit/leave-management/leave-configuration/components/RolesAccessTab').then((module) => ({
+    default: module.default,
+  })),
+)
 
 const configTabs = [
   { id: 'leave-types', label: 'Leave Types' },
@@ -19,8 +39,6 @@ const configTabs = [
 export default function LeaveConfigurationPage() {
   const { user, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState('leave-types')
-
-  if (isLoading) return null
 
   if (!user || !['admin', 'hr'].includes(user.role)) {
     return (
@@ -51,10 +69,12 @@ export default function LeaveConfigurationPage() {
       </div>
 
       <div className="px-4 pb-4 sm:px-0 sm:pb-0 md:pb-0 lg:pb-0">
-        {activeTab === 'leave-types' && <LeaveTypesTab isLoading={isLoading} />}
-        {activeTab === 'approval-workflow' && <ApprovalWorkflowTab />}
-        {activeTab === 'holiday-calendar' && <HolidayCalendarTab isLoading={isLoading} />}
-        {activeTab === 'roles-access' && <RolesAccessTab isLoading={isLoading} />}
+        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
+          {activeTab === 'leave-types' && <LeaveTypesTab isLoading={isLoading} />}
+          {activeTab === 'approval-workflow' && <ApprovalWorkflowTab />}
+          {activeTab === 'holiday-calendar' && <HolidayCalendarTab isLoading={isLoading} />}
+          {activeTab === 'roles-access' && <RolesAccessTab isLoading={isLoading} />}
+        </Suspense>
       </div>
     </div>
   )

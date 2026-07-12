@@ -1,3 +1,3 @@
 'use client'
 
-export { LeaveReportsSections } from './LeaveReportsSections'
+export { ReportCatalogSection, ReportPreviewSection, ReportsSidebar, TabButton } from './LeaveReportsSections'

@@ -258,7 +258,7 @@ export function CmEmployeeProfiles() {
                             {item.name}
                           </TableCell>
                           <TableCell className="px-4 py-3 text-muted-foreground text-xs">
-                            {item.category || group.category.split(' ')[0]}
+                            {group.category.split(' ')[0]}
                           </TableCell>
                           <TableCell className="px-4 py-3 text-center font-bold text-foreground">
                             {item.required}

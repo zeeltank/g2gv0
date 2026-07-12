@@ -679,7 +679,8 @@ Q: What are you styling?
 /docs/frontend
 ├── design-tokens.md              # This file
 ├── design-system-strategy.md
-└── gtg-design-system.md
+├── component-structure.md
+└── component-variants.md
 ```
 
 ## E.4 Import Rules

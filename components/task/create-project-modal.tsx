@@ -75,6 +75,11 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
     if (step > 1) setStep((s) => (s - 1) as WizardStep)
   }
 
+  const toDateString = (date?: string | Date) => {
+    if (!date) return ''
+    return typeof date === 'string' ? date : date.toISOString()
+  }
+
   const handleSubmit = () => {
     // Save project logic here
     resetAndClose()
@@ -300,7 +305,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                     </label>
                     <DatePicker 
                       value={projectData.startDate}
-                      onChange={(date) => setProjectData({ ...projectData, startDate: date || '' })}
+                      onChange={(date) => setProjectData({ ...projectData, startDate: toDateString(date) })}
                       placeholder="Select start date"
                     />
                   </div>
@@ -310,7 +315,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                     </label>
                     <DatePicker 
                       value={projectData.dueDate}
-                      onChange={(date) => setProjectData({ ...projectData, dueDate: date || '' })}
+                      onChange={(date) => setProjectData({ ...projectData, dueDate: toDateString(date) })}
                       placeholder="Select target date"
                     />
                   </div>

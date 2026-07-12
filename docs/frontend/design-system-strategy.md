@@ -1416,24 +1416,20 @@ echo "✅ Pre-commit checks passed"
 
 ## Related Documentation
 
-> **Note:** This document is the **single source of truth** for frontend design system strategy. For detailed specs, refer to:
-
-### Core Documentation
-- [GTG Design System](./gtg-design-system.md) - Comprehensive design system (tokens, colors, typography, spacing)
-
-### Architecture Documentation
-- [Master Layout Spec](../gtg-master-layout-spec.md) - App shell, sidebar, header documentation
-
 ### Component Reference
 Component API details are documented in the **source code**:
 - UI Primitives: `components/ui/*.tsx`
 - Business Components: `components/business/*.tsx`
 - Domain Components: `components/{domain}/*.tsx`
 
+### Other Documentation
+- [Design Tokens](./design-tokens.md) - Token reference and code patterns
+- [Component Structure](./component-structure.md) - Component organization
+- [Component Variants](./component-variants.md) - Variant strategy (CVA)
+
 ### Source of Truth Hierarchy
 ```
 1. This Document (strategy, patterns, rules)
 2. Source Code (component implementations)
-3. gtg-design-system.md (detailed token specs)
-4. gtg-master-layout-spec.md (layout specifications)
+3. design-tokens.md (token reference & code patterns)
 ```

@@ -159,7 +159,7 @@ export function AttendanceGroupedTable({
         <div className="flex items-center gap-2">
           <span className="font-medium">{row.attendancePercentage}%</span>
           {rowBadge && (
-            <Badge tone={rowBadge.tone} className="text-[10px]">
+            <Badge variant={rowBadge.tone} className="text-[10px]">
               {rowBadge.label}
             </Badge>
           )}

@@ -1,17 +1,7 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { lazy, Suspense, useCallback, useMemo } from 'react'
 
-import { DashboardHeader } from '@/components/hrit/leave-management/leave-dashboard/components/DashboardHeader'                        
-import { DashboardStats } from '@/components/hrit/leave-management/leave-dashboard/components/DashboardStats'
-import { DepartmentChart } from '@/components/hrit/leave-management/leave-dashboard/components/DepartmentChart'
-import { HolidayCard } from '@/components/hrit/leave-management/leave-dashboard/components/HolidayCard'
-import { LeaveTypeChart } from '@/components/hrit/leave-management/leave-dashboard/components/LeaveTypeChart'
-import { PendingApprovalsCard } from '@/components/hrit/leave-management/leave-dashboard/components/PendingApprovalCard'
-import { RecentActivity } from '@/components/hrit/leave-management/leave-dashboard/components/RecentActivity'
-import { RecentLeaveRequests } from '@/components/hrit/leave-management/leave-dashboard/components/RecentLeaveRequests'
-import { LeaveBalanceSnapshotCard } from '@/components/hrit/leave-management/leave-dashboard/components/LeaveBalanceSnapshot'
-import { LeaveQuickActionsCard } from '@/components/hrit/leave-management/leave-dashboard/components/LeaveQuickActionsCard'
 import {
   currentUser,
   dashboardStats,
@@ -29,6 +19,66 @@ import {
 } from '@/lib/leave-management-data'
 import type { LeaveRequest } from '@/types/leave-dashboard'
 
+const DashboardHeader = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/DashboardHeader').then((m) => ({
+    default: m.DashboardHeader,
+  })),
+)
+
+const DashboardStats = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/DashboardStats').then((m) => ({
+    default: m.DashboardStats,
+  })),
+)
+
+const DepartmentChart = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/DepartmentChart').then((m) => ({
+    default: m.DepartmentChart,
+  })),
+)
+
+const HolidayCard = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/HolidayCard').then((m) => ({
+    default: m.HolidayCard,
+  })),
+)
+
+const LeaveTypeChart = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/LeaveTypeChart').then((m) => ({
+    default: m.LeaveTypeChart,
+  })),
+)
+
+const PendingApprovalsCard = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/PendingApprovalCard').then((m) => ({
+    default: m.PendingApprovalsCard,
+  })),
+)
+
+const RecentActivity = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/RecentActivity').then((m) => ({
+    default: m.RecentActivity,
+  })),
+)
+
+const RecentLeaveRequests = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/RecentLeaveRequests').then((m) => ({
+    default: m.RecentLeaveRequests,
+  })),
+)
+
+const LeaveBalanceSnapshotCard = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/LeaveBalanceSnapshot').then((m) => ({
+    default: m.LeaveBalanceSnapshotCard,
+  })),
+)
+
+const LeaveQuickActionsCard = lazy(() =>
+  import('@/components/hrit/leave-management/leave-dashboard/components/LeaveQuickActionsCard').then((m) => ({
+    default: m.LeaveQuickActionsCard,
+  })),
+)
+
 export default function DashboardPage() {
   const currentDate = useMemo(() => getCurrentDate(), [])
 
@@ -38,25 +88,46 @@ export default function DashboardPage() {
 
   return (
       <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
-      <DashboardHeader userName={currentUser.name} currentDate={currentDate} upcomingLeaves={upcomingLeaves} />
+      <Suspense fallback={<div className="h-16 rounded-2xl bg-muted/40" />}>
+        <DashboardHeader userName={currentUser.name} currentDate={currentDate} upcomingLeaves={upcomingLeaves} />
+      </Suspense>
+
+      <Suspense fallback={<div className="h-28 rounded-2xl bg-muted/40" />}>
         <DashboardStats stats={dashboardStats} />
+      </Suspense>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <DepartmentChart data={departmentLeaveData} />
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <Suspense fallback={<div className="h-80 rounded-2xl bg-muted/40" />}>
+          <DepartmentChart data={departmentLeaveData} />
+        </Suspense>
+        <Suspense fallback={<div className="h-80 rounded-2xl bg-muted/40" />}>
           <LeaveTypeChart data={leaveTypeData} />
-        </section>
+        </Suspense>
+      </section>
 
-        <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
           <PendingApprovalsCard requests={pendingLeaveRequests} onViewDetails={handleViewDetails} />
+        </Suspense>
+        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
           <LeaveBalanceSnapshotCard balances={leaveBalances} />
+        </Suspense>
+        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
           <HolidayCard holidays={upcomingHolidays} />
+        </Suspense>
+        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
           <LeaveQuickActionsCard actions={quickActions} />
-        </section>
+        </Suspense>
+      </section>
 
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           <RecentLeaveRequests requests={recentLeaveRequests} />
+        </Suspense>
+        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           <RecentActivity activities={recentActivities} />
-        </section>
+        </Suspense>
+      </section>
       </div>
   )
 }

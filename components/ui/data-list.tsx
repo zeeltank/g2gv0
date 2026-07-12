@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-interface DataListProps extends React.HTMLAttributes<HTMLDListElement> {
+export interface DataListProps extends React.HTMLAttributes<HTMLDListElement> {
   items: Array<{
     label: string
     value: React.ReactNode

@@ -67,7 +67,7 @@ export function AddOrganizationDetail({ role }: { role: Role }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge tone="navy">Admin Only</Badge>
+        <Badge variant="navy">Admin Only</Badge>
         <div className="flex items-center gap-2">
           <Button variant="ghost">
             <X aria-hidden="true" />

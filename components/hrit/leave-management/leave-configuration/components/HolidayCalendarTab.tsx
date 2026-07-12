@@ -17,6 +17,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Textarea } from '@/components/ui/textarea'
 
+const yearOptions = [
+  { label: '2026', value: '2026' },
+  { label: '2025', value: '2025' },
+  { label: '2027', value: '2027' },
+]
+
 interface Holiday {
   id: string
   name: string
@@ -57,12 +63,6 @@ function HolidayDialogComponent({
   onSave,
   onCancel,
 }: HolidayDialogProps) {
-  const yearOptions = [
-    { label: '2026', value: '2026' },
-    { label: '2025', value: '2025' },
-    { label: '2027', value: '2027' },
-  ]
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>

@@ -10,14 +10,18 @@ const statusBadgeVariants = cva(
         default:
           'border border-border bg-background text-foreground',
         active: 'border border-success/30 bg-success/10 text-success',
+        success: 'border border-success/30 bg-success/10 text-success',
         inactive:
           'border border-muted-foreground/30 bg-muted text-muted-foreground',
         pending:
+          'border border-warning/30 bg-warning/10 text-warning',
+        warning:
           'border border-warning/30 bg-warning/10 text-warning',
         error:
           'border border-destructive/30 bg-destructive/10 text-destructive',
         processing:
           'border border-primary/30 bg-primary/10 text-primary',
+        primary: 'border border-primary/30 bg-primary/10 text-primary',
       },
       size: {
         sm: 'text-xs px-2 py-0.5',
@@ -45,7 +49,6 @@ interface StatusBadgeProps
  * For domain-specific statuses, use a helper function that returns the appropriate variant.
  */
 const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>['variant']> = {
-  // Active states
   Active: 'active',
   active: 'active',
   Enabled: 'active',
@@ -62,8 +65,6 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   verified: 'active',
   Confirmed: 'active',
   confirmed: 'active',
-
-  // Inactive states
   Inactive: 'inactive',
   inactive: 'inactive',
   Disabled: 'inactive',
@@ -72,8 +73,6 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   archived: 'inactive',
   Deleted: 'inactive',
   deleted: 'inactive',
-
-  // Pending states
   Pending: 'pending',
   pending: 'pending',
   Draft: 'pending',
@@ -90,8 +89,6 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   'awaiting-review': 'pending',
   AwaitingApproval: 'pending',
   'awaiting-approval': 'pending',
-
-  // Error states
   Rejected: 'error',
   rejected: 'error',
   Failed: 'error',
@@ -102,8 +99,6 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   cancelled: 'error',
   Expired: 'error',
   expired: 'error',
-
-  // Processing states
   InProgress: 'processing',
   'in-progress': 'processing',
   'In Progress': 'processing',
@@ -112,13 +107,8 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   ongoing: 'processing',
   Scheduled: 'processing',
   scheduled: 'processing',
-
-  // Task-specific statuses
-  completed: 'active',
   review: 'pending',
   blocked: 'error',
-
-  // Attendance-specific statuses
   present: 'active',
   late: 'pending',
   absent: 'error',
@@ -126,18 +116,10 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   leave: 'default',
   Live: 'active',
   live: 'active',
-
-  // Leave request statuses
-  pending: 'pending',
-  approved: 'active',
-  rejected: 'error',
   'sent-back': 'processing',
-  cancelled: 'inactive',
-
-  // Disciplinary action statuses
   'Verbal Warning': 'default',
   'Written Warning': 'warning',
-  'Suspension': 'error',
+  Suspension: 'error',
   'Training Assigned': 'processing',
   'Final Warning': 'error',
   'Escalated to HR': 'error',

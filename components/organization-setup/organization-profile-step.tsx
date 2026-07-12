@@ -263,7 +263,7 @@ export function OrganizationProfileStep({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Badge tone="secondary">
+          <Badge variant="secondary">
             <Building2 className="size-3.5" aria-hidden="true" />
             {currentOrg.organizationType}
           </Badge>
@@ -572,7 +572,7 @@ export function OrganizationProfileStep({
                       </TableCell>
                       <TableCell className="py-3">
                         <Badge
-                          tone={isActive ? 'success' : 'destructive'}
+                          variant={isActive ? 'success' : 'destructive'}
                           className="rounded-md px-2 py-1 text-[11px]"
                         >
                           {isActive ? 'Active' : 'Inactive'}

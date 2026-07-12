@@ -1,3 +1,3 @@
 'use client'
 
-export { default as CreateCoursePage } from './create-course-page'
+export { CreateCoursePage as default } from './create-course-page'

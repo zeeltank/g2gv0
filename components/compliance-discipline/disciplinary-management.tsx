@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ClipboardList,
@@ -21,15 +21,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import type { IncidentFormState, MisconductType, ActionTaken } from './disciplinary-management-form'
 
-type MisconductType = 'Attendance Issue' | 'Policy Violation' | 'Harassment' | 'Misuse of Assets' | 'Safety Violation' | 'Insubordination'
-type ActionTaken = 'Verbal Warning' | 'Written Warning' | 'Suspension' | 'Training Assigned' | 'Final Warning' | 'Escalated to HR'
+const LazyIncidentForm = lazy(() =>
+  import('./disciplinary-management-form').then((module) => ({ default: module.IncidentForm })),
+)
 
 type IncidentRecord = {
   id: string
@@ -46,18 +46,6 @@ type IncidentRecord = {
   reportDate: string
 }
 
-type IncidentFormState = {
-  department: string
-  employee: string
-  incidentDateTime: string
-  location: string
-  misconductType: MisconductType | ''
-  description: string
-  witness: string
-  actionTaken: ActionTaken | ''
-  remarks: string
-}
-
 type SearchKey =
   | 'department'
   | 'employee'
@@ -70,52 +58,6 @@ type SearchKey =
   | 'remarks'
   | 'reportedBy'
   | 'reportDate'
-
-const departments = [
-  {
-    label: 'Human Resources',
-    value: 'Human Resources',
-    employees: ['Aarav Mehta', 'Priya Sharma', 'Neha Kapoor'],
-  },
-  {
-    label: 'Finance',
-    value: 'Finance',
-    employees: ['Rohan Das', 'Meera Iyer', 'Vikram Rao'],
-  },
-  {
-    label: 'Operations',
-    value: 'Operations',
-    employees: ['Karan Malhotra', 'Ananya Sen', 'Dev Patel'],
-  },
-  {
-    label: 'Legal',
-    value: 'Legal',
-    employees: ['Nisha Verma', 'Arjun Khanna', 'Sara Ali'],
-  },
-  {
-    label: 'Information Technology',
-    value: 'Information Technology',
-    employees: ['Kabir Sethi', 'Isha Nair', 'Rhea Thomas'],
-  },
-]
-
-const misconductTypes: MisconductType[] = [
-  'Attendance Issue',
-  'Policy Violation',
-  'Harassment',
-  'Misuse of Assets',
-  'Safety Violation',
-  'Insubordination',
-]
-
-const actionTakenOptions: ActionTaken[] = [
-  'Verbal Warning',
-  'Written Warning',
-  'Suspension',
-  'Training Assigned',
-  'Final Warning',
-  'Escalated to HR',
-]
 
 const initialForm: IncidentFormState = {
   department: '',
@@ -174,19 +116,7 @@ const initialRecords: IncidentRecord[] = [
   },
 ]
 
-const departmentOptions = departments.map(({ label, value }) => ({ label, value }))
-const misconductOptions = misconductTypes.map((type) => ({ label: type, value: type }))
-const actionOptions = actionTakenOptions.map((action) => ({ label: action, value: action }))
 const pageSizeOptions = [5, 10, 15].map((size) => ({ label: `${size} / page`, value: String(size) }))
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <Label required={required}>{label}</Label>
-      {children}
-    </div>
-  )
-}
 
 function formatDateTime(value?: string) {
   if (!value) return '-'
@@ -252,137 +182,30 @@ function downloadFile(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-function IncidentForm({
-  form,
-  onChange,
-  onSubmit,
-  submitLabel,
-  submitIcon,
-}: {
-  form: IncidentFormState
-  onChange: (next: Partial<IncidentFormState>) => void
-  onSubmit: () => void
-  submitLabel: string
-  submitIcon?: ReactNode
-}) {
-  const employeeOptions = departments
-    .find((department) => department.value === form.department)
-    ?.employees.map((employee) => ({ label: employee, value: employee })) ?? []
-
-  const witnessOptions = departments
-    .flatMap((department) => department.employees)
-    .filter((employee) => employee !== form.employee)
-    .map((employee) => ({ label: employee, value: employee }))
-
-  const handleDepartmentChange = (department: string) => {
-    onChange({ department, employee: '' })
-  }
-
-  return (
-    <div className="grid gap-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Field label="Department" required>
-          <Select
-            value={form.department}
-            onChange={handleDepartmentChange}
-            options={departmentOptions}
-            placeholder="Select department"
-          />
-        </Field>
-
-        <Field label="Employee" required>
-          <Select
-            value={form.employee}
-            onChange={(employee) => onChange({ employee })}
-            options={employeeOptions}
-            placeholder={form.department ? 'Select employee' : 'Select department first'}
-          />
-        </Field>
-
-        <Field label="Incident Date & Time" required>
-          <Input
-            aria-label="Incident Date and Time"
-            type="datetime-local"
-            value={form.incidentDateTime}
-            onChange={(event) => onChange({ incidentDateTime: event.target.value })}
-          />
-        </Field>
-
-        <Field label="Location" required>
-          <Input
-            aria-label="Location"
-            placeholder="Enter incident location"
-            value={form.location}
-            onChange={(event) => onChange({ location: event.target.value })}
-          />
-        </Field>
-
-        <Field label="Type of Misconduct" required>
-          <Select
-            value={form.misconductType}
-            onChange={(misconductType) => onChange({ misconductType: misconductType as MisconductType })}
-            options={misconductOptions}
-            placeholder="Select misconduct type"
-          />
-        </Field>
-
-        <Field label="Witness">
-          <Select
-            value={form.witness}
-            onChange={(witness) => onChange({ witness })}
-            options={witnessOptions}
-            placeholder="Select witness"
-          />
-        </Field>
-
-        <div className="md:col-span-2 xl:col-span-3">
-          <Field label="Description of Incident" required>
-            <Textarea
-              aria-label="Description of Incident"
-              placeholder="Record the incident details, context, and immediate observations"
-              value={form.description}
-              onChange={(event) => onChange({ description: event.target.value })}
-            />
-          </Field>
-        </div>
-
-        <Field label="Action Taken" required>
-          <Select
-            value={form.actionTaken}
-            onChange={(actionTaken) => onChange({ actionTaken: actionTaken as ActionTaken })}
-            options={actionOptions}
-            placeholder="Select action taken"
-          />
-        </Field>
-
-        <div className="md:col-span-2">
-          <Field label="Remarks">
-            <Textarea
-              aria-label="Remarks"
-              placeholder="Add optional notes, follow-up expectations, or closure remarks"
-              value={form.remarks}
-              onChange={(event) => onChange({ remarks: event.target.value })}
-            />
-          </Field>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="button" className="w-full gap-2 sm:w-auto" onClick={onSubmit}>
-          {submitIcon}
-          {submitLabel}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 function TableSkeleton() {
   return (
     <div className="space-y-3 p-4">
       {Array.from({ length: 6 }).map((_, index) => (
         <Skeleton key={index} className="h-12 w-full" />
       ))}
+    </div>
+  )
+}
+
+function IncidentFormSkeleton() {
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <div key={index} className={index === 6 ? 'md:col-span-2 xl:col-span-3' : index === 7 ? 'md:col-span-2' : ''}>
+            <Skeleton className="mb-2 h-4 w-24" />
+            <Skeleton className="h-10 w-full rounded-md" />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-40 rounded-md" />
+      </div>
     </div>
   )
 }
@@ -627,13 +450,15 @@ export function DisciplinaryManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <IncidentForm
-            form={form}
-            onChange={(next) => setForm((current) => ({ ...current, ...next }))}
-            onSubmit={handleSubmit}
-            submitLabel="Submit Incident"
-            submitIcon={<Plus className="size-4" />}
-          />
+          <Suspense fallback={<IncidentFormSkeleton />}>
+            <LazyIncidentForm
+              form={form}
+              onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              onSubmit={handleSubmit}
+              submitLabel="Submit Incident"
+              submitIcon={<Plus className="size-4" />}
+            />
+          </Suspense>
         </CardContent>
       </Card>
 
@@ -806,13 +631,15 @@ export function DisciplinaryManagement() {
               Update the disciplinary incident details before saving the revised record.
             </DialogDescription>
           </DialogHeader>
-          <IncidentForm
-            form={editForm}
-            onChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
-            onSubmit={handleUpdate}
-            submitLabel="Update"
-            submitIcon={<Edit3 className="size-4" />}
-          />
+          <Suspense fallback={<IncidentFormSkeleton />}>
+            <LazyIncidentForm
+              form={editForm}
+              onChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
+              onSubmit={handleUpdate}
+              submitLabel="Update"
+              submitIcon={<Edit3 className="size-4" />}
+            />
+          </Suspense>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingRecord(null)}>
               Cancel

@@ -1,4 +1,4 @@
 'use client'
 
-export { default as AttendanceTrackingPage } from './page'
+export { AttendanceDashboard as default } from './page'
 export * from './components'

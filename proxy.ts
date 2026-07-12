@@ -7,27 +7,27 @@ const protectedRoutes = ['/dashboard', '/organization', '/profile', '/settings',
 // Routes that should redirect to dashboard if authenticated
 const authRoutes = ['/login']
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
+
   // Check if user is authenticated (mock auth using localStorage cookie check)
   // Note: Since auth is client-side, we use a cookie set by the auth provider
   const isAuthenticated = request.cookies.has('gtg-session')
-  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
-  
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+
   // Redirect authenticated users away from login
   if (isAuthenticated && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
-  
+
   // Redirect unauthenticated users to login for protected routes
   if (!isAuthenticated && isProtectedRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
-  
+
   return NextResponse.next()
 }
 

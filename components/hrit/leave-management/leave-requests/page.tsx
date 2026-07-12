@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -15,11 +15,21 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { DataTable, type Column } from '@/components/ui/data-table'
-import { LeaveRequestDetailsDrawer } from '@/components/hrit/leave-management/leave-requests/components/LeaveRequestDetailsDrawer'
-import { ApplyLeaveDrawer } from '@/components/hrit/leave-management/leave-requests/components/LeaveApplyDrawer'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
 import { recentLeaveRequests as allLeaveRequests } from '@/lib/leave-management-data'
 import { formatDateShort } from '@/lib/leave-management-data'
+
+const LeaveRequestDetailsDrawer = lazy(() =>
+  import('@/components/hrit/leave-management/leave-requests/components/LeaveRequestDetailsDrawer').then((m) => ({
+    default: m.LeaveRequestDetailsDrawer,
+  })),
+)
+
+const ApplyLeaveDrawer = lazy(() =>
+  import('@/components/hrit/leave-management/leave-requests/components/LeaveApplyDrawer').then((m) => ({
+    default: m.ApplyLeaveDrawer,
+  })),
+)
 
 const leaveStatusOptions = [
   { label: 'All Statuses', value: '' },
@@ -348,15 +358,17 @@ export default function LeaveRequestsPage() {
   </div>
       </div>
 
-      <LeaveRequestDetailsDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        request={selectedRequest}
-      />
-      <ApplyLeaveDrawer
-        open={applyLeaveOpen}
-        onOpenChange={setApplyLeaveOpen}
-      />
+      <Suspense fallback={null}>
+        <LeaveRequestDetailsDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          request={selectedRequest}
+        />
+        <ApplyLeaveDrawer
+          open={applyLeaveOpen}
+          onOpenChange={setApplyLeaveOpen}
+        />
+      </Suspense>
       <div className="rounded-xl border border-border bg-card">
         <DataTable
           columns={columns}

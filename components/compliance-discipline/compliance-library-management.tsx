@@ -1,317 +1,38 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import {
-  AlertTriangle,
-  Edit3,
-  FileSpreadsheet,
-  FileText,
-  Paperclip,
-  Plus,
-  Printer,
-  Search,
-  ShieldCheck,
-  Trash2,
-  UploadCloud,
-} from 'lucide-react'
-import { format } from 'date-fns'
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { Edit3, FileText, Paperclip, Search, Trash2, UploadCloud } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { FileUpload } from '@/components/ui/file-upload'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import type { SearchKey } from './compliance-library-management-types'
+import {
+  ComplianceForm,
+  type ComplianceFormState,
+  type ComplianceRecord,
+  type Frequency,
+  TableSkeleton,
+  createCsv,
+  departmentOptions,
+  displayDate,
+  downloadFile,
+  frequencySelectOptions,
+  initialForm,
+  initialRecords,
+  pageSizeOptions,
+} from './compliance-library-management-shared'
 
-type Frequency = 'One-Time' | 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Yearly' | 'Custom'
+const LazyComplianceLibraryToolbar = lazy(() =>
+  import('./compliance-library-management-toolbar').then((module) => ({ default: module.ComplianceLibraryToolbar })),
+)
 
-type ComplianceRecord = {
-  id: string
-  name: string
-  description: string
-  department: string
-  assignedTo: string
-  dueDate: string
-  frequency: Frequency
-  customDate?: string
-  attachmentName?: string
-}
-
-type ComplianceFormState = {
-  name: string
-  description: string
-  department: string
-  assignedTo: string
-  dueDate: string
-  frequency: Frequency | ''
-  customDate: string
-  attachmentName: string
-}
-
-type SearchKey = 'name' | 'description' | 'department' | 'assignedTo' | 'dueDate' | 'frequency' | 'attachmentName'
-
-const departments = [
-  {
-    label: 'Human Resources',
-    value: 'Human Resources',
-    employees: ['Aarav Mehta', 'Priya Sharma', 'Neha Kapoor'],
-  },
-  {
-    label: 'Finance',
-    value: 'Finance',
-    employees: ['Rohan Das', 'Meera Iyer', 'Vikram Rao'],
-  },
-  {
-    label: 'Operations',
-    value: 'Operations',
-    employees: ['Karan Malhotra', 'Ananya Sen', 'Dev Patel'],
-  },
-  {
-    label: 'Legal',
-    value: 'Legal',
-    employees: ['Nisha Verma', 'Arjun Khanna', 'Sara Ali'],
-  },
-  {
-    label: 'Information Technology',
-    value: 'Information Technology',
-    employees: ['Kabir Sethi', 'Isha Nair', 'Rhea Thomas'],
-  },
-]
-
-const frequencyOptions: Frequency[] = ['One-Time', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly', 'Custom']
-
-const initialForm: ComplianceFormState = {
-  name: '',
-  description: '',
-  department: '',
-  assignedTo: '',
-  dueDate: '',
-  frequency: '',
-  customDate: '',
-  attachmentName: '',
-}
-
-const initialRecords: ComplianceRecord[] = [
-  {
-    id: 'cmp-1',
-    name: 'POSH Policy Acknowledgement',
-    description: 'Annual policy acknowledgement and workforce confirmation.',
-    department: 'Human Resources',
-    assignedTo: 'Priya Sharma',
-    dueDate: '2026-07-31',
-    frequency: 'Yearly',
-    attachmentName: 'posh-policy.pdf',
-  },
-  {
-    id: 'cmp-2',
-    name: 'GST Filing Review',
-    description: 'Monthly compliance evidence review before statutory filing.',
-    department: 'Finance',
-    assignedTo: 'Meera Iyer',
-    dueDate: '2026-07-20',
-    frequency: 'Monthly',
-    attachmentName: 'gst-checklist.xlsx',
-  },
-  {
-    id: 'cmp-3',
-    name: 'Data Access Audit',
-    description: 'Quarterly verification of privileged access and control owners.',
-    department: 'Information Technology',
-    assignedTo: 'Kabir Sethi',
-    dueDate: '2026-08-15',
-    frequency: 'Quarterly',
-    attachmentName: 'access-audit-template.docx',
-  },
-]
-
-const departmentOptions = departments.map(({ label, value }) => ({ label, value }))
-const frequencySelectOptions = frequencyOptions.map((frequency) => ({ label: frequency, value: frequency }))
-const pageSizeOptions = [5, 10, 15].map((size) => ({ label: `${size} / page`, value: String(size) }))
-
-function toIsoDate(value?: Date | string) {
-  if (!value) return ''
-  const date = typeof value === 'string' ? new Date(value) : value
-  if (Number.isNaN(date.getTime())) return ''
-  return format(date, 'yyyy-MM-dd')
-}
-
-function displayDate(value?: string) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return format(date, 'dd MMM yyyy')
-}
-
-function createCsv(records: ComplianceRecord[]) {
-  const headers = ['Sr No.', 'Name', 'Description', 'Department', 'Assigned To', 'Due Date', 'Frequency', 'Attachment']
-  const rows = records.map((record, index) => [
-    String(index + 1),
-    record.name,
-    record.description,
-    record.department,
-    record.assignedTo,
-    displayDate(record.dueDate),
-    record.frequency,
-    record.attachmentName || 'No attachment',
-  ])
-  return [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-    .join('\n')
-}
-
-function downloadFile(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <Label required={required}>{label}</Label>
-      {children}
-    </div>
-  )
-}
-
-function ComplianceForm({
-  form,
-  onChange,
-  onSubmit,
-  submitLabel,
-  uploadKey,
-  currentAttachment,
-}: {
-  form: ComplianceFormState
-  onChange: (next: Partial<ComplianceFormState>) => void
-  onSubmit: () => void
-  submitLabel: string
-  uploadKey: string | number
-  currentAttachment?: string
-}) {
-  const employeeOptions = departments
-    .find((department) => department.value === form.department)
-    ?.employees.map((employee) => ({ label: employee, value: employee })) ?? []
-
-  const handleDepartmentChange = (department: string) => {
-    onChange({ department, assignedTo: '' })
-  }
-
-  return (
-    <div className="grid gap-5">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Field label="Compliance Name" required>
-          <Input
-            aria-label="Compliance Name"
-            placeholder="Enter compliance name"
-            value={form.name}
-            onChange={(event) => onChange({ name: event.target.value })}
-          />
-        </Field>
-
-        <Field label="Department">
-          <Select
-            value={form.department}
-            onChange={handleDepartmentChange}
-            options={departmentOptions}
-            placeholder="Select department"
-          />
-        </Field>
-
-        <div className="lg:col-span-2">
-          <Field label="Description" required>
-            <Textarea
-              aria-label="Description"
-              placeholder="Summarize compliance requirement, controls, and evidence needed"
-              value={form.description}
-              onChange={(event) => onChange({ description: event.target.value })}
-            />
-          </Field>
-        </div>
-
-        <Field label="Assigned Employee">
-          <Select
-            value={form.assignedTo}
-            onChange={(assignedTo) => onChange({ assignedTo })}
-            options={employeeOptions}
-            placeholder={form.department ? 'Select employee' : 'Select department first'}
-          />
-        </Field>
-
-        <Field label="Due Date">
-          <DatePicker
-            value={form.dueDate}
-            onChange={(date) => onChange({ dueDate: toIsoDate(date) })}
-            placeholder="Select due date"
-          />
-        </Field>
-
-        <Field label="Frequency">
-          <Select
-            value={form.frequency}
-            onChange={(frequency) => onChange({ frequency: frequency as Frequency, customDate: frequency === 'Custom' ? form.customDate : '' })}
-            options={frequencySelectOptions}
-            placeholder="Select frequency"
-          />
-        </Field>
-
-        {form.frequency === 'Custom' && (
-          <Field label="Custom Date">
-            <DatePicker
-              value={form.customDate}
-              onChange={(date) => onChange({ customDate: toIsoDate(date) })}
-              placeholder="Select custom date"
-            />
-          </Field>
-        )}
-      </div>
-
-      <div className="grid gap-3">
-        <FileUpload
-          key={uploadKey}
-          label="Attachment Upload"
-          hint="PDF, DOCX, XLSX, PNG up to 10MB"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-          onFileSelect={(file) => onChange({ attachmentName: file?.name ?? '' })}
-        />
-        {currentAttachment && (
-          <div className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm text-primary">
-            <Paperclip className="size-4" />
-            <span className="truncate">Current attachment: {currentAttachment}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="button" className="w-full gap-2 sm:w-auto" onClick={onSubmit}>
-          <Plus className="size-4" />
-          {submitLabel}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function TableSkeleton() {
-  return (
-    <div className="space-y-3 p-4">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <Skeleton key={index} className="h-12 w-full" />
-      ))}
-    </div>
-  )
-}
+const LazyComplianceDialogs = lazy(() =>
+  import('./compliance-library-management-dialogs').then((module) => ({ default: module.ComplianceDialogs })),
+)
 
 export function ComplianceLibraryManagement() {
   const [records, setRecords] = useState<ComplianceRecord[]>(initialRecords)
@@ -334,9 +55,6 @@ export function ComplianceLibraryManagement() {
   const [notice, setNotice] = useState('')
   const [uploadKey, setUploadKey] = useState(0)
   const [editUploadKey, setEditUploadKey] = useState(0)
-  
-  // Use a key to force page reset when search changes
-  const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsLoading(false), 600)
@@ -361,23 +79,17 @@ export function ComplianceLibraryManagement() {
   }, [records, search])
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
-  // Reset page to 1 when search changes by using resetKey
   const displayPage = (() => {
-    if (page > totalPages) return 1;
-    return page;
+    if (page > totalPages) return 1
+    return page
   })()
   const pagedRecords = filteredRecords.slice((displayPage - 1) * pageSize, displayPage * pageSize)
-  
+
   /* eslint-disable react-hooks/set-state-in-effect -- Intentional: pagination reset on filter change */
   useEffect(() => {
     setPage(1)
   }, [search, pageSize])
   /* eslint-enable react-hooks/set-state-in-effect */
-  
-  // Handle page change with bounds checking
-  const handlePageChange = (newPage: number) => {
-    setPage(Math.max(1, Math.min(newPage, totalPages)))
-  }
 
   const stats = useMemo(() => {
     const dueThisMonth = records.filter((record) => {
@@ -498,34 +210,17 @@ export function ComplianceLibraryManagement() {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-primary/10 bg-gradient-to-br from-primary/8 via-card to-card">
-        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <ShieldCheck className="size-6" />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-2xl font-semibold">Compliance Library</CardTitle>
-              <CardDescription className="mt-2 max-w-3xl text-sm leading-6">
-                Create, assign, track, and maintain recurring compliance obligations with evidence ownership and export-ready records.
-              </CardDescription>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="gap-2" onClick={handlePrint}>
-              <Printer className="size-4" />
-              Print
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={handleExcelExport}>
-              <FileSpreadsheet className="size-4" />
-              Excel Export
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={handlePdfExport}>
-              <FileText className="size-4" />
-              PDF Export
-            </Button>
-          </div>
-        </CardHeader>
+      <Suspense fallback={<div className="h-36 animate-pulse rounded-xl border border-border/70 bg-muted/20" />}>
+        <LazyComplianceLibraryToolbar
+          visibleCount={filteredRecords.length}
+          totalCount={records.length}
+          onPrint={handlePrint}
+          onExcelExport={handleExcelExport}
+          onPdfExport={handlePdfExport}
+        />
+      </Suspense>
+
+      <Card>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3">
             {stats.map((stat) => (
@@ -643,7 +338,7 @@ export function ComplianceLibraryManagement() {
                       pagedRecords.map((record, index) => (
                         <TableRow key={record.id} className="group">
                           <TableCell className="font-medium text-muted-foreground">
-                            {(currentPage - 1) * pageSize + index + 1}
+                            {(displayPage - 1) * pageSize + index + 1}
                           </TableCell>
                           <TableCell className="max-w-[180px]">
                             <p className="font-medium text-foreground">{record.name}</p>
@@ -700,14 +395,14 @@ export function ComplianceLibraryManagement() {
 
               <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Showing {pagedRecords.length ? (currentPage - 1) * pageSize + 1 : 0}-
-                  {Math.min(currentPage * pageSize, filteredRecords.length)} of {filteredRecords.length}
+                  Showing {pagedRecords.length ? (displayPage - 1) * pageSize + 1 : 0}-
+                  {Math.min(displayPage * pageSize, filteredRecords.length)} of {filteredRecords.length}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((value) => value - 1)}>
+                  <Button variant="outline" size="sm" disabled={displayPage <= 1} onClick={() => setPage((value) => value - 1)}>
                     Previous
                   </Button>
-                  <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((value) => value + 1)}>
+                  <Button variant="outline" size="sm" disabled={displayPage >= totalPages} onClick={() => setPage((value) => value + 1)}>
                     Next
                   </Button>
                 </div>
@@ -717,52 +412,19 @@ export function ComplianceLibraryManagement() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingRecord} onOpenChange={(open) => !open && setEditingRecord(null)}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Compliance Record</DialogTitle>
-            <DialogDescription>
-              Update ownership, due date, frequency, and attachment details for this compliance item.
-            </DialogDescription>
-          </DialogHeader>
-          <ComplianceForm
-            form={editForm}
-            onChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
-            onSubmit={handleSaveEdit}
-            submitLabel="Save Changes"
-            uploadKey={editUploadKey}
-            currentAttachment={editingRecord?.attachmentName}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingRecord(null)}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deleteRecord} onOpenChange={(open) => !open && setDeleteRecord(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-              <AlertTriangle className="size-5" />
-            </div>
-            <AlertDialogTitle>Delete compliance record?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will remove {deleteRecord?.name ? `"${deleteRecord.name}"` : 'this record'} from the compliance library.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setDeleteRecord(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="size-4" />
-              Delete
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Suspense fallback={null}>
+        <LazyComplianceDialogs
+          editingRecord={editingRecord}
+          editForm={editForm}
+          editUploadKey={editUploadKey}
+          onEditChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
+          onEditSave={handleSaveEdit}
+          onEditClose={() => setEditingRecord(null)}
+          deleteRecord={deleteRecord}
+          onDeleteConfirm={handleDelete}
+          onDeleteClose={() => setDeleteRecord(null)}
+        />
+      </Suspense>
     </div>
   )
 }

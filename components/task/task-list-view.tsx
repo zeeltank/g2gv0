@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { Task } from '@/types/task-management'
-import { getStatusColor, getPriorityColor } from '@/lib/task-utils'
+import { getTaskStatusColor, getPriorityColor } from '@/lib/task-utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 interface TaskListViewProps {
@@ -58,7 +58,7 @@ export function TaskListView({ tasks, onSelectTask }: TaskListViewProps) {
               <TableCell className="px-6 py-4">
                 <span className={cn(
                   "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm",
-                  getStatusColor(task.status)
+                  getTaskStatusColor(task.status)
                 )}>
                   {task.status.replace('_', ' ')}
                 </span>
