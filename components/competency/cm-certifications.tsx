@@ -92,7 +92,7 @@ export function CmCertifications() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <FileBadge className="w-5 h-5" />
               </div>
             </div>
@@ -107,7 +107,7 @@ export function CmCertifications() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
+              <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center text-success">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
             </div>
@@ -137,7 +137,7 @@ export function CmCertifications() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
+              <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive">
                 <AlertCircle className="w-5 h-5" />
               </div>
             </div>
@@ -152,7 +152,7 @@ export function CmCertifications() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <ShieldCheck className="w-5 h-5" />
               </div>
             </div>
@@ -288,7 +288,7 @@ export function CmCertifications() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem>View Certificate</DropdownMenuItem>
                           <DropdownMenuItem>Update Status</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-500">Revoke</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Revoke</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

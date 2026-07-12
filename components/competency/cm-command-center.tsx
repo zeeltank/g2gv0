@@ -22,7 +22,7 @@ const summaryMetrics = [
 const progressMetrics = [
   { title: 'Role Mapping Completion', percent: 90, main: '312 / 345', sub: 'Roles Mapped', color: 'text-primary' },
   { title: 'Assessment Completion', percent: 68, main: '1,842 / 2,700', sub: 'Completed Assessments', color: 'text-emerald-500' },
-  { title: 'Certification Compliance', percent: 86, main: '2,156 / 2,500', sub: 'Certified Employees', color: 'text-purple-500' },
+  { title: 'Certification Compliance', percent: 86, main: '2,156 / 2,500', sub: 'Certified Employees', color: 'text-primary' },
   { title: 'Development Plan Completion', percent: 62, main: '1,142 / 1,842', sub: 'Completed Plans', color: 'text-orange-500' },
 ]
 
@@ -216,7 +216,7 @@ export function CmCommandCenter() {
           <div className="flex flex-col">
             <span className="text-sm font-bold text-foreground">Assessment Calendar (Next 60 Days)</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <div className="w-2 h-2 rounded-full bg-primary" />
               <span className="text-xs font-medium text-muted-foreground">Q2 Competency Assessment Cycle</span>
               <span className="text-xs text-muted-foreground ml-2">May 10 - Jun 30, 2026</span>
             </div>

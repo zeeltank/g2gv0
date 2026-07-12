@@ -59,21 +59,21 @@ const TaskNode = ({ id, data }: any) => {
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'completed': return 'from-emerald-500/20 to-emerald-500/5 text-emerald-500 border-emerald-500/30 ring-emerald-500/20'
-      case 'in_progress': return 'from-blue-500/20 to-blue-500/5 text-blue-500 border-blue-500/30 ring-blue-500/20'
+      case 'in_progress': return 'from-blue-500/20 to-blue-500/5 text-primary border-blue-500/30 ring-blue-500/20'
       case 'at_risk': return 'from-amber-500/20 to-amber-500/5 text-amber-500 border-amber-500/30 ring-amber-500/20'
       case 'blocked': return 'from-rose-500/20 to-rose-500/5 text-rose-500 border-rose-500/30 ring-rose-500/20'
-      case 'milestone': return 'from-purple-500/20 to-purple-500/5 text-purple-500 border-purple-500/30 ring-purple-500/20'
+      case 'milestone': return 'from-purple-500/20 to-purple-500/5 text-primary border-purple-500/30 ring-purple-500/20'
       default: return 'from-slate-500/20 to-slate-500/5 text-slate-500 border-slate-500/30 ring-slate-500/20'
     }
   }
 
   const getStatusIconColor = (status: string) => {
     switch(status) {
-      case 'completed': return 'text-emerald-500 bg-emerald-500/10'
-      case 'in_progress': return 'text-blue-500 bg-blue-500/10'
-      case 'at_risk': return 'text-amber-500 bg-amber-500/10'
+      case 'completed': return 'text-emerald-500 bg-success/10'
+      case 'in_progress': return 'text-primary bg-primary/10'
+      case 'at_risk': return 'text-amber-500 bg-warning/10'
       case 'blocked': return 'text-rose-500 bg-rose-500/10'
-      case 'milestone': return 'text-purple-500 bg-purple-500/10'
+      case 'milestone': return 'text-primary bg-primary/10'
       default: return 'text-slate-500 bg-slate-500/10'
     }
   }
@@ -188,7 +188,7 @@ const initialEdges: Edge[] = [
   // Future connections (slate dash)
   { id: 'e6-7', source: 'T-1006', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
   { id: 'e8-7', source: 'T-1008', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
-  { id: 'e7-101', source: 'T-1007', target: 'M-101', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#a855f7' }, style: { stroke: '#a855f7', strokeWidth: 3, strokeDasharray: '6 6' } },
+  { id: 'e7-101', source: 'T-1007', target: 'M-101', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 3, strokeDasharray: '6 6' } },
 ]
 
 export function DependenciesView() {
@@ -269,8 +269,8 @@ export function DependenciesView() {
       ...params, 
       type: 'smoothstep', 
       animated: true, 
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' }, // Amber color for new unsaved connections
-      style: { stroke: '#f59e0b', strokeWidth: 3 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.blocked }, // Amber color for new unsaved connections
+      style: { stroke: taskChartColors.blocked, strokeWidth: 3 },
       className: 'cursor-pointer hover:stroke-[4px] transition-all'
     }, eds)),
     [setEdges],
@@ -427,11 +427,11 @@ export function DependenciesView() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Node Status</h4>
                   <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" /><span className="text-sm font-semibold">On Track / Done</span></div>
-                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" /><span className="text-sm font-semibold">In Progress</span></div>
-                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" /><span className="text-sm font-semibold">At Risk</span></div>
+                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" /><span className="text-sm font-semibold">On Track / Done</span></div>
+                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" /><span className="text-sm font-semibold">In Progress</span></div>
+                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-warning shadow-[0_0_10px_rgba(245,158,11,0.5)]" /><span className="text-sm font-semibold">At Risk</span></div>
                     <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)] animate-pulse" /><span className="text-sm font-semibold">Blocked</span></div>
-                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-sm bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] rotate-45" /><span className="text-sm font-semibold">Milestone</span></div>
+                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-sm bg-primary shadow-[0_0_10px_rgba(168,85,247,0.5)] rotate-45" /><span className="text-sm font-semibold">Milestone</span></div>
                   </div>
                 </div>
                 
@@ -500,11 +500,11 @@ export function DependenciesView() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
                   {[
-                    { title: 'Requirements Analysis', width: '15%', left: '0%', color: 'bg-emerald-500' },
-                    { title: 'System Architecture Design', width: '20%', left: '15%', color: 'bg-blue-500' },
-                    { title: 'UI/UX Design', width: '25%', left: '10%', color: 'bg-emerald-500' },
-                    { title: 'API & Backend Dev', width: '30%', left: '35%', color: 'bg-blue-500' },
-                    { title: 'Frontend Integration', width: '20%', left: '60%', color: 'bg-amber-500' },
+                    { title: 'Requirements Analysis', width: '15%', left: '0%', color: 'bg-success' },
+                    { title: 'System Architecture Design', width: '20%', left: '15%', color: 'bg-primary' },
+                    { title: 'UI/UX Design', width: '25%', left: '10%', color: 'bg-success' },
+                    { title: 'API & Backend Dev', width: '30%', left: '35%', color: 'bg-primary' },
+                    { title: 'Frontend Integration', width: '20%', left: '60%', color: 'bg-warning' },
                     { title: 'QA & Security Testing', width: '15%', left: '70%', color: 'bg-rose-500' },
                   ].map((task, i) => (
                     <div key={i} className="flex items-center group">
@@ -538,7 +538,7 @@ export function DependenciesView() {
                   <div key={i} className="w-[320px] shrink-0 flex flex-col h-full rounded-3xl bg-card/30 backdrop-blur-2xl border border-primary/10 shadow-xl p-5">
                     <div className="flex items-center justify-between mb-5">
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", i === 0 ? "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]" : i === 1 ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : i === 2 ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]")} />
+                        <div className={cn("w-2 h-2 rounded-full", i === 0 ? "bg-primary shadow-[0_0_8px_rgba(168,85,247,0.8)]" : i === 1 ? "bg-primary shadow-[0_0_8px_rgba(59,130,246,0.8)]" : i === 2 ? "bg-success shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-warning shadow-[0_0_8px_rgba(245,158,11,0.8)]")} />
                         <h3 className="font-bold text-sm text-foreground">{stream.stream}</h3>
                       </div>
                       <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">{stream.count}</span>
@@ -576,8 +576,8 @@ export function DependenciesView() {
               </div>
               <div className="max-w-4xl mx-auto w-full flex flex-col gap-4">
                 {[
-                  { title: 'Alpha Release', date: 'May 15, 2024', status: 'Completed', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle2 },
-                  { title: 'Beta Testing Kickoff', date: 'June 01, 2024', status: 'At Risk', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', icon: AlertCircle },
+                  { title: 'Alpha Release', date: 'May 15, 2024', status: 'Completed', color: 'text-emerald-500 bg-success/10 border-emerald-500/20', icon: CheckCircle2 },
+                  { title: 'Beta Testing Kickoff', date: 'June 01, 2024', status: 'At Risk', color: 'text-amber-500 bg-warning/10 border-amber-500/20', icon: AlertCircle },
                   { title: 'Production Go Live', date: 'June 30, 2024', status: 'Upcoming', color: 'text-primary bg-primary/10 border-primary/20', icon: Flag },
                 ].map((ms, i) => (
                   <div key={i} className="flex items-stretch gap-6 group cursor-pointer">

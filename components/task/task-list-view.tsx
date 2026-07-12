@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import { CalendarDays, ListChecks, CheckCircle2, PlayCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'

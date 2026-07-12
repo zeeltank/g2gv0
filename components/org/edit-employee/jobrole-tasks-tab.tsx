@@ -1,3 +1,5 @@
+'use client'
+
 import React from "react";
 import { 
   Network, 
@@ -40,8 +42,8 @@ const getFunctionIcon = (name: string) => {
   if (lowerName.includes("architect")) return <Network className="w-5 h-5 text-indigo-500" />;
   if (lowerName.includes("frontend") || lowerName.includes("ui") || lowerName.includes("design")) return <Layout className="w-5 h-5 text-pink-500" />;
   if (lowerName.includes("backend") || lowerName.includes("server") || lowerName.includes("api")) return <Server className="w-5 h-5 text-emerald-500" />;
-  if (lowerName.includes("data")) return <Database className="w-5 h-5 text-blue-500" />;
-  if (lowerName.includes("test") || lowerName.includes("quality") || lowerName.includes("qa")) return <ShieldCheck className="w-5 h-5 text-green-500" />;
+  if (lowerName.includes("data")) return <Database className="w-5 h-5 text-primary" />;
+  if (lowerName.includes("test") || lowerName.includes("quality") || lowerName.includes("qa")) return <ShieldCheck className="w-5 h-5 text-success" />;
   if (lowerName.includes("secur")) return <Lock className="w-5 h-5 text-red-500" />;
   if (lowerName.includes("cloud") || lowerName.includes("infra") || lowerName.includes("devops")) return <Cloud className="w-5 h-5 text-cyan-500" />;
   if (lowerName.includes("manage") || lowerName.includes("lead") || lowerName.includes("team")) return <Users className="w-5 h-5 text-orange-500" />;

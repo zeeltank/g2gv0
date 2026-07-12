@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from 'react'
 import { CheckSquare, CalendarDays, CheckCircle2, XCircle, Clock, Check, MessageSquare, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'

@@ -61,19 +61,21 @@ export function CmEmployeeProfiles() {
     ]},
   ]
 
+  // Semantic color mapping for competency gap display
   const getGapColor = (gap: number) => {
-    if (gap > 0) return 'text-green-500 font-bold'
-    if (gap < 0) return 'text-red-500 font-bold'
+    if (gap > 0) return 'text-success font-bold'
+    if (gap < 0) return 'text-destructive font-bold'
     return 'text-muted-foreground'
   }
 
+  // Semantic color mapping for competency level progress bars
   const getLevelColor = (level: number) => {
     const colors: Record<number, string> = {
-      1: 'bg-red-500',
-      2: 'bg-orange-500',
-      3: 'bg-yellow-500',
-      4: 'bg-green-500',
-      5: 'bg-blue-500'
+      1: 'bg-destructive',
+      2: 'bg-warning',
+      3: 'bg-warning',
+      4: 'bg-success',
+      5: 'bg-primary'
     }
     return colors[level] || 'bg-muted'
   }
@@ -168,7 +170,7 @@ export function CmEmployeeProfiles() {
                 <span className="text-3xl font-black text-foreground leading-none">3.6</span>
                 <span className="text-lg font-bold text-muted-foreground leading-none mb-0.5">/ 5</span>
               </div>
-              <p className="text-sm font-bold text-green-500 mt-1">Proficient</p>
+              <p className="text-sm font-bold text-success mt-1">Proficient</p>
             </div>
             <div className="relative w-20 h-20 rounded-full flex items-center justify-center">
               <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -219,10 +221,10 @@ export function CmEmployeeProfiles() {
                 <Select options={[{label: 'Group by: Category', value: 'cat'}]} placeholder="Group by" className="w-44 bg-background" />
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold text-foreground">
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500" /> 1-Beginner</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-destructive" /> 1-Beginner</div>
                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-500" /> 2-Basic</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500" /> 3-Proficient</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500" /> 4-Advanced</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-success" /> 3-Proficient</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary" /> 4-Advanced</div>
                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-indigo-500" /> 5-Expert</div>
               </div>
             </div>
@@ -316,11 +318,11 @@ export function CmEmployeeProfiles() {
               
               <div className="flex flex-col gap-3">
                 {[
-                  { label: 'Expert (5)', count: 1, percent: 12.5, color: 'bg-indigo-500' },
-                  { label: 'Advanced (4)', count: 3, percent: 37.5, color: 'bg-blue-500' },
-                  { label: 'Proficient (3)', count: 2, percent: 25.0, color: 'bg-green-500' },
-                  { label: 'Basic (2)', count: 1, percent: 12.5, color: 'bg-orange-500' },
-                  { label: 'Beginner (1)', count: 1, percent: 12.5, color: 'bg-red-500' },
+                  { label: 'Expert (5)', count: 1, percent: 12.5, color: 'bg-primary' },
+                  { label: 'Advanced (4)', count: 3, percent: 37.5, color: 'bg-primary' },
+                  { label: 'Proficient (3)', count: 2, percent: 25.0, color: 'bg-success' },
+                  { label: 'Basic (2)', count: 1, percent: 12.5, color: 'bg-warning' },
+                  { label: 'Beginner (1)', count: 1, percent: 12.5, color: 'bg-destructive' },
                 ].map(stat => (
                   <div key={stat.label} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 w-28">

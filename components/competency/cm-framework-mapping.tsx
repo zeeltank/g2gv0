@@ -342,11 +342,11 @@ export function CmFrameworkMapping() {
               </TableHeader>
               <TableBody className="divide-y divide-primary/5">
                 {[
-                  { name: '1.1.1 Verbal Communication', l1: '3', c1: 'bg-yellow-400', l2: '4', c2: 'bg-green-500', l3: '4', c3: 'bg-green-500', l4: '4', c4: 'bg-green-500', l5: '4', c5: 'bg-green-500' },
-                  { name: '1.1.2 Written Communication', l1: '3', c1: 'bg-yellow-400', l2: '3', c2: 'bg-yellow-400', l3: '4', c3: 'bg-green-500', l4: '4', c4: 'bg-green-500', l5: '4', c5: 'bg-green-500' },
-                  { name: '1.1.3 Active Listening', l1: '3', c1: 'bg-yellow-400', l2: '4', c2: 'bg-green-500', l3: '4', c3: 'bg-green-500', l4: '5', c4: 'bg-blue-500', l5: '4', c5: 'bg-green-500' },
-                  { name: '1.1.4 Presentation Skills', l1: '2', c1: 'bg-orange-400', l2: '3', c2: 'bg-yellow-400', l3: '4', c3: 'bg-green-500', l4: '5', c4: 'bg-blue-500', l5: '5', c5: 'bg-blue-500' },
-                  { name: '1.1.5 Stakeholder Communication', l1: '3', c1: 'bg-yellow-400', l2: '4', c2: 'bg-green-500', l3: '5', c3: 'bg-blue-500', l4: '5', c4: 'bg-blue-500', l5: '5', c5: 'bg-blue-500' },
+                  { name: '1.1.1 Verbal Communication', l1: '3', c1: 'bg-warning', l2: '4', c2: 'bg-success', l3: '4', c3: 'bg-success', l4: '4', c4: 'bg-success', l5: '4', c5: 'bg-success' },
+                  { name: '1.1.2 Written Communication', l1: '3', c1: 'bg-warning', l2: '3', c2: 'bg-warning', l3: '4', c3: 'bg-success', l4: '4', c4: 'bg-success', l5: '4', c5: 'bg-success' },
+                  { name: '1.1.3 Active Listening', l1: '3', c1: 'bg-warning', l2: '4', c2: 'bg-success', l3: '4', c3: 'bg-success', l4: '5', c4: 'bg-primary', l5: '4', c5: 'bg-success' },
+                  { name: '1.1.4 Presentation Skills', l1: '2', c1: 'bg-warning', l2: '3', c2: 'bg-warning', l3: '4', c3: 'bg-success', l4: '5', c4: 'bg-primary', l5: '5', c5: 'bg-primary' },
+                  { name: '1.1.5 Stakeholder Communication', l1: '3', c1: 'bg-warning', l2: '4', c2: 'bg-success', l3: '5', c3: 'bg-primary', l4: '5', c4: 'bg-primary', l5: '5', c5: 'bg-primary' },
                 ].map((row, i) => (
                   <TableRow key={i} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-3 font-medium text-foreground">
@@ -417,11 +417,11 @@ export function CmFrameworkMapping() {
             <div className="flex items-center gap-4">
               <span className="text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">Proficiency Level</span>
               <div className="flex items-center gap-3 text-xs font-medium text-foreground whitespace-nowrap">
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500 shrink-0" /> 1-Beginner</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" /> 2-Basic</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" /> 3-Intermediate</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500 shrink-0" /> 4-Advanced</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" /> 5-Expert</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-destructive shrink-0" /> 1-Beginner</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-warning shrink-0" /> 2-Basic</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-warning shrink-0" /> 3-Intermediate</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-success shrink-0" /> 4-Advanced</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary shrink-0" /> 5-Expert</div>
               </div>
             </div>
             <div className="flex items-center gap-6 whitespace-nowrap">
@@ -509,14 +509,14 @@ export function CmFrameworkMapping() {
                     </div>
                   </div>
                   <div className="flex items-start gap-1.5">
-                    <div className="w-2 h-2 rounded-sm bg-yellow-400 mt-1 shrink-0" />
+                    <div className="w-2 h-2 rounded-sm bg-warning mt-1 shrink-0" />
                     <div className="text-xs">
                       <span className="font-semibold text-foreground">Partially Mapped</span>
                       <span className="text-muted-foreground block">(8) 15%</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-1.5">
-                    <div className="w-2 h-2 rounded-sm bg-red-500 mt-1 shrink-0" />
+                    <div className="w-2 h-2 rounded-sm bg-destructive mt-1 shrink-0" />
                     <div className="text-xs">
                       <span className="font-semibold text-foreground">Not Mapped</span>
                       <span className="text-muted-foreground block">(16) 30%</span>
@@ -614,11 +614,11 @@ export function CmFrameworkMapping() {
             
             <div className="flex-1 overflow-y-auto p-6 g2g-scrollbar flex flex-col gap-4">
               {[
-                { level: 1, name: 'Beginner', color: 'bg-red-500', desc: 'Has basic knowledge but requires guidance and supervision to complete tasks.' },
-                { level: 2, name: 'Basic', color: 'bg-orange-400', desc: 'Can perform routine tasks independently but needs help with complex issues.' },
-                { level: 3, name: 'Intermediate', color: 'bg-yellow-400', desc: 'Consistently performs tasks independently and can troubleshoot common problems.' },
-                { level: 4, name: 'Advanced', color: 'bg-green-500', desc: 'Highly skilled, handles complex tasks, and mentors others in this competency.' },
-                { level: 5, name: 'Expert', color: 'bg-blue-500', desc: 'Recognized authority. Drives strategy and innovation related to this competency.' },
+                { level: 1, name: 'Beginner', color: 'bg-destructive', desc: 'Has basic knowledge but requires guidance and supervision to complete tasks.' },
+                { level: 2, name: 'Basic', color: 'bg-warning', desc: 'Can perform routine tasks independently but needs help with complex issues.' },
+                { level: 3, name: 'Intermediate', color: 'bg-warning', desc: 'Consistently performs tasks independently and can troubleshoot common problems.' },
+                { level: 4, name: 'Advanced', color: 'bg-success', desc: 'Highly skilled, handles complex tasks, and mentors others in this competency.' },
+                { level: 5, name: 'Expert', color: 'bg-primary', desc: 'Recognized authority. Drives strategy and innovation related to this competency.' },
               ].map(item => (
                 <div key={item.level} className="flex gap-6 p-4 rounded-xl border border-border bg-background hover:border-primary/30 transition-colors">
                   <div className="flex flex-col items-center gap-2 shrink-0 w-24">
@@ -687,10 +687,10 @@ export function CmFrameworkMapping() {
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20">
+                    <Button variant="outline" className="flex-1 bg-success/10 text-success border-success/20 hover:bg-success/20">
                       <Check className="w-4 h-4 mr-2" /> Approve
                     </Button>
-                    <Button variant="outline" className="flex-1 bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20">
+                    <Button variant="outline" className="flex-1 bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20">
                       <X className="w-4 h-4 mr-2" /> Reject
                     </Button>
                   </div>

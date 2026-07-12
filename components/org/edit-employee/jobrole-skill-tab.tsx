@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from "react";
 import { CheckCircle2, Circle, GraduationCap, Wrench, ChevronRight, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -115,7 +117,7 @@ export function JobroleSkillTab({ employee, skills }: JobroleSkillTabProps) {
                       onClick={() => setOverallProficiency(false)}
                       className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer active:scale-95 ${
                         validationState[`${selectedSkill.skill_id}-overall`] === false 
-                          ? 'bg-red-500 text-white shadow-md' 
+                          ? 'bg-destructive text-white shadow-md' 
                           : 'bg-muted text-muted-foreground hover:bg-muted/80'
                       }`}
                     >

@@ -385,7 +385,7 @@ export function SessionsCalendar() {
                       <div className="mt-auto flex items-center gap-1">
                         <div className={cn(
                           "size-2 rounded-full shrink-0",
-                          session.type === 'virtual' ? "bg-primary" : "bg-green-500"
+                          session.type === 'virtual' ? "bg-primary" : "bg-success"
                         )} />
                         <span className="text-[10px] font-medium text-muted-foreground truncate">
                           {session.type === 'virtual' ? 'Virtual' : 'Classroom'}
@@ -432,7 +432,7 @@ export function SessionsCalendar() {
                       <div className="flex items-center gap-1.5">
                         <div className={cn(
                           "size-2 rounded-full",
-                          session.type === 'virtual' ? "bg-primary" : "bg-green-500"
+                          session.type === 'virtual' ? "bg-primary" : "bg-success"
                         )} />
                         <span className="capitalize">{session.type}</span>
                       </div>
@@ -501,7 +501,7 @@ export function SessionsCalendar() {
                       <div className="flex items-center gap-1.5">
                         <div className={cn(
                           "size-2 rounded-full",
-                          selectedSession.type === 'virtual' ? "bg-primary" : "bg-green-500"
+                          selectedSession.type === 'virtual' ? "bg-primary" : "bg-success"
                         )} />
                         <span className="text-sm font-medium text-muted-foreground capitalize">
                           {selectedSession.type} Session

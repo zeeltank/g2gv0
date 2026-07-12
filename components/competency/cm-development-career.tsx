@@ -86,15 +86,15 @@ export function CmDevelopmentCareer() {
         <Card className="shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <ClipboardList className="w-5 h-5" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-4 h-4 text-success" />
             </div>
             <p className="text-sm font-semibold text-muted-foreground">Active Development Plans</p>
             <div className="flex items-end gap-2 mt-1">
               <p className="text-2xl font-bold text-foreground leading-none">128</p>
-              <p className="text-xs font-semibold text-green-500 mb-0.5">↗ 12 vs last month</p>
+              <p className="text-xs font-semibold text-success mb-0.5">↗ 12 vs last month</p>
             </div>
           </CardContent>
         </Card>
@@ -108,7 +108,7 @@ export function CmDevelopmentCareer() {
             <div className="relative w-14 h-14 rounded-full flex items-center justify-center shrink-0">
               <svg className="absolute inset-0 w-full h-full -rotate-90">
                 <circle cx="50%" cy="50%" r="46%" className="stroke-muted fill-none stroke-[4px]" />
-                <circle cx="50%" cy="50%" r="46%" className="stroke-blue-500 fill-none stroke-[4px]" strokeDasharray="289" strokeDashoffset="120" />
+                <circle cx="50%" cy="50%" r="46%" className="stroke-primary fill-none stroke-[4px]" strokeDasharray="289" strokeDashoffset="120" />
               </svg>
               <span className="text-xs font-bold text-foreground z-10">67%</span>
             </div>
@@ -118,15 +118,15 @@ export function CmDevelopmentCareer() {
         <Card className="shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
+              <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center text-success">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-4 h-4 text-success" />
             </div>
             <p className="text-sm font-semibold text-muted-foreground">Plans Completed</p>
             <div className="flex items-end gap-2 mt-1">
               <p className="text-2xl font-bold text-foreground leading-none">42</p>
-              <p className="text-xs font-semibold text-green-500 mb-0.5">↗ 8 vs last month</p>
+              <p className="text-xs font-semibold text-success mb-0.5">↗ 8 vs last month</p>
             </div>
           </CardContent>
         </Card>
@@ -134,15 +134,15 @@ export function CmDevelopmentCareer() {
         <Card className="shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <Route className="w-5 h-5" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-4 h-4 text-success" />
             </div>
             <p className="text-sm font-semibold text-muted-foreground">Career Paths Created</p>
             <div className="flex items-end gap-2 mt-1">
               <p className="text-2xl font-bold text-foreground leading-none">64</p>
-              <p className="text-xs font-semibold text-green-500 mb-0.5">↗ 6 vs last month</p>
+              <p className="text-xs font-semibold text-success mb-0.5">↗ 6 vs last month</p>
             </div>
           </CardContent>
         </Card>
@@ -150,15 +150,15 @@ export function CmDevelopmentCareer() {
         <Card className="shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500">
+              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
                 <BookOpen className="w-5 h-5" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-4 h-4 text-success" />
             </div>
             <p className="text-sm font-semibold text-muted-foreground">Learning Assigned</p>
             <div className="flex items-end gap-2 mt-1">
               <p className="text-2xl font-bold text-foreground leading-none">214</p>
-              <p className="text-xs font-semibold text-green-500 mb-0.5">↗ 18 vs last month</p>
+              <p className="text-xs font-semibold text-success mb-0.5">↗ 18 vs last month</p>
             </div>
           </CardContent>
         </Card>
@@ -254,7 +254,7 @@ export function CmDevelopmentCareer() {
                         <TableCell className="px-4 py-4">
                           <div className="flex items-center gap-2 w-full max-w-[120px]">
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${row.progress === 100 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${row.progress}%` }} />
+                              <div className={`h-full rounded-full ${row.progress === 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${row.progress}%` }} />
                             </div>
                             <span className="text-[10px] font-bold w-6">{row.progress}%</span>
                           </div>
@@ -434,13 +434,13 @@ export function CmDevelopmentCareer() {
                 <div className="flex items-center justify-center gap-4 w-full overflow-x-auto pb-4 pt-2">
                   
                   {/* Node 1 */}
-                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-green-500 bg-green-500/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
+                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-green-500 bg-success/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
                     <div>
                       <p className="font-bold text-sm text-foreground">Engineering Manager</p>
                       <p className="text-[11px] text-muted-foreground mt-1">(Current Role)</p>
                     </div>
                     <div className="flex justify-end">
-                      <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white">
+                      <div className="w-5 h-5 rounded-full bg-success flex items-center justify-center text-white">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </div>
                     </div>
@@ -452,14 +452,14 @@ export function CmDevelopmentCareer() {
                   </div>
 
                   {/* Node 2 */}
-                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
+                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-primary/30 bg-primary/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
                     <div>
                       <p className="font-bold text-sm text-foreground">Senior Engineering Manager</p>
                       <p className="text-[11px] text-muted-foreground mt-1">(Next Role)</p>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 h-1.5 bg-blue-500/20 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500" style={{ width: '65%' }} />
+                      <div className="flex-1 h-1.5 bg-primary/20 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: '65%' }} />
                       </div>
                       <span className="text-[10px] font-bold text-foreground">65% Match</span>
                     </div>
@@ -471,14 +471,14 @@ export function CmDevelopmentCareer() {
                   </div>
 
                   {/* Node 3 */}
-                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
+                  <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-primary/20 bg-primary/5 shadow-sm shrink-0 flex flex-col justify-between h-[108px]">
                     <div>
                       <p className="font-bold text-sm text-foreground">Director of Engineering</p>
                       <p className="text-[11px] text-muted-foreground mt-1">(Future Role)</p>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 h-1.5 bg-purple-500/20 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-purple-500" style={{ width: '40%' }} />
+                      <div className="flex-1 h-1.5 bg-primary/20 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: '40%' }} />
                       </div>
                       <span className="text-[10px] font-bold text-foreground">40% Match</span>
                     </div>

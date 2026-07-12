@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -45,7 +47,7 @@ const getAttributeIcon = (name: string) => {
   if (lowerName.includes("autonomy") || lowerName.includes("independent")) return <Compass className="w-5 h-5 text-indigo-500" />;
   if (lowerName.includes("influence") || lowerName.includes("lead")) return <Megaphone className="w-5 h-5 text-pink-500" />;
   if (lowerName.includes("complex") || lowerName.includes("system")) return <Puzzle className="w-5 h-5 text-emerald-500" />;
-  if (lowerName.includes("communicat")) return <MessageSquare className="w-5 h-5 text-blue-500" />;
+  if (lowerName.includes("communicat")) return <MessageSquare className="w-5 h-5 text-primary" />;
   if (lowerName.includes("problem") || lowerName.includes("solv")) return <Wrench className="w-5 h-5 text-orange-500" />;
   if (lowerName.includes("business") || lowerName.includes("commercial")) return <Briefcase className="w-5 h-5 text-cyan-500" />;
   if (lowerName.includes("knowledg") || lowerName.includes("learn")) return <BrainCircuit className="w-5 h-5 text-violet-500" />;
@@ -134,7 +136,7 @@ export function LorTab({ data }: LorTabProps) {
                   <BookOpen className="w-24 h-24" />
                 </div>
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <BookOpen className="w-5 h-5 text-blue-600" />
                   </div>
                   <h3 className="font-bold text-xl text-foreground">Description</h3>

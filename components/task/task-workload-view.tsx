@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import { Users, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'

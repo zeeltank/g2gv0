@@ -51,12 +51,12 @@ export function CmAudit() {
   const getActionIcon = (action: string) => {
     switch (action) {
       case 'Updated': return <Edit3 className="w-4 h-4 text-orange-500" />
-      case 'Approved': return <CheckCircle2 className="w-4 h-4 text-green-500" />
-      case 'Created': return <PlusCircle className="w-4 h-4 text-blue-500" />
-      case 'Commented': return <MessageSquare className="w-4 h-4 text-purple-500" />
+      case 'Approved': return <CheckCircle2 className="w-4 h-4 text-success" />
+      case 'Created': return <PlusCircle className="w-4 h-4 text-primary" />
+      case 'Commented': return <MessageSquare className="w-4 h-4 text-primary" />
       case 'Uploaded': return <ArrowUpFromLine className="w-4 h-4 text-indigo-500" />
       case 'Imported': return <ArrowUpFromLine className="w-4 h-4 text-indigo-500" />
-      case 'Deleted': return <Trash2 className="w-4 h-4 text-red-500" />
+      case 'Deleted': return <Trash2 className="w-4 h-4 text-destructive" />
       default: return <History className="w-4 h-4 text-muted-foreground" />
     }
   }
@@ -88,7 +88,7 @@ export function CmAudit() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
@@ -103,7 +103,7 @@ export function CmAudit() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 shrink-0">
+              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
@@ -133,7 +133,7 @@ export function CmAudit() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div>
@@ -148,7 +148,7 @@ export function CmAudit() {
         <Card className="shadow-sm">
           <CardContent className="p-5 flex flex-col justify-between h-full">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive shrink-0">
                 <ArrowUpFromLine className="w-5 h-5" />
               </div>
               <div>

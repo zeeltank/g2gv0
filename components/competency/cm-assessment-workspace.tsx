@@ -85,7 +85,7 @@ export function CmAssessmentWorkspace() {
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-card/50 backdrop-blur-xl border border-primary/10 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
             <ClipboardList className="w-6 h-6" />
           </div>
           <div>
@@ -109,7 +109,7 @@ export function CmAssessmentWorkspace() {
         </div>
 
         <div className="bg-card/50 backdrop-blur-xl border border-primary/10 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
             <Users className="w-6 h-6" />
           </div>
           <div>
@@ -119,7 +119,7 @@ export function CmAssessmentWorkspace() {
         </div>
 
         <div className="bg-card/50 backdrop-blur-xl border border-primary/10 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+          <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-warning">
             <Scale className="w-6 h-6" />
           </div>
           <div>
@@ -190,7 +190,7 @@ export function CmAssessmentWorkspace() {
                       <TableRow key={row.id} className={`hover:bg-muted/30 cursor-pointer ${selectedCampaign === row.id ? 'bg-primary/5' : ''}`} onClick={() => setSelectedCampaign(row.id)}>
                         <TableCell className="px-4 py-4 font-medium text-foreground">
                           <div className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full ${row.status === 'Completed' ? 'bg-green-500' : 'bg-primary'}`} />
+                            <div className={`w-2 h-2 rounded-full ${row.status === 'Completed' ? 'bg-success' : 'bg-primary'}`} />
                             {row.name}
                           </div>
                         </TableCell>
@@ -207,7 +207,7 @@ export function CmAssessmentWorkspace() {
                             <div className="flex items-center gap-3">
                               <span className="text-xs font-bold w-8">{row.completion}%</span>
                               <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${row.completion === 100 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${row.completion}%` }} />
+                                <div className={`h-full rounded-full ${row.completion === 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${row.completion}%` }} />
                               </div>
                             </div>
                           </TableCell>
@@ -344,11 +344,11 @@ export function CmAssessmentWorkspace() {
                                   {row.role}
                                 </TableCell>
                                 <TableCell className="px-4 py-3 text-center">
-                                  {row.self ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" /> : <Clock className="w-4 h-4 text-orange-500 mx-auto" />}
+                                  {row.self ? <CheckCircle2 className="w-4 h-4 text-success mx-auto" /> : <Clock className="w-4 h-4 text-warning mx-auto" />}
                                   {row.self && <span className="text-[10px] text-muted-foreground block mt-1">12 May</span>}
                                 </TableCell>
                                 <TableCell className="px-4 py-3 text-center">
-                                  {row.manager ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" /> : <Clock className="w-4 h-4 text-orange-500 mx-auto" />}
+                                  {row.manager ? <CheckCircle2 className="w-4 h-4 text-success mx-auto" /> : <Clock className="w-4 h-4 text-warning mx-auto" />}
                                   {row.manager ? <span className="text-[10px] text-muted-foreground block mt-1">15 May</span> : <span className="text-[10px] text-muted-foreground block mt-1">--</span>}
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
