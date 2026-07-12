@@ -9,27 +9,40 @@ import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { updateOnboarding } from '@/lib/onboarding'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
-import type { OrganizationForm, SisterCompanyMode } from '@/domain/organizationanization-setup/organization-profile-step'
-import type { EmployeeRow } from '@/domain/organizationanization-setup/employee-import-step'
+import {
+  type EmployeeRow,
+  type OrganizationForm,
+  type SisterCompanyMode,
+} from '@/components/domain/organization/onboarding'
 
 const LazySetupProgressRail = lazy(() =>
-  import('@/domain/organizationanization-setup/setup-progress-rail').then((module) => ({ default: module.SetupProgressRail })),
+  import('@/components/domain/organization/onboarding').then((module) => ({
+    default: module.SetupProgressRail,
+  })),
 )
 
 const LazyOrganizationProfileStep = lazy(() =>
-  import('@/domain/organizationanization-setup/organization-profile-step').then((module) => ({ default: module.OrganizationProfileStep })),
+  import('@/components/domain/organization/onboarding').then((module) => ({
+    default: module.OrganizationProfileStep,
+  })),
 )
 
 const LazyDepartmentSelectionStep = lazy(() =>
-  import('@/domain/organizationanization-setup/department-selection-step').then((module) => ({ default: module.DepartmentSelectionStep })),
+  import('@/components/domain/organization/onboarding').then((module) => ({
+    default: module.DepartmentSelectionStep,
+  })),
 )
 
 const LazyEmployeeImportStep = lazy(() =>
-  import('@/domain/organizationanization-setup/employee-import-step').then((module) => ({ default: module.EmployeeImportStep })),
+  import('@/components/domain/organization/onboarding').then((module) => ({
+    default: module.EmployeeImportStep,
+  })),
 )
 
 const LazySetupCompletionStep = lazy(() =>
-  import('@/domain/organizationanization-setup/setup-completion-step').then((module) => ({ default: module.SetupCompletionStep })),
+  import('@/components/domain/organization/onboarding').then((module) => ({
+    default: module.SetupCompletionStep,
+  })),
 )
 
 const sampleEmployees: EmployeeRow[] = [
