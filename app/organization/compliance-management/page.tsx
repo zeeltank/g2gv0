@@ -7,7 +7,7 @@ import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 
 const ComplianceLibraryManagement = lazy(() =>
-  import('@/components/compliance-discipline/compliance-library-management').then((m) => ({
+  import('@/domain/hrms/compliance-discipline/compliance-library-management').then((m) => ({
     default: m.ComplianceLibraryManagement,
   })),
 )

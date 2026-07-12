@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { AttendanceRecord, LeaveBalance, Event, MonthlySummary } from '@/components/hrit/attendance-management/types'
+import type { AttendanceRecord, LeaveBalance, Event, MonthlySummary } from '@/domain/hrms/hrit/attendance-management/types'
 
 const mockTodayRecord: AttendanceRecord = {
   id: 'today',

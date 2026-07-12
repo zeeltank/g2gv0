@@ -3,7 +3,7 @@
 import { lazy, Suspense } from 'react'
 
 const LazyEmployeeDirectory = lazy(() =>
-  import('@/components/org/employee-directory').then((module) => ({ default: module.EmployeeDirectory })),
+  import('@/domain/organization/employee-directory').then((module) => ({ default: module.EmployeeDirectory })),
 )
 
 export default function EmployeesPage() {

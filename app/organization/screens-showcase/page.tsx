@@ -4,13 +4,13 @@ import { lazy, Suspense, useState } from 'react'
 import { type Role } from '@/lib/gtg-roles'
 
 const LazyOrganizationInformation = lazy(() =>
-  import('@/components/org/organization-information').then((module) => ({
+  import('@/domain/organization/organization-information').then((module) => ({
     default: module.OrganizationInformation,
   })),
 )
 
 const LazyAddOrganizationDetail = lazy(() =>
-  import('@/components/org/add-organization-detail').then((module) => ({
+  import('@/domain/organization/add-organization-detail').then((module) => ({
     default: module.AddOrganizationDetail,
   })),
 )

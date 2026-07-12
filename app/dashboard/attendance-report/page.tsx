@@ -7,7 +7,7 @@ import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 
 const LazyAttendanceReportsPage = lazy(() =>
-  import('@/components/hrit/attendance-management/attendance-reports/page').then((module) => ({ default: module.AttendanceReportsPage })),
+  import('@/domain/hrms/hrit/attendance-management/attendance-reports/page').then((module) => ({ default: module.AttendanceReportsPage })),
 )
 
 
