@@ -7,7 +7,18 @@ import { GTG_NAVIGATION, type ActiveNav } from '@/hooks/use-navigation'
 import type { NavModule } from '@/lib/gtg-navigation'
 import { type Role } from '@/hooks/use-role-visibility'
 import { filterNavigationByRole } from '@/hooks/use-role-visibility'
+import { IconButton } from '@/components/ui/icon-button'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
+
+interface GtgSidebarProps {
+  active: ActiveNav
+  onSelect: (next: ActiveNav) => void
+  role?: Role
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+  collapsed?: boolean
+  onCollapsedChange?: (collapsed: boolean) => void
+}
 
 export function GtgSidebar({
   active,
@@ -15,32 +26,57 @@ export function GtgSidebar({
   role = 'admin',
   mobileOpen = false,
   onMobileClose,
-}: {
-  active: ActiveNav
-  onSelect: (next: ActiveNav) => void
-  role?: Role
-  mobileOpen?: boolean
-  onMobileClose?: () => void
-}) {
-  const collapsed = true
+  collapsed = true,
+  onCollapsedChange,
+}: GtgSidebarProps) {
   const [flyoutModuleId, setFlyoutModuleId] = useState<string | null>(null)
   const [flyoutMenuId, setFlyoutMenuId] = useState<string | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; height: number } | null>(null)
   const [flyoutStyle, setFlyoutStyle] = useState<{ top: number; left: number; maxHeight: number; fromLeft: boolean } | null>(null)
+  const sidebarRef = useRef<HTMLElement>(null)
   const flyoutRef = useRef<HTMLDivElement>(null)
+  const [desktopExpandedModuleId, setDesktopExpandedModuleId] = useState<string | null>(active.moduleId)
+  const [desktopExpandedMenuIds, setDesktopExpandedMenuIds] = useState<Set<string>>(
+    () => new Set([`${active.moduleId}:${active.menuId}`]),
+  )
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null)
   const [expandedMenuId, setExpandedMenuId] = useState<string | null>(null)
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const filteredNav = filterNavigationByRole(role)
 
-  const handleModuleClick = useCallback((moduleId: string, element: HTMLElement) => {
-    const rect = element.getBoundingClientRect()
-    setFlyoutPosition({ top: rect.top, height: rect.height })
-    setFlyoutModuleId(moduleId)
+  const clearFlyout = useCallback(() => {
+    setFlyoutModuleId(null)
     setFlyoutMenuId(null)
+    setFlyoutPosition(null)
   }, [])
 
+  const expandDesktopSidebar = useCallback((moduleId: string) => {
+    clearFlyout()
+    setDesktopExpandedModuleId(moduleId)
+    setDesktopExpandedMenuIds(
+      moduleId === active.moduleId
+        ? new Set([`${active.moduleId}:${active.menuId}`])
+        : new Set(),
+    )
+    onCollapsedChange?.(false)
+  }, [active.menuId, active.moduleId, clearFlyout, onCollapsedChange])
+
+  const handleModuleClick = useCallback((moduleId: string) => {
+    if (!collapsed) {
+      const nextModuleId = desktopExpandedModuleId === moduleId ? null : moduleId
+      setDesktopExpandedModuleId(nextModuleId)
+      setDesktopExpandedMenuIds(
+        nextModuleId === active.moduleId
+          ? new Set([`${active.moduleId}:${active.menuId}`])
+          : new Set(),
+      )
+      return
+    }
+    expandDesktopSidebar(moduleId)
+  }, [active.menuId, active.moduleId, collapsed, desktopExpandedModuleId, expandDesktopSidebar])
+
   const handleModuleMouseEnter = useCallback((moduleId: string, element: HTMLElement) => {
+    if (!collapsed) return
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current)
       hideTimeoutRef.current = null
@@ -49,15 +85,14 @@ export function GtgSidebar({
     setFlyoutPosition({ top: rect.top, height: rect.height })
     setFlyoutModuleId(moduleId)
     setFlyoutMenuId(null)
-  }, [])
+  }, [collapsed])
 
   const closeFlyout = useCallback(() => {
+    if (!collapsed) return
     hideTimeoutRef.current = setTimeout(() => {
-      setFlyoutModuleId(null)
-      setFlyoutMenuId(null)
-      setFlyoutPosition(null)
+      clearFlyout()
     }, 150)
-  }, [])
+  }, [clearFlyout, collapsed])
 
   const handleFlyoutEnter = useCallback(() => {
     if (hideTimeoutRef.current) {
@@ -73,6 +108,24 @@ export function GtgSidebar({
   useEffect(() => () => {
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
   }, [])
+
+  useEffect(() => {
+    if (collapsed) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (sidebarRef.current?.contains(target)) return
+
+      clearFlyout()
+      onCollapsedChange?.(true)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [clearFlyout, collapsed, onCollapsedChange])
 
   useLayoutEffect(() => {
     if (!flyoutModuleId || !flyoutPosition || !flyoutRef.current) {
@@ -122,6 +175,27 @@ export function GtgSidebar({
     onMobileClose?.()
   }, [onSelect, onMobileClose])
 
+  const handleDesktopLeafSelect = useCallback((next: ActiveNav) => {
+    clearFlyout()
+    setDesktopExpandedModuleId(next.moduleId)
+    setDesktopExpandedMenuIds(new Set([`${next.moduleId}:${next.menuId}`]))
+    onSelect(next)
+    onCollapsedChange?.(true)
+  }, [clearFlyout, onSelect, onCollapsedChange])
+
+  const toggleDesktopMenu = useCallback((moduleId: string, menuId: string) => {
+    const key = `${moduleId}:${menuId}`
+    setDesktopExpandedMenuIds((current) => {
+      const next = new Set(current)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
   const toggleMobileModule = useCallback((moduleId: string) => {
     setExpandedModuleId((current) => (current === moduleId ? null : moduleId))
     setExpandedMenuId(null)
@@ -159,6 +233,7 @@ export function GtgSidebar({
     <>
       {/* Desktop / Tablet icon rail (md and up) */}
       <aside
+        ref={sidebarRef}
         aria-label="Primary Navigation"
         className={cn(
           'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 sidebar-transition md:flex',
@@ -179,6 +254,7 @@ export function GtgSidebar({
             {filteredNav.map((module) => {
               const Icon = module.icon
               const isActive = active.moduleId === module.id
+              const isDesktopModuleOpen = !collapsed && desktopExpandedModuleId === module.id
 
               return (
                 <div
@@ -188,9 +264,12 @@ export function GtgSidebar({
                   <button
                     type="button"
                     onMouseEnter={(e) => handleModuleMouseEnter(module.id, e.currentTarget)}
-                    onClick={(e) => handleModuleClick(module.id, e.currentTarget)}
+                    onClick={() => handleModuleClick(module.id)}
+                    onDoubleClick={() => expandDesktopSidebar(module.id)}
                     onMouseLeave={closeFlyout}
                     aria-current={isActive ? 'page' : undefined}
+                    aria-label={collapsed ? `${module.label}. Click to expand sidebar.` : undefined}
+                    aria-expanded={!collapsed ? isDesktopModuleOpen : undefined}
                     className={cn(
                       'flex items-center cursor-pointer rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       collapsed
@@ -220,7 +299,111 @@ export function GtgSidebar({
                     {!collapsed && (
                       <span className="flex-1 truncate text-left">{module.label}</span>
                     )}
+                    {!collapsed && (
+                      <ChevronDown
+                        className={cn(
+                          'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                          isDesktopModuleOpen && 'rotate-180',
+                        )}
+                        aria-hidden="true"
+                      />
+                    )}
                   </button>
+
+                  {isDesktopModuleOpen && (
+                    <div className="ml-5 mt-1 flex flex-col gap-1 border-l border-sidebar-border pl-3">
+                      {module.menus.map((menu) => {
+                        const MenuIcon = menu.icon
+                        const isMenuActive = active.menuId === menu.id && active.moduleId === module.id
+                        const hasActiveSubmenu =
+                          active.moduleId === module.id &&
+                          active.menuId === menu.id &&
+                          menu.submenus.some((s) => s.id === active.submenuId)
+                        const menuIsLeaf = menu.submenus.length === 0
+                        const isDesktopMenuOpen = desktopExpandedMenuIds.has(`${module.id}:${menu.id}`)
+
+                        return (
+                          <div key={menu.id} className="flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (menuIsLeaf) {
+                                  handleDesktopLeafSelect({
+                                    moduleId: module.id,
+                                    menuId: menu.id,
+                                    submenuId: menu.id,
+                                  })
+                                } else {
+                                  toggleDesktopMenu(module.id, menu.id)
+                                }
+                              }}
+                              aria-current={menuIsLeaf && isMenuActive ? 'page' : undefined}
+                              aria-expanded={!menuIsLeaf ? isDesktopMenuOpen : undefined}
+                              className={cn(
+                                'flex min-h-9 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                'cursor-pointer',
+                                isMenuActive || hasActiveSubmenu
+                                  ? 'bg-primary/10 text-primary font-semibold'
+                                  : 'text-sidebar-foreground hover:bg-sidebar-hover',
+                              )}
+                            >
+                              <MenuIcon
+                                className={cn(
+                                  'size-4 shrink-0',
+                                  isMenuActive || hasActiveSubmenu ? 'text-primary' : 'text-muted-foreground',
+                                )}
+                                aria-hidden="true"
+                              />
+                              <span className="min-w-0 flex-1 truncate">{menu.label}</span>
+                              {!menuIsLeaf && (
+                                <ChevronRight
+                                  className={cn(
+                                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                                    isDesktopMenuOpen && 'rotate-90',
+                                  )}
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </button>
+
+                            {menu.submenus.length > 0 && isDesktopMenuOpen && (
+                              <div className="ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
+                                {menu.submenus.map((submenu) => {
+                                  const isSubmenuActive =
+                                    active.submenuId === submenu.id &&
+                                    active.menuId === menu.id &&
+                                    active.moduleId === module.id
+
+                                  return (
+                                    <button
+                                      key={submenu.id}
+                                      type="button"
+                                      onClick={() => {
+                                        handleDesktopLeafSelect({
+                                          moduleId: module.id,
+                                          menuId: menu.id,
+                                          submenuId: submenu.id,
+                                        })
+                                      }}
+                                      aria-current={isSubmenuActive ? 'page' : undefined}
+                                      className={cn(
+                                        'flex min-h-8 w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-left text-xs font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                        isSubmenuActive
+                                          ? 'bg-primary/15 text-primary font-semibold'
+                                          : 'text-muted-foreground hover:bg-sidebar-hover hover:text-sidebar-foreground',
+                                      )}
+                                    >
+                                      <span className="truncate">{submenu.label}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -246,14 +429,16 @@ export function GtgSidebar({
       >
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
           <GtgBrandMark />
-          <button
+          <IconButton
             type="button"
             onClick={onMobileClose}
             aria-label="Close navigation"
-            className="flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-ring"
+            variant="ghost"
+            size="lg"
+            className="text-sidebar-foreground hover:bg-sidebar-hover"
           >
             <X className="size-5" aria-hidden="true" />
-          </button>
+          </IconButton>
         </div>
 
         <nav className="g2g-page-scroll g2g-scrollbar flex-1 overflow-y-auto px-3 py-4">

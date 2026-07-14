@@ -4,6 +4,7 @@ import { use, useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
@@ -148,6 +149,7 @@ export function GtgAppShell({
   const breadcrumbItems = resolveBreadcrumb(active)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
@@ -157,8 +159,15 @@ export function GtgAppShell({
         role={user?.role || 'employee'}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
       />
-      <div className="flex h-screen w-full flex-col pl-0 md:pl-[72px]">
+      <div
+        className={cn(
+          'flex h-screen w-full flex-col pl-0 transition-[padding-left] duration-200',
+          sidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-[260px]',
+        )}
+      >
         <GtgHeader
           agentOpen={agentOpenState}
           onAgentOpenChange={setAgentOpen}
