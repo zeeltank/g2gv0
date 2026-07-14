@@ -44,11 +44,13 @@ function normalizeSession(value: unknown): Session | null {
 }
 
 function getInitialSession(): Session {
-  if (typeof window === 'undefined') {
-    return { user: null, isAuthenticated: false, isLoading: true }
-  }
-
-  return getStoredSession()
+  // IMPORTANT: Do NOT read localStorage here. This initializer runs during
+  // the first render on BOTH the server and the client. Reading localStorage
+  // on the client would make the client's first render differ from the
+  // server's (which has no localStorage), producing a hydration mismatch that
+  // forces React to discard the hydrated tree on every full page refresh.
+  // The real session is restored in a useEffect after mount (see below).
+  return { user: null, isAuthenticated: false, isLoading: true }
 }
 
 function getStoredSession(): Session {
@@ -77,6 +79,9 @@ function clearSessionCookie() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session>(getInitialSession)
 
+  // Restore the persisted session AFTER mount. This keeps the initial render
+  // identical on the server and the client (both start "loading"), which
+  // avoids a hydration mismatch and the blank-page-after-refresh problem.
   useEffect(() => {
     queueMicrotask(() => {
       setSession(getStoredSession())
