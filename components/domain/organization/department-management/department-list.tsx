@@ -263,7 +263,7 @@ export function DepartmentList({ role }: { role: Role }) {
   }
 
   return (
-    <div className="flex min-h-0 max-w-full flex-col gap-4 overflow-x-hidden text-foreground">
+    <div className="flex min-h-0 max-w-full flex-col gap-8 overflow-x-hidden text-foreground">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
