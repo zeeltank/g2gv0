@@ -45,7 +45,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { SelectInput, AccessDenied } from './components'
+import { SelectInput, AccessDenied } from '../components'
 import {
   DEPARTMENTS,
   buildHierarchy,
@@ -55,7 +55,7 @@ import {
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
 
 const LazyDepartmentDetailsPanel = lazy(() =>
-  import('@/domain/organization/department-details-panel').then((module) => ({
+  import('@/domain/organization/department-management/department-details-panel').then((module) => ({
     default: module.DepartmentDetailsPanel,
   })),
 )
@@ -128,7 +128,8 @@ export function DepartmentList({ role }: { role: Role }) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [page, setPage] = useState(1)
-  const [selectedId, setSelectedId] = useState<string>('d4')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [lastShown, setLastShown] = useState<Department | null>(null)
 
   const scopedDepts = useMemo(() => {
     if (access === 'scoped') {
@@ -201,8 +202,11 @@ export function DepartmentList({ role }: { role: Role }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
   const pageRows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
-  const selected = scopedDepts.find((d) => d.id === selectedId) ?? scopedDepts[0]
+  const selected = selectedId ? scopedDepts.find((d) => d.id === selectedId) ?? null : null
+  const isDetailsOpen = Boolean(selected)
   const canManage = access === 'full'
+
+  const detailDept = selected ?? lastShown
 
   if (access === 'none') {
     return <AccessDenied role={roleLabel(role)} />
@@ -217,8 +221,14 @@ export function DepartmentList({ role }: { role: Role }) {
     }
   }
 
+  function selectDepartment(id: string) {
+    setSelectedId(id)
+    const department = scopedDepts.find((item) => item.id === id)
+    if (department) setLastShown(department)
+  }
+
   return (
-    <div className="flex flex-col gap-4 text-foreground">
+    <div className="flex min-h-0 flex-col gap-4 text-foreground xl:h-[calc(100dvh-9.75rem)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -246,8 +256,16 @@ export function DepartmentList({ role }: { role: Role }) {
         </div>
       </div>
 
-      <div className="grid min-h-[680px] gap-3 xl:grid-cols-[310px_minmax(620px,1fr)_360px]">
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div
+        className={cn(
+          'grid flex-1 items-stretch gap-3 overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
+          'min-h-[680px] xl:min-h-0 xl:grid-rows-[minmax(0,1fr)]',
+          isDetailsOpen
+            ? 'xl:grid-cols-[300px_minmax(0,1fr)_340px] 2xl:grid-cols-[320px_minmax(0,1fr)_360px]'
+            : 'xl:grid-cols-[300px_minmax(0,1fr)_0px] 2xl:grid-cols-[320px_minmax(0,1fr)_0px]',
+        )}
+      >
+        <section className="flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           <PanelHeader title="Department Hierarchy" />
           <div className="border-b border-border px-4 pb-4">
             <SearchField
@@ -256,12 +274,12 @@ export function DepartmentList({ role }: { role: Role }) {
               placeholder="Search department..."
             />
           </div>
-          <div className="g2g-scrollbar flex-1 overflow-auto px-3 py-3">
+          <div className="g2g-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
             <HierarchyTree
               nodes={tree}
               selectedId={selected?.id}
               query={treeQuery}
-              onSelect={setSelectedId}
+              onSelect={selectDepartment}
             />
           </div>
           <div className="grid grid-cols-4 border-t border-border p-4">
@@ -272,9 +290,9 @@ export function DepartmentList({ role }: { role: Role }) {
           </div>
         </section>
 
-        <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <section className="@container/deptlist flex h-full min-h-0 min-w-0 flex-col self-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           <PanelHeader title={`Department List (${scopedDepts.length})`} />
-          <div className="flex flex-col gap-3 border-b border-border px-4 pb-4 lg:flex-row lg:items-center">
+          <div className="flex flex-col gap-3 border-b border-border px-4 pb-4 @2xl/deptlist:flex-row @2xl/deptlist:items-center">
             <SearchField
               value={query}
               onChange={(value) => {
@@ -282,47 +300,53 @@ export function DepartmentList({ role }: { role: Role }) {
                 setPage(1)
               }}
               placeholder="Search department..."
-              className="lg:max-w-[280px]"
+              className="@2xl/deptlist:w-[240px] @2xl/deptlist:shrink-0"
             />
-            <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-1">
-              <SelectInput
-                value={statusFilter}
-                onChange={(value) => {
-                  setStatusFilter(value)
-                  setPage(1)
-                }}
-                options={[
-                  { value: 'all', label: 'Status: All' },
-                  { value: 'Active', label: 'Active' },
-                  { value: 'Inactive', label: 'Inactive' },
-                  { value: 'Draft', label: 'Draft' },
-                ]}
-              />
-              <SelectInput
-                value={parentFilter}
-                onChange={(value) => {
-                  setParentFilter(value)
-                  setPage(1)
-                }}
-                options={[
-                  { value: 'all', label: 'Parent Department: All' },
-                  { value: 'Root', label: 'Root Departments' },
-                  ...parents.map((parent) => ({ value: parent, label: parent })),
-                ]}
-              />
+            <div className="flex flex-col gap-3 @xl/deptlist:flex-row @xl/deptlist:items-center @2xl/deptlist:flex-1">
+              <div className="grid grid-cols-2 gap-3 @xl/deptlist:flex @xl/deptlist:flex-1">
+                <SelectInput
+                  value={statusFilter}
+                  onChange={(value) => {
+                    setStatusFilter(value)
+                    setPage(1)
+                  }}
+                  className="h-10 @xl/deptlist:flex-1"
+                  options={[
+                    { value: 'all', label: 'Status: All' },
+                    { value: 'Active', label: 'Active' },
+                    { value: 'Inactive', label: 'Inactive' },
+                    { value: 'Draft', label: 'Draft' },
+                  ]}
+                />
+                <SelectInput
+                  value={parentFilter}
+                  onChange={(value) => {
+                    setParentFilter(value)
+                    setPage(1)
+                  }}
+                  className="h-10 @xl/deptlist:flex-1"
+                  options={[
+                    { value: 'all', label: 'Parent Department: All' },
+                    { value: 'Root', label: 'Root Departments' },
+                    ...parents.map((parent) => ({ value: parent, label: parent })),
+                  ]}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" className="h-10 flex-1 @xl/deptlist:flex-none">
+                  <Filter className="size-4" aria-hidden="true" />
+                  Filters
+                </Button>
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
+                  <RefreshCw className="size-4" aria-hidden="true" />
+                  <span className="sr-only">Refresh</span>
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" className="h-10">
-              <Filter className="size-4" aria-hidden="true" />
-              Filters
-            </Button>
-            <Button variant="outline" size="icon" className="h-10 w-10">
-              <RefreshCw className="size-4" aria-hidden="true" />
-              <span className="sr-only">Refresh</span>
-            </Button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table>
+          <div className="g2g-scrollbar flex min-h-0 flex-1 flex-col overflow-auto [&>div]:h-full [&>div]:min-h-full [&>div]:w-full">
+            <Table className="h-full min-w-[940px]">
               <TableHeader className="sticky top-0 z-10 bg-surface-muted">
                 <TableRow className="hover:bg-surface-muted">
                   <SortHead label="Department Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
@@ -341,7 +365,7 @@ export function DepartmentList({ role }: { role: Role }) {
                   return (
                     <TableRow
                       key={department.id}
-                      onClick={() => setSelectedId(department.id)}
+                      onClick={() => selectDepartment(department.id)}
                       className={cn(
                         'cursor-pointer',
                         isSelected && 'bg-primary/10 hover:bg-primary/10',
@@ -350,22 +374,22 @@ export function DepartmentList({ role }: { role: Role }) {
                       <TableCell className="min-w-[170px] font-medium text-foreground">
                         {department.name}
                       </TableCell>
-                      <TableCell className="font-medium text-foreground">
+                      <TableCell className="min-w-[110px] font-medium text-foreground">
                         {departmentCode(department)}
                       </TableCell>
-                      <TableCell className="min-w-[155px] text-muted-foreground">
+                      <TableCell className="min-w-[150px] text-muted-foreground">
                         {department.parent ?? '-'}
                       </TableCell>
                       <TableCell className="min-w-[190px]">
                         <Person name={department.hod} />
                       </TableCell>
-                      <TableCell className="text-center font-medium text-foreground">
+                      <TableCell className="min-w-[90px] text-center font-medium text-foreground">
                         {department.employees}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[110px]">
                         <StatusBadge status={department.status} size="sm" />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[150px]">
                         <div className="flex items-center justify-center gap-1">
                           <IconAction label="View details" icon={<Eye className="size-4" />} />
                           {canManage && (
@@ -423,19 +447,33 @@ export function DepartmentList({ role }: { role: Role }) {
           </div>
         </section>
 
-        {selected && (
-          <Suspense
-            fallback={
-              <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-                <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-                  Loading department details...
-                </div>
-              </aside>
-            }
-          >
-            <LazyDepartmentDetailsPanel department={selected} canManage={canManage} />
-          </Suspense>
-        )}
+        <div
+          className={cn(
+            'h-full min-h-0 min-w-0 self-stretch overflow-hidden transition-opacity duration-300 ease-in-out',
+            isDetailsOpen
+              ? 'opacity-100'
+              : 'pointer-events-none opacity-0 max-xl:hidden',
+          )}
+          aria-hidden={!isDetailsOpen}
+        >
+          {detailDept && (
+            <Suspense
+              fallback={
+                <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+                  <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                    Loading department details...
+                  </div>
+                </aside>
+              }
+            >
+              <LazyDepartmentDetailsPanel
+                department={detailDept}
+                canManage={canManage}
+                onClose={() => setSelectedId(null)}
+              />
+            </Suspense>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -664,13 +702,16 @@ function RowMenu() {
   )
 }
 
-function IconAction({ label, icon }: { label: string; icon: ReactNode }) {
+function IconAction({ label, icon, className }: { label: string; icon: ReactNode; className?: string }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      className="flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        'flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        className,
+      )}
     >
       {icon}
     </button>

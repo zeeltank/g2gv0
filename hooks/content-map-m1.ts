@@ -1,8 +1,8 @@
 import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 
 const OrganizationInformation = createLazyComponent(() => import('@/domain/organization/organization-information').then((m) => ({ default: m.OrganizationInformation })))
-const DepartmentList = createLazyComponent(() => import('@/domain/organization/department-list').then((m) => ({ default: m.DepartmentList })))
-const DepartmentHierarchy = createLazyComponent(() => import('@/domain/organization/department-hierarchy').then((m) => ({ default: m.DepartmentHierarchy })))
+const DepartmentList = createLazyComponent(() => import('@/domain/organization/department-management/department-list').then((m) => ({ default: m.DepartmentList })))
+const DepartmentHierarchy = createLazyComponent(() => import('@/domain/organization/department-management/department-hierarchy').then((m) => ({ default: m.DepartmentHierarchy })))
 const EmployeeDirectory = createLazyComponent(() => import('@/domain/organization/employee-directory').then((m) => ({ default: m.EmployeeDirectory })))
 const RolePermissions = createLazyComponent(() => import('@/domain/organization/role-permissions').then((m) => ({ default: m.RolePermissions })))
 const ComplianceLibraryManagement = createLazyComponent(() => import('@/domain/hrms/compliance-discipline/compliance-library-management').then((m) => ({ default: m.ComplianceLibraryManagement })))

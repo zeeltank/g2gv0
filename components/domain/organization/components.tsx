@@ -44,6 +44,7 @@ export function SelectInput({
   onChange,
   options,
   disabled,
+  className,
 }: {
   id?: string
   defaultValue?: string
@@ -51,6 +52,7 @@ export function SelectInput({
   onChange?: (value: string) => void
   options: { value: string; label: string }[]
   disabled?: boolean
+  className?: string
 }) {
   return (
     <Select
@@ -60,6 +62,7 @@ export function SelectInput({
       onChange={onChange}
       options={options}
       disabled={disabled}
+      className={className}
     />
   )
 }

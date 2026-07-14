@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
-import { SectionCard, AccessDenied } from './components'
+import { SectionCard, AccessDenied } from '../components'
 import { DEPARTMENTS, buildHierarchy, type DeptNode } from '@/lib/gtg-org-data'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
 
