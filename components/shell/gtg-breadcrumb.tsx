@@ -15,7 +15,7 @@ export function GtgBreadcrumb({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex h-11 shrink-0 items-center border-b border-border bg-card px-6"
+      className="flex h-12 shrink-0 items-center bg-card px-6"
     >
       <Breadcrumb>
         {items.map((item, index) => (
