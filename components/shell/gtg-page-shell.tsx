@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeaderBase } from '@/components/shell/gtg-header-base'
-import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
+import { BreadcrumbItemsProvider } from '@/components/shell/gtg-breadcrumb'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
 import type { BreadcrumbItem } from '@/lib/gtg-navigation'
 
@@ -44,16 +44,17 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
       />
       <div className="flex h-screen w-full flex-col pl-0 md:pl-[72px]">
         <GtgHeaderBase onMenuClick={() => setMobileNavOpen(true)} />
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">
-            <GtgBreadcrumb items={items} />
-            <main className="g2g-page-scroll g2g-scrollbar flex-1 overflow-auto bg-background">
-              <div className="min-h-full w-full p-6">
-                {children}
-              </div>
-            </main>
+        <BreadcrumbItemsProvider items={items}>
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">
+              <main className="g2g-page-scroll g2g-scrollbar flex-1 overflow-auto bg-background">
+                <div className="min-h-full w-full p-6">
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
-        </div>
+        </BreadcrumbItemsProvider>
       </div>
     </div>
   )
