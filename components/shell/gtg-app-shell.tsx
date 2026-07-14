@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useCallback, useMemo, Suspense } from 'react'
+import { Component, useState, useEffect, useCallback, Suspense, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
@@ -11,8 +11,7 @@ import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
-import { loadContentRoute, COMING_SOON_CONTENT } from '@/hooks/use-content-map'
-import type { ReactNode } from 'react'
+import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 
 const DEFAULT_ACTIVE: ActiveNav = {
   moduleId: 'm1',
@@ -61,37 +60,74 @@ function ContentSkeleton() {
   )
 }
 
-function ContentRenderer({ active }: { active: ActiveNav }) {
-  const routePromise = useMemo(
-    () => loadContentRoute(active),
-    [active],
-  )
+class ContentErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null }
 
-  const route = use(routePromise)
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
+          <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
+          <p className="mt-2 max-w-md text-pretty text-sm leading-relaxed text-muted-foreground">
+            {this.state.error.message || 'This content failed to load.'}
+          </p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+function ComingSoonFallback({ active }: { active: ActiveNav }) {
+  const comingSoon = COMING_SOON_CONTENT[active.submenuId || active.menuId || '']
+  if (comingSoon) {
+    return <ComingSoonScreen title={comingSoon.title} description={comingSoon.description} />
+  }
 
   return (
-    <Suspense fallback={<ContentSkeleton />}>
-      {route ? (
-        (() => {
-          const ContentComponent = route.component
-          return <ContentComponent />
-        })()
-      ) : (
-        (() => {
-          const comingSoon = COMING_SOON_CONTENT[active.submenuId || active.menuId || '']
-          if (comingSoon) {
-            return <ComingSoonScreen title={comingSoon.title} description={comingSoon.description} />
-          }
+    <ComingSoonScreen
+      title="Application Shell Ready"
+      description="This is the GapstoGrowth master application layout. Select a module in the sidebar to get started."
+    />
+  )
+}
 
-          return (
-            <ComingSoonScreen
-              title="Application Shell Ready"
-              description="This is the GapstoGrowth master application layout. Select a module in the sidebar to get started."
-            />
-          )
-        })()
-      )}
-    </Suspense>
+function ContentRenderer({ active }: { active: ActiveNav }) {
+  const [route, setRoute] = useState<ContentRoute | undefined | null>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    loadContentRoute(active)
+      .then((resolved) => {
+        if (!cancelled) setRoute(resolved ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setRoute(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [active])
+
+  if (route === undefined) {
+    return <ContentSkeleton />
+  }
+
+  const ContentComponent = route?.component
+
+  return (
+    <ContentErrorBoundary>
+      <Suspense fallback={<ContentSkeleton />}>
+        {ContentComponent ? <ContentComponent /> : <ComingSoonFallback active={active} />}
+      </Suspense>
+    </ContentErrorBoundary>
   )
 }
 

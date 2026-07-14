@@ -26,11 +26,6 @@ export function GtgPageHeader({
         <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
           {description}
         </p>
-        {breadcrumb?.length ? (
-          <div className="mt-5">
-            <GtgBreadcrumb items={breadcrumb} />
-          </div>
-        ) : null}
       </div>
       {/* {actions && (
         <div className="flex shrink-0 items-center gap-3">
