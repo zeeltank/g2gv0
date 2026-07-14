@@ -31,7 +31,7 @@ export function GtgBreadcrumb({
   if (!items.length) return null
 
   return (
-    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
       <Breadcrumb>
         {items.map((item, index) => {
           const isLast = index === items.length - 1
@@ -47,7 +47,7 @@ export function GtgBreadcrumb({
                   <span
                     className={cn(
                       'truncate max-w-[220px]',
-                      isLast ? 'font-semibold text-[#0F172A]' : 'text-[#64748B]',
+                      isLast ? 'font-medium text-[#374151]' : 'text-[#6B7280]',
                     )}
                   >
                     {item.label}
