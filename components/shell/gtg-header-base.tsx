@@ -146,7 +146,7 @@ function UserProfileMenu() {
                   onClick={() => handleItemClick(item.id)}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:bg-secondary"
                 >
-                  <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
                   {item.label}
                 </button>
               )
@@ -176,7 +176,7 @@ export function GtgHeaderBase({
 } = {}) {
   return (
     <header
-      className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-4 shadow-sm md:px-6"
+      className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-card px-4 shadow-sm md:px-6"
       role="banner"
     >
       <button

@@ -199,7 +199,7 @@ export function GtgHeader({
 
   return (
     <header
-      className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-4 shadow-sm md:px-6"
+      className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-card px-4 shadow-sm md:px-6"
       role="banner"
     >
       <button
@@ -221,7 +221,7 @@ export function GtgHeader({
           aria-label="Global search"
           placeholder="Search…"
           className={cn(
-            'h-10 w-full rounded-md border border-input bg-surface-muted pl-9 pr-3 text-[15px] text-foreground transition-colors duration-200 outline-none',
+            'h-7 w-full rounded-md border border-input bg-surface-muted pl-9 pr-3 text-[15px] text-foreground transition-colors duration-200 outline-none',
             'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
           )}
         />

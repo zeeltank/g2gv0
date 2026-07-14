@@ -242,15 +242,15 @@ export function GtgSidebar({
       >
         <div
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-sidebar-border px-4',
+            'flex h-12 shrink-0 items-center border-sidebar-border px-4',
             collapsed && 'justify-center px-0',
           )}
         >
           <GtgBrandMark collapsed={collapsed} />
         </div>
 
-        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 py-4" : "px-3 py-4")}>
-          <div className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
+        <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 pt-2 pb-4" : "px-3 py-3")}>
+          <div className={cn("flex flex-col", collapsed ? "items-center gap-1.5" : "gap-1")}>
             {filteredNav.map((module) => {
               const Icon = module.icon
               const isActive = active.moduleId === module.id
@@ -274,15 +274,15 @@ export function GtgSidebar({
                       'flex items-center cursor-pointer rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       collapsed
                         ? cn(
-                            'size-12 justify-center',
+                            'size-10 justify-center',
                             isActive
-                              ? 'text-sidebar-active-foreground bg-sidebar-active rounded-xl'
+                              ? 'text-sidebar-active-foreground bg-sidebar-active rounded-xl shadow-sidebar-active'
                               : 'text-sidebar-foreground hover:bg-sidebar-hover',
                           )
                         : cn(
                             'h-10 w-full gap-3 px-2',
                             isActive
-                              ? 'text-sidebar-active-foreground bg-sidebar-active'
+                              ? 'text-sidebar-active-foreground bg-sidebar-active rounded-md shadow-sidebar-active'
                               : 'text-sidebar-foreground hover:bg-sidebar-hover',
                           ),
                     )}
@@ -292,7 +292,7 @@ export function GtgSidebar({
                       isActive
                         ? "bg-primary/10 text-primary"
                         : "bg-muted text-muted-foreground",
-                      collapsed ? "size-6" : "size-6",
+                      collapsed ? "size-7" : "size-7",
                     )}>
                       <Icon className={cn("shrink-0 transition-transform duration-200", collapsed ? "size-5" : "size-5")} />
                     </span>
@@ -427,7 +427,7 @@ export function GtgSidebar({
         )}
         aria-hidden={!mobileOpen}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
+         <div className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
           <GtgBrandMark />
           <IconButton
             type="button"
@@ -462,7 +462,7 @@ export function GtgSidebar({
                     )}
                   >
                     <span className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-md transition-all duration-200",
+                      "flex size-6 shrink-0 items-center justify-center rounded-md transition-all duration-200",
                       isModuleActive
                         ? "bg-primary/10 text-primary"
                         : "bg-muted text-muted-foreground",
