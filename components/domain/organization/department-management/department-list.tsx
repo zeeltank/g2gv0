@@ -119,6 +119,23 @@ function descendantCount(node: DeptNode): number {
   return node.children.reduce((total, child) => total + 1 + descendantCount(child), 0)
 }
 
+function collectDescendantIds(node: DeptNode): string[] {
+  const ids = [node.id]
+  for (const child of node.children) {
+    ids.push(...collectDescendantIds(child))
+  }
+  return ids
+}
+
+function findNodeById(nodes: DeptNode[], id: string): DeptNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    const found = findNodeById(node.children, id)
+    if (found) return found
+  }
+  return undefined
+}
+
 export function DepartmentList({ role }: { role: Role }) {
   const access = getAccess('department-list', role)
   const [query, setQuery] = useState('')
@@ -130,6 +147,7 @@ export function DepartmentList({ role }: { role: Role }) {
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [lastShown, setLastShown] = useState<Department | null>(null)
+  const [hierarchyFilter, setHierarchyFilter] = useState<string | null>(null)
 
   const scopedDepts = useMemo(() => {
     if (access === 'scoped') {
@@ -146,6 +164,13 @@ export function DepartmentList({ role }: { role: Role }) {
     [scopedDepts],
   )
 
+  const selectedHierarchyIds = useMemo(() => {
+    if (!hierarchyFilter) return null
+    const node = findNodeById(tree, hierarchyFilter)
+    if (!node) return null
+    return new Set(collectDescendantIds(node))
+  }, [hierarchyFilter, tree])
+
   const filtered = useMemo(() => {
     const rows = scopedDepts.filter((d) => {
       const q = query.trim().toLowerCase()
@@ -157,8 +182,9 @@ export function DepartmentList({ role }: { role: Role }) {
         (d.hod ?? '').toLowerCase().includes(q)
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter
       const matchesParent = parentFilter === 'all' || (d.parent ?? 'Root') === parentFilter
+      const matchesHierarchy = !selectedHierarchyIds || selectedHierarchyIds.has(d.id)
 
-      return matchesQuery && matchesStatus && matchesParent
+      return matchesQuery && matchesStatus && matchesParent && matchesHierarchy
     })
 
     rows.sort((a, b) => {
@@ -197,7 +223,7 @@ export function DepartmentList({ role }: { role: Role }) {
     })
 
     return rows
-  }, [scopedDepts, query, statusFilter, parentFilter, sortKey, sortAsc])
+  }, [scopedDepts, query, statusFilter, parentFilter, selectedHierarchyIds, sortKey, sortAsc])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
@@ -227,8 +253,17 @@ export function DepartmentList({ role }: { role: Role }) {
     if (department) setLastShown(department)
   }
 
+  function selectFromHierarchy(id: string) {
+    selectDepartment(id)
+    setHierarchyFilter(id)
+  }
+
+  function clearHierarchyFilter() {
+    setHierarchyFilter(null)
+  }
+
   return (
-    <div className="flex min-h-0 flex-col gap-4 text-foreground xl:h-[calc(100dvh-9.75rem)]">
+    <div className="flex min-h-0 max-w-full flex-col gap-4 overflow-x-hidden text-foreground">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -258,8 +293,8 @@ export function DepartmentList({ role }: { role: Role }) {
 
       <div
         className={cn(
-          'grid flex-1 items-stretch gap-3 overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
-          'min-h-[680px] xl:min-h-0 xl:grid-rows-[minmax(0,1fr)]',
+          'grid grid-cols-1 auto-rows-[720px] items-stretch gap-3 overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
+          'xl:h-[720px] xl:auto-rows-auto xl:grid-rows-[720px]',
           isDetailsOpen
             ? 'xl:grid-cols-[300px_minmax(0,1fr)_340px] 2xl:grid-cols-[320px_minmax(0,1fr)_360px]'
             : 'xl:grid-cols-[300px_minmax(0,1fr)_0px] 2xl:grid-cols-[320px_minmax(0,1fr)_0px]',
@@ -279,7 +314,7 @@ export function DepartmentList({ role }: { role: Role }) {
               nodes={tree}
               selectedId={selected?.id}
               query={treeQuery}
-              onSelect={selectDepartment}
+              onSelect={selectFromHierarchy}
             />
           </div>
           <div className="grid grid-cols-4 border-t border-border p-4">
@@ -291,8 +326,26 @@ export function DepartmentList({ role }: { role: Role }) {
         </section>
 
         <section className="@container/deptlist flex h-full min-h-0 min-w-0 flex-col self-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-          <PanelHeader title={`Department List (${scopedDepts.length})`} />
-          <div className="flex flex-col gap-3 border-b border-border px-4 pb-4 @2xl/deptlist:flex-row @2xl/deptlist:items-center">
+          <PanelHeader
+            title={
+              hierarchyFilter
+                ? `Department List (${filtered.length})`
+                : `Department List (${scopedDepts.length})`
+            }
+            action={
+              hierarchyFilter ? (
+                <button
+                  type="button"
+                  onClick={clearHierarchyFilter}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                >
+                  <X className="size-3" aria-hidden="true" />
+                  Clear filter
+                </button>
+              ) : null
+            }
+          />
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-2 border-b border-border px-4 pb-4 @5xl/deptlist:grid-cols-[minmax(150px,240px)_minmax(120px,1fr)_minmax(150px,1.15fr)_auto_auto] @5xl/deptlist:items-center">
             <SearchField
               value={query}
               onChange={(value) => {
@@ -300,65 +353,70 @@ export function DepartmentList({ role }: { role: Role }) {
                 setPage(1)
               }}
               placeholder="Search department..."
-              className="@2xl/deptlist:w-[240px] @2xl/deptlist:shrink-0"
+              className="col-span-4 min-w-0 @5xl/deptlist:col-span-1"
             />
-            <div className="flex flex-col gap-3 @xl/deptlist:flex-row @xl/deptlist:items-center @2xl/deptlist:flex-1">
-              <div className="grid grid-cols-2 gap-3 @xl/deptlist:flex @xl/deptlist:flex-1">
-                <SelectInput
-                  value={statusFilter}
-                  onChange={(value) => {
-                    setStatusFilter(value)
-                    setPage(1)
-                  }}
-                  className="h-10 @xl/deptlist:flex-1"
-                  options={[
-                    { value: 'all', label: 'Status: All' },
-                    { value: 'Active', label: 'Active' },
-                    { value: 'Inactive', label: 'Inactive' },
-                    { value: 'Draft', label: 'Draft' },
-                  ]}
-                />
-                <SelectInput
-                  value={parentFilter}
-                  onChange={(value) => {
-                    setParentFilter(value)
-                    setPage(1)
-                  }}
-                  className="h-10 @xl/deptlist:flex-1"
-                  options={[
-                    { value: 'all', label: 'Parent Department: All' },
-                    { value: 'Root', label: 'Root Departments' },
-                    ...parents.map((parent) => ({ value: parent, label: parent })),
-                  ]}
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" className="h-10 flex-1 @xl/deptlist:flex-none">
-                  <Filter className="size-4" aria-hidden="true" />
-                  Filters
-                </Button>
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
-                  <RefreshCw className="size-4" aria-hidden="true" />
-                  <span className="sr-only">Refresh</span>
-                </Button>
-              </div>
-            </div>
+            <SelectInput
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value)
+                setPage(1)
+              }}
+              className="h-10 min-w-0"
+              options={[
+                { value: 'all', label: 'Status: All' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Inactive', label: 'Inactive' },
+                { value: 'Draft', label: 'Draft' },
+              ]}
+            />
+            <SelectInput
+              value={parentFilter}
+              onChange={(value) => {
+                setParentFilter(value)
+                setPage(1)
+              }}
+              className="h-10 min-w-0"
+              options={[
+                { value: 'all', label: 'Parent Department: All' },
+                { value: 'Root', label: 'Root Departments' },
+                ...parents.map((parent) => ({ value: parent, label: parent })),
+              ]}
+            />
+            <Button
+              variant="outline"
+              aria-label="Filters"
+              className="h-10 w-10 shrink-0 px-0 @md/deptlist:w-auto @md/deptlist:px-3"
+            >
+              <Filter className="size-4" aria-hidden="true" />
+              <span className="hidden @md/deptlist:inline">Filters</span>
+            </Button>
+            <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
+              <RefreshCw className="size-4" aria-hidden="true" />
+              <span className="sr-only">Refresh</span>
+            </Button>
           </div>
 
-          <div className="g2g-scrollbar flex min-h-0 flex-1 flex-col overflow-auto [&>div]:h-full [&>div]:min-h-full [&>div]:w-full">
-            <Table className="h-full min-w-[940px]">
+          <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden [&>div]:w-full">
+            <Table className="w-full table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-surface-muted">
                 <TableRow className="hover:bg-surface-muted">
-                  <SortHead label="Department Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
-                  <SortHead label="Department Code" sortKey="code" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
-                  <SortHead label="Parent Department" sortKey="parent" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
-                  <SortHead label="Department Head" sortKey="hod" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
-                  <SortHead label="Employees" sortKey="employees" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="text-center" />
-                  <SortHead label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} />
-                  <TableHead className="text-center normal-case">Actions</TableHead>
+                  <SortHead label="Department" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="w-[42%] px-2 @md/deptlist:w-[30%] @md/deptlist:px-4" />
+                  <SortHead label="Code" sortKey="code" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="hidden w-[12%] px-2 @md/deptlist:table-cell @md/deptlist:px-4" />
+                  <SortHead label="Parent" sortKey="parent" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="hidden w-[18%] px-2 @3xl/deptlist:table-cell @md/deptlist:px-4" />
+                  <SortHead label="Head" sortKey="hod" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="w-[34%] px-2 @md/deptlist:w-[28%] @md/deptlist:px-4 @3xl/deptlist:w-[20%]" />
+                  <SortHead label="Employees" sortKey="employees" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="hidden w-[10%] px-2 text-center @xl/deptlist:table-cell @md/deptlist:px-4" />
+                  <SortHead label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={toggleSort} className="hidden w-[12%] px-2 @lg/deptlist:table-cell @md/deptlist:px-4" />
+                  <TableHead className="w-[24%] px-2 text-center normal-case @md/deptlist:w-[12%] @md/deptlist:px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {pageRows.length === 0 && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="h-24 px-4 text-center text-sm text-muted-foreground">
+                      No departments match the current search or filters.
+                    </TableCell>
+                  </TableRow>
+                )}
                 {pageRows.map((department) => {
                   const isSelected = department.id === selected?.id
 
@@ -371,31 +429,36 @@ export function DepartmentList({ role }: { role: Role }) {
                         isSelected && 'bg-primary/10 hover:bg-primary/10',
                       )}
                     >
-                      <TableCell className="min-w-[170px] font-medium text-foreground">
-                        {department.name}
+                      <TableCell className="px-2 font-medium text-foreground @md/deptlist:px-4">
+                        <div className="min-w-0">
+                          <p className="truncate">{department.name}</p>
+                          <p className="truncate text-xs font-normal text-muted-foreground @md/deptlist:hidden">
+                            {departmentCode(department)}
+                          </p>
+                        </div>
                       </TableCell>
-                      <TableCell className="min-w-[110px] font-medium text-foreground">
+                      <TableCell className="hidden px-2 font-medium text-foreground @md/deptlist:table-cell @md/deptlist:px-4">
                         {departmentCode(department)}
                       </TableCell>
-                      <TableCell className="min-w-[150px] text-muted-foreground">
+                      <TableCell className="hidden px-2 text-muted-foreground @3xl/deptlist:table-cell @md/deptlist:px-4">
                         {department.parent ?? '-'}
                       </TableCell>
-                      <TableCell className="min-w-[190px]">
+                      <TableCell className="px-2 @md/deptlist:px-4">
                         <Person name={department.hod} />
                       </TableCell>
-                      <TableCell className="min-w-[90px] text-center font-medium text-foreground">
+                      <TableCell className="hidden px-2 text-center font-medium text-foreground @xl/deptlist:table-cell @md/deptlist:px-4">
                         {department.employees}
                       </TableCell>
-                      <TableCell className="min-w-[110px]">
+                      <TableCell className="hidden px-2 @lg/deptlist:table-cell @md/deptlist:px-4">
                         <StatusBadge status={department.status} size="sm" />
                       </TableCell>
-                      <TableCell className="min-w-[150px]">
+                      <TableCell className="px-2 @md/deptlist:px-4">
                         <div className="flex items-center justify-center gap-1">
-                          <IconAction label="View details" icon={<Eye className="size-4" />} />
+                          <IconAction label="View details" icon={<Eye className="size-4" />} className={cn(canManage && 'hidden @md/deptlist:flex')} />
                           {canManage && (
                             <>
-                              <IconAction label="Edit department" icon={<Pencil className="size-4" />} />
-                              <IconAction label="Assign HOD" icon={<UserPlus className="size-4" />} />
+                              <IconAction label="Edit department" icon={<Pencil className="size-4" />} className="hidden @lg/deptlist:flex" />
+                              <IconAction label="Assign HOD" icon={<UserPlus className="size-4" />} className="hidden @3xl/deptlist:flex" />
                               <RowMenu />
                             </>
                           )}
@@ -479,10 +542,11 @@ export function DepartmentList({ role }: { role: Role }) {
   )
 }
 
-function PanelHeader({ title }: { title: string }) {
+function PanelHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between px-4 py-4">
       <h2 className="text-base font-semibold text-foreground">{title}</h2>
+      {action}
     </div>
   )
 }
@@ -652,7 +716,7 @@ function SortHead({
 
 function Person({ name }: { name?: string | null }) {
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex min-w-0 items-center gap-2.5">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
         {initials(name)}
       </div>
