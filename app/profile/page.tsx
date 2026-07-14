@@ -5,6 +5,7 @@ import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
+import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 
 const LazyProfileDashboard = lazy(() =>
   import('@/components/profile/profile-dashboard').then((module) => ({ default: module.ProfileDashboard })),
@@ -28,6 +29,7 @@ export default function ProfilePage() {
         ]}
       >
         <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
+          <GtgBreadcrumbFromContext />
           <LazyProfileDashboard user={user} />
         </Suspense>
       </GtgPageShell>

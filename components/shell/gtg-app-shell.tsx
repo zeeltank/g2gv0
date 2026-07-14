@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
-import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
+import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { loadContentRoute, COMING_SOON_CONTENT } from '@/hooks/use-content-map'
 import type { ReactNode } from 'react'
@@ -173,22 +173,28 @@ export function GtgAppShell({
           onAgentOpenChange={setAgentOpen}
           onMenuClick={() => setMobileNavOpen(true)}
         />
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-            <GtgBreadcrumb items={breadcrumbItems} />
-            <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
-              <div className="w-full min-h-full p-6">
-                {children ?? <ContentRenderer active={active} />}
-              </div>
-            </main>
-          </div>
-          <aside aria-label="AI Agent Panel" className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
-            style={{ width: agentOpenState ? 'var(--agent-panel-width)' : '0px', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}>
-            <div className="h-full">
-              {agentOpenState && <AgentPanel onClose={() => setAgentOpen(false)} />}
+        <BreadcrumbItemsProvider items={breadcrumbItems}>
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+              <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
+                <div className="w-full min-h-full p-6">
+                  {children ?? (
+                    <>
+                      <GtgBreadcrumbFromContext />
+                      <ContentRenderer active={active} />
+                    </>
+                  )}
+                </div>
+              </main>
             </div>
-          </aside>
-        </div>
+            <aside aria-label="AI Agent Panel" className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
+              style={{ width: agentOpenState ? 'var(--agent-panel-width)' : '0px', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}>
+              <div className="h-full">
+                {agentOpenState && <AgentPanel onClose={() => setAgentOpen(false)} />}
+              </div>
+            </aside>
+          </div>
+        </BreadcrumbItemsProvider>
         <FloatingToolbar isAgentOpen={agentOpenState} />
       </div>
     </div>

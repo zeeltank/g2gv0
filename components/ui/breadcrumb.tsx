@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface BreadcrumbProps extends React.HTMLAttributes<HTMLElement> {}
@@ -41,10 +40,8 @@ const BreadcrumbLink = React.forwardRef<
   <a
     ref={ref}
     className={cn(
-      'text-sm transition-colors hover:text-foreground truncate max-w-[200px]',
-      isActive
-        ? 'text-foreground font-medium'
-        : 'text-muted-foreground',
+      'truncate max-w-[220px] transition-colors hover:text-[#0F172A]',
+      isActive ? 'font-semibold text-[#0F172A]' : 'text-[#64748B]',
       className,
     )}
     {...props}
@@ -59,10 +56,10 @@ const BreadcrumbSeparator = ({
   <span
     role="presentation"
     aria-hidden="true"
-    className={cn('text-muted-foreground shrink-0', className)}
+    className={cn('shrink-0 select-none text-[#CBD5E1]', className)}
     {...props}
   >
-    <ChevronRight className="size-4" />
+    {'>'}
   </span>
 )
 BreadcrumbSeparator.displayName = 'BreadcrumbSeparator'

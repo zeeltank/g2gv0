@@ -7,41 +7,63 @@ export interface BreadcrumbItem {
   href?: string
 }
 
+const BreadcrumbItemsContext = React.createContext<BreadcrumbItem[] | undefined>(undefined)
+
+export function BreadcrumbItemsProvider({
+  items,
+  children,
+}: {
+  items: BreadcrumbItem[]
+  children: React.ReactNode
+}) {
+  return <BreadcrumbItemsContext.Provider value={items}>{children}</BreadcrumbItemsContext.Provider>
+}
+
+export function useBreadcrumbItems(): BreadcrumbItem[] | undefined {
+  return React.useContext(BreadcrumbItemsContext)
+}
+
 export function GtgBreadcrumb({
   items,
 }: {
   items: BreadcrumbItem[]
 }) {
+  if (!items.length) return null
+
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex h-12 shrink-0 items-center bg-card px-6"
-    >
+    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
       <Breadcrumb>
-        {items.map((item, index) => (
-          <React.Fragment key={index}>
-            {index > 0 && <BreadcrumbSeparator />}
-            <BreadcrumbItem>
-              {item.href ? (
-                <BreadcrumbLink href={item.href} isActive={index === items.length - 1}>
-                  {item.label}
-                </BreadcrumbLink>
-              ) : (
-                <span
-                  className={cn(
-                    'truncate text-sm max-w-[200px]',
-                    index === items.length - 1
-                      ? 'font-medium text-foreground'
-                      : 'text-muted-foreground',
-                  )}
-                >
-                  {item.label}
-                </span>
-              )}
-            </BreadcrumbItem>
-          </React.Fragment>
-        ))}
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1
+          return (
+            <React.Fragment key={index}>
+              {index > 0 && <BreadcrumbSeparator />}
+              <BreadcrumbItem>
+                {item.href && !isLast ? (
+                  <BreadcrumbLink href={item.href} isActive={isLast}>
+                    {item.label}
+                  </BreadcrumbLink>
+                ) : (
+                  <span
+                    className={cn(
+                      'truncate max-w-[220px]',
+                      isLast ? 'font-semibold text-[#0F172A]' : 'text-[#64748B]',
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </BreadcrumbItem>
+            </React.Fragment>
+          )
+        })}
       </Breadcrumb>
     </nav>
   )
+}
+
+export function GtgBreadcrumbFromContext() {
+  const items = useBreadcrumbItems()
+  if (!items?.length) return null
+  return <GtgBreadcrumb items={items} />
 }
