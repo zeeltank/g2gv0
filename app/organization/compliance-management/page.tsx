@@ -1,15 +1,19 @@
 'use client'
 
+import { lazy, Suspense } from 'react'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
-import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { ComplianceLibraryManagement } from '@/components/compliance-discipline/compliance-library-management'
+import { GtgPageShell } from '@/components/shell/gtg-page-shell'
+
+const ComplianceLibraryManagement = lazy(() =>
+  import('@/domain/hrms/compliance-discipline/compliance-library-management').then((m) => ({
+    default: m.ComplianceLibraryManagement,
+  })),
+)
 
 export default function ComplianceManagementPage() {
   const { user, isLoading } = useAuth()
-
-  if (isLoading) return null
 
   if (!user || !['employee', 'manager', 'hr'].includes(user.role)) {
     return (
@@ -19,9 +23,11 @@ export default function ComplianceManagementPage() {
 
   return (
     <ProtectedLayout>
-      <GtgAppShell>
-        <ComplianceLibraryManagement />
-      </GtgAppShell>
+      <GtgPageShell initialActive={{ moduleId: 'm1', menuId: 'compliance-discipline', submenuId: 'compliance-management' }}>
+        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
+          <ComplianceLibraryManagement />
+        </Suspense>
+      </GtgPageShell>
     </ProtectedLayout>
   )
 }

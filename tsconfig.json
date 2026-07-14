@@ -32,6 +32,15 @@
       "@/components/*": [
         "./components/*"
       ],
+      "@/domain/*": [
+        "./components/domain/*"
+      ],
+      "@/shared/*": [
+        "./components/shared/*"
+      ],
+      "@/services/*": [
+        "./services/*"
+      ],
       "@/lib/*": [
         "./lib/*"
       ],

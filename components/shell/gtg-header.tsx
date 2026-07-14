@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/components/auth/gtg-auth'
+import { useAuth } from '@/hooks/use-auth'
 import { AgentButton } from '@/components/shell/agent/agent-button'
 
 
@@ -195,7 +195,7 @@ export function GtgHeader({
   onAgentOpenChange?: (open: boolean) => void
   onMenuClick?: () => void
 } = {}) {
-  const { user, switchRole } = useAuth()
+  const { user } = useAuth()
 
   return (
     <header

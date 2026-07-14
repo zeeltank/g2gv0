@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { type Role } from '@/types/role'
 
 export interface User {
@@ -22,9 +22,47 @@ interface AuthContextType extends Session {
   switchRole: (role: Role) => void
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const SESSION_COOKIE = 'gtg-session'
+
+function normalizeSession(value: unknown): Session | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as Partial<Session>
+  if (!candidate.user || !candidate.isAuthenticated) {
+    return { user: null, isAuthenticated: false, isLoading: false }
+  }
+
+  return {
+    user: candidate.user,
+    isAuthenticated: true,
+    isLoading: false,
+  }
+}
+
+function getInitialSession(): Session {
+  if (typeof window === 'undefined') {
+    return { user: null, isAuthenticated: false, isLoading: true }
+  }
+
+  return getStoredSession()
+}
+
+function getStoredSession(): Session {
+  const stored = localStorage.getItem(SESSION_COOKIE)
+  if (!stored) {
+    return { user: null, isAuthenticated: false, isLoading: false }
+  }
+
+  try {
+    return normalizeSession(JSON.parse(stored)) ?? { user: null, isAuthenticated: false, isLoading: false }
+  } catch {
+    return { user: null, isAuthenticated: false, isLoading: false }
+  }
+}
 
 function setSessionCookie(session: Session) {
   document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
@@ -37,24 +75,12 @@ function clearSessionCookie() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  })
+  const [session, setSession] = useState<Session>(getInitialSession)
 
-  // Simulate session restore from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('gtg-session')
-    if (stored) {
-      try {
-        setSession(JSON.parse(stored))
-      } catch {
-        setSession({ user: null, isAuthenticated: false, isLoading: false })
-      }
-    } else {
-      setSession({ user: null, isAuthenticated: false, isLoading: false })
-    }
+    queueMicrotask(() => {
+      setSession(getStoredSession())
+    })
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -101,13 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const newSession: Session = { user, isAuthenticated: true, isLoading: false }
     setSession(newSession)
-    localStorage.setItem('gtg-session', JSON.stringify(newSession))
+    localStorage.setItem(SESSION_COOKIE, JSON.stringify(newSession))
     setSessionCookie(newSession)
   }
 
   const logout = () => {
     setSession({ user: null, isAuthenticated: false, isLoading: false })
-    localStorage.removeItem('gtg-session')
+    localStorage.removeItem(SESSION_COOKIE)
     clearSessionCookie()
   }
 
@@ -115,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session.user) {
       const updated = { ...session, user: { ...session.user, role } }
       setSession(updated)
-      localStorage.setItem('gtg-session', JSON.stringify(updated))
+      localStorage.setItem(SESSION_COOKIE, JSON.stringify(updated))
       setSessionCookie(updated)
     }
   }

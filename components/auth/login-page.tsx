@@ -83,7 +83,7 @@ function BrandIllustrationSection() {
           />
           <FeatureTile
             className="bottom-16 left-0 rotate-[-14deg]"
-            icon={<CalendarCheck className="size-8 text-green-500" />}
+            icon={<CalendarCheck className="size-8 text-success" />}
             label="Attendance & Leave"
           />
           <FeatureTile
@@ -93,14 +93,14 @@ function BrandIllustrationSection() {
           />
           <FeatureTile
             className="bottom-16 right-3 rotate-[-13deg]"
-            icon={<BarChart3 className="size-8 text-purple-500" />}
+            icon={<BarChart3 className="size-8 text-primary" />}
             label="Analytics & Reports"
           />
 
           <div className="relative mb-16 w-[390px]">
             <div className="absolute -right-14 bottom-0 h-28 w-20 rounded-t-full bg-gradient-to-b from-lime-500 to-green-700 shadow-xl">
               <div className="absolute -left-8 top-8 h-14 w-20 -rotate-45 rounded-full bg-lime-500" />
-              <div className="absolute left-6 top-4 h-16 w-24 -rotate-12 rounded-full bg-green-500" />
+              <div className="absolute left-6 top-4 h-16 w-24 -rotate-12 rounded-full bg-success" />
               <div className="absolute -right-5 top-10 h-14 w-20 rotate-45 rounded-full bg-lime-600" />
             </div>
             <div className="absolute -right-16 bottom-[-18px] h-20 w-20 rounded-b-2xl rounded-t-md bg-gradient-to-b from-white to-blue-100 shadow-lg" />
@@ -133,7 +133,7 @@ function BrandIllustrationSection() {
                     </div>
                   </div>
                   <div className="rounded-lg bg-surface p-4 shadow-sm">
-                    <div className="mx-auto mt-3 size-24 rounded-full bg-[conic-gradient(#2563eb_0_72%,#dbeafe_72%_100%)] p-5">
+                    <div className="mx-auto mt-3 size-24 rounded-full g2g-login-progress p-5">
                       <div className="size-full rounded-full bg-surface" />
                     </div>
                   </div>

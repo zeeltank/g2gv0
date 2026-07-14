@@ -1,14 +1,10 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
 import { AuthProvider } from '@/components/auth/gtg-auth'
 import './globals.css'
 
-const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+const systemSans = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const systemMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
 
 export const metadata: Metadata = {
   title: 'GapstoGrowth — HRMS',
@@ -25,7 +21,11 @@ export default function RootLayout({
     <html
       lang="en"
       data-brand="gaps-to-growth"
-      className={`${inter.variable} ${geistMono.variable} bg-background`}
+      style={{
+        ['--font-inter' as string]: systemSans,
+        ['--font-geist-mono' as string]: systemMono,
+      }}
+      className="bg-background"
       suppressHydrationWarning
     >
       <body className="font-sans antialiased" suppressHydrationWarning>

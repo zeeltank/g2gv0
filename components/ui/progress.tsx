@@ -7,11 +7,11 @@ const progressVariants = cva(
   {
     variants: {
       variant: {
-        default: '[&>div]:bg-primary',
-        primary: '[&>div]:bg-primary',
-        success: '[&>div]:bg-success',
-        warning: '[&>div]:bg-warning',
-        destructive: '[&>div]:bg-destructive',
+        default: 'bg-primary',
+        primary: 'bg-primary',
+        success: 'bg-success',
+        warning: 'bg-warning',
+        destructive: 'bg-destructive',
       },
     },
     defaultVariants: {
@@ -30,15 +30,16 @@ interface ProgressProps
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ({ className, variant, value = 0, max = 100, ...props }, ref) => {
     const percentage = Math.min((value / max) * 100, 100)
+    const activeVariant = variant ?? 'default'
 
     return (
       <div
         ref={ref}
-        className={cn(progressVariants({ variant, className }))}
+        className={cn('relative h-2 w-full overflow-hidden rounded-full bg-muted', className)}
         {...props}
       >
         <div
-          className="h-full w-full bg-primary transition-all"
+          className={cn(progressVariants({ variant: activeVariant }), 'h-full w-full transition-all')}
           style={{ transform: `translateX(${percentage - 100}%)` }}
         />
       </div>

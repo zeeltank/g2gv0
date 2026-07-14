@@ -1,15 +1,17 @@
 'use client'
 
+import { lazy, Suspense } from 'react'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
-import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { ProfileDashboard } from '@/components/profile/profile-dashboard'
+import { GtgPageShell } from '@/components/shell/gtg-page-shell'
+
+const LazyProfileDashboard = lazy(() =>
+  import('@/components/profile/profile-dashboard').then((module) => ({ default: module.ProfileDashboard })),
+)
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
-
-  if (isLoading) return null
 
   if (!user) {
     return (
@@ -19,9 +21,16 @@ export default function ProfilePage() {
 
   return (
     <ProtectedLayout>
-      <GtgAppShell>
-        <ProfileDashboard user={user} />
-      </GtgAppShell>
+      <GtgPageShell
+        breadcrumbItems={[
+          { label: 'Home', href: '/' },
+          { label: 'Profile' },
+        ]}
+      >
+        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
+          <LazyProfileDashboard user={user} />
+        </Suspense>
+      </GtgPageShell>
     </ProtectedLayout>
   )
 }

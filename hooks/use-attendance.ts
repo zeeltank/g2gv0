@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { AttendanceRecord, LeaveBalance, Event, MonthlySummary } from './types'
+import type { AttendanceRecord, LeaveBalance, Event, MonthlySummary } from '@/domain/hrms/hrit/attendance-management/types'
 
 const mockTodayRecord: AttendanceRecord = {
   id: 'today',
@@ -129,7 +129,7 @@ export function useAttendance() {
       await new Promise((resolve) => setTimeout(resolve, 500))
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       if (action === 'in') {
-        setTodayRecord((prev) =>
+        setTodayRecord((prev: AttendanceRecord | null) =>
           prev
             ? {
                 ...prev,
@@ -140,7 +140,7 @@ export function useAttendance() {
             : null,
         )
       } else {
-        setTodayRecord((prev) =>
+        setTodayRecord((prev: AttendanceRecord | null) =>
           prev
             ? {
                 ...prev,

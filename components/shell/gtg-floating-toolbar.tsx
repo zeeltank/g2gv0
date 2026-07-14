@@ -161,11 +161,13 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
   const activeMenu = toolbarMenus.find((menu) => menu.id === activeMenuId) ?? null;
   const isVisible = isHovered || isPeekHovered;
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: close menu when agent opens or toolbar hides */
   useEffect(() => {
     if (isAgentOpen || !isVisible) {
       setActiveMenuId(null);
     }
   }, [isAgentOpen, isVisible]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!activeMenuId) {

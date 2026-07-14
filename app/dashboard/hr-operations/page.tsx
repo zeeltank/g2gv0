@@ -1,14 +1,16 @@
 'use client'
 
+import { lazy, Suspense } from 'react'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { AccessDeniedPage } from '@/components/auth/access-denied-page'
-import { GtgAppShell } from '@/components/shell/gtg-app-shell'
+
+const LazyGtgAppShell = lazy(() =>
+  import('@/components/shell/gtg-app-shell').then((module) => ({ default: module.GtgAppShell })),
+)
 
 export default function HRDashboard() {
   const { user, isLoading } = useAuth()
-
-  if (isLoading) return null
 
   if (!user || user.role !== 'hr') {
     return <AccessDeniedPage reason="HR access required to view this dashboard." />
@@ -16,7 +18,9 @@ export default function HRDashboard() {
 
   return (
     <ProtectedLayout>
-      <GtgAppShell />
+      <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
+        <LazyGtgAppShell />
+      </Suspense>
     </ProtectedLayout>
   )
 }
