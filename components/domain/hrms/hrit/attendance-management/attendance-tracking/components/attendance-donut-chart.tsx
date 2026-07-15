@@ -90,7 +90,7 @@ export function AttendanceDonutChart({ data, className }: AttendanceDonutChartPr
                   key={seg.key}
                   d={seg.pathData}
                   fill={seg.color}
-                  stroke="white"
+                  stroke="hsl(var(--background))"
                   strokeWidth="2"
                 />
               ))}

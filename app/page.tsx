@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/gtg-auth'
-import { getDashboardRoute } from '@/lib/gtg-dashboard-routing'
 import { useEffect } from 'react'
 
 export default function Page() {
@@ -18,7 +17,7 @@ export default function Page() {
     }
 
     if (user) {
-      router.push(getDashboardRoute(user.role))
+      router.push('/dashboard')
     }
   }, [isLoading, isAuthenticated, user, router])
 

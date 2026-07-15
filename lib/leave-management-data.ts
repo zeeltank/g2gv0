@@ -87,12 +87,12 @@ export const leaveTrendData: LeaveTrendData[] = [
 ]
 
 export const leaveTypeData: LeaveTypeDistribution[] = [
-  { name: 'Casual Leave', value: 45, color: '#2563eb' },
-  { name: 'Sick Leave', value: 25, color: '#dc2626' },
-  { name: 'Earned Leave', value: 30, color: '#16a34a' },
-  { name: 'Work From Home', value: 15, color: '#7c3aed' },
-  { name: 'Maternity Leave', value: 3, color: '#d97706' },
-  { name: 'Paternity Leave', value: 2, color: '#0891b2' },
+  { name: 'Casual Leave', value: 45, color: 'var(--chart-blue)' },
+  { name: 'Sick Leave', value: 25, color: 'var(--chart-red)' },
+  { name: 'Earned Leave', value: 30, color: 'var(--chart-green)' },
+  { name: 'Work From Home', value: 15, color: 'var(--chart-yellow)' },
+  { name: 'Maternity Leave', value: 3, color: 'var(--chart-indigo)' },
+  { name: 'Paternity Leave', value: 2, color: 'var(--chart-teal)' },
 ]
 
 export const departmentLeaveData: DepartmentLeaveData[] = [

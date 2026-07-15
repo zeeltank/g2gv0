@@ -3,6 +3,7 @@ export type { LazyComponent } from './use-content-map-utils'
 export type { ContentRoute } from './use-content-map-utils'
 
 const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
+  m0: () => import('./content-map-m0').then((module) => module.M0_CONTENT),
   m1: () => import('./content-map-m1').then((module) => module.M1_CONTENT),
   m2: () => import('./content-map-m2').then((module) => module.M2_CONTENT),
   m3: () => import('./content-map-m3').then((module) => module.M3_CONTENT),

@@ -199,11 +199,11 @@ export const previewRows: PreviewRow[] = [
 ]
 
 export const departmentBreakdown = [
-  { name: 'Engineering', value: 35.6, color: '#2563eb' },
-  { name: 'Marketing', value: 22.1, color: '#0891b2' },
-  { name: 'Sales', value: 18.7, color: '#22c55e' },
-  { name: 'Operations', value: 14.3, color: '#f59e0b' },
-  { name: 'HR', value: 9.3, color: '#8b5cf6' },
+  { name: 'Engineering', value: 35.6, color: 'var(--chart-blue)' },
+  { name: 'Marketing', value: 22.1, color: 'var(--chart-indigo)' },
+  { name: 'Sales', value: 18.7, color: 'var(--chart-green)' },
+  { name: 'Operations', value: 14.3, color: 'var(--chart-yellow)' },
+  { name: 'HR', value: 9.3, color: 'var(--chart-red)' },
 ]
 
 export const selectOptions = {

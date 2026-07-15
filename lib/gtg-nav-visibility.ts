@@ -8,6 +8,8 @@ const ALL_ROLES: Role[] = ['admin', 'hr', 'dept-head', 'employee']
  * Maps each module/menu/submenu to the roles that can see it.
  */
 const VISIBILITY_RULES: Record<string, Role[]> = {
+  'main-dashboard': ALL_ROLES,
+
   // M1 — Organizational Management
   // Menus
   'org-setup': ['admin', 'hr', 'dept-head', 'employee'],

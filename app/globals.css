@@ -101,6 +101,15 @@
   --brand-navy: #071943;
   --brand-navy-light: #2563eb;
 
+  --chart-blue: hsl(221 83% 53%);
+  --chart-red: hsl(0 84% 60%);
+  --chart-yellow: hsl(38 92% 50%);
+  --chart-green: hsl(142 71% 45%);
+  --chart-teal: hsl(173 80% 40%);
+  --chart-orange: hsl(25 95% 53%);
+  --chart-indigo: hsl(239 84% 67%);
+  --chart-track: hsl(221 83% 94%);
+
   --agent-panel-width: 24rem;
 }
 
@@ -137,6 +146,15 @@
   /* Brand-specific colors */
   --brand-navy: #1e40af;
   --brand-navy-light: #3b82f6;
+
+  --chart-blue: hsl(221 83% 62%);
+  --chart-red: hsl(0 84% 66%);
+  --chart-yellow: hsl(38 92% 58%);
+  --chart-green: hsl(142 71% 50%);
+  --chart-teal: hsl(173 80% 48%);
+  --chart-orange: hsl(25 95% 60%);
+  --chart-indigo: hsl(239 84% 72%);
+  --chart-track: hsl(217 33% 16%);
 
   --sidebar: hsl(222 47% 7%);
   --sidebar-foreground: hsl(210 40% 98%);
@@ -220,8 +238,8 @@
   /* Login progress indicator conic gradient */
   .g2g-login-progress {
     background: conic-gradient(
-      hsl(var(--primary)) 0 72%,
-      hsl(var(--primary) / 0.2) 72% 100%
+      var(--primary) 0 72%,
+      color-mix(in srgb, var(--primary) 20%, transparent) 72% 100%
     );
   }
 }
