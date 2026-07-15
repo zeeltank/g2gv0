@@ -708,23 +708,6 @@ export function SopsTab({
       </button>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-foreground">Department Summary</h4>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {SOP_SUMMARY.map((item) => (
-            <Card key={item.label}>
-              <CardContent className="flex flex-col gap-1 p-4">
-                <div className="flex size-8 items-center justify-center rounded-md bg-muted text-foreground">
-                  {item.icon}
-                </div>
-                <p className="mt-1 text-2xl font-semibold text-foreground">{item.value}</p>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Activity className="size-4" />
           Recent Activity

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { type Role } from '@/types/role'
+import { clearSidebarFirstOpenExpansion, requestSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 
 export interface User {
   id: string
@@ -133,12 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newSession: Session = { user, isAuthenticated: true, isLoading: false }
     setSession(newSession)
     localStorage.setItem(SESSION_COOKIE, JSON.stringify(newSession))
+    requestSidebarFirstOpenExpansion()
     setSessionCookie(newSession)
   }
 
   const logout = () => {
     setSession({ user: null, isAuthenticated: false, isLoading: false })
     localStorage.removeItem(SESSION_COOKIE)
+    clearSidebarFirstOpenExpansion()
     clearSessionCookie()
   }
 

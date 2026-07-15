@@ -12,6 +12,7 @@ import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
+import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 
 const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
 
@@ -188,6 +189,14 @@ export function GtgAppShell({
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+
+  useEffect(() => {
+    if (consumeSidebarFirstOpenExpansion()) {
+      queueMicrotask(() => {
+        setSidebarCollapsed(false)
+      })
+    }
+  }, [])
 
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
