@@ -3,7 +3,7 @@
 import { Component, useState, useEffect, useCallback, Suspense, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
-import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
+import { resolveBreadcrumb, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
@@ -13,17 +13,19 @@ import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 
-const DEFAULT_ACTIVE: ActiveNav = {
-  moduleId: 'm1',
-  menuId: 'org-setup',
-  submenuId: 'org-profile',
-}
+const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
 
 function getRoutePath(active: ActiveNav): string {
+  if (active.moduleId === 'm0') {
+    return '/dashboard'
+  }
   return `/module/${active.moduleId}/${active.menuId}/${active.submenuId}`
 }
 
 function parseRoutePath(pathname: string): ActiveNav | null {
+  if (pathname === '/dashboard') {
+    return HOME_NAV
+  }
   const match = pathname.match(/^\/module\/([^/]+)\/([^/]+)\/([^/]+)/)
   if (match) {
     return {

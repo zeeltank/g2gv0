@@ -53,6 +53,18 @@ export type NavModule = {
   short: string
   icon: LucideIcon
   menus: NavMenu[]
+  /** Standalone modules navigate directly to their page and have no child menus/submenus. */
+  standalone?: boolean
+}
+
+/**
+ * Direct navigation target for the standalone Main Dashboard (Home) module.
+ * The application's landing screen after login.
+ */
+export const HOME_NAV: ActiveNav = {
+  moduleId: 'm0',
+  menuId: 'main-dashboard',
+  submenuId: 'main-dashboard',
 }
 
 /**
@@ -60,6 +72,14 @@ export type NavModule = {
  * 5 Modules -> 16 Menus -> 30 Submenus.
  */
 export const GTG_NAVIGATION: NavModule[] = [
+  {
+    id: 'm0',
+    label: 'Main Dashboard',
+    short: 'Home',
+    icon: LayoutDashboard,
+    standalone: true,
+    menus: [],
+  },
   {
     id: 'm1',
     label: 'Organizational Management',
@@ -268,6 +288,10 @@ export function resolveBreadcrumb(active: ActiveNav): BreadcrumbItem[] {
   const navModule = GTG_NAVIGATION.find((m) => m.id === active.moduleId)
   const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
   const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
+
+  if (active.moduleId === 'm0') {
+    return [{ label: 'Home', href: '/dashboard' }, { label: 'Main Dashboard' }]
+  }
 
   if (navModule?.label) {
     items.push({ label: navModule.label })

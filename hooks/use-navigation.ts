@@ -1,6 +1,6 @@
-import { GTG_NAVIGATION, resolveBreadcrumb, type ActiveNav } from '@/lib/gtg-navigation'
+import { GTG_NAVIGATION, HOME_NAV, resolveBreadcrumb, type ActiveNav } from '@/lib/gtg-navigation'
 
-export { GTG_NAVIGATION }
+export { GTG_NAVIGATION, HOME_NAV }
 export type { ActiveNav }
 export { resolveBreadcrumb }
 

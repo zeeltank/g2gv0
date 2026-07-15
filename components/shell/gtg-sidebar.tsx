@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronRight, ChevronDown, X } from 'lucide-react'
-import { GTG_NAVIGATION, type ActiveNav } from '@/hooks/use-navigation'
+import { GTG_NAVIGATION, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
 import type { NavModule } from '@/lib/gtg-navigation'
 import { type Role } from '@/hooks/use-role-visibility'
 import { filterNavigationByRole } from '@/hooks/use-role-visibility'
@@ -61,9 +61,14 @@ export function GtgSidebar({
     onCollapsedChange?.(false)
   }, [active.menuId, active.moduleId, clearFlyout, onCollapsedChange])
 
-  const handleModuleClick = useCallback((moduleId: string) => {
+  const handleModuleClick = useCallback((module: NavModule) => {
+    if (module.standalone) {
+      clearFlyout()
+      onSelect(HOME_NAV)
+      return
+    }
     if (!collapsed) {
-      const nextModuleId = desktopExpandedModuleId === moduleId ? null : moduleId
+      const nextModuleId = desktopExpandedModuleId === module.id ? null : module.id
       setDesktopExpandedModuleId(nextModuleId)
       setDesktopExpandedMenuIds(
         nextModuleId === active.moduleId
@@ -72,18 +77,27 @@ export function GtgSidebar({
       )
       return
     }
-    expandDesktopSidebar(moduleId)
-  }, [active.menuId, active.moduleId, collapsed, desktopExpandedModuleId, expandDesktopSidebar])
+    expandDesktopSidebar(module.id)
+  }, [active.menuId, active.moduleId, clearFlyout, collapsed, desktopExpandedModuleId, expandDesktopSidebar, onSelect])
 
-  const handleModuleMouseEnter = useCallback((moduleId: string, element: HTMLElement) => {
-    if (!collapsed) return
+  const handleModuleActivate = useCallback((module: NavModule) => {
+    if (module.standalone) {
+      clearFlyout()
+      onSelect(HOME_NAV)
+      return
+    }
+    expandDesktopSidebar(module.id)
+  }, [clearFlyout, expandDesktopSidebar, onSelect])
+
+  const handleModuleMouseEnter = useCallback((module: NavModule, element: HTMLElement) => {
+    if (!collapsed || module.standalone) return
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current)
       hideTimeoutRef.current = null
     }
     const rect = element.getBoundingClientRect()
     setFlyoutPosition({ top: rect.top, height: rect.height })
-    setFlyoutModuleId(moduleId)
+    setFlyoutModuleId(module.id)
     setFlyoutMenuId(null)
   }, [collapsed])
 
@@ -206,6 +220,10 @@ export function GtgSidebar({
   }, [])
 
   const handleMobileModuleClick = useCallback((module: NavModule) => {
+    if (module.standalone) {
+      handleMobileLeafSelect({ moduleId: module.id, menuId: HOME_NAV.menuId, submenuId: HOME_NAV.submenuId })
+      return
+    }
     if (module.menus.length === 1 && module.menus[0].submenus.length === 1) {
       const menu = module.menus[0]
       const submenu = menu.submenus[0]
@@ -263,13 +281,13 @@ export function GtgSidebar({
                 >
                   <button
                     type="button"
-                    onMouseEnter={(e) => handleModuleMouseEnter(module.id, e.currentTarget)}
-                    onClick={() => handleModuleClick(module.id)}
-                    onDoubleClick={() => expandDesktopSidebar(module.id)}
+                    onMouseEnter={(e) => handleModuleMouseEnter(module, e.currentTarget)}
+                    onClick={() => handleModuleClick(module)}
+                    onDoubleClick={() => handleModuleActivate(module)}
                     onMouseLeave={closeFlyout}
                     aria-current={isActive ? 'page' : undefined}
-                    aria-label={collapsed ? `${module.label}. Click to expand sidebar.` : undefined}
-                    aria-expanded={!collapsed ? isDesktopModuleOpen : undefined}
+                    aria-label={collapsed ? `${module.label}. Click to open ${module.label}.` : undefined}
+                    aria-expanded={!collapsed && !module.standalone ? isDesktopModuleOpen : undefined}
                     className={cn(
                       'flex items-center cursor-pointer rounded-md text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       collapsed
@@ -299,7 +317,7 @@ export function GtgSidebar({
                     {!collapsed && (
                       <span className="flex-1 truncate text-left">{module.label}</span>
                     )}
-                    {!collapsed && (
+                    {!collapsed && !module.standalone && (
                       <ChevronDown
                         className={cn(
                           'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
@@ -310,7 +328,7 @@ export function GtgSidebar({
                     )}
                   </button>
 
-                  {isDesktopModuleOpen && (
+                  {isDesktopModuleOpen && module.menus.length > 0 && (
                     <div className="ml-5 mt-1 flex flex-col gap-1 border-l border-sidebar-border pl-3">
                       {module.menus.map((menu) => {
                         const MenuIcon = menu.icon

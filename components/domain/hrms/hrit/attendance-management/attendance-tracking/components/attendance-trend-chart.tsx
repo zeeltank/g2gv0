@@ -154,7 +154,7 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
                       cy={p[item.key]}
                       r="3"
                       fill={item.color}
-                      stroke="white"
+                      stroke="hsl(var(--background))"
                       strokeWidth="1.5"
                     />
                   ))}
