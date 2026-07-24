@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ChartColumnIncreasing,
@@ -152,25 +152,65 @@ function OptionCard({ option }: { option: ToolbarOption }) {
   );
 }
 
-export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boolean }) {
+export default function RightFloatingToolbar({
+  isAgentOpen,
+  open,
+  onOpenChange,
+  triggerRef,
+}: {
+  isAgentOpen: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef?: RefObject<HTMLButtonElement | null>;
+}) {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isPeekHovered, setIsPeekHovered] = useState(false);
+  const [topOffset, setTopOffset] = useState(56);
 
   const activeMenu = toolbarMenus.find((menu) => menu.id === activeMenuId) ?? null;
-  const isVisible = isHovered || isPeekHovered;
 
-  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: close menu when agent opens or toolbar hides */
   useEffect(() => {
-    if (isAgentOpen || !isVisible) {
+    if (isAgentOpen) {
+      onOpenChange(false);
+    }
+  }, [isAgentOpen, onOpenChange]);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: close menu when toolbar hides */
+  useEffect(() => {
+    if (!open) {
       setActiveMenuId(null);
     }
-  }, [isAgentOpen, isVisible]);
+  }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    if (!activeMenuId) {
+    if (!open) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const trigger = triggerRef?.current;
+      if (!trigger) {
+        setTopOffset(56);
+        return;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      setTopOffset(rect.bottom + 8);
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, triggerRef]);
+
+  useEffect(() => {
+    if (!open) {
       return;
     }
 
@@ -184,12 +224,16 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
         return;
       }
 
-      setActiveMenuId(null);
+      if (triggerRef?.current?.contains(target)) {
+        return;
+      }
+
+      onOpenChange(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setActiveMenuId(null);
+        onOpenChange(false);
       }
     };
 
@@ -200,35 +244,27 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [activeMenuId]);
+  }, [onOpenChange, open, triggerRef]);
 
-  if (isAgentOpen) {
+  if (isAgentOpen || !open) {
     return null;
   }
 
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-4 right-0 z-50 flex items-end md:bottom-auto md:right-0 md:top-1/2 md:-translate-y-1/2 md:items-center"
+      className="fixed right-0 z-50 flex items-start pr-4"
+      style={{ top: topOffset }}
       aria-label="Floating editor toolbar"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className="pointer-events-auto flex flex-col-reverse items-end gap-3 md:flex-row md:items-center md:gap-3 transition-transform duration-300 ease-out will-change-transform"
-        style={{
-          transform: isVisible
-            ? 'translateX(0px)'
-            : 'translateX(calc(100% - var(--radius-3xl)))',
-        }}
+        className="pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-col-reverse items-end gap-3 md:flex-row md:items-start md:gap-3"
       >
         {activeMenu && (
           <aside
             className="w-[min(88vw,20rem)] overflow-hidden rounded-3xl border border-border bg-background/95 shadow-xl backdrop-blur-xl md:w-[22rem] lg:w-[24rem]"
             role="dialog"
             aria-label={activeMenu.label}
-            onMouseEnter={() => setIsPeekHovered(true)}
-            onMouseLeave={() => setIsPeekHovered(false)}
           >
             <div className={`bg-gradient-to-r ${activeMenu.accent} px-5 py-4 text-white`}>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">
@@ -252,8 +288,6 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
 
         <div
           className="flex flex-col gap-2 rounded-3xl border border-border bg-background/90 p-2 shadow-lg backdrop-blur-xl"
-          onMouseEnter={() => setIsPeekHovered(true)}
-          onMouseLeave={() => setIsPeekHovered(false)}
         >
           {toolbarMenus.map((menu) => {
             const isActive = activeMenuId === menu.id;
@@ -283,15 +317,6 @@ export default function RightFloatingToolbar({ isAgentOpen }: { isAgentOpen: boo
           })}
         </div>
       </div>
-
-      {!isVisible && (
-        <div
-          className="pointer-events-auto absolute inset-y-0 right-0 w-5 cursor-pointer md:w-1"
-          onMouseEnter={() => setIsPeekHovered(true)}
-          onMouseLeave={() => setIsPeekHovered(false)}
-          aria-label="Show floating toolbar"
-        />
-      )}
     </div>
   );
 }

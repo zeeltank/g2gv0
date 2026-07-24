@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search,
   Bell,
   ChevronDown,
+  LayoutGrid,
   User,
   Settings,
   LogOut,
@@ -190,10 +191,16 @@ export function GtgHeader({
   agentOpen,
   onAgentOpenChange,
   onMenuClick,
+  toolbarOpen,
+  onToolbarToggle,
+  toolbarButtonRef,
 }: {
   agentOpen?: boolean
   onAgentOpenChange?: (open: boolean) => void
   onMenuClick?: () => void
+  toolbarOpen?: boolean
+  onToolbarToggle?: () => void
+  toolbarButtonRef?: RefObject<HTMLButtonElement | null>
 } = {}) {
   const { user } = useAuth()
 
@@ -227,11 +234,26 @@ export function GtgHeader({
         />
       </div>
 
-<div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2">
         <NotificationsMenu />
-        <AgentButton agentOpen={agentOpen} onAgentOpenChange={onAgentOpenChange} />
+               <AgentButton agentOpen={agentOpen} onAgentOpenChange={onAgentOpenChange} />
         <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
         <UserProfileMenu />
+         <button
+          ref={toolbarButtonRef}
+          type="button"
+          onClick={onToolbarToggle}
+          aria-label="Toggle toolbar"
+          aria-haspopup="dialog"
+          aria-expanded={toolbarOpen}
+          className={cn(
+            'relative flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring',
+            toolbarOpen && 'bg-secondary text-secondary-foreground',
+          )}
+        >
+          <LayoutGrid  className="size-5" aria-hidden="true" />
+        </button>
+
       </div>
     </header>
   )
