@@ -1,6 +1,6 @@
 'use client'
 
-import { Component, useState, useEffect, useCallback, Suspense, type ReactNode } from 'react'
+import { Component, useState, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
@@ -189,6 +189,8 @@ export function GtgAppShell({
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [toolbarOpen, setToolbarOpen] = useState(false)
+  const toolbarButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
@@ -219,6 +221,9 @@ export function GtgAppShell({
           agentOpen={agentOpenState}
           onAgentOpenChange={setAgentOpen}
           onMenuClick={() => setMobileNavOpen(true)}
+          toolbarOpen={toolbarOpen}
+          onToolbarToggle={() => setToolbarOpen((open) => !open)}
+          toolbarButtonRef={toolbarButtonRef}
         />
         <BreadcrumbItemsProvider items={breadcrumbItems}>
           <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -242,7 +247,12 @@ export function GtgAppShell({
             </aside>
           </div>
         </BreadcrumbItemsProvider>
-        <FloatingToolbar isAgentOpen={agentOpenState} />
+        <FloatingToolbar
+          isAgentOpen={agentOpenState}
+          open={toolbarOpen}
+          onOpenChange={setToolbarOpen}
+          triggerRef={toolbarButtonRef}
+        />
       </div>
     </div>
   )
