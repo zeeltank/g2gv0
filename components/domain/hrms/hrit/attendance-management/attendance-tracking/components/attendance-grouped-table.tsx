@@ -14,6 +14,7 @@ export interface GroupedRecord {
   id: string
   label?: string
   value?: string
+  employee?: string
   employees?: number
   present?: number
   absent?: number

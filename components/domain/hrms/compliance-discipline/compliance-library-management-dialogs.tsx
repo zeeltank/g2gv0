@@ -10,6 +10,7 @@ interface ComplianceDialogsProps {
   editingRecord: ComplianceRecord | null
   editForm: ComplianceFormState
   editUploadKey: number
+  employeeOptions?: { label: string; value: string }[]
   onEditChange: (next: Partial<ComplianceFormState>) => void
   onEditSave: () => void
   onEditClose: () => void
@@ -22,6 +23,7 @@ export function ComplianceDialogs({
   editingRecord,
   editForm,
   editUploadKey,
+  employeeOptions,
   onEditChange,
   onEditSave,
   onEditClose,
@@ -47,6 +49,7 @@ export function ComplianceDialogs({
               submitLabel="Save Changes"
               uploadKey={editUploadKey}
               currentAttachment={editingRecord.attachmentName}
+              employeeOptions={employeeOptions}
             />
           )}
           <DialogFooter>

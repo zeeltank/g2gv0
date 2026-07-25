@@ -1,13 +1,16 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Building2, Globe, Mail, Network, Pencil, Phone, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SectionCard, ReadField, AccessDenied } from './components'
 import { ORG_PROFILE, SISTER_COMPANIES } from '@/lib/gtg-org-data'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { organizationService, type LaravelOrgDetail } from '@/services/organization'
 
 const LazyOrganizationInformationEditPanel = lazy(() =>
   import('@/domain/organization/organization-information-edit-panel').then((module) => ({
@@ -19,27 +22,169 @@ function ViewReadField({ label, value }: { label: string; value: ReactNode }) {
   return <ReadField label={label} value={value} />
 }
 
+function splitAddress(address?: string | null) {
+  const parts = (address ?? '').split(',').map((part) => part.trim())
+  return {
+    line1: parts[0] ?? '',
+    line2: parts[1] ?? '',
+    city: parts[2] ?? '',
+    state: parts[3] ?? '',
+    postal: parts[4] ?? '',
+    country: parts[5] ?? '',
+  }
+}
+
+function mapOrgProfile(data?: LaravelOrgDetail) {
+  if (!data) return ORG_PROFILE
+  return {
+    name: data.legal_name || ORG_PROFILE.name,
+    code: data.cin || ORG_PROFILE.code,
+    registrationNumber: data.cin || ORG_PROFILE.registrationNumber,
+    industry: data.industry || ORG_PROFILE.industry,
+    organizationType: 'Private Limited',
+    website: data.website || ORG_PROFILE.website,
+    email: data.email || ORG_PROFILE.email,
+    phone: `${data.country_code ?? ''} ${data.mobile_no ?? ''}`.trim() || ORG_PROFILE.phone,
+    fax: ORG_PROFILE.fax,
+    address: splitAddress(data.registered_address),
+    founded: ORG_PROFILE.founded,
+    totalEmployees: Number(data.employee_count) || ORG_PROFILE.totalEmployees,
+  }
+}
+
 export function OrganizationInformation({ role }: { role: Role }) {
   const access = getAccess('organization-information', role)
+  const { user } = useAuth()
   const [editing, setEditing] = useState(false)
+  const [orgData, setOrgData] = useState<LaravelOrgDetail>()
+  const [isLoading, setIsLoading] = useState(true)
+  const [notice, setNotice] = useState('')
+  const context = useMemo(() => getLaravelContext(user), [user])
+
+  const loadOrganization = useCallback((activeRef: { active: boolean }) => {
+    setIsLoading(true)
+    organizationService.getOrganizationProfile(context)
+      .then((response) => {
+        if (activeRef.active) setOrgData(response.org_data?.[0])
+      })
+      .catch((error: Error) => {
+        if (activeRef.active) setNotice(error.message)
+      })
+      .finally(() => {
+        if (activeRef.active) setIsLoading(false)
+      })
+  }, [context])
+
+  useEffect(() => {
+    const activeRef = { active: true }
+    queueMicrotask(() => loadOrganization(activeRef))
+    return () => {
+      activeRef.active = false
+    }
+  }, [loadOrganization])
 
   if (access === 'none') {
     return <AccessDenied role={roleLabel(role)} />
+  }
+
+  const org = mapOrgProfile(orgData)
+  const editData = {
+    organizationName: org.name,
+    organizationCode: org.code,
+    organizationType: org.organizationType,
+    businessType: '',
+    industryType: org.industry,
+    establishedDate: org.founded,
+    registrationNo: org.registrationNumber,
+    gstNo: orgData?.gstin ?? '',
+    panNo: orgData?.pan ?? '',
+    website: org.website,
+    companyDescription: '',
+    email: org.email,
+    phone: orgData?.mobile_no ?? org.phone,
+    alternatePhone: '',
+    addressLine1: org.address.line1,
+    addressLine2: org.address.line2,
+    country: org.address.country,
+    state: org.address.state,
+    city: org.address.city,
+    postalCode: org.address.postal,
+    brandName: org.name,
+    tagline: '',
+    brandDescription: '',
+    timeZone: '',
+    currency: '',
+    financialYear: '',
+    dateFormat: '',
+    language: '',
+    numberFormat: '',
+    workingDays: (orgData?.work_week ?? '').split(',').filter(Boolean),
+    status: 'Active' as const,
+  }
+
+  async function saveOrganization(data: {
+    organizationName: string
+    organizationCode: string
+    industryType: string
+    registrationNo: string
+    gstNo: string
+    panNo: string
+    website: string
+    email: string
+    phone: string
+    addressLine1: string
+    addressLine2: string
+    city: string
+    state: string
+    postalCode: string
+    country: string
+    workingDays: string[]
+    logoFile?: File
+  }) {
+    try {
+      await organizationService.saveOrganizationProfile(context, {
+        legal_name: data.organizationName,
+        cin: data.registrationNo || data.organizationCode,
+        gstin: data.gstNo,
+        pan: data.panNo,
+        registered_address: [
+          data.addressLine1,
+          data.addressLine2,
+          data.city,
+          data.state,
+          data.postalCode,
+          data.country,
+        ].filter(Boolean).join(', '),
+        industry: data.industryType,
+        employee_count: String(org.totalEmployees),
+        work_week: data.workingDays.join(','),
+        mobile_no: data.phone,
+        country_code: '+91',
+        email: data.email,
+        website: data.website,
+        logo: data.logoFile,
+      })
+      const refreshed = await organizationService.getOrganizationProfile(context)
+      setOrgData(refreshed.org_data?.[0])
+      setEditing(false)
+      setNotice('Organization profile updated successfully.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to save organization profile.')
+    }
   }
 
   if (editing) {
     return (
       <Suspense fallback={<div className="h-[960px] rounded-2xl bg-muted/30" />}>
         <LazyOrganizationInformationEditPanel
-          data={{ ...ORG_PROFILE } as any}
+          data={editData}
           onCancel={() => setEditing(false)}
-          onSave={() => setEditing(false)}
+          onSave={saveOrganization}
         />
       </Suspense>
     )
   }
 
-  const org = ORG_PROFILE
   const canEdit = access === 'full'
   const fullAddress = `${org.address.line1}, ${org.address.line2}, ${org.address.city}, ${org.address.state} ${org.address.postal}, ${org.address.country}`
 
@@ -57,6 +202,11 @@ export function OrganizationInformation({ role }: { role: Role }) {
           </Button>
         )}
       </div>
+      {(isLoading || notice) && (
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          {isLoading ? 'Loading organization profile...' : notice}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard title="Company Logo" className="lg:col-span-1">
@@ -149,24 +299,24 @@ export function OrganizationInformation({ role }: { role: Role }) {
         }
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SISTER_COMPANIES.map((sc) => (
+          {(orgData?.sistersOrg ?? orgData?.sisters_org ?? SISTER_COMPANIES).map((sc) => (
             <div key={sc.id} className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted p-4">
               <div className="flex items-start justify-between gap-2">
                 <div
                   className="flex size-10 items-center justify-center rounded-md bg-secondary text-sm font-bold text-secondary-foreground"
                   aria-hidden="true"
                 >
-                  {sc.name.split(' ').slice(-1)[0].slice(0, 2).toUpperCase()}
+                  {('name' in sc ? sc.name : sc.legal_name ?? 'SC').split(' ').slice(-1)[0].slice(0, 2).toUpperCase()}
                 </div>
-                <Badge variant={sc.type === 'Subsidiary' ? 'navy' : 'outline'}>{sc.type}</Badge>
+                <Badge variant={'type' in sc && sc.type === 'Subsidiary' ? 'navy' : 'outline'}>{'type' in sc ? sc.type : 'Sister Company'}</Badge>
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">{sc.name}</p>
-                <p className="text-xs text-muted-foreground">{sc.code}</p>
+                <p className="text-sm font-semibold text-foreground">{'name' in sc ? sc.name : sc.legal_name}</p>
+                <p className="text-xs text-muted-foreground">{'code' in sc ? sc.code : sc.cin}</p>
               </div>
               <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                <span>{sc.location}</span>
-                <span className="font-semibold text-foreground">{sc.employees} staff</span>
+                <span>{'location' in sc ? sc.location : sc.registered_address}</span>
+                <span className="font-semibold text-foreground">{'employees' in sc ? sc.employees : sc.employee_count ?? 0} staff</span>
               </div>
             </div>
           ))}

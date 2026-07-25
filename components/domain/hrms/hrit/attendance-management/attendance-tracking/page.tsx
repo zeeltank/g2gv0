@@ -432,7 +432,7 @@ function RecentAttendancePanel({ records, loading, onViewAll }: RecentAttendance
             {recentRecords.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">
-                  No attendance records yet
+                  No attendance records found
                 </td>
               </tr>
             ) : (

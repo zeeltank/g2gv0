@@ -9,20 +9,18 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 export type MisconductType =
-  | 'Attendance Issue'
-  | 'Policy Violation'
-  | 'Harassment'
-  | 'Misuse of Assets'
-  | 'Safety Violation'
-  | 'Insubordination'
+  | 'Late Arrival'
+  | 'Absenteeism'
+  | 'Misbehavior'
+  | 'Violation of Policy'
+  | 'Others'
 
 export type ActionTaken =
-  | 'Verbal Warning'
-  | 'Written Warning'
+  | 'Warning'
   | 'Suspension'
-  | 'Training Assigned'
-  | 'Final Warning'
-  | 'Escalated to HR'
+  | 'Termination'
+  | 'Counseling'
+  | 'Others'
 
 export type IncidentFormState = {
   department: string
@@ -41,53 +39,10 @@ type Option = {
   value: string
 }
 
-const departments = [
-  {
-    label: 'Human Resources',
-    value: 'Human Resources',
-    employees: ['Aarav Mehta', 'Priya Sharma', 'Neha Kapoor'],
-  },
-  {
-    label: 'Finance',
-    value: 'Finance',
-    employees: ['Rohan Das', 'Meera Iyer', 'Vikram Rao'],
-  },
-  {
-    label: 'Operations',
-    value: 'Operations',
-    employees: ['Karan Malhotra', 'Ananya Sen', 'Dev Patel'],
-  },
-  {
-    label: 'Legal',
-    value: 'Legal',
-    employees: ['Nisha Verma', 'Arjun Khanna', 'Sara Ali'],
-  },
-  {
-    label: 'Information Technology',
-    value: 'Information Technology',
-    employees: ['Kabir Sethi', 'Isha Nair', 'Rhea Thomas'],
-  },
-]
+const misconductTypes: MisconductType[] = ['Late Arrival', 'Absenteeism', 'Misbehavior', 'Violation of Policy', 'Others']
 
-const misconductTypes: MisconductType[] = [
-  'Attendance Issue',
-  'Policy Violation',
-  'Harassment',
-  'Misuse of Assets',
-  'Safety Violation',
-  'Insubordination',
-]
+const actionTakenOptions: ActionTaken[] = ['Warning', 'Suspension', 'Termination', 'Counseling', 'Others']
 
-const actionTakenOptions: ActionTaken[] = [
-  'Verbal Warning',
-  'Written Warning',
-  'Suspension',
-  'Training Assigned',
-  'Final Warning',
-  'Escalated to HR',
-]
-
-const departmentOptions = departments.map(({ label, value }) => ({ label, value }))
 const misconductOptions = misconductTypes.map((type) => ({ label: type, value: type }))
 const actionOptions = actionTakenOptions.map((action) => ({ label: action, value: action }))
 
@@ -106,24 +61,29 @@ export function IncidentForm({
   onSubmit,
   submitLabel,
   submitIcon,
+  departmentOptions,
+  employeeOptions,
+  witnessOptions,
+  isEmployeeLoading,
+  onDepartmentChange,
 }: {
   form: IncidentFormState
   onChange: (next: Partial<IncidentFormState>) => void
   onSubmit: () => void
   submitLabel: string
   submitIcon?: ReactNode
+  departmentOptions?: Option[]
+  employeeOptions?: Option[]
+  witnessOptions?: Option[]
+  isEmployeeLoading?: boolean
+  onDepartmentChange?: (department: string) => void
 }) {
-  const employeeOptions = departments
-    .find((department) => department.value === form.department)
-    ?.employees.map((employee) => ({ label: employee, value: employee })) ?? []
-
-  const witnessOptions = departments
-    .flatMap((department) => department.employees)
-    .filter((employee) => employee !== form.employee)
-    .map((employee) => ({ label: employee, value: employee }))
-
   const handleDepartmentChange = (department: string) => {
-    onChange({ department, employee: '' })
+    if (onDepartmentChange) {
+      onDepartmentChange(department)
+    } else {
+      onChange({ department, employee: '' })
+    }
   }
 
   return (
@@ -133,7 +93,7 @@ export function IncidentForm({
           <Select
             value={form.department}
             onChange={handleDepartmentChange}
-            options={departmentOptions}
+            options={departmentOptions ?? []}
             placeholder="Select department"
           />
         </Field>
@@ -142,8 +102,14 @@ export function IncidentForm({
           <Select
             value={form.employee}
             onChange={(employee) => onChange({ employee })}
-            options={employeeOptions}
-            placeholder={form.department ? 'Select employee' : 'Select department first'}
+            options={employeeOptions ?? []}
+            placeholder={
+              !form.department
+                ? 'Select department first'
+                : isEmployeeLoading
+                  ? 'Loading employees...'
+                  : 'Select employee'
+            }
           />
         </Field>
 
@@ -178,7 +144,7 @@ export function IncidentForm({
           <Select
             value={form.witness}
             onChange={(witness) => onChange({ witness })}
-            options={witnessOptions}
+            options={witnessOptions ?? []}
             placeholder="Select witness"
           />
         </Field>

@@ -59,6 +59,7 @@ export const SISTER_COMPANIES: SisterCompany[] = [
 export type Department = {
   id: string
   name: string
+  parentId?: string | null
   parent: string | null
   hod: string | null
   employees: number

@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   CalendarDays,
@@ -37,6 +37,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -47,12 +63,13 @@ import {
 import { cn } from '@/lib/utils'
 import { SelectInput, AccessDenied } from '../components'
 import {
-  DEPARTMENTS,
-  buildHierarchy,
   type Department,
   type DeptNode,
 } from '@/lib/gtg-org-data'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { organizationService, type LaravelDepartment } from '@/services/organization'
 
 const LazyDepartmentDetailsPanel = lazy(() =>
   import('@/domain/organization/department-management/department-details-panel').then((module) => ({
@@ -61,6 +78,7 @@ const LazyDepartmentDetailsPanel = lazy(() =>
 )
 
 type SortKey = 'name' | 'code' | 'parent' | 'hod' | 'employees' | 'status'
+type DepartmentDialogMode = 'add' | 'edit'
 
 const PAGE_SIZE = 10
 
@@ -115,29 +133,103 @@ function initials(name?: string | null) {
     .toUpperCase()
 }
 
-function descendantCount(node: DeptNode): number {
-  return node.children.reduce((total, child) => total + 1 + descendantCount(child), 0)
+function descendantCount(node: DeptNode, visited = new Set<string>()): number {
+  if (visited.has(node.id)) return 0
+  const nextVisited = new Set(visited)
+  nextVisited.add(node.id)
+  return node.children.reduce((total, child) => total + 1 + descendantCount(child, nextVisited), 0)
 }
 
-function collectDescendantIds(node: DeptNode): string[] {
+function collectDescendantIds(node: DeptNode, visited = new Set<string>()): string[] {
+  if (visited.has(node.id)) return []
+  const nextVisited = new Set(visited)
+  nextVisited.add(node.id)
   const ids = [node.id]
   for (const child of node.children) {
-    ids.push(...collectDescendantIds(child))
+    ids.push(...collectDescendantIds(child, nextVisited))
   }
   return ids
 }
 
-function findNodeById(nodes: DeptNode[], id: string): DeptNode | undefined {
+function findNodeById(nodes: DeptNode[], id: string, visited = new Set<string>()): DeptNode | undefined {
   for (const node of nodes) {
+    if (visited.has(node.id)) continue
+    visited.add(node.id)
     if (node.id === id) return node
-    const found = findNodeById(node.children, id)
+    const found = findNodeById(node.children, id, visited)
     if (found) return found
   }
   return undefined
 }
 
+function mapDepartments(main: LaravelDepartment[], grouped: Record<string, LaravelDepartment[]>): Department[] {
+  const all = [...main, ...Object.values(grouped).flat()]
+  const unique = new Map<string, LaravelDepartment>()
+  for (const department of all) {
+    const id = String(department.id)
+    if (!unique.has(id)) unique.set(id, department)
+  }
+  const names = new Map(Array.from(unique.values()).map((department) => [String(department.id), department.department]))
+
+  return Array.from(unique.values()).map((department) => ({
+    id: String(department.id),
+    name: department.department,
+    parentId: department.parent_id && Number(department.parent_id) !== 0
+      ? String(department.parent_id)
+      : null,
+    parent: department.parent_id && Number(department.parent_id) !== 0
+      ? names.get(String(department.parent_id)) ?? null
+      : null,
+    hod: null,
+    employees: 0,
+    status: department.status === 1 ? 'Active' : 'Inactive',
+    created: department.created_at ?? '',
+  }))
+}
+
+function buildSafeHierarchy(depts: Department[]): DeptNode[] {
+  const byId = new Map<string, DeptNode>()
+
+  for (const department of depts) {
+    if (byId.has(department.id)) continue
+    byId.set(department.id, {
+      id: department.id,
+      name: department.name,
+      hod: department.hod,
+      employees: department.employees,
+      status: department.status,
+      children: [],
+    })
+  }
+
+  const byDepartmentId = new Map(depts.map((department) => [department.id, department]))
+
+  function hasAncestor(targetId: string, candidateParentId: string | null | undefined, seen = new Set<string>()): boolean {
+    if (!candidateParentId || seen.has(candidateParentId)) return false
+    if (candidateParentId === targetId) return true
+    seen.add(candidateParentId)
+    return hasAncestor(targetId, byDepartmentId.get(candidateParentId)?.parentId, seen)
+  }
+
+  const roots: DeptNode[] = []
+  for (const department of depts) {
+    const node = byId.get(department.id)
+    if (!node) continue
+    const parentNode = department.parentId ? byId.get(department.parentId) : undefined
+
+    if (!department.parentId || !parentNode || department.parentId === department.id || hasAncestor(department.id, byDepartmentId.get(department.parentId)?.parentId)) {
+      roots.push(node)
+    } else if (!parentNode.children.some((child) => child.id === node.id)) {
+      parentNode.children.push(node)
+    }
+  }
+
+  return roots
+}
+
 export function DepartmentList({ role }: { role: Role }) {
   const access = getAccess('department-list', role)
+  const { user } = useAuth()
   const [query, setQuery] = useState('')
   const [treeQuery, setTreeQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -148,17 +240,44 @@ export function DepartmentList({ role }: { role: Role }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [lastShown, setLastShown] = useState<Department | null>(null)
   const [hierarchyFilter, setHierarchyFilter] = useState<string | null>(null)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [departmentDialogMode, setDepartmentDialogMode] = useState<DepartmentDialogMode | null>(null)
+  const [dialogParent, setDialogParent] = useState<Department | null>(null)
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
+  const [deleteDepartment, setDeleteDepartment] = useState<Department | null>(null)
+  const [departmentName, setDepartmentName] = useState('')
+  const context = useMemo(() => getLaravelContext(user), [user])
+
+  const loadDepartments = useCallback(async (options?: { clearNotice?: boolean }) => {
+    setIsLoading(true)
+    try {
+      const response = await organizationService.getDepartmentsManagement(context)
+      setDepartments(mapDepartments(response.main_departments, response.sub_departments))
+      if (options?.clearNotice !== false) setNotice('')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to load departments.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [context])
+
+  useEffect(() => {
+    queueMicrotask(() => void loadDepartments())
+  }, [loadDepartments])
 
   const scopedDepts = useMemo(() => {
     if (access === 'scoped') {
-      return DEPARTMENTS.filter(
+      return departments.filter(
         (d) => d.name === 'Engineering' || d.parent === 'Engineering',
       )
     }
-    return DEPARTMENTS
-  }, [access])
+    return departments
+  }, [access, departments])
 
-  const tree = useMemo(() => buildHierarchy(scopedDepts), [scopedDepts])
+  const tree = useMemo(() => buildSafeHierarchy(scopedDepts), [scopedDepts])
   const parents = useMemo(
     () => Array.from(new Set(scopedDepts.map((d) => d.parent).filter(Boolean))) as string[],
     [scopedDepts],
@@ -230,7 +349,8 @@ export function DepartmentList({ role }: { role: Role }) {
   const pageRows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
   const selected = selectedId ? scopedDepts.find((d) => d.id === selectedId) ?? null : null
   const isDetailsOpen = Boolean(selected)
-  const canManage = access === 'full'
+  const canManage = access !== 'none'
+  const isDepartmentDialogOpen = Boolean(departmentDialogMode)
 
   const detailDept = selected ?? lastShown
 
@@ -262,6 +382,85 @@ export function DepartmentList({ role }: { role: Role }) {
     setHierarchyFilter(null)
   }
 
+  function openAddDialog(parent?: Department | null) {
+    setDepartmentDialogMode('add')
+    setDialogParent(parent ?? null)
+    setEditingDepartment(null)
+    setDepartmentName('')
+    setNotice('')
+  }
+
+  function openEditDialog(department: Department) {
+    setDepartmentDialogMode('edit')
+    setDialogParent(null)
+    setEditingDepartment(department)
+    setDepartmentName(department.name)
+    setNotice('')
+  }
+
+  function closeDepartmentDialog() {
+    if (isSaving) return
+    setDepartmentDialogMode(null)
+    setDialogParent(null)
+    setEditingDepartment(null)
+    setDepartmentName('')
+  }
+
+  async function saveDepartment() {
+    const nextName = departmentName.trim()
+    if (!nextName) {
+      setNotice('Department name is required.')
+      return
+    }
+
+    if (editingDepartment && nextName === editingDepartment.name) {
+      closeDepartmentDialog()
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      let successMessage = ''
+      if (editingDepartment) {
+        await organizationService.updateDepartment(context, editingDepartment.id, { department: nextName })
+        successMessage = `${editingDepartment.parent ? 'Sub-department' : 'Department'} updated successfully.`
+      } else {
+        await organizationService.createDepartment(context, {
+          department: nextName,
+          parent_id: dialogParent?.id,
+        })
+        successMessage = dialogParent ? 'Sub-department added successfully.' : 'Department added successfully.'
+      }
+      setDialogParent(null)
+      setEditingDepartment(null)
+      setDepartmentDialogMode(null)
+      setDepartmentName('')
+      await loadDepartments({ clearNotice: false })
+      setNotice(successMessage)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to save department.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function confirmDeleteDepartment() {
+    if (!deleteDepartment) return
+    setIsSaving(true)
+    try {
+      const successMessage = deleteDepartment.parent ? 'Sub-department removed successfully.' : 'Department removed successfully.'
+      await organizationService.deleteDepartment(context, deleteDepartment.id)
+      setSelectedId((value) => (value === deleteDepartment.id ? null : value))
+      setDeleteDepartment(null)
+      await loadDepartments({ clearNotice: false })
+      setNotice(successMessage)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to remove department.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="flex min-h-0 max-w-full flex-col gap-8 overflow-x-hidden text-foreground">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -279,17 +478,22 @@ export function DepartmentList({ role }: { role: Role }) {
 
         <div className="flex flex-wrap items-center gap-3">
           {canManage && (
-            <Button size="lg" className="h-10 px-4">
+            <Button type="button" size="lg" className="h-10 px-4" onClick={() => openAddDialog()}>
               <Plus className="size-4" aria-hidden="true" />
               Add Department
             </Button>
           )}
-          <Button variant="outline" size="lg" className="h-10 px-4">
+          <Button type="button" variant="outline" size="lg" className="h-10 px-4">
             <Download className="size-4" aria-hidden="true" />
             Export
           </Button>
         </div>
       </div>
+      {(isLoading || notice) && (
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          {isLoading ? 'Loading departments...' : notice}
+        </div>
+      )}
 
       <div
         className={cn(
@@ -318,7 +522,11 @@ export function DepartmentList({ role }: { role: Role }) {
             />
           </div>
           <div className="grid grid-cols-4 border-t border-border p-4">
-            <FooterIcon label="Add department" icon={<Plus className="size-4" />} />
+            <FooterIcon
+              label={selected ? 'Add sub-department' : 'Add department'}
+              icon={<Plus className="size-4" />}
+              onClick={() => openAddDialog(selected)}
+            />
             <FooterIcon label="Move up" icon={<ChevronDown className="size-4 rotate-180" />} />
             <FooterIcon label="Move down" icon={<ChevronDown className="size-4" />} />
             <FooterIcon label="Hierarchy settings" icon={<ChevronsUpDown className="size-4" />} />
@@ -383,6 +591,7 @@ export function DepartmentList({ role }: { role: Role }) {
               ]}
             />
             <Button
+              type="button"
               variant="outline"
               aria-label="Filters"
               className="h-10 w-10 shrink-0 px-0 @md/deptlist:w-auto @md/deptlist:px-3"
@@ -390,7 +599,14 @@ export function DepartmentList({ role }: { role: Role }) {
               <Filter className="size-4" aria-hidden="true" />
               <span className="hidden @md/deptlist:inline">Filters</span>
             </Button>
-            <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={() => void loadDepartments()}
+              disabled={isLoading}
+            >
               <RefreshCw className="size-4" aria-hidden="true" />
               <span className="sr-only">Refresh</span>
             </Button>
@@ -457,9 +673,21 @@ export function DepartmentList({ role }: { role: Role }) {
                           <IconAction label="View details" icon={<Eye className="size-4" />} className={cn(canManage && 'hidden @md/deptlist:flex')} />
                           {canManage && (
                             <>
-                              <IconAction label="Edit department" icon={<Pencil className="size-4" />} className="hidden @lg/deptlist:flex" />
+                              <IconAction label="Edit department" icon={<Pencil className="size-4" />} onClick={(event) => {
+                                event.stopPropagation()
+                                openEditDialog(department)
+                              }} />
+                              <IconAction label={department.parent ? 'Delete sub-department' : 'Delete department'} icon={<Trash2 className="size-4" />} onClick={(event) => {
+                                event.stopPropagation()
+                                setDeleteDepartment(department)
+                              }} />
                               <IconAction label="Assign HOD" icon={<UserPlus className="size-4" />} className="hidden @3xl/deptlist:flex" />
-                              <RowMenu />
+                              <RowMenu
+                                isSubDepartment={Boolean(department.parent)}
+                                onEdit={() => openEditDialog(department)}
+                                onAddSubDepartment={() => openAddDialog(department)}
+                                onDelete={() => setDeleteDepartment(department)}
+                              />
                             </>
                           )}
                         </div>
@@ -533,11 +761,88 @@ export function DepartmentList({ role }: { role: Role }) {
                 department={detailDept}
                 canManage={canManage}
                 onClose={() => setSelectedId(null)}
+                onEdit={openEditDialog}
+                onAddSubDepartment={openAddDialog}
+                onDelete={setDeleteDepartment}
               />
             </Suspense>
           )}
         </div>
       </div>
+
+      <Dialog open={isDepartmentDialogOpen} onOpenChange={(open) => {
+        if (!open) closeDepartmentDialog()
+      }}>
+        <DialogContent className="rounded-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDepartment
+                ? `Edit ${editingDepartment.parent ? 'Sub-Department' : 'Department'}`
+                : dialogParent
+                  ? 'Add Sub-Department'
+                  : 'Add Department'}
+            </DialogTitle>
+            <DialogDescription>
+              {dialogParent
+                ? `Parent department: ${dialogParent.name}`
+                : 'Department details are saved to the Laravel department management API.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="department-name" className="text-sm font-medium text-foreground">
+              Department Name
+            </label>
+            <Input
+              id="department-name"
+              value={departmentName}
+              onChange={(event) => setDepartmentName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void saveDepartment()
+              }}
+              placeholder="Enter department name"
+              disabled={isSaving}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeDepartmentDialog} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void saveDepartment()} disabled={isSaving}>
+              {isSaving ? 'Saving...' : editingDepartment ? 'Update' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteDepartment)} onOpenChange={(open) => {
+        if (!open && !isSaving) setDeleteDepartment(null)
+      }}>
+        <AlertDialogContent className="rounded-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {deleteDepartment?.parent ? 'Sub-Department' : 'Department'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDepartment
+                ? `This will remove ${deleteDepartment.name}${deleteDepartment.parent ? '' : ' and its sub-departments'} from Laravel department management.`
+                : 'This department will be removed.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteDepartment(null)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmDeleteDepartment()}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Removing...' : 'Remove'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -620,10 +925,11 @@ function HierarchyNode({
   const hasChildren = node.children.length > 0
   const count = Math.max(node.employees, descendantCount(node))
   const q = query.trim().toLowerCase()
+  const childMatches = node.children.some((child) => hierarchyMatches(child, q))
   const visible =
     !q ||
     node.name.toLowerCase().includes(q) ||
-    node.children.some((child) => child.name.toLowerCase().includes(q))
+    childMatches
 
   if (!visible) return null
 
@@ -665,7 +971,7 @@ function HierarchyNode({
         </Badge>
         {selectedId === node.id && <MoreVertical className="size-4 shrink-0 text-foreground" />}
       </div>
-      {hasChildren && open && (
+      {hasChildren && (open || childMatches) && (
         <ul className="ml-5 space-y-1 border-l border-dotted border-primary/30 py-1">
           {node.children.map((child) => (
             <HierarchyNode
@@ -681,6 +987,11 @@ function HierarchyNode({
       )}
     </li>
   )
+}
+
+function hierarchyMatches(node: DeptNode, query: string): boolean {
+  if (!query) return true
+  return node.name.toLowerCase().includes(query) || node.children.some((child) => hierarchyMatches(child, query))
 }
 
 function SortHead({
@@ -730,11 +1041,22 @@ function Person({ name }: { name?: string | null }) {
   )
 }
 
-function RowMenu() {
+function RowMenu({
+  isSubDepartment,
+  onEdit,
+  onAddSubDepartment,
+  onDelete,
+}: {
+  isSubDepartment: boolean
+  onEdit: () => void
+  onAddSubDepartment: () => void
+  onDelete: () => void
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Department actions"
+        onClick={(event) => event.stopPropagation()}
         className="flex size-8 items-center justify-center rounded-md text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
       >
         <MoreVertical className="size-4" />
@@ -744,11 +1066,11 @@ function RowMenu() {
           <Eye className="size-4" />
           View Details
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onEdit}>
           <Pencil className="size-4" />
-          Edit Department
+          Edit {isSubDepartment ? 'Sub-Department' : 'Department'}
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onAddSubDepartment}>
           <Plus className="size-4" />
           Add Sub Department
         </DropdownMenuItem>
@@ -757,21 +1079,22 @@ function RowMenu() {
           Assign / Change HOD
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+        <DropdownMenuItem className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onDelete}>
           <Trash2 className="size-4" />
-          Remove Department
+          Remove {isSubDepartment ? 'Sub-Department' : 'Department'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-function IconAction({ label, icon, className }: { label: string; icon: ReactNode; className?: string }) {
+function IconAction({ label, icon, className, onClick }: { label: string; icon: ReactNode; className?: string; onClick?: React.MouseEventHandler<HTMLButtonElement> }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      onClick={onClick}
       className={cn(
         'flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
@@ -782,12 +1105,13 @@ function IconAction({ label, icon, className }: { label: string; icon: ReactNode
   )
 }
 
-function FooterIcon({ label, icon }: { label: string; icon: ReactNode }) {
+function FooterIcon({ label, icon, onClick }: { label: string; icon: ReactNode; onClick?: () => void }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      onClick={onClick}
       className="flex h-10 items-center justify-center border border-border bg-background text-foreground transition-colors first:rounded-l-md last:rounded-r-md hover:bg-muted"
     >
       {icon}
