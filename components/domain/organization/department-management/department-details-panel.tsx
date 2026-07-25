@@ -139,10 +139,16 @@ export function DepartmentDetailsPanel({
   department,
   canManage,
   onClose,
+  onEdit,
+  onAddSubDepartment,
+  onDelete,
 }: {
   department: Department
   canManage: boolean
   onClose?: () => void
+  onEdit?: (department: Department) => void
+  onAddSubDepartment?: (department: Department) => void
+  onDelete?: (department: Department) => void
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [sops, setSops] = useState<Sop[]>(MOCK_SOPS)
@@ -178,17 +184,29 @@ export function DepartmentDetailsPanel({
           <div className="p-4">
             {canManage && (
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-9 justify-center text-primary">
+                <Button
+                  variant="outline"
+                  className="h-9 justify-center text-primary"
+                  onClick={() => onEdit?.(department)}
+                >
                   <Pencil className="size-4" />
-                  Edit Department
+                  Edit {department.parent ? 'Sub Department' : 'Department'}
                 </Button>
-                <Button variant="outline" className="h-9 justify-center text-primary">
+                <Button
+                  variant="outline"
+                  className="h-9 justify-center text-primary"
+                  onClick={() => onAddSubDepartment?.(department)}
+                >
                   <Plus className="size-4" />
                   Add Sub Department
                 </Button>
-                <Button variant="outline" className="col-span-2 h-9 justify-center border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Button
+                  variant="outline"
+                  className="col-span-2 h-9 justify-center border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => onDelete?.(department)}
+                >
                   <Trash2 className="size-4" />
-                  Remove Department
+                  Remove {department.parent ? 'Sub Department' : 'Department'}
                 </Button>
               </div>
             )}

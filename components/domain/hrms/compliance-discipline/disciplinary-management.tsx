@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ClipboardList,
@@ -26,6 +26,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { IncidentFormState, MisconductType, ActionTaken } from './disciplinary-management-form'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { organizationService, type LaravelDepartment, type LaravelDepartmentEmployee, type LaravelDisciplinaryRecord, type LaravelEmployee } from '@/services/organization'
 
 const LazyIncidentForm = lazy(() =>
   import('./disciplinary-management-form').then((module) => ({ default: module.IncidentForm })),
@@ -71,52 +74,28 @@ const initialForm: IncidentFormState = {
   remarks: '',
 }
 
-const initialRecords: IncidentRecord[] = [
-  {
-    id: 'inc-1',
-    department: 'Operations',
-    employee: 'Karan Malhotra',
-    incidentDateTime: '2026-07-01T10:30',
-    location: 'Warehouse Floor 2',
-    misconductType: 'Safety Violation',
-    description: 'Employee entered a restricted loading area without mandatory safety gear.',
-    witness: 'Ananya Sen',
-    actionTaken: 'Written Warning',
-    remarks: 'Safety refresher training assigned for this week.',
-    reportedBy: 'Meera Iyer',
-    reportDate: '2026-07-01',
-  },
-  {
-    id: 'inc-2',
-    department: 'Information Technology',
-    employee: 'Kabir Sethi',
-    incidentDateTime: '2026-06-28T15:15',
-    location: 'IT Service Desk',
-    misconductType: 'Policy Violation',
-    description: 'Shared a temporary system access code through an unapproved channel.',
-    witness: 'Isha Nair',
-    actionTaken: 'Training Assigned',
-    remarks: 'Follow-up review scheduled after policy training completion.',
-    reportedBy: 'Priya Sharma',
-    reportDate: '2026-06-29',
-  },
-  {
-    id: 'inc-3',
-    department: 'Finance',
-    employee: 'Rohan Das',
-    incidentDateTime: '2026-06-24T09:45',
-    location: 'Finance Bay',
-    misconductType: 'Attendance Issue',
-    description: 'Repeated late arrival without prior manager approval.',
-    witness: 'Meera Iyer',
-    actionTaken: 'Verbal Warning',
-    remarks: 'Attendance will be monitored for the next 30 days.',
-    reportedBy: 'Aarav Mehta',
-    reportDate: '2026-06-24',
-  },
-]
-
 const pageSizeOptions = [5, 10, 15].map((size) => ({ label: `${size} / page`, value: String(size) }))
+
+function employeeName(employee: LaravelEmployee) {
+  return employee.name || employee.employee_name || employee.full_name || [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean).join(' ') || String(employee.id)
+}
+
+function mapIncident(record: LaravelDisciplinaryRecord): IncidentRecord {
+  return {
+    id: String(record.id),
+    department: String(record.department_id ?? record.department_name ?? ''),
+    employee: String(record.employee_id ?? record.employee_name ?? ''),
+    incidentDateTime: record.incident_datetime?.slice(0, 16).replace(' ', 'T') ?? '',
+    location: record.location ?? '',
+    misconductType: (record.misconduct_type || 'Others') as MisconductType,
+    description: record.description ?? '',
+    witness: String(record.witness_id ?? record.witness_name ?? ''),
+    actionTaken: (record.action_taken || 'Others') as ActionTaken,
+    remarks: record.remarks ?? '-',
+    reportedBy: String(record.reported_by ?? record.reported_by_name ?? ''),
+    reportDate: record.date_of_report ?? '',
+  }
+}
 
 function formatDateTime(value?: string) {
   if (!value) return '-'
@@ -211,12 +190,19 @@ function IncidentFormSkeleton() {
 }
 
 export function DisciplinaryManagement() {
-  const [records, setRecords] = useState<IncidentRecord[]>(initialRecords)
+  const { user } = useAuth()
+  const [records, setRecords] = useState<IncidentRecord[]>([])
+  const [departments, setDepartments] = useState<LaravelDepartment[]>([])
+  const [employees, setEmployees] = useState<LaravelEmployee[]>([])
+  const [formEmployees, setFormEmployees] = useState<LaravelDepartmentEmployee[]>([])
+  const [editEmployees, setEditEmployees] = useState<LaravelDepartmentEmployee[]>([])
   const [form, setForm] = useState<IncidentFormState>(initialForm)
   const [editForm, setEditForm] = useState<IncidentFormState>(initialForm)
   const [editingRecord, setEditingRecord] = useState<IncidentRecord | null>(null)
   const [deleteRecord, setDeleteRecord] = useState<IncidentRecord | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isFormEmployeesLoading, setIsFormEmployeesLoading] = useState(false)
+  const [isEditEmployeesLoading, setIsEditEmployeesLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
@@ -233,11 +219,29 @@ export function DisciplinaryManagement() {
     reportedBy: '',
     reportDate: '',
   })
+  const context = useMemo(() => getLaravelContext(user), [user])
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [disciplineResponse, complianceResponse, departmentsResponse] = await Promise.all([
+        organizationService.getDisciplinaryRecords(context),
+        organizationService.getComplianceRecords(context),
+        organizationService.getDepartmentsManagement(context),
+      ])
+      setRecords((disciplineResponse.data ?? []).map(mapIncident))
+      setEmployees(complianceResponse.userDetails ?? [])
+      setDepartments([...departmentsResponse.main_departments, ...Object.values(departmentsResponse.sub_departments).flat()])
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to load disciplinary records.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [context])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 500)
-    return () => window.clearTimeout(timer)
-  }, [])
+    queueMicrotask(() => void loadData())
+  }, [loadData])
 
   useEffect(() => {
     if (!notice) return
@@ -271,7 +275,7 @@ export function DisciplinaryManagement() {
   const pagedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const stats = useMemo(() => {
-    const escalated = records.filter((record) => record.actionTaken === 'Escalated to HR' || record.actionTaken === 'Suspension').length
+    const escalated = records.filter((record) => record.actionTaken === 'Termination' || record.actionTaken === 'Suspension').length
     const departmentsCovered = new Set(records.map((record) => record.department)).size
 
     return [
@@ -280,6 +284,74 @@ export function DisciplinaryManagement() {
       { label: 'Escalated Cases', value: escalated, helper: 'Requires stronger follow-up' },
     ]
   }, [records])
+
+  const departmentOptions = useMemo(
+    () => departments.map((department) => ({ label: department.department, value: String(department.id) })),
+    [departments],
+  )
+  const employeeOptions = useMemo(
+    () => employees.map((employee) => ({ label: employeeName(employee), value: String(employee.id) })),
+    [employees],
+  )
+  const formEmployeeOptions = useMemo(
+    () => formEmployees.map((employee) => ({ label: employeeName(employee), value: String(employee.id) })),
+    [formEmployees],
+  )
+  const editEmployeeOptions = useMemo(
+    () => editEmployees.map((employee) => ({ label: employeeName(employee), value: String(employee.id) })),
+    [editEmployees],
+  )
+  const departmentNames = useMemo(() => new Map(departments.map((department) => [String(department.id), department.department])), [departments])
+  const employeeNames = useMemo(() => new Map(employees.map((employee) => [String(employee.id), employeeName(employee)])), [employees])
+
+  const loadEmployeesByDepartment = useCallback(async (
+    departmentId: string,
+    target: 'create' | 'edit',
+    options?: { keepSelectedEmployee?: boolean },
+  ) => {
+    const setTargetEmployees = target === 'create' ? setFormEmployees : setEditEmployees
+    const setTargetLoading = target === 'create' ? setIsFormEmployeesLoading : setIsEditEmployeesLoading
+
+    if (!departmentId) {
+      setTargetEmployees([])
+      return
+    }
+
+    setTargetLoading(true)
+    try {
+      const departmentEmployees = await organizationService.getEmployeesByDepartment(context, departmentId)
+      setTargetEmployees(departmentEmployees)
+      setEmployees((current) => {
+        const merged = new Map(current.map((employee) => [String(employee.id), employee]))
+        departmentEmployees.forEach((employee) => merged.set(String(employee.id), employee))
+        return Array.from(merged.values())
+      })
+      if (!options?.keepSelectedEmployee) {
+        if (target === 'create') {
+          setForm((current) => ({ ...current, employee: '' }))
+        } else {
+          setEditForm((current) => ({ ...current, employee: '' }))
+        }
+      }
+    } catch (error) {
+      setTargetEmployees([])
+      if (!(error instanceof Error) || !error.message.includes('404')) {
+        setNotice(error instanceof Error ? error.message : 'Failed to load employees for the selected department.')
+      }
+    } finally {
+      setTargetLoading(false)
+    }
+  }, [context])
+
+  const handleCreateDepartmentChange = (department: string) => {
+    setForm((current) => ({ ...current, department, employee: '' }))
+    void loadEmployeesByDepartment(department, 'create')
+  }
+
+  const handleEditDepartmentChange = (department: string) => {
+    setEditForm((current) => ({ ...current, department, employee: '' }))
+    void loadEmployeesByDepartment(department, 'edit')
+  }
 
   const validateForm = (state: IncidentFormState) => {
     return Boolean(
@@ -293,30 +365,33 @@ export function DisciplinaryManagement() {
     )
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm(form)) {
       setNotice('Department, employee, incident date, location, misconduct type, description, and action taken are required.')
       return
     }
 
-    const nextRecord: IncidentRecord = {
-      id: `inc-${Date.now()}`,
-      department: form.department,
-      employee: form.employee,
-      incidentDateTime: form.incidentDateTime,
-      location: form.location.trim(),
-      misconductType: form.misconductType as MisconductType,
-      description: form.description.trim(),
-      witness: form.witness || '-',
-      actionTaken: form.actionTaken as ActionTaken,
-      remarks: form.remarks.trim() || '-',
-      reportedBy: 'HR Administrator',
-      reportDate: todayIsoDate(),
+    try {
+      await organizationService.createDisciplinaryRecord(context, {
+        department_id: form.department,
+        employee_id: form.employee,
+        incident_datetime: form.incidentDateTime,
+        location: form.location.trim(),
+        misconduct_type: form.misconductType,
+        description: form.description.trim(),
+        witness_id: form.witness,
+        action_taken: form.actionTaken,
+        remarks: form.remarks.trim(),
+        reported_by: context.userId,
+        date_of_report: todayIsoDate(),
+        sub_institute_id: context.subInstituteId,
+      })
+      setForm(initialForm)
+      setNotice('Disciplinary incident submitted successfully.')
+      await loadData()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to submit disciplinary incident.')
     }
-
-    setRecords((current) => [nextRecord, ...current])
-    setForm(initialForm)
-    setNotice('Disciplinary incident submitted successfully.')
   }
 
   const openEdit = (record: IncidentRecord) => {
@@ -332,39 +407,48 @@ export function DisciplinaryManagement() {
       actionTaken: record.actionTaken,
       remarks: record.remarks === '-' ? '' : record.remarks,
     })
+    void loadEmployeesByDepartment(record.department, 'edit', { keepSelectedEmployee: true })
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingRecord || !validateForm(editForm)) {
       setNotice('Department, employee, incident date, location, misconduct type, description, and action taken are required.')
       return
     }
 
-    setRecords((current) => current.map((record) => (
-      record.id === editingRecord.id
-        ? {
-            ...record,
-            department: editForm.department,
-            employee: editForm.employee,
-            incidentDateTime: editForm.incidentDateTime,
-            location: editForm.location.trim(),
-            misconductType: editForm.misconductType as MisconductType,
-            description: editForm.description.trim(),
-            witness: editForm.witness || '-',
-            actionTaken: editForm.actionTaken as ActionTaken,
-            remarks: editForm.remarks.trim() || '-',
-          }
-        : record
-    )))
-    setEditingRecord(null)
-    setNotice('Disciplinary incident updated successfully.')
+    try {
+      await organizationService.updateDisciplinaryRecord(context, editingRecord.id, {
+        department_id: editForm.department,
+        employee_id: editForm.employee,
+        incident_datetime: editForm.incidentDateTime,
+        location: editForm.location.trim(),
+        misconduct_type: editForm.misconductType,
+        description: editForm.description.trim(),
+        witness_id: editForm.witness,
+        action_taken: editForm.actionTaken,
+        remarks: editForm.remarks.trim(),
+        reported_by: context.userId,
+        date_of_report: editingRecord.reportDate || todayIsoDate(),
+        sub_institute_id: context.subInstituteId,
+      })
+      setEditingRecord(null)
+      setNotice('Disciplinary incident updated successfully.')
+      await loadData()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to update disciplinary incident.')
+    }
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteRecord) return
-    setRecords((current) => current.filter((record) => record.id !== deleteRecord.id))
-    setDeleteRecord(null)
-    setNotice('Disciplinary incident deleted successfully.')
+    try {
+      await organizationService.deleteDisciplinaryRecord(context, deleteRecord.id, context.userId)
+      setDeleteRecord(null)
+      setNotice('Disciplinary incident deleted successfully.')
+      await loadData()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to delete disciplinary incident.')
+    }
   }
 
   const handlePrint = () => {
@@ -457,6 +541,11 @@ export function DisciplinaryManagement() {
               onSubmit={handleSubmit}
               submitLabel="Submit Incident"
               submitIcon={<Plus className="size-4" />}
+              departmentOptions={departmentOptions}
+              employeeOptions={formEmployeeOptions}
+              witnessOptions={employeeOptions.filter((option) => option.value !== form.employee)}
+              isEmployeeLoading={isFormEmployeesLoading}
+              onDepartmentChange={handleCreateDepartmentChange}
             />
           </Suspense>
         </CardContent>
@@ -556,8 +645,8 @@ export function DisciplinaryManagement() {
                           <TableCell className="font-medium text-muted-foreground">
                             {(currentPage - 1) * pageSize + index + 1}
                           </TableCell>
-                          <TableCell>{record.department}</TableCell>
-                          <TableCell className="font-medium text-foreground">{record.employee}</TableCell>
+                          <TableCell>{departmentNames.get(record.department) ?? record.department}</TableCell>
+                          <TableCell className="font-medium text-foreground">{employeeNames.get(record.employee) ?? record.employee}</TableCell>
                           <TableCell>{formatDateTime(record.incidentDateTime)}</TableCell>
                           <TableCell>{record.location}</TableCell>
                           <TableCell>
@@ -566,14 +655,14 @@ export function DisciplinaryManagement() {
                           <TableCell className="max-w-[260px]">
                             <p className="line-clamp-2 text-muted-foreground">{record.description}</p>
                           </TableCell>
-                          <TableCell>{record.witness}</TableCell>
+                          <TableCell>{employeeNames.get(record.witness) ?? record.witness}</TableCell>
                           <TableCell>
                             <StatusBadge status={record.actionTaken} />
                           </TableCell>
                           <TableCell className="max-w-[220px]">
                             <p className="line-clamp-2 text-muted-foreground">{record.remarks}</p>
                           </TableCell>
-                          <TableCell>{record.reportedBy}</TableCell>
+                          <TableCell>{employeeNames.get(record.reportedBy) ?? record.reportedBy}</TableCell>
                           <TableCell>{formatDate(record.reportDate)}</TableCell>
                           <TableCell>
                             <div className="flex justify-end gap-1">
@@ -638,6 +727,11 @@ export function DisciplinaryManagement() {
               onSubmit={handleUpdate}
               submitLabel="Update"
               submitIcon={<Edit3 className="size-4" />}
+              departmentOptions={departmentOptions}
+              employeeOptions={editEmployeeOptions}
+              witnessOptions={employeeOptions.filter((option) => option.value !== editForm.employee)}
+              isEmployeeLoading={isEditEmployeesLoading}
+              onDepartmentChange={handleEditDepartmentChange}
             />
           </Suspense>
           <DialogFooter>

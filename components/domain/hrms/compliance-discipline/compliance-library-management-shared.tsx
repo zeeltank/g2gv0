@@ -34,6 +34,7 @@ export type ComplianceFormState = {
   frequency: Frequency | ''
   customDate: string
   attachmentName: string
+  attachmentFile?: File
 }
 
 export const departments = [
@@ -55,40 +56,8 @@ export const initialForm: ComplianceFormState = {
   frequency: '',
   customDate: '',
   attachmentName: '',
+  attachmentFile: undefined,
 }
-
-export const initialRecords: ComplianceRecord[] = [
-  {
-    id: 'cmp-1',
-    name: 'POSH Policy Acknowledgement',
-    description: 'Annual policy acknowledgement and workforce confirmation.',
-    department: 'Human Resources',
-    assignedTo: 'Priya Sharma',
-    dueDate: '2026-07-31',
-    frequency: 'Yearly',
-    attachmentName: 'posh-policy.pdf',
-  },
-  {
-    id: 'cmp-2',
-    name: 'GST Filing Review',
-    description: 'Monthly compliance evidence review before statutory filing.',
-    department: 'Finance',
-    assignedTo: 'Meera Iyer',
-    dueDate: '2026-07-20',
-    frequency: 'Monthly',
-    attachmentName: 'gst-checklist.xlsx',
-  },
-  {
-    id: 'cmp-3',
-    name: 'Data Access Audit',
-    description: 'Quarterly verification of privileged access and control owners.',
-    department: 'Information Technology',
-    assignedTo: 'Kabir Sethi',
-    dueDate: '2026-08-15',
-    frequency: 'Quarterly',
-    attachmentName: 'access-audit-template.docx',
-  },
-]
 
 export const departmentOptions = departments.map(({ label, value }) => ({ label, value }))
 export const frequencySelectOptions = frequencyOptions.map((frequency) => ({ label: frequency, value: frequency }))
@@ -146,6 +115,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export function ComplianceForm({
   form,
+  employeeOptions,
   onChange,
   onSubmit,
   submitLabel,
@@ -153,13 +123,14 @@ export function ComplianceForm({
   currentAttachment,
 }: {
   form: ComplianceFormState
+  employeeOptions?: { label: string; value: string }[]
   onChange: (next: Partial<ComplianceFormState>) => void
   onSubmit: () => void
   submitLabel: string
   uploadKey: string | number
   currentAttachment?: string
 }) {
-  const employeeOptions = departments
+  const resolvedEmployeeOptions = employeeOptions ?? departments
     .find((department) => department.value === form.department)
     ?.employees.map((employee) => ({ label: employee, value: employee })) ?? []
 
@@ -203,7 +174,7 @@ export function ComplianceForm({
           <Select
             value={form.assignedTo}
             onChange={(assignedTo) => onChange({ assignedTo })}
-            options={employeeOptions}
+            options={resolvedEmployeeOptions}
             placeholder={form.department ? 'Select employee' : 'Select department first'}
           />
         </Field>
@@ -242,7 +213,7 @@ export function ComplianceForm({
           label="Attachment Upload"
           hint="PDF, DOCX, XLSX, PNG up to 10MB"
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-          onFileSelect={(file) => onChange({ attachmentName: file?.name ?? '' })}
+          onFileSelect={(file) => onChange({ attachmentName: file?.name ?? '', attachmentFile: file ?? undefined })}
         />
         {currentAttachment && (
           <div className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm text-primary">

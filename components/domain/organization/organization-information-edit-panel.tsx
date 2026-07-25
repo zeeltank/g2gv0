@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, Globe, Mail, Network, Phone, Plus, Save, Upload, X } from 'lucide-react'
+import { Building2, Network, Save, Upload, X } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -50,7 +51,7 @@ type OrganizationData = {
 interface OrganizationInformationEditPanelProps {
   data: OrganizationData
   onCancel: () => void
-  onSave: () => void
+  onSave: (data: OrganizationData & { logoFile?: File }) => void
 }
 
 const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -71,7 +72,16 @@ export function OrganizationInformationEditPanel({
   onCancel,
   onSave,
 }: OrganizationInformationEditPanelProps) {
-  const org = data
+  const [org, setOrg] = useState(data)
+  const [logoFile, setLogoFile] = useState<File>()
+
+  function updateField<K extends keyof OrganizationData>(field: K, value: OrganizationData[K]) {
+    setOrg((current) => ({ ...current, [field]: value }))
+  }
+
+  function save() {
+    onSave({ ...org, logoFile })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -85,11 +95,11 @@ export function OrganizationInformationEditPanel({
             <X className="size-4" aria-hidden="true" />
             Cancel
           </Button>
-          <Button variant="outline" onClick={onSave}>
+          <Button variant="outline" onClick={save}>
             <Save className="size-4" aria-hidden="true" />
             Save Draft
           </Button>
-          <Button onClick={onSave}>
+          <Button onClick={save}>
             <Save className="size-4" aria-hidden="true" />
             Save &amp; Publish
           </Button>
@@ -105,9 +115,16 @@ export function OrganizationInformationEditPanel({
             >
               GTG
             </div>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="relative w-full overflow-hidden">
               <Upload aria-hidden="true" />
               Upload New Logo
+              <input
+                type="file"
+                accept="image/*"
+                aria-label="Upload organization logo"
+                className="absolute inset-0 cursor-pointer opacity-0"
+                onChange={(event) => setLogoFile(event.target.files?.[0])}
+              />
             </Button>
             <div className="flex w-full flex-col gap-3 pt-2">
               <ReadField label="Founded" value={org.establishedDate || 'Pending'} />
@@ -126,18 +143,19 @@ export function OrganizationInformationEditPanel({
         >
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FormField label="Company Name" htmlFor="cn" required>
-              <TextInput id="cn" defaultValue={org.organizationName} />
+              <TextInput id="cn" value={org.organizationName} onChange={(event) => updateField('organizationName', event.target.value)} />
             </FormField>
             <FormField label="Company Code" htmlFor="cc" required>
-              <TextInput id="cc" defaultValue={org.organizationCode} />
+              <TextInput id="cc" value={org.organizationCode} onChange={(event) => updateField('organizationCode', event.target.value)} />
             </FormField>
             <FormField label="Registration Number" htmlFor="rn">
-              <TextInput id="rn" defaultValue={org.registrationNo} />
+              <TextInput id="rn" value={org.registrationNo} onChange={(event) => updateField('registrationNo', event.target.value)} />
             </FormField>
             <FormField label="Industry" htmlFor="ind">
               <SelectInput
                 id="ind"
-                defaultValue={org.industryType}
+                value={org.industryType}
+                onChange={(value) => updateField('industryType', value)}
                 options={[
                   { value: org.industryType, label: org.industryType },
                   { value: 'Manufacturing', label: 'Manufacturing' },
@@ -149,7 +167,8 @@ export function OrganizationInformationEditPanel({
             <FormField label="Organization Type" htmlFor="ot">
               <SelectInput
                 id="ot"
-                defaultValue={org.organizationType}
+                value={org.organizationType}
+                onChange={(value) => updateField('organizationType', value)}
                 options={[
                   { value: 'Private Limited', label: 'Private Limited' },
                   { value: 'Public Limited', label: 'Public Limited' },
@@ -159,11 +178,11 @@ export function OrganizationInformationEditPanel({
               />
             </FormField>
             <FormField label="Website" htmlFor="web">
-              <TextInput id="web" defaultValue={org.website} />
+              <TextInput id="web" value={org.website} onChange={(event) => updateField('website', event.target.value)} />
             </FormField>
             <div className="sm:col-span-2">
               <FormField label="Company Description" required>
-                <TextArea defaultValue={org.companyDescription} rows={3} />
+                <TextArea value={org.companyDescription} rows={3} onChange={(event) => updateField('companyDescription', event.target.value)} />
               </FormField>
             </div>
           </div>
@@ -174,13 +193,13 @@ export function OrganizationInformationEditPanel({
         <SectionCard title="Contact Information">
           <div className="grid grid-cols-1 gap-5">
             <FormField label="Email Address" htmlFor="em">
-              <TextInput id="em" type="email" defaultValue={org.email} />
+              <TextInput id="em" type="email" value={org.email} onChange={(event) => updateField('email', event.target.value)} />
             </FormField>
             <FormField label="Phone Number" htmlFor="ph">
-              <TextInput id="ph" defaultValue={org.phone} />
+              <TextInput id="ph" value={org.phone} onChange={(event) => updateField('phone', event.target.value)} />
             </FormField>
             <FormField label="Alternate Phone" htmlFor="aph">
-              <TextInput id="aph" defaultValue={org.alternatePhone} />
+              <TextInput id="aph" value={org.alternatePhone} onChange={(event) => updateField('alternatePhone', event.target.value)} />
             </FormField>
           </div>
         </SectionCard>
@@ -189,25 +208,25 @@ export function OrganizationInformationEditPanel({
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <FormField label="Address Line 1" htmlFor="a1">
-                <TextInput id="a1" defaultValue={org.addressLine1} />
+                <TextInput id="a1" value={org.addressLine1} onChange={(event) => updateField('addressLine1', event.target.value)} />
               </FormField>
             </div>
             <div className="sm:col-span-2">
               <FormField label="Address Line 2" htmlFor="a2">
-                <TextInput id="a2" defaultValue={org.addressLine2} />
+                <TextInput id="a2" value={org.addressLine2} onChange={(event) => updateField('addressLine2', event.target.value)} />
               </FormField>
             </div>
             <FormField label="City" htmlFor="ct">
-              <TextInput id="ct" defaultValue={org.city} />
+              <TextInput id="ct" value={org.city} onChange={(event) => updateField('city', event.target.value)} />
             </FormField>
             <FormField label="State" htmlFor="st">
-              <TextInput id="st" defaultValue={org.state} />
+              <TextInput id="st" value={org.state} onChange={(event) => updateField('state', event.target.value)} />
             </FormField>
             <FormField label="Postal Code" htmlFor="pc">
-              <TextInput id="pc" defaultValue={org.postalCode} />
+              <TextInput id="pc" value={org.postalCode} onChange={(event) => updateField('postalCode', event.target.value)} />
             </FormField>
             <FormField label="Country" htmlFor="cy">
-              <TextInput id="cy" defaultValue={org.country} />
+              <TextInput id="cy" value={org.country} onChange={(event) => updateField('country', event.target.value)} />
             </FormField>
           </div>
         </SectionCard>

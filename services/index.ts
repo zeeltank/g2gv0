@@ -4,7 +4,7 @@
  */
 
 // Core
-export { apiClient, ApiClient } from './core'
+export { apiClient, webClient, ApiClient } from './core'
 
 // Domain Services
 export { organizationService } from './organization'

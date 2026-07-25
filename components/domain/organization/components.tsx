@@ -16,12 +16,16 @@ export function TextInput({
   id,
   placeholder,
   defaultValue,
+  value,
+  onChange,
   type = 'text',
   disabled,
 }: {
   id?: string
   placeholder?: string
   defaultValue?: string
+  value?: string
+  onChange?: React.ChangeEventHandler<HTMLInputElement>
   type?: string
   disabled?: boolean
 }) {
@@ -31,6 +35,8 @@ export function TextInput({
       type={type}
       placeholder={placeholder}
       defaultValue={defaultValue}
+      value={value}
+      onChange={onChange}
       disabled={disabled}
     />
   )
@@ -72,12 +78,16 @@ export function TextArea({
   id,
   placeholder,
   defaultValue,
+  value,
+  onChange,
   rows = 3,
   disabled,
 }: {
   id?: string
   placeholder?: string
   defaultValue?: string
+  value?: string
+  onChange?: React.ChangeEventHandler<HTMLTextAreaElement>
   rows?: number
   disabled?: boolean
 }) {
@@ -87,6 +97,8 @@ export function TextArea({
       rows={rows}
       placeholder={placeholder}
       defaultValue={defaultValue}
+      value={value}
+      onChange={onChange}
       disabled={disabled}
     />
   )

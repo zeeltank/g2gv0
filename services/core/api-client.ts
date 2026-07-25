@@ -3,7 +3,32 @@
  * Base HTTP client for all API calls
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+function resolveConfiguredBaseUrl() {
+  const configuredBase =
+    process.env.NODE_ENV === 'production'
+      ? process.env.NEXT_PUBLIC_API_BASE_URL_PROD
+      : process.env.NEXT_PUBLIC_API_BASE_URL_DEV
+
+  const fallbackBase = process.env.NEXT_PUBLIC_API_URL || ''
+  return (configuredBase || fallbackBase).trim().replace(/\/+$/, '')
+}
+
+function resolveApiBaseUrl() {
+  const rawBase = resolveConfiguredBaseUrl()
+
+  if (!rawBase) return '/api'
+
+  return rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`
+}
+
+function resolveWebBaseUrl() {
+  const rawBase = resolveConfiguredBaseUrl()
+  if (!rawBase) return ''
+  return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
+const WEB_BASE_URL = resolveWebBaseUrl()
 
 interface RequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -28,13 +53,14 @@ class ApiClient {
       url += `?${searchParams.toString()}`
     }
 
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
     const response = await fetch(url, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...headers,
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
     })
 
     if (!response.ok) {
@@ -52,6 +78,10 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'POST', body })
   }
 
+  async postForm<T>(endpoint: string, body: FormData): Promise<T> {
+    return this.request<T>(endpoint, { method: 'POST', body })
+  }
+
   async put<T>(endpoint: string, body: unknown): Promise<T> {
     return this.request<T>(endpoint, { method: 'PUT', body })
   }
@@ -60,10 +90,16 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'PATCH', body })
   }
 
+  async putForm<T>(endpoint: string, body: FormData): Promise<T> {
+    body.append('_method', 'PUT')
+    return this.request<T>(endpoint, { method: 'POST', body })
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' })
   }
 }
 
 export const apiClient = new ApiClient()
+export const webClient = new ApiClient(WEB_BASE_URL)
 export { ApiClient }

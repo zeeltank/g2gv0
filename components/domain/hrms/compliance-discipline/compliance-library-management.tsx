@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Edit3, FileText, Paperclip, Search, Trash2, UploadCloud } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,9 @@ import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { SearchKey } from './compliance-library-management-types'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { organizationService, type LaravelComplianceRecord, type LaravelEmployee } from '@/services/organization'
 import {
   ComplianceForm,
   type ComplianceFormState,
@@ -22,7 +25,6 @@ import {
   downloadFile,
   frequencySelectOptions,
   initialForm,
-  initialRecords,
   pageSizeOptions,
 } from './compliance-library-management-shared'
 
@@ -34,8 +36,28 @@ const LazyComplianceDialogs = lazy(() =>
   import('./compliance-library-management-dialogs').then((module) => ({ default: module.ComplianceDialogs })),
 )
 
+function employeeName(employee: LaravelEmployee) {
+  return employee.name || employee.employee_name || employee.full_name || [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean).join(' ') || String(employee.id)
+}
+
+function mapComplianceRecord(record: LaravelComplianceRecord): ComplianceRecord {
+  return {
+    id: String(record.id),
+    name: record.name ?? '',
+    description: record.description ?? '',
+    department: record.standard_name ?? '-',
+    assignedTo: record.assigned_user ?? String(record.assigned_to ?? '-'),
+    dueDate: record.duedate ?? '',
+    frequency: (record.frequency || 'One-Time') as Frequency,
+    customDate: record.custom_frequency_details ?? '',
+    attachmentName: record.attachment ?? '',
+  }
+}
+
 export function ComplianceLibraryManagement() {
-  const [records, setRecords] = useState<ComplianceRecord[]>(initialRecords)
+  const { user } = useAuth()
+  const [records, setRecords] = useState<ComplianceRecord[]>([])
+  const [employees, setEmployees] = useState<LaravelEmployee[]>([])
   const [form, setForm] = useState<ComplianceFormState>(initialForm)
   const [editForm, setEditForm] = useState<ComplianceFormState>(initialForm)
   const [editingRecord, setEditingRecord] = useState<ComplianceRecord | null>(null)
@@ -55,11 +77,24 @@ export function ComplianceLibraryManagement() {
   const [notice, setNotice] = useState('')
   const [uploadKey, setUploadKey] = useState(0)
   const [editUploadKey, setEditUploadKey] = useState(0)
+  const context = useMemo(() => getLaravelContext(user), [user])
+
+  const loadRecords = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await organizationService.getComplianceRecords(context)
+      setRecords((response.complainceData ?? []).map(mapComplianceRecord))
+      setEmployees(response.userDetails ?? [])
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to load compliance records.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [context])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 600)
-    return () => window.clearTimeout(timer)
-  }, [])
+    queueMicrotask(() => void loadRecords())
+  }, [loadRecords])
 
   useEffect(() => {
     if (!notice) return
@@ -105,32 +140,39 @@ export function ComplianceLibraryManagement() {
     ]
   }, [records])
 
+  const employeeOptions = useMemo(
+    () => employees.map((employee) => ({ label: employeeName(employee), value: String(employee.id) })),
+    [employees],
+  )
+
   const validateForm = (state: ComplianceFormState) => {
     return state.name.trim() && state.description.trim()
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm(form)) {
       setNotice('Compliance Name and Description are required.')
       return
     }
 
-    const nextRecord: ComplianceRecord = {
-      id: `cmp-${Date.now()}`,
+    try {
+      await organizationService.saveComplianceRecord(context, {
       name: form.name.trim(),
       description: form.description.trim(),
-      department: form.department || '-',
-      assignedTo: form.assignedTo || '-',
-      dueDate: form.dueDate,
-      frequency: (form.frequency || 'One-Time') as Frequency,
-      customDate: form.customDate,
-      attachmentName: form.attachmentName,
+        standard_name: form.department,
+        assigned_to: form.assignedTo,
+        duedate: form.dueDate,
+        frequency: form.frequency || 'One-Time',
+        custom_frequency_details: form.customDate,
+        attachment: form.attachmentFile,
+      })
+      setForm(initialForm)
+      setUploadKey((key) => key + 1)
+      setNotice('Compliance record created successfully.')
+      await loadRecords()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to create compliance record.')
     }
-
-    setRecords((current) => [nextRecord, ...current])
-    setForm(initialForm)
-    setUploadKey((key) => key + 1)
-    setNotice('Compliance record created successfully.')
   }
 
   const openEdit = (record: ComplianceRecord) => {
@@ -148,36 +190,42 @@ export function ComplianceLibraryManagement() {
     setEditUploadKey((key) => key + 1)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingRecord || !validateForm(editForm)) {
       setNotice('Compliance Name and Description are required.')
       return
     }
 
-    setRecords((current) => current.map((record) => (
-      record.id === editingRecord.id
-        ? {
-            ...record,
-            name: editForm.name.trim(),
-            description: editForm.description.trim(),
-            department: editForm.department || '-',
-            assignedTo: editForm.assignedTo || '-',
-            dueDate: editForm.dueDate,
-            frequency: (editForm.frequency || 'One-Time') as Frequency,
-            customDate: editForm.customDate,
-            attachmentName: editForm.attachmentName || record.attachmentName,
-          }
-        : record
-    )))
-    setEditingRecord(null)
-    setNotice('Compliance record updated successfully.')
+    try {
+      await organizationService.updateComplianceRecord(context, editingRecord.id, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+        standard_name: editForm.department,
+        assigned_to: editForm.assignedTo,
+        duedate: editForm.dueDate,
+        frequency: editForm.frequency || 'One-Time',
+        custom_frequency_details: editForm.customDate,
+        oldAttachment: editingRecord.attachmentName,
+        attachment: editForm.attachmentFile,
+      })
+      setEditingRecord(null)
+      setNotice('Compliance record updated successfully.')
+      await loadRecords()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to update compliance record.')
+    }
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteRecord) return
-    setRecords((current) => current.filter((record) => record.id !== deleteRecord.id))
-    setDeleteRecord(null)
-    setNotice('Compliance record deleted successfully.')
+    try {
+      await organizationService.deleteComplianceRecord(context, deleteRecord.id)
+      setDeleteRecord(null)
+      setNotice('Compliance record deleted successfully.')
+      await loadRecords()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to delete compliance record.')
+    }
   }
 
   const handlePrint = () => {
@@ -265,6 +313,7 @@ export function ComplianceLibraryManagement() {
             onSubmit={handleSubmit}
             submitLabel="Submit Compliance"
             uploadKey={uploadKey}
+            employeeOptions={employeeOptions}
           />
         </CardContent>
       </Card>
@@ -417,6 +466,7 @@ export function ComplianceLibraryManagement() {
           editingRecord={editingRecord}
           editForm={editForm}
           editUploadKey={editUploadKey}
+          employeeOptions={employeeOptions}
           onEditChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
           onEditSave={handleSaveEdit}
           onEditClose={() => setEditingRecord(null)}
