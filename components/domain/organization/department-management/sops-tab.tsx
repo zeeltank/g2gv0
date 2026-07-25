@@ -725,6 +725,7 @@ export function SopsTab({
                 <p className="mt-0.5 text-xs text-muted-foreground">{event.date}</p>
               </div>
             </li>
+            
           ))}
         </ul>
       </div>
