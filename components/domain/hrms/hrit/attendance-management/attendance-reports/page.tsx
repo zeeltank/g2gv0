@@ -4,13 +4,7 @@ import * as React from 'react'
 import { GtgPageHeader } from '@/components/shell/gtg-page-header'
 import { EnhancedAttendanceFilters } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/enhanced-attendance-filters'
 import { AttendanceReportTable } from '@/domain/hrms/hrit/attendance-management/attendance-reports/components/AttendanceReportTable'
-import {
-  earlyGoingMockData,
-  departments,
-  employees,
-  savedReports,
-  type EarlyGoingRecord,
-} from './services/report-data'
+import { savedReports, type EarlyGoingRecord } from './services/report-data'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
 import {
@@ -44,6 +38,18 @@ import {
 type ViewTab = { id: ViewTabId; label: string }
 type ViewTabId = 'table-focus' | 'trend-focus' | 'daily-details'
 
+/**
+ * The filter set the report data is currently loaded for. Dropdown selections
+ * stay in draft state until Apply commits them here, so a department/employee
+ * change does not refetch until the user asks for it.
+ */
+type AppliedFilters = {
+  from: string
+  to: string
+  department: string
+  employee: string
+}
+
 type AttendanceTrendData = {
   label: string
   present: number
@@ -74,6 +80,11 @@ function parsePercentage(value?: string | number | null) {
 
 function getApiDepartmentId(department: string) {
   return /^\d+$/.test(department) ? department : undefined
+}
+
+/** 'all' (or anything non-numeric) means no employee filter. */
+function getApiEmployeeId(employee: string) {
+  return /^\d+$/.test(employee) ? employee : undefined
 }
 
 function mapWeeklyTrend(response: AttendanceWeeklyResponse | null): AttendanceTrendData[] {
@@ -237,10 +248,17 @@ export function AttendanceReportsPage() {
   const [apiError, setApiError] = React.useState<string | null>(null)
   const [weeklySummary, setWeeklySummary] = React.useState<AttendanceWeeklyResponse | null>(null)
   const [attendanceKpis, setAttendanceKpis] = React.useState<AttendanceKpiResponse | null>(null)
-  const [departmentOptions, setDepartmentOptions] = React.useState<AttendanceOption[]>(departments)
-  const [employeeOptions, setEmployeeOptions] = React.useState<AttendanceOption[]>(employees)
+  const [departmentOptions, setDepartmentOptions] = React.useState<AttendanceOption[]>([])
+  const [employeeOptions, setEmployeeOptions] = React.useState<AttendanceOption[]>([])
+  const [employeesLoading, setEmployeesLoading] = React.useState(false)
   const [departmentReport, setDepartmentReport] = React.useState<DepartmentAttendanceEmployee[]>([])
   const [earlyGoingRows, setEarlyGoingRows] = React.useState<EarlyGoingRecord[]>([])
+  const [appliedFilters, setAppliedFilters] = React.useState<AppliedFilters>(() => ({
+    from: initialDate,
+    to: initialDate,
+    department: 'all',
+    employee: 'all',
+  }))
   const pageSize = 10
   const departmentsById = React.useMemo(
     () => new Map(departmentOptions.map((option) => [option.value, option.label])),
@@ -288,12 +306,19 @@ export function AttendanceReportsPage() {
   /* eslint-disable react-hooks/set-state-in-effect -- Intentional: pagination reset on filter change */
   React.useEffect(() => {
     setPage(1)
-  }, [dateRange.from, dateRange.to, groupBy, department, employee, search])
+  }, [appliedFilters, groupBy, search])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleDateRangeChange = (range: { from: string; to: string }) => {
     setDateRange(range)
     setQuickFilter('custom')
+  }
+
+  // Employees are scoped to the department, so a department change invalidates
+  // whatever employee was picked. Fall back to "All Employees".
+  const handleDepartmentChange = (value: string) => {
+    setDepartment(value)
+    setEmployee('all')
   }
 
   const handleReset = () => {
@@ -305,24 +330,23 @@ export function AttendanceReportsPage() {
     setQuickFilter('custom')
     setSearch('')
     setPage(1)
+    setAppliedFilters({ from: today, to: today, department: 'all', employee: 'all' })
   }
 
-  const earlyGoingData = React.useMemo(() => {
-    const apiRows = earlyGoingRows.filter((record) => matchesSearch(record, search))
-    if (apiRows.length > 0 || apiLoading || apiError) return apiRows
+  // API rows only - the report never falls back to sample data.
+  const earlyGoingData = React.useMemo(
+    () => earlyGoingRows.filter((record) => matchesSearch(record, search)),
+    [earlyGoingRows, search],
+  )
 
-    return earlyGoingMockData.filter((d) => {
-      if (!matchesSearch(d, search)) return false
-      if (department && department !== 'all' && d.department.toLowerCase() !== department.toLowerCase()) return false
-      if (employee && employee !== 'all' && d.employeeId.toLowerCase() !== employee.toLowerCase()) return false
-      if (dateRange.from && d.date) {
-        if (d.date < dateRange.from || d.date > dateRange.to) return false
-      }
-      return true
-    })
-  }, [apiError, apiLoading, dateRange, department, earlyGoingRows, employee, search])
-
+  // "Apply" is what commits the draft filters and triggers the refetch.
   const handleSearchClick = () => {
+    setAppliedFilters({
+      from: dateRange.from,
+      to: dateRange.to,
+      department,
+      employee,
+    })
     setPage(1)
   }
 
@@ -347,13 +371,10 @@ export function AttendanceReportsPage() {
         const response = await hrmsService.getAttendanceReportIndex(context)
         if (cancelled) return
 
-        const apiDepartments = optionsFromDepartments(response.departments)
-        if (apiDepartments.length > 0) {
-          setDepartmentOptions(apiDepartments)
-        }
+        setDepartmentOptions(optionsFromDepartments(response.departments))
       } catch {
         if (!cancelled) {
-          setDepartmentOptions(departments)
+          setDepartmentOptions([])
         }
       }
     }
@@ -368,22 +389,24 @@ export function AttendanceReportsPage() {
   React.useEffect(() => {
     let cancelled = false
 
+    // Employee options track the *draft* department so the dropdown narrows
+    // as soon as a department is picked, before Apply is pressed.
     async function loadEmployees() {
-      if (department === 'all') {
-        setEmployeeOptions(employees)
-        return
-      }
+      setEmployeesLoading(true)
 
       try {
         const context = getLaravelContext(user)
         const response = await hrmsService.getAttendanceEmployees(context, department)
         if (!cancelled) {
-          const apiEmployees = optionsFromEmployees(response.employees)
-          setEmployeeOptions(apiEmployees.length > 0 ? apiEmployees : employees)
+          setEmployeeOptions(optionsFromEmployees(response.employees))
         }
       } catch {
         if (!cancelled) {
-          setEmployeeOptions(employees)
+          setEmployeeOptions([])
+        }
+      } finally {
+        if (!cancelled) {
+          setEmployeesLoading(false)
         }
       }
     }
@@ -404,24 +427,26 @@ export function AttendanceReportsPage() {
 
       try {
         const context = getLaravelContext(user)
-        const departmentId = getApiDepartmentId(department)
+        const departmentId = getApiDepartmentId(appliedFilters.department)
+        const employeeId = getApiEmployeeId(appliedFilters.employee)
         const [kpis, weekly, departmentSummary, earlyGoing] = await Promise.all([
-          hrmsService.getAttendanceKpis(context, { departmentId }),
+          hrmsService.getAttendanceKpis(context, { departmentId, employeeId }),
           hrmsService.getAttendanceWeeklySummary(context, {
-            fromDate: dateRange.from,
-            toDate: dateRange.to,
+            fromDate: appliedFilters.from,
+            toDate: appliedFilters.to,
             departmentId,
+            employeeId,
           }),
           hrmsService.getDepartmentAttendanceReport(context, {
-            fromDate: dateRange.from,
-            toDate: dateRange.to,
+            fromDate: appliedFilters.from,
+            toDate: appliedFilters.to,
             departmentId: departmentId ?? 'all',
-            employeeId: employee,
+            employeeId: employeeId ?? 'all',
           }),
           hrmsService.getEarlyGoingAttendanceReport(context, {
-            date: dateRange.to || dateRange.from,
+            date: appliedFilters.to || appliedFilters.from,
             departmentId: departmentId ?? 'all',
-            employeeId: employee,
+            employeeId: employeeId ?? 'all',
           }),
         ])
 
@@ -451,7 +476,7 @@ export function AttendanceReportsPage() {
     return () => {
       cancelled = true
     }
-  }, [dateRange.from, dateRange.to, department, departmentsById, employee, user])
+  }, [appliedFilters, departmentsById, user])
 
   const groupedTableData = React.useMemo((): GroupedRecord[] => {
     if (departmentReport.length > 0) {
@@ -473,7 +498,7 @@ export function AttendanceReportsPage() {
 
         return Array.from(deptMap.entries()).map(([dept, vals]) => ({
           id: `${groupBy}-${dept}`,
-          date: groupBy === 'date' ? `${dateRange.from} to ${dateRange.to}` : undefined,
+          date: groupBy === 'date' ? `${appliedFilters.from} to ${appliedFilters.to}` : undefined,
           department: dept,
           employees: vals.employees,
           present: vals.present,
@@ -496,7 +521,7 @@ export function AttendanceReportsPage() {
           employee: record.full_name ?? '--',
           employeeId: record.employee_no ?? String(record.user_id),
           department: record.department ?? '--',
-          date: `${dateRange.from} to ${dateRange.to}`,
+          date: `${appliedFilters.from} to ${appliedFilters.to}`,
           punchIn: '--',
           punchOut: '--',
           expectedIn: '--',
@@ -579,7 +604,7 @@ export function AttendanceReportsPage() {
           recentRecords: dataSource.filter((r) => r.employee === d.employee).slice(-5),
         }))
     }
-  }, [dateRange.from, dateRange.to, departmentReport, earlyGoingData, groupBy])
+  }, [appliedFilters, departmentReport, earlyGoingData, groupBy])
 
   const trendData = React.useMemo((): AttendanceTrendData[] => {
     const apiTrendData = mapWeeklyTrend(weeklySummary)
@@ -759,10 +784,11 @@ export function AttendanceReportsPage() {
         quickFilter={quickFilter}
         departments={departmentOptions}
         employees={employeeOptions}
+        employeesLoading={employeesLoading}
         savedReports={savedReports}
         onDateRangeChange={handleDateRangeChange}
         onGroupByChange={setGroupBy}
-        onDepartmentChange={setDepartment}
+        onDepartmentChange={handleDepartmentChange}
         onEmployeeChange={setEmployee}
         onQuickFilterChange={setQuickFilter}
         onSavedReportChange={handleSavedReportChange}

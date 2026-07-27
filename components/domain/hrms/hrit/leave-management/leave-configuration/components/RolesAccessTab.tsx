@@ -1,176 +1,108 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorState } from '@/components/ui/error-state'
+import { useLeaveRoles } from '@/hooks/use-leave'
+import type { LeaveRolePermission } from '@/services/hrms'
 
-interface Role {
-  id: string
-  name: string
-  scope: string
-  permissions: {
-    approveLeave: boolean
-    viewReports: boolean
-    configureSettings: boolean
-    bulkOperations: boolean
-    escalationRights: boolean
-    userManagement: boolean
-  }
-  status: 'Active' | 'Inactive'
+type PermissionKey =
+  | 'approve_leave'
+  | 'view_reports'
+  | 'configure_settings'
+  | 'bulk_operations'
+  | 'escalation_rights'
+  | 'user_management'
+
+const permissionKeys: PermissionKey[] = [
+  'approve_leave',
+  'view_reports',
+  'configure_settings',
+  'bulk_operations',
+  'escalation_rights',
+  'user_management',
+]
+
+const permissionHeaders: Record<PermissionKey, string> = {
+  approve_leave: 'Approve Leave',
+  view_reports: 'View Reports',
+  configure_settings: 'Configure Settings',
+  bulk_operations: 'Bulk Operations',
+  escalation_rights: 'Escalation Rights',
+  user_management: 'User Management',
 }
 
-const initialRoles: Role[] = [
-  { id: '1', name: 'Employee', scope: 'Self', permissions: { approveLeave: false, viewReports: true, configureSettings: false, bulkOperations: false, escalationRights: false, userManagement: false }, status: 'Active' },
-  { id: '2', name: 'Reporting Manager', scope: 'Team', permissions: { approveLeave: true, viewReports: true, configureSettings: false, bulkOperations: false, escalationRights: false, userManagement: false }, status: 'Active' },
-  { id: '3', name: 'Department Head', scope: 'Department', permissions: { approveLeave: true, viewReports: true, configureSettings: true, bulkOperations: false, escalationRights: false, userManagement: false }, status: 'Active' },
-  { id: '4', name: 'HR Executive', scope: 'Department', permissions: { approveLeave: true, viewReports: true, configureSettings: true, bulkOperations: false, escalationRights: false, userManagement: false }, status: 'Active' },
-  { id: '5', name: 'HR Manager', scope: 'Organization', permissions: { approveLeave: true, viewReports: true, configureSettings: true, bulkOperations: true, escalationRights: true, userManagement: true }, status: 'Active' },
-  { id: '6', name: 'Administrator', scope: 'Organization', permissions: { approveLeave: true, viewReports: true, configureSettings: true, bulkOperations: true, escalationRights: true, userManagement: true }, status: 'Active' },
-  { id: '7', name: 'Executive', scope: 'Organization', permissions: { approveLeave: true, viewReports: true, configureSettings: true, bulkOperations: true, escalationRights: true, userManagement: false }, status: 'Active' },
-]
-
-const permissionKeys: Array<keyof Role['permissions']> = [
-  'approveLeave',
-  'viewReports',
-  'configureSettings',
-  'bulkOperations',
-  'escalationRights',
-  'userManagement',
-]
-
 export default function RolesAccessTab({ isLoading }: { isLoading: boolean }) {
-  const [roles, setRoles] = useState<Role[]>(initialRoles)
-  const [originalRoles, setOriginalRoles] = useState<Role[]>(initialRoles)
+  const { loading, processing, error, actionMessage, roles, save, retry, clearMessages } = useLeaveRoles()
+  const [draft, setDraft] = useState<LeaveRolePermission[]>(roles)
+  const [syncedRoles, setSyncedRoles] = useState<LeaveRolePermission[]>(roles)
 
-  const hasChanges = JSON.stringify(roles) !== JSON.stringify(originalRoles)
-
-  const handlePermissionChange = (roleId: string, permission: keyof Role['permissions'], value: boolean) => {
-    setRoles(roles.map(r =>
-      r.id === roleId
-        ? { ...r, permissions: { ...r.permissions, [permission]: value } }
-        : r
-    ))
+  // Adjust the editable draft during render when the server payload changes,
+  // rather than in an effect - see https://react.dev/learn/you-might-not-need-an-effect
+  if (roles !== syncedRoles) {
+    setSyncedRoles(roles)
+    setDraft(roles)
   }
 
-  const handleToggleRolePermissions = (role: Role) => {
-    const shouldSelectAll = permissionKeys.some((permission) => !role.permissions[permission])
-    const permissions = permissionKeys.reduce<Role['permissions']>((nextPermissions, permission) => ({
-      ...nextPermissions,
-      [permission]: shouldSelectAll,
-    }), { ...role.permissions })
+  const hasChanges = useMemo(() => JSON.stringify(draft) !== JSON.stringify(roles), [draft, roles])
 
-    setRoles(roles.map(r =>
-      r.id === role.id
-        ? { ...r, permissions }
-        : r
-    ))
+  const handlePermissionChange = (roleId: number, permission: PermissionKey, value: boolean) => {
+    setDraft((prev) => prev.map((role) => (role.id === roleId ? { ...role, [permission]: value } : role)))
   }
 
-  const handleSaveChanges = () => {
-    console.log('Saving roles:', roles)
-    setOriginalRoles(roles)
-  }
+  const handleToggleRolePermissions = (role: LeaveRolePermission) => {
+    const shouldSelectAll = permissionKeys.some((permission) => !role[permission])
 
-  const roleColumns: Column<Role>[] = [
-    {
-      id: 'name',
-      header: 'Role',
-      render: (value) => (
-        <span className="text-sm font-medium text-foreground">{String(value)}</span>
+    setDraft((prev) =>
+      prev.map((current) =>
+        current.id === role.id
+          ? permissionKeys.reduce<LeaveRolePermission>(
+              (next, permission) => ({ ...next, [permission]: shouldSelectAll }),
+              { ...current },
+            )
+          : current,
       ),
+    )
+  }
+
+  const permissionColumns: Column<LeaveRolePermission>[] = permissionKeys.map((permission) => ({
+    id: permission as keyof LeaveRolePermission,
+    header: permissionHeaders[permission],
+    render: (_, row) => (
+      <div className="flex justify-center">
+        <Checkbox
+          checked={row[permission]}
+          onCheckedChange={(checked) => handlePermissionChange(row.id, permission, !!checked)}
+        />
+      </div>
+    ),
+  }))
+
+  const roleColumns: Column<LeaveRolePermission>[] = [
+    {
+      id: 'role_name',
+      header: 'Role',
+      render: (value) => <span className="text-sm font-medium text-foreground">{String(value)}</span>,
     },
     {
       id: 'scope',
       header: 'Scope of Access',
-      render: (value) => (
-        <span className="text-sm text-muted-foreground">{String(value)}</span>
-      ),
+      render: (value) => <span className="text-sm text-muted-foreground">{String(value)}</span>,
     },
-    {
-      id: 'approveLeave' as keyof Role,
-      header: 'Approve Leave',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.approveLeave}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'approveLeave', !!checked)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: 'viewReports' as keyof Role,
-      header: 'View Reports',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.viewReports}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'viewReports', !!checked)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: 'configureSettings' as keyof Role,
-      header: 'Configure Settings',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.configureSettings}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'configureSettings', !!checked)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: 'bulkOperations' as keyof Role,
-      header: 'Bulk Operations',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.bulkOperations}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'bulkOperations', !!checked)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: 'escalationRights' as keyof Role,
-      header: 'Escalation Rights',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.escalationRights}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'escalationRights', !!checked)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: 'userManagement' as keyof Role,
-      header: 'User Management',
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.permissions.userManagement}
-            onCheckedChange={(checked) => handlePermissionChange(row.id, 'userManagement', !!checked)}
-          />
-        </div>
-      ),
-    },
+    ...permissionColumns,
     {
       id: 'status',
       header: 'Status',
-      render: (_, row) => (
-        <StatusBadge status={row.status} />
-      ),
+      render: (_, row) => <StatusBadge status={row.status ? 'Active' : 'Inactive'} />,
     },
     {
-      id: 'quickSelect' as keyof Role,
+      id: 'quickSelect' as keyof LeaveRolePermission,
       header: 'QUICK SELECT',
       render: (_, row) => (
         <Button
@@ -185,39 +117,58 @@ export default function RolesAccessTab({ isLoading }: { isLoading: boolean }) {
     },
   ]
 
-  if (isLoading) {
+  if (isLoading || loading) {
     return (
       <div className="rounded-xl border border-border bg-card">
         <div className="p-4 space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
           ))}
         </div>
       </div>
     )
   }
 
+  if (error && draft.length === 0) {
+    return <ErrorState title="Unable to load role permissions" description={error} retry={retry} />
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <CardTitle className="text-base sm:text-lg md:text-xl">Roles & Access</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Manage role-based permissions and access levels across the Leave Management System.</CardDescription>
+          <CardTitle className="text-base sm:text-lg md:text-xl">Roles &amp; Access</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Manage role-based permissions and access levels across the Leave Management System.
+          </CardDescription>
         </div>
         {hasChanges && (
-          <Button className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto" onClick={handleSaveChanges}>
-            Save Changes
+          <Button
+            className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto"
+            onClick={() => save(draft)}
+            disabled={processing}
+          >
+            {processing ? 'Saving...' : 'Save Changes'}
           </Button>
         )}
       </CardHeader>
+
+      {(actionMessage || error) && (
+        <CardContent className="pt-0">
+          <Alert variant={error ? 'destructive' : undefined}>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>{error ?? actionMessage}</span>
+              <Button variant="ghost" size="sm" onClick={clearMessages}>
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      )}
+
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <DataTable
-            columns={roleColumns}
-            data={roles}
-            density="compact"
-            striped
-          />
+          <DataTable columns={roleColumns} data={draft} density="compact" striped />
         </div>
       </CardContent>
     </Card>

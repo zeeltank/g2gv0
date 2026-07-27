@@ -33,16 +33,48 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
+import { Skeleton } from '@/components/ui/skeleton'
+import type { LeaveOption, LeaveReportSummaryRow } from '@/services/hrms'
+
 import {
   categories,
-  departmentBreakdown,
+  leaveTypeInitials,
   pct,
-  previewRows,
+  reportChartColors,
   selectOptions,
   type ReportCategory,
   type ReportDefinition,
   type ReportFilters,
 } from '@/domain/hrms/hrit/leave-management/leave-reports/services/leave-reports-data'
+
+/** Dropdown sources supplied by /api/leave/options. */
+export type ReportFilterOptions = {
+  leaveType: LeaveOption[]
+  department: LeaveOption[]
+  employee: LeaveOption[]
+  status: LeaveOption[]
+}
+
+export type ReportDepartmentSlice = {
+  name: string
+  value: number
+  color: string
+}
+
+/** Prepends the "All" entry the sidebar filters rely on. */
+export function withAllOption(options: LeaveOption[]): LeaveOption[] {
+  return [{ label: 'All', value: 'all' }, ...options]
+}
+
+export function toDepartmentSlices(
+  breakdown: { department: string; percentage: number }[],
+): ReportDepartmentSlice[] {
+  return breakdown.slice(0, 5).map((item, index) => ({
+    name: item.department,
+    value: item.percentage,
+    color: reportChartColors[index % reportChartColors.length],
+  }))
+}
 
 type ReportCatalogSectionProps = {
   activeTab: 'catalog' | 'saved'
@@ -64,8 +96,10 @@ type ReportPreviewSectionProps = {
   approved: number
   cancelled: number
   lastApplied: string
+  loading?: boolean
   pending: number
   rejected: number
+  rows: LeaveReportSummaryRow[]
   saved: boolean
   selectedReport: ReportDefinition
   totalDays: number
@@ -78,8 +112,11 @@ type ReportPreviewSectionProps = {
 type ReportsSidebarProps = {
   approved: number
   cancelled: number
+  departmentBreakdown: ReportDepartmentSlice[]
+  filterOptions: ReportFilterOptions
   filters: ReportFilters
   rejected: number
+  topLeaveType: LeaveReportSummaryRow | null
   totalRequests: number
   onApplyFilters: () => void
   onFilterChange: (key: keyof ReportFilters, value: string | boolean) => void
@@ -216,8 +253,10 @@ export function ReportPreviewSection({
   approved,
   cancelled,
   lastApplied,
+  loading = false,
   pending,
   rejected,
+  rows,
   saved,
   selectedReport,
   totalDays,
@@ -265,48 +304,68 @@ export function ReportPreviewSection({
         </div>
 
         <div className="overflow-auto rounded-lg border border-border">
-          <Table>
-            <TableHeader className="bg-surface-muted">
-              <TableRow className="hover:bg-surface-muted">
-                <TableHead className="normal-case">Leave Type</TableHead>
-                <TableHead className="text-center normal-case">Total Requests</TableHead>
-                <TableHead className="text-center normal-case">Approved</TableHead>
-                <TableHead className="text-center normal-case">Pending</TableHead>
-                <TableHead className="text-center normal-case">Rejected</TableHead>
-                <TableHead className="text-center normal-case">Cancelled</TableHead>
-                <TableHead className="text-center normal-case">Total Days</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {previewRows.map((row) => (
-                <TableRow key={row.short}>
-                  <TableCell className="min-w-[190px] font-medium">
-                    <span className={cn('mr-2 inline-flex size-5 items-center justify-center rounded bg-current/10', row.tone)}>
-                      <FileText className="size-3.5" />
-                    </span>
-                    {row.leaveType} ({row.short})
-                  </TableCell>
-                  <TableCell className="text-center">{row.total}</TableCell>
-                  <TableCell className="text-center">{row.approved}</TableCell>
-                  <TableCell className="text-center">{row.pending}</TableCell>
-                  <TableCell className="text-center">{row.rejected}</TableCell>
-                  <TableCell className="text-center">{row.cancelled}</TableCell>
-                  <TableCell className="text-center">{row.days.toFixed(1)}</TableCell>
-                </TableRow>
+          {loading ? (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
               ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell>Total</TableCell>
-                <TableCell className="text-center">{totalRequests}</TableCell>
-                <TableCell className="text-center">{approved}</TableCell>
-                <TableCell className="text-center">{pending}</TableCell>
-                <TableCell className="text-center">{rejected}</TableCell>
-                <TableCell className="text-center">{cancelled}</TableCell>
-                <TableCell className="text-center">{totalDays.toFixed(1)}</TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
+              <FileText className="size-10 text-muted-foreground/50" />
+              <p className="mt-3 text-sm font-medium">No leave data for this period</p>
+              <p className="mt-1 text-xs text-muted-foreground">Adjust the filters and apply again.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow className="hover:bg-surface-muted">
+                  <TableHead className="normal-case">Leave Type</TableHead>
+                  <TableHead className="text-center normal-case">Total Requests</TableHead>
+                  <TableHead className="text-center normal-case">Approved</TableHead>
+                  <TableHead className="text-center normal-case">Pending</TableHead>
+                  <TableHead className="text-center normal-case">Rejected</TableHead>
+                  <TableHead className="text-center normal-case">Cancelled</TableHead>
+                  <TableHead className="text-center normal-case">Total Days</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, index) => (
+                  <TableRow key={`${row.leave_type_id}-${row.leave_type}`}>
+                    <TableCell className="min-w-[190px] font-medium">
+                      <span
+                        className="mr-2 inline-flex size-5 items-center justify-center rounded"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${reportChartColors[index % reportChartColors.length]} 15%, transparent)`,
+                          color: reportChartColors[index % reportChartColors.length],
+                        }}
+                      >
+                        <FileText className="size-3.5" />
+                      </span>
+                      {row.leave_type} ({leaveTypeInitials(row.leave_type)})
+                    </TableCell>
+                    <TableCell className="text-center">{row.total}</TableCell>
+                    <TableCell className="text-center">{row.approved}</TableCell>
+                    <TableCell className="text-center">{row.pending}</TableCell>
+                    <TableCell className="text-center">{row.rejected}</TableCell>
+                    <TableCell className="text-center">{row.cancelled}</TableCell>
+                    <TableCell className="text-center">{row.days.toFixed(1)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-center">{totalRequests}</TableCell>
+                  <TableCell className="text-center">{approved}</TableCell>
+                  <TableCell className="text-center">{pending}</TableCell>
+                  <TableCell className="text-center">{rejected}</TableCell>
+                  <TableCell className="text-center">{cancelled}</TableCell>
+                  <TableCell className="text-center">{totalDays.toFixed(1)}</TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -316,8 +375,11 @@ export function ReportPreviewSection({
 export function ReportsSidebar({
   approved,
   cancelled,
+  departmentBreakdown,
+  filterOptions,
   filters,
   rejected,
+  topLeaveType,
   totalRequests,
   onApplyFilters,
   onFilterChange,
@@ -339,10 +401,10 @@ export function ReportsSidebar({
             <span className="text-muted-foreground">-</span>
             <Input type="date" value={filters.endDate} onChange={(event) => onFilterChange('endDate', event.target.value)} className="h-9" />
           </div>
-          <FilterSelect label="Leave Type" value={filters.leaveType} onChange={(value) => onFilterChange('leaveType', value)} options={selectOptions.leaveType} />
-          <FilterSelect label="Department" value={filters.department} onChange={(value) => onFilterChange('department', value)} options={selectOptions.department} />
-          <FilterSelect label="Employee" value={filters.employee} onChange={(value) => onFilterChange('employee', value)} options={selectOptions.employee} />
-          <FilterSelect label="Status" value={filters.status} onChange={(value) => onFilterChange('status', value)} options={selectOptions.status} />
+          <FilterSelect label="Leave Type" value={filters.leaveType} onChange={(value) => onFilterChange('leaveType', value)} options={filterOptions.leaveType} />
+          <FilterSelect label="Department" value={filters.department} onChange={(value) => onFilterChange('department', value)} options={filterOptions.department} />
+          <FilterSelect label="Employee" value={filters.employee} onChange={(value) => onFilterChange('employee', value)} options={filterOptions.employee} />
+          <FilterSelect label="Status" value={filters.status} onChange={(value) => onFilterChange('status', value)} options={filterOptions.status} />
           <FilterSelect label="Employee Status" value={filters.employeeStatus} onChange={(value) => onFilterChange('employeeStatus', value)} options={selectOptions.employeeStatus} />
 
           <label className="flex items-center gap-2 text-sm text-foreground">
@@ -367,41 +429,47 @@ export function ReportsSidebar({
         <CardContent className="space-y-5 p-4">
           <ul className="space-y-2 text-sm text-muted-foreground">
             <Insight>Approval rate is {pct(approved, totalRequests)} for the selected period.</Insight>
-            <Insight>Maximum leaves taken are Casual Leave ({previewRows[0].days} days).</Insight>
+            {topLeaveType ? (
+              <Insight>
+                Maximum leaves taken are {topLeaveType.leave_type} ({topLeaveType.days.toFixed(1)} days).
+              </Insight>
+            ) : (
+              <Insight>No leave was taken in the selected period.</Insight>
+            )}
             <Insight>{rejected} requests were rejected.</Insight>
             <Insight>{cancelled} requests were cancelled.</Insight>
           </ul>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Top Departments by Leave Days</h3>
-            <div className="mt-3 grid grid-cols-[120px_1fr] items-center gap-3">
-              <div className="h-[120px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={departmentBreakdown} dataKey="value" innerRadius={34} outerRadius={58} paddingAngle={2}>
-                      {departmentBreakdown.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value}%`} />
-                  </PieChart>
-                </ResponsiveContainer>
+            <h3 className="text-sm font-semibold text-foreground">Top Departments by Leave Requests</h3>
+            {departmentBreakdown.length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">No department data for this period.</p>
+            ) : (
+              <div className="mt-3 grid grid-cols-[120px_1fr] items-center gap-3">
+                <div className="h-[120px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={departmentBreakdown} dataKey="value" innerRadius={34} outerRadius={58} paddingAngle={2}>
+                        {departmentBreakdown.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `${value}%`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-2">
+                  {departmentBreakdown.map((item) => (
+                    <div key={item.name} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-xs">
+                      <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="truncate text-muted-foreground">{item.name}</span>
+                      <span className="font-medium text-foreground">{item.value}%</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2">
-                {departmentBreakdown.map((item) => (
-                  <div key={item.name} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-xs">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="truncate text-muted-foreground">{item.name}</span>
-                    <span className="font-medium text-foreground">{item.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
-
-          <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-            Report generated on 16 May 2025, 10:30 AM
-          </p>
         </CardContent>
       </Card>
     </aside>

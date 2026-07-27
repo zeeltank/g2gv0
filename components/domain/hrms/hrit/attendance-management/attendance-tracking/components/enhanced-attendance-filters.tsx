@@ -14,6 +14,8 @@ export interface EnhancedAttendanceFiltersProps {
   quickFilter: string
   departments: { value: string; label: string }[]
   employees: { value: string; label: string }[]
+  /** Disables the Employee select while its options are being refetched. */
+  employeesLoading?: boolean
   savedReports: { value: string; label: string }[]
   onDateRangeChange: (range: { from: string; to: string }) => void
   onGroupByChange: (value: string) => void
@@ -34,6 +36,7 @@ export function EnhancedAttendanceFilters({
   quickFilter,
   departments,
   employees,
+  employeesLoading,
   savedReports,
   onDateRangeChange,
   onGroupByChange,
@@ -112,6 +115,8 @@ export function EnhancedAttendanceFilters({
             value={employee}
             onChange={onEmployeeChange}
             className="w-56"
+            disabled={employeesLoading}
+            placeholder={employeesLoading ? 'Loading employees...' : 'Select...'}
             options={[
               { label: 'All Employees', value: 'all' },
               ...employees.map((e) => ({ label: e.label, value: e.value })),

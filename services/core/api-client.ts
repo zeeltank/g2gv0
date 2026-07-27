@@ -37,6 +37,35 @@ interface RequestConfig {
   params?: Record<string, string>
 }
 
+/** Laravel replies with {message, errors} on 4xx - surface that instead of a bare status code. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly errors?: Record<string, string[]>,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+async function buildApiError(response: Response) {
+  try {
+    const payload = (await response.clone().json()) as {
+      message?: string
+      errors?: Record<string, string[]>
+    }
+
+    if (payload?.message) {
+      return new ApiError(payload.message, response.status, payload.errors)
+    }
+  } catch {
+    // Non-JSON error body - fall through to the generic message.
+  }
+
+  return new ApiError(`API Error: ${response.status} ${response.statusText}`, response.status)
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -64,7 +93,7 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`)
+      throw await buildApiError(response)
     }
 
     return response.json()
@@ -95,8 +124,8 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'POST', body })
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' })
+  async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', params })
   }
 }
 

@@ -51,22 +51,27 @@ function formatDuration(value?: string | null) {
   return `${Number(hours)}h ${Number(minutes)}m`
 }
 
+const KNOWN_STATUSES: AttendanceRecord['status'][] = ['present', 'late', 'absent', 'half-day', 'leave']
+
 function mapAttendanceEntry(entry: LaravelAttendanceEntry): AttendanceRecord {
-  const date = new Date(`${entry.day}T00:00:00`)
+  // `day` is a DATE column, but drop any time part so the today lookup keeps
+  // matching if the API ever serialises it as a datetime.
+  const isoDay = String(entry.day ?? '').slice(0, 10)
+  const date = new Date(`${isoDay}T00:00:00`)
   const day = Number.isNaN(date.getTime())
     ? entry.day
     : date.toLocaleDateString('en-US', { weekday: 'long' })
-  const hasPunchIn = Boolean(entry.punchin_time)
-  const hasPunchOut = Boolean(entry.punchout_time)
+  const apiStatus = entry.attendance_status as AttendanceRecord['status'] | undefined
 
   return {
     id: String(entry.id),
-    date: entry.day,
+    date: isoDay,
     day,
     punchIn: formatDisplayTime(entry.punchin_time),
     punchOut: formatDisplayTime(entry.punchout_time),
     totalHours: formatDuration(entry.timestamp_diff),
-    status: hasPunchIn && hasPunchOut ? 'present' : hasPunchIn ? 'present' : 'absent',
+    // Status is resolved by the API against the employee's roster.
+    status: apiStatus && KNOWN_STATUSES.includes(apiStatus) ? apiStatus : 'present',
     location: entry.ipaddress_in ? 'Office' : undefined,
   }
 }
@@ -104,7 +109,11 @@ export function useAttendance() {
       const response = await hrmsService.getMyAttendance(context)
       const records = sortRecordsByDateDesc((response.attendanceData ?? []).map(mapAttendanceEntry))
       const today = formatDateInput(new Date())
-      const todayFromApi = records.find((record) => record.date === today) ?? records[0] ?? null
+      // Strictly today's row. Falling back to the newest record made a stale
+      // open shift from an earlier day render as today's, so the panel offered
+      // Punch Out and the API rejected it with "No punch in record found for
+      // this employee and date" - punch out always posts today's date.
+      const todayFromApi = records.find((record) => record.date === today) ?? null
 
       setTodayRecord(todayFromApi)
       setMonthlySummary({
