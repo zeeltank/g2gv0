@@ -13,12 +13,15 @@ import { FileUpload } from '@/components/ui/file-upload'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import type { LeaveType } from '@/types/leave-dashboard'
-import { currentUser } from '@/lib/leave-management-data'
+import { useLeaveOptions } from '@/hooks/use-leave'
+import { toDateInput } from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
+import type { LeaveApplyPayload } from '@/services/hrms'
 
 interface ApplyLeaveDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  processing?: boolean
+  onSubmit?: (payload: LeaveApplyPayload) => Promise<{ ok: boolean; message: string }>
 }
 
 interface FormErrors {
@@ -26,38 +29,46 @@ interface FormErrors {
   leaveType?: string
   fromDate?: string
   toDate?: string
+  slot?: string
   reason?: string
 }
 
 interface FormData {
   employee: string
-  leaveType: LeaveType | ''
+  leaveType: string
   fromDate: Date | undefined
   toDate: Date | undefined
   isHalfDay: boolean
+  slot: string
   reason: string
   attachment: File | null
   emergencyContact: string
 }
 
-const leaveTypeOptions = [
-  { label: 'Select leave type', value: '' },
-  { label: 'Casual Leave', value: 'Casual Leave' },
-  { label: 'Sick Leave', value: 'Sick Leave' },
-  { label: 'Earned Leave', value: 'Earned Leave' },
-  { label: 'Work From Home', value: 'Work From Home' },
-  { label: 'Maternity Leave', value: 'Maternity Leave' },
-  { label: 'Paternity Leave', value: 'Paternity Leave' },
+/** Laravel validates slot against these two values when day_type is half. */
+const slotOptions = [
+  { label: 'First Half', value: 'first_half' },
+  { label: 'Second Half', value: 'second_half' },
 ]
 
-const employeeOptions = [
-  { label: currentUser.name, value: currentUser.id },
-  { label: 'Rahul Kumar', value: 'emp-002' },
-  { label: 'Sneha Patel', value: 'emp-003' },
-  { label: 'Amit Singh', value: 'emp-004' },
-  { label: 'Neha Gupta', value: 'emp-005' },
-  { label: 'Vikram Reddy', value: 'emp-006' },
-]
+const emptyForm: FormData = {
+  employee: '',
+  leaveType: '',
+  fromDate: undefined,
+  toDate: undefined,
+  isHalfDay: false,
+  slot: 'first_half',
+  reason: '',
+  attachment: null,
+  emergencyContact: '',
+}
+
+/** DatePicker can emit a Date or a date string; normalise to a Date. */
+function asDate(value?: Date | string): Date | undefined {
+  if (!value) return undefined
+  const parsed = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
 
 function calculateDuration(fromDate: Date | undefined, toDate: Date | undefined, isHalfDay: boolean): string {
   if (isHalfDay) return 'Half Day'
@@ -68,21 +79,29 @@ function calculateDuration(fromDate: Date | undefined, toDate: Date | undefined,
   return `${diffDays} day${diffDays > 1 ? 's' : ''}`
 }
 
-export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) {
-  const [formData, setFormData] = React.useState<FormData>({
-    employee: currentUser.id,
-    leaveType: '',
-    fromDate: undefined,
-    toDate: undefined,
-    isHalfDay: false,
-    reason: '',
-    attachment: null,
-    emergencyContact: '',
-  })
+export function ApplyLeaveDrawer({ open, onOpenChange, processing = false, onSubmit }: ApplyLeaveDrawerProps) {
+  const { options, loading: optionsLoading, error: optionsError } = useLeaveOptions()
 
+  const [formData, setFormData] = React.useState<FormData>(emptyForm)
   const [errors, setErrors] = React.useState<FormErrors>({})
   const [touched, setTouched] = React.useState<Record<string, boolean>>({})
   const [submitError, setSubmitError] = React.useState<string | null>(null)
+  const [submitting, setSubmitting] = React.useState(false)
+
+  const employeeOptions = React.useMemo(
+    () => (options?.employees ?? []).map((employee) => ({ value: employee.value, label: employee.label })),
+    [options],
+  )
+
+  const leaveTypeOptions = React.useMemo(
+    () => (options?.leave_types ?? []).map((type) => ({ value: type.value, label: type.label })),
+    [options],
+  )
+
+  const selectedEmployee = React.useMemo(
+    () => (options?.employees ?? []).find((employee) => employee.value === formData.employee),
+    [options, formData.employee],
+  )
 
   const duration = React.useMemo(
     () => calculateDuration(formData.fromDate, formData.toDate, formData.isHalfDay),
@@ -95,112 +114,95 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
     setSubmitError(null)
   }
 
+  const validateField = (field: keyof FormData, data: FormData = formData): string | undefined => {
+    switch (field) {
+      case 'leaveType':
+        return data.leaveType ? undefined : 'Leave type is required'
+      case 'fromDate':
+        return data.fromDate ? undefined : 'Start date is required'
+      case 'toDate': {
+        if (data.isHalfDay) return undefined
+        if (!data.toDate) return 'End date is required'
+        if (data.fromDate && data.toDate < data.fromDate) return 'End date cannot be before start date'
+        return undefined
+      }
+      case 'slot':
+        return !data.isHalfDay || data.slot ? undefined : 'Select which half of the day'
+      case 'reason':
+        return data.reason.trim().length >= 3 ? undefined : 'Reason must be at least 3 characters'
+      default:
+        return undefined
+    }
+  }
+
   const handleBlur = (field: keyof FormData) => {
     setTouched((prev) => ({ ...prev, [field]: true }))
     const error = validateField(field)
     if (error) setErrors((prev) => ({ ...prev, [field]: error }))
   }
 
-  const validateField = (field: keyof FormData): string | undefined => {
-    switch (field) {
-      case 'employee':
-        return formData.employee ? undefined : 'Employee is required'
-      case 'leaveType':
-        return formData.leaveType ? undefined : 'Leave type is required'
-      case 'fromDate':
-        return formData.fromDate ? undefined : 'Start date is required'
-      case 'toDate': {
-        if (!formData.toDate) return 'End date is required'
-        if (formData.fromDate && formData.toDate < formData.fromDate) {
-          return 'End date cannot be before start date'
-        }
-        return undefined
-      }
-      case 'reason':
-        return formData.reason.trim().length >= 3 ? undefined : 'Reason must be at least 3 characters'
-      default:
-        return undefined
-    }
-  }
-
   const validateAll = (): boolean => {
-    const newErrors: FormErrors = {}
+    const nextErrors: FormErrors = {}
     let valid = true
 
-    ;(['employee', 'leaveType', 'fromDate', 'toDate', 'reason'] as const).forEach((field) => {
+    ;(['leaveType', 'fromDate', 'toDate', 'slot', 'reason'] as const).forEach((field) => {
       const error = validateField(field)
       if (error) {
-        newErrors[field] = error
+        nextErrors[field] = error
         valid = false
       }
     })
 
-    setErrors(newErrors)
-    setTouched({
-      employee: true,
-      leaveType: true,
-      fromDate: true,
-      toDate: true,
-      reason: true,
-    })
+    setErrors(nextErrors)
+    setTouched({ leaveType: true, fromDate: true, toDate: true, slot: true, reason: true })
     return valid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitError(null)
-
-    if (!validateAll()) return
-
-    const payload = {
-      employee: formData.employee,
-      leaveType: formData.leaveType,
-      fromDate: formData.fromDate?.toISOString().split('T')[0],
-      toDate: formData.toDate?.toISOString().split('T')[0],
-      isHalfDay: formData.isHalfDay,
-      duration,
-      reason: formData.reason.trim(),
-      attachment: formData.attachment?.name || null,
-      emergencyContact: formData.emergencyContact.trim(),
-    }
-
-    console.log('Submitting leave request:', payload)
-    alert('Leave request submitted successfully!')
-    setFormData({
-      employee: currentUser.id,
-      leaveType: '',
-      fromDate: undefined,
-      toDate: undefined,
-      isHalfDay: false,
-      reason: '',
-      attachment: null,
-      emergencyContact: '',
-    })
+  const resetForm = () => {
+    setFormData(emptyForm)
     setErrors({})
     setTouched({})
-    onOpenChange(false)
+    setSubmitError(null)
+  }
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setSubmitError(null)
+
+    if (!validateAll() || !onSubmit) return
+
+    setSubmitting(true)
+
+    try {
+      const result = await onSubmit({
+        leaveTypeId: formData.leaveType,
+        dayType: formData.isHalfDay ? 'half' : 'full',
+        fromDate: toDateInput(formData.fromDate as Date),
+        toDate: formData.toDate ? toDateInput(formData.toDate) : undefined,
+        slot: formData.isHalfDay ? formData.slot : undefined,
+        comment: formData.reason.trim(),
+        employeeId: formData.employee || undefined,
+        departmentId: selectedEmployee?.department_id ?? undefined,
+      })
+
+      if (!result.ok) {
+        setSubmitError(result.message)
+        return
+      }
+
+      resetForm()
+      onOpenChange(false)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
-    setFormData({
-      employee: currentUser.id,
-      leaveType: '',
-      fromDate: undefined,
-      toDate: undefined,
-      isHalfDay: false,
-      reason: '',
-      attachment: null,
-      emergencyContact: '',
-    })
-    setErrors({})
-    setTouched({})
-    setSubmitError(null)
+    resetForm()
     onOpenChange(false)
   }
 
-  const handleFileSelect = (file: File | null) => {
-    updateField('attachment', file)
-  }
+  const busy = submitting || processing
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -214,49 +216,47 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-            {submitError && (
+            {(submitError || optionsError) && (
               <Alert variant="destructive">
-                <AlertDescription>{submitError}</AlertDescription>
+                <AlertDescription>{submitError ?? optionsError}</AlertDescription>
               </Alert>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label required>Employee</Label>
-              <Select
-                value={formData.employee}
-                onChange={(val) => updateField('employee', val)}
-                options={employeeOptions}
-                placeholder="Select employee"
-                className={cn(touched.employee && errors.employee && 'border-destructive')}
-              />
-              {touched.employee && errors.employee && (
-                <p className="text-xs text-destructive">{errors.employee}</p>
-              )}
-            </div>
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Select
+                  value={formData.employee}
+                  onChange={(value) => updateField('employee', value)}
+                  options={employeeOptions}
+                  placeholder={optionsLoading ? 'Loading employees...' : 'Apply for myself'}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label required>Leave Type</Label>
-              <Select
-                value={formData.leaveType}
-                onChange={(val) => updateField('leaveType', val as LeaveType)}
-                options={leaveTypeOptions}
-                placeholder="Select leave type"
-                className={cn(touched.leaveType && errors.leaveType && 'border-destructive')}
-              />
-              {touched.leaveType && errors.leaveType && (
-                <p className="text-xs text-destructive">{errors.leaveType}</p>
-              )}
-            </div>
+              <div className="space-y-2">
+                <Label required>Leave Type</Label>
+                <Select
+                  value={formData.leaveType}
+                  onChange={(value) => updateField('leaveType', value)}
+                  options={leaveTypeOptions}
+                  placeholder={optionsLoading ? 'Loading leave types...' : 'Select leave type'}
+                  className={cn(touched.leaveType && errors.leaveType && 'border-destructive')}
+                />
+                {touched.leaveType && errors.leaveType && (
+                  <p className="text-xs text-destructive">{errors.leaveType}</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label required htmlFor="fromDate">Start Date</Label>
                 <DatePicker
+                  id="fromDate"
                   value={formData.fromDate}
-                  onChange={(date) => updateField('fromDate', date)}
+                  onChange={(date) => updateField('fromDate', asDate(date))}
                   placeholder="Pick start date"
+                  className={cn(touched.fromDate && errors.fromDate && 'border-destructive')}
                 />
                 {touched.fromDate && errors.fromDate && (
                   <p className="text-xs text-destructive">{errors.fromDate}</p>
@@ -264,11 +264,15 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
               </div>
 
               <div className="space-y-2">
-                <Label required htmlFor="toDate">End Date</Label>
+                <Label required={!formData.isHalfDay} htmlFor="toDate">End Date</Label>
                 <DatePicker
-                  value={formData.toDate}
-                  onChange={(date) => updateField('toDate', date)}
+                  id="toDate"
+                  value={formData.isHalfDay ? formData.fromDate : formData.toDate}
+                  onChange={(date) => updateField('toDate', asDate(date))}
                   placeholder="Pick end date"
+                  // A half day is always a single day, so the end date is the
+                  // start date and editing it would have no effect.
+                  disabled={formData.isHalfDay}
                   className={cn(touched.toDate && errors.toDate && 'border-destructive')}
                 />
                 {touched.toDate && errors.toDate && (
@@ -296,29 +300,42 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
               </div>
             </div>
 
+            {formData.isHalfDay && (
+              <div className="space-y-2">
+                <Label required>Half Day Slot</Label>
+                <Select
+                  value={formData.slot}
+                  onChange={(value) => updateField('slot', value)}
+                  options={slotOptions}
+                  placeholder="Select slot"
+                  className={cn(touched.slot && errors.slot && 'border-destructive')}
+                />
+                {touched.slot && errors.slot && <p className="text-xs text-destructive">{errors.slot}</p>}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label required htmlFor="reason">Reason</Label>
               <Textarea
                 id="reason"
                 placeholder="Please provide a reason for your leave..."
                 value={formData.reason}
-                onChange={(e) => updateField('reason', e.target.value)}
+                onChange={(event) => updateField('reason', event.target.value)}
                 onBlur={() => handleBlur('reason')}
                 className={cn(touched.reason && errors.reason && 'border-destructive')}
                 rows={3}
+                maxLength={255}
               />
-              {touched.reason && errors.reason && (
-                <p className="text-xs text-destructive">{errors.reason}</p>
-              )}
+              {touched.reason && errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="attachment">Attachment</Label>
               <FileUpload
                 id="attachment"
-                onFileSelect={handleFileSelect}
+                onFileSelect={(file) => updateField('attachment', file)}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                hint="PDF, DOC, or image up to 10MB"
+                hint="Not stored in the ERP yet - hrms_emp_leaves has no attachment column."
               />
             </div>
 
@@ -328,8 +345,11 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
                 id="emergencyContact"
                 placeholder="Enter emergency contact number"
                 value={formData.emergencyContact}
-                onChange={(e) => updateField('emergencyContact', e.target.value)}
+                onChange={(event) => updateField('emergencyContact', event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Not stored in the ERP yet - hrms_emp_leaves has no emergency contact column.
+              </p>
             </div>
           </div>
 
@@ -337,8 +357,8 @@ export function ApplyLeaveDrawer({ open, onOpenChange }: ApplyLeaveDrawerProps) 
             <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:w-auto">
-              Submit Request
+            <Button type="submit" className="w-full sm:w-auto" disabled={busy || optionsLoading}>
+              {busy ? 'Submitting...' : 'Submit Request'}
             </Button>
           </SheetFooter>
         </form>

@@ -1,22 +1,22 @@
 'use client'
 
-import { lazy, Suspense, useCallback, useMemo } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 
+import { ErrorState } from '@/components/ui/error-state'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/hooks/use-auth'
+import { useLeaveDashboard, useLeaveRequestDetail } from '@/hooks/use-leave'
+import { getCurrentDate, quickActions } from '@/lib/leave-management-data'
 import {
-  currentUser,
-  dashboardStats,
-  departmentLeaveData,
-  getCurrentDate,
-  leaveTrendData,
-  leaveTypeData,
-  pendingLeaveRequests,
-  recentActivities,
-  recentLeaveRequests,
-  upcomingHolidays,
-  upcomingLeaves,
-  leaveBalances,
-  quickActions,
-} from '@/lib/leave-management-data'
+  mapActivity,
+  mapBalanceSnapshot,
+  mapDashboardStats,
+  mapDepartmentSummary,
+  mapHolidays,
+  mapLeaveRequest,
+  mapTypeDistribution,
+  mapUpcomingLeaves,
+} from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
 import type { LeaveRequest } from '@/types/leave-dashboard'
 
 const DashboardHeader = lazy(() =>
@@ -79,55 +79,141 @@ const LeaveQuickActionsCard = lazy(() =>
   })),
 )
 
+const LeaveRequestDetailsDrawer = lazy(() =>
+  import('@/domain/hrms/hrit/leave-management/leave-requests/components/LeaveRequestDetailsDrawer').then((m) => ({
+    default: m.LeaveRequestDetailsDrawer,
+  })),
+)
+
+function DashboardSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
+      <Skeleton className="h-16 rounded-2xl" />
+      <Skeleton className="h-28 rounded-2xl" />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <Skeleton className="h-80 rounded-2xl" />
+        <Skeleton className="h-80 rounded-2xl" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-64 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
+  const { user } = useAuth()
   const currentDate = useMemo(() => getCurrentDate(), [])
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const {
+    loading,
+    error,
+    summary,
+    departments,
+    leaveTypes,
+    holidays,
+    balances,
+    pending,
+    recent,
+    upcoming,
+    retry,
+  } = useLeaveDashboard()
+
+  const { detail } = useLeaveRequestDetail(drawerOpen ? selectedRequestId : null)
+
+  const stats = useMemo(() => mapDashboardStats(summary), [summary])
+  const departmentData = useMemo(() => mapDepartmentSummary(departments), [departments])
+  const leaveTypeData = useMemo(() => mapTypeDistribution(leaveTypes), [leaveTypes])
+  const holidayData = useMemo(() => mapHolidays(holidays), [holidays])
+  const balanceData = useMemo(() => mapBalanceSnapshot(balances?.leave_types ?? []), [balances])
+  const activityData = useMemo(() => mapActivity(summary?.recent_activity ?? []), [summary])
+  const pendingRequests = useMemo(() => pending.map(mapLeaveRequest), [pending])
+  const recentRequests = useMemo(() => recent.map(mapLeaveRequest), [recent])
+  const upcomingLeaves = useMemo(() => mapUpcomingLeaves(upcoming), [upcoming])
+
+  const selectedRequest = useMemo<LeaveRequest | null>(() => {
+    if (detail) return mapLeaveRequest(detail)
+    return pendingRequests.find((request) => request.id === String(selectedRequestId)) ?? null
+  }, [detail, pendingRequests, selectedRequestId])
 
   const handleViewDetails = useCallback((request: LeaveRequest) => {
-    console.info('View leave request details', request.id)
+    setSelectedRequestId(Number(request.id))
+    setDrawerOpen(true)
   }, [])
 
+  if (loading) {
+    return <DashboardSkeleton />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Unable to load the leave dashboard"
+        description={error}
+        retry={retry}
+      />
+    )
+  }
+
   return (
-      <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
-      <Suspense fallback={<div className="h-16 rounded-2xl bg-muted/40" />}>
-        <DashboardHeader userName={currentUser.name} currentDate={currentDate} upcomingLeaves={upcomingLeaves} />
+    <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
+      <Suspense fallback={<Skeleton className="h-16 rounded-2xl" />}>
+        <DashboardHeader
+          userName={user?.name ?? 'there'}
+          currentDate={currentDate}
+          upcomingLeaves={upcomingLeaves}
+        />
       </Suspense>
 
-      <Suspense fallback={<div className="h-28 rounded-2xl bg-muted/40" />}>
-        <DashboardStats stats={dashboardStats} />
+      <Suspense fallback={<Skeleton className="h-28 rounded-2xl" />}>
+        <DashboardStats stats={stats} />
       </Suspense>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <Suspense fallback={<div className="h-80 rounded-2xl bg-muted/40" />}>
-          <DepartmentChart data={departmentLeaveData} />
+        <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
+          <DepartmentChart data={departmentData} />
         </Suspense>
-        <Suspense fallback={<div className="h-80 rounded-2xl bg-muted/40" />}>
+        <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
           <LeaveTypeChart data={leaveTypeData} />
         </Suspense>
       </section>
 
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
-          <PendingApprovalsCard requests={pendingLeaveRequests} onViewDetails={handleViewDetails} />
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+          <PendingApprovalsCard requests={pendingRequests} onViewDetails={handleViewDetails} />
         </Suspense>
-        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
-          <LeaveBalanceSnapshotCard balances={leaveBalances} />
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+          <LeaveBalanceSnapshotCard balances={balanceData} />
         </Suspense>
-        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
-          <HolidayCard holidays={upcomingHolidays} />
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+          <HolidayCard holidays={holidayData} />
         </Suspense>
-        <Suspense fallback={<div className="h-64 rounded-2xl bg-muted/40" />}>
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
           <LeaveQuickActionsCard actions={quickActions} />
         </Suspense>
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
-          <RecentLeaveRequests requests={recentLeaveRequests} />
+        <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
+          <RecentLeaveRequests requests={recentRequests} />
         </Suspense>
-        <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
-          <RecentActivity activities={recentActivities} />
+        <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
+          <RecentActivity activities={activityData} />
         </Suspense>
       </section>
-      </div>
+
+      <Suspense fallback={null}>
+        <LeaveRequestDetailsDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          request={selectedRequest}
+          detail={detail}
+        />
+      </Suspense>
+    </div>
   )
 }

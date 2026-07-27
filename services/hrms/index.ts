@@ -7,6 +7,9 @@ import { apiClient, webClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLaravelParams } from '@/lib/laravel-context'
 
+// Leave Management module - /api/leave/*
+export * from './leave'
+
 export interface AttendanceRecord {
   id: string
   userId: string
@@ -14,25 +17,6 @@ export interface AttendanceRecord {
   checkIn?: string
   checkOut?: string
   status: 'present' | 'absent' | 'late' | 'half_day'
-}
-
-export interface LeaveRequest {
-  id: string
-  userId: string
-  leaveType: string
-  startDate: string
-  endDate: string
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
-  reason?: string
-  approvedBy?: string
-}
-
-export interface LeaveBalance {
-  leaveType: string
-  total: number
-  used: number
-  pending: number
-  available: number
 }
 
 export interface ComplianceItem {
@@ -74,6 +58,7 @@ export interface AttendanceWeeklyParams {
   fromDate?: string
   toDate?: string
   departmentId?: string
+  employeeId?: string
 }
 
 export interface AttendanceOption {
@@ -99,16 +84,37 @@ export interface LaravelAttendanceEntry {
   ipaddress_out?: string | null
 }
 
+/** One calendar day of the requested range, as resolved by Laravel. */
+export interface LaravelAttendanceCalendarDay {
+  date: string
+  day_name?: string
+  /** null when the API has no status for that date - render nothing. */
+  status: 'present' | 'late' | 'absent' | 'leave' | null
+  is_working_day?: boolean
+  is_holiday?: boolean
+  holiday_name?: string | null
+  leave_type?: string | null
+  day_type?: string | null
+  punchin_time?: string | null
+  punchout_time?: string | null
+  timestamp_diff?: string | null
+}
+
 export interface MyAttendanceResponse {
   status?: number | string
   status_code?: number | string
   message?: string
+  fromDate?: string
+  toDate?: string
   daysInMonth?: number
+  workingDays?: number
+  holidays?: number
   presentDays?: number
   lateDays?: number
   leaveDays?: number
   absentDays?: number
   percentege?: number
+  calendar?: LaravelAttendanceCalendarDay[]
   attendanceData?: LaravelAttendanceEntry[]
 }
 
@@ -194,11 +200,20 @@ export interface AttendancePunchResponse {
   attendanceData?: LaravelAttendanceEntry
 }
 
+/** 'all' means "no filter" - the param is omitted so Laravel's filled() check skips it. */
+function activeFilter(value?: string) {
+  return value && value !== 'all' && value !== '0' ? value : undefined
+}
+
 function attendanceParams(context: LaravelContext, params?: AttendanceWeeklyParams) {
+  const departmentId = activeFilter(params?.departmentId)
+  const employeeId = activeFilter(params?.employeeId)
+
   return withLaravelParams(context, {
     ...(params?.fromDate ? { from_date: params.fromDate } : {}),
     ...(params?.toDate ? { to_date: params.toDate } : {}),
-    ...(params?.departmentId ? { department_id: params.departmentId } : {}),
+    ...(departmentId ? { department_id: departmentId } : {}),
+    ...(employeeId ? { employee_id: employeeId } : {}),
   })
 }
 
@@ -217,16 +232,20 @@ export const hrmsService = {
     apiClient.get<AttendanceRecord[]>('/attendance', params as Record<string, string>),
   checkIn: (userId: string) => apiClient.post<AttendanceRecord>('/attendance/check-in', { userId }),
   checkOut: (userId: string) => apiClient.post<AttendanceRecord>('/attendance/check-out', { userId }),
-  getAttendanceKpis: (context: LaravelContext, params?: Pick<AttendanceWeeklyParams, 'departmentId'>) =>
-    apiClient.get<AttendanceKpiResponse>('/KPI-HRITDashboard', attendanceParams(context, params)),
+  /** /api/attendance/kpi - the employee filter is only honoured by this route. */
+  getAttendanceKpis: (context: LaravelContext, params?: Pick<AttendanceWeeklyParams, 'departmentId' | 'employeeId'>) =>
+    apiClient.get<AttendanceKpiResponse>('/attendance/kpi', attendanceParams(context, params)),
+  /** /api/attendance/weekly-summary - as above, /attendance-weekly ignores employee_id. */
   getAttendanceWeeklySummary: (context: LaravelContext, params?: AttendanceWeeklyParams) =>
-    apiClient.get<AttendanceWeeklyResponse>('/attendance-weekly', attendanceParams(context, params)),
+    apiClient.get<AttendanceWeeklyResponse>('/attendance/weekly-summary', attendanceParams(context, params)),
+  /** Departments are scoped to the caller's sub_institute by this route. */
   getAttendanceReportIndex: (context: LaravelContext) =>
-    webClient.get<AttendanceReportIndexResponse>('/hrms-attendance-report', withLaravelParams(context)),
-  getAttendanceEmployees: (context: LaravelContext, departmentId: string) =>
-    webClient.post<AttendanceEmployeesResponse>('/get-employees-list', {
+    apiClient.get<AttendanceReportIndexResponse>('/attendance/report-filters', withLaravelParams(context)),
+  /** Omitting department_id (or passing 'all') lists every active employee of the institute. */
+  getAttendanceEmployees: (context: LaravelContext, departmentId?: string) =>
+    apiClient.get<AttendanceEmployeesResponse>('/attendance/employees', {
       ...withLaravelParams(context),
-      department_id: departmentId,
+      ...(activeFilter(departmentId) ? { department_id: activeFilter(departmentId) as string } : {}),
     }),
   getDepartmentAttendanceReport: (context: LaravelContext, params: AttendanceReportParams) =>
     webClient.get<DepartmentAttendanceReportResponse>('/departmentwise-attendance-report/create', withLaravelParams(context, {
@@ -241,41 +260,32 @@ export const hrmsService = {
       ...(params.departmentId && params.departmentId !== 'all' ? { 'department_id[]': params.departmentId } : { department_id: '0' }),
       ...(params.employeeId && params.employeeId !== 'all' ? { 'emp_id[]': params.employeeId } : { emp_id: '0' }),
     })),
+  /**
+   * /api/attendance/my-attendance returns the punch rows for the window plus
+   * the resolved day by day calendar. The legacy GET /hrms-attendance
+   * (formType=MyAttendance) only ever answers for the current day.
+   */
   getMyAttendance: (context: LaravelContext, params?: { fromDate?: string; toDate?: string }) =>
-    webClient.get<MyAttendanceResponse>('/hrms-attendance', withLaravelParams(context, {
-      formType: 'MyAttendance',
+    apiClient.get<MyAttendanceResponse>('/attendance/my-attendance', withLaravelParams(context, {
       ...(params?.fromDate ? { from_date: params.fromDate } : {}),
       ...(params?.toDate ? { to_date: params.toDate } : {}),
     })),
   punchAttendanceIn: (context: LaravelContext, data: { date: string; time: string }) =>
-    ensureAttendanceSuccess(webClient.post<AttendancePunchResponse>('/hrms-attendance-in-time/store', {
+    ensureAttendanceSuccess(apiClient.post<AttendancePunchResponse>('/attendance/punch-in', {
       ...withLaravelParams(context),
       employee: context.userId,
       indate: data.date,
       intime: data.time,
     })),
   punchAttendanceOut: (context: LaravelContext, data: { date: string; time: string }) =>
-    ensureAttendanceSuccess(webClient.post<AttendancePunchResponse>('/hrms-attendance-out-time/store', {
+    ensureAttendanceSuccess(apiClient.post<AttendancePunchResponse>('/attendance/punch-out', {
       ...withLaravelParams(context),
       employee: context.userId,
       outdate: data.date,
       outtime: data.time,
     })),
 
-  // Leave
-  getLeaveRequests: (params?: { userId?: string; status?: string }) => 
-    apiClient.get<LeaveRequest[]>('/leave-requests', params as Record<string, string>),
-  getLeaveRequest: (id: string) => apiClient.get<LeaveRequest>(`/leave-requests/${id}`),
-  createLeaveRequest: (data: Partial<LeaveRequest>) => 
-    apiClient.post<LeaveRequest>('/leave-requests', data),
-  approveLeaveRequest: (id: string, approverId: string) => 
-    apiClient.post<LeaveRequest>(`/leave-requests/${id}/approve`, { approverId }),
-  rejectLeaveRequest: (id: string, reason: string) => 
-    apiClient.post<LeaveRequest>(`/leave-requests/${id}/reject`, { reason }),
-
-  // Leave Balance
-  getLeaveBalances: (userId: string) => 
-    apiClient.get<LeaveBalance[]>(`/users/${userId}/leave-balances`),
+  // Leave - see leaveService below for the Leave Management module endpoints.
 
   // Compliance
   getComplianceItems: (params?: { category?: string; status?: string }) => 

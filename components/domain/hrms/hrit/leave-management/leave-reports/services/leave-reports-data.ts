@@ -31,18 +31,6 @@ export type ReportDefinition = {
   saved?: boolean
 }
 
-export type PreviewRow = {
-  leaveType: string
-  short: string
-  total: number
-  approved: number
-  pending: number
-  rejected: number
-  cancelled: number
-  days: number
-  tone: string
-}
-
 export type ReportFilters = {
   dateRange: string
   leaveType: string
@@ -189,54 +177,26 @@ export const categories: ReportCategory[] = [
   'Approval Reports',
 ]
 
-export const previewRows: PreviewRow[] = [
-  { leaveType: 'Casual Leave', short: 'CL', total: 72, approved: 45, pending: 18, rejected: 6, cancelled: 3, days: 114.5, tone: 'text-primary' },
-  { leaveType: 'Sick Leave', short: 'SL', total: 58, approved: 32, pending: 20, rejected: 4, cancelled: 2, days: 87, tone: 'text-violet-600' },
-  { leaveType: 'Privilege Leave', short: 'PL', total: 46, approved: 28, pending: 10, rejected: 6, cancelled: 2, days: 102, tone: 'text-emerald-600' },
-  { leaveType: 'Earned Leave', short: 'EL', total: 38, approved: 22, pending: 12, rejected: 3, cancelled: 1, days: 76, tone: 'text-orange-600' },
-  { leaveType: 'Comp Off', short: 'CO', total: 18, approved: 12, pending: 6, rejected: 1, cancelled: 0, days: 36, tone: 'text-cyan-600' },
-  { leaveType: 'Maternity Leave', short: 'ML', total: 16, approved: 9, pending: 4, rejected: 0, cancelled: 3, days: 112, tone: 'text-pink-600' },
+/** Palette applied to the live department breakdown returned by the API. */
+export const reportChartColors = [
+  'var(--chart-blue)',
+  'var(--chart-indigo)',
+  'var(--chart-green)',
+  'var(--chart-yellow)',
+  'var(--chart-red)',
+  'var(--chart-teal)',
 ]
 
-export const departmentBreakdown = [
-  { name: 'Engineering', value: 35.6, color: 'var(--chart-blue)' },
-  { name: 'Marketing', value: 22.1, color: 'var(--chart-indigo)' },
-  { name: 'Sales', value: 18.7, color: 'var(--chart-green)' },
-  { name: 'Operations', value: 14.3, color: 'var(--chart-yellow)' },
-  { name: 'HR', value: 9.3, color: 'var(--chart-red)' },
-]
-
+/**
+ * Only the presentation-level choices stay here. Leave types, departments,
+ * employees and statuses all come from /api/leave/options at runtime.
+ */
 export const selectOptions = {
   dateRange: [
     { label: 'Custom', value: 'custom' },
     { label: 'This Month', value: 'month' },
     { label: 'This Quarter', value: 'quarter' },
-    { label: 'This Year', value: 'year' },
-  ],
-  leaveType: [
-    { label: 'All', value: 'all' },
-    { label: 'Casual Leave', value: 'casual' },
-    { label: 'Sick Leave', value: 'sick' },
-    { label: 'Earned Leave', value: 'earned' },
-  ],
-  department: [
-    { label: 'All', value: 'all' },
-    { label: 'Engineering', value: 'engineering' },
-    { label: 'Marketing', value: 'marketing' },
-    { label: 'Sales', value: 'sales' },
-    { label: 'Operations', value: 'operations' },
-  ],
-  employee: [
-    { label: 'All', value: 'all' },
-    { label: 'Rahul Kumar', value: 'rahul' },
-    { label: 'Sneha Patel', value: 'sneha' },
-    { label: 'Priya Sharma', value: 'priya' },
-  ],
-  status: [
-    { label: 'All', value: 'all' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'Pending', value: 'pending' },
-    { label: 'Rejected', value: 'rejected' },
+    { label: 'This Leave Year', value: 'year' },
   ],
   employeeStatus: [
     { label: 'Active Employees Only', value: 'active' },
@@ -245,22 +205,38 @@ export const selectOptions = {
   ],
 }
 
+/** Leave year runs April to March, so "this year" starts on 1 April. */
+export function currentLeaveYearRange() {
+  const today = new Date()
+  const startYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1
+
+  return {
+    startDate: `${startYear}-04-01`,
+    endDate: `${startYear + 1}-03-31`,
+  }
+}
+
 export const defaultFilters: ReportFilters = {
-  dateRange: 'custom',
+  dateRange: 'year',
   leaveType: 'all',
   department: 'all',
   employee: 'all',
   status: 'all',
   employeeStatus: 'active',
   includeSubordinates: false,
-  startDate: '2025-05-01',
-  endDate: '2025-05-31',
+  ...currentLeaveYearRange(),
 }
 
 export function pct(value: number, total: number) {
   return total ? `${((value / total) * 100).toFixed(2)}%` : '0%'
 }
 
-export function totalFor(key: keyof Pick<PreviewRow, 'total' | 'approved' | 'pending' | 'rejected' | 'cancelled' | 'days'>) {
-  return previewRows.reduce((sum, row) => sum + row[key], 0)
+/** "Casual Leave" -> "CL" for the compact preview table. */
+export function leaveTypeInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0]?.toUpperCase() ?? '')
+    .join('')
+    .slice(0, 3)
 }

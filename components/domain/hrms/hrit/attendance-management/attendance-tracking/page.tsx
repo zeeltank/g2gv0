@@ -214,8 +214,6 @@ export function AttendanceDashboard() {
         <AttendanceCalendarDrawer
           open={calendarOpen}
           onOpenChange={setCalendarOpen}
-          records={attendanceHistory}
-          monthlySummary={monthlySummary}
         />
 
         <AttendanceHistoryDrawer

@@ -1,23 +1,27 @@
 'use client'
 
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorState } from '@/components/ui/error-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
-import { recentLeaveRequests as allLeaveRequests } from '@/lib/leave-management-data'
+import type { LeaveApplyPayload, LeaveStatus } from '@/services/hrms'
 import { formatDateShort } from '@/lib/leave-management-data'
+import { useLeaveOptions, useLeaveRequests, useLeaveRequestDetail } from '@/hooks/use-leave'
+import { mapLeaveRequest } from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
 
 const LeaveRequestDetailsDrawer = lazy(() =>
   import('@/domain/hrms/hrit/leave-management/leave-requests/components/LeaveRequestDetailsDrawer').then((m) => ({
@@ -31,37 +35,12 @@ const ApplyLeaveDrawer = lazy(() =>
   })),
 )
 
-const leaveStatusOptions = [
-  { label: 'All Statuses', value: '' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Rejected', value: 'rejected' },
-  { label: 'Sent Back', value: 'sent-back' },
-  { label: 'Cancelled', value: 'cancelled' },
-]
+const PAGE_SIZE = 10
 
-const leaveTypeOptions = [
-  { label: 'All Leave Types', value: '' },
-  { label: 'Casual Leave', value: 'Casual Leave' },
-  { label: 'Sick Leave', value: 'Sick Leave' },
-  { label: 'Earned Leave', value: 'Earned Leave' },
-  { label: 'Work From Home', value: 'Work From Home' },
-  { label: 'Maternity Leave', value: 'Maternity Leave' },
-  { label: 'Paternity Leave', value: 'Paternity Leave' },
-]
-
-const departmentOptions = [
-  { label: 'All Departments', value: '' },
-  { label: 'Engineering', value: 'Engineering' },
-  { label: 'HR', value: 'HR' },
-  { label: 'Sales', value: 'Sales' },
-  { label: 'Finance', value: 'Finance' },
-  { label: 'Marketing', value: 'Marketing' },
-]
-
+/** Filter presets. Values match Laravel's hrms_emp_leaves.status vocabulary. */
 const savedFilters = [
   { label: 'My Pending Approvals', filters: { status: 'pending' } },
-  { label: 'Engineering – This Month', filters: { department: 'Engineering' } },
+  { label: 'Approved This Year', filters: { status: 'approved' } },
   { label: 'Rejected Requests', filters: { status: 'rejected' } },
 ]
 
@@ -71,6 +50,12 @@ const statusLabelMap: Record<LeaveRequestStatus, string> = {
   rejected: 'Rejected',
   'sent-back': 'Sent Back',
   cancelled: 'Cancelled',
+  approved_lwp: 'Approved LWP',
+}
+
+function toCsvValue(value: string | number | null | undefined) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
 export default function LeaveRequestsPage() {
@@ -79,56 +64,149 @@ export default function LeaveRequestsPage() {
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [page, setPage] = useState(1)
-  const pageSize = 8
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [applyLeaveOpen, setApplyLeaveOpen] = useState(false)
 
-  const filteredData = useMemo(() => {
-    return allLeaveRequests.filter((request) => {
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        const matches =
-          request.employee.name.toLowerCase().includes(q) ||
-          request.employeeId.toLowerCase().includes(q) ||
-          request.id.toLowerCase().includes(q)
-        if (!matches) return false
-      }
-      if (statusFilter && request.status !== statusFilter) return false
-      if (leaveTypeFilter && request.leaveType !== leaveTypeFilter) return false
-      if (departmentFilter && request.department !== departmentFilter) return false
-      return true
-    })
-  }, [searchQuery, statusFilter, leaveTypeFilter, departmentFilter])
+  // Filtering, sorting and pagination all run server side - Laravel returns one page.
+  const filters = useMemo(
+    () => ({
+      search: searchQuery.trim() || undefined,
+      status: statusFilter ? [statusFilter] : undefined,
+      departmentId: departmentFilter || undefined,
+      leaveTypeId: leaveTypeFilter || undefined,
+      page,
+      perPage: PAGE_SIZE,
+      sortBy: 'submittedDate',
+      sortDir: 'desc' as const,
+    }),
+    [searchQuery, statusFilter, departmentFilter, leaveTypeFilter, page],
+  )
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize))
-  const safePage = Math.min(page, totalPages)
-  const paginatedData = useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return filteredData.slice(start, start + pageSize)
-  }, [filteredData, safePage, pageSize])
+  const {
+    loading,
+    processing,
+    error,
+    actionMessage,
+    requests,
+    total,
+    applyLeave,
+    decide,
+    bulkDecide,
+    retry,
+    clearMessages,
+  } = useLeaveRequests(filters)
 
-  const displayedPageSize = paginatedData.length
-  const showingStart = filteredData.length === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const showingEnd = Math.min(safePage * pageSize, filteredData.length)
+  const { options } = useLeaveOptions()
+  const { detail, loading: detailLoading } = useLeaveRequestDetail(drawerOpen ? selectedRequestId : null)
 
-  const handleBulkApprove = () => {
-    alert(`Bulk approve selected ${selectedIds.length} request(s)`)
-  }
+  const rows = useMemo(() => requests.map(mapLeaveRequest), [requests])
 
-  const handleBulkReject = () => {
-    alert(`Bulk reject selected ${selectedIds.length} request(s)`)
-  }
+  const statusOptions = useMemo(
+    () => (options?.statuses ?? []).map((status) => ({ value: status.value, label: status.label })),
+    [options],
+  )
+  const departmentOptions = useMemo(
+    () => (options?.departments ?? []).map((department) => ({ value: department.value, label: department.label })),
+    [options],
+  )
+  const leaveTypeOptions = useMemo(
+    () => (options?.leave_types ?? []).map((type) => ({ value: type.value, label: type.label })),
+    [options],
+  )
 
-  const handleApplyLeave = () => {
-    setApplyLeaveOpen(true)
-  }
+  const selectedRequest = useMemo<LeaveRequest | null>(() => {
+    if (detail) return mapLeaveRequest(detail)
+    return rows.find((row) => row.id === String(selectedRequestId)) ?? null
+  }, [detail, rows, selectedRequestId])
 
-  const handleSavedFilterClick = (filters: Record<string, string | undefined>) => {
-    if (filters.status) setStatusFilter(filters.status)
-    if (filters.department) setDepartmentFilter(filters.department)
+  const showingStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const showingEnd = Math.min(page * PAGE_SIZE, total)
+
+  const resetToFirstPage = () => {
     setPage(1)
+    setSelectedIds([])
+  }
+
+  const handleSavedFilterClick = (preset: Record<string, string | undefined>) => {
+    setStatusFilter(preset.status ?? '')
+    setDepartmentFilter(preset.department ?? '')
+    resetToFirstPage()
+  }
+
+  const handleApplySubmit = useCallback(
+    async (payload: LeaveApplyPayload) => {
+      const result = await applyLeave(payload)
+      if (result.ok) resetToFirstPage()
+      return result
+    },
+    [applyLeave],
+  )
+
+  const handleDecision = useCallback(
+    async (id: number, status: LeaveStatus, remarks?: { hrRemarks?: string }) => {
+      const result = await decide(id, status, remarks)
+      if (result.ok && status !== 'pending') setDrawerOpen(false)
+    },
+    [decide],
+  )
+
+  const handleBulkDecision = useCallback(
+    async (status: LeaveStatus) => {
+      if (selectedIds.length === 0) return
+      const result = await bulkDecide(selectedIds, status)
+      if (result.ok) setSelectedIds([])
+    },
+    [bulkDecide, selectedIds],
+  )
+
+  /** Exports the page currently loaded from the API, not a client-side mock. */
+  const handleExport = () => {
+    const header = [
+      'Request ID',
+      'Employee',
+      'Employee ID',
+      'Department',
+      'Leave Type',
+      'Duration',
+      'Start Date',
+      'End Date',
+      'Status',
+      'Approver',
+      'Submitted Date',
+      'Reason',
+    ]
+
+    const csv = [
+      header.join(','),
+      ...requests.map((row) =>
+        [
+          row.id,
+          row.employee_name,
+          row.employee_no ?? row.employee_id,
+          row.department,
+          row.leave_type,
+          row.duration,
+          row.from_date,
+          row.to_date,
+          statusLabelMap[(row.status === 'sent_back' ? 'sent-back' : row.status) as LeaveRequestStatus] ?? row.status,
+          row.approver,
+          row.submitted_date,
+          row.reason,
+        ]
+          .map(toCsvValue)
+          .join(','),
+      ),
+    ].join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `leave-requests-page-${page}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const columns: Column<LeaveRequest>[] = [
@@ -141,8 +219,9 @@ export default function LeaveRequestsPage() {
             <AvatarFallback className="bg-primary/10 text-primary text-xs">
               {row.employee.name
                 .split(' ')
-                .map((p) => p[0])
-                .join('')}
+                .map((part) => part[0])
+                .join('')
+                .slice(0, 2)}
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium text-foreground truncate">{row.employee.name}</span>
@@ -152,67 +231,53 @@ export default function LeaveRequestsPage() {
     {
       id: 'employeeId',
       header: 'Employee ID',
-      render: (value) => (
-        <span className="text-sm text-muted-foreground">{String(value)}</span>
-      ),
+      render: (value) => <span className="text-sm text-muted-foreground">{String(value)}</span>,
     },
     {
       id: 'department',
       header: 'Department',
-      render: (value) => (
-        <span className="text-sm text-muted-foreground">{String(value)}</span>
-      ),
+      render: (value) => <span className="text-sm text-muted-foreground">{String(value)}</span>,
     },
     {
       id: 'leaveType',
       header: 'Leave Type',
-      render: (value) => (
-        <span className="text-sm text-muted-foreground">{String(value)}</span>
-      ),
+      render: (value) => <span className="text-sm text-muted-foreground">{String(value)}</span>,
     },
     {
       id: 'duration',
       header: 'Duration',
-      render: (value) => (
-        <span className="text-sm text-muted-foreground">{String(value)}</span>
-      ),
+      render: (value) => <span className="text-sm text-muted-foreground">{String(value)}</span>,
     },
     {
       id: 'fromDate',
       header: 'Start Date',
       render: (value) => (
-        <span className="text-sm text-muted-foreground">{formatDateShort(String(value))}</span>
+        <span className="text-sm text-muted-foreground">{value ? formatDateShort(String(value)) : '—'}</span>
       ),
     },
     {
       id: 'toDate',
       header: 'End Date',
       render: (value) => (
-        <span className="text-sm text-muted-foreground">{formatDateShort(String(value))}</span>
+        <span className="text-sm text-muted-foreground">{value ? formatDateShort(String(value)) : '—'}</span>
       ),
     },
     {
       id: 'status',
       header: 'Status',
-      render: (_, row) => (
-        <StatusBadge status={row.status} label={statusLabelMap[row.status]} />
-      ),
+      render: (_, row) => <StatusBadge status={row.status} label={statusLabelMap[row.status] ?? row.status} />,
     },
     {
       id: 'approver',
       header: 'Approver',
-      render: (value) => {
-        const text = (value as string | undefined) || '—'
-        return <span className="text-sm text-muted-foreground">{text}</span>
-      },
+      render: (value) => <span className="text-sm text-muted-foreground">{(value as string) || '—'}</span>,
     },
     {
       id: 'submittedDate',
       header: 'Submitted Date',
-      render: (value) => {
-        const text = value ? formatDateShort(value as string) : '—'
-        return <span className="text-sm text-muted-foreground">{text}</span>
-      },
+      render: (value) => (
+        <span className="text-sm text-muted-foreground">{value ? formatDateShort(String(value)) : '—'}</span>
+      ),
     },
     {
       id: 'actions' as keyof LeaveRequest,
@@ -223,7 +288,7 @@ export default function LeaveRequestsPage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              setSelectedRequest(row)
+              setSelectedRequestId(Number(row.id))
               setDrawerOpen(true)
             }}
           >
@@ -239,123 +304,143 @@ export default function LeaveRequestsPage() {
       {/* Header Section */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Leave Requests
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {allLeaveRequests.length} Requests • Organization-wide
+            {loading ? 'Loading requests...' : `${total} Requests • Organization-wide`}
           </p>
         </div>
-        <Button
-          onClick={handleApplyLeave}
-          className="h-9 px-4 gap-2 rounded-lg font-semibold"
-        >
+        <Button onClick={() => setApplyLeaveOpen(true)} className="h-9 px-4 gap-2 rounded-lg font-semibold">
           <Plus className="size-4" />
           Apply Leave
         </Button>
       </div>
 
+      {actionMessage && (
+        <Alert>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{actionMessage}</span>
+            <Button variant="ghost" size="sm" onClick={clearMessages}>
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && !loading && rows.length > 0 && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Action Toolbar */}
-<div className="rounded-xl border border-border bg-card p-4">
-  <div className="flex items-center gap-3">
-    {/* Search */}
-    <div className="flex-1 max-w-sm">
-      <SearchInput
-        placeholder="Search by employee name, employee ID, or request ID..."
-        value={searchQuery}
-        onChange={(e) => {
-          setSearchQuery(e.target.value)
-          setPage(1)
-        }}
-        icon={<Search className="size-4" />}
-      />
-    </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 max-w-sm">
+            <SearchInput
+              placeholder="Search by employee name, employee ID, or request ID..."
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value)
+                resetToFirstPage()
+              }}
+              icon={<Search className="size-4" />}
+            />
+          </div>
 
-    {/* Filters */}
-    <div className="flex items-center gap-2 ml-auto">
-      <Select
-        className="min-w-[160px]"
-        value={statusFilter}
-        onChange={(val) => {
-          setStatusFilter(val)
-          setPage(1)
-        }}
-        placeholder="Status"
-        options={leaveStatusOptions.slice(1)}
-      />
+          <div className="flex items-center gap-2 ml-auto">
+            <Select
+              className="min-w-[160px]"
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value)
+                resetToFirstPage()
+              }}
+              placeholder="Status"
+              options={statusOptions}
+            />
 
-      <Select
-        className="min-w-[170px]"
-        value={departmentFilter}
-        onChange={(val) => {
-          setDepartmentFilter(val)
-          setPage(1)
-        }}
-        placeholder="Department"
-        options={departmentOptions.slice(1)}
-      />
+            <Select
+              className="min-w-[170px]"
+              value={departmentFilter}
+              onChange={(value) => {
+                setDepartmentFilter(value)
+                resetToFirstPage()
+              }}
+              placeholder="Department"
+              options={departmentOptions}
+            />
 
-      <Select
-        className="min-w-[170px]"
-        value={leaveTypeFilter}
-        onChange={(val) => {
-          setLeaveTypeFilter(val)
-          setPage(1)
-        }}
-        placeholder="Leave Type"
-        options={leaveTypeOptions.slice(1)}
-      />
+            <Select
+              className="min-w-[170px]"
+              value={leaveTypeFilter}
+              onChange={(value) => {
+                setLeaveTypeFilter(value)
+                resetToFirstPage()
+              }}
+              placeholder="Leave Type"
+              options={leaveTypeOptions}
+            />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2">
-            <ListFilter className="size-4" />
-            Saved Filters
-            <ChevronDown className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <ListFilter className="size-4" />
+                  Saved Filters
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
 
-        <DropdownMenuContent>
-          {savedFilters.map((sf) => (
-            <DropdownMenuItem
-              key={sf.label}
-              onClick={() => handleSavedFilterClick(sf.filters)}
-            >
-              {sf.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuContent>
+                {savedFilters.map((preset) => (
+                  <DropdownMenuItem key={preset.label} onClick={() => handleSavedFilterClick(preset.filters)}>
+                    {preset.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setStatusFilter('')
+                    setDepartmentFilter('')
+                    setLeaveTypeFilter('')
+                    setSearchQuery('')
+                    resetToFirstPage()
+                  }}
+                >
+                  Clear All Filters
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2">
-            <Columns3 className="size-4" />
-            Columns
-            <ChevronDown className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Columns3 className="size-4" />
+                  Columns
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
 
-        <DropdownMenuContent>
-          <DropdownMenuItem>Customize Columns</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuContent>
+                <DropdownMenuItem>Customize Columns</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-      <Button variant="outline" className="gap-2">
-        <Download className="size-4" />
-        Export
-      </Button>
+            <Button variant="outline" className="gap-2" onClick={handleExport} disabled={requests.length === 0}>
+              <Download className="size-4" />
+              Export
+            </Button>
 
             {selectedIds.length > 0 && (
               <>
-                <Button onClick={handleBulkApprove}>Bulk Approve</Button>
-                <Button variant="destructive" onClick={handleBulkReject}>
+                <Button disabled={processing} onClick={() => handleBulkDecision('approved')}>
+                  Bulk Approve
+                </Button>
+                <Button variant="destructive" disabled={processing} onClick={() => handleBulkDecision('rejected')}>
                   Bulk Reject
                 </Button>
               </>
             )}
-    </div>
-  </div>
+          </div>
+        </div>
       </div>
 
       <Suspense fallback={null}>
@@ -363,36 +448,61 @@ export default function LeaveRequestsPage() {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           request={selectedRequest}
+          detail={detail}
+          loading={detailLoading}
+          processing={processing}
+          onDecision={handleDecision}
         />
         <ApplyLeaveDrawer
           open={applyLeaveOpen}
           onOpenChange={setApplyLeaveOpen}
+          processing={processing}
+          onSubmit={handleApplySubmit}
         />
       </Suspense>
-      <div className="rounded-xl border border-border bg-card">
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          selectable
-          selectedIds={selectedIds}
-          onSelectChange={setSelectedIds}
-          density="compact"
-          striped
-          emptyState={
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="size-10 text-muted-foreground/50 mb-3" />
-              <p className="text-sm font-medium text-foreground">No leave requests found</p>
-              <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
-            </div>
-          }
-          pagination={{
-            page: safePage,
-            pageSize,
-            total: filteredData.length,
-            onPageChange: (p) => setPage(p),
-          }}
-        />
-      </div>
+
+      {loading ? (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : error && rows.length === 0 ? (
+        <ErrorState title="Unable to load leave requests" description={error} retry={retry} />
+      ) : (
+        <div className="rounded-xl border border-border bg-card">
+          <DataTable
+            columns={columns}
+            data={rows}
+            selectable
+            selectedIds={selectedIds}
+            onSelectChange={setSelectedIds}
+            density="compact"
+            striped
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Search className="size-10 text-muted-foreground/50 mb-3" />
+                <p className="text-sm font-medium text-foreground">No leave requests found</p>
+                <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
+              </div>
+            }
+            pagination={{
+              page,
+              pageSize: PAGE_SIZE,
+              total,
+              onPageChange: (nextPage) => {
+                setPage(nextPage)
+                setSelectedIds([])
+              },
+            }}
+          />
+          {total > 0 && (
+            <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+              Showing {showingStart}-{showingEnd} of {total}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

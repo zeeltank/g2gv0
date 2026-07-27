@@ -9,6 +9,10 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorState } from '@/components/ui/error-state'
+import { useLeaveWorkflow } from '@/hooks/use-leave'
+import type { LeaveWorkflowSettings } from '@/services/hrms'
 
 const levelOptions = [
   { label: '2 Levels', value: '2' },
@@ -27,22 +31,22 @@ const escalateToOptions = [
   { label: 'Admin', value: 'admin' },
 ]
 
+type WorkflowDraft = Omit<LeaveWorkflowSettings, 'id'>
+
 export default function ApprovalWorkflowTab() {
-  const [workflowLoading, setWorkflowLoading] = useState(false)
-  const [reportingManagerEnabled, setReportingManagerEnabled] = useState(true)
-  const [departmentHeadEnabled, setDepartmentHeadEnabled] = useState(true)
-  const [hrEnabled, setHrEnabled] = useState(false)
-  const [multiLevelEnabled, setMultiLevelEnabled] = useState(false)
-  const [multiLevelCount, setMultiLevelCount] = useState('2')
-  const [escalationEnabled, setEscalationEnabled] = useState(true)
-  const [escalationTime, setEscalationTime] = useState('24')
-  const [escalationUnit, setEscalationUnit] = useState('hours')
-  const [escalateTo, setEscalateTo] = useState('hr')
-  const [workflowEdit, setWorkflowEdit] = useState(false)
+  const { loading, processing, error, actionMessage, workflow, save, retry, clearMessages } = useLeaveWorkflow()
+  const [draft, setDraft] = useState<WorkflowDraft | null>(null)
+  const [syncedWorkflow, setSyncedWorkflow] = useState<LeaveWorkflowSettings | null>(null)
 
-  const hasCircleSteps = reportingManagerEnabled || departmentHeadEnabled || hrEnabled
+  // Adjust the editable draft during render when the server payload changes,
+  // rather than in an effect - see https://react.dev/learn/you-might-not-need-an-effect
+  if (workflow && workflow !== syncedWorkflow) {
+    const { id: _id, ...rest } = workflow
+    setSyncedWorkflow(workflow)
+    setDraft(rest)
+  }
 
-  if (workflowLoading) {
+  if (loading) {
     return (
       <div className="flex flex-col gap-5 sm:gap-6">
         <Skeleton className="h-48 w-full sm:h-64" />
@@ -52,16 +56,50 @@ export default function ApprovalWorkflowTab() {
     )
   }
 
+  if (!draft) {
+    return (
+      <ErrorState
+        title="Unable to load the approval workflow"
+        description={error ?? 'The approval workflow settings could not be loaded.'}
+        retry={retry}
+      />
+    )
+  }
+
+  const update = <K extends keyof WorkflowDraft>(key: K, value: WorkflowDraft[K]) => {
+    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }
+
+  const isDirty = workflow ? JSON.stringify({ ...workflow, id: undefined }) !== JSON.stringify({ ...draft, id: undefined }) : false
+  const hasCircleSteps = draft.reporting_manager_enabled || draft.department_head_enabled || draft.hr_enabled
+
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
+      {(actionMessage || error) && (
+        <Alert variant={error ? 'destructive' : undefined}>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{error ?? actionMessage}</span>
+            <Button variant="ghost" size="sm" onClick={clearMessages}>
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <CardTitle className="text-base sm:text-lg md:text-xl">Approval Workflow</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Configure how leave requests move through the organization&apos;s approval hierarchy.</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
+              Configure how leave requests move through the organization&apos;s approval hierarchy.
+            </CardDescription>
           </div>
-          <Button className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto" onClick={() => setWorkflowEdit(!workflowEdit)}>
-            {workflowEdit ? 'Save Workflow' : 'Edit Workflow'}
+          <Button
+            className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto"
+            onClick={() => save(draft)}
+            disabled={processing || !isDirty}
+          >
+            {processing ? 'Saving...' : 'Save Workflow'}
           </Button>
         </CardHeader>
         <CardContent>
@@ -71,40 +109,52 @@ export default function ApprovalWorkflowTab() {
                 <p className="text-sm font-medium text-foreground">Reporting Manager Approval</p>
                 <p className="text-xs text-muted-foreground">First-level approval from direct manager</p>
               </div>
-              <Switch checked={reportingManagerEnabled} onChange={(e) => setReportingManagerEnabled(e.target.checked)} />
+              <Switch
+                checked={draft.reporting_manager_enabled}
+                onChange={(event) => update('reporting_manager_enabled', event.target.checked)}
+              />
             </div>
             <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:border-b sm:border-border">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Department Head Approval</p>
                 <p className="text-xs text-muted-foreground">Second-level approval from department head</p>
               </div>
-              <Switch checked={departmentHeadEnabled} onChange={(e) => setDepartmentHeadEnabled(e.target.checked)} />
+              <Switch
+                checked={draft.department_head_enabled}
+                onChange={(event) => update('department_head_enabled', event.target.checked)}
+              />
             </div>
             <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:border-b sm:border-border">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">HR Approval</p>
                 <p className="text-xs text-muted-foreground">Final approval from HR department</p>
               </div>
-              <Switch checked={hrEnabled} onChange={(e) => setHrEnabled(e.target.checked)} />
+              <Switch checked={draft.hr_enabled} onChange={(event) => update('hr_enabled', event.target.checked)} />
             </div>
             <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Multi-Level Approval</p>
                 <p className="text-xs text-muted-foreground">Configure multiple approval levels</p>
               </div>
-              <Switch checked={multiLevelEnabled} onChange={(e) => setMultiLevelEnabled(e.target.checked)} />
+              <Switch
+                checked={draft.multi_level_enabled}
+                onChange={(event) => update('multi_level_enabled', event.target.checked)}
+              />
             </div>
-            {multiLevelEnabled && (
+            {draft.multi_level_enabled && (
               <div className="pl-0 sm:pl-4 pt-2 sm:pt-0">
                 <Label htmlFor="multiLevelCount">Number of Levels</Label>
                 <Select
-                  value={multiLevelCount}
-                  onChange={setMultiLevelCount}
+                  value={String(draft.multi_level_count)}
+                  onChange={(value) => update('multi_level_count', Number(value))}
                   options={levelOptions}
                 />
               </div>
             )}
           </div>
+          {!hasCircleSteps && (
+            <p className="mt-4 text-xs text-destructive">At least one approval stage must be enabled.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -121,10 +171,8 @@ export default function ApprovalWorkflowTab() {
                 </div>
                 <span className="text-xs text-foreground sm:text-sm">Employee</span>
               </div>
-              {hasCircleSteps && (
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              )}
-              {reportingManagerEnabled && (
+              {hasCircleSteps && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+              {draft.reporting_manager_enabled && (
                 <div className="text-center">
                   <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
                     <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👨</span>
@@ -132,10 +180,10 @@ export default function ApprovalWorkflowTab() {
                   <span className="text-xs text-foreground sm:text-sm">Reporting Manager</span>
                 </div>
               )}
-              {reportingManagerEnabled && departmentHeadEnabled && (
+              {draft.reporting_manager_enabled && draft.department_head_enabled && (
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               )}
-              {departmentHeadEnabled && (
+              {draft.department_head_enabled && (
                 <div className="text-center">
                   <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
                     <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👩</span>
@@ -143,13 +191,13 @@ export default function ApprovalWorkflowTab() {
                   <span className="text-xs text-foreground sm:text-sm">Department Head</span>
                 </div>
               )}
-              {departmentHeadEnabled && hrEnabled && (
+              {draft.department_head_enabled && draft.hr_enabled && (
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               )}
-              {hrEnabled && (
+              {draft.hr_enabled && (
                 <div className="text-center">
                   <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 sm:mb-2 sm:size-14 md:size-16">
-                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">👩\u200D💻</span>
+                    <span className="text-xs font-semibold text-primary sm:text-sm md:text-sm">💻</span>
                   </div>
                   <span className="text-xs text-foreground sm:text-sm">HR</span>
                 </div>
@@ -177,7 +225,10 @@ export default function ApprovalWorkflowTab() {
                 <p className="text-sm font-medium text-foreground">Escalation Enabled</p>
                 <p className="text-xs text-muted-foreground">Auto-escalate pending approvals</p>
               </div>
-              <Switch checked={escalationEnabled} onChange={(e) => setEscalationEnabled(e.target.checked)} />
+              <Switch
+                checked={draft.escalation_enabled}
+                onChange={(event) => update('escalation_enabled', event.target.checked)}
+              />
             </div>
             <div className="grid grid-cols-1 gap-4 py-3 sm:grid-cols-2 sm:border-b sm:border-border">
               <div className="grid gap-2">
@@ -185,16 +236,18 @@ export default function ApprovalWorkflowTab() {
                 <Input
                   id="escalationTime"
                   type="number"
+                  min={1}
                   placeholder="24"
-                  value={escalationTime}
-                  onChange={(e) => setEscalationTime(e.target.value)}
+                  value={String(draft.escalation_time)}
+                  onChange={(event) => update('escalation_time', Number(event.target.value) || 0)}
+                  disabled={!draft.escalation_enabled}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="escalationUnit">Time Unit</Label>
                 <Select
-                  value={escalationUnit}
-                  onChange={setEscalationUnit}
+                  value={draft.escalation_unit}
+                  onChange={(value) => update('escalation_unit', value as LeaveWorkflowSettings['escalation_unit'])}
                   options={timeUnitOptions}
                 />
               </div>
@@ -202,8 +255,8 @@ export default function ApprovalWorkflowTab() {
             <div className="grid gap-2 py-3">
               <Label htmlFor="escalateTo">Escalate To</Label>
               <Select
-                value={escalateTo}
-                onChange={setEscalateTo}
+                value={draft.escalate_to}
+                onChange={(value) => update('escalate_to', value as LeaveWorkflowSettings['escalate_to'])}
                 options={escalateToOptions}
               />
             </div>

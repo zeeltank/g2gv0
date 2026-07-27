@@ -15,32 +15,61 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/use-auth'
-import type { AttendanceRecord, MonthlySummary } from '@/domain/hrms/hrit/attendance-management/types'
+import type { MonthlySummary } from '@/domain/hrms/hrit/attendance-management/types'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { hrmsService, type LaravelAttendanceEntry } from '@/services/hrms'
+import { hrmsService, type LaravelAttendanceCalendarDay } from '@/services/hrms'
+
+/** Statuses the calendar can mark. Anything else is left unmarked. */
+type DayStatus = 'present' | 'late' | 'absent' | 'leave'
+
+const DAY_STATUSES: DayStatus[] = ['present', 'late', 'absent', 'leave']
+
+const STATUS_COLOR: Record<DayStatus, string> = {
+  present: 'bg-success',
+  late: 'bg-warning',
+  absent: 'bg-destructive',
+  leave: 'bg-primary',
+}
+
+const STATUS_CELL: Record<DayStatus, string> = {
+  present: 'border-success/40 bg-success/10',
+  late: 'border-warning/40 bg-warning/10',
+  absent: 'border-destructive/40 bg-destructive/10',
+  leave: 'border-primary/40 bg-primary/10',
+}
+
+const STATUS_LABEL: Record<DayStatus, string> = {
+  present: 'Present',
+  late: 'Late',
+  absent: 'Absent',
+  leave: 'Leave',
+}
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 interface AttendanceCalendarDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  records: AttendanceRecord[]
-  monthlySummary?: MonthlySummary | null
 }
 
-export function AttendanceCalendarDrawer({
-  open,
-  onOpenChange,
-}: AttendanceCalendarDrawerProps) {
+export function AttendanceCalendarDrawer({ open, onOpenChange }: AttendanceCalendarDrawerProps) {
   const { user } = useAuth()
   const [selectedMonth, setSelectedMonth] = React.useState(() => startOfMonth(new Date()))
-  const [monthRecords, setMonthRecords] = React.useState<AttendanceRecord[]>([])
+  const [calendarDays, setCalendarDays] = React.useState<LaravelAttendanceCalendarDay[]>([])
   const [summary, setSummary] = React.useState<MonthlySummary | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const days = getDaysInMonth(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)
   const monthLabel = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   const selectedMonthValue = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`
-  const recordsByDate = React.useMemo(() => new Map(monthRecords.map((record) => [record.date, record])), [monthRecords])
+  const grid = React.useMemo(() => buildMonthGrid(selectedMonth), [selectedMonth])
+  const todayKey = React.useMemo(() => formatDateInput(new Date()), [])
+
+  // API-provided status per date. A date missing from this map is rendered unmarked.
+  const dayByDate = React.useMemo(
+    () => new Map(calendarDays.map((day) => [day.date, day])),
+    [calendarDays],
+  )
 
   React.useEffect(() => {
     if (!open) return
@@ -57,21 +86,15 @@ export function AttendanceCalendarDrawer({
           fromDate: formatDateInput(selectedMonth),
           toDate: formatDateInput(endOfMonth(selectedMonth)),
         })
-        const records = (response.attendanceData ?? []).map(mapAttendanceEntry)
 
         if (cancelled) return
 
-        setMonthRecords(records)
-        setSummary({
-          present: Number(response.presentDays ?? countStatus(records, 'present')),
-          late: Number(response.lateDays ?? countStatus(records, 'late')),
-          leave: Number(response.leaveDays ?? countStatus(records, 'leave')),
-          absent: Number(response.absentDays ?? countStatus(records, 'absent')),
-        })
-      } catch (error) {
+        setCalendarDays(response.calendar ?? [])
+        setSummary(readSummary(response))
+      } catch (loadError) {
         if (cancelled) return
-        setError(error instanceof Error ? error.message : 'Failed to load monthly attendance.')
-        setMonthRecords([])
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load monthly attendance.')
+        setCalendarDays([])
         setSummary(null)
       } finally {
         if (!cancelled) setLoading(false)
@@ -89,42 +112,53 @@ export function AttendanceCalendarDrawer({
     setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
   }
 
+  const handleMonthInput = (value: string) => {
+    const [year, month] = value.split('-').map(Number)
+    if (year && month) setSelectedMonth(new Date(year, month - 1, 1))
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger />
       <SheetContent className="w-3/5 max-w-lg p-0 flex flex-col gap-0 border-l border-border/80">
         <SheetHeader className="p-6 pb-0 space-y-0 text-left">
           <SheetTitle>Monthly Calendar</SheetTitle>
-          <SheetDescription>
-            {monthLabel} attendance overview
-          </SheetDescription>
+          <SheetDescription>{monthLabel} attendance overview</SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
           <div className="flex items-center justify-between gap-3">
-            <Button variant="outline" size="icon" onClick={() => changeMonth(-1)} aria-label="Previous month">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => changeMonth(-1)}
+              disabled={loading}
+              aria-label="Previous month"
+            >
               <ChevronLeft className="size-4" />
             </Button>
             <input
               type="month"
               value={selectedMonthValue}
-              onChange={(event) => {
-                const [year, month] = event.target.value.split('-').map(Number)
-                if (year && month) setSelectedMonth(new Date(year, month - 1, 1))
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground"
+              onChange={(event) => handleMonthInput(event.target.value)}
+              disabled={loading}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground disabled:opacity-60"
               aria-label="Select attendance month"
             />
-            <Button variant="outline" size="icon" onClick={() => changeMonth(1)} aria-label="Next month">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => changeMonth(1)}
+              disabled={loading}
+              aria-label="Next month"
+            >
               <ChevronRight className="size-4" />
             </Button>
           </div>
 
           {error && (
             <Card className="border-destructive/20 bg-destructive/5">
-              <CardContent className="py-3 text-sm font-medium text-destructive">
-                {error}
-              </CardContent>
+              <CardContent className="py-3 text-sm font-medium text-destructive">{error}</CardContent>
             </Card>
           )}
 
@@ -132,37 +166,51 @@ export function AttendanceCalendarDrawer({
             <Skeleton className="h-[330px] rounded-xl" />
           ) : (
             <div className="grid grid-cols-7 gap-2">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
-                  {day}
+              {WEEKDAY_LABELS.map((label) => (
+                <div key={label} className="text-center text-xs font-medium text-muted-foreground py-2">
+                  {label}
                 </div>
               ))}
 
-              {days.map((day, index) => {
-                if (day === null) {
+              {grid.map((dateKey, index) => {
+                if (dateKey === null) {
                   return <div key={`empty-${index}`} />
                 }
 
-                const dateStr = formatDateInput(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), day))
-                const record = recordsByDate.get(dateStr)
-                const status = getStatusForDay(record)
+                const apiDay = dayByDate.get(dateKey)
+                const status = toDayStatus(apiDay?.status)
+                const dayNumber = Number(dateKey.slice(-2))
+                const isToday = dateKey === todayKey
 
                 return (
                   <div
-                    key={dateStr}
-                    className="aspect-square flex items-center justify-center rounded-lg border border-border text-sm relative"
+                    key={dateKey}
+                    title={describeDay(dateKey, apiDay, status)}
+                    className={[
+                      'aspect-square flex items-center justify-center rounded-lg border text-sm relative',
+                      status ? STATUS_CELL[status] : 'border-border',
+                      isToday ? 'ring-2 ring-ring ring-offset-1 ring-offset-background' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
-                    <span className={getDayClassName(status)}>{day}</span>
-                    {status !== 'none' && (
-                      <div className={getIndicatorClassName(status)} />
+                    <span className={status ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                      {dayNumber}
+                    </span>
+                    {status && (
+                      <span
+                        className={`absolute bottom-1 size-1.5 rounded-full ${STATUS_COLOR[status]}`}
+                        aria-hidden="true"
+                      />
                     )}
+                    {status && <span className="sr-only">{STATUS_LABEL[status]}</span>}
                   </div>
                 )
               })}
             </div>
           )}
 
-          {summary && (
+          {!loading && summary && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Monthly Summary</CardTitle>
@@ -191,10 +239,12 @@ export function AttendanceCalendarDrawer({
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Legend</h3>
             <div className="flex flex-wrap gap-3">
-              <LegendItem color="bg-success" label="Present" />
-              <LegendItem color="bg-warning" label="Late" />
-              <LegendItem color="bg-destructive" label="Absent" />
-              <LegendItem color="bg-primary" label="Leave" />
+              {DAY_STATUSES.map((status) => (
+                <div key={status} className="flex items-center gap-1.5">
+                  <div className={`size-2.5 rounded-full ${STATUS_COLOR[status]}`} />
+                  <span className="text-xs text-muted-foreground">{STATUS_LABEL[status]}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -203,18 +253,59 @@ export function AttendanceCalendarDrawer({
   )
 }
 
-interface LegendItemProps {
-  color: string
-  label: string
+/** Only render a status the API actually returned for that date. */
+function toDayStatus(status?: string | null): DayStatus | null {
+  return DAY_STATUSES.includes(status as DayStatus) ? (status as DayStatus) : null
 }
 
-function LegendItem({ color, label }: LegendItemProps) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className={`size-2.5 rounded-full ${color}`} />
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </div>
-  )
+/**
+ * Monthly summary straight from the API. Returns null when the API omits the
+ * counts so the card is hidden rather than showing derived numbers.
+ */
+function readSummary(response: {
+  presentDays?: number
+  lateDays?: number
+  leaveDays?: number
+  absentDays?: number
+}): MonthlySummary | null {
+  const { presentDays, lateDays, leaveDays, absentDays } = response
+  const counts = [presentDays, lateDays, leaveDays, absentDays]
+
+  if (counts.some((count) => count === undefined || count === null)) return null
+
+  return {
+    present: Number(presentDays),
+    late: Number(lateDays),
+    leave: Number(leaveDays),
+    absent: Number(absentDays),
+  }
+}
+
+function describeDay(dateKey: string, apiDay: LaravelAttendanceCalendarDay | undefined, status: DayStatus | null) {
+  const parts = [formatLongDate(dateKey)]
+
+  if (status) parts.push(STATUS_LABEL[status])
+  if (apiDay?.is_holiday && apiDay.holiday_name) parts.push(apiDay.holiday_name)
+  if (status === 'leave' && apiDay?.leave_type) parts.push(apiDay.leave_type)
+  if (apiDay?.punchin_time) parts.push(`In ${formatDisplayTime(apiDay.punchin_time)}`)
+  if (apiDay?.punchout_time) parts.push(`Out ${formatDisplayTime(apiDay.punchout_time)}`)
+
+  return parts.join(' • ')
+}
+
+function formatLongDate(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return dateKey
+  return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatDisplayTime(value?: string | null) {
+  if (!value) return ''
+
+  const date = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function startOfMonth(date: Date) {
@@ -232,93 +323,18 @@ function formatDateInput(date: Date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function getDaysInMonth(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(year, month - 1, 1).getDay()
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const days: (number | null)[] = []
+/** Leading blanks for the first weekday, then one Y-m-d key per day of the month. */
+function buildMonthGrid(month: Date): (string | null)[] {
+  const year = month.getFullYear()
+  const monthIndex = month.getMonth()
+  const leadingBlanks = new Date(year, monthIndex, 1).getDay()
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
 
-  for (let i = 0; i < firstDay; i++) {
-    days.push(null)
+  const cells: (string | null)[] = Array.from({ length: leadingBlanks }, () => null)
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(formatDateInput(new Date(year, monthIndex, day)))
   }
 
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push(i)
-  }
-
-  return days
-}
-
-function formatDisplayTime(value?: string | null) {
-  if (!value) return undefined
-
-  const date = new Date(value.replace(' ', 'T'))
-  if (Number.isNaN(date.getTime())) return value
-
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function formatDuration(value?: string | null) {
-  if (!value) return undefined
-  const [hours = '0', minutes = '0'] = value.split(':')
-  return `${Number(hours)}h ${Number(minutes)}m`
-}
-
-function normalizeAttendanceStatus(entry: LaravelAttendanceEntry): AttendanceRecord['status'] {
-  const rawStatus = String(entry.attendance_status ?? entry.status_label ?? entry.type ?? '').toLowerCase()
-
-  if (rawStatus.includes('late')) return 'late'
-  if (rawStatus.includes('leave')) return 'leave'
-  if (rawStatus.includes('absent')) return 'absent'
-  if (rawStatus.includes('half')) return 'half-day'
-  if (rawStatus.includes('present')) return 'present'
-
-  return entry.punchin_time ? 'present' : 'absent'
-}
-
-function mapAttendanceEntry(entry: LaravelAttendanceEntry): AttendanceRecord {
-  const date = new Date(`${entry.day}T00:00:00`)
-  const day = Number.isNaN(date.getTime())
-    ? entry.day
-    : date.toLocaleDateString('en-US', { weekday: 'long' })
-
-  return {
-    id: String(entry.id),
-    date: entry.day,
-    day,
-    punchIn: formatDisplayTime(entry.punchin_time),
-    punchOut: formatDisplayTime(entry.punchout_time),
-    totalHours: formatDuration(entry.timestamp_diff),
-    status: normalizeAttendanceStatus(entry),
-    location: entry.ipaddress_in ? 'Office' : undefined,
-  }
-}
-
-function getStatusForDay(record?: AttendanceRecord): 'present' | 'late' | 'absent' | 'leave' | 'none' {
-  if (!record) return 'none'
-  return record.status === 'half-day' ? 'present' : record.status
-}
-
-function countStatus(records: AttendanceRecord[], status: AttendanceRecord['status']) {
-  return records.filter((record) => record.status === status).length
-}
-
-function getDayClassName(status: string): string {
-  const map: Record<string, string> = {
-    present: 'text-foreground',
-    late: 'text-foreground',
-    absent: 'text-muted-foreground',
-    leave: 'text-foreground',
-    none: 'text-muted-foreground',
-  }
-  return map[status] || 'text-muted-foreground'
-}
-
-function getIndicatorClassName(status: string): string {
-  const map: Record<string, string> = {
-    present: 'absolute bottom-1 size-1.5 rounded-full bg-success',
-    late: 'absolute bottom-1 size-1.5 rounded-full bg-warning',
-    absent: 'absolute bottom-1 size-1.5 rounded-full bg-destructive/60',
-    leave: 'absolute bottom-1 size-1.5 rounded-full bg-primary',
-  }
-  return map[status] || ''
+  return cells
 }

@@ -1,13 +1,26 @@
-export type LeaveType =
-  | 'Casual Leave'
-  | 'Sick Leave'
-  | 'Earned Leave'
-  | 'Work From Home'
-  | 'Maternity Leave'
-  | 'Paternity Leave'
+/**
+ * Leave types are institute-defined rows in hrms_leave_types, so this cannot be a
+ * closed union - the API returns whatever the institute has configured.
+ */
+export type LeaveType = string
 
-export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'sent-back' | 'cancelled'
+/**
+ * Laravel's hrms_emp_leaves.status vocabulary. The API uses the snake_case
+ * 'sent_back'; the design system's StatusBadge already styles the hyphenated
+ * form, so leaveStatusTone() in hooks/use-leave.ts bridges the two.
+ */
+export type LeaveRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'sent-back'
+  | 'cancelled'
+  | 'approved_lwp'
 
+/**
+ * The activity feed renders three tones. Laravel also emits 'cancellation',
+ * which mapActivity() collapses into 'rejection'.
+ */
 export type ActivityType = 'application' | 'approval' | 'rejection'
 
 export type DashboardStatTone =
