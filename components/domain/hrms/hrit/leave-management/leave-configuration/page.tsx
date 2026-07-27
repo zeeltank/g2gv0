@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Lock } from 'lucide-react'
 import { Tabs } from '@/shared/business'
 import { useAuth } from '@/hooks/use-auth'
@@ -37,8 +38,12 @@ const configTabs = [
 ]
 
 export default function LeaveConfigurationPage() {
+  const searchParams = useSearchParams()
   const { user, isLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState('leave-types')
+  const [activeTab, setActiveTab] = useState(() => {
+    const requested = searchParams.get('tab')
+    return configTabs.some((tab) => tab.id === requested) ? requested! : 'leave-types'
+  })
 
   if (!user || !['admin', 'hr'].includes(user.role)) {
     return (

@@ -7,6 +7,7 @@
 export { apiClient, webClient, ApiClient } from './core'
 
 // Domain Services
+export { authService } from './auth'
 export { organizationService } from './organization'
 export { taskService } from './task'
 export { lmsService } from './lms'

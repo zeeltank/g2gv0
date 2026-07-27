@@ -6,6 +6,7 @@ import type { LeaveBalanceSnapshot } from '@/types/leave-dashboard'
 
 interface LeaveBalanceSnapshotCardProps {
   balances: LeaveBalanceSnapshot[]
+  onViewAll: () => void
 }
 
 const iconById = {
@@ -22,12 +23,12 @@ const iconToneClass: Record<string, string> = {
   destructive: 'bg-destructive/10 text-destructive',
 }
 
-export function LeaveBalanceSnapshotCard({ balances }: LeaveBalanceSnapshotCardProps) {
+export function LeaveBalanceSnapshotCard({ balances, onViewAll }: LeaveBalanceSnapshotCardProps) {
   return (
     <Card className="h-full">
       <CardHeader  className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base">Leave Balance Snapshot</CardTitle>
-        <Button variant="link" className="h-auto px-0 text-xs font-semibold">
+        <Button variant="link" className="h-auto px-0 text-xs font-semibold" onClick={onViewAll}>
           View all
           <ArrowRight className="size-3.5" />
         </Button>

@@ -3,12 +3,39 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { type Role } from '@/types/role'
 import { clearSidebarFirstOpenExpansion, requestSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
+import {
+  clearLaravelSession,
+  mapProfileNameToRole,
+  readLaravelSession,
+  resolveSessionDisplayName,
+  saveLaravelSession,
+  type LaravelSessionData,
+} from '@/lib/laravel-session'
+import {
+  authService,
+  isLoginSuccess,
+  resolveLoginMessage,
+  LOGIN_FAILED_MESSAGE,
+} from '@/services/auth'
+import { ApiError } from '@/services/core'
 
 export interface User {
   id: string
   email: string
   name: string
   role: Role
+  /** Laravel `user_profile_name` - the raw profile `role` was derived from. */
+  profileName?: string
+  profileId?: string
+  employeeNo?: string
+  subInstituteId?: string
+  syear?: string
+  orgName?: string
+  orgId?: string
+  orgShortCode?: string
+  orgType?: string
+  initials?: string
+  image?: string
 }
 
 export interface Session {
@@ -55,15 +82,53 @@ function getInitialSession(): Session {
 }
 
 function getStoredSession(): Session {
+  const signedOut: Session = { user: null, isAuthenticated: false, isLoading: false }
+
   const stored = localStorage.getItem(SESSION_COOKIE)
   if (!stored) {
-    return { user: null, isAuthenticated: false, isLoading: false }
+    return signedOut
+  }
+
+  // A restored user without its Laravel token cannot talk to the ERP, so treat
+  // that half-state as signed out rather than rendering a shell that 401s. The
+  // routing cookie has to go too, or proxy.ts would bounce /login -> /dashboard.
+  if (!readLaravelSession()) {
+    localStorage.removeItem(SESSION_COOKIE)
+    clearSessionCookie()
+    return signedOut
   }
 
   try {
-    return normalizeSession(JSON.parse(stored)) ?? { user: null, isAuthenticated: false, isLoading: false }
+    return normalizeSession(JSON.parse(stored)) ?? signedOut
   } catch {
-    return { user: null, isAuthenticated: false, isLoading: false }
+    return signedOut
+  }
+}
+
+function toOptionalString(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return undefined
+  const text = String(value).trim()
+  return text || undefined
+}
+
+/** Projects Laravel's `sessionData` onto the User the design system renders. */
+function toUser(data: LaravelSessionData): User {
+  return {
+    id: String(data.user_id),
+    email: data.user_email ?? '',
+    name: resolveSessionDisplayName(data),
+    role: mapProfileNameToRole(data.user_profile_name),
+    profileName: toOptionalString(data.user_profile_name),
+    profileId: toOptionalString(data.user_profile_id),
+    employeeNo: toOptionalString(data.employee_no),
+    subInstituteId: toOptionalString(data.sub_institute_id),
+    syear: toOptionalString(data.syear),
+    orgName: toOptionalString(data.org_name),
+    orgId: toOptionalString(data.org_id),
+    orgShortCode: toOptionalString(data.org_short_code),
+    orgType: toOptionalString(data.org_type),
+    initials: toOptionalString(data.org_user),
+    image: toOptionalString(data.user_image),
   }
 }
 
@@ -90,46 +155,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    // Simulate auth delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    // Mock user lookup by email
-    const mockUsers: Record<string, User> = {
-      'admin@gtg.local': {
-        id: 'u-001',
-        email: 'admin@gtg.local',
-        name: 'Sarah Chen',
-        role: 'admin',
-      },
-      'hr@gtg.local': {
-        id: 'u-002',
-        email: 'hr@gtg.local',
-        name: 'Marcus Johnson',
-        role: 'hr',
-      },
-      'depthead@gtg.local': {
-        id: 'u-003',
-        email: 'depthead@gtg.local',
-        name: 'Priya Patel',
-        role: 'dept-head',
-      },
-      'employee@gtg.local': {
-        id: 'u-004',
-        email: 'employee@gtg.local',
-        name: 'Alex Rivera',
-        role: 'employee',
-      },
+    // Mirrors authController::index - both fields are `required|string` there.
+    if (!email.trim()) {
+      throw new Error('The email field is required.')
     }
-
-    const user = mockUsers[email.toLowerCase()]
-    if (!user) {
-      throw new Error('Invalid email or password')
-    }
-
-    // Mock password validation (any password works for demo)
     if (!password) {
-      throw new Error('Password is required')
+      throw new Error('The password field is required.')
     }
+
+    let response
+    try {
+      response = await authService.login({ email: email.trim(), password })
+    } catch (error) {
+      // 422 - Laravel returned the first validation error in `message`.
+      if (error instanceof ApiError) {
+        throw new Error(error.message || LOGIN_FAILED_MESSAGE)
+      }
+      // fetch() rejects with a TypeError when the ERP is unreachable.
+      if (error instanceof TypeError) {
+        throw new Error('Unable to reach the server. Please check your connection and try again.')
+      }
+      throw error
+    }
+
+    // Rejected credentials and "Academic Term Date Expired" both arrive as
+    // HTTP 200 with status 0, so the message has to be read off the body.
+    if (!isLoginSuccess(response.status) || !response.sessionData?.token) {
+      throw new Error(resolveLoginMessage(response.message))
+    }
+
+    saveLaravelSession(response.sessionData)
+    const user = toUser(response.sessionData)
 
     const newSession: Session = { user, isAuthenticated: true, isLoading: false }
     setSession(newSession)
@@ -141,6 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setSession({ user: null, isAuthenticated: false, isLoading: false })
     localStorage.removeItem(SESSION_COOKIE)
+    // Drop the Laravel token/tenant bundle too - otherwise the next visitor on
+    // this browser would keep issuing API calls as the previous user.
+    clearLaravelSession()
     clearSidebarFirstOpenExpansion()
     clearSessionCookie()
   }

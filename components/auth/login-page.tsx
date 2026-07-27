@@ -186,17 +186,10 @@ export function LoginPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setError('')
-    setIsLoading(true)
-    try {
-      await login('hr@gtg.local', 'password')
-      router.push(getRedirectTarget())
-    } catch {
-      setError('Google sign-in failed. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+  // The ERP exposes no OAuth endpoint - authController only accepts
+  // email/password (and a separate mobile OTP flow), so this cannot sign in yet.
+  const handleGoogleSignIn = () => {
+    setError('Google sign-in is not available yet. Please sign in with your email and password.')
   }
 
   return (
@@ -334,16 +327,6 @@ export function LoginPage() {
                 Sign in with Google
               </Button>
             </form>
-
-            <div className="mt-3 hidden border-t border-border pt-3 text-[11px] leading-4 text-muted-foreground sm:block">
-              <p className="text-center">Demo accounts (any password works):</p>
-              <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-center font-mono">
-                <p>admin@gtg.local</p>
-                <p>hr@gtg.local</p>
-                <p>depthead@gtg.local</p>
-                <p>employee@gtg.local</p>
-              </div>
-            </div>
 
             <div className="mt-5 hidden items-center justify-center gap-3 text-sm text-muted-foreground sm:flex">
               <ShieldCheck className="size-6 text-muted-foreground" />

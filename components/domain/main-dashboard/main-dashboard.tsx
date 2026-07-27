@@ -39,6 +39,8 @@ import { Select } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { KPICard } from '@/components/shared/business'
 import { chartStatusColors } from '@/lib/chart-colors'
+import { useAuth } from '@/hooks/use-auth'
+import { getGreeting } from '@/lib/greeting'
 
 const token = (name: string) => `var(${name})`
 
@@ -254,11 +256,13 @@ function RingMetric({
 }
 
 export function MainDashboard() {
+  const { user } = useAuth()
+
   return (
     <div className="space-y-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Good Morning, John!</h1>
+          <h1 className="text-xl font-bold text-foreground">{getGreeting(user?.name ?? 'there')}</h1>
           <p className="text-sm text-muted-foreground">
             Here is what is happening across your organization today.
           </p>

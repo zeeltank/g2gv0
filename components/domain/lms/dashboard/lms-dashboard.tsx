@@ -27,6 +27,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/use-auth'
+import { getGreeting } from '@/lib/greeting'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths } from 'date-fns'
 
 function KpiCard({
@@ -448,6 +450,7 @@ function CertificationsWidget() {
 }
 
 export function LmsDashboard() {
+  const { user } = useAuth()
   const [date, setDate] = useState<Date | undefined>(new Date())
 
   return (
@@ -456,7 +459,7 @@ export function LmsDashboard() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground lg:text-xl">
-            Welcome back, John! <span aria-hidden="true">👋</span>
+            {getGreeting(user?.name ?? 'there')}
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
             Here&apos;s what&apos;s happening with your learning today.

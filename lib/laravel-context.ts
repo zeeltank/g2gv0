@@ -1,4 +1,5 @@
 import type { User } from '@/components/auth/gtg-auth'
+import { readLaravelSession } from '@/lib/laravel-session'
 
 export type LaravelContext = {
   token: string
@@ -7,64 +8,44 @@ export type LaravelContext = {
   userId: string
 }
 
-function readStorageValue(keys: string[]) {
-  if (typeof window === 'undefined') return ''
-
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key)
-    if (value) return value
-  }
-
-  return ''
+const EMPTY_CONTEXT: LaravelContext = {
+  token: '',
+  subInstituteId: '',
+  syear: '',
+  userId: '',
 }
 
-function readJsonStorageValue(storageKey: string, keys: string[]) {
-  if (typeof window === 'undefined') return ''
-
-  const raw = window.localStorage.getItem(storageKey) ?? window.sessionStorage.getItem(storageKey)
-  if (!raw) return ''
-
-  try {
-    const data = JSON.parse(raw) as Record<string, unknown>
-    for (const key of keys) {
-      const value = data[key]
-      if (typeof value === 'string' || typeof value === 'number') return String(value)
-    }
-  } catch {
-    return ''
-  }
-
-  return ''
+function toParam(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
 }
 
+/**
+ * Resolves the tenant coordinates Laravel expects on every request.
+ *
+ * These come exclusively from the session that GET /login?type=API returned and
+ * that `saveLaravelSession` persisted. There are deliberately no defaults: a
+ * hardcoded sub_institute_id / token would silently point every browser at the
+ * same tenant with one shared credential.
+ */
 export function getLaravelContext(user?: User | null): LaravelContext {
-  const token =
-    readStorageValue(['token', 'authToken', 'access_token', 'laravel_token']) ||
-    readJsonStorageValue('userData', ['token', 'access_token']) ||
-    readJsonStorageValue('gtg-session', ['token']) ||
-    process.env.NEXT_PUBLIC_HP_API_TOKEN ||
-    ''
+  const session = readLaravelSession()
 
-  const subInstituteId =
-    readStorageValue(['sub_institute_id', 'subInstituteId']) ||
-    readJsonStorageValue('userData', ['sub_institute_id', 'subInstituteId']) ||
-    process.env.NEXT_PUBLIC_HP_SUB_INSTITUTE_ID ||
-    '1'
+  if (!session) {
+    return { ...EMPTY_CONTEXT, userId: toParam(user?.id) }
+  }
 
-  const syear =
-    readStorageValue(['syear', 'school_year']) ||
-    readJsonStorageValue('userData', ['syear', 'school_year']) ||
-    process.env.NEXT_PUBLIC_HP_SYEAR ||
-    String(new Date().getFullYear())
+  return {
+    token: toParam(session.token),
+    subInstituteId: toParam(session.sub_institute_id),
+    syear: toParam(session.syear),
+    userId: toParam(session.user_id) || toParam(user?.id),
+  }
+}
 
-  const userId =
-    readStorageValue(['user_id', 'userId']) ||
-    readJsonStorageValue('userData', ['user_id', 'userId', 'id']) ||
-    process.env.NEXT_PUBLIC_HP_USER_ID ||
-    user?.id.replace(/\D/g, '') ||
-    '1'
-
-  return { token, subInstituteId, syear, userId }
+/** Guard for callers that must not fire a request before the user has logged in. */
+export function isLaravelContextReady(context: LaravelContext): boolean {
+  return Boolean(context.token && context.subInstituteId && context.userId)
 }
 
 export function withLaravelParams(context: LaravelContext, extra?: Record<string, string>) {
