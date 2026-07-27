@@ -67,11 +67,17 @@ import type { LeaveRequest } from '@/types/leave-dashboard'
 interface PendingApprovalsCardProps {
   requests: LeaveRequest[]
   onViewDetails: (request: LeaveRequest) => void
+  onViewAll: () => void
+  onDecision: (request: LeaveRequest, status: 'approved' | 'rejected') => void
+  processingRequestId?: string | null
 } 
 
 export function PendingApprovalsCard({
   requests,
   onViewDetails,
+  onViewAll,
+  onDecision,
+  processingRequestId,
 }: PendingApprovalsCardProps) {
   return (
     <Card className="h-full rounded-2xl">
@@ -83,6 +89,7 @@ export function PendingApprovalsCard({
         <Button
           variant="link"
           className="h-auto p-0 text-sm font-semibold text-primary"
+          onClick={onViewAll}
         >
           View all ({requests.length})
           <ArrowRight className="ml-1 h-4 w-4" />
@@ -93,6 +100,12 @@ export function PendingApprovalsCard({
         {requests.slice(0, 4).map((request) => (
           <div
             key={request.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onViewDetails(request)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') onViewDetails(request)
+            }}
             className="flex items-center justify-between rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted/30"
           >
             {/* Left Section */}
@@ -138,7 +151,12 @@ export function PendingApprovalsCard({
                 size="icon"
                 variant="outline"
                 className="h-9 w-9 rounded-lg border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700"
-                onClick={() => console.log('Approve', request.id)}
+                aria-label={`Approve ${request.employee.name}'s leave request`}
+                disabled={processingRequestId === request.id}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDecision(request, 'approved')
+                }}
               >
                 <Check className="h-4 w-4" />
               </Button>
@@ -147,7 +165,12 @@ export function PendingApprovalsCard({
                 size="icon"
                 variant="outline"
                 className="h-9 w-9 rounded-lg border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
-                onClick={() => console.log('Reject', request.id)}
+                aria-label={`Reject ${request.employee.name}'s leave request`}
+                disabled={processingRequestId === request.id}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDecision(request, 'rejected')
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>

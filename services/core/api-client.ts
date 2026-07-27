@@ -35,7 +35,16 @@ interface RequestConfig {
   headers?: Record<string, string>
   body?: unknown
   params?: Record<string, string>
+  /**
+   * Opt-in only. Laravel's session cookie is needed by the /login web route
+   * (config/cors.php sets supports_credentials, so the Origin is echoed back).
+   * Every other endpoint authenticates with the token query param instead.
+   */
+  credentials?: RequestCredentials
 }
+
+/** Per-call transport overrides, kept separate from the payload arguments. */
+export type RequestOptions = Pick<RequestConfig, 'headers' | 'credentials'>
 
 /** Laravel replies with {message, errors} on 4xx - surface that instead of a bare status code. */
 export class ApiError extends Error {
@@ -74,7 +83,7 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
-    const { method = 'GET', headers = {}, body, params } = config
+    const { method = 'GET', headers = {}, body, params, credentials } = config
 
     let url = `${this.baseUrl}${endpoint}`
     if (params) {
@@ -90,6 +99,7 @@ class ApiClient {
         ...headers,
       },
       body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+      ...(credentials ? { credentials } : {}),
     })
 
     if (!response.ok) {
@@ -99,8 +109,12 @@ class ApiClient {
     return response.json()
   }
 
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET', params })
+  async get<T>(
+    endpoint: string,
+    params?: Record<string, string>,
+    options?: RequestOptions,
+  ): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET', params, ...options })
   }
 
   async post<T>(endpoint: string, body: unknown): Promise<T> {

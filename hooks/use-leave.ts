@@ -47,7 +47,9 @@ function useLaravelContext() {
 
 export interface LeaveDashboardState {
   loading: boolean
+  processingRequestId: string | null
   error: string | null
+  actionError: string | null
   summary: LeaveDashboardData | null
   trend: LeaveTrendPoint[]
   departments: LeaveDepartmentSummaryRow[]
@@ -58,12 +60,15 @@ export interface LeaveDashboardState {
   recent: LeaveRequestRow[]
   upcoming: LeaveRequestRow[]
   retry: () => void
+  decide: (id: number | string, status: 'approved' | 'rejected') => Promise<{ ok: boolean; message: string }>
 }
 
 export function useLeaveDashboard(departmentId?: string): LeaveDashboardState {
   const resolveContext = useLaravelContext()
   const [loading, setLoading] = useState(true)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [summary, setSummary] = useState<LeaveDashboardData | null>(null)
   const [trend, setTrend] = useState<LeaveTrendPoint[]>([])
   const [departments, setDepartments] = useState<LeaveDepartmentSummaryRow[]>([])
@@ -153,9 +158,33 @@ export function useLeaveDashboard(departmentId?: string): LeaveDashboardState {
     })
   }, [load])
 
+  const decide = useCallback(
+    async (id: number | string, status: 'approved' | 'rejected') => {
+      setProcessingRequestId(String(id))
+      setActionError(null)
+
+      try {
+        const response = await leaveService.decideRequest(resolveContext(), id, { status })
+        // Reload every dashboard endpoint so counts, lists, balances and activity
+        // all reflect the decision returned by Laravel.
+        await load()
+        return { ok: true, message: response.message }
+      } catch (decisionError) {
+        const message = toMessage(decisionError, 'Failed to update the leave request.')
+        setActionError(message)
+        return { ok: false, message }
+      } finally {
+        setProcessingRequestId(null)
+      }
+    },
+    [load, resolveContext],
+  )
+
   return {
     loading,
+    processingRequestId,
     error,
+    actionError,
     summary,
     trend,
     departments,
@@ -166,6 +195,7 @@ export function useLeaveDashboard(departmentId?: string): LeaveDashboardState {
     recent,
     upcoming,
     retry: load,
+    decide,
   }
 }
 

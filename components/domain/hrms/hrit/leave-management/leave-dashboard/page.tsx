@@ -1,7 +1,9 @@
 'use client'
 
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/use-auth'
@@ -17,7 +19,7 @@ import {
   mapTypeDistribution,
   mapUpcomingLeaves,
 } from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
-import type { LeaveRequest } from '@/types/leave-dashboard'
+import type { LeaveQuickAction, LeaveRequest } from '@/types/leave-dashboard'
 
 const DashboardHeader = lazy(() =>
   import('@/domain/hrms/hrit/leave-management/leave-dashboard/components/DashboardHeader').then((m) => ({
@@ -104,6 +106,7 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const currentDate = useMemo(() => getCurrentDate(), [])
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
@@ -111,7 +114,9 @@ export default function DashboardPage() {
 
   const {
     loading,
+    processingRequestId,
     error,
+    actionError,
     summary,
     departments,
     leaveTypes,
@@ -121,6 +126,7 @@ export default function DashboardPage() {
     recent,
     upcoming,
     retry,
+    decide,
   } = useLeaveDashboard()
 
   const { detail } = useLeaveRequestDetail(drawerOpen ? selectedRequestId : null)
@@ -145,6 +151,27 @@ export default function DashboardPage() {
     setDrawerOpen(true)
   }, [])
 
+  const navigate = useCallback(
+    (submenu: string, query = '') => {
+      router.push(`/module/m5/leave-management/${submenu}${query}`)
+    },
+    [router],
+  )
+
+  const handleQuickAction = useCallback(
+    (action: LeaveQuickAction) => {
+      const destinations: Record<string, [string, string]> = {
+        apply: ['leave-requests', '?apply=1'],
+        requests: ['leave-requests', '?mine=1'],
+        balance: ['leave-reports', '?report=leave-balance'],
+        reports: ['leave-reports', ''],
+      }
+      const destination = destinations[action.id]
+      if (destination) navigate(...destination)
+    },
+    [navigate],
+  )
+
   if (loading) {
     return <DashboardSkeleton />
   }
@@ -161,6 +188,11 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-10xl flex-col gap-6">
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
       <Suspense fallback={<Skeleton className="h-16 rounded-2xl" />}>
         <DashboardHeader
           userName={user?.name ?? 'there'}
@@ -184,16 +216,28 @@ export default function DashboardPage() {
 
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-          <PendingApprovalsCard requests={pendingRequests} onViewDetails={handleViewDetails} />
+          <PendingApprovalsCard
+            requests={pendingRequests}
+            onViewDetails={handleViewDetails}
+            onViewAll={() => navigate('leave-requests', '?status=pending')}
+            onDecision={(request, status) => void decide(request.id, status)}
+            processingRequestId={processingRequestId}
+          />
         </Suspense>
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-          <LeaveBalanceSnapshotCard balances={balanceData} />
+          <LeaveBalanceSnapshotCard
+            balances={balanceData}
+            onViewAll={() => navigate('leave-reports', '?report=leave-balance')}
+          />
         </Suspense>
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-          <HolidayCard holidays={holidayData} />
+          <HolidayCard
+            holidays={holidayData}
+            onViewAll={() => navigate('leave-configuration', '?tab=holiday-calendar')}
+          />
         </Suspense>
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-          <LeaveQuickActionsCard actions={quickActions} />
+          <LeaveQuickActionsCard actions={quickActions} onAction={handleQuickAction} />
         </Suspense>
       </section>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -21,6 +22,7 @@ import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
 import type { LeaveApplyPayload, LeaveStatus } from '@/services/hrms'
 import { formatDateShort } from '@/lib/leave-management-data'
 import { useLeaveOptions, useLeaveRequests, useLeaveRequestDetail } from '@/hooks/use-leave'
+import { useAuth } from '@/hooks/use-auth'
 import { mapLeaveRequest } from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
 
 const LeaveRequestDetailsDrawer = lazy(() =>
@@ -59,15 +61,18 @@ function toCsvValue(value: string | number | null | undefined) {
 }
 
 export default function LeaveRequestsPage() {
+  const searchParams = useSearchParams()
+  const { user } = useAuth()
+  const showMine = searchParams.get('mine') === '1'
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [applyLeaveOpen, setApplyLeaveOpen] = useState(false)
+  const [applyLeaveOpen, setApplyLeaveOpen] = useState(() => searchParams.get('apply') === '1')
 
   // Filtering, sorting and pagination all run server side - Laravel returns one page.
   const filters = useMemo(
@@ -76,12 +81,13 @@ export default function LeaveRequestsPage() {
       status: statusFilter ? [statusFilter] : undefined,
       departmentId: departmentFilter || undefined,
       leaveTypeId: leaveTypeFilter || undefined,
+      employeeId: showMine ? user?.id : undefined,
       page,
       perPage: PAGE_SIZE,
       sortBy: 'submittedDate',
       sortDir: 'desc' as const,
     }),
-    [searchQuery, statusFilter, departmentFilter, leaveTypeFilter, page],
+    [searchQuery, statusFilter, departmentFilter, leaveTypeFilter, page, showMine, user?.id],
   )
 
   const {

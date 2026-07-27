@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 
 interface HolidayCardProps {
   holidays: Holiday[]
+  onViewAll: () => void
 }
 
-export function HolidayCard({ holidays }: HolidayCardProps) {
+export function HolidayCard({ holidays, onViewAll }: HolidayCardProps) {
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-start justify-between pb-3">
@@ -26,6 +27,7 @@ export function HolidayCard({ holidays }: HolidayCardProps) {
         <Button
           variant="link"
           className="h-auto px-0 text-xs font-semibold"
+          onClick={onViewAll}
         >
           View all
           <ArrowRight className="ml-1 size-3.5" />

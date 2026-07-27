@@ -91,7 +91,7 @@ function UserProfileMenu() {
     if (itemId === 'profile') {
       router.push('/profile')
     } else if (itemId === 'settings') {
-      router.push('/settings')
+      router.push('/profile')
     } else if (itemId === 'module-config') {
       router.push('/settings/module-configuration')
     }

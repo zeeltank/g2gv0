@@ -7,6 +7,7 @@ import type { LeaveQuickAction } from '@/types/leave-dashboard'
 
 interface LeaveQuickActionsCardProps {
   actions: LeaveQuickAction[]
+  onAction: (action: LeaveQuickAction) => void
 }
 
 const iconByName: Record<string, React.ElementType> = {
@@ -16,7 +17,7 @@ const iconByName: Record<string, React.ElementType> = {
   'chart-bar': BarChart3,
 }
 
-export function LeaveQuickActionsCard({ actions }: LeaveQuickActionsCardProps) {
+export function LeaveQuickActionsCard({ actions, onAction }: LeaveQuickActionsCardProps) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
@@ -30,6 +31,7 @@ export function LeaveQuickActionsCard({ actions }: LeaveQuickActionsCardProps) {
             <Button
               key={action.id}
               variant="ghost"
+              onClick={() => onAction(action)}
               className="h-auto w-full justify-start gap-3 rounded-lg border border-transparent px-3 py-3 hover:border-border hover:bg-surface-muted"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

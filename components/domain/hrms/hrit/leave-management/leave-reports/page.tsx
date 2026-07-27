@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
@@ -76,10 +77,14 @@ function toInput(date: Date) {
 }
 
 export default function LeaveReportsPage() {
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<'catalog' | 'saved'>('catalog')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<ReportCategory>('All Reports')
-  const [selectedReportId, setSelectedReportId] = useState('leave-summary')
+  const [selectedReportId, setSelectedReportId] = useState(() => {
+    const requested = searchParams.get('report')
+    return requested && reports.some((report) => report.id === requested) ? requested : 'leave-summary'
+  })
   const [savedIds, setSavedIds] = useState(
     () => new Set(reports.filter((report) => report.saved).map((report) => report.id)),
   )

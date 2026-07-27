@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { getGreeting } from '@/lib/greeting'
 
 import { Button } from '@/components/ui/button'
 import { LeaveCalendarDrawer } from '@/domain/hrms/hrit/leave-management/leave-dashboard/components/LeaveCalendarDrawer'
@@ -21,7 +22,7 @@ export function DashboardHeader({ userName, currentDate, upcomingLeaves }: Dashb
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground lg:text-xl">
-            Good Morning, {userName}! <span aria-hidden="true">👋</span>
+            {getGreeting(userName)}
           </h1>
           <p className="text-sm font-medium text-muted-foreground lg:text-sm">
             Here&apos;s your leave management overview for today.
