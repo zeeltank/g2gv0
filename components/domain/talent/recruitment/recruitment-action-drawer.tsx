@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { isOpenJobPosting, recruitmentService } from '@/services/talent'
 import { mapProfileNameToRole, readLaravelSession } from '@/lib/laravel-session'
 import { Badge } from '@/components/ui/badge'
 import { Pencil } from 'lucide-react'
-import type { Candidate, JobOpening } from './recruitment-data'
+import { canProgressCandidate, type Candidate, type JobOpening } from './recruitment-data'
 import type { InterviewApi, InterviewPanelApi, JobPostingApi, OfferTemplateApi, TalentOfferApi } from '@/types/recruitment'
 import { JobPostingForm } from './job-posting-form'
 import { CandidateApplicationForm } from './candidate-application-form'
@@ -24,6 +24,7 @@ interface Props {
   selectedJob?: JobPostingApi | null
   selectedInterview?: InterviewApi | null
   selectedOffer?: TalentOfferApi | null
+  preselectedCandidate?: Candidate | null
   onClose: () => void
   onSaved: () => Promise<void> | void
   onEditJob?: () => void
@@ -53,30 +54,47 @@ function JobOpeningDetails({ job, canEdit, onEdit }: { job: JobPostingApi; canEd
   </div>
 }
 
-export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob, selectedInterview, selectedOffer, onClose, onSaved, onEditJob }: Props) {
+export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob, selectedInterview, selectedOffer, preselectedCandidate, onClose, onSaved, onEditJob }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, string>>({})
+  const valuesRef = useRef<Record<string, string>>({})
   const [resume, setResume] = useState<File | null>(null)
   const [panels, setPanels] = useState<InterviewPanelApi[]>([])
   const [templates, setTemplates] = useState<OfferTemplateApi[]>([])
   const [canEditJob, setCanEditJob] = useState(false)
 
-  const set = (key: string, value: string) => setValues((current) => ({ ...current, [key]: value }))
+  const set = (key: string, value: string) => {
+    const next = { ...valuesRef.current, [key]: value }
+    valuesRef.current = next
+    setValues(next)
+  }
+  const replaceValues = (next: Record<string, string>) => {
+    valuesRef.current = next
+    setValues(next)
+  }
 
   useEffect(() => {
     if (!action) return
     queueMicrotask(() => {
       if (action === 'interview' || action === 'interview-edit') void recruitmentService.getPanels().then(setPanels)
+      if (action === 'interview' && preselectedCandidate) {
+        const matchingJob = preselectedCandidate.jobId
+          ?? jobs.find((job) => job.title === preselectedCandidate.jobOpening)?.id
+        replaceValues({
+          applicant_id: preselectedCandidate.id,
+          job_id: matchingJob ?? '',
+        })
+      }
       if (action === 'offer') void recruitmentService.getTemplates().then(setTemplates)
       if ((action === 'job-edit' || action === 'job-view') && selectedJob) {
-        setValues(Object.fromEntries(Object.entries(selectedJob).map(([key, value]) => [key, value == null ? '' : String(value)])))
+        replaceValues(Object.fromEntries(Object.entries(selectedJob).map(([key, value]) => [key, value == null ? '' : String(value)])))
       }
       if (action === 'interview-edit' && selectedInterview) {
-        setValues(Object.fromEntries(Object.entries(selectedInterview).map(([key, value]) => [key, value == null ? '' : String(value)])))
+        replaceValues(Object.fromEntries(Object.entries(selectedInterview).map(([key, value]) => [key, value == null ? '' : String(value)])))
       }
     })
-  }, [action, selectedInterview, selectedJob])
+  }, [action, jobs, preselectedCandidate, selectedInterview, selectedJob])
 
   useEffect(() => {
     const role = mapProfileNameToRole(readLaravelSession()?.user_profile_name)
@@ -126,23 +144,60 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
         data.set('status', 'Pending Review')
         await recruitmentService.createApplication(data)
       } else if (action === 'interview' || action === 'interview-edit') {
-        if (!values.job_id || !values.applicant_id || !values.interview_date || !values.time) {
-          throw new Error('Job, candidate, interview date, and time are required.')
+        const formValues = valuesRef.current
+        const applicantId = formValues.applicant_id || preselectedCandidate?.id || ''
+        const jobId = formValues.job_id
+          || preselectedCandidate?.jobId
+          || jobs.find((job) => job.title === preselectedCandidate?.jobOpening)?.id
+          || ''
+        const required = [
+          ['Job', jobId],
+          ['Candidate', applicantId],
+          ['Date', formValues.interview_date],
+          ['Time', formValues.time],
+          ['Duration', formValues.duration],
+          ['Location', formValues.location?.trim()],
+          ['Interview panel', formValues.panel_id],
+        ] as const
+        const missing = required.filter(([, value]) => !value).map(([label]) => label)
+        if (missing.length) {
+          throw new Error(`Please select or enter: ${missing.join(', ')}.`)
         }
+        const candidate = candidates.find((item) => item.id === applicantId)
+        if (candidate && !canProgressCandidate(candidate)) {
+          throw new Error('An interview cannot be scheduled after an offer has been sent or the candidate has been hired.')
+        }
+        const selectedPanel = panels.find((panel) => String(panel.id) === formValues.panel_id)
+        const rawInterviewers = selectedPanel?.available_interviewers
+        let interviewerIds: Array<string | number> = []
+        if (Array.isArray(rawInterviewers)) interviewerIds = rawInterviewers
+        else if (rawInterviewers) {
+          try {
+            const parsed = JSON.parse(rawInterviewers)
+            interviewerIds = Array.isArray(parsed) ? parsed : []
+          } catch {
+            interviewerIds = rawInterviewers.split(',').map((id) => id.trim()).filter(Boolean)
+          }
+        }
+        if (!interviewerIds.length) throw new Error('The selected interview panel has no interviewers assigned.')
         const payload = {
-          applicant_id: values.applicant_id,
-          job_id: values.job_id,
-          round_no: Number(values.round_no || 1),
-          interview_date: values.interview_date,
-          time: values.time,
-          duration: values.duration,
-          location: values.location,
-          panel_id: values.panel_id || null,
+          applicant_id: applicantId,
+          job_id: jobId,
+          interview_date: formValues.interview_date,
+          time: formValues.time,
+          duration: formValues.duration,
+          location: formValues.location,
+          panel_id: formValues.panel_id,
+          interviewer_id: interviewerIds,
           status: 'Scheduled',
-          additional_notes: values.notes,
+          additional_notes: formValues.notes,
         }
-        if (action === 'interview-edit' && selectedInterview) await recruitmentService.updateInterview(selectedInterview.id, payload)
-        else await recruitmentService.createInterview(payload)
+        if (action === 'interview-edit' && selectedInterview) {
+          await recruitmentService.updateInterview(selectedInterview.id, payload)
+        } else {
+          await recruitmentService.createInterview(payload)
+          await recruitmentService.updateApplication(applicantId, { status: 'Interview Scheduled' })
+        }
       } else {
         if (!values.application_id || !values.job_id || !values.salary || !values.start_date) {
           throw new Error('Candidate, job, salary, and joining date are required.')
@@ -167,7 +222,7 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
       }
       await onSaved()
       onClose()
-      setValues({})
+      replaceValues({})
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The operation could not be completed.')
     } finally {
@@ -200,15 +255,14 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
               { label: 'Select job', value: '' }, ...jobs.map((job) => ({ label: job.title, value: job.id })),
             ]} />
             <Select value={values.applicant_id ?? ''} onChange={(value) => set('applicant_id', value)} options={[
-              { label: 'Select candidate', value: '' }, ...candidates.filter((candidate) => candidate.stage !== 'Rejected').map((candidate) => ({ label: candidate.name, value: candidate.id })),
+              { label: 'Select candidate', value: '' }, ...candidates.filter(canProgressCandidate).map((candidate) => ({ label: candidate.name, value: candidate.id })),
             ]} />
             <Input type="date" value={values.interview_date ?? ''} onChange={(event) => set('interview_date', event.target.value)} />
             <Input type="time" value={values.time ?? ''} onChange={(event) => set('time', event.target.value)} />
-            <Input type="number" min={1} placeholder="Round" value={values.round_no ?? '1'} onChange={(event) => set('round_no', event.target.value)} />
             <Input placeholder="Duration (minutes)" value={values.duration ?? ''} onChange={(event) => set('duration', event.target.value)} />
             <Input className="sm:col-span-2" placeholder="Location or meeting link" value={values.location ?? ''} onChange={(event) => set('location', event.target.value)} />
             <Select value={values.panel_id ?? ''} onChange={(value) => set('panel_id', value)} options={[
-              { label: 'Select panel', value: '' }, ...panels.filter((panel) => ['available', 'active'].includes(panel.status)).map((panel) => ({ label: panel.panel_name, value: String(panel.id) })),
+              { label: 'Select panel', value: '' }, ...panels.filter((panel) => ['available', 'active'].includes(panel.status.toLowerCase())).map((panel) => ({ label: panel.panel_name, value: String(panel.id) })),
             ]} />
             <Textarea className="sm:col-span-2" placeholder="Notes" value={values.notes ?? ''} onChange={(event) => set('notes', event.target.value)} />
           </div>

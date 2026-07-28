@@ -95,6 +95,7 @@ function mapKanbanCandidate(application: CandidateKanbanApi): Candidate {
 
   return {
     id: String(application.candidate_id ?? application.id),
+    jobId: application.job_id == null ? (application.position_id == null ? undefined : String(application.position_id)) : String(application.job_id),
     name: candidateName,
     role: jobTitle,
     jobOpening: jobTitle,
@@ -203,14 +204,46 @@ export function useRecruitment() {
           ]),
         ).values(),
       )
+      const candidateRowIds = new Set(candidateRows.map((candidate) => String(candidate.candidate_id ?? candidate.id)))
+      applicationRows.forEach((application) => {
+        if (candidateRowIds.has(String(application.id))) return
+        const job = jobsById.get(String(application.job_id))
+        const recruiterId = application.recruiter_id ?? job?.created_by ?? application.created_by
+        candidateRows.push({
+          ...application,
+          candidate_id: application.id,
+          candidate_name: [application.first_name, application.middle_name, application.last_name].filter(Boolean).join(' '),
+          job_title: job?.title,
+          stage: candidateStage(application.status),
+          recruiter_id: recruiterId,
+          recruiter_name: application.recruiter_name
+            ?? (recruiterId == null ? null : recruitersById.get(String(recruiterId))),
+        } as CandidateKanbanApi)
+      })
       const counts = new Map<string, number>()
       candidateRows.forEach((row) => {
         const jobId = row.job_id ?? row.position_id
         if (jobId == null) return
         counts.set(String(jobId), (counts.get(String(jobId)) ?? 0) + 1)
       })
-      const mappedCandidates = candidateRows.map(mapKanbanCandidate)
+      const sentOfferCandidateIds = new Set(
+        uniqueOfferRows
+          .filter((offer) => offer.status?.trim().toLowerCase() === 'sent')
+          .map((offer) => String(offer.application_id)),
+      )
+      const mappedCandidates = candidateRows.map(mapKanbanCandidate).map((candidate) =>
+        sentOfferCandidateIds.has(candidate.id)
+          ? { ...candidate, stage: 'Offer' as const, status: 'Offer Sent' }
+          : candidate
+      )
       const candidatesById = new Map(mappedCandidates.map((row) => [row.id, row]))
+      const stageCounts = mappedCandidates.reduce<Record<'Applied' | 'Screened' | 'Assessment' | 'Interview' | 'Offer' | 'Hired', number>>(
+        (totals, candidate) => {
+          if (candidate.stage !== 'Rejected') totals[candidate.stage] += 1
+          return totals
+        },
+        { Applied: 0, Screened: 0, Assessment: 0, Interview: 0, Offer: 0, Hired: 0 },
+      )
 
       return {
         candidates: mappedCandidates,
@@ -225,7 +258,7 @@ export function useRecruitment() {
         duration: row.duration ? String(row.duration) : '—',
         type: row.panel_id ? 'Panel' : 'Video',
         status: row.status.toLowerCase() === 'completed' ? 'Completed' : row.status.toLowerCase() === 'cancelled' ? 'Cancelled' : 'Scheduled',
-        round: row.round_no ?? 1,
+        // round: row.round_no ?? 1,
         })),
         interviewRecords: uniqueInterviewRows,
         offers: uniqueOfferRows.map((row) => mapOffer(row, candidatesById, jobsById)),
@@ -241,7 +274,7 @@ export function useRecruitment() {
         teamOverview: teamResult.data,
         pendingFeedbackCount: pendingFeedback.length,
         funnel: funnelResult.data ?? [],
-        stageCounts: kanbanResult.stage_counts,
+        stageCounts,
       }
     },
   })

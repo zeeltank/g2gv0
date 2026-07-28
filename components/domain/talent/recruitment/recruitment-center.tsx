@@ -48,6 +48,7 @@ import {
 import { cn } from '@/lib/utils'
 import {
   PIPELINE_STAGES,
+  canProgressCandidate,
   type Candidate,
   type CandidateStage,
 } from './recruitment-data'
@@ -150,6 +151,7 @@ export function RecruitmentCenter() {
   const [selectedLocation, setSelectedLocation] = useState('')
   const [tableStatus, setTableStatus] = useState('')
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [interviewCandidate, setInterviewCandidate] = useState<Candidate | null>(null)
   const [viewingProfileFor, setViewingProfileFor] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -592,8 +594,8 @@ export function RecruitmentCenter() {
                             <DropdownMenuContent>
                               <DropdownMenuItem onClick={() => setSelectedCandidate(candidate)}>View application</DropdownMenuItem>
                               {candidate.resume && <DropdownMenuItem onClick={() => window.open(candidate.resume, '_blank', 'noopener,noreferrer')}>Open resume</DropdownMenuItem>}
-                              <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Shortlisted' }).then(refresh)}>Shortlist</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setActiveAction('interview')}>Schedule interview</DropdownMenuItem>
+                              {canProgressCandidate(candidate) && <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Shortlisted' }).then(refresh)}>Shortlist</DropdownMenuItem>}
+                              {canProgressCandidate(candidate) && <DropdownMenuItem onClick={() => { setInterviewCandidate(candidate); setActiveAction('interview') }}>Schedule interview</DropdownMenuItem>}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Rejected' }).then(refresh)}>Reject</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -624,6 +626,11 @@ export function RecruitmentCenter() {
             <CandidateDetailPanel
               candidate={selectedCandidate}
               onSaved={() => void refresh()}
+              onSchedule={(candidate) => {
+                setInterviewCandidate(candidate)
+                setSelectedCandidate(null)
+                setActiveAction('interview')
+              }}
               onClose={() => setSelectedCandidate(null)}
               onViewProfile={() => {
                 setSelectedCandidate(null)
@@ -777,7 +784,7 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm font-semibold text-primary">{interview.id}</span></TableCell>
                   <TableCell><span className="text-sm font-semibold text-foreground">{interview.candidateName}</span></TableCell>
                   <TableCell><span className="text-sm text-foreground">{interview.jobTitle}</span></TableCell>
-                  <TableCell><span className="text-sm font-bold text-foreground">Round {interview.round}</span></TableCell>
+                  <TableCell><span className="text-sm font-bold text-foreground">Round {(interview as { round?: number }).round ?? '—'}</span></TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs font-semibold">{interview.type}</Badge>
                   </TableCell>
@@ -873,7 +880,7 @@ export function RecruitmentCenter() {
           </Table>
         </div>
       )}
-      <RecruitmentActionDrawer action={activeAction} jobs={jobs} candidates={candidates} selectedJob={selectedJobRecord} selectedInterview={selectedInterviewRecord} selectedOffer={selectedOfferRecord} onClose={() => { setActiveAction(null); setSelectedJobRecord(null); setSelectedInterviewRecord(null); setSelectedOfferRecord(null) }} onSaved={refresh} onEditJob={() => setActiveAction('job-edit')} />
+      <RecruitmentActionDrawer action={activeAction} jobs={jobs} candidates={candidates} selectedJob={selectedJobRecord} selectedInterview={selectedInterviewRecord} selectedOffer={selectedOfferRecord} preselectedCandidate={interviewCandidate} onClose={() => { setActiveAction(null); setSelectedJobRecord(null); setSelectedInterviewRecord(null); setSelectedOfferRecord(null); setInterviewCandidate(null) }} onSaved={refresh} onEditJob={() => setActiveAction('job-edit')} />
       <InterviewToolsDrawer open={Boolean(interviewTool)} mode={interviewTool ?? 'panels'} interviewId={decisionInterviewId} jobs={jobs} candidates={candidates} onClose={() => { setInterviewTool(null); setDecisionInterviewId(null) }} onSaved={refresh} />
       <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
         <AlertDialogContent>

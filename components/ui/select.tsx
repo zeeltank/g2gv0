@@ -177,6 +177,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     }[size]
 
     const selectedLabel = options.find(o => String(o.value) === String(value))?.label || placeholder
+    const portalContainer =
+      containerRef.current?.closest('[data-slot="sheet-content"]')
+      ?? (typeof document !== 'undefined' ? document.body : null)
 
     return (
       <div 
@@ -205,14 +208,14 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           <ChevronDown className={cn('size-4 opacity-50 transition-transform duration-200', open && 'rotate-180')} />
         </button>
 
-        {(isMounted || open) && typeof document !== 'undefined' && createPortal(
+        {(isMounted || open) && portalContainer && createPortal(
           <div
             ref={listRef}
             style={popoverStyle}
             role="listbox"
             aria-label={ariaLabel || 'Select options'}
             className={cn(
-              'fixed z-[100] max-h-60 min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
+              'pointer-events-auto fixed z-[100] max-h-60 min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
               'origin-top transition-all duration-150 ease-out',
               open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
             )}
@@ -224,7 +227,8 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   role="option"
                   aria-selected={String(value) === String(opt.value)}
                   data-disabled={opt.value === value}
-                  onClick={() => {
+                  onPointerDown={(event) => {
+                    event.preventDefault()
                     onChange?.(opt.value)
                     setOpen(false)
                   }}
@@ -241,7 +245,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
               ))}
             </div>
           </div>,
-          document.body,
+          portalContainer,
         )}
       </div>
     )

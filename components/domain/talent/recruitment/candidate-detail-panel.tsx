@@ -29,7 +29,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { Candidate, CandidateStage } from './recruitment-data'
-import { PIPELINE_STAGES } from './recruitment-data'
+import { canProgressCandidate, PIPELINE_STAGES } from './recruitment-data'
 import { recruitmentService } from '@/services/talent'
 import type { FeedbackApi, TalentOfferApi } from '@/types/recruitment'
 import { useCandidateScreeningResult } from '@/hooks/use-recruitment'
@@ -39,6 +39,7 @@ interface CandidateDetailPanelProps {
   onClose: () => void
   onViewProfile?: () => void
   onSaved?: () => void
+  onSchedule?: (candidate: Candidate) => void
 }
 
 const stageOptions = PIPELINE_STAGES.map((s) => ({ label: s.label, value: s.id }))
@@ -61,7 +62,7 @@ const timelineIconMap: Record<string, React.ElementType> = {
   email: Mail,
 }
 
-export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSaved }: CandidateDetailPanelProps) {
+export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSaved, onSchedule }: CandidateDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'interviews' | 'assessments' | 'offer' | 'notes'>('timeline')
   const [feedback, setFeedback] = useState<FeedbackApi | null>(null)
   const [offer, setOffer] = useState<TalentOfferApi | null>(null)
@@ -172,8 +173,17 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSave
           { icon: Phone, label: 'Call', href: `tel:${candidate.phone}` },
           { icon: CalendarDays, label: 'Schedule' },
           { icon: MoreHorizontal, label: 'More' },
-        ].map((action) => (
-          <a key={action.label} href={action.href} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors cursor-pointer group">
+        ].filter((action) => action.label !== 'Schedule' || canProgressCandidate(candidate)).map((action) => (
+          <a
+            key={action.label}
+            href={action.href}
+            onClick={(event) => {
+              if (action.label !== 'Schedule') return
+              event.preventDefault()
+              onSchedule?.(candidate)
+            }}
+            className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors cursor-pointer group"
+          >
             <div className="p-2 rounded-lg group-hover:bg-primary/5 transition-colors">
               <action.icon className="size-4" />
             </div>

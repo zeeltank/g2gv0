@@ -6,6 +6,7 @@ export type OfferStatus = 'Draft' | 'Sent' | 'Accepted' | 'Declined'
 
 export interface Candidate {
   id: string
+  jobId?: string
   name: string
   role: string
   jobOpening: string
@@ -86,3 +87,7 @@ export const PIPELINE_STAGES: { id: CandidateStage; label: string; color: string
   { id: 'Offer', label: 'Offer', color: 'bg-success/20' },
   { id: 'Hired', label: 'Hired', color: 'bg-success/30' },
 ]
+
+export function canProgressCandidate(candidate: Pick<Candidate, 'stage'>) {
+  return candidate.stage !== 'Offer' && candidate.stage !== 'Hired'
+}
