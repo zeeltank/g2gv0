@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   X,
   Mail,
@@ -16,19 +16,29 @@ import {
   AlertCircle,
   MessageSquare,
   Maximize2,
+  Eye,
+  MapPin,
+  Briefcase,
+  GraduationCap,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import type { Candidate, CandidateStage, TimelineEvent } from './recruitment-data'
-import { mockTimeline, PIPELINE_STAGES } from './recruitment-data'
+import type { Candidate, CandidateStage } from './recruitment-data'
+import { PIPELINE_STAGES } from './recruitment-data'
+import { recruitmentService } from '@/services/talent'
+import type { FeedbackApi, TalentOfferApi } from '@/types/recruitment'
+import { useCandidateScreeningResult } from '@/hooks/use-recruitment'
 
 interface CandidateDetailPanelProps {
   candidate: Candidate | null
   onClose: () => void
   onViewProfile?: () => void
+  onSaved?: () => void
 }
 
 const stageOptions = PIPELINE_STAGES.map((s) => ({ label: s.label, value: s.id }))
@@ -51,15 +61,50 @@ const timelineIconMap: Record<string, React.ElementType> = {
   email: Mail,
 }
 
-export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: CandidateDetailPanelProps) {
+export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSaved }: CandidateDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'interviews' | 'assessments' | 'offer' | 'notes'>('timeline')
+  const [feedback, setFeedback] = useState<FeedbackApi | null>(null)
+  const [offer, setOffer] = useState<TalentOfferApi | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
+  const profileQuery = useCandidateScreeningResult(candidate?.id ?? null)
+  const application = profileQuery.data?.application ?? null
+  const screening = profileQuery.data?.screening ?? null
+
+  useEffect(() => {
+    if (candidate?.stage === 'Screened') setActiveTab('assessments')
+  }, [candidate?.id, candidate?.stage])
+
+  useEffect(() => {
+    if (!candidate) return
+    queueMicrotask(() => {
+      setLoadingDetails(true)
+      void Promise.allSettled([
+        recruitmentService.getCandidateFeedback(candidate.id),
+        recruitmentService.getOffers(),
+      ]).then(([feedbackResult, offersResult]) => {
+        if (feedbackResult.status === 'fulfilled') setFeedback(feedbackResult.value.data ?? null)
+        if (offersResult.status === 'fulfilled') setOffer(offersResult.value.find((item) => String(item.application_id) === candidate.id) ?? null)
+      }).finally(() => setLoadingDetails(false))
+    })
+  }, [candidate])
+
+  const timeline = useMemo(() => {
+    if (!candidate) return []
+    const events = [
+      { id: 'applied', type: 'stage_change', title: 'Application received', description: candidate.jobOpening, timestamp: candidate.appliedOn },
+    ]
+    if (screening) events.push({ id: 'screening', type: 'assessment', title: 'Screening completed', description: `Competency match: ${screening.competency_match ?? '—'}`, timestamp: candidate.lastUpdated })
+    if (feedback) events.push({ id: 'feedback', type: 'note', title: 'Interview feedback submitted', description: feedback.recommendation ?? 'Feedback recorded', timestamp: feedback.updated_at ?? feedback.created_at ?? candidate.lastUpdated })
+    if (offer) events.push({ id: 'offer', type: 'email', title: 'Offer created', description: offer.status, timestamp: offer.created_at ?? candidate.lastUpdated })
+    return events
+  }, [candidate, feedback, offer, screening])
 
   if (!candidate) return null
 
   const tabs = [
     { id: 'timeline' as const, label: 'Timeline' },
     { id: 'interviews' as const, label: 'Interviews' },
-    { id: 'assessments' as const, label: 'Assessments' },
+    { id: 'assessments' as const, label: 'Screening' },
     { id: 'offer' as const, label: 'Offer' },
     { id: 'notes' as const, label: 'Notes' },
   ]
@@ -68,12 +113,36 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
     { label: 'Current Stage', value: candidate.stage, isStage: true },
     { label: 'Recruiter', value: candidate.recruiter },
     { label: 'Source', value: candidate.source },
-    { label: 'Location', value: candidate.location },
-    { label: 'Experience', value: candidate.experience },
+    { label: 'Location', value: application?.current_location ?? candidate.location },
+    { label: 'Experience', value: application?.experience ?? candidate.experience },
+    { label: 'Qualification', value: application?.qualification ?? application?.education ?? '—' },
     { label: 'Notice Period', value: candidate.noticePeriod },
     { label: 'Expected CTC', value: candidate.expectedCtc },
-    { label: 'Resume', value: candidate.resume, isResume: true },
+    { label: 'Resume', value: application?.resume_path ?? candidate.resume, isResume: true },
   ]
+  const screeningMetrics = [
+    { label: 'Skills Match', value: screening?.scoringPipeline?.detailed_matches?.skills_match, color: 'bg-primary' },
+    { label: 'Experience', value: screening?.scoringPipeline?.detailed_matches?.experience_match, color: 'bg-success' },
+    { label: 'Education', value: screening?.scoringPipeline?.detailed_matches?.education_match, color: 'bg-warning' },
+    {
+      label: 'Cultural Fit',
+      value: screening?.scoringPipeline?.competency_scoring?.culturalFitIndex ?? screening?.cultural_fit,
+      color: 'bg-purple-500',
+    },
+  ]
+  const candidateSkills = (application?.skills ?? '').split(/[,;|\n]/).map((skill) => skill.trim()).filter(Boolean)
+  const resumeUrl = application?.resume_path ?? candidate.resume
+
+  const downloadResume = () => {
+    if (!resumeUrl) return
+    const link = document.createElement('a')
+    link.href = resumeUrl
+    link.download = `${candidate.name.replace(/\s+/g, '-')}-resume`
+    link.rel = 'noopener noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
@@ -99,17 +168,17 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
       {/* Quick Actions */}
       <div className="flex items-center justify-around px-5 py-3 border-b border-border/40">
         {[
-          { icon: Mail, label: 'Email' },
-          { icon: Phone, label: 'Call' },
+          { icon: Mail, label: 'Email', href: `mailto:${candidate.email}` },
+          { icon: Phone, label: 'Call', href: `tel:${candidate.phone}` },
           { icon: CalendarDays, label: 'Schedule' },
           { icon: MoreHorizontal, label: 'More' },
         ].map((action) => (
-          <button key={action.label} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors cursor-pointer group">
+          <a key={action.label} href={action.href} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors cursor-pointer group">
             <div className="p-2 rounded-lg group-hover:bg-primary/5 transition-colors">
               <action.icon className="size-4" />
             </div>
             <span className="text-[10px] font-semibold">{action.label}</span>
-          </button>
+          </a>
         ))}
       </div>
 
@@ -122,7 +191,9 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
               {'isStage' in row && row.isStage ? (
                 <Select
                   value={candidate.stage}
-                  onChange={() => {}}
+                  onChange={(stage) => {
+                    void recruitmentService.moveCandidate(candidate.id, stage).then(() => onSaved?.())
+                  }}
                   options={stageOptions}
                   size="sm"
                   className="w-32"
@@ -130,7 +201,7 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
               ) : 'isResume' in row && row.isResume ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-primary font-medium truncate max-w-[160px]">{row.value as string}</span>
-                  <button className="text-muted-foreground hover:text-primary transition-colors">
+                  <button onClick={() => row.value && window.open(row.value as string, '_blank', 'noopener,noreferrer')} className="text-muted-foreground hover:text-primary transition-colors">
                     <Download className="size-3.5" />
                   </button>
                 </div>
@@ -167,7 +238,7 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
             <div className="relative">
               <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border/60" />
               <div className="flex flex-col gap-5">
-                {mockTimeline.map((event) => {
+                {timeline.map((event) => {
                   const EventIcon = timelineIconMap[event.type] || Clock
                   return (
                     <div key={event.id} className="flex gap-3 relative">
@@ -193,25 +264,77 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile }: Cand
           {activeTab === 'interviews' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CalendarDays className="size-8 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">Interview details will appear here</p>
+              <p className="text-sm font-medium">{application?.status ?? candidate.stage}</p>
+              <p className="text-xs text-muted-foreground">Use the Interviews tab to schedule or manage rounds.</p>
             </div>
           )}
           {activeTab === 'assessments' && (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="size-8 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">Assessment results will appear here</p>
+            <div className="py-2">
+              {profileQuery.isPending ? (
+                <div className="w-full space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              ) : screening ? (
+                <div className="space-y-4 text-left text-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="size-10 shrink-0 overflow-hidden rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      {(application?.candidate_photo ?? application?.photo) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={application?.candidate_photo ?? application?.photo ?? ''} alt={candidate.name} className="size-full object-cover" />
+                      ) : <User className="size-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-foreground">{candidate.name}</span>
+                        <span className="font-black text-primary">{screening.competency_match ?? 0}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Applied for {candidate.jobOpening}</p>
+                      <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><MapPin className="size-3" />{application?.current_location ?? candidate.location}</span>
+                        <span className="flex items-center gap-1"><Briefcase className="size-3" />{application?.experience ?? candidate.experience}</span>
+                        <span className="flex items-center gap-1"><GraduationCap className="size-3" />{application?.qualification ?? application?.education ?? '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {screeningMetrics.map((metric) => {
+                      const numericValue = typeof metric.value === 'number' ? metric.value : Number(metric.value)
+                      const percentage = Number.isFinite(numericValue) ? Math.min(100, Math.max(0, numericValue)) : 0
+                      return <div key={metric.label} className="text-center">
+                        <div className="font-bold">{metric.value ?? '—'}{typeof metric.value === 'number' ? '%' : ''}</div>
+                        <div className="my-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn('h-full rounded-full', metric.color)} style={{ width: `${percentage}%` }} /></div>
+                        <div className="text-[10px] text-muted-foreground">{metric.label}</div>
+                      </div>
+                    })}
+                  </div>
+                  <div className="flex gap-6">
+                    <div><strong>{screening.predicted_success ?? '—'}</strong><p className="text-xs text-muted-foreground">Predicted Success</p></div>
+                    <div><strong>{screening.ranking_score ?? screening.scoringPipeline?.competency_scoring?.rankingScore ?? '—'}/100</strong><p className="text-xs text-muted-foreground">Ranking Score</p></div>
+                  </div>
+                  {!!screening.skill_gaps?.length && <div><p className="mb-2 font-semibold">Skill Gaps</p><div className="flex flex-wrap gap-1.5">{screening.skill_gaps.map((gap, index) => <span key={`${gap}-${index}`} className="rounded-full bg-destructive/10 px-2 py-1 text-[10px] font-semibold text-destructive">{gap}</span>)}</div></div>}
+                  {!!screening.strengths?.length && <div><p className="mb-2 font-semibold">Key Strengths</p><div className="flex flex-wrap gap-1.5">{screening.strengths.map((strength, index) => <span key={`${strength}-${index}`} className="rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">{strength}</span>)}</div></div>}
+                  {!!candidateSkills.length && <div><p className="mb-2 font-semibold">Candidate Key Skills</p><div className="flex flex-wrap gap-1.5">{candidateSkills.map((skill, index) => <span key={`${skill}-${index}`} className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold">{skill}</span>)}</div></div>}
+                  <div className="flex flex-wrap justify-end gap-2 border-t border-border/40 pt-3">
+                    {application?.profile_url && <Button size="sm" variant="outline" onClick={() => window.open(application.profile_url!, '_blank', 'noopener,noreferrer')}><Eye className="mr-1.5 size-3.5" />View Profile</Button>}
+                    <Button size="sm" variant="outline" disabled={!resumeUrl} onClick={() => resumeUrl && window.open(resumeUrl, '_blank', 'noopener,noreferrer')}><Eye className="mr-1.5 size-3.5" />View Resume</Button>
+                    <Button size="sm" variant="outline" disabled={!resumeUrl} onClick={downloadResume}><Download className="mr-1.5 size-3.5" />Download Resume</Button>
+                  </div>
+                </div>
+              ) : <p className="py-8 text-center text-sm text-muted-foreground font-medium">{profileQuery.error instanceof Error ? profileQuery.error.message : 'No screening result found'}</p>}
             </div>
           )}
           {activeTab === 'offer' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <FileText className="size-8 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">Offer details will appear here</p>
+              {offer ? <div className="space-y-1 text-sm"><p className="font-semibold">{offer.position}</p><p>{offer.salary ?? '—'}</p><StatusBadge variant="processing">{offer.status}</StatusBadge></div> : <p className="text-sm text-muted-foreground font-medium">No offer found</p>}
             </div>
           )}
           {activeTab === 'notes' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <MessageSquare className="size-8 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">Notes will appear here</p>
+              <p className="text-sm text-muted-foreground font-medium">{feedback?.additional_comments ?? feedback?.notes ?? 'No feedback notes found'}</p>
             </div>
           )}
         </div>

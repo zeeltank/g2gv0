@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/components/auth/gtg-auth'
+import { QueryProvider } from '@/components/providers/query-provider'
 import './globals.css'
 
 const systemSans = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
@@ -30,7 +31,7 @@ export default function RootLayout({
     >
       <body className="font-sans antialiased" suppressHydrationWarning>
         <AuthProvider>
-          {children}
+          <QueryProvider>{children}</QueryProvider>
           {process.env.NODE_ENV === 'production' && <Analytics />}
         </AuthProvider>
       </body>

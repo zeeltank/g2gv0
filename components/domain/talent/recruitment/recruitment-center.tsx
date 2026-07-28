@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Briefcase,
   Users,
@@ -12,7 +13,6 @@ import {
   MoreHorizontal,
   Upload,
   Star,
-  ArrowUpDown,
   LayoutGrid,
   List,
   CalendarDays,
@@ -47,18 +47,21 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import {
-  mockCandidates,
-  mockRequisitions,
-  mockJobOpenings,
-  mockInterviews,
-  mockOffers,
   PIPELINE_STAGES,
   type Candidate,
   type CandidateStage,
 } from './recruitment-data'
+import { useRecruitment } from '@/hooks/use-recruitment'
 import { KanbanColumn } from './candidate-kanban'
 import { CandidateDetailPanel } from './candidate-detail-panel'
 import { TalentProfileView } from '../profile/talent-profile-view'
+import { RecruitmentActionDrawer, type RecruitmentAction } from './recruitment-action-drawer'
+import { recruitmentService } from '@/services/talent'
+import { InterviewToolsDrawer } from './interview-tools-drawer'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 // -------------------------------------------------------------------
 // KPI Card (reusable within this feature)
@@ -118,6 +121,24 @@ type CandidateView = 'kanban' | 'table' | 'calendar'
 // Main Component
 // -------------------------------------------------------------------
 export function RecruitmentCenter() {
+  const router = useRouter()
+  const {
+    candidates,
+    jobs,
+    jobRecords,
+    interviews,
+    interviewRecords,
+    offers,
+    offerRecords,
+    requisitions,
+    teamOverview,
+    pendingFeedbackCount,
+    loading,
+    error,
+    refresh,
+    moveCandidate,
+    stageCounts: backendStageCounts,
+  } = useRecruitment()
   // State
   const [activeTab, setActiveTab] = useState<MainTab>('candidates')
   const [candidateView, setCandidateView] = useState<CandidateView>('kanban')
@@ -127,10 +148,18 @@ export function RecruitmentCenter() {
   const [selectedSource, setSelectedSource] = useState('')
   const [selectedRecruiter, setSelectedRecruiter] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
+  const [tableStatus, setTableStatus] = useState('')
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   const [viewingProfileFor, setViewingProfileFor] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [activeAction, setActiveAction] = useState<RecruitmentAction | null>(null)
+  const [interviewTool, setInterviewTool] = useState<'panels' | 'feedback' | 'decision' | null>(null)
+  const [decisionInterviewId, setDecisionInterviewId] = useState<string | null>(null)
+  const [selectedJobRecord, setSelectedJobRecord] = useState<(typeof jobRecords)[number] | null>(null)
+  const [selectedInterviewRecord, setSelectedInterviewRecord] = useState<(typeof interviewRecords)[number] | null>(null)
+  const [selectedOfferRecord, setSelectedOfferRecord] = useState<(typeof offerRecords)[number] | null>(null)
+  const [confirmation, setConfirmation] = useState<{ title: string; description: string; run: () => Promise<unknown> } | null>(null)
 
   const pageSize = 25
 
@@ -144,7 +173,7 @@ export function RecruitmentCenter() {
 
   // Filtered candidates
   const filteredCandidates = useMemo(() => {
-    return mockCandidates.filter((c) => {
+    return candidates.filter((c) => {
       if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase()) && !c.role.toLowerCase().includes(searchQuery.toLowerCase())) return false
       if (selectedJob && c.jobOpening !== selectedJob) return false
       if (selectedStage && c.stage !== selectedStage) return false
@@ -153,28 +182,43 @@ export function RecruitmentCenter() {
       if (selectedLocation && c.location !== selectedLocation) return false
       return true
     })
-  }, [searchQuery, selectedJob, selectedStage, selectedSource, selectedRecruiter, selectedLocation])
+  }, [candidates, searchQuery, selectedJob, selectedStage, selectedSource, selectedRecruiter, selectedLocation])
 
   // Candidates grouped by stage for Kanban
   const candidatesByStage = useMemo(() => {
     const map: Record<CandidateStage, Candidate[]> = {
       Applied: [], Screened: [], Assessment: [], Interview: [], Offer: [], Hired: [], Rejected: [],
     }
-    filteredCandidates.forEach((c) => map[c.stage].push(c))
+    filteredCandidates.forEach((candidate) => {
+      const column = map[candidate.stage]
+      if (column) column.push(candidate)
+    })
     return map
   }, [filteredCandidates])
 
-  // Stage counts for Kanban headers  (use total not filtered for display purposes)
+  // Counts follow the active job/search/filter selection, just like the columns.
   const stageCounts: Record<CandidateStage, number> = useMemo(() => {
-    const counts: Record<CandidateStage, number> = { Applied: 348, Screened: 156, Assessment: 86, Interview: 42, Offer: 10, Hired: 8, Rejected: 598 }
+    if (!searchQuery && !selectedJob && !selectedStage && !selectedSource && !selectedRecruiter && !selectedLocation) {
+      return { ...backendStageCounts, Rejected: 0 }
+    }
+    const counts: Record<CandidateStage, number> = { Applied: 0, Screened: 0, Assessment: 0, Interview: 0, Offer: 0, Hired: 0, Rejected: 0 }
+    filteredCandidates.forEach((candidate) => {
+      if (candidate.stage in counts) counts[candidate.stage] += 1
+    })
     return counts
-  }, [])
+  }, [backendStageCounts, filteredCandidates, searchQuery, selectedJob, selectedStage, selectedSource, selectedRecruiter, selectedLocation])
 
   // Unique values for filters
-  const uniqueJobs = [...new Set(mockCandidates.map((c) => c.jobOpening))]
-  const uniqueSources = [...new Set(mockCandidates.map((c) => c.source))]
-  const uniqueRecruiters = [...new Set(mockCandidates.map((c) => c.recruiter))]
-  const uniqueLocations = [...new Set(mockCandidates.map((c) => c.location))]
+  const uniqueJobs = [...new Set(candidates.map((c) => c.jobOpening))]
+  const hasFilterValue = (value: string) => Boolean(value && value !== '—' && value !== '-' && value !== 'N/A')
+  const uniqueSources = [...new Set(candidates.map((c) => c.source).filter(hasFilterValue))]
+  const uniqueRecruiters = [...new Set(candidates.map((c) => c.recruiter).filter(hasFilterValue))]
+  const uniqueLocations = [...new Set(candidates.map((c) => c.location).filter(hasFilterValue))]
+
+  const sortedJobs = useMemo(
+    () => [...jobs].sort((a, b) => Number(a.status === 'Closed') - Number(b.status === 'Closed')),
+    [jobs],
+  )
 
   // Pagination
   const totalPages = Math.ceil(filteredCandidates.length / pageSize)
@@ -203,8 +247,24 @@ export function RecruitmentCenter() {
     )
   }
 
+  if (loading) {
+    return <div className="flex min-h-[360px] items-center justify-center text-sm font-medium text-muted-foreground">Loading recruitment data…</div>
+  }
+
+  if (error) {
+    return (
+      <Card className="m-6 border-destructive/30">
+        <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+          <p className="font-semibold text-destructive">Recruitment data could not be loaded</p>
+          <p className="max-w-xl text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={() => void refresh()}>Try again</Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className="flex flex-col h-full bg-background animate-in fade-in duration-300 overflow-hidden">
+    <div className="flex flex-col h-full bg-background animate-in fade-in duration-300 overflow-visible">
       {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
         <div>
@@ -216,43 +276,58 @@ export function RecruitmentCenter() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" className="gap-2 font-semibold shadow-sm">
-            <Upload className="size-4" /> Import Candidates
+          <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={() => setActiveAction('candidate')}>
+            <Upload className="size-4" /> Candidate Apply
           </Button>
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted outline-none cursor-pointer">
                 More Actions <ChevronDown className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>Export Data</DropdownMenuItem>
-              <DropdownMenuItem>Bulk Update</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInterviewTool('panels')}>Interview panels</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInterviewTool('feedback')}>Submit feedback</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 outline-none cursor-pointer">
                 <Plus className="size-4" /> Create New <ChevronDown className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>New Requisition</DropdownMenuItem>
-              <DropdownMenuItem>New Job Opening</DropdownMenuItem>
-              <DropdownMenuItem>Add Candidate</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Schedule Interview</DropdownMenuItem>
-              <DropdownMenuItem>Create Offer</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveAction('job')}>New Job Opening</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveAction('candidate')}>Candidate Apply</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveAction('interview')}>Schedule Interview</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveAction('offer')}>Create Offer</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
+      {activeTab !== 'candidates' && (
+        <div className="mb-4 flex items-center gap-2">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={`Search ${tabs.find((tab) => tab.id === activeTab)?.label.toLowerCase()}…`} className="pl-9" />
+          </div>
+          {(activeTab === 'offers' || activeTab === 'interviews' || activeTab === 'job-openings') && (
+            <Select value={tableStatus} onChange={setTableStatus} className="w-40" options={[
+              { label: 'All statuses', value: '' },
+              ...(activeTab === 'offers'
+                ? ['Draft', 'Sent', 'Accepted', 'Declined']
+                : activeTab === 'interviews'
+                  ? ['Scheduled', 'Completed', 'Cancelled']
+                  : ['Open', 'Closed']).map((status) => ({ label: status, value: status })),
+            ]} />
+          )}
+        </div>
+      )}
+
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <KpiCard icon={FileText} label="Open Requisitions" value={24} subtitle="8 awaiting approval" subtitleColor="text-warning" />
-        <KpiCard icon={Briefcase} label="Open Positions" value={37} subtitle="12 critical" subtitleColor="text-destructive" />
-        <KpiCard icon={Users} label="Applications" value="1,248" subtitle="+18 this week" subtitleColor="text-success" />
-        <KpiCard icon={Filter} label="In Pipeline" value={642} subtitle="52% of total" subtitleColor="text-primary" />
-        <KpiCard icon={FileText} label="Offers" value={28} subtitle="6 awaiting approval" subtitleColor="text-warning" />
+        <KpiCard icon={FileText} label="Open Requisitions" value={requisitions.filter((item) => item.status === 'Open').length} subtitle={`${requisitions.length} total`} />
+        <KpiCard icon={Briefcase} label="Open Positions" value={jobs.filter((item) => item.status === 'Open').length} subtitle={`${jobs.length} job postings`} />
+        <KpiCard icon={Users} label="Applications" value={candidates.length} subtitle={`${stageCounts.Applied} newly applied`} subtitleColor="text-success" />
+        <KpiCard icon={Filter} label="In Pipeline" value={candidates.filter((item) => !['Hired', 'Rejected'].includes(item.stage)).length} subtitle={`${stageCounts.Interview} interviewing`} subtitleColor="text-primary" />
+        <KpiCard icon={FileText} label="Offers" value={offers.length} subtitle={`${offers.filter((item) => item.status === 'Accepted').length} accepted · ${pendingFeedbackCount} feedback pending`} subtitleColor="text-success" />
       </div>
 
       {/* Main Tabs */}
@@ -277,10 +352,10 @@ export function RecruitmentCenter() {
       {activeTab === 'candidates' && (
         <div className="flex flex-col gap-6 flex-1 min-h-0">
           {/* Main content */}
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <div className="flex flex-col flex-1 min-w-0 overflow-visible">
             {/* Filter / Search Bar */}
-            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-              <div className="shrink-0">
+            <div className="flex flex-wrap items-center gap-3 mb-4 overflow-visible pb-1">
+              <div className="min-w-fit flex-shrink-0">
                 <Select
                   value={selectedJob}
                   onChange={setSelectedJob}
@@ -289,7 +364,7 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <div className="relative shrink-0 w-[180px]">
+              <div className="relative min-w-fit flex-shrink-0 w-[180px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none z-10" />
                 <Input
                   placeholder="Search candidates..."
@@ -298,7 +373,7 @@ export function RecruitmentCenter() {
                   className="pl-8 h-7 text-xs w-full"
                 />
               </div>
-              <div className="shrink-0">
+              <div className="min-w-fit flex-shrink-0">
                 <Select
                   value={selectedStage}
                   onChange={setSelectedStage}
@@ -307,7 +382,7 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <div className="shrink-0">
+              <div className="min-w-fit flex-shrink-0">
                 <Select
                   value={selectedSource}
                   onChange={setSelectedSource}
@@ -316,7 +391,7 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <div className="shrink-0">
+              <div className="min-w-fit flex-shrink-0">
                 <Select
                   value={selectedRecruiter}
                   onChange={setSelectedRecruiter}
@@ -325,7 +400,7 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <div className="shrink-0">
+              <div className="min-w-fit flex-shrink-0">
                 <Select
                   value={selectedLocation}
                   onChange={setSelectedLocation}
@@ -334,11 +409,11 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold ml-auto shrink-0">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold lg:ml-auto min-w-fit flex-shrink-0">
                 <Filter className="size-3.5" /> More Filters
               </Button>
               {/* View Toggle */}
-              <div className="flex items-center border border-border rounded-lg overflow-hidden ml-2">
+              <div className="flex min-w-fit flex-shrink-0 items-center border border-border rounded-lg overflow-hidden">
                 {([
                   { id: 'kanban' as const, icon: LayoutGrid, label: 'Kanban' },
                   { id: 'table' as const, icon: List, label: 'Table' },
@@ -372,6 +447,8 @@ export function RecruitmentCenter() {
                       candidates={candidatesByStage[stage.id]}
                       count={stageCounts[stage.id]}
                       onCandidateClick={(c) => setSelectedCandidate(c)}
+                      onCandidateApply={() => setActiveAction('candidate')}
+                      onCandidateMove={(candidateId, stage) => void moveCandidate(candidateId, stage)}
                     />
                   ))}
                 </div>
@@ -508,16 +585,17 @@ export function RecruitmentCenter() {
                           <span className="text-sm text-muted-foreground">{candidate.lastUpdated}</span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
+                          <DropdownMenu modal={false}>
                             <DropdownMenuTrigger className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors outline-none cursor-pointer">
                                 <MoreHorizontal className="size-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem>View Profile</DropdownMenuItem>
-                              <DropdownMenuItem>Move Stage</DropdownMenuItem>
-                              <DropdownMenuItem>Schedule Interview</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSelectedCandidate(candidate)}>View application</DropdownMenuItem>
+                              {candidate.resume && <DropdownMenuItem onClick={() => window.open(candidate.resume, '_blank', 'noopener,noreferrer')}>Open resume</DropdownMenuItem>}
+                              <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Shortlisted' }).then(refresh)}>Shortlist</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setActiveAction('interview')}>Schedule interview</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>Reject</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Rejected' }).then(refresh)}>Reject</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -545,6 +623,7 @@ export function RecruitmentCenter() {
           {selectedCandidate && (
             <CandidateDetailPanel
               candidate={selectedCandidate}
+              onSaved={() => void refresh()}
               onClose={() => setSelectedCandidate(null)}
               onViewProfile={() => {
                 setSelectedCandidate(null)
@@ -574,7 +653,7 @@ export function RecruitmentCenter() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockRequisitions.map((req) => (
+              {requisitions.filter((req) => !searchQuery || `${req.title} ${req.department} ${req.location}`.toLowerCase().includes(searchQuery.toLowerCase())).map((req) => (
                 <TableRow key={req.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell><span className="text-sm font-semibold text-primary">{req.id}</span></TableCell>
                   <TableCell><span className="text-sm font-semibold text-foreground">{req.title}</span></TableCell>
@@ -585,7 +664,7 @@ export function RecruitmentCenter() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      variant={req.status === 'Open' ? 'active' : req.status === 'Pending Approval' ? 'pending' : req.status === 'Approved' ? 'processing' : 'inactive'}
+                      variant={req.status === 'Open' ? 'active' : 'inactive'}
                       size="sm"
                     >
                       {req.status}
@@ -632,7 +711,7 @@ export function RecruitmentCenter() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockJobOpenings.map((job) => (
+              {sortedJobs.filter((job) => (!searchQuery || `${job.title} ${job.department} ${job.location}`.toLowerCase().includes(searchQuery.toLowerCase())) && (!tableStatus || job.status === tableStatus)).map((job) => (
                 <TableRow key={job.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell><span className="text-sm font-semibold text-primary">{job.id}</span></TableCell>
                   <TableCell><span className="text-sm font-semibold text-foreground">{job.title}</span></TableCell>
@@ -644,7 +723,7 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm font-bold text-foreground">{job.applications}</span></TableCell>
                   <TableCell>
                     <StatusBadge
-                      variant={job.status === 'Active' ? 'active' : job.status === 'Draft' ? 'pending' : job.status === 'Paused' ? 'pending' : 'inactive'}
+                      variant={job.status === 'Open' ? 'active' : 'inactive'}
                       size="sm"
                     >
                       {job.status}
@@ -653,9 +732,19 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm text-muted-foreground">{job.postedOn}</span></TableCell>
                   <TableCell><span className="text-sm text-muted-foreground">{job.closingDate}</span></TableCell>
                   <TableCell>
-                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => { setSelectedJobRecord(jobRecords.find((record) => String(record.id) === job.id) ?? null); setActiveAction('job-view') }}>View details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelectedJobRecord(jobRecords.find((record) => String(record.id) === job.id) ?? null); setActiveAction('candidate') }}>Apply</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelectedJobRecord(jobRecords.find((record) => String(record.id) === job.id) ?? null); setActiveAction('job-edit') }}>Edit job</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setConfirmation({
+                          title: 'Delete job opening?',
+                          description: 'Laravel will soft-delete the job and its related applications, interviews, feedback, and offers.',
+                          run: async () => { await recruitmentService.deleteJob(job.id); await refresh() },
+                        })}>Delete job</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -683,7 +772,7 @@ export function RecruitmentCenter() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockInterviews.map((interview) => (
+              {interviews.filter((interview) => (!searchQuery || `${interview.candidateName} ${interview.jobTitle}`.toLowerCase().includes(searchQuery.toLowerCase())) && (!tableStatus || interview.status === tableStatus)).map((interview) => (
                 <TableRow key={interview.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell><span className="text-sm font-semibold text-primary">{interview.id}</span></TableCell>
                   <TableCell><span className="text-sm font-semibold text-foreground">{interview.candidateName}</span></TableCell>
@@ -712,9 +801,14 @@ export function RecruitmentCenter() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setInterviewTool('feedback')}>Submit feedback</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setDecisionInterviewId(interview.id); setInterviewTool('decision') }}>Hiring decision</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelectedInterviewRecord(interviewRecords.find((record) => String(record.id) === interview.id) ?? null); setActiveAction('interview-edit') }}>Reschedule</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -741,7 +835,7 @@ export function RecruitmentCenter() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockOffers.map((offer) => (
+              {offers.filter((offer) => (!searchQuery || `${offer.candidateName} ${offer.jobTitle}`.toLowerCase().includes(searchQuery.toLowerCase())) && (!tableStatus || offer.status === tableStatus)).map((offer) => (
                 <TableRow key={offer.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell><span className="text-sm font-semibold text-primary">{offer.id}</span></TableCell>
                   <TableCell><span className="text-sm font-semibold text-foreground">{offer.candidateName}</span></TableCell>
@@ -759,9 +853,19 @@ export function RecruitmentCenter() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => { setSelectedOfferRecord(offerRecords.find((record) => String(record.id) === offer.id) ?? null); setActiveAction('offer-view') }}>View details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.open(recruitmentService.offerLetterUrl(offer.id), '_blank', 'noopener,noreferrer')}>View offer letter</DropdownMenuItem>
+                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/m3/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
+                        {offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
+                          title: 'Reject this offer?',
+                          description: 'The offer status will be changed to rejected.',
+                          run: async () => { await recruitmentService.rejectOffer(offer.id); await refresh() },
+                        })}>Reject offer</DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -769,6 +873,24 @@ export function RecruitmentCenter() {
           </Table>
         </div>
       )}
+      <RecruitmentActionDrawer action={activeAction} jobs={jobs} candidates={candidates} selectedJob={selectedJobRecord} selectedInterview={selectedInterviewRecord} selectedOffer={selectedOfferRecord} onClose={() => { setActiveAction(null); setSelectedJobRecord(null); setSelectedInterviewRecord(null); setSelectedOfferRecord(null) }} onSaved={refresh} onEditJob={() => setActiveAction('job-edit')} />
+      <InterviewToolsDrawer open={Boolean(interviewTool)} mode={interviewTool ?? 'panels'} interviewId={decisionInterviewId} jobs={jobs} candidates={candidates} onClose={() => { setInterviewTool(null); setDecisionInterviewId(null) }} onSaved={refresh} />
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              const action = confirmation?.run
+              setConfirmation(null)
+              if (action) void action()
+            }}>Confirm</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

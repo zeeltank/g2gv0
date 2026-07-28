@@ -14,6 +14,11 @@ interface CandidateCardProps {
 export function CandidateCard({ candidate, onClick }: CandidateCardProps) {
   return (
     <div
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/recruitment-candidate-id', candidate.id)
+      }}
       onClick={() => onClick(candidate)}
       className="group flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5"
     >
@@ -34,7 +39,7 @@ export function CandidateCard({ candidate, onClick }: CandidateCardProps) {
           </Button>
         </div>
       </div>
-      <span className="text-[11px] text-muted-foreground">{candidate.lastUpdated}</span>
+      <span className="text-[11px] text-muted-foreground">{candidate.appliedOn}</span>
     </div>
   )
 }
@@ -44,11 +49,24 @@ interface KanbanColumnProps {
   candidates: Candidate[]
   count: number
   onCandidateClick: (candidate: Candidate) => void
+  onCandidateApply: () => void
+  onCandidateMove: (candidateId: string, stage: CandidateStage) => void
 }
 
-export function KanbanColumn({ stage, candidates, count, onCandidateClick }: KanbanColumnProps) {
+export function KanbanColumn({ stage, candidates, count, onCandidateClick, onCandidateApply, onCandidateMove }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col min-w-[200px] w-[200px] shrink-0">
+    <div
+      className="flex flex-col min-w-[200px] w-[200px] shrink-0"
+      onDragOver={(event) => {
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        const candidateId = event.dataTransfer.getData('text/recruitment-candidate-id')
+        if (candidateId) onCandidateMove(candidateId, stage.id)
+      }}
+    >
       {/* Column header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className={cn('size-2 rounded-full', stage.color.replace('/20', '').replace('/30', ''))} />
@@ -57,7 +75,7 @@ export function KanbanColumn({ stage, candidates, count, onCandidateClick }: Kan
       </div>
       {/* Column body */}
       <div className="flex flex-col gap-2 flex-1 overflow-y-auto max-h-[400px] pr-1 scrollbar-thin">
-        {candidates.slice(0, 5).map((candidate) => (
+        {candidates.map((candidate) => (
           <CandidateCard
             key={candidate.id}
             candidate={candidate}
@@ -70,10 +88,10 @@ export function KanbanColumn({ stage, candidates, count, onCandidateClick }: Kan
           </div>
         )}
       </div>
-      {/* Add candidate button */}
-      <Button variant="ghost" size="sm" className="flex items-center gap-1.5 mt-2 px-2 py-1.5 text-xs text-muted-foreground font-medium hover:text-primary hover:bg-primary/5 h-auto">
-        <Plus className="size-3.5" /> Add Candidate
-      </Button>
+      {/* Candidate application entry point */}
+      {/* <Button onClick={onCandidateApply} variant="ghost" size="sm" className="flex items-center gap-1.5 mt-2 px-2 py-1.5 text-xs text-muted-foreground font-medium hover:text-primary hover:bg-primary/5 h-auto">
+        <Plus className="size-3.5" /> Candidate Apply
+      </Button> */}
     </div>
   )
 }
