@@ -34,3 +34,23 @@ export type {
 // Role types
 export type { Role, Access } from './role'
 export { ROLES, roleLabel, getAccess } from './role'
+
+export type {
+  LaravelId,
+  TalentListResponse,
+  TalentItemResponse,
+  JobPostingApi,
+  JobApplicationApi,
+  InterviewApi,
+  TalentOfferApi,
+  RequisitionApi,
+  RequisitionPage,
+  FunnelResponse,
+  ScreeningResultApi,
+  InterviewPanelApi,
+  FeedbackPayload,
+  InterviewerApi,
+  FeedbackApi,
+  OfferTemplateApi,
+  TeamOverviewApi,
+} from './recruitment'

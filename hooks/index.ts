@@ -24,3 +24,4 @@ export {
   type ContentRoute 
 } from './use-content-map'
 export { useAuth, type User, type Session } from './use-auth'
+export { useRecruitment } from './use-recruitment'

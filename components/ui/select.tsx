@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const [isMounted, setIsMounted] = React.useState(false)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const listRef = React.useRef<HTMLDivElement>(null)
+    const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>()
     const typeaheadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
     const typeaheadBufferRef = React.useRef('')
     const listboxId = React.useId()
@@ -46,13 +48,39 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
     React.useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        if (
+          containerRef.current &&
+          !containerRef.current.contains(e.target as Node) &&
+          !listRef.current?.contains(e.target as Node)
+        ) {
           setOpen(false)
         }
       }
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
+
+    React.useLayoutEffect(() => {
+      if (!open) return
+
+      const positionPopover = () => {
+        const trigger = containerRef.current?.getBoundingClientRect()
+        if (!trigger) return
+        setPopoverStyle({
+          top: trigger.bottom + 4,
+          left: trigger.left,
+          width: Math.max(trigger.width, 128),
+        })
+      }
+
+      positionPopover()
+      window.addEventListener('resize', positionPopover)
+      window.addEventListener('scroll', positionPopover, true)
+      return () => {
+        window.removeEventListener('resize', positionPopover)
+        window.removeEventListener('scroll', positionPopover, true)
+      }
+    }, [open])
 
     React.useEffect(() => {
       if (!open || !listRef.current) return
@@ -149,6 +177,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     }[size]
 
     const selectedLabel = options.find(o => String(o.value) === String(value))?.label || placeholder
+    const portalContainer =
+      containerRef.current?.closest('[data-slot="sheet-content"]')
+      ?? (typeof document !== 'undefined' ? document.body : null)
 
     return (
       <div 
@@ -177,13 +208,14 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           <ChevronDown className={cn('size-4 opacity-50 transition-transform duration-200', open && 'rotate-180')} />
         </button>
 
-        {(isMounted || open) && (
+        {(isMounted || open) && portalContainer && createPortal(
           <div
             ref={listRef}
+            style={popoverStyle}
             role="listbox"
             aria-label={ariaLabel || 'Select options'}
             className={cn(
-              'absolute z-50 mt-1 max-h-60 w-full min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
+              'pointer-events-auto fixed z-[100] max-h-60 min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
               'origin-top transition-all duration-150 ease-out',
               open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
             )}
@@ -191,11 +223,12 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             <div className="flex flex-col gap-0.5">
               {options.map((opt, index) => (
                 <div
-                  key={opt.value}
+                  key={`${opt.value}-${index}`}
                   role="option"
                   aria-selected={String(value) === String(opt.value)}
                   data-disabled={opt.value === value}
-                  onClick={() => {
+                  onPointerDown={(event) => {
+                    event.preventDefault()
                     onChange?.(opt.value)
                     setOpen(false)
                   }}
@@ -211,7 +244,8 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                 </div>
               ))}
             </div>
-          </div>
+          </div>,
+          portalContainer,
         )}
       </div>
     )

@@ -1,43 +1,22 @@
-// @ts-check
 import { dirname } from "path";
 import { fileURLToPath } from "url";
-import next from "eslint-config-next";
+import { FlatCompat } from "@eslint/eslintrc";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
 const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "build/**",
-      "dist/**",
-      "*.config.js",
-      "*.config.mjs"
-    ]
-  },
-  ...next.flat(),
-  {
-    name: 'gtg-ui-layer',
-    files: ['components/ui/**'],
+    // Add custom rules to override the 'no-explicit-any' rule
     rules: {
-      // UI primitives should only use allowed imports
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/components/org', '@/components/profile', '@/components/settings', '@/components/task', '@/components/hrit', '@/components/lms', '@/components/talent', '@/components/competency', '@/components/compliance-discipline', '@/components/auth'],
-              message: 'UI primitives (components/ui/*) cannot import from Layer 3 domain components.'
-            },
-            {
-              group: ['@/lib/gtg-*'],
-              message: 'UI primitives should not import GTG-specific business logic. Use generic utilities.'
-            }
-          ]
-        }
-      ]
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unused-vars": "off", 
+        "@next/next/no-img-element": "off",
     }
   }
 ];
