@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '@/hooks/use-auth'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   certificationService,
   type BulkCertificationAction,
@@ -23,7 +23,7 @@ import {
   type CertificationRequirementPayload,
   type RequirementSummary,
 } from '@/services/competency'
-import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+
 import {
   lmsCertificateService,
   lmsDashboardService,
@@ -549,6 +549,8 @@ export function useCertificationEmployees(enabled: boolean) {
   )
 
   return { employees, options, loading }
+}
+
 export interface CertificationKpis {
   active: number
   expiring: number
@@ -596,7 +598,7 @@ export interface CertificationsState {
   dismiss: () => void
 }
 
-export function useCertifications(): CertificationsState {
+export function useLmsCertifications(): CertificationsState {
   const { user } = useAuth()
   const resolveContext = useCallback(() => getLaravelContext(user), [user])
   const profileName = user?.profileName

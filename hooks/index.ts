@@ -15,7 +15,7 @@ export {
 } from './use-leave'
 export { useAiCourse, type AiCourseState, type AiStep } from './use-ai-course'
 export { useSessions, type SessionsState } from './use-sessions'
-export { useCertifications, type CertificationsState } from './use-certifications'
+export { useLmsCertifications, type CertificationsState } from './use-certifications'
 export { useMyLearning, type MyLearningState, type FlatLesson } from './use-my-learning'
 export {
   useCourseCatalog,
