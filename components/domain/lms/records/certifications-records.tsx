@@ -44,7 +44,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import { useCertifications } from '@/hooks/use-certifications'
+import { useLmsCertifications } from '@/hooks/use-certifications'
 import type { CertificateVerification, LearningCertificate } from '@/services/lms'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -249,7 +249,7 @@ export function CertificationsRecords() {
     filteredCertificates,
     canReissue, certificateUrl, reissue, verify,
     busy, message, actionError, dismiss,
-  } = useCertifications()
+  } = useLmsCertifications()
 
   const [activeTab, setActiveTab] = useState('certificates')
   const [selected, setSelected] = useState<LearningCertificate | null>(null)
