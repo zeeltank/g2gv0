@@ -40,6 +40,7 @@ export function TaskWorkspace() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [taskMessage, setTaskMessage] = useState('')
 
   // Apply base scope filtering to mock data
   const baseTasks = mockTasks.filter(t => {
@@ -109,6 +110,11 @@ export function TaskWorkspace() {
     <div className="flex h-full flex-col gap-6">
       {/* Header & Pulse */}
       <div className="flex flex-col gap-4 shrink-0">
+        {taskMessage && (
+          <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
+            {taskMessage}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -261,6 +267,7 @@ export function TaskWorkspace() {
       <CreateTaskModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onCreated={setTaskMessage}
       />
     </div>
   )
