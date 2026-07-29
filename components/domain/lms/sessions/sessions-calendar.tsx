@@ -1,32 +1,50 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   Calendar as CalendarIcon,
-  Users,
+  CheckCircle2,
   CheckSquare,
-  AlertCircle,
-  Clock,
-  Filter,
-  List as ListIcon,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  MoreHorizontal,
-  Video,
-  MapPin,
-  X,
-  ExternalLink,
-  Edit,
+  Clock,
   Download,
-  Plus,
+  ExternalLink,
+  Loader2,
+  List as ListIcon,
+  MapPin,
   Monitor,
-  MoreVertical
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+  Video,
+  X,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { format, isSameDay, parseISO } from 'date-fns'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { SearchInput } from '@/components/ui/search-input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -35,639 +53,714 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Sheet,
-  SheetContent,
-} from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/use-auth'
+import { useSessions } from '@/hooks/use-sessions'
+import type { SeatStatus, SessionPayload, TrainingSession } from '@/services/lms'
+import { SessionFormSheet } from './session-form-sheet'
 
-// ─── Dummy Data ─────────────────────────────────────────────────────────────
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-type SessionType = 'virtual' | 'classroom'
-type SessionStatus = 'open' | 'almost-full' | 'full' | 'closed'
+/**
+ * The grid defaults to 8AM–8PM, but widens to fit whatever the week actually
+ * holds. A fixed window silently dropped early and late sessions: they appeared
+ * in the list view but had no cell to be drawn in, which reads as data loss.
+ */
+const DEFAULT_START_HOUR = 8
+const DEFAULT_END_HOUR = 20
 
-interface Session {
-  id: string
-  name: string
-  type: SessionType
-  trainer: {
-    name: string
-    email: string
-  }
-  startDateTime: string // ISO string or formatted for display
-  endDateTime: string
-  dateLabel: string
-  timeLabel: string
-  duration: string
-  venue: string
-  link?: string
-  seats: {
-    total: number
-    registered: number
-  }
-  status: SessionStatus
-  description: string
-  notes: string
-  dayIndex: number // 0-6 for Sun-Sat in the current week
-  startHourIndex: number // 0 for 9am, 1 for 10am, etc. (relative to 9am start)
-  durationHours: number
+function hourLabel(hour: number) {
+  const suffix = hour >= 12 ? 'PM' : 'AM'
+  const display = hour % 12 === 0 ? 12 : hour % 12
+  return `${display} ${suffix}`
 }
 
-const STATS = [
-  { label: 'Upcoming Sessions', value: '18', sub: 'Next 30 days', icon: CalendarIcon },
-  { label: 'Total Registrations', value: '256', sub: 'Across all sessions', icon: Users },
-  { label: 'Open Sessions', value: '11', sub: 'Registration open', icon: CheckSquare },
-  { label: 'Full Sessions', value: '4', sub: 'No seats available', icon: Users },
-  { label: 'Sessions This Month', value: '14', sub: 'In this month', icon: Clock },
-]
-
-const SESSIONS: Session[] = [
-  {
-    id: 's1',
-    name: 'Effective Communication',
-    type: 'virtual',
-    trainer: { name: 'Michael Brown', email: 'michael.brown@company.com' },
-    startDateTime: '2025-05-19T09:00:00Z',
-    endDateTime: '2025-05-19T11:00:00Z',
-    dateLabel: 'Mon, 19 May 2025',
-    timeLabel: '09:00 AM - 11:00 AM',
-    duration: '2h',
-    venue: 'Zoom',
-    link: 'https://zoom.us/j/123456789',
-    seats: { total: 40, registered: 35 },
-    status: 'almost-full',
-    description: 'Learn the fundamentals of effective workplace communication.',
-    notes: 'Please ensure your microphone and camera are working properly.',
-    dayIndex: 1, // Mon
-    startHourIndex: 0, // 9am
-    durationHours: 2,
-  },
-  {
-    id: 's2',
-    name: 'Leadership Essentials',
-    type: 'classroom',
-    trainer: { name: 'Jane Smith', email: 'jane.smith@company.com' },
-    startDateTime: '2025-05-20T10:00:00Z',
-    endDateTime: '2025-05-20T12:00:00Z',
-    dateLabel: 'Tue, 20 May 2025',
-    timeLabel: '10:00 AM - 12:00 PM',
-    duration: '2h',
-    venue: 'Training Room A',
-    seats: { total: 25, registered: 18 },
-    status: 'open',
-    description: 'Core leadership principles for new managers.',
-    notes: 'Bring a notebook and pen.',
-    dayIndex: 2, // Tue
-    startHourIndex: 1, // 10am
-    durationHours: 2,
-  },
-  {
-    id: 's3',
-    name: 'Project Management Fundamentals',
-    type: 'virtual',
-    trainer: { name: 'John Doe', email: 'john.doe@company.com' },
-    startDateTime: '2025-05-21T09:00:00Z',
-    endDateTime: '2025-05-21T11:00:00Z',
-    dateLabel: 'Wed, 21 May 2025',
-    timeLabel: '09:00 AM - 11:00 AM',
-    duration: '2h',
-    venue: 'Microsoft Teams',
-    link: 'https://teams.microsoft.com/l/meetup-join/...',
-    seats: { total: 30, registered: 22 },
-    status: 'open',
-    description: 'This session covers key principles and practical techniques of project management.',
-    notes: 'Please ensure you have MS Project installed before the session.',
-    dayIndex: 3, // Wed
-    startHourIndex: 0, // 9am
-    durationHours: 2,
-  },
-  {
-    id: 's4',
-    name: 'Excel Advanced Workshop',
-    type: 'classroom',
-    trainer: { name: 'Jane Smith', email: 'jane.smith@company.com' },
-    startDateTime: '2025-05-22T13:00:00Z',
-    endDateTime: '2025-05-22T16:00:00Z',
-    dateLabel: 'Thu, 22 May 2025',
-    timeLabel: '1:00 PM - 4:00 PM',
-    duration: '3h',
-    venue: 'Lab 2, Block B',
-    seats: { total: 20, registered: 20 },
-    status: 'full',
-    description: 'Advanced data analysis using Excel PivotTables and macros.',
-    notes: 'Requires basic understanding of Excel formulas.',
-    dayIndex: 4, // Thu
-    startHourIndex: 4, // 1pm (9am + 4)
-    durationHours: 3,
-  },
-  {
-    id: 's5',
-    name: 'Safety Awareness Training',
-    type: 'virtual',
-    trainer: { name: 'Robert Johnson', email: 'robert.j@company.com' },
-    startDateTime: '2025-05-23T10:00:00Z',
-    endDateTime: '2025-05-23T12:00:00Z',
-    dateLabel: 'Fri, 23 May 2025',
-    timeLabel: '10:00 AM - 12:00 PM',
-    duration: '2h',
-    venue: 'Microsoft Teams',
-    link: 'https://teams.microsoft.com/l/meetup-join/...',
-    seats: { total: 50, registered: 28 },
-    status: 'open',
-    description: 'Mandatory safety protocol review for all employees.',
-    notes: '',
-    dayIndex: 5, // Fri
-    startHourIndex: 1, // 10am
-    durationHours: 2,
-  },
-]
-
-const DAYS = ['Sun 18', 'Mon 19', 'Tue 20', 'Wed 21', 'Thu 22', 'Fri 23', 'Sat 24']
-const HOURS = ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM']
-
-const getStatusDetails = (status: SessionStatus) => {
-  switch (status) {
-    case 'open':
-      return { variant: 'active' as const, label: 'Open' }
-    case 'almost-full':
-      return { variant: 'warning' as const, label: 'Almost Full' }
-    case 'full':
-      return { variant: 'error' as const, label: 'Full' }
-    case 'closed':
-      return { variant: 'inactive' as const, label: 'Closed' }
-  }
+function toMinutes(time: string | null) {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
 }
 
-// ─── Components ─────────────────────────────────────────────────────────────
+function timeRange(session: TrainingSession) {
+  const from = (session.from_time ?? '').slice(0, 5)
+  const to = (session.to_time ?? '').slice(0, 5)
+  return from && to ? `${from} – ${to}` : from || '—'
+}
+
+const SEAT_VARIANT: Record<SeatStatus, 'active' | 'pending' | 'error' | 'inactive'> = {
+  open: 'active',
+  'almost-full': 'pending',
+  full: 'error',
+  closed: 'inactive',
+}
+
+const SEAT_LABEL: Record<SeatStatus, string> = {
+  open: 'Open',
+  'almost-full': 'Almost full',
+  full: 'Full',
+  closed: 'Closed',
+}
+
+/** Client-side CSV of the visible week — there is no export endpoint. */
+function exportCsv(sessions: TrainingSession[]) {
+  const headers = ['Session', 'Format', 'Trainer', 'Date', 'Start', 'End', 'Venue/Link', 'Registered', 'Seats', 'Status']
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+
+  const rows = sessions.map((session) =>
+    [
+      session.room_name,
+      session.session_type,
+      session.trainer_name,
+      session.event_date,
+      (session.from_time ?? '').slice(0, 5),
+      (session.to_time ?? '').slice(0, 5),
+      session.session_type === 'virtual' ? session.url : session.venue,
+      session.registered_count,
+      session.seats_total ?? 'Unlimited',
+      SEAT_LABEL[session.seat_status],
+    ]
+      .map(escape)
+      .join(','),
+  )
+
+  const blob = new Blob([[headers.map(escape).join(','), ...rows].join('\n')], {
+    type: 'text/csv;charset=utf-8;',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `sessions-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  loading,
+}: {
+  label: string
+  value: number
+  sub: string
+  icon: React.ElementType
+  loading: boolean
+}) {
+  return (
+    <Card className="rounded-xl border-border/80 shadow-sm">
+      <CardContent className="p-4">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Icon className="size-4" /> {label}
+        </p>
+        {loading ? (
+          <Skeleton className="mt-1.5 h-7 w-12" />
+        ) : (
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-foreground">{value}</h3>
+        )}
+        <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ─── Page ─────────────────────────────────────────────────────────────────── */
 
 export function SessionsCalendar() {
+  const { user } = useAuth()
+  // Scheduling is an admin/HR action; the API enforces the same rule.
+  const canManage = user?.role === 'admin' || user?.role === 'hr'
+
+  const {
+    sessions, deadlines, stats, loading, error, reload,
+    weekStart, weekDays, goToWeek, goToToday,
+    search, setSearch,
+    saving, message, actionError, dismiss,
+    createSession, updateSession, removeSession, register, cancelRegistration,
+    attendees, attendeesLoading, loadAttendees,
+  } = useSessions()
+
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
+  const [selected, setSelected] = useState<TrainingSession | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<TrainingSession | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<TrainingSession | null>(null)
+
+  // Widen the grid to cover every session in the week. A session ending at
+  // 21:30 needs the 21:00 row present, hence the ceil on the end bound.
+  const hours = useMemo(() => {
+    let start = DEFAULT_START_HOUR
+    let end = DEFAULT_END_HOUR
+
+    for (const session of sessions) {
+      const from = toMinutes(session.from_time)
+      const to = toMinutes(session.to_time)
+      if (from !== null) start = Math.min(start, Math.floor(from / 60))
+      if (to !== null) end = Math.max(end, Math.ceil(to / 60))
+    }
+
+    start = Math.max(0, start)
+    end = Math.min(24, Math.max(end, start + 1))
+
+    return Array.from({ length: end - start }, (_, index) => start + index)
+  }, [sessions])
+
+  /** Whole-day markers keyed by yyyy-MM-dd, drawn under each day's header. */
+  const deadlinesByDay = useMemo(() => {
+    const map = new Map<string, typeof deadlines>()
+    for (const deadline of deadlines) {
+      const key = (deadline.date ?? '').slice(0, 10)
+      if (!key) continue
+      const bucket = map.get(key)
+      if (bucket) bucket.push(deadline)
+      else map.set(key, [deadline])
+    }
+    return map
+  }, [deadlines])
+
+  const openDetail = (session: TrainingSession) => {
+    setSelected(session)
+    if (canManage) loadAttendees(session.id)
+  }
+
+  const handleSubmit = (payload: SessionPayload, id?: number) =>
+    id ? updateSession(id, payload) : createSession(payload)
+
+  if (error && !loading && sessions.length === 0) {
+    return (
+      <div className="p-6">
+        <ErrorState title="Couldn't load the schedule" description={error} retry={reload} />
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
-      {/* Header Actions */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Sessions & Training Calendar
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage instructor-led, virtual and classroom training sessions.
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Sessions &amp; Calendar</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Schedule instructor-led training and manage who attends.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-9">
-            <Download className="mr-2 size-4" /> Export
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => exportCsv(sessions)}
+            disabled={sessions.length === 0}
+          >
+            <Download className="size-4" /> Export
           </Button>
-          <Button variant="outline" size="sm" className="h-9">
-            More Actions <MoreVertical className="ml-2 size-4" />
-          </Button>
-          <Button size="sm" className="h-9">
-            <Plus className="mr-2 size-4" /> New Session
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {STATS.map((stat, i) => {
-          const Icon = stat.icon
-          return (
-            <Card key={i} className="shadow-sm">
-              <CardContent className="p-5 flex items-start gap-4">
-                <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Icon className="size-5 text-primary" />
-                </div>
-                <div className="flex flex-col gap-1 min-w-0">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
-                    {stat.label}
-                  </span>
-                  <div className="text-2xl font-bold text-foreground">
-                    {stat.value}
-                  </div>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {stat.sub}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Main Content Area */}
-      <Card className="shadow-sm border-border/60">
-        <div className="flex flex-col">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between p-4 border-b border-border/60">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center rounded-md border border-border p-0.5 bg-muted/30">
-                <button
-                  onClick={() => setViewMode('calendar')}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors",
-                    viewMode === 'calendar' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <CalendarIcon className="size-4" /> Calendar
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors",
-                    viewMode === 'list' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <ListIcon className="size-4" /> List
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" className="size-8">
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="size-8">
-                  <ChevronRight className="size-4" />
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 ml-2">
-                  Today
-                </Button>
-                <span className="text-sm font-bold text-foreground ml-2">
-                  May 18 – May 24, 2025
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <select className="h-8 rounded-md border border-border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring">
-                <option>All Types</option>
-                <option>Virtual</option>
-                <option>Classroom</option>
-              </select>
-              <Button variant="outline" size="sm" className="h-8">
-                <Filter className="mr-2 size-4" /> Filters
-              </Button>
-            </div>
-          </div>
-
-          {/* Calendar View */}
-          {viewMode === 'calendar' && (
-            <div className="flex flex-col bg-muted/10">
-              {/* Calendar Header (Days) */}
-              <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-border/60">
-                <div className="p-3 text-xs font-semibold text-muted-foreground text-center border-r border-border/60">
-                  All day
-                </div>
-                {DAYS.map((day, i) => {
-                  const isToday = i === 3 // Wed 21 in dummy
-                  return (
-                    <div key={day} className="p-3 text-center border-r border-border/60 last:border-0 relative">
-                      <span className={cn(
-                        "text-sm font-medium",
-                        isToday ? "text-primary font-bold" : "text-muted-foreground"
-                      )}>
-                        {day}
-                      </span>
-                      {isToday && (
-                        <div className="absolute top-1 right-2 size-2 rounded-full bg-primary" />
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Calendar Grid */}
-              <div className="relative">
-                {/* Background grid lines */}
-                {HOURS.map((hour, i) => (
-                  <div key={hour} className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-border/60 group">
-                    <div className="p-3 text-[11px] font-medium text-muted-foreground text-center border-r border-border/60">
-                      {hour}
-                    </div>
-                    {DAYS.map((day, j) => (
-                      <div key={`${day}-${hour}`} className="h-16 border-r border-border/60 last:border-0 group-hover:bg-muted/30 transition-colors" />
-                    ))}
-                  </div>
-                ))}
-
-                {/* Session Blocks */}
-                {SESSIONS.map((session) => {
-                  // Calculate absolute position on the grid
-                  const topOffset = session.startHourIndex * 64 // 64px per hour
-                  const height = session.durationHours * 64
-                  const leftPercent = (session.dayIndex * 12.5) + 12.5 // 8 cols, 1st is time (12.5%)
-                  
-                  return (
-                    <div
-                      key={session.id}
-                      onClick={() => setSelectedSession(session)}
-                      className={cn(
-                        "absolute rounded-md border p-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col gap-1",
-                        session.type === 'virtual' 
-                          ? "bg-primary/5 border-primary/20 hover:border-primary/40" 
-                          : "bg-muted border-border hover:border-muted-foreground/30"
-                      )}
-                      style={{
-                        top: topOffset,
-                        height,
-                        left: `calc(${leftPercent}% + 6px)`,
-                        width: `calc(12.5% - 12px)`, // Add some gap between borders
-                      }}
-                    >
-                      <span className="text-xs font-semibold text-foreground leading-tight line-clamp-2">
-                        {session.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="size-3 shrink-0" />
-                        {session.timeLabel}
-                      </span>
-                      <div className="mt-auto flex items-center gap-1">
-                        <div className={cn(
-                          "size-2 rounded-full shrink-0",
-                          session.type === 'virtual' ? "bg-primary" : "bg-success"
-                        )} />
-                        <span className="text-[10px] font-medium text-muted-foreground truncate">
-                          {session.type === 'virtual' ? 'Virtual' : 'Classroom'}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          {canManage && (
+            <Button
+              className="gap-2"
+              onClick={() => {
+                setEditing(null)
+                setFormOpen(true)
+              }}
+            >
+              <Plus className="size-4" /> New Session
+            </Button>
           )}
         </div>
-      </Card>
+      </div>
 
-      {/* Upcoming Sessions List */}
-      <Card className="shadow-sm border-border/60">
-        <CardHeader className="pb-3 border-b border-border/60 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Upcoming Sessions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead className="font-semibold">Session Name</TableHead>
-                <TableHead className="font-semibold">Type</TableHead>
-                <TableHead className="font-semibold">Trainer</TableHead>
-                <TableHead className="font-semibold">Start Date & Time</TableHead>
-                <TableHead className="font-semibold">Venue / Link</TableHead>
-                <TableHead className="font-semibold">Seats</TableHead>
-                <TableHead className="font-semibold">Registered</TableHead>
-                <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {SESSIONS.map((session) => {
-                const statusInfo = getStatusDetails(session.status)
-                return (
-                  <TableRow key={session.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedSession(session)}>
-                    <TableCell className="font-medium text-foreground">
-                      {session.name}
-                    </TableCell>
+      {message && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success">
+          <span className="flex items-center gap-2"><CheckCircle2 className="size-4" />{message}</span>
+          <button type="button" onClick={dismiss} aria-label="Dismiss"><X className="size-3.5" /></button>
+        </div>
+      )}
+      {(actionError || error) && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive">
+          <span className="flex items-center gap-2"><AlertTriangle className="size-4" />{actionError ?? error}</span>
+          <button type="button" onClick={dismiss} aria-label="Dismiss"><X className="size-3.5" /></button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <KpiCard label="Upcoming Sessions" value={stats?.upcoming_sessions ?? 0} sub="Next 30 days" icon={CalendarIcon} loading={loading} />
+        <KpiCard label="Total Registrations" value={stats?.total_registrations ?? 0} sub="Across all sessions" icon={Users} loading={loading} />
+        <KpiCard label="Open Sessions" value={stats?.open_sessions ?? 0} sub="Seats available" icon={CheckSquare} loading={loading} />
+        <KpiCard label="Full Sessions" value={stats?.full_sessions ?? 0} sub="No seats left" icon={Users} loading={loading} />
+        <KpiCard label="Sessions This Month" value={stats?.sessions_this_month ?? 0} sub="In this month" icon={Clock} loading={loading} />
+      </div>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="w-full sm:w-72">
+          <SearchInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search sessions, trainers or venues..."
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center rounded-lg border border-border/60 bg-muted/50 p-1">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
+                viewMode === 'calendar' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+              )}
+            >
+              <CalendarIcon className="size-3.5" /> Calendar
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
+                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+              )}
+            >
+              <ListIcon className="size-3.5" /> List
+            </button>
+          </div>
+
+          <Button variant="outline" size="icon" className="size-8" onClick={() => goToWeek(-1)} aria-label="Previous week">
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="min-w-[190px] text-center text-sm font-semibold text-foreground">
+            {format(weekStart, 'dd MMM')} – {format(weekDays[6], 'dd MMM yyyy')}
+          </span>
+          <Button variant="outline" size="icon" className="size-8" onClick={() => goToWeek(1)} aria-label="Next week">
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={goToToday}>
+            Today
+          </Button>
+          {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        </div>
+      </div>
+
+      {/* Calendar — a real week computed from weekStart, not a fixed label list. */}
+      {viewMode === 'calendar' && (
+        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm">
+          <div className="min-w-[900px]">
+            <div className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border/60">
+              <div />
+              {weekDays.map((day) => (
+                <div
+                  key={day.toISOString()}
+                  className={cn(
+                    'border-l border-border/40 px-2 py-2 text-center',
+                    isSameDay(day, new Date()) && 'bg-primary/5',
+                  )}
+                >
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {format(day, 'EEE')}
+                  </p>
+                  <p
+                    className={cn(
+                      'text-sm font-bold',
+                      isSameDay(day, new Date()) ? 'text-primary' : 'text-foreground',
+                    )}
+                  >
+                    {format(day, 'd')}
+                  </p>
+
+                  {/* Deadlines carry a date but no time, so they belong in the
+                      header rather than in an hour slot. */}
+                  {(deadlinesByDay.get(format(day, 'yyyy-MM-dd')) ?? [])
+                    .slice(0, 2)
+                    .map((deadline, index) => (
+                      <p
+                        key={`${deadline.kind}-${deadline.user_id ?? 'org'}-${index}`}
+                        title={
+                          deadline.learner_name
+                            ? `${deadline.title} — ${deadline.learner_name}`
+                            : (deadline.title ?? '')
+                        }
+                        className={cn(
+                          'mt-1 truncate rounded px-1 py-0.5 text-[9px] font-semibold',
+                          deadline.kind === 'course-deadline'
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
+                        {deadline.title ?? 'Deadline'}
+                      </p>
+                    ))}
+
+                  {(deadlinesByDay.get(format(day, 'yyyy-MM-dd'))?.length ?? 0) > 2 && (
+                    <p className="mt-0.5 text-[9px] font-medium text-muted-foreground">
+                      +{(deadlinesByDay.get(format(day, 'yyyy-MM-dd'))?.length ?? 0) - 2} more
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {hours.map((hour) => (
+              <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border/30">
+                <div className="px-2 py-3 text-right text-[11px] font-medium text-muted-foreground">
+                  {hourLabel(hour)}
+                </div>
+                {weekDays.map((day) => {
+                  const cellSessions = sessions.filter((session) => {
+                    if (!session.event_date) return false
+                    const start = toMinutes(session.from_time)
+                    return (
+                      isSameDay(parseISO(session.event_date), day) &&
+                      start !== null &&
+                      Math.floor(start / 60) === hour
+                    )
+                  })
+
+                  return (
+                    <div
+                      key={`${day.toISOString()}-${hour}`}
+                      className="min-h-[52px] border-l border-border/40 p-1"
+                    >
+                      {cellSessions.map((session) => (
+                        <button
+                          key={session.id}
+                          type="button"
+                          onClick={() => openDetail(session)}
+                          className={cn(
+                            'mb-1 w-full rounded-md border p-1.5 text-left transition-colors',
+                            session.session_type === 'classroom'
+                              ? 'border-warning/30 bg-warning/10 hover:bg-warning/20'
+                              : 'border-primary/30 bg-primary/10 hover:bg-primary/20',
+                          )}
+                        >
+                          <p className="truncate text-[11px] font-bold text-foreground">
+                            {session.room_name}
+                          </p>
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            {timeRange(session)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      {viewMode === 'list' && (
+        <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+          {loading && sessions.length === 0 ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<CalendarIcon className="size-8" />}
+                title="No sessions this week"
+                description={
+                  search
+                    ? 'Try a different search term or another week.'
+                    : 'Nothing is scheduled for the selected week.'
+                }
+                action={
+                  canManage ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditing(null)
+                        setFormOpen(true)
+                      }}
+                    >
+                      Schedule a session
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Session</TableHead>
+                  <TableHead>Trainer</TableHead>
+                  <TableHead>When</TableHead>
+                  <TableHead>Seats</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sessions.map((session) => (
+                  <TableRow
+                    key={session.id}
+                    className="cursor-pointer"
+                    onClick={() => openDetail(session)}
+                  >
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <div className={cn(
-                          "size-2 rounded-full",
-                          session.type === 'virtual' ? "bg-primary" : "bg-success"
-                        )} />
-                        <span className="capitalize">{session.type}</span>
+                      <div className="flex items-center gap-2">
+                        {session.session_type === 'classroom' ? (
+                          <MapPin className="size-4 shrink-0 text-warning" />
+                        ) : (
+                          <Video className="size-4 shrink-0 text-primary" />
+                        )}
+                        <span className="font-semibold text-foreground">{session.room_name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{session.trainer.name}</TableCell>
+                    <TableCell>{session.trainer_name || '—'}</TableCell>
                     <TableCell>
-                      <div className="flex flex-col">
-                        <span>{session.dateLabel.split(', ')[1]}</span>
-                        <span className="text-xs text-muted-foreground">{session.timeLabel.split(' - ')[0]}</span>
-                      </div>
+                      {session.event_date ? format(parseISO(session.event_date), 'dd MMM') : '—'}
+                      <span className="ml-2 text-xs text-muted-foreground">{timeRange(session)}</span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {session.venue}
-                    </TableCell>
-                    <TableCell>{session.seats.total}</TableCell>
-                    <TableCell>{session.seats.registered}</TableCell>
                     <TableCell>
-                      <StatusBadge variant={statusInfo.variant} className="font-medium">
-                        {statusInfo.label}
+                      {session.registered_count}
+                      {session.seats_total !== null ? ` / ${session.seats_total}` : ''}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        variant={SEAT_VARIANT[session.seat_status]}
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        {SEAT_LABEL[session.seat_status]}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setSelectedSession(session)}>
-                          <Eye className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
+                    <TableCell onClick={(event) => event.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        {canManage && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-7 p-0"
+                              aria-label="Edit session"
+                              onClick={() => {
+                                setEditing(session)
+                                setFormOpen(true)
+                              }}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-7 p-0 text-destructive hover:text-destructive"
+                              aria-label="Cancel session"
+                              onClick={() => setPendingDelete(session)}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-          
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border/60">
-            <span className="text-sm text-muted-foreground">
-              Showing 1 to 5 of 18 sessions
-            </span>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="size-8 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary">1</Button>
-              <Button variant="outline" size="icon" className="size-8">2</Button>
-              <Button variant="outline" size="icon" className="size-8">3</Button>
-              <Button variant="outline" size="icon" className="size-8">4</Button>
-              <Button variant="outline" size="icon" className="size-8"><ChevronRight className="size-4" /></Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
 
-      {/* Detail Sheet */}
-      <Sheet open={!!selectedSession} onOpenChange={(open) => !open && setSelectedSession(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
-          {selectedSession && (
+      {/* Detail sheet */}
+      <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+        <SheetContent className="overflow-y-auto sm:max-w-md">
+          {selected && (
             <>
-              {/* Header */}
-              <div className="p-6 border-b border-border/60 bg-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight text-foreground leading-tight mb-2">
-                      {selectedSession.name}
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className={cn(
-                          "size-2 rounded-full",
-                          selectedSession.type === 'virtual' ? "bg-primary" : "bg-success"
-                        )} />
-                        <span className="text-sm font-medium text-muted-foreground capitalize">
-                          {selectedSession.type} Session
-                        </span>
-                      </div>
-                      <StatusBadge variant={getStatusDetails(selectedSession.status).variant}>
-                        {getStatusDetails(selectedSession.status).label}
-                      </StatusBadge>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="size-8 shrink-0 -mr-2 -mt-2" onClick={() => setSelectedSession(null)}>
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              </div>
+              <SheetHeader>
+                <SheetTitle>{selected.room_name}</SheetTitle>
+                <SheetDescription>
+                  {selected.session_type === 'classroom' ? 'Classroom session' : 'Virtual session'}
+                </SheetDescription>
+              </SheetHeader>
 
-              {/* Tabs */}
-              <div className="px-6 border-b border-border/60 bg-card flex items-center gap-6">
-                <button className="py-3 text-sm font-semibold text-primary border-b-2 border-primary -mb-px">
-                  Overview
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Registrations ({selectedSession.seats.registered})
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Attendance
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Files
-                </button>
-              </div>
+              <div className="flex flex-col gap-4 pt-2">
+                <StatusBadge
+                  variant={SEAT_VARIANT[selected.seat_status]}
+                  className="w-fit text-[10px] font-bold uppercase tracking-wider"
+                >
+                  {SEAT_LABEL[selected.seat_status]}
+                </StatusBadge>
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 bg-background">
-                {/* Date & Time */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    <CalendarIcon className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Date & Time
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedSession.dateLabel}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {selectedSession.timeLabel} ({selectedSession.duration})
-                    </span>
-                  </div>
+                <div className="grid grid-cols-[110px_1fr] gap-y-2 text-sm">
+                  <span className="font-medium text-muted-foreground">Date</span>
+                  <span className="font-semibold text-foreground">
+                    {selected.event_date ? format(parseISO(selected.event_date), 'EEEE, dd MMM yyyy') : '—'}
+                  </span>
+                  <span className="font-medium text-muted-foreground">Time</span>
+                  <span className="font-semibold text-foreground">{timeRange(selected)}</span>
+                  <span className="font-medium text-muted-foreground">Trainer</span>
+                  <span className="font-semibold text-foreground">{selected.trainer_name || '—'}</span>
+                  {selected.trainer_email && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Contact</span>
+                      <span className="truncate font-semibold text-foreground">{selected.trainer_email}</span>
+                    </>
+                  )}
+                  <span className="font-medium text-muted-foreground">
+                    {selected.session_type === 'classroom' ? 'Venue' : 'Link'}
+                  </span>
+                  <span className="truncate font-semibold text-foreground">
+                    {selected.session_type === 'classroom'
+                      ? selected.venue || '—'
+                      : selected.url || '—'}
+                  </span>
+                  <span className="font-medium text-muted-foreground">Seats</span>
+                  <span className="font-semibold text-foreground">
+                    {selected.registered_count}
+                    {selected.seats_total !== null
+                      ? ` of ${selected.seats_total} (${selected.seats_available} left)`
+                      : ' registered (unlimited)'}
+                  </span>
                 </div>
 
-                {/* Venue / Link */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    {selectedSession.type === 'virtual' ? <Monitor className="size-5" /> : <MapPin className="size-5" />}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {selectedSession.type === 'virtual' ? 'Virtual Link' : 'Venue'}
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedSession.venue}
-                    </span>
-                    {selectedSession.link && (
-                      <a href={selectedSession.link} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary hover:underline flex items-center gap-1 mt-1">
-                        Join Link <ExternalLink className="size-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* Trainer */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    <Users className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Trainer
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedSession.trainer.name}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {selectedSession.trainer.email}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Seats */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    <CheckSquare className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Seats
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedSession.seats.total} ({selectedSession.seats.registered} Registered • {selectedSession.seats.total - selectedSession.seats.registered} Available)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Type */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    <Video className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Session Type
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      Instructor-Led Training
-                    </span>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="flex gap-4">
-                  <div className="mt-0.5 text-muted-foreground">
-                    <ListIcon className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Description
-                    </span>
-                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
-                      {selectedSession.description}
+                {selected.description && (
+                  <p className="text-sm text-muted-foreground">{selected.description}</p>
+                )}
+                {selected.notes && (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Joining notes
                     </p>
-                  </div>
-                </div>
-
-                {/* Notes */}
-                {selectedSession.notes && (
-                  <div className="flex gap-4">
-                    <div className="mt-0.5 text-muted-foreground">
-                      <AlertCircle className="size-5" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Notes
-                      </span>
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-1 bg-muted p-3 rounded-md border border-border/50">
-                        {selectedSession.notes}
-                      </p>
-                    </div>
+                    <p className="mt-1 text-xs text-foreground">{selected.notes}</p>
                   </div>
                 )}
-              </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-border/60 bg-card flex justify-between items-center">
-                <Button variant="outline">
-                  Edit Session
-                </Button>
-                <Button onClick={() => setSelectedSession(null)}>
-                  Close
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {selected.session_type === 'virtual' && selected.url && selected.is_registered && (
+                    <a href={selected.url} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <ExternalLink className="size-3.5" /> Join
+                      </Button>
+                    </a>
+                  )}
+
+                  {selected.is_registered ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={saving}
+                      onClick={async () => {
+                        const result = await cancelRegistration(selected.id)
+                        if (result.ok) setSelected(null)
+                      }}
+                    >
+                      Cancel my registration
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      disabled={saving || selected.seat_status === 'full' || selected.is_past}
+                      onClick={async () => {
+                        const result = await register(selected.id)
+                        if (result.ok) setSelected(null)
+                      }}
+                    >
+                      {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Monitor className="size-3.5" />}
+                      {selected.is_past
+                        ? 'Session has passed'
+                        : selected.seat_status === 'full'
+                          ? 'Session full'
+                          : 'Register'}
+                    </Button>
+                  )}
+                </div>
+
+                {canManage && (
+                  <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Attendees ({attendees.length})
+                    </p>
+                    {attendeesLoading ? (
+                      <Skeleton className="h-16 rounded-lg" />
+                    ) : attendees.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nobody has registered yet.</p>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border/60">
+                        {attendees.map((attendee) => (
+                          <div
+                            key={attendee.id}
+                            className="flex items-center justify-between border-b border-border/40 px-3 py-1.5 text-xs last:border-b-0"
+                          >
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate font-medium text-foreground">
+                                {attendee.learner_name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {attendee.employee_no || attendee.email}
+                              </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <StatusBadge
+                                variant={attendee.status === 'cancelled' ? 'inactive' : 'active'}
+                                size="sm"
+                                className="text-[9px] font-bold uppercase"
+                              >
+                                {attendee.status}
+                              </StatusBadge>
+                              {attendee.status !== 'cancelled' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="size-6 p-0 text-destructive hover:text-destructive"
+                                  aria-label={`Remove ${attendee.learner_name}`}
+                                  onClick={() => {
+                                    void cancelRegistration(selected.id, attendee.user_id).then(() =>
+                                      loadAttendees(selected.id),
+                                    )
+                                  }}
+                                >
+                                  <X className="size-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <SessionFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        session={editing}
+        saving={saving}
+        onSubmit={handleSubmit}
+      />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open: boolean) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `"${pendingDelete.room_name}" and its ${pendingDelete.registered_count} registration(s) will be removed.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDelete) void removeSession(pendingDelete.id)
+                setPendingDelete(null)
+              }}
+            >
+              Cancel session
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
