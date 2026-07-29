@@ -45,6 +45,7 @@ interface RequestConfig {
 
 /** Per-call transport overrides, kept separate from the payload arguments. */
 export type RequestOptions = Pick<RequestConfig, 'headers' | 'credentials'>
+export type MutationOptions = Pick<RequestConfig, 'headers' | 'credentials' | 'params'>
 
 /** Laravel replies with {message, errors} on 4xx - surface that instead of a bare status code. */
 export class ApiError extends Error {
@@ -117,16 +118,16 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET', params, ...options })
   }
 
-  async post<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body })
+  async post<T>(endpoint: string, body: unknown, options?: MutationOptions): Promise<T> {
+    return this.request<T>(endpoint, { method: 'POST', body, ...options })
   }
 
   async postForm<T>(endpoint: string, body: FormData): Promise<T> {
     return this.request<T>(endpoint, { method: 'POST', body })
   }
 
-  async put<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body })
+  async put<T>(endpoint: string, body: unknown, options?: MutationOptions): Promise<T> {
+    return this.request<T>(endpoint, { method: 'PUT', body, ...options })
   }
 
   async patch<T>(endpoint: string, body: unknown): Promise<T> {

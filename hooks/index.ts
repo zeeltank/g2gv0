@@ -46,3 +46,4 @@ export {
   type UseAssignmentsReturn,
   type AssignmentFilters,
 } from './use-assignments'
+export { useRecruitment } from './use-recruitment'
