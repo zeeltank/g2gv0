@@ -146,3 +146,13 @@ class ApiClient {
 export const apiClient = new ApiClient()
 export const webClient = new ApiClient(WEB_BASE_URL)
 export { ApiClient }
+
+/**
+ * Absolute URL for an API endpoint, for the cases fetch cannot serve: a file
+ * download that has to reach the browser's download manager, or an href the
+ * user can copy. Everything else should go through apiClient.
+ */
+export function buildApiUrl(endpoint: string, params: Record<string, string> = {}) {
+  const query = new URLSearchParams(params).toString()
+  return `${API_BASE_URL}${endpoint}${query ? `?${query}` : ''}`
+}
