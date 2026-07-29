@@ -2,29 +2,24 @@
 
 import React, { useState } from 'react'
 import {
-  Search,
-  Filter,
-  Download,
+  AlertCircle,
   Award,
   Clock,
-  History,
-  AlertCircle,
-  Eye,
-  MoreVertical,
-  X,
-  BookOpen,
-  User,
-  CheckCircle2,
-  Calendar,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal
+  Download,
+  GraduationCap,
+  RefreshCw,
+  ShieldCheck,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { format } from 'date-fns'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Progress } from '@/components/ui/progress'
+import { SearchInput } from '@/components/ui/search-input'
+import { Select } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import {
   Table,
   TableBody,
@@ -36,504 +31,718 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
+import { useCertifications } from '@/hooks/use-certifications'
+import type { CertificateVerification, LearningCertificate } from '@/services/lms'
 
-// ─── Dummy Data ─────────────────────────────────────────────────────────────
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-type CertificateStatus = 'active' | 'expiring-soon' | 'expired'
-
-interface Certificate {
-  id: string
-  name: string
-  course: string
-  issuedOn: string
-  validUntil: string
-  status: CertificateStatus
-  credentialId: string
-  description: string
-  tags: string[]
-  daysToExpiry?: number
+function formatDate(value: string | null) {
+  if (!value) return '—'
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? '—' : format(parsed, 'dd MMM yyyy')
 }
 
-const STATS = [
-  { label: 'Active Certificates', value: '12', sub: 'View all active', icon: Award },
-  { label: 'Expiring Soon', value: '3', sub: 'Within 90 days', icon: Clock },
-  { label: 'Expired Certificates', value: '2', sub: 'Require renewal', icon: AlertCircle },
-  { label: 'Total Certificates Earned', value: '18', sub: 'All time', icon: Award },
-]
+const STATE_VARIANT: Record<string, 'active' | 'pending' | 'error'> = {
+  active: 'active',
+  expiring: 'pending',
+  expired: 'error',
+}
 
-const CERTIFICATES: Certificate[] = [
-  {
-    id: 'c1',
-    name: 'Information Security Awareness',
-    course: 'InfoSec Fundamentals',
-    issuedOn: '15 Mar 2024',
-    validUntil: '15 Mar 2025',
-    status: 'active', // Wireframe actually shows (in 52 days) in details, but active in list. Wait, list shows 'Active', but some say 'Expiring Soon'.
-    credentialId: 'ISF-2024-12345',
-    description: 'This certificate is awarded upon successful completion of the Information Security Awareness training.',
-    tags: ['Compliance', 'Mandatory', 'Information Security'],
-    daysToExpiry: 52
-  },
-  {
-    id: 'c2',
-    name: 'Data Privacy Compliance',
-    course: 'Privacy & Data Protection',
-    issuedOn: '02 Jan 2024',
-    validUntil: '02 Jan 2025',
-    status: 'active',
-    credentialId: 'DPC-2024-98765',
-    description: 'Certification for data privacy regulations including GDPR and CCPA.',
-    tags: ['Compliance', 'Data Privacy']
-  },
-  {
-    id: 'c3',
-    name: 'Workplace Safety',
-    course: 'Workplace Safety Training',
-    issuedOn: '10 Jun 2023',
-    validUntil: '10 Jun 2024',
-    status: 'expired',
-    credentialId: 'WST-2023-45678',
-    description: 'Certification for basic workplace safety protocols.',
-    tags: ['Safety', 'Mandatory']
-  },
-  {
-    id: 'c4',
-    name: 'Anti-Bribery & Corruption',
-    course: 'ABC Policy Training',
-    issuedOn: '05 Feb 2024',
-    validUntil: '05 Feb 2026',
-    status: 'active',
-    credentialId: 'ABC-2024-11223',
-    description: 'Certification for completion of anti-bribery policies.',
-    tags: ['Compliance', 'Ethics']
-  },
-  {
-    id: 'c5',
-    name: 'Customer Data Handling',
-    course: 'Data Handling Standards',
-    issuedOn: '20 Aug 2023',
-    validUntil: '20 Aug 2024',
-    status: 'expiring-soon',
-    credentialId: 'CDH-2023-55667',
-    description: 'Training on standards for handling sensitive customer data.',
-    tags: ['Data Privacy', 'Security'],
-    daysToExpiry: 22
-  },
-  {
-    id: 'c6',
-    name: 'First Aid Certification',
-    course: 'First Aid Training',
-    issuedOn: '12 Sep 2023',
-    validUntil: '12 Sep 2025',
-    status: 'active',
-    credentialId: 'FAC-2023-99887',
-    description: 'Certified First Aider status.',
-    tags: ['Health', 'Safety']
-  },
-  {
-    id: 'c7',
-    name: 'Diversity & Inclusion',
-    course: 'D&I Awareness',
-    issuedOn: '30 Nov 2023',
-    validUntil: '30 Nov 2024',
-    status: 'expiring-soon',
-    credentialId: 'DNI-2023-33445',
-    description: 'Awareness training for a diverse workplace.',
-    tags: ['HR', 'Culture'],
-    daysToExpiry: 80
-  },
-  {
-    id: 'c8',
-    name: 'Harassment Prevention',
-    course: 'Prevention of Harassment',
-    issuedOn: '18 Jan 2024',
-    validUntil: '18 Jan 2024', // Wait, wireframe shows 18 Jan 2024 to 18 Jan 2024 (expired)
-    status: 'expired',
-    credentialId: 'POH-2024-66778',
-    description: 'Mandatory prevention of harassment training.',
-    tags: ['HR', 'Mandatory']
-  },
-]
+const STATE_LABEL: Record<string, string> = {
+  active: 'Active',
+  expiring: 'Expiring Soon',
+  expired: 'Expired',
+}
 
-const getStatusDetails = (status: CertificateStatus) => {
-  switch (status) {
-    case 'active':
-      return { variant: 'active' as const, label: 'Active' }
-    case 'expiring-soon':
-      return { variant: 'pending' as const, label: 'Expiring Soon' }
-    case 'expired':
-      return { variant: 'error' as const, label: 'Expired' }
+/** Reads naturally in both directions: "in 44 days" / "Expired 42 days ago". */
+function expiryHint(certificate: LearningCertificate) {
+  if (certificate.days_to_expiry === null) return 'Never expires'
+  if (certificate.days_to_expiry < 0) {
+    return `Expired ${Math.abs(certificate.days_to_expiry)} days ago`
   }
+  return `in ${certificate.days_to_expiry} days`
 }
 
-// ─── Components ─────────────────────────────────────────────────────────────
+function toCsv(rows: string[][], filename: string) {
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+  const blob = new Blob([rows.map((row) => row.map(escape).join(',')).join('\n')], {
+    type: 'text/csv;charset=utf-8;',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
-export function CertificationsRecords() {
-  const [activeTab, setActiveTab] = useState('certificates')
-  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null)
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  loading,
+}: {
+  label: string
+  value: number
+  sub: string
+  icon: React.ElementType
+  loading: boolean
+}) {
+  return (
+    <Card className="rounded-xl border-border/80 shadow-sm">
+      <CardContent className="p-4">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Icon className="size-4" /> {label}
+        </p>
+        {loading ? (
+          <Skeleton className="mt-1.5 h-7 w-12" />
+        ) : (
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-foreground">{value}</h3>
+        )}
+        <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
+  )
+}
 
-  const tabs = [
-    { id: 'certificates', label: 'Certificates' },
-    { id: 'transcript', label: 'Learning Transcript' },
-    { id: 'history', label: 'Completion History' },
-    { id: 'renewals', label: 'Renewals Due' },
-  ]
+/* ─── Shared certificate table ─────────────────────────────────────────────── */
+
+function CertificateTable({
+  certificates,
+  loading,
+  showLearner,
+  onSelect,
+  emptyTitle = 'No certificates yet',
+  emptyDescription = 'Certificates appear here once a course is completed.',
+}: {
+  certificates: LearningCertificate[]
+  loading: boolean
+  showLearner: boolean
+  onSelect: (certificate: LearningCertificate) => void
+  emptyTitle?: string
+  emptyDescription?: string
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2 rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={index} className="h-12 rounded-lg" />
+        ))}
+      </div>
+    )
+  }
+
+  if (certificates.length === 0) {
+    return (
+      <div className="rounded-xl border border-border/80 bg-card p-6 shadow-sm">
+        <EmptyState icon={<Award className="size-8" />} title={emptyTitle} description={emptyDescription} />
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Certificate</TableHead>
+            {showLearner && <TableHead>Learner</TableHead>}
+            <TableHead>Credential ID</TableHead>
+            <TableHead>Issued</TableHead>
+            <TableHead>Valid Until</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {certificates.map((certificate) => (
+            <TableRow
+              key={certificate.id}
+              className="cursor-pointer"
+              onClick={() => onSelect(certificate)}
+            >
+              <TableCell>
+                <div className="flex items-center gap-2.5">
+                  <Award
+                    className={cn(
+                      'size-4 shrink-0',
+                      certificate.expiry_state === 'expired'
+                        ? 'text-destructive'
+                        : certificate.expiry_state === 'expiring'
+                          ? 'text-warning'
+                          : 'text-success',
+                    )}
+                  />
+                  <span className="font-semibold text-foreground">
+                    {certificate.course_title ?? 'Certificate'}
+                  </span>
+                </div>
+              </TableCell>
+              {showLearner && (
+                <TableCell>
+                  {certificate.learner_name || '—'}
+                  {certificate.employee_no && (
+                    <span className="ml-1 text-[11px] text-muted-foreground">
+                      ({certificate.employee_no})
+                    </span>
+                  )}
+                </TableCell>
+              )}
+              <TableCell className="font-mono text-xs">{certificate.certificate_number}</TableCell>
+              <TableCell>{formatDate(certificate.issued_at)}</TableCell>
+              <TableCell>
+                {certificate.expires_at ? (
+                  <div className="flex flex-col">
+                    <span>{formatDate(certificate.expires_at)}</span>
+                    <span
+                      className={cn(
+                        'text-[11px]',
+                        certificate.expiry_state === 'expired'
+                          ? 'text-destructive'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {expiryHint(certificate)}
+                    </span>
+                  </div>
+                ) : (
+                  'Never'
+                )}
+              </TableCell>
+              <TableCell>
+                <StatusBadge
+                  variant={STATE_VARIANT[certificate.expiry_state] ?? 'active'}
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                >
+                  {STATE_LABEL[certificate.expiry_state] ?? certificate.expiry_state}
+                </StatusBadge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+/* ─── Page ─────────────────────────────────────────────────────────────────── */
+
+export function CertificationsRecords() {
+  const {
+    certificates, transcript, history, renewals,
+    kpis, warningDays, isOrgWide,
+    loading, error, reload,
+    search, setSearch, statusFilter, setStatusFilter,
+    filteredCertificates,
+    canReissue, certificateUrl, reissue, verify,
+    busy, message, actionError, dismiss,
+  } = useCertifications()
+
+  const [activeTab, setActiveTab] = useState('certificates')
+  const [selected, setSelected] = useState<LearningCertificate | null>(null)
+  const [confirmReissue, setConfirmReissue] = useState<LearningCertificate | null>(null)
+  const [verification, setVerification] = useState<CertificateVerification | null>(null)
+
+  const tabs = [
+    { id: 'certificates', label: 'Certificates', badge: certificates.length },
+    { id: 'transcript', label: 'Learning Transcript', badge: transcript.length },
+    { id: 'history', label: 'Completion History', badge: history.length },
+    { id: 'renewals', label: 'Renewals Due', badge: renewals.length },
+  ]
+
+  const exportCertificates = () =>
+    toCsv(
+      [
+        ['Credential ID', ...(isOrgWide ? ['Learner'] : []), 'Course', 'Issued', 'Valid Until', 'Status'],
+        ...filteredCertificates.map((certificate) => [
+          certificate.certificate_number,
+          ...(isOrgWide ? [certificate.learner_name ?? ''] : []),
+          certificate.course_title ?? '',
+          formatDate(certificate.issued_at),
+          certificate.expires_at ? formatDate(certificate.expires_at) : 'Never',
+          STATE_LABEL[certificate.expiry_state] ?? certificate.expiry_state,
+        ]),
+      ],
+      `certificates-${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+
+  const exportTranscript = () =>
+    toCsv(
+      [
+        ['Course', 'Category', 'Started', 'Completed'],
+        ...transcript.map((course) => [
+          course.display_name ?? '',
+          course.subject_category ?? '',
+          formatDate(course.start_date),
+          formatDate(course.end_date),
+        ]),
+      ],
+      `transcript-${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+
+  if (error && !loading && certificates.length === 0) {
+    return (
+      <div className="p-6">
+        <ErrorState title="Couldn't load records" description={error} retry={reload} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Certifications & Learning Records
+            Certifications &amp; Records
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            View your certificates, learning transcripts, completion history and renewal status.
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isOrgWide
+              ? 'Certificates and completion records across your organisation.'
+              : 'Your certificates and completed learning.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-9">
-            <Download className="mr-2 size-4" /> Export
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={exportCertificates}
+            disabled={filteredCertificates.length === 0}
+          >
+            <Download className="size-4" /> Export
           </Button>
-          <Button size="sm" className="h-9 bg-primary text-primary-foreground">
-            <Download className="mr-2 size-4" /> Download Transcript
+          <Button className="gap-2" onClick={exportTranscript} disabled={transcript.length === 0}>
+            <Download className="size-4" /> Download Transcript
           </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-border/60">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <KpiCard label="Active Certificates" value={kpis.active} sub="Currently valid" icon={Award} loading={loading} />
+        <KpiCard
+          label="Expiring Soon"
+          value={kpis.expiring}
+          sub={`Within ${warningDays} days`}
+          icon={Clock}
+          loading={loading}
+        />
+        <KpiCard label="Expired" value={kpis.expired} sub="Require renewal" icon={AlertCircle} loading={loading} />
+        <KpiCard label="Total Earned" value={kpis.total} sub="All time" icon={Award} loading={loading} />
+      </div>
+
+      <div className="flex items-center gap-6 overflow-x-auto border-b border-border/60">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'relative flex items-center gap-2 -mb-px pb-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring whitespace-nowrap',
-              activeTab === tab.id
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
+              'relative flex items-center gap-2 whitespace-nowrap pb-3 text-sm font-semibold outline-none transition-colors',
+              activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {tab.label}
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+              {tab.badge}
+            </span>
             {activeTab === tab.id && (
-              <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-primary" />
+              <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-t-full bg-primary" />
             )}
           </button>
         ))}
       </div>
 
       {activeTab === 'certificates' && (
-        <div className="flex flex-col gap-6">
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STATS.map((stat, i) => {
-              const Icon = stat.icon
-              return (
-                <Card key={i} className="shadow-sm">
-                  <CardContent className="p-5 flex items-start gap-4">
-                    <div className="flex flex-col gap-1 min-w-0 flex-1">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
-                        {stat.label}
-                      </span>
-                      <div className="text-3xl font-bold text-foreground mt-1">
-                        {stat.value}
-                      </div>
-                      <span className="text-xs text-muted-foreground truncate mt-1">
-                        {stat.sub}
-                      </span>
-                    </div>
-                    <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0 border border-border/50">
-                      <Icon className="size-5 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-full sm:w-72">
+              <SearchInput
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={
+                  isOrgWide
+                    ? 'Search by course, credential or learner...'
+                    : 'Search by course or credential...'
+                }
+              />
+            </div>
+            <div className="w-44">
+              <Select
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(String(value))}
+                aria-label="Filter by status"
+                options={[
+                  { label: 'All statuses', value: '' },
+                  { label: 'Active', value: 'active' },
+                  { label: 'Expiring soon', value: 'expiring' },
+                  { label: 'Expired', value: 'expired' },
+                ]}
+              />
+            </div>
           </div>
 
-          {/* Toolbar & Table */}
-          <Card className="shadow-sm border-border/60">
-            <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="relative w-full sm:w-[320px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search certificates..."
-                  className="w-full h-9 pl-9 pr-4 rounded-md border border-border bg-background text-sm outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="h-9">
-                  <Filter className="mr-2 size-4" /> Filters
-                </Button>
-                <select className="h-9 rounded-md border border-border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring min-w-[120px]">
-                  <option>All Status</option>
-                  <option>Active</option>
-                  <option>Expiring Soon</option>
-                  <option>Expired</option>
-                </select>
-                <Button variant="outline" size="sm" className="h-9 gap-2">
-                  <Calendar className="size-4" /> Date Range <ChevronRight className="size-3 rotate-90" />
-                </Button>
-              </div>
-            </div>
+          <CertificateTable
+            certificates={filteredCertificates}
+            loading={loading}
+            showLearner={isOrgWide}
+            onSelect={setSelected}
+          />
+        </>
+      )}
 
+      {activeTab === 'transcript' && (
+        <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          ) : transcript.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<GraduationCap className="size-8" />}
+                title="No completed courses"
+                description="Courses you finish appear on your transcript."
+              />
+            </div>
+          ) : (
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="w-10 text-center">
-                    <input type="checkbox" className="rounded border-input" />
-                  </TableHead>
-                  <TableHead className="font-semibold">Certificate Name</TableHead>
-                  <TableHead className="font-semibold">Course</TableHead>
-                  <TableHead className="font-semibold">Issued On</TableHead>
-                  <TableHead className="font-semibold">Valid Until</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
+                <TableRow>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead>Completed</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {CERTIFICATES.map((cert) => {
-                  const statusInfo = getStatusDetails(cert.status)
-                  return (
-                    <TableRow 
-                      key={cert.id} 
-                      className="hover:bg-muted/30 cursor-pointer"
-                      onClick={() => setSelectedCert(cert)}
-                    >
-                      <TableCell className="text-center">
-                        <input type="checkbox" className="rounded border-input" onClick={e => e.stopPropagation()} />
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground">
-                        {cert.name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cert.course}
-                      </TableCell>
-                      <TableCell>{cert.issuedOn}</TableCell>
-                      <TableCell>{cert.validUntil}</TableCell>
-                      <TableCell>
-                        <StatusBadge variant={statusInfo.variant} className="font-medium">
-                          {statusInfo.label}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="size-8" onClick={() => setSelectedCert(cert)}>
-                            <Eye className="size-4 text-muted-foreground" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="size-8">
-                            <Download className="size-4 text-muted-foreground" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="size-8">
-                            <MoreVertical className="size-4 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                {transcript.map((course) => (
+                  <TableRow key={course.enrollment_id ?? course.id}>
+                    <TableCell className="font-semibold text-foreground">
+                      {course.display_name ?? 'Untitled course'}
+                    </TableCell>
+                    <TableCell>{course.subject_category || '—'}</TableCell>
+                    <TableCell>{formatDate(course.start_date)}</TableCell>
+                    <TableCell>{formatDate(course.end_date)}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-            
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/60">
-              <span className="text-sm text-muted-foreground">
-                Showing 1 to 8 of 18 results
-              </span>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <select className="h-8 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none">
-                    <option>10 per page</option>
-                    <option>20 per page</option>
-                    <option>50 per page</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" className="size-8 text-muted-foreground" disabled>
-                    <ChevronLeft className="size-4 shrink-0" />
-                    <ChevronLeft className="size-4 shrink-0 -ml-2" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="size-8 text-muted-foreground" disabled>
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="size-8 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground">1</Button>
-                  <Button variant="outline" size="icon" className="size-8">2</Button>
-                  <Button variant="outline" size="icon" className="size-8">
-                    <ChevronRight className="size-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="size-8">
-                    <ChevronRight className="size-4 shrink-0" />
-                    <ChevronRight className="size-4 shrink-0 -ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
+          )}
         </div>
       )}
 
-      {/* Detail Sheet */}
-      <Sheet open={!!selectedCert} onOpenChange={(open) => !open && setSelectedCert(null)}>
-        <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
-          {selectedCert && (
-            <>
-              {/* Header */}
-              <div className="p-6 border-b border-border/60 bg-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="pr-6">
-                    <h2 className="text-xl font-bold tracking-tight text-foreground leading-tight mb-3">
-                      {selectedCert.name}
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <StatusBadge variant={getStatusDetails(selectedCert.status).variant}>
-                        {getStatusDetails(selectedCert.status).label}
+      {activeTab === 'history' && (
+        <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          ) : history.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<GraduationCap className="size-8" />}
+                title="No learning history"
+                description="Courses you are enrolled in appear here with their progress."
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Lessons</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Due</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.map((course) => (
+                  <TableRow key={course.id}>
+                    <TableCell className="font-semibold text-foreground">
+                      {course.display_name ?? 'Untitled course'}
+                    </TableCell>
+                    <TableCell>
+                      {course.completed_content}/{course.total_content}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex w-28 flex-col gap-1">
+                        <span className="text-[11px] font-bold text-foreground">
+                          {course.progress_percent}%
+                        </span>
+                        <Progress
+                          value={course.progress_percent}
+                          className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        variant={course.enrollment_status === 'completed' ? 'active' : 'processing'}
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        {course.enrollment_status ?? '—'}
                       </StatusBadge>
-                      <span className="text-sm text-muted-foreground">
-                        Certificate ID: {selectedCert.credentialId}
+                    </TableCell>
+                    <TableCell>{formatDate(course.end_date)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'renewals' && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Certificates expiring within {warningDays} days, or already expired — soonest first.
+          </p>
+          <CertificateTable
+            certificates={renewals}
+            loading={loading}
+            showLearner={isOrgWide}
+            onSelect={setSelected}
+            emptyTitle="Nothing to renew"
+            emptyDescription={`No certificate expires within ${warningDays} days.`}
+          />
+        </>
+      )}
+
+      <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+        <SheetContent className="overflow-y-auto sm:max-w-md">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{selected.course_title ?? 'Certificate'}</SheetTitle>
+                <SheetDescription className="font-mono text-xs">
+                  {selected.certificate_number}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="flex flex-col gap-4 pt-2">
+                <StatusBadge
+                  variant={STATE_VARIANT[selected.expiry_state] ?? 'active'}
+                  className="w-fit text-[10px] font-bold uppercase tracking-wider"
+                >
+                  {STATE_LABEL[selected.expiry_state] ?? selected.expiry_state}
+                </StatusBadge>
+
+                <div className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+                  {isOrgWide && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Learner</span>
+                      <span className="font-semibold text-foreground">
+                        {selected.learner_name || '—'}
+                        {selected.employee_no ? ` (${selected.employee_no})` : ''}
                       </span>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="size-8 shrink-0 -mr-2 -mt-2" onClick={() => setSelectedCert(null)}>
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="px-6 border-b border-border/60 bg-card flex items-center gap-5 overflow-x-auto g2g-scrollbar">
-                <button className="py-3 text-sm font-semibold text-primary border-b-2 border-primary -mb-px whitespace-nowrap">
-                  Overview
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground whitespace-nowrap">
-                  Details
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground whitespace-nowrap">
-                  Renewal
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground whitespace-nowrap">
-                  Attachments
-                </button>
-                <button className="py-3 text-sm font-medium text-muted-foreground hover:text-foreground whitespace-nowrap">
-                  Activity
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 bg-background">
-                
-                {/* Visual Preview & Quick Meta */}
-                <div className="flex flex-col sm:flex-row gap-6">
-                  {/* Visual Preview Placeholder */}
-                  <div className="w-[160px] h-[120px] bg-muted border border-border rounded-md flex items-center justify-center shrink-0 relative overflow-hidden shadow-sm">
-                    <FileText className="size-12 text-muted-foreground/30" />
-                    <div className="absolute bottom-2 right-2 size-6 rounded-full bg-primary/20 flex items-center justify-center">
-                      <Award className="size-3 text-primary" />
-                    </div>
-                    {/* Simulated lines */}
-                    <div className="absolute top-4 left-4 w-12 h-1 bg-border/80 rounded-full" />
-                    <div className="absolute top-8 left-4 w-24 h-1 bg-border/80 rounded-full" />
-                    <div className="absolute top-12 left-4 w-20 h-1 bg-border/80 rounded-full" />
-                  </div>
-                  
-                  <div className="flex flex-col gap-3 justify-center">
-                    <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
-                      <span className="text-xs text-muted-foreground font-medium">Course</span>
-                      <span className="text-sm font-medium text-foreground">{selectedCert.course}</span>
-                    </div>
-                    <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
-                      <span className="text-xs text-muted-foreground font-medium">Issued On</span>
-                      <span className="text-sm font-medium text-foreground">{selectedCert.issuedOn}</span>
-                    </div>
-                    <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
-                      <span className="text-xs text-muted-foreground font-medium">Valid Until</span>
-                      <span className="text-sm font-medium text-foreground flex items-center gap-1.5 flex-wrap">
-                        {selectedCert.validUntil}
-                        {selectedCert.status === 'expiring-soon' && (
-                          <span className="text-xs text-amber-500 font-semibold">(in {selectedCert.daysToExpiry} days)</span>
-                        )}
-                        {selectedCert.status === 'expired' && (
-                          <span className="text-xs text-destructive font-semibold">(Expired)</span>
-                        )}
+                    </>
+                  )}
+                  <span className="font-medium text-muted-foreground">Issued on</span>
+                  <span className="font-semibold text-foreground">{formatDate(selected.issued_at)}</span>
+                  <span className="font-medium text-muted-foreground">Valid until</span>
+                  <span className="font-semibold text-foreground">
+                    {selected.expires_at ? formatDate(selected.expires_at) : 'Never expires'}
+                  </span>
+                  <span className="font-medium text-muted-foreground">Expiry</span>
+                  <span className="font-semibold text-foreground">{expiryHint(selected)}</span>
+                  {selected.subject_category && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Category</span>
+                      <span className="font-semibold text-foreground">{selected.subject_category}</span>
+                    </>
+                  )}
+                  {selected.verification_code && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Verify code</span>
+                      <span className="font-mono text-xs font-semibold text-foreground">
+                        {selected.verification_code}
                       </span>
-                    </div>
-                    <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
-                      <span className="text-xs text-muted-foreground font-medium">Credential ID</span>
-                      <span className="text-sm font-medium text-foreground">{selectedCert.credentialId}</span>
-                    </div>
-                  </div>
+                    </>
+                  )}
+                  {/* Renewal lineage: only shown once a chain exists. */}
+                  {selected.supersedes && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Replaces</span>
+                      <span className="font-semibold text-foreground">
+                        certificate #{selected.supersedes}
+                      </span>
+                    </>
+                  )}
+                  {selected.superseded_by && (
+                    <>
+                      <span className="font-medium text-muted-foreground">Replaced by</span>
+                      <span className="font-semibold text-foreground">
+                        certificate #{selected.superseded_by}
+                      </span>
+                    </>
+                  )}
                 </div>
 
-                <Button variant="outline" className="w-full flex items-center justify-center gap-2 border-primary text-primary hover:bg-primary/5">
-                  <Download className="size-4" /> Download Certificate
-                </Button>
-
-                <div className="h-px bg-border/60 w-full" />
-
-                {/* Description */}
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">Description</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {selectedCert.description}
+                {selected.description && (
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {selected.description}
                   </p>
-                </div>
+                )}
 
-                {/* Related Information */}
-                <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-foreground">Related Information</h3>
-                  
-                  <div className="flex items-center justify-between p-3 rounded-md border border-border/60 bg-card">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-md text-muted-foreground">
-                        <BookOpen className="size-4" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-muted-foreground">Course</span>
-                        <span className="text-sm font-medium">{selectedCert.course}</span>
-                      </div>
-                    </div>
-                    <Button variant="link" size="sm" className="text-primary h-auto p-0">
-                      View Course
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-md border border-border/60 bg-card">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-md text-muted-foreground">
-                        <User className="size-4" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-muted-foreground">Issued To</span>
-                        <span className="text-sm font-medium">John Doe</span>
-                        <span className="text-xs text-muted-foreground">Employee ID: EMP-10052</span>
-                      </div>
-                    </div>
-                    <Button variant="link" size="sm" className="text-primary h-auto p-0">
-                      View Profile
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                {selectedCert.tags && selectedCert.tags.length > 0 && (
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-sm font-semibold text-foreground">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCert.tags.map((tag, idx) => (
-                        <Badge key={idx} variant="secondary" className="font-normal bg-muted text-muted-foreground">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
+                {selected.tags && selected.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 )}
 
+                {/* The competency link is what makes a certificate more than a document. */}
+                {selected.skill_title && (
+                  <p className="rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+                    Counts towards{' '}
+                    <span className="font-semibold text-foreground">{selected.skill_title}</span> in
+                    the competency framework.
+                  </p>
+                )}
+
+                {verification && (
+                  <div
+                    className={cn(
+                      'rounded-lg border p-3 text-xs',
+                      verification.valid
+                        ? 'border-success/40 bg-success/10 text-success'
+                        : 'border-destructive/40 bg-destructive/10 text-destructive',
+                    )}
+                  >
+                    <p className="font-semibold">
+                      {verification.valid ? 'Valid credential' : 'Not valid'}
+                    </p>
+                    <p className="mt-0.5 opacity-90">{verification.message}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {/* A navigation, not a fetch: the browser's download manager
+                      handles the binary body and keeps the server's filename. */}
+                  <Button asChild variant="outline" className="gap-2">
+                    <a
+                      href={certificateUrl(selected.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="size-4" /> Download PDF
+                    </a>
+                  </Button>
+
+                  {selected.verification_code && (
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      disabled={busy}
+                      onClick={() => {
+                        void verify(selected.verification_code as string).then(setVerification)
+                      }}
+                    >
+                      <ShieldCheck className="size-4" /> Verify
+                    </Button>
+                  )}
+
+                  {/* Re-issue is non-destructive — it supersedes rather than
+                      replaces — but it still creates a credential, so it is
+                      confirmed and admin/HR only. */}
+                  {canReissue && !selected.superseded_by && (
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      disabled={busy}
+                      onClick={() => setConfirmReissue(selected)}
+                    >
+                      <RefreshCw className="size-4" /> Re-issue
+                    </Button>
+                  )}
+                </div>
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={confirmReissue !== null}
+        onOpenChange={(open) => !open && setConfirmReissue(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-issue this certificate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmReissue?.certificate_number} will be marked superseded and kept on
+              record. A new credential is issued with a fresh validity period —{' '}
+              {confirmReissue?.learner_name || 'the learner'}&apos;s course progress is not
+              affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmReissue(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                const target = confirmReissue
+                if (!target) return
+                void reissue(target.id).then((result) => {
+                  setConfirmReissue(null)
+                  // The open sheet still holds the superseded row; close it so the
+                  // user is not looking at a credential that is no longer current.
+                  if (result.ok) {
+                    setSelected(null)
+                    setVerification(null)
+                  }
+                })
+              }}
+            >
+              {busy ? 'Re-issuing…' : 'Re-issue'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {(message || actionError) && (
+        <div
+          className={cn(
+            'fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
+            actionError
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-success/40 bg-success/10 text-success',
+          )}
+        >
+          <span className="font-medium">{actionError ?? message}</span>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="text-xs font-bold uppercase tracking-wide opacity-70 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,179 +2,75 @@
 
 import React, { useState } from 'react'
 import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize2,
+  AlertTriangle,
+  ArrowLeft,
+  Award,
+  BookOpen,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Download,
-  FileText,
-  CheckCircle2,
   Circle,
-  Clock,
-  CalendarDays,
-  BookOpen,
-  MessageSquare,
   ClipboardCheck,
-  StickyNote,
-  Lock,
-  PlayCircle,
-  Award,
-  Info,
-  Plus,
-  Send,
-  Subtitles,
+  Clock,
+  Download,
+  ExternalLink,
+  FileText,
+  GraduationCap,
   Image as ImageIcon,
+  Loader2,
   Pencil,
+  Plus,
+  Lock,
+  MessageSquare,
+  PlayCircle,
+  Send,
+  StickyNote,
   Trash2,
-  Save,
+  X,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { format } from 'date-fns'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/use-auth'
+import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
+import {
+  AuthoringDeleteDialog,
+  ChapterFormSheet,
+  type AuthoringTarget,
+} from './course-authoring'
+import type {
+  Discussion,
+  LearningAssessment,
+  LearningCertificate,
+  LearningCourseSummary,
+  LearningNote,
+} from '@/services/lms'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-interface Lesson {
-  id: string
-  moduleId: string
-  title: string
-  type: 'video' | 'quiz' | 'document' | 'interactive'
-  duration: string
-  status: 'completed' | 'in-progress' | 'not-started' | 'locked'
-  order: number
+function formatDate(value: string | null) {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : format(parsed, 'dd MMM yyyy')
 }
 
-interface CourseModule {
-  id: string
-  title: string
-  lessons: Lesson[]
-  order: number
+/** file_type drives how a lesson renders: mp4 / pdf / link / jpg are what exist. */
+function lessonKind(fileType: string | null): 'video' | 'pdf' | 'image' | 'link' | 'unknown' {
+  const type = (fileType ?? '').toLowerCase()
+  if (type === 'mp4' || type === 'video') return 'video'
+  if (type === 'pdf') return 'pdf'
+  if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
+  if (type === 'link' || type === 'url') return 'link'
+  return 'unknown'
 }
 
-interface CourseMaterial {
-  id: string
-  name: string
-  size: string
-  type: string
-}
-
-interface Note {
-  id: string
-  timestamp: string
-  lessonTitle: string
-  content: string
-  createdAt: string
-}
-
-interface DiscussionMessage {
-  id: string
-  author: string
-  initials: string
-  content: string
-  timestamp: string
-  replies: number
-  isInstructor?: boolean
-}
-
-interface Assessment {
-  id: string
-  title: string
-  type: 'quiz' | 'assignment' | 'final-exam'
-  questions: number
-  duration: string
-  status: 'completed' | 'not-started' | 'in-progress'
-  score?: number
-  passingScore: number
-  attempts: number
-  maxAttempts: number
-  associatedLesson?: string
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const COURSE_DATA = {
-  id: 'course-001',
-  title: 'Effective Communication Skills',
-  type: 'Course',
-  duration: '2h 45m',
-  language: 'English',
-  dueDate: '28 Jun 2025',
-  daysLeft: 10,
-  status: 'In Progress' as const,
-  completedLessons: 2,
-  totalLessons: 5,
-  inProgressLessons: 1,
-  notStartedLessons: 2,
-  totalDuration: '2h 45m',
-  timeSpent: '1h 8m',
-  progressPercent: 40,
-}
-
-const COURSE_MODULES: CourseModule[] = [
-  {
-    id: 'mod-1',
-    title: 'Module 1: Fundamentals of Communication',
-    order: 1,
-    lessons: [
-      { id: 'l-1', moduleId: 'mod-1', title: '1.1 Introduction to Effective Communication', type: 'video', duration: '15m', status: 'completed', order: 1 },
-      { id: 'l-2', moduleId: 'mod-1', title: '1.2 Barriers to Communication', type: 'video', duration: '12m', status: 'in-progress', order: 2 },
-      { id: 'l-3', moduleId: 'mod-1', title: '1.3 Communication Basics Quiz', type: 'quiz', duration: '10 Questions', status: 'not-started', order: 3 },
-    ],
-  },
-  {
-    id: 'mod-2',
-    title: 'Module 2: Verbal Communication',
-    order: 2,
-    lessons: [
-      { id: 'l-4', moduleId: 'mod-2', title: '2.1 Verbal Communication', type: 'video', duration: '15m', status: 'not-started', order: 1 },
-      { id: 'l-5', moduleId: 'mod-2', title: '2.2 Active Listening Skills', type: 'video', duration: '18m', status: 'locked', order: 2 },
-      { id: 'l-6', moduleId: 'mod-2', title: '2.3 Verbal Communication Assessment', type: 'quiz', duration: '15 Questions', status: 'locked', order: 3 },
-    ],
-  },
-  {
-    id: 'mod-3',
-    title: 'Module 3: Non-Verbal & Written Communication',
-    order: 3,
-    lessons: [
-      { id: 'l-7', moduleId: 'mod-3', title: '3.1 Body Language & Non-Verbal Cues', type: 'video', duration: '20m', status: 'locked', order: 1 },
-      { id: 'l-8', moduleId: 'mod-3', title: '3.2 Professional Writing Skills', type: 'document', duration: '25m', status: 'locked', order: 2 },
-      { id: 'l-9', moduleId: 'mod-3', title: '3.3 Final Assessment', type: 'quiz', duration: '20 Questions', status: 'locked', order: 3 },
-    ],
-  },
-]
-
-const MATERIALS: CourseMaterial[] = [
-  { id: 'mat-1', name: 'Participant Guide.pdf', size: '2.4 MB', type: 'PDF' },
-  { id: 'mat-2', name: 'Communication Models.pdf', size: '1.8 MB', type: 'PDF' },
-  { id: 'mat-3', name: 'Checklist.pdf', size: '1.2 MB', type: 'PDF' },
-]
-
-const ASSESSMENTS: Assessment[] = [
-  { id: 'a-1', title: 'Communication Basics Quiz', type: 'quiz', questions: 10, duration: '15m', status: 'not-started', passingScore: 70, attempts: 0, maxAttempts: 3, associatedLesson: '1.3' },
-  { id: 'a-2', title: 'Verbal Communication Assessment', type: 'quiz', questions: 15, duration: '20m', status: 'not-started', passingScore: 75, attempts: 0, maxAttempts: 2, associatedLesson: '2.3' },
-  { id: 'a-3', title: 'Final Course Assessment', type: 'final-exam', questions: 20, duration: '30m', status: 'not-started', passingScore: 80, attempts: 0, maxAttempts: 2 },
-]
-
-const NOTES: Note[] = [
-  { id: 'n-1', timestamp: '02:15', lessonTitle: '1.1 Introduction to Effective Communication', content: 'Key insight: Communication is 55% body language, 38% tone, and only 7% words.', createdAt: '25 Jun 2025' },
-  { id: 'n-2', timestamp: '08:42', lessonTitle: '1.1 Introduction to Effective Communication', content: 'Remember to practice the "mirror technique" in the next team meeting.', createdAt: '25 Jun 2025' },
-]
-
-const DISCUSSIONS: DiscussionMessage[] = [
-  { id: 'd-1', author: 'Priya Sharma', initials: 'PS', content: 'Can anyone share tips on how to overcome public speaking anxiety? I found lesson 1.1 very helpful but want more practice ideas.', timestamp: '2 hours ago', replies: 3 },
-  { id: 'd-2', author: 'Sarah Johnson', initials: 'SJ', content: 'The section on active listening was eye-opening. I recommend the recommended reading materials as well.', timestamp: '5 hours ago', replies: 1, isInstructor: true },
-  { id: 'd-3', author: 'Rahul Verma', initials: 'RV', content: 'Is there a study group forming for the final assessment? Would love to prepare together.', timestamp: '1 day ago', replies: 5 },
-]
-
-// ─── Sub-Components ──────────────────────────────────────────────────────────
-
-// Radial progress indicator for the course progress card
 function RadialProgress({ value, size = 80 }: { value: number; size?: number }) {
   const strokeWidth = 7
   const radius = (size - strokeWidth) / 2
@@ -184,15 +80,7 @@ function RadialProgress({ value, size = 80 }: { value: number; size?: number }) 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/60"
-        />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-muted/60" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -207,815 +95,708 @@ function RadialProgress({ value, size = 80 }: { value: number; size?: number }) 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-black tracking-tight text-foreground leading-none">{value}%</span>
-        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mt-0.5">Completed</span>
+        <span className="text-lg font-black leading-none tracking-tight text-foreground">{value}%</span>
+        <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Completed</span>
       </div>
     </div>
   )
 }
 
-// Course video player placeholder
-function CoursePlayer({
-  currentLesson,
-  onPrevious,
-  onNext,
-  hasPrevious,
-  hasNext,
+const STATUS_ICON: Record<string, React.ReactNode> = {
+  completed: <CheckCircle2 className="size-4 text-success" />,
+  'in-progress': <PlayCircle className="size-4 text-primary" />,
+  'not-started': <Circle className="size-4 text-muted-foreground/40" />,
+}
+
+/* ─── Course picker ────────────────────────────────────────────────────────── */
+
+function CoursePicker({
+  courses,
+  loading,
+  error,
+  onSelect,
+  onRetry,
 }: {
-  currentLesson: Lesson
-  onPrevious: () => void
-  onNext: () => void
-  hasPrevious: boolean
-  hasNext: boolean
+  courses: LearningCourseSummary[]
+  loading: boolean
+  error: string | null
+  onSelect: (id: number) => void
+  onRetry: () => void
 }) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [currentTime, setCurrentTime] = useState('10:15')
-  const [totalTime] = useState('45:00')
-  const [progressValue, setProgressValue] = useState(23)
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Player Area */}
-      <div className="relative w-full aspect-video bg-foreground/95 rounded-xl overflow-hidden group">
-        {/* Simulated video player */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="flex size-16 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm text-white transition-all hover:bg-white/25 hover:scale-105"
-          >
-            {isPlaying ? (
-              <Pause className="size-7" />
-            ) : (
-              <Play className="size-7 ml-1" />
-            )}
-          </button>
-        </div>
-
-        {/* Controls Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          {/* Progress bar */}
-          <div className="w-full mb-3">
-            <div className="relative h-1 bg-white/20 rounded-full cursor-pointer group/bar hover:h-1.5 transition-all">
-              <div
-                className="absolute top-0 left-0 h-full rounded-full bg-primary transition-all"
-                style={{ width: `${progressValue}%` }}
-              />
-              <div
-                className="absolute top-1/2 -translate-y-1/2 size-3 rounded-full bg-white shadow-md transition-opacity opacity-0 group-hover/bar:opacity-100"
-                style={{ left: `${progressValue}%`, transform: `translateX(-50%) translateY(-50%)` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="text-white/90 hover:text-white transition-colors"
-              >
-                {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-              </button>
-              <button onClick={() => setIsMuted(!isMuted)} className="text-white/90 hover:text-white transition-colors">
-                {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-              </button>
-              <span className="text-xs font-medium text-white/80 tabular-nums">
-                {currentTime} / {totalTime}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="text-white/90 hover:text-white transition-colors">
-                <Subtitles className="size-4" />
-              </button>
-              <span className="text-[11px] font-bold text-white/80 px-1.5 py-0.5 rounded bg-white/10">1x</span>
-              <button className="text-white/90 hover:text-white transition-colors">
-                <Maximize2 className="size-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Lesson Info + Navigation */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1 min-w-0">
-          <h3 className="text-base font-bold text-foreground leading-snug truncate">
-            {currentLesson.title}
-          </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Understand the fundamentals of communication and why it is essential in personal and professional life.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!hasPrevious}
-            onClick={onPrevious}
-            className="gap-1"
-          >
-            <ChevronLeft className="size-3.5" /> Previous
-          </Button>
-          <Button
-            size="sm"
-            disabled={!hasNext}
-            onClick={onNext}
-            className="gap-1"
-          >
-            Next <ChevronRight className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Lesson Progress Bar */}
-      <Card className="rounded-lg border-border/60 shadow-none">
-        <CardContent className="p-3 flex items-center gap-3">
-          <span className="text-xs font-bold text-foreground whitespace-nowrap">Lesson Progress</span>
-          <Progress value={20} className="h-2 flex-1 bg-muted-foreground/15 [&>div]:bg-primary" />
-          <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">
-            1 of 5 completed
-          </span>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// What's Next - upcoming lessons carousel
-function WhatsNextSection({
-  lessons,
-  onLessonSelect,
-}: {
-  lessons: Lesson[]
-  onLessonSelect: (lesson: Lesson) => void
-}) {
-  const upcoming = lessons.filter(l => l.status === 'not-started' || l.status === 'in-progress').slice(0, 4)
-
-  if (upcoming.length === 0) return null
-
-  return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-bold text-foreground">What&apos;s Next</h3>
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-        {upcoming.map((lesson) => (
-          <button
-            key={lesson.id}
-            onClick={() => onLessonSelect(lesson)}
-            className="flex items-center gap-3 min-w-[240px] max-w-[280px] p-3 rounded-xl border border-border/60 bg-card hover:bg-muted/30 transition-colors text-left group shrink-0"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:text-primary transition-colors">
-              {lesson.type === 'video' ? (
-                <PlayCircle className="size-5" />
-              ) : lesson.type === 'quiz' ? (
-                <ClipboardCheck className="size-5" />
-              ) : (
-                <FileText className="size-5" />
-              )}
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-semibold text-foreground leading-snug truncate">{lesson.title}</span>
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : 'Document'} · {lesson.duration}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Contents Tab - Course outline with modules and lessons
-function ContentsTab({
-  modules,
-  currentLessonId,
-  onLessonSelect,
-}: {
-  modules: CourseModule[]
-  currentLessonId: string
-  onLessonSelect: (lesson: Lesson) => void
-}) {
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(
-    new Set(modules.map(m => m.id))
-  )
-
-  const toggleModule = (moduleId: string) => {
-    setExpandedModules(prev => {
-      const next = new Set(prev)
-      if (next.has(moduleId)) next.delete(moduleId)
-      else next.add(moduleId)
-      return next
-    })
-  }
-
-  const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0)
-  const completedLessons = modules.reduce(
-    (acc, m) => acc + m.lessons.filter(l => l.status === 'completed').length,
-    0
-  )
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-base font-bold text-foreground">Course Contents</h3>
-          <p className="text-xs text-muted-foreground font-medium">
-            {completedLessons} of {totalLessons} lessons completed
-          </p>
-        </div>
-        <Progress value={(completedLessons / totalLessons) * 100} className="h-2 w-32 bg-muted-foreground/15 [&>div]:bg-primary" />
-      </div>
-
-      <div className="flex flex-col border border-border/80 rounded-xl overflow-hidden">
-        {modules.map((module) => (
-          <div key={module.id} className="border-b border-border/60 last:border-b-0">
-            {/* Module Header */}
-            <button
-              onClick={() => toggleModule(module.id)}
-              className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <ChevronRight className={cn(
-                  "size-4 text-muted-foreground transition-transform shrink-0",
-                  expandedModules.has(module.id) && "rotate-90"
-                )} />
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-sm font-bold text-foreground truncate">{module.title}</span>
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    {module.lessons.filter(l => l.status === 'completed').length} / {module.lessons.length} lessons
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            {/* Lessons */}
-            {expandedModules.has(module.id) && (
-              <div className="flex flex-col">
-                {module.lessons.map((lesson) => {
-                  const isActive = lesson.id === currentLessonId
-                  const isLocked = lesson.status === 'locked'
-
-                  return (
-                    <button
-                      key={lesson.id}
-                      onClick={() => !isLocked && onLessonSelect(lesson)}
-                      disabled={isLocked}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-2.5 pl-11 text-left transition-colors border-l-2",
-                        isActive
-                          ? "bg-primary/5 border-l-primary"
-                          : "border-l-transparent hover:bg-muted/20",
-                        isLocked && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className="shrink-0">
-                        {lesson.status === 'completed' ? (
-                          <CheckCircle2 className="size-4 text-success" />
-                        ) : lesson.status === 'in-progress' ? (
-                          <PlayCircle className="size-4 text-primary" />
-                        ) : lesson.status === 'locked' ? (
-                          <Lock className="size-4 text-muted-foreground/50" />
-                        ) : (
-                          <Circle className="size-4 text-muted-foreground/40" />
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                        <span className={cn(
-                          "text-sm font-medium truncate",
-                          isActive ? "text-primary font-semibold" : "text-foreground"
-                        )}>
-                          {lesson.title}
-                        </span>
-                        <span className="text-[11px] font-medium text-muted-foreground">
-                          {lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'document' ? 'Document' : 'Interactive'} · {lesson.duration}
-                        </span>
-                      </div>
-                      {isActive && (
-                        <Badge variant="navy" className="text-[10px] font-bold shrink-0">CURRENT</Badge>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Assessments Tab
-function AssessmentsTab({ assessments }: { assessments: Assessment[] }) {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-base font-bold text-foreground">Assessments</h3>
-          <p className="text-xs text-muted-foreground font-medium">
-            {assessments.filter(a => a.status === 'completed').length} of {assessments.length} completed
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {assessments.map((assessment) => (
-          <Card key={assessment.id} className="rounded-xl border-border/60 shadow-none hover:shadow-sm transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-lg",
-                    assessment.status === 'completed'
-                      ? "bg-success/10 text-success"
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    <ClipboardCheck className="size-5" />
-                  </div>
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <h4 className="text-sm font-bold text-foreground leading-snug">{assessment.title}</h4>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                      <span>{assessment.questions} Questions</span>
-                      <span className="size-1 rounded-full bg-muted-foreground/30" />
-                      <span>{assessment.duration}</span>
-                      <span className="size-1 rounded-full bg-muted-foreground/30" />
-                      <span>Passing Score: {assessment.passingScore}%</span>
-                      <span className="size-1 rounded-full bg-muted-foreground/30" />
-                      <span>{assessment.attempts}/{assessment.maxAttempts} attempts used</span>
-                    </div>
-                    {assessment.score !== undefined && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={cn(
-                          "text-xs font-bold",
-                          assessment.score >= assessment.passingScore ? "text-success" : "text-destructive"
-                        )}>
-                          Score: {assessment.score}%
-                        </span>
-                        <Badge
-                          variant={assessment.score >= assessment.passingScore ? 'success' : 'destructive'}
-                          className="text-[10px] font-bold"
-                        >
-                          {assessment.score >= assessment.passingScore ? 'PASSED' : 'FAILED'}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  {assessment.status === 'completed' ? (
-                    <StatusBadge variant="active" className="text-[10px] uppercase font-bold tracking-wider">
-                      Completed
-                    </StatusBadge>
-                  ) : assessment.status === 'in-progress' ? (
-                    <Button size="sm" className="gap-1 text-xs">
-                      <PlayCircle className="size-3.5" /> Continue
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" className="gap-1 text-xs">
-                      <PlayCircle className="size-3.5" /> Start
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Notes Tab
-function NotesTab({ notes: initialNotes }: { notes: Note[] }) {
-  const [notes, setNotes] = useState(initialNotes)
-  const [newNote, setNewNote] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editContent, setEditContent] = useState('')
-
-  const handleAddNote = () => {
-    if (!newNote.trim()) return
-    const note: Note = {
-      id: `n-${Date.now()}`,
-      timestamp: '10:15',
-      lessonTitle: '1.2 Barriers to Communication',
-      content: newNote,
-      createdAt: 'Today',
-    }
-    setNotes([note, ...notes])
-    setNewNote('')
-  }
-
-  const handleDelete = (id: string) => {
-    setNotes(notes.filter(n => n.id !== id))
-  }
-
-  const handleEdit = (note: Note) => {
-    setEditingId(note.id)
-    setEditContent(note.content)
-  }
-
-  const handleSaveEdit = (id: string) => {
-    setNotes(notes.map(n => n.id === id ? { ...n, content: editContent } : n))
-    setEditingId(null)
-    setEditContent('')
+  if (error && !loading && courses.length === 0) {
+    return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-base font-bold text-foreground">My Notes</h3>
-        <p className="text-xs text-muted-foreground font-medium">
-          Personal notes are private and only visible to you
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">My Learning</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pick a course to continue where you left off.
         </p>
       </div>
 
-      {/* Add New Note */}
-      <Card className="rounded-xl border-border/60 shadow-none">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-3">
-            <textarea
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Add a note about the current lesson..."
-              className="w-full h-20 resize-none rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary/50 transition-colors"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Linked to: 1.2 Barriers to Communication @ 10:15
-              </span>
-              <Button
-                size="sm"
-                onClick={handleAddNote}
-                disabled={!newNote.trim()}
-                className="gap-1"
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-40 rounded-xl" />
+          ))}
+        </div>
+      ) : courses.length === 0 ? (
+        <EmptyState
+          icon={<GraduationCap className="size-8" />}
+          title="No enrolled courses"
+          description="Enrol from the learning catalogue to start learning."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {courses.map((course) => {
+            const due = formatDate(course.end_date)
+            const overdue =
+              course.end_date &&
+              new Date(course.end_date) < new Date() &&
+              course.enrollment_status !== 'completed'
+
+            return (
+              <button
+                key={course.id}
+                type="button"
+                onClick={() => onSelect(course.id)}
+                className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
               >
-                <Plus className="size-3.5" /> Add Note
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notes List */}
-      <div className="flex flex-col gap-3">
-        {notes.map((note) => (
-          <Card key={note.id} className="rounded-xl border-border/60 shadow-none">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-col gap-2 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                    <Badge variant="muted" className="text-[10px] font-bold gap-1">
-                      <Clock className="size-2.5" /> {note.timestamp}
-                    </Badge>
-                    <span>{note.lessonTitle}</span>
+                <div className="flex items-start gap-3">
+                  <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
+                    {course.display_image && course.display_image !== '/' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={course.display_image} alt="" className="size-full object-cover" />
+                    ) : (
+                      <ImageIcon className="size-5 text-muted-foreground/40" />
+                    )}
                   </div>
-                  {editingId === note.id ? (
-                    <div className="flex flex-col gap-2">
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full h-16 resize-none rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary/50 transition-colors"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button size="xs" onClick={() => handleSaveEdit(note.id)} className="gap-1">
-                          <Save className="size-3" /> Save
-                        </Button>
-                        <Button size="xs" variant="ghost" onClick={() => setEditingId(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-foreground leading-relaxed">{note.content}</p>
-                  )}
-                  <span className="text-[10px] text-muted-foreground font-medium">{note.createdAt}</span>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                      {course.display_name ?? 'Untitled course'}
+                    </h3>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {[course.subject_type, course.standard_name].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                  </div>
                 </div>
-                {editingId !== note.id && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button size="icon-xs" variant="ghost" onClick={() => handleEdit(note)} className="text-muted-foreground hover:text-foreground">
-                      <Pencil className="size-3" />
-                    </Button>
-                    <Button size="icon-xs" variant="ghost" onClick={() => handleDelete(note.id)} className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      {notes.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="flex size-12 items-center justify-center rounded-lg bg-muted/50 mb-3">
-            <StickyNote className="size-6 text-muted-foreground/40" />
-          </div>
-          <p className="text-sm font-semibold text-foreground">No notes yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Start taking notes while you learn</p>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="text-muted-foreground">
+                      {course.completed_content}/{course.total_content} lessons
+                    </span>
+                    <span className="text-foreground">{course.progress_percent}%</span>
+                  </div>
+                  <Progress
+                    value={course.progress_percent}
+                    className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <StatusBadge
+                    variant={
+                      course.enrollment_status === 'completed'
+                        ? 'success'
+                        : overdue
+                          ? 'error'
+                          : 'processing'
+                    }
+                    size="sm"
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    {course.enrollment_status === 'completed'
+                      ? 'Completed'
+                      : overdue
+                        ? 'Overdue'
+                        : 'In Progress'}
+                  </StatusBadge>
+                  {due && <span className="text-[11px] text-muted-foreground">Due {due}</span>}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
 
-// Discussions Tab
-function DiscussionsTab({ discussions: initialDiscussions }: { discussions: DiscussionMessage[] }) {
-  const [discussions] = useState(initialDiscussions)
-  const [newMessage, setNewMessage] = useState('')
+/* ─── Lesson viewer ────────────────────────────────────────────────────────── */
+
+function LessonViewer({
+  lesson,
+  onComplete,
+  onPositionSave,
+}: {
+  lesson: FlatLesson
+  onComplete: () => void
+  onPositionSave: (seconds: number) => void
+}) {
+  const kind = lessonKind(lesson.file_type)
+  const src = lesson.filename || lesson.url || ''
+
+  if (!src) {
+    return (
+      <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
+        <p className="text-sm text-muted-foreground">This lesson has no attached media.</p>
+      </div>
+    )
+  }
+
+  if (kind === 'video') {
+    return (
+      <video
+        key={lesson.id}
+        controls
+        className="aspect-video w-full rounded-xl bg-foreground/95"
+        // Resume from where the learner stopped.
+        onLoadedMetadata={(event) => {
+          const el = event.currentTarget
+          if (lesson.last_position_seconds) el.currentTime = lesson.last_position_seconds
+        }}
+        onPause={(event) => onPositionSave(Math.floor(event.currentTarget.currentTime))}
+        onEnded={onComplete}
+      >
+        <source src={src} />
+        Your browser does not support embedded video.
+      </video>
+    )
+  }
+
+  if (kind === 'image') {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt={lesson.title ?? ''} className="w-full rounded-xl border border-border/60" />
+    )
+  }
+
+  if (kind === 'pdf') {
+    return (
+      <div className="flex flex-col gap-2">
+        <iframe src={src} title={lesson.title ?? 'Lesson'} className="aspect-video w-full rounded-xl border border-border/60" />
+        <a href={src} target="_blank" rel="noopener noreferrer" className="self-start">
+          <Button variant="outline" size="sm" className="gap-2">
+            <ExternalLink className="size-3.5" /> Open in a new tab
+          </Button>
+        </a>
+      </div>
+    )
+  }
+
+  // `link` covers externally hosted files - the CDN stores some PDFs this way.
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-10">
+      <FileText className="size-10 text-muted-foreground/40" />
+      <p className="text-sm text-muted-foreground">This lesson opens in a new tab.</p>
+      <a href={src} target="_blank" rel="noopener noreferrer">
+        <Button className="gap-2">
+          <ExternalLink className="size-4" /> Open lesson
+        </Button>
+      </a>
+    </div>
+  )
+}
+
+/* ─── Notes tab ────────────────────────────────────────────────────────────── */
+
+function NotesTab({
+  notes,
+  loading,
+  currentLesson,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: {
+  notes: LearningNote[]
+  loading: boolean
+  currentLesson: FlatLesson | null
+  onCreate: (note: string, contentId: number | null, chapterId: number | null) => void
+  onUpdate: (id: number, note: string) => void
+  onDelete: (id: number) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState('')
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-base font-bold text-foreground">Discussions</h3>
-          <p className="text-xs text-muted-foreground font-medium">
-            {discussions.length} discussions in this course
-          </p>
-        </div>
+      <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4">
+        <label htmlFor="new-note" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          New note{currentLesson ? ` on "${currentLesson.title}"` : ''}
+        </label>
+        <Textarea
+          id="new-note"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          rows={3}
+          placeholder="Write a note…"
+        />
+        <Button
+          size="sm"
+          className="self-end"
+          disabled={!draft.trim()}
+          onClick={() => {
+            onCreate(draft.trim(), currentLesson?.id ?? null, currentLesson?.chapterId ?? null)
+            setDraft('')
+          }}
+        >
+          Save note
+        </Button>
       </div>
 
-      {/* New Discussion */}
-      <Card className="rounded-xl border-border/60 shadow-none">
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-              AM
-            </div>
-            <div className="flex flex-col gap-2 flex-1">
-              <textarea
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Start a discussion or ask a question..."
-                className="w-full h-16 resize-none rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary/50 transition-colors"
-              />
-              <div className="flex justify-end">
-                <Button size="sm" disabled={!newMessage.trim()} className="gap-1">
-                  <Send className="size-3.5" /> Post
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Discussion Threads */}
-      <div className="flex flex-col gap-3">
-        {discussions.map((disc) => (
-          <Card key={disc.id} className="rounded-xl border-border/60 shadow-none hover:shadow-sm transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex gap-3">
-                <div className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                  disc.isInstructor
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}>
-                  {disc.initials}
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-20 rounded-lg" />
+          ))}
+        </div>
+      ) : notes.length === 0 ? (
+        <EmptyState
+          icon={<StickyNote className="size-8" />}
+          title="No notes yet"
+          description="Notes you take while learning are saved to your account."
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {notes.map((note) => (
+            <div key={note.id} className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-xs font-semibold text-foreground">
+                    {note.content_title ?? 'Course note'}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {formatDate(note.created_at) ?? ''}
+                  </span>
                 </div>
-                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground">{disc.author}</span>
-                    {disc.isInstructor && (
-                      <Badge variant="navy" className="text-[9px] font-bold">INSTRUCTOR</Badge>
-                    )}
-                    <span className="text-[11px] text-muted-foreground font-medium">{disc.timestamp}</span>
-                  </div>
-                  <p className="text-sm text-foreground leading-relaxed">{disc.content}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <button className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-primary transition-colors">
-                      <MessageSquare className="size-3" /> {disc.replies} {disc.replies === 1 ? 'reply' : 'replies'}
-                    </button>
-                  </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setEditingId(note.id)
+                      setEditDraft(note.note)
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-destructive hover:text-destructive"
+                    onClick={() => onDelete(note.id)}
+                    aria-label="Delete note"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-}
 
-// ─── Sidebar Panels ──────────────────────────────────────────────────────────
-
-function CourseProgressPanel() {
-  return (
-    <Card className="rounded-xl border-border/60 shadow-sm">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4">
-        <CardTitle className="text-sm font-bold">Course Progress</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="flex items-start gap-4">
-          <RadialProgress value={COURSE_DATA.progressPercent} size={80} />
-          <div className="flex flex-col gap-1.5 text-xs">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground font-medium">Completed</span>
-              <span className="font-bold text-foreground tabular-nums">{COURSE_DATA.completedLessons} / {COURSE_DATA.totalLessons}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground font-medium">In Progress</span>
-              <span className="font-bold text-foreground tabular-nums">{COURSE_DATA.inProgressLessons}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground font-medium">Not Started</span>
-              <span className="font-bold text-foreground tabular-nums">{COURSE_DATA.notStartedLessons}</span>
-            </div>
-            <div className="border-t border-border/50 pt-1.5 mt-0.5" />
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground font-medium">Total Duration</span>
-              <span className="font-bold text-foreground tabular-nums">{COURSE_DATA.totalDuration}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground font-medium">Time Spent</span>
-              <span className="font-bold text-foreground tabular-nums">{COURSE_DATA.timeSpent}</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function UpcomingDeadlinesPanel() {
-  return (
-    <Card className="rounded-xl border-border/60 shadow-sm">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4">
-        <CardTitle className="text-sm font-bold">Upcoming Deadlines</CardTitle>
-        <CalendarDays className="size-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="flex items-center gap-3">
-          <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-border/80 bg-background py-1.5 shadow-sm">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">JUN</span>
-            <span className="text-lg font-black leading-none text-foreground">28</span>
-          </div>
-          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-            <span className="text-sm font-bold text-foreground leading-snug">Course Due Date</span>
-            <span className="text-xs text-muted-foreground font-medium">28 Jun 2025</span>
-          </div>
-          <Badge variant="warning" className="text-[10px] font-bold shrink-0">
-            {COURSE_DATA.daysLeft} days left
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function CourseMaterialsPanel({ materials }: { materials: CourseMaterial[] }) {
-  const [showAll, setShowAll] = useState(false)
-  const displayed = showAll ? materials : materials.slice(0, 3)
-
-  return (
-    <Card className="rounded-xl border-border/60 shadow-sm">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4">
-        <CardTitle className="text-sm font-bold">Course Materials</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="flex flex-col gap-2">
-          {displayed.map((material) => (
-            <div
-              key={material.id}
-              className="flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 hover:bg-muted/30 transition-colors group"
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted border border-border/50">
-                <FileText className="size-4 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col gap-0 flex-1 min-w-0">
-                <span className="text-xs font-semibold text-foreground truncate">{material.name}</span>
-                <span className="text-[10px] text-muted-foreground font-medium">{material.size}</span>
-              </div>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              >
-                <Download className="size-3.5" />
-              </Button>
+              {editingId === note.id ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea value={editDraft} onChange={(event) => setEditDraft(event.target.value)} rows={3} />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!editDraft.trim()}
+                      onClick={() => {
+                        onUpdate(note.id, editDraft.trim())
+                        setEditingId(null)
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap text-sm text-foreground">{note.note}</p>
+              )}
             </div>
           ))}
-          {materials.length > 3 && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors text-left"
-            >
-              {showAll ? 'Show less' : `View all materials`}
-            </button>
-          )}
         </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function CertificatePanel() {
-  return (
-    <Card className="rounded-xl border-border/60 shadow-sm">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4">
-        <CardTitle className="text-sm font-bold">Earned Certificate</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="flex items-center gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted/50">
-            <Award className="size-6 text-muted-foreground/40" />
-          </div>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-xs font-semibold text-foreground leading-snug">
-              Complete all lessons and assessments to earn your certificate
-            </span>
-            <span className="text-[10px] text-muted-foreground font-medium">
-              {COURSE_DATA.completedLessons}/{COURSE_DATA.totalLessons} requirements met
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// Bottom navigation bar
-function LessonNavigationBar({
-  modules,
-  currentLessonId,
-  onLessonSelect,
-}: {
-  modules: CourseModule[]
-  currentLessonId: string
-  onLessonSelect: (lesson: Lesson) => void
-}) {
-  const allLessons = modules.flatMap(m => m.lessons)
-  const currentIndex = allLessons.findIndex(l => l.id === currentLessonId)
-  const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null
-  const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null
-
-  return (
-    <div className="border-t border-border bg-card/80 backdrop-blur-sm px-6 py-2.5">
-      <div className="flex items-center justify-between">
-        {prevLesson ? (
-          <button
-            onClick={() => onLessonSelect(prevLesson)}
-            className="flex items-center gap-2 text-left group"
-          >
-            <ChevronLeft className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Previous Lesson</span>
-              <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[240px]">
-                {prevLesson.title}
-              </span>
-            </div>
-          </button>
-        ) : <div />}
-
-        {nextLesson ? (
-          <button
-            onClick={() => nextLesson.status !== 'locked' && onLessonSelect(nextLesson)}
-            disabled={nextLesson.status === 'locked'}
-            className={cn(
-              "flex items-center gap-2 text-right group",
-              nextLesson.status === 'locked' && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next Lesson</span>
-              <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[240px]">
-                {nextLesson.title}
-              </span>
-            </div>
-            <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
-          </button>
-        ) : <div />}
-      </div>
+      )}
     </div>
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+/* ─── Assessments tab ──────────────────────────────────────────────────────── */
+
+function AssessmentsTab({
+  assessments,
+  loading,
+}: {
+  assessments: LearningAssessment[]
+  loading: boolean
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-24 rounded-lg" />
+        ))}
+      </div>
+    )
+  }
+
+  if (assessments.length === 0) {
+    return (
+      <EmptyState
+        icon={<ClipboardCheck className="size-8" />}
+        title="No assessments for this course"
+        description="Question papers linked to this course will appear here."
+      />
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {assessments.map((assessment) => (
+        <div key={assessment.id} className="flex flex-col gap-3 rounded-lg border border-border/60 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-col">
+              <h4 className="truncate text-sm font-semibold text-foreground">
+                {assessment.paper_name ?? 'Untitled paper'}
+              </h4>
+              {assessment.paper_desc && (
+                <p className="line-clamp-2 text-xs text-muted-foreground">{assessment.paper_desc}</p>
+              )}
+            </div>
+            <StatusBadge
+              variant={assessment.status === 'completed' ? 'success' : 'inactive'}
+              size="sm"
+              className="shrink-0 text-[10px] font-bold uppercase tracking-wider"
+            >
+              {assessment.status === 'completed' ? 'Attempted' : 'Not started'}
+            </StatusBadge>
+          </div>
+
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-medium text-muted-foreground">
+            <span>{assessment.total_ques ?? 0} questions</span>
+            <span>{assessment.total_marks ?? 0} marks</span>
+            {assessment.timelimit_enable === 1 && assessment.time_allowed && (
+              <span>{assessment.time_allowed} min</span>
+            )}
+            {assessment.attempt_allowed && <span>{assessment.attempt_allowed} attempt(s) allowed</span>}
+            <span>{assessment.attempt_count} taken</span>
+            {assessment.best_score !== null && (
+              <span className="text-foreground">Best: {assessment.best_score}</span>
+            )}
+          </div>
+
+          {assessment.attempts.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-md bg-muted/30 p-2">
+              {assessment.attempts.slice(0, 3).map((attempt) => (
+                <div key={attempt.id} className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">{formatDate(attempt.created_at) ?? '—'}</span>
+                  <span className="font-semibold text-foreground">
+                    {attempt.obtain_marks ?? 0} marks · {attempt.total_right ?? 0} right / {attempt.total_wrong ?? 0} wrong
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ─── Certificate panel ────────────────────────────────────────────────────── */
+
+/**
+ * A certificate is earned by completing every lesson. The server enforces that
+ * too, so the button is a convenience rather than the gate.
+ */
+function CertificatePanel({
+  certificate,
+  complete,
+  claiming,
+  onClaim,
+}: {
+  certificate: LearningCertificate | null
+  complete: boolean
+  claiming: boolean
+  onClaim: () => void
+}) {
+  return (
+    <Card className="rounded-xl border-border/80 shadow-sm">
+      <CardContent className="flex flex-col gap-3 p-5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Certificate
+        </h3>
+
+        {certificate ? (
+          <>
+            <div className="flex items-start gap-2.5 rounded-lg border border-success/30 bg-success/5 p-3">
+              <Award className="mt-0.5 size-5 shrink-0 text-success" />
+              <div className="flex min-w-0 flex-col">
+                <span className="text-xs font-bold text-foreground">Earned</span>
+                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                  {certificate.certificate_number}
+                </span>
+                {certificate.issued_at && (
+                  <span className="text-[11px] text-muted-foreground">
+                    Issued {formatDate(certificate.issued_at)}
+                  </span>
+                )}
+              </div>
+            </div>
+            {certificate.skill_title && (
+              <p className="text-[11px] text-muted-foreground">
+                Counts towards <span className="font-semibold text-foreground">{certificate.skill_title}</span>
+              </p>
+            )}
+          </>
+        ) : complete ? (
+          <>
+            <p className="text-xs text-muted-foreground">
+              You have finished every lesson. Claim your certificate.
+            </p>
+            <Button size="sm" className="gap-2" disabled={claiming} onClick={onClaim}>
+              {claiming ? <Loader2 className="size-4 animate-spin" /> : <Award className="size-4" />}
+              Claim certificate
+            </Button>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Complete every lesson in this course to earn a certificate.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ─── Discussions tab ──────────────────────────────────────────────────────── */
+
+function DiscussionsTab({
+  discussions,
+  loading,
+  currentUserId,
+  canModerate,
+  onPost,
+  onReply,
+  onDelete,
+}: {
+  discussions: Discussion[]
+  loading: boolean
+  currentUserId: string | undefined
+  canModerate: boolean
+  onPost: (message: string) => void
+  onReply: (id: number, message: string) => void
+  onDelete: (id: number) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const [replyingTo, setReplyingTo] = useState<number | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4">
+        <label htmlFor="new-discussion" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Ask the group
+        </label>
+        <Textarea
+          id="new-discussion"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          rows={3}
+          placeholder="Ask a question or share something you learned…"
+        />
+        <Button
+          size="sm"
+          className="self-end gap-2"
+          disabled={!draft.trim()}
+          onClick={() => {
+            onPost(draft.trim())
+            setDraft('')
+          }}
+        >
+          <Send className="size-3.5" /> Post
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 rounded-lg" />
+          ))}
+        </div>
+      ) : discussions.length === 0 ? (
+        <EmptyState
+          icon={<MessageSquare className="size-8" />}
+          title="No discussion yet"
+          description="Be the first to ask a question about this course."
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {discussions.map((thread) => {
+            const isAuthor = String(thread.user_id) === String(currentUserId)
+
+            return (
+              <div key={thread.id} className="flex flex-col gap-3 rounded-lg border border-border/60 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {thread.author_name || 'Unknown'}
+                      </span>
+                      {thread.is_instructor && (
+                        <StatusBadge variant="processing" size="sm" className="text-[10px] font-bold uppercase">
+                          Instructor
+                        </StatusBadge>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {formatDate(thread.created_at) ?? ''}
+                      {thread.content_title ? ` · ${thread.content_title}` : ''}
+                    </span>
+                  </div>
+                  {(isAuthor || canModerate) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => onDelete(thread.id)}
+                      aria-label="Delete discussion"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+
+                {thread.title && <p className="text-sm font-semibold text-foreground">{thread.title}</p>}
+                <p className="whitespace-pre-wrap text-sm text-foreground">{thread.message}</p>
+
+                {thread.replies.length > 0 && (
+                  <div className="flex flex-col gap-2 border-l-2 border-border/60 pl-3">
+                    {thread.replies.map((reply) => (
+                      <div key={reply.id} className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-foreground">
+                            {reply.author_name || 'Unknown'}
+                          </span>
+                          {Boolean(reply.is_instructor) && (
+                            <StatusBadge variant="processing" size="sm" className="text-[9px] font-bold uppercase">
+                              Instructor
+                            </StatusBadge>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDate(reply.created_at) ?? ''}
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap text-xs text-muted-foreground">{reply.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {replyingTo === thread.id ? (
+                  <div className="flex flex-col gap-2">
+                    <Textarea
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                      rows={2}
+                      placeholder="Write a reply…"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setReplyingTo(null)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!replyDraft.trim()}
+                        onClick={() => {
+                          onReply(thread.id, replyDraft.trim())
+                          setReplyDraft('')
+                          setReplyingTo(null)
+                        }}
+                      >
+                        Reply
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 self-start text-xs"
+                    onClick={() => {
+                      setReplyingTo(thread.id)
+                      setReplyDraft('')
+                    }}
+                  >
+                    Reply{thread.reply_count > 0 ? ` (${thread.reply_count})` : ''}
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Workspace ────────────────────────────────────────────────────────────── */
 
 export function LearningDeliveryWorkspace() {
+  const {
+    courses, coursesLoading, coursesError,
+    courseId, selectCourse, detail, detailLoading, detailError, reload,
+    lessons, currentLesson, selectLesson, goNext, goPrevious, hasNext, hasPrevious,
+    savingProgress, markLesson,
+    assessments, assessmentsLoading,
+    notes, notesLoading, createNote, updateNote, deleteNote,
+    certificates, courseCertificate, claimCertificate, claimingCertificate,
+    discussions, discussionsLoading, postDiscussion, replyToDiscussion, deleteDiscussion,
+    authoringSaving, saveChapter, saveContent, removeChapter, removeContent,
+    message, error, dismiss,
+  } = useMyLearning()
+
+  const { user } = useAuth()
+  // Admin/HR may author content; the API enforces the same rule.
+  const canModerate = user?.role === 'admin' || user?.role === 'hr'
+  const canAuthor = canModerate
   const [activeTab, setActiveTab] = useState('learn')
-  const [currentLessonId, setCurrentLessonId] = useState('l-2')
+  const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<
+    { kind: 'chapter' | 'content'; id: number; label: string } | null
+  >(null)
 
-  const allLessons = COURSE_MODULES.flatMap(m => m.lessons)
-  const currentLesson = allLessons.find(l => l.id === currentLessonId)!
-  const currentIndex = allLessons.findIndex(l => l.id === currentLessonId)
-
-  const handleLessonSelect = (lesson: Lesson) => {
-    setCurrentLessonId(lesson.id)
-    setActiveTab('learn')
+  if (!courseId) {
+    return (
+      <div className="p-6">
+        <CoursePicker
+          courses={courses}
+          loading={coursesLoading}
+          error={coursesError}
+          onSelect={selectCourse}
+          onRetry={reload}
+        />
+      </div>
+    )
   }
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentLessonId(allLessons[currentIndex - 1].id)
-    }
+  if (detailError && !detailLoading) {
+    return (
+      <div className="p-6">
+        <ErrorState title="Couldn't load this course" description={detailError} retry={reload} />
+      </div>
+    )
   }
 
-  const handleNext = () => {
-    if (currentIndex < allLessons.length - 1 && allLessons[currentIndex + 1].status !== 'locked') {
-      setCurrentLessonId(allLessons[currentIndex + 1].id)
-    }
-  }
+  const course = detail?.course
+  const materials = lessons.filter((lesson) => ['pdf', 'link'].includes(lessonKind(lesson.file_type)))
+  const due = formatDate(detail?.enrollment?.end_date ?? null)
 
   const tabs = [
     { id: 'learn', label: 'Learn', icon: PlayCircle },
@@ -1026,137 +807,391 @@ export function LearningDeliveryWorkspace() {
   ]
 
   return (
-    <div className="flex flex-col absolute inset-0 bg-background z-10">
-      {/* Course Header */}
-      <div className="border-b border-border/80 bg-card px-6 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4 min-w-0">
-            {/* Course thumbnail placeholder */}
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted border border-border/50">
-              <ImageIcon className="size-7 text-muted-foreground/40" />
-            </div>
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-lg font-bold tracking-tight text-foreground leading-tight">
-                  {COURSE_DATA.title}
-                </h1>
-                <StatusBadge variant="processing" className="text-[10px] uppercase font-bold tracking-wider">
-                  {COURSE_DATA.status}
-                </StatusBadge>
-              </div>
-              <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1">
-                  <BookOpen className="size-3" /> {COURSE_DATA.type}
-                </span>
-                <span className="size-1 rounded-full bg-muted-foreground/30" />
-                <span className="flex items-center gap-1">
-                  <Clock className="size-3" /> {COURSE_DATA.duration}
-                </span>
-                <span className="size-1 rounded-full bg-muted-foreground/30" />
-                <span>{COURSE_DATA.language}</span>
-                <span className="size-1 rounded-full bg-muted-foreground/30" />
-                <span className="flex items-center gap-1">
-                  <CalendarDays className="size-3" /> Due: {COURSE_DATA.dueDate}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
-              <Info className="size-3.5" /> About this course
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
-              <Save className="size-3.5" /> Save & Exit
-            </Button>
-            <Button size="sm" className="gap-1.5 text-xs font-semibold">
-              <CheckCircle2 className="size-3.5" /> Mark as Complete
-            </Button>
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-0.5 shrink-0"
+            onClick={() => selectCourse(null)}
+            aria-label="Back to my courses"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="min-w-0">
+            {detailLoading && !course ? (
+              <Skeleton className="h-7 w-72" />
+            ) : (
+              <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+                {course?.display_name ?? 'Course'}
+              </h1>
+            )}
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              {[course?.subject_type, course?.subject_code, course?.standard_name]
+                .filter(Boolean)
+                .join(' · ') || '—'}
+            </p>
           </div>
         </div>
+        {due && (
+          <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <Clock className="size-3.5" /> Due {due}
+          </div>
+        )}
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-border/60 bg-card px-6">
-        <div className="flex items-center gap-5">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
+      {message && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success">
+          <span className="flex items-center gap-2"><CheckCircle2 className="size-4" />{message}</span>
+          <button type="button" onClick={dismiss} aria-label="Dismiss"><X className="size-3.5" /></button>
+        </div>
+      )}
+      {error && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive">
+          <span className="flex items-center gap-2"><AlertTriangle className="size-4" />{error}</span>
+          <button type="button" onClick={dismiss} aria-label="Dismiss"><X className="size-3.5" /></button>
+        </div>
+      )}
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex items-center gap-6 border-b border-border/60">
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'relative flex items-center gap-1.5 -mb-px pb-2.5 pt-3 text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring whitespace-nowrap',
-                  activeTab === tab.id
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
+                  'relative flex items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-semibold outline-none transition-colors',
+                  activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <Icon className="size-3.5" />
+                <tab.icon className="size-4" />
                 {tab.label}
                 {activeTab === tab.id && (
-                  <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-primary" />
+                  <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-t-full bg-primary" />
                 )}
               </button>
-            )
-          })}
-        </div>
-      </div>
+            ))}
+          </div>
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: Tab Content */}
-        <div className="flex-1 overflow-y-auto g2g-scrollbar p-6">
-          {activeTab === 'learn' && (
-            <div className="flex flex-col gap-6">
-              <CoursePlayer
-                currentLesson={currentLesson}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                hasPrevious={currentIndex > 0}
-                hasNext={currentIndex < allLessons.length - 1 && allLessons[currentIndex + 1].status !== 'locked'}
-              />
-              <WhatsNextSection
-                lessons={allLessons}
-                onLessonSelect={handleLessonSelect}
-              />
-            </div>
-          )}
-
-          {activeTab === 'contents' && (
-            <ContentsTab
-              modules={COURSE_MODULES}
-              currentLessonId={currentLessonId}
-              onLessonSelect={handleLessonSelect}
+          {detailLoading && !detail ? (
+            <Skeleton className="aspect-video w-full rounded-xl" />
+          ) : lessons.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="size-8" />}
+              title="No content yet"
+              description="This course has no chapters or lessons published."
             />
-          )}
+          ) : (
+            <>
+              {activeTab === 'learn' && currentLesson && (
+                <div className="flex flex-col gap-4">
+                  <LessonViewer
+                    lesson={currentLesson}
+                    onComplete={() => void markLesson(currentLesson, 'completed')}
+                    onPositionSave={(seconds) => void markLesson(currentLesson, 'in-progress', seconds)}
+                  />
 
-          {activeTab === 'assessments' && (
-            <AssessmentsTab assessments={ASSESSMENTS} />
-          )}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {currentLesson.chapterName}
+                      </p>
+                      <h3 className="text-base font-bold leading-snug text-foreground">
+                        {currentLesson.title ?? 'Untitled lesson'}
+                      </h3>
+                      {currentLesson.description && (
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          {currentLesson.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button variant="outline" size="sm" disabled={!hasPrevious} onClick={goPrevious} className="gap-1">
+                        <ChevronLeft className="size-3.5" /> Previous
+                      </Button>
+                      <Button size="sm" disabled={!hasNext} onClick={goNext} className="gap-1">
+                        Next <ChevronRight className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
 
-          {activeTab === 'notes' && (
-            <NotesTab notes={NOTES} />
-          )}
+                  <Button
+                    variant={currentLesson.status === 'completed' ? 'outline' : 'default'}
+                    className="gap-2 self-start"
+                    disabled={savingProgress || currentLesson.status === 'completed'}
+                    onClick={() => void markLesson(currentLesson, 'completed')}
+                  >
+                    {savingProgress ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                    {currentLesson.status === 'completed' ? 'Completed' : 'Mark as complete'}
+                  </Button>
+                </div>
+              )}
 
-          {activeTab === 'discussions' && (
-            <DiscussionsTab discussions={DISCUSSIONS} />
+              {activeTab === 'contents' && (
+                <div className="flex flex-col gap-4">
+                  {canAuthor && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 self-start"
+                      onClick={() => setAuthoringTarget({ kind: 'chapter', mode: 'create' })}
+                    >
+                      <Plus className="size-3.5" /> Add chapter
+                    </Button>
+                  )}
+
+                  {detail?.chapters.map((chapter) => (
+                    <div key={chapter.id} className="overflow-hidden rounded-lg border border-border/60">
+                      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/30 px-4 py-2.5">
+                        <h4 className="truncate text-sm font-bold text-foreground">
+                          {chapter.chapter_name ?? 'Untitled chapter'}
+                        </h4>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className="text-[11px] font-semibold text-muted-foreground">
+                            {chapter.completed_content}/{chapter.total_content}
+                          </span>
+                          {canAuthor && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-7 p-0"
+                                aria-label="Add lesson"
+                                onClick={() =>
+                                  setAuthoringTarget({
+                                    kind: 'content',
+                                    mode: 'create',
+                                    chapterId: chapter.id,
+                                  })
+                                }
+                              >
+                                <Plus className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-7 p-0"
+                                aria-label="Edit chapter"
+                                onClick={() =>
+                                  setAuthoringTarget({ kind: 'chapter', mode: 'edit', chapter })
+                                }
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-7 p-0 text-destructive hover:text-destructive"
+                                aria-label="Delete chapter"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    kind: 'chapter',
+                                    id: chapter.id,
+                                    label: chapter.chapter_name ?? 'this chapter',
+                                  })
+                                }
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col divide-y divide-border/50">
+                        {chapter.content.length === 0 ? (
+                          <p className="px-4 py-3 text-xs text-muted-foreground">No lessons in this chapter.</p>
+                        ) : (
+                          chapter.content.map((item) => (
+                            <div key={item.id} className="flex items-center">
+                            <button
+                              type="button"
+                              disabled={item.is_locked}
+                              title={
+                                item.is_locked
+                                  ? 'Finish the previous lesson to unlock this one.'
+                                  : undefined
+                              }
+                              onClick={() => {
+                                selectLesson(item.id)
+                                setActiveTab('learn')
+                              }}
+                              className={cn(
+                                'flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                                item.is_locked
+                                  ? 'cursor-not-allowed opacity-55'
+                                  : 'hover:bg-muted/40',
+                                currentLesson?.id === item.id && 'bg-primary/5',
+                              )}
+                            >
+                              {item.is_locked ? (
+                                <Lock className="size-4 text-muted-foreground/50" />
+                              ) : (
+                                STATUS_ICON[item.status]
+                              )}
+                              <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                                {item.title ?? 'Untitled lesson'}
+                              </span>
+                              {item.content_category && (
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {item.content_category}
+                                </span>
+                              )}
+                            </button>
+
+                            {canAuthor && (
+                              <div className="flex shrink-0 items-center gap-1 pr-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="size-7 p-0"
+                                  aria-label="Edit lesson"
+                                  onClick={() =>
+                                    setAuthoringTarget({
+                                      kind: 'content',
+                                      mode: 'edit',
+                                      chapterId: chapter.id,
+                                      content: item,
+                                    })
+                                  }
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="size-7 p-0 text-destructive hover:text-destructive"
+                                  aria-label="Delete lesson"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      kind: 'content',
+                                      id: item.id,
+                                      label: item.title ?? 'this lesson',
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'assessments' && (
+                <AssessmentsTab assessments={assessments} loading={assessmentsLoading} />
+              )}
+
+              {activeTab === 'notes' && (
+                <NotesTab
+                  notes={notes}
+                  loading={notesLoading}
+                  currentLesson={currentLesson}
+                  onCreate={(note, contentId, chapterId) =>
+                    void createNote({ note, content_id: contentId, chapter_id: chapterId })
+                  }
+                  onUpdate={(id, note) => void updateNote(id, note)}
+                  onDelete={(id) => void deleteNote(id)}
+                />
+              )}
+
+              {activeTab === 'discussions' && (
+                <DiscussionsTab
+                  discussions={discussions}
+                  loading={discussionsLoading}
+                  currentUserId={user?.id}
+                  canModerate={canModerate}
+                  onPost={(body) => void postDiscussion(body)}
+                  onReply={(id, body) => void replyToDiscussion(id, body)}
+                  onDelete={(id) => void deleteDiscussion(id)}
+                />
+              )}
+            </>
           )}
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-[320px] shrink-0 border-l border-border/60 overflow-y-auto g2g-scrollbar p-4 flex flex-col gap-4 bg-background/50">
-          <CourseProgressPanel />
-          <UpcomingDeadlinesPanel />
-          <CourseMaterialsPanel materials={MATERIALS} />
-          <CertificatePanel />
-        </div>
+        <aside className="flex flex-col gap-4">
+          <Card className="rounded-xl border-border/80 shadow-sm">
+            <CardContent className="flex items-center gap-4 p-5">
+              <RadialProgress value={detail?.progress_percent ?? 0} />
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold text-foreground">
+                  {detail?.completed_content ?? 0} of {detail?.total_content ?? 0} lessons
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round((detail?.time_spent_seconds ?? 0) / 60)} min spent
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <CertificatePanel
+            certificate={courseCertificate}
+            complete={(detail?.total_content ?? 0) > 0 && detail?.progress_percent === 100}
+            claiming={claimingCertificate}
+            onClaim={() => void claimCertificate()}
+          />
+
+          <Card className="rounded-xl border-border/80 shadow-sm">
+            <CardContent className="flex flex-col gap-3 p-5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Course materials
+              </h3>
+              {materials.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No downloadable materials.</p>
+              ) : (
+                materials.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.filename ?? item.url ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 rounded-md border border-border/50 p-2.5 transition-colors hover:bg-muted/40"
+                  >
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                      {item.title ?? 'Material'}
+                    </span>
+                    <Download className="size-3.5 shrink-0 text-muted-foreground" />
+                  </a>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </aside>
       </div>
 
-      {/* Bottom Lesson Navigation */}
-      <LessonNavigationBar
-        modules={COURSE_MODULES}
-        currentLessonId={currentLessonId}
-        onLessonSelect={handleLessonSelect}
+      <ChapterFormSheet
+        open={authoringTarget !== null}
+        onOpenChange={(next) => !next && setAuthoringTarget(null)}
+        target={authoringTarget}
+        categories={detail?.content_categories ?? []}
+        saving={authoringSaving}
+        onSubmit={async (values) => {
+          if (!authoringTarget) return { ok: false, message: 'Nothing to save.' }
+
+          return authoringTarget.kind === 'chapter'
+            ? saveChapter(values, authoringTarget.chapter?.id)
+            : saveContent(values, authoringTarget.chapterId, authoringTarget.content?.id)
+        }}
+      />
+
+      <AuthoringDeleteDialog
+        target={deleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            if (deleteTarget.kind === 'chapter') void removeChapter(deleteTarget.id)
+            else void removeContent(deleteTarget.id)
+          }
+          setDeleteTarget(null)
+        }}
       />
     </div>
   )
