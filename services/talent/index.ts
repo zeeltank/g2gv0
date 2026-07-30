@@ -5,6 +5,11 @@
 
 import { apiClient } from '@/services/core'
 export { isOpenJobPosting, recruitmentService } from './recruitment'
+// Performance & Rewards Center. NB: the PerformanceReview interface and the
+// getReviews / createReview / submitReview calls further down this file target
+// `/performance-reviews`, which does NOT exist in Laravel. The live module is
+// `/api/performance/*` and lives entirely in ./performance.
+export { performanceService } from './performance'
 
 export interface Candidate {
   id: string
