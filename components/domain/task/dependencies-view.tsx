@@ -56,9 +56,9 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { taskChartColors } from '@/lib/chart-colors'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { DependenciesResponse, DependencyNode, DependencyType, TaskDependency } from '@/types/task-management'
+import type { DependenciesResponse, DependencyNode, DependencyType, TaskDependency, Workstream } from '@/types/task-management'
 
 // Custom Premium Node Component
 const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
@@ -225,6 +225,11 @@ export function DependenciesView() {
   const [dependencyType, setDependencyType] = useState<DependencyType>('FS')
   const [lagDays, setLagDays] = useState('0')
   const [notes, setNotes] = useState('')
+  const [selectedProject, setSelectedProject] = useState('')
+  const [selectedWorkstream, setSelectedWorkstream] = useState('')
+  const [workstreams, setWorkstreams] = useState<Workstream[]>([])
+  const [workstreamsLoading, setWorkstreamsLoading] = useState(false)
+  const [workstreamsError, setWorkstreamsError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
@@ -240,7 +245,18 @@ export function DependenciesView() {
     } finally { setLoading(false) }
   }, [reload, setEdges, setNodes])
 
-  useEffect(() => { void load() }, [load])
+useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (!selectedProject) { setWorkstreams([]); setSelectedWorkstream(''); setWorkstreamsError(''); return }
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) { setWorkstreamsError('Session unavailable.'); return }
+    setWorkstreamsLoading(true); setSelectedWorkstream(''); setWorkstreamsError('')
+    taskService.getWorkstreams(context, selectedProject)
+      .then((response) => setWorkstreams(response.data ?? []))
+      .catch((reason) => setWorkstreamsError(reason instanceof Error ? reason.message : 'Unable to load workstreams.'))
+      .finally(() => setWorkstreamsLoading(false))
+  }, [selectedProject])
 
   // Filter States
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
@@ -332,8 +348,10 @@ export function DependenciesView() {
       const response = await taskService.createDependency(getLaravelContext(), {
         predecessor_task_id: predecessor, successor_task_id: successor,
         dependency_type: dependencyType, lag_days: Number(lagDays) || 0, notes: notes || undefined,
+        project_id: selectedProject || undefined, workstream_id: selectedWorkstream || undefined,
       })
       setMessage(response.message); setIsCreateModalOpen(false); setPredecessor(''); setSuccessor(''); setNotes(''); setLagDays('0')
+      setSelectedProject(''); setSelectedWorkstream(''); setWorkstreams([])
       setReload((value) => value + 1)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create dependency.') }
     finally { setSaving(false) }
@@ -681,6 +699,11 @@ export function DependenciesView() {
             <DialogDescription>Connect two tasks. Duplicate and cyclic relationships are rejected by the API.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1.5 text-sm font-medium"><span>Project</span><Select value={selectedProject} onChange={setSelectedProject} placeholder="Select project" options={data.options.projects.map((project) => ({ value: String(project.id), label: project.name }))} /></label>
+              <label className="block space-y-1.5 text-sm font-medium"><span>Workstream</span><Select value={selectedWorkstream} onChange={setSelectedWorkstream} placeholder={workstreamsLoading ? 'Loading...' : selectedProject ? 'Select workstream' : 'Select project first'} options={workstreams.map((ws) => ({ value: String(ws.id), label: ws.name }))} disabled={!selectedProject || workstreamsLoading} /></label>
+            </div>
+            {workstreamsError && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{workstreamsError}</div>}
             <label className="block space-y-1.5 text-sm font-medium"><span>Predecessor</span><Select value={predecessor} onChange={setPredecessor} placeholder="Select predecessor" options={data.options.tasks.map((task) => ({ value: String(task.id), label: task.title }))} /></label>
             <label className="block space-y-1.5 text-sm font-medium"><span>Successor</span><Select value={successor} onChange={setSuccessor} placeholder="Select successor" options={data.options.tasks.filter((task) => String(task.id) !== predecessor).map((task) => ({ value: String(task.id), label: task.title }))} /></label>
             <div className="grid grid-cols-2 gap-3">
