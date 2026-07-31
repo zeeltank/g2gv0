@@ -180,12 +180,12 @@ export const taskService = {
       ...(params.status ? { status: params.status } : {}),
     }),
   createDependency: (context: LaravelContext, payload: {
-    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string
+    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string; project_id?: string; workstream_id?: string
   }) => apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/dependencies', {
     ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
   }),
   updateDependency: (context: LaravelContext, id: string, payload: {
-    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string
+    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string; project_id?: string; workstream_id?: string
   }) => apiClient.put<{ status: 1; message: string }>(`/task-management/dependencies/${id}`, {
     ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
   }),
@@ -193,6 +193,11 @@ export const taskService = {
     apiClient.delete<{ status: 1; message: string }>(`/task-management/dependencies/${id}`, {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
+  getWorkstreams: (context: LaravelContext, projectId: string) =>
+    taskService.getProjectRecord(context, projectId).then((response) => ({
+      ...response,
+      data: response.data.workstreams ?? [],
+    })),
   createMilestone: (context: LaravelContext, payload: {
     project_id: string; workstream_id?: string; name: string; description?: string
     target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'
