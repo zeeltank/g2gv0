@@ -23,6 +23,10 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select } from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -51,11 +55,13 @@ import {
   Connection,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { CreateTaskModal } from './create-task-modal'
 import { taskChartColors } from '@/lib/chart-colors'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { taskService } from '@/services/task'
+import type { DependenciesResponse, DependencyNode, DependencyType, TaskDependency } from '@/types/task-management'
 
 // Custom Premium Node Component
-const TaskNode = ({ id, data }: any) => {
+const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'completed': return 'from-emerald-500/20 to-emerald-500/5 text-emerald-500 border-emerald-500/30 ring-emerald-500/20'
@@ -159,44 +165,82 @@ const TaskNode = ({ id, data }: any) => {
   )
 }
 
-const initialNodes: Node[] = [
-  { id: 'T-1001', type: 'taskNode', position: { x: 50, y: 150 }, data: { id: 'T-1001', title: 'Requirements Analysis', status: 'completed', assignee: 'Sarah', duration: '2d', project: 'Alpha Release' } },
-  { id: 'T-1004', type: 'taskNode', position: { x: 50, y: 350 }, data: { id: 'T-1004', title: 'UI/UX Design', status: 'completed', assignee: 'Pam', duration: '3d', project: 'Alpha Release' } },
-  { id: 'T-1002', type: 'taskNode', position: { x: 450, y: 150 }, data: { id: 'T-1002', title: 'System Architecture Design', status: 'in_progress', assignee: 'Michael', duration: '4d', project: 'Alpha Release' } },
-  { id: 'T-1005', type: 'taskNode', position: { x: 450, y: 350 }, data: { id: 'T-1005', title: 'API & Backend Dev', status: 'in_progress', assignee: 'Jim', duration: '6d', project: 'Beta Testing' } },
-  { id: 'T-1003', type: 'taskNode', position: { x: 850, y: 50 }, data: { id: 'T-1003', title: 'Frontend Integration', status: 'at_risk', assignee: 'Dwight', duration: '10d', project: 'Beta Testing' } },
-  { id: 'T-1006', type: 'taskNode', position: { x: 850, y: 250 }, data: { id: 'T-1006', title: 'QA & Security Testing', status: 'blocked', assignee: 'Sarah', duration: '5d', project: 'Alpha Release' } },
-  { id: 'T-1008', type: 'taskNode', position: { x: 850, y: 450 }, data: { id: 'T-1008', title: 'Infrastructure Setup', status: 'not_started', assignee: 'Michael', duration: '2d', project: 'Beta Testing' } },
-  { id: 'T-1007', type: 'taskNode', position: { x: 1250, y: 250 }, data: { id: 'T-1007', title: 'User Acceptance Testing (UAT)', status: 'not_started', assignee: 'Pam', duration: '3d', project: 'Alpha Release' } },
-  { id: 'M-101', type: 'taskNode', position: { x: 1650, y: 250 }, data: { id: 'M-101', title: 'Production Go Live', status: 'milestone', duration: '0d', project: 'Alpha Release' } },
-]
+const initialNodes: Node[] = []
+const initialEdges: Edge[] = []
+const emptyData: DependenciesResponse['data'] = {
+  dependencies: [], tasks: [], milestones: [],
+  summary: { total: 0, blocking: 0, at_risk: 0, on_track: 0, milestones: 0, critical_path: 0 },
+  options: { types: ['FS', 'SS', 'FF', 'SF'], projects: [], tasks: [], users: [] },
+}
 
-const initialEdges: Edge[] = [
-  // Completed solid connections
-  { id: 'e1-2', source: 'T-1001', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
-  { id: 'e4-2', source: 'T-1004', target: 'T-1002', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
-  { id: 'e4-5', source: 'T-1004', target: 'T-1005', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.completed }, style: { stroke: taskChartColors.completed, strokeWidth: 3 } },
-  
-  // In progress animated connections
-  { id: 'e2-3', source: 'T-1002', target: 'T-1003', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
-  { id: 'e5-6', source: 'T-1005', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
-  { id: 'e5-8', source: 'T-1005', target: 'T-1008', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.inProgress }, style: { stroke: taskChartColors.inProgress, strokeWidth: 3 } },
-  
-  // Blocked connection (red animated dash)
-  { id: 'e3-6', source: 'T-1003', target: 'T-1006', type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.blocked }, style: { stroke: taskChartColors.blocked, strokeWidth: 4 } },
-  
-  // Future connections (slate dash)
-  { id: 'e6-7', source: 'T-1006', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
-  { id: 'e8-7', source: 'T-1008', target: 'T-1007', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 2, strokeDasharray: '6 6' } },
-  { id: 'e7-101', source: 'T-1007', target: 'M-101', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.pending }, style: { stroke: taskChartColors.pending, strokeWidth: 3, strokeDasharray: '6 6' } },
-]
+function normalizeStatus(status: string, atRisk = false) {
+  if (atRisk) return 'at_risk'
+  const value = status.toUpperCase()
+  if (value === 'COMPLETED') return 'completed'
+  if (value === 'IN-PROGRESS' || value === 'IN PROGRESS') return 'in_progress'
+  if (value === 'ON HOLD') return 'blocked'
+  return 'not_started'
+}
+
+function graphNodes(tasks: DependencyNode[]): Node[] {
+  return Array.from(new Map(tasks.map((task) => [task.id, task])).values()).map((task, index) => ({
+    id: task.id, type: 'taskNode',
+    position: { x: (index % 4) * 390 + 50, y: Math.floor(index / 4) * 230 + 80 },
+    data: {
+      id: `T-${task.id}`, title: task.title, status: normalizeStatus(task.status, task.at_risk),
+      assignee: task.assignee, duration: task.due_date ?? 'No due date', project: task.project,
+    },
+  }))
+}
+
+function graphEdges(dependencies: TaskDependency[]): Edge[] {
+  return dependencies.map((dependency) => {
+    const completed = dependency.predecessor.status?.toUpperCase() === 'COMPLETED'
+    const color = dependency.blocking ? taskChartColors.blocked : completed ? taskChartColors.completed : taskChartColors.inProgress
+    return {
+      id: dependency.id, source: dependency.predecessor.id, target: dependency.successor.id,
+      type: 'smoothstep', animated: dependency.blocking || !completed,
+      markerEnd: { type: MarkerType.ArrowClosed, color },
+      style: { stroke: color, strokeWidth: dependency.blocking ? 4 : 3 },
+      data: { dependency },
+    }
+  })
+}
 
 export function DependenciesView() {
   const nodeTypes = useMemo(() => ({ taskNode: TaskNode }), [])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [baseNodes, setBaseNodes] = useState<Node[]>([])
+  const [data, setData] = useState<DependenciesResponse['data']>(emptyData)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [reload, setReload] = useState(0)
   const [activeTab, setActiveTab] = useState<'map' | 'timeline' | 'workstream' | 'milestone'>('map')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [predecessor, setPredecessor] = useState('')
+  const [successor, setSuccessor] = useState('')
+  const [dependencyType, setDependencyType] = useState<DependencyType>('FS')
+  const [lagDays, setLagDays] = useState('0')
+  const [notes, setNotes] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('')
+    try {
+      const response = await taskService.getDependencies(getLaravelContext())
+      const uniqueTasks = Array.from(new Map(response.data.tasks.map((task) => [task.id, task])).values())
+      const uniqueDependencies = Array.from(new Map(response.data.dependencies.map((dependency) => [dependency.id, dependency])).values())
+      const nextData = { ...response.data, tasks: uniqueTasks, dependencies: uniqueDependencies }
+      const nextNodes = graphNodes(uniqueTasks)
+      setData(nextData); setBaseNodes(nextNodes); setNodes(nextNodes); setEdges(graphEdges(uniqueDependencies))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load dependencies.')
+    } finally { setLoading(false) }
+  }, [reload, setEdges, setNodes])
+
+  useEffect(() => { void load() }, [load])
 
   // Filter States
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
@@ -224,8 +268,8 @@ export function DependenciesView() {
     // Also hide edges if either source or target is hidden
     setEdges((eds) => 
       eds.map((edge) => {
-        const sourceNode = initialNodes.find(n => n.id === edge.source)
-        const targetNode = initialNodes.find(n => n.id === edge.target)
+        const sourceNode = baseNodes.find(n => n.id === edge.source)
+        const targetNode = baseNodes.find(n => n.id === edge.target)
         let isVisible = true
         
         if (filterStatus && (sourceNode?.data.status !== filterStatus && targetNode?.data.status !== filterStatus)) isVisible = false
@@ -235,16 +279,16 @@ export function DependenciesView() {
         return { ...edge, hidden: !isVisible }
       })
     )
-  }, [filterStatus, filterAssignee, filterProject, setNodes, setEdges])
+  }, [baseNodes, filterStatus, filterAssignee, filterProject, setNodes, setEdges])
 
   const handleLayout = (direction: 'TB' | 'LR' | 'reset') => {
     if (direction === 'reset') {
-      setNodes([...initialNodes])
+      setNodes(baseNodes.map((node) => ({ ...node })))
       return
     }
 
     const newNodes = nodes.map(node => {
-      const initial = initialNodes.find(n => n.id === node.id)
+      const initial = baseNodes.find(n => n.id === node.id)
       if (!initial) return node
 
       if (direction === 'TB') {
@@ -264,33 +308,44 @@ export function DependenciesView() {
     setNodes(newNodes)
   }
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({
-      ...params, 
-      type: 'smoothstep', 
-      animated: true, 
-      markerEnd: { type: MarkerType.ArrowClosed, color: taskChartColors.blocked }, // Amber color for new unsaved connections
-      style: { stroke: taskChartColors.blocked, strokeWidth: 3 },
-      className: 'cursor-pointer hover:stroke-[4px] transition-all'
-    }, eds)),
-    [setEdges],
-  )
+  const onConnect = useCallback((params: Connection) => {
+    if (!params.source || !params.target) return
+    setPredecessor(params.source); setSuccessor(params.target); setIsCreateModalOpen(true)
+  }, [])
 
   const onEdgeDoubleClick = useCallback(
-    (event: React.MouseEvent, edge: Edge) => {
+    async (event: React.MouseEvent, edge: Edge) => {
       event.stopPropagation()
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+      if (!window.confirm('Delete this dependency?')) return
+      try {
+        const response = await taskService.deleteDependency(getLaravelContext(), edge.id)
+        setMessage(response.message); setReload((value) => value + 1)
+      } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to delete dependency.') }
     },
-    [setEdges]
+    []
   )
 
+  const createDependency = async () => {
+    if (!predecessor || !successor) { setError('Select predecessor and successor tasks.'); return }
+    setSaving(true); setError('')
+    try {
+      const response = await taskService.createDependency(getLaravelContext(), {
+        predecessor_task_id: predecessor, successor_task_id: successor,
+        dependency_type: dependencyType, lag_days: Number(lagDays) || 0, notes: notes || undefined,
+      })
+      setMessage(response.message); setIsCreateModalOpen(false); setPredecessor(''); setSuccessor(''); setNotes(''); setLagDays('0')
+      setReload((value) => value + 1)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create dependency.') }
+    finally { setSaving(false) }
+  }
+
   const pulseData = [
-    { id: 'total', title: 'Total Dependencies', value: 126, subtitle: 'Across all active projects', icon: GitMerge },
-    { id: 'blocking', title: 'Blocking', value: 17, subtitle: 'High priority blockers', icon: AlertTriangle, trend: { direction: 'down' as const, label: 'Urgent' } },
-    { id: 'risk', title: 'At Risk', value: 23, subtitle: 'Behind schedule', icon: AlertCircle },
-    { id: 'ontrack', title: 'On Track', value: 86, subtitle: 'Proceeding as planned', icon: CheckCircle2 },
-    { id: 'milestones', title: 'Milestones', value: 12, subtitle: 'Key deliverables', icon: Flag },
-    { id: 'critical', title: 'Critical Path', value: 14, subtitle: 'Direct project impact', icon: Users }
+    { id: 'total', title: 'Total Dependencies', value: data.summary.total, subtitle: 'Across all active projects', icon: GitMerge },
+    { id: 'blocking', title: 'Blocking', value: data.summary.blocking, subtitle: 'High priority blockers', icon: AlertTriangle },
+    { id: 'risk', title: 'At Risk', value: data.summary.at_risk, subtitle: 'Behind schedule', icon: AlertCircle },
+    { id: 'ontrack', title: 'On Track', value: data.summary.on_track, subtitle: 'Proceeding as planned', icon: CheckCircle2 },
+    { id: 'milestones', title: 'Milestones', value: data.summary.milestones, subtitle: 'Key deliverables', icon: Flag },
+    { id: 'critical', title: 'Critical Path', value: data.summary.critical_path, subtitle: 'Longest dependency chain', icon: Users }
   ]
 
   return (
@@ -372,10 +427,13 @@ export function DependenciesView() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
-              <Plus className="h-4 w-4" /> Create Task
+              <Plus className="h-4 w-4" /> Create Dependency
             </Button>
           </div>
         </div>
+
+        {message && <div className="rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">{message}</div>}
+        {error && <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -458,6 +516,7 @@ export function DependenciesView() {
 
               {/* ReactFlow Canvas Area */}
               <div className="flex-1 h-full bg-background/30 relative">
+                {loading && <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/60 backdrop-blur-sm"><Spinner /></div>}
                 <div className="absolute top-4 left-4 z-10 bg-card/80 backdrop-blur-md px-3 py-2 rounded-xl border border-primary/10 shadow-sm flex items-center gap-2 text-xs font-medium text-muted-foreground animate-in fade-in">
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                   Drag between nodes to connect. Double-click any line to delete.
@@ -499,24 +558,21 @@ export function DependenciesView() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  {[
-                    { title: 'Requirements Analysis', width: '15%', left: '0%', color: 'bg-success' },
-                    { title: 'System Architecture Design', width: '20%', left: '15%', color: 'bg-primary' },
-                    { title: 'UI/UX Design', width: '25%', left: '10%', color: 'bg-success' },
-                    { title: 'API & Backend Dev', width: '30%', left: '35%', color: 'bg-primary' },
-                    { title: 'Frontend Integration', width: '20%', left: '60%', color: 'bg-warning' },
-                    { title: 'QA & Security Testing', width: '15%', left: '70%', color: 'bg-rose-500' },
-                  ].map((task, i) => (
+                  {data.tasks.map((task, i) => {
+                    const status = normalizeStatus(task.status, task.at_risk)
+                    const color = status === 'completed' ? 'bg-success' : status === 'in_progress' ? 'bg-primary' : status === 'blocked' ? 'bg-rose-500' : status === 'at_risk' ? 'bg-warning' : 'bg-muted-foreground'
+                    const width = status === 'completed' ? '100%' : status === 'in_progress' ? '65%' : '35%'
+                    return (
                     <div key={i} className="flex items-center group">
                       <div className="w-[280px] shrink-0 text-sm font-medium pr-4 truncate">{task.title}</div>
                       <div className="flex-1 relative h-8 rounded-md bg-muted/20 border border-border/50">
                         <div 
-                          className={cn("absolute top-1 bottom-1 rounded-md shadow-sm transition-all hover:brightness-110 cursor-pointer", task.color)}
-                          style={{ left: task.left, width: task.width }}
+                          className={cn("absolute top-1 bottom-1 rounded-md shadow-sm transition-all hover:brightness-110 cursor-pointer", color)}
+                          style={{ left: 0, width }}
                         />
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
             </div>
@@ -529,41 +585,38 @@ export function DependenciesView() {
                 <h2 className="text-xl font-bold text-foreground">Workstream Boards</h2>
               </div>
               <div className="flex gap-6 h-full pb-4">
-                {[
-                  { stream: 'Design & Product', count: 3 },
-                  { stream: 'Backend Engineering', count: 5 },
-                  { stream: 'Frontend Engineering', count: 4 },
-                  { stream: 'QA & Infrastructure', count: 2 },
-                ].map((stream, i) => (
+                {Array.from(new Set(data.tasks.map((task) => task.project))).map((project, i) => {
+                  const streamTasks = data.tasks.filter((task) => task.project === project)
+                  return (
                   <div key={i} className="w-[320px] shrink-0 flex flex-col h-full rounded-3xl bg-card/30 backdrop-blur-2xl border border-primary/10 shadow-xl p-5">
                     <div className="flex items-center justify-between mb-5">
                       <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full", i === 0 ? "bg-primary shadow-[0_0_8px_rgba(168,85,247,0.8)]" : i === 1 ? "bg-primary shadow-[0_0_8px_rgba(59,130,246,0.8)]" : i === 2 ? "bg-success shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-warning shadow-[0_0_8px_rgba(245,158,11,0.8)]")} />
-                        <h3 className="font-bold text-sm text-foreground">{stream.stream}</h3>
+                        <h3 className="font-bold text-sm text-foreground">{project}</h3>
                       </div>
-                      <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">{stream.count}</span>
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">{streamTasks.length}</span>
                     </div>
                     <div className="flex flex-col gap-4 flex-1 overflow-y-auto pr-1">
-                      {[...Array(stream.count)].map((_, j) => (
-                        <div key={j} className="group bg-card/80 backdrop-blur-md p-5 rounded-2xl shadow-lg border border-primary/5 hover:border-primary/40 hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col gap-3">
+                      {streamTasks.map((task) => (
+                        <div key={task.id} className="group bg-card/80 backdrop-blur-md p-5 rounded-2xl shadow-lg border border-primary/5 hover:border-primary/40 hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col gap-3">
                           <div className="flex justify-between items-center">
-                            <div className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-md">T-10{i}{j}</div>
+                            <div className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-md">T-{task.id}</div>
                             <MoreVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
-                          <h4 className="font-bold text-sm text-foreground/90 group-hover:text-foreground transition-colors leading-snug">Task definition and research for {stream.stream.split(' ')[0]}</h4>
+                          <h4 className="font-bold text-sm text-foreground/90 group-hover:text-foreground transition-colors leading-snug">{task.title}</h4>
                           <div className="flex justify-between items-center mt-2 pt-3 border-t border-border/50">
                             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                              <Calendar className="h-3.5 w-3.5" /> May {10 + j}
+                              <Calendar className="h-3.5 w-3.5" /> {task.due_date ?? 'No due date'}
                             </div>
                             <div className="flex -space-x-2">
-                              <div className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">JD</div>
+                              <div className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">{task.assignee.charAt(0)}</div>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           )}
@@ -575,40 +628,37 @@ export function DependenciesView() {
                 <h2 className="text-xl font-bold text-foreground">Project Milestones</h2>
               </div>
               <div className="max-w-4xl mx-auto w-full flex flex-col gap-4">
-                {[
-                  { title: 'Alpha Release', date: 'May 15, 2024', status: 'Completed', color: 'text-emerald-500 bg-success/10 border-emerald-500/20', icon: CheckCircle2 },
-                  { title: 'Beta Testing Kickoff', date: 'June 01, 2024', status: 'At Risk', color: 'text-amber-500 bg-warning/10 border-amber-500/20', icon: AlertCircle },
-                  { title: 'Production Go Live', date: 'June 30, 2024', status: 'Upcoming', color: 'text-primary bg-primary/10 border-primary/20', icon: Flag },
-                ].map((ms, i) => (
+                {data.milestones.map((ms, i) => {
+                  const Icon = ms.status === 'COMPLETED' ? CheckCircle2 : ms.status === 'AT RISK' ? AlertCircle : Flag
+                  const color = ms.status === 'COMPLETED' ? 'text-emerald-500 bg-success/10 border-emerald-500/20' : ms.status === 'AT RISK' ? 'text-amber-500 bg-warning/10 border-amber-500/20' : 'text-primary bg-primary/10 border-primary/20'
+                  return (
                   <div key={i} className="flex items-stretch gap-6 group cursor-pointer">
                     <div className="flex flex-col items-center">
-                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg", ms.color.replace('text-', 'bg-').replace('/10', '/20').split(' ')[1])}>
-                        <ms.icon className={cn("h-6 w-6", ms.color.split(' ')[0])} />
+                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg", color.split(' ')[1])}>
+                        <Icon className={cn("h-6 w-6", color.split(' ')[0])} />
                       </div>
-                      {i !== 2 && <div className="w-0.5 flex-1 bg-gradient-to-b from-primary/30 to-transparent my-3 rounded-full" />}
+                      {i !== data.milestones.length - 1 && <div className="w-0.5 flex-1 bg-gradient-to-b from-primary/30 to-transparent my-3 rounded-full" />}
                     </div>
                     <div className="flex-1 bg-card/30 backdrop-blur-3xl border border-primary/10 rounded-3xl p-6 mb-6 shadow-xl group-hover:shadow-2xl group-hover:shadow-primary/5 group-hover:border-primary/30 group-hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                       <div className="flex justify-between items-start mb-4 relative z-10">
                         <div>
-                          <h3 className="text-xl font-black text-foreground tracking-tight mb-1.5 group-hover:text-primary transition-colors">{ms.title}</h3>
+                          <h3 className="text-xl font-black text-foreground tracking-tight mb-1.5 group-hover:text-primary transition-colors">{ms.name}</h3>
                           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <CalendarDays className="h-4 w-4 text-primary/70" /> {ms.date}
+                            <CalendarDays className="h-4 w-4 text-primary/70" /> {ms.target_date}
                           </div>
                         </div>
-                        <div className={cn("px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border shadow-sm backdrop-blur-md", ms.color)}>
-                          {ms.status}
-                        </div>
+                        <StatusBadge status={ms.status} />
                       </div>
                       <div className="flex items-center justify-between mt-6 pt-5 border-t border-primary/10 relative z-10">
                         <div className="flex items-center gap-6 text-sm">
                           <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Blocked</span>
-                            <span className="font-black text-rose-500">4 Tasks</span>
+                            <span className="font-black text-rose-500">{data.summary.blocking} Tasks</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Completed</span>
-                            <span className="font-black text-emerald-500">12 Tasks</span>
+                            <span className="font-black text-emerald-500">{data.tasks.filter((task) => task.status?.toUpperCase() === 'COMPLETED').length} Tasks</span>
                           </div>
                         </div>
                         <Button variant="ghost" size="sm" className="h-9 gap-1 text-primary hover:bg-primary/10 rounded-xl font-bold">
@@ -617,18 +667,31 @@ export function DependenciesView() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           )}
         </div>
       </div>
       
-      {/* Create Task Modal */}
-      <CreateTaskModal 
-        isOpen={isCreateModalOpen} 
-        onClose={() => setIsCreateModalOpen(false)} 
-      />
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Dependency</DialogTitle>
+            <DialogDescription>Connect two tasks. Duplicate and cyclic relationships are rejected by the API.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="block space-y-1.5 text-sm font-medium"><span>Predecessor</span><Select value={predecessor} onChange={setPredecessor} placeholder="Select predecessor" options={data.options.tasks.map((task) => ({ value: String(task.id), label: task.title }))} /></label>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Successor</span><Select value={successor} onChange={setSuccessor} placeholder="Select successor" options={data.options.tasks.filter((task) => String(task.id) !== predecessor).map((task) => ({ value: String(task.id), label: task.title }))} /></label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1.5 text-sm font-medium"><span>Type</span><Select value={dependencyType} onChange={(value) => setDependencyType(value as DependencyType)} options={data.options.types.map((value) => ({ value, label: value }))} /></label>
+              <label className="block space-y-1.5 text-sm font-medium"><span>Lag days</span><input type="number" min={-365} max={365} value={lagDays} onChange={(event) => setLagDays(event.target.value)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm" /></label>
+            </div>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" /></label>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button disabled={saving || !predecessor || !successor} onClick={() => void createDependency()}>{saving ? 'Creating…' : 'Create Dependency'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

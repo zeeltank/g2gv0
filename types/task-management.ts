@@ -136,6 +136,86 @@ export interface ProjectPayload {
 export interface ProjectOptions {
   users: Array<{ id: string; name: string }>
   departments: Array<{ id: string; name: string }>
-  tasks: Array<{ id: string; title: string; status: string | null }>
+  tasks: Array<{ id: string; title: string; status: string | null; department_id: string | null }>
   categories: string[]; statuses: ProjectStatus[]; priorities: ProjectPriority[]
+}
+
+export type WorkspaceScope = 'all' | 'mine' | 'created' | 'team' | 'department' | 'archived'
+
+export interface WorkspaceTask {
+  id: string
+  title: string
+  description: string
+  project_id: string | null
+  project: string
+  department: string
+  assignee_id: string | null
+  assignee: string
+  owner_id: string | null
+  owner: string
+  status: TaskStatus
+  priority: MyTaskPriority | null
+  due_date: string | null
+  remarks: string | null
+  approved: boolean
+  approved_on: string | null
+  created_at: string | null
+  updated_at: string | null
+  attachment: MyTaskAttachment | null
+  comments?: Array<{ id: string; author: string; content: string; created_at: string }>
+}
+
+export interface WorkspaceResponse {
+  status: 1
+  message: string
+  data: {
+    tasks: WorkspaceTask[]
+    summary: { active: number; pending_review: number; blocked_overdue: number; completed_this_month: number }
+    pagination: TaskPagination
+    filters: {
+      statuses: TaskStatus[]
+      priorities: MyTaskPriority[]
+      users: Array<{ id: string; name: string }>
+    }
+  }
+}
+
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF'
+export interface DependencyTaskRef { id: string; title: string; status: string; due_date: string | null }
+export interface TaskDependency {
+  id: string
+  type: DependencyType
+  lag_days: number
+  notes: string | null
+  project_id: string | null
+  project: string
+  assignee_id: string | null
+  assignee: string
+  predecessor: DependencyTaskRef
+  successor: DependencyTaskRef
+  blocking: boolean
+}
+export interface DependencyNode {
+  id: string; title: string; status: string; priority: string | null; due_date: string | null
+  project: string; assignee: string; at_risk: boolean
+}
+export interface TaskMilestone {
+  id: string; project_id: string; workstream_id: string | null; name: string; description: string | null
+  target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'; project_name: string; workstream_name: string | null
+}
+export interface DependenciesResponse {
+  status: 1
+  message: string
+  data: {
+    dependencies: TaskDependency[]
+    tasks: DependencyNode[]
+    milestones: TaskMilestone[]
+    summary: { total: number; blocking: number; at_risk: number; on_track: number; milestones: number; critical_path: number }
+    options: {
+      types: DependencyType[]
+      projects: Array<{ id: string; name: string }>
+      tasks: Array<{ id: string; title: string; status: string; due_date: string | null }>
+      users: Array<{ id: string; name: string }>
+    }
+  }
 }

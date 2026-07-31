@@ -5,7 +5,7 @@ import { CalendarDays } from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { Task } from '@/types/task-management'
-import { getPriorityColor } from '@/lib/task-utils'
+import { PriorityBadge } from './priority-badge'
 
 interface TaskBoardViewProps {
   tasks: Task[]
@@ -49,9 +49,7 @@ export function TaskBoardView({ tasks, onSelectTask }: TaskBoardViewProps) {
                      )} />
                      
                      <div className="flex justify-between items-start">
-                        <span className={cn("text-[10px] font-bold uppercase tracking-wider", getPriorityColor(task.priority))}>
-                          {task.priority}
-                        </span>
+                        <PriorityBadge priority={task.priority} className="text-[10px] uppercase tracking-wider" />
                      </div>
                      <h4 className="text-sm font-semibold text-foreground leading-snug">{task.title}</h4>
                      
