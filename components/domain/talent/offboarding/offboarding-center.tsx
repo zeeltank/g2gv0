@@ -54,27 +54,62 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
-import {
-  mockOffboardingKPIs,
-  mockExitCases,
-  type OffboardingKPI,
-  type ExitCase
-} from './offboarding-data'
+import { useOffboardingCases, useOffboardingCase, useOffboardingClearances, useExitInterviews, useOffboardingMutations } from '@/hooks/use-offboarding'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/ui/error-state'
+import type { OffboardingCase, OffboardingClearance, ExitInterview } from '@/types/talent-offboarding'
 
 export function OffboardingCenter() {
-  const [selectedCases, setSelectedCases] = useState<string[]>([])
-  const [activeCaseId, setActiveCaseId] = useState<string | null>(null)
+  const [selectedCases, setSelectedCases] = useState<number[]>([])
+  const [activeCaseId, setActiveCaseId] = useState<number | null>(null)
   const [activeTopTab, setActiveTopTab] = useState('overview')
+  const [mainTab, setMainTab] = useState('Exit Cases')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   
-  const activeCase = activeCaseId ? mockExitCases.find(c => c.id === activeCaseId) : null
+  const [newCaseData, setNewCaseData] = useState({
+    employee_id: '',
+    exit_type: 'resignation',
+    resignation_date: '',
+    last_working_day: '',
+    exit_reason: ''
+  })
   
-  const toggleCase = (id: string) => {
+  const { data: casesResponse, isLoading, isError, error, refetch } = useOffboardingCases()
+  const casesData = casesResponse?.data || []
+  const summary = casesResponse?.meta?.summary || { total_exits: 0, resignations: 0, notice_period: 0, clearance_pending: 0, exit_interviews: 0, closed: 0 }
+  
+  const { data: caseDetailsResponse, isLoading: isLoadingCase } = useOffboardingCase(activeCaseId)
+  const activeCaseDetails = caseDetailsResponse?.data
+  
+  const { data: clearancesResponse, isLoading: isLoadingClearances } = useOffboardingClearances()
+  const clearancesData = clearancesResponse?.data || []
+
+  const { data: interviewsResponse, isLoading: isLoadingInterviews } = useExitInterviews()
+  const interviewsData = interviewsResponse?.data || []
+  
+  const { createCase } = useOffboardingMutations()
+
+  const filteredCases = statusFilter === 'all'   
+    ? casesData 
+    : casesData.filter(c => c.status === statusFilter)
+  
+  const toggleCase = (id: number) => {
     setSelectedCases(prev => 
       prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
     )
   }
 
-  const getKpiIcon = (iconName: OffboardingKPI['icon']) => {
+  const kpis = [
+    { id: 'total', title: 'Total Exits', value: summary.total_exits, subtitle: 'Overall', icon: 'door-open' as const },
+    { id: 'resignation', title: 'Resignations', value: summary.resignations, subtitle: 'Voluntary', icon: 'log-out' as const },
+    { id: 'notice', title: 'Notice Period', value: summary.notice_period, subtitle: 'In Progress', icon: 'calendar' as const },
+    { id: 'clearance', title: 'Clearance Pending', value: summary.clearance_pending, subtitle: 'Pending', icon: 'shield' as const },
+    { id: 'interviews', title: 'Exit Interviews', value: summary.exit_interviews, subtitle: 'Scheduled', icon: 'users' as const },
+    { id: 'closed', title: 'Closed', value: summary.closed, subtitle: 'Completed', icon: 'check-circle' as const }
+  ]
+
+  const getKpiIcon = (iconName: string) => {
     switch (iconName) {
       case 'door-open': return <DoorOpen className="size-5" />
       case 'log-out': return <LogOut className="size-5" />
@@ -86,16 +121,42 @@ export function OffboardingCenter() {
     }
   }
 
-  const getStatusVariant = (status: ExitCase['status']) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'Resignation Submitted': return 'default'
-      case 'Notice Period': return 'primary'
-      case 'Clearance': return 'warning'
-      case 'Exit Interview': return 'primary'
-      case 'Awaiting F&F': return 'error'
-      case 'Closed': return 'success'
+      case 'resignation-submitted': return 'default'
+      case 'notice-period': return 'primary'
+      case 'clearance': return 'warning'
+      case 'exit-interview': return 'primary'
+      case 'awaiting-fnf': return 'error'
+      case 'closed': return 'success'
       default: return 'default'
     }
+  }
+
+  const formatStatus = (status: string) => {
+    return status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-8">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-[120px] w-full" />
+        <Skeleton className="h-[400px] w-full" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="flex-1 p-6 h-full flex flex-col">
+        <ErrorState 
+          title="Could not load Offboarding cases" 
+          description={`There was a problem fetching the exit data. ${error instanceof Error ? error.message : JSON.stringify(error)}`} 
+          retry={() => refetch()} 
+        />
+      </div>
+    )
   }
 
   return (
@@ -118,7 +179,7 @@ export function OffboardingCenter() {
               <Download className="size-4" /> Export
             </Button>
             <div className="flex items-center">
-              <Button className="rounded-r-none flex items-center gap-2 border-r border-primary-foreground/20">
+              <Button onClick={() => setIsCreateOpen(true)} className="rounded-r-none flex items-center gap-2 border-r border-primary-foreground/20">
                 Create Exit Case
               </Button>
               <Button className="rounded-l-none px-2">
@@ -130,7 +191,7 @@ export function OffboardingCenter() {
 
         {/* KPIs Row */}
         <div className="flex overflow-x-auto gap-4 mb-6 pb-2 custom-scrollbar">
-          {mockOffboardingKPIs.map((kpi) => (
+          {kpis.map((kpi) => (
             <Card key={kpi.id} className="shadow-sm min-w-[180px] flex-1">
               <CardContent className="p-4 flex flex-col h-full gap-2 relative">
                 <div className="flex items-center justify-between">
@@ -158,9 +219,10 @@ export function OffboardingCenter() {
               {['Exit Cases', 'Clearance Tracker', 'Exit Interviews', 'Reports'].map((tab) => (
                 <button
                   key={tab}
+                  onClick={() => setMainTab(tab)}
                   className={cn(
                     "pb-3 text-sm font-semibold transition-colors",
-                    tab === 'Exit Cases' 
+                    mainTab === tab 
                       ? "text-primary border-b-2 border-primary" 
                       : "text-muted-foreground hover:text-foreground"
                   )}
@@ -197,20 +259,21 @@ export function OffboardingCenter() {
           </div>
 
           {/* Status Sub-tabs */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {[
-              { label: 'All', count: 36, active: true },
-              { label: 'Resignation Submitted', count: 9 },
-              { label: 'Notice Period', count: 14 },
-              { label: 'Clearance', count: 11 },
-              { label: 'Awaiting F&F', count: 5 },
-              { label: 'Closed', count: 18 }
+              { id: 'all', label: 'All', count: summary.total_exits },
+              { id: 'resignation-submitted', label: 'Resignation Submitted', count: summary.resignations },
+              { id: 'notice-period', label: 'Notice Period', count: summary.notice_period },
+              { id: 'clearance', label: 'Clearance', count: summary.clearance_pending },
+              { id: 'exit-interview', label: 'Exit Interview', count: summary.exit_interviews },
+              { id: 'closed', label: 'Closed', count: summary.closed }
             ].map((tab) => (
               <button
-                key={tab.label}
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border transition-colors",
-                  tab.active 
+                  "px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 border transition-colors whitespace-nowrap",
+                  statusFilter === tab.id 
                     ? "bg-primary/10 text-primary border-primary/20" 
                     : "bg-background text-muted-foreground border-border hover:bg-muted/50"
                 )}
@@ -218,7 +281,7 @@ export function OffboardingCenter() {
                 {tab.label}
                 <span className={cn(
                   "px-1.5 py-0.5 rounded text-[10px]",
-                  tab.active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                  statusFilter === tab.id ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
                 )}>
                   {tab.count}
                 </span>
@@ -232,7 +295,8 @@ export function OffboardingCenter() {
           
           {/* Main Area (12 cols) */}
           <div className="xl:col-span-12 flex flex-col gap-6">
-            <Card className="shadow-sm overflow-hidden border-border/60">
+            {mainTab === 'Exit Cases' && (
+              <Card className="shadow-sm overflow-hidden border-border/60">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-muted/10">
@@ -253,7 +317,7 @@ export function OffboardingCenter() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockExitCases.map((exitCase) => (
+                    {filteredCases.map((exitCase: OffboardingCase) => (
                       <TableRow 
                         key={exitCase.id} 
                         className={cn("hover:bg-muted/10 cursor-pointer", exitCase.id === activeCaseId && 'bg-primary/5 hover:bg-primary/5')}
@@ -268,35 +332,35 @@ export function OffboardingCenter() {
                         <TableCell className="py-3">
                           <div className="flex items-center gap-2.5">
                             <div className="size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground border shrink-0">
-                              {exitCase.employee.initials}
+                              {exitCase.employee_initials || exitCase.employee_name?.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-sm font-semibold text-foreground whitespace-nowrap">{exitCase.employee.name}</span>
-                              <span className="text-[10px] text-muted-foreground">{exitCase.employee.id}</span>
+                              <span className="text-sm font-semibold text-foreground whitespace-nowrap">{exitCase.employee_name}</span>
+                              <span className="text-[10px] text-muted-foreground">{exitCase.employee_code}</span>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.department}</TableCell>
-                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.lastWorkingDay}</TableCell>
-                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.exitReason}</TableCell>
+                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.department_name}</TableCell>
+                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.last_working_day}</TableCell>
+                        <TableCell className="text-xs font-medium text-foreground/80 py-3">{exitCase.exit_reason || exitCase.exit_type}</TableCell>
                         <TableCell className="py-3">
                           <StatusBadge 
                             variant={getStatusVariant(exitCase.status)}
                             className={cn(
                               "border-0 px-2 py-0.5 text-[10px] whitespace-nowrap",
-                              exitCase.status === 'Notice Period' ? 'bg-primary/10 text-primary' :
-                              exitCase.status === 'Clearance' ? 'bg-warning/10 text-warning-foreground' :
-                              exitCase.status === 'Exit Interview' ? 'bg-primary/10 text-primary' :
-                              exitCase.status === 'Awaiting F&F' ? 'bg-destructive/10 text-destructive' :
-                              exitCase.status === 'Closed' ? 'bg-success/10 text-success' :
+                              exitCase.status === 'notice-period' ? 'bg-primary/10 text-primary' :
+                              exitCase.status === 'clearance' ? 'bg-warning/10 text-warning-foreground' :
+                              exitCase.status === 'exit-interview' ? 'bg-primary/10 text-primary' :
+                              exitCase.status === 'awaiting-fnf' ? 'bg-destructive/10 text-destructive' :
+                              exitCase.status === 'closed' ? 'bg-success/10 text-success' :
                               'bg-muted text-muted-foreground'
                             )}
                           >
-                            {exitCase.status}
+                            {formatStatus(exitCase.status)}
                           </StatusBadge>
                         </TableCell>
-                        <TableCell className="text-xs font-medium text-foreground/80 py-3 whitespace-nowrap">{exitCase.owner}</TableCell>
-                        <TableCell className="text-xs font-medium text-foreground/80 py-3 whitespace-nowrap">{exitCase.updatedOn}</TableCell>
+                        <TableCell className="text-xs font-medium text-foreground/80 py-3 whitespace-nowrap">{exitCase.owner_name}</TableCell>
+                        <TableCell className="text-xs font-medium text-foreground/80 py-3 whitespace-nowrap">{new Date(exitCase.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</TableCell>
                         <TableCell className="text-center py-3">
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
                             <MoreHorizontal className="size-4" />
@@ -324,6 +388,99 @@ export function OffboardingCenter() {
                 </div>
               </div>
             </Card>
+            )}
+
+            {mainTab === 'Clearance Tracker' && (
+              <Card className="shadow-sm overflow-hidden border-border/60">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/10">
+                      <TableRow>
+                        <TableHead className="w-[40px] pl-4"><Checkbox /></TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Clearance</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Case #</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Type</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Due Date</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Status</TableHead>
+                        <TableHead className="w-[40px] text-center font-semibold text-foreground h-10"><Settings className="size-4" /></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clearancesData.map((clearance: OffboardingClearance) => (
+                        <TableRow key={clearance.id} className="hover:bg-muted/10">
+                          <TableCell className="pl-4 py-3"><Checkbox /></TableCell>
+                          <TableCell className="py-3">
+                            <span className="text-sm font-semibold text-foreground">{clearance.title}</span>
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">CASE-{clearance.case_id}</TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3 uppercase">{clearance.clearance_type}</TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">{clearance.due_date || 'N/A'}</TableCell>
+                          <TableCell className="py-3">
+                            <StatusBadge 
+                              variant={clearance.status === 'cleared' ? 'success' : 'default'}
+                              className="border-0 px-2 py-0.5 text-[10px]"
+                            >
+                              {clearance.status.toUpperCase()}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell className="text-center py-3">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground"><MoreHorizontal className="size-4" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            )}
+
+            {mainTab === 'Exit Interviews' && (
+              <Card className="shadow-sm overflow-hidden border-border/60">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/10">
+                      <TableRow>
+                        <TableHead className="w-[40px] pl-4"><Checkbox /></TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Case #</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Date</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Rating</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Rehire</TableHead>
+                        <TableHead className="font-semibold text-foreground h-10 text-xs">Status</TableHead>
+                        <TableHead className="w-[40px] text-center font-semibold text-foreground h-10"><Settings className="size-4" /></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {interviewsData.map((interview: ExitInterview) => (
+                        <TableRow key={interview.id} className="hover:bg-muted/10">
+                          <TableCell className="pl-4 py-3"><Checkbox /></TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">CASE-{interview.case_id}</TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">{interview.interview_date || 'N/A'}</TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">{interview.feedback_rating ? `${interview.feedback_rating}/5` : 'N/A'}</TableCell>
+                          <TableCell className="text-xs font-medium text-foreground/80 py-3">{interview.rehire_eligibility ? 'Yes' : 'No'}</TableCell>
+                          <TableCell className="py-3">
+                            <StatusBadge 
+                              variant={interview.status === 'completed' ? 'success' : 'default'}
+                              className="border-0 px-2 py-0.5 text-[10px]"
+                            >
+                              {interview.status.toUpperCase()}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell className="text-center py-3">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground"><MoreHorizontal className="size-4" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            )}
+
+            {mainTab === 'Reports' && (
+               <div className="flex flex-col items-center justify-center p-12 border rounded-lg text-muted-foreground">
+                 <p>Reports and Analytics would appear here.</p>
+               </div>
+            )}
           </div>
         </div>
       </div>
@@ -331,7 +488,11 @@ export function OffboardingCenter() {
       {/* Detail Drawer (Sheet) */}
       <Sheet open={!!activeCaseId} onOpenChange={(open) => !open && setActiveCaseId(null)}>
         <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
-          {activeCase && (
+          {isLoadingCase ? (
+            <div className="flex items-center justify-center h-full">
+              <Skeleton className="h-full w-full" />
+            </div>
+          ) : activeCaseDetails && (
             <div className="flex flex-col h-full bg-background">
               {/* Header */}
               <div className="px-6 py-5 border-b flex items-center justify-between bg-surface relative">
@@ -340,14 +501,14 @@ export function OffboardingCenter() {
                 </Button>
                 <div className="flex items-center gap-4">
                   <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary border-2 shadow-sm border-background font-bold text-lg">
-                    {activeCase.employee.initials}
+                    {activeCaseDetails.employee_initials || activeCaseDetails.employee_name?.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-foreground">{activeCase.employee.name}</h2>
+                    <h2 className="text-xl font-bold text-foreground">{activeCaseDetails.employee_name}</h2>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-sm font-medium text-muted-foreground">{activeCase.employee.title}</p>
+                      <p className="text-sm font-medium text-muted-foreground">{activeCaseDetails.designation}</p>
                       <span className="text-muted-foreground text-xs">•</span>
-                      <p className="text-sm text-muted-foreground">{activeCase.employee.id}</p>
+                      <p className="text-sm text-muted-foreground">{activeCaseDetails.employee_code}</p>
                     </div>
                   </div>
                 </div>
@@ -356,18 +517,18 @@ export function OffboardingCenter() {
                   <div className="flex flex-col items-end">
                     <span className="text-xs text-muted-foreground mb-1">Status</span>
                     <StatusBadge 
-                      variant={getStatusVariant(activeCase.status)} 
+                      variant={getStatusVariant(activeCaseDetails.status)} 
                       className={cn(
                         "px-2 py-0.5 text-[10px] border-0 h-5",
-                        activeCase.status === 'Notice Period' ? 'bg-primary/10 text-primary' :
-                        activeCase.status === 'Clearance' ? 'bg-warning/10 text-warning-foreground' :
-                        activeCase.status === 'Exit Interview' ? 'bg-primary/10 text-primary' :
-                        activeCase.status === 'Awaiting F&F' ? 'bg-destructive/10 text-destructive' :
-                        activeCase.status === 'Closed' ? 'bg-success/10 text-success' :
+                        activeCaseDetails.status === 'notice-period' ? 'bg-primary/10 text-primary' :
+                        activeCaseDetails.status === 'clearance' ? 'bg-warning/10 text-warning-foreground' :
+                        activeCaseDetails.status === 'exit-interview' ? 'bg-primary/10 text-primary' :
+                        activeCaseDetails.status === 'awaiting-fnf' ? 'bg-destructive/10 text-destructive' :
+                        activeCaseDetails.status === 'closed' ? 'bg-success/10 text-success' :
                         'bg-muted text-muted-foreground'
                       )}
                     >
-                      {activeCase.status}
+                      {formatStatus(activeCaseDetails.status)}
                     </StatusBadge>
                   </div>
                 </div>
@@ -396,7 +557,7 @@ export function OffboardingCenter() {
               {/* Tab Content Area */}
               <div className="flex-1 flex overflow-hidden bg-surface">
                 
-                {activeTopTab === 'overview' ? (
+                {activeTopTab === 'overview' && (
                   <div className="flex-1 flex w-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar flex flex-col gap-6">
                       
@@ -443,22 +604,22 @@ export function OffboardingCenter() {
                             <h4 className="text-sm font-bold text-foreground">Exit Details</h4>
                             <div className="grid grid-cols-[130px_1fr] gap-y-4 text-xs bg-muted/20 p-4 rounded-lg border border-border/50">
                               <span className="text-muted-foreground">Exit Reason</span>
-                              <span className="font-semibold text-foreground">{activeCase.exitReason}</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.exit_reason || activeCaseDetails.exit_type}</span>
                               
                               <span className="text-muted-foreground">Resignation Date</span>
-                              <span className="font-semibold text-foreground">01 May 2025</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.resignation_date}</span>
                               
                               <span className="text-muted-foreground">Last Working Day</span>
-                              <span className="font-semibold text-foreground">{activeCase.lastWorkingDay}</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.last_working_day}</span>
                               
                               <span className="text-muted-foreground">Notice Period</span>
-                              <span className="font-semibold text-foreground">30 Days</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.notice_period_days} Days</span>
                               
                               <span className="text-muted-foreground">Handover To</span>
-                              <span className="font-semibold text-foreground">Riya Kapoor</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.owner_name}</span>
                               
                               <span className="text-muted-foreground">Exit Type</span>
-                              <span className="font-semibold text-foreground">Voluntary</span>
+                              <span className="font-semibold text-foreground">{activeCaseDetails.exit_type}</span>
                             </div>
                           </div>
                           
@@ -474,10 +635,10 @@ export function OffboardingCenter() {
                                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Case Owner</span>
                                 <div className="flex items-center gap-3">
                                   <div className="size-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 border uppercase">
-                                    {activeCase.owner.substring(0, 2)}
+                                    {activeCaseDetails.owner_name?.substring(0, 2) || 'HR'}
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-foreground">{activeCase.owner}</span>
+                                    <span className="text-xs font-semibold text-foreground">{activeCaseDetails.owner_name || 'Unassigned'}</span>
                                     <span className="text-[10px] text-muted-foreground">HR Business Partner</span>
                                   </div>
                                 </div>
@@ -490,14 +651,13 @@ export function OffboardingCenter() {
                                     <User className="size-4" />
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-foreground">Rahul Das</span>
-                                    <span className="text-[10px] text-muted-foreground">HR Manager</span>
+                                    <span className="text-xs font-semibold text-foreground">{activeCaseDetails.manager_name || 'N/A'}</span>
+                                    <span className="text-[10px] text-muted-foreground">Manager</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-
                         </div>
                         
                         {/* Right Column */}
@@ -555,40 +715,128 @@ export function OffboardingCenter() {
                       <h3 className="text-sm font-bold text-foreground">Actions</h3>
                       
                       <div className="flex flex-col gap-2">
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <FileText className="size-3.5 text-muted-foreground" /> View Resignation
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80"
+                          onClick={() => setMainTab('Clearance Tracker')}
+                        >
+                          <Shield className="size-3.5 text-muted-foreground" /> View Clearances
                         </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <Clock className="size-3.5 text-muted-foreground" /> Extend Notice
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <Users className="size-3.5 text-muted-foreground" /> Assign Handover
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <Shield className="size-3.5 text-muted-foreground" /> Update Clearance
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <Calendar className="size-3.5 text-muted-foreground" /> Schedule Exit Interview
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <CheckCircle2 className="size-3.5 text-muted-foreground" /> View Clearance Status
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <FileDigit className="size-3.5 text-muted-foreground" /> Generate F&F
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80">
-                          <CheckCircle2 className="size-3.5 text-muted-foreground" /> Close Exit Case
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start text-[11px] h-9 gap-2 font-medium bg-card hover:bg-muted/50 border-border/80"
+                          onClick={() => setMainTab('Exit Interviews')}
+                        >
+                          <Calendar className="size-3.5 text-muted-foreground" /> View Interviews
                         </Button>
                       </div>
                       
                       <div className="mt-4 pt-4 border-t border-border">
-                        <Button variant="outline" className="w-full justify-start text-[11px] h-9 gap-2 font-semibold text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30">
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start text-[11px] h-9 gap-2 font-semibold text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                          onClick={() => {
+                            if(window.confirm('Are you sure you want to withdraw this exit case?')) {
+                              // withdraw logic
+                            }
+                          }}
+                        >
                           <Trash2 className="size-3.5" /> Withdraw Resignation
                         </Button>
                       </div>
                     </div>
                   </div>
-                ) : (
+                )}
+                
+                {activeTopTab === 'clearance' && (
+                  <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                    <h3 className="text-lg font-bold text-foreground mb-4">Clearance Checklist</h3>
+                    {activeCaseDetails.clearances?.length > 0 ? (
+                      <div className="flex flex-col gap-4">
+                        {activeCaseDetails.clearances.map((clearance: OffboardingClearance) => (
+                          <div key={clearance.id} className="p-4 border rounded-lg flex items-start justify-between bg-card">
+                            <div className="flex items-start gap-3">
+                              <div className={cn(
+                                "mt-1 rounded-full p-1 border",
+                                clearance.status === 'cleared' ? 'bg-success/20 border-success text-success' : 'bg-muted border-border text-muted-foreground'
+                              )}>
+                                <CheckCircle2 className="size-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-sm text-foreground">{clearance.title}</span>
+                                <span className="text-xs text-muted-foreground mt-0.5">Assigned to: {clearance.clearance_type.toUpperCase()}</span>
+                                {clearance.description && <span className="text-xs text-foreground/70 mt-2">{clearance.description}</span>}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <StatusBadge variant={clearance.status === 'cleared' ? 'success' : 'default'} className="text-[10px] px-2 py-0.5 h-5 border-0">
+                                {clearance.status.toUpperCase()}
+                              </StatusBadge>
+                              {clearance.status !== 'cleared' && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs">Mark Cleared</Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg text-muted-foreground">
+                        <Shield className="size-8 mb-2 opacity-50" />
+                        <p>No clearances assigned yet.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTopTab === 'exit-interview' && (
+                  <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-foreground">Exit Interview</h3>
+                      {!activeCaseDetails.exit_interview && (
+                        <Button size="sm" className="h-8 text-xs gap-1.5"><Calendar className="size-3.5" /> Schedule</Button>
+                      )}
+                    </div>
+                    {activeCaseDetails.exit_interview ? (
+                      <div className="flex flex-col gap-6">
+                        <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border bg-muted/20">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Status</span>
+                            <span className="text-sm font-semibold text-foreground capitalize">{activeCaseDetails.exit_interview.status}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Scheduled Date</span>
+                            <span className="text-sm font-semibold text-foreground">{activeCaseDetails.exit_interview.interview_date || 'N/A'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Feedback Rating</span>
+                            <span className="text-sm font-semibold text-foreground">{activeCaseDetails.exit_interview.feedback_rating ? `${activeCaseDetails.exit_interview.feedback_rating} / 5` : 'N/A'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Rehire Eligibility</span>
+                            <span className="text-sm font-semibold text-foreground">{activeCaseDetails.exit_interview.rehire_eligibility ? 'Yes' : 'No'}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-bold text-muted-foreground uppercase">Reason for Leaving</span>
+                          <p className="text-sm text-foreground p-3 rounded-lg border bg-card">{activeCaseDetails.exit_interview.reason_for_leaving || 'No details provided.'}</p>
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-bold text-muted-foreground uppercase">Areas for Improvement</span>
+                          <p className="text-sm text-foreground p-3 rounded-lg border bg-card">{activeCaseDetails.exit_interview.areas_for_improvement || 'No details provided.'}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg text-muted-foreground">
+                        <Users className="size-8 mb-2 opacity-50" />
+                        <p>No exit interview scheduled.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {['documents', 'activity', 'comments'].includes(activeTopTab) && (
                   <div className="flex-1 flex items-center justify-center text-muted-foreground">
                     <p>Tab content for &quot;{activeTopTab}&quot; would go here.</p>
                   </div>
@@ -597,6 +845,92 @@ export function OffboardingCenter() {
               </div>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+      {/* Create Exit Case Sheet */}
+      <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <SheetContent side="right" className="w-[95vw] sm:max-w-md p-0 flex flex-col h-full border-l border-border/80">
+          <div className="px-6 py-5 border-b flex items-center justify-between bg-surface relative">
+            <h2 className="text-xl font-bold text-foreground">Initiate Offboarding</h2>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setIsCreateOpen(false)}>
+              <X className="size-4" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Employee ID</label>
+              <Input 
+                placeholder="Enter Employee ID (e.g., 6)" 
+                value={newCaseData.employee_id}
+                onChange={(e) => setNewCaseData({ ...newCaseData, employee_id: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Exit Type</label>
+              <Select 
+                options={[
+                  { label: 'Resignation', value: 'resignation' },
+                  { label: 'Termination', value: 'termination' },
+                  { label: 'Retirement', value: 'retirement' }
+                ]} 
+                value={newCaseData.exit_type}
+                onChange={(value) => setNewCaseData({ ...newCaseData, exit_type: value })}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Resignation Date</label>
+              <Input 
+                type="date" 
+                value={newCaseData.resignation_date}
+                onChange={(e) => setNewCaseData({ ...newCaseData, resignation_date: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Last Working Day</label>
+              <Input 
+                type="date" 
+                value={newCaseData.last_working_day}
+                onChange={(e) => setNewCaseData({ ...newCaseData, last_working_day: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Reason (Optional)</label>
+              <textarea 
+                className="w-full flex min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Details about exit..." 
+                value={newCaseData.exit_reason}
+                onChange={(e) => setNewCaseData({ ...newCaseData, exit_reason: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="p-4 border-t bg-muted/10 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+            <Button 
+              disabled={!newCaseData.employee_id || createCase.isPending}
+              onClick={() => {
+                createCase.mutate({
+                  employee_id: parseInt(newCaseData.employee_id, 10),
+                  exit_type: newCaseData.exit_type,
+                  resignation_date: newCaseData.resignation_date || undefined,
+                  last_working_day: newCaseData.last_working_day || undefined,
+                  exit_reason: newCaseData.exit_reason || undefined
+                }, {
+                  onSuccess: () => {
+                    setIsCreateOpen(false)
+                    setNewCaseData({
+                      employee_id: '',
+                      exit_type: 'resignation',
+                      resignation_date: '',
+                      last_working_day: '',
+                      exit_reason: ''
+                    })
+                  }
+                })
+              }}
+            >
+              {createCase.isPending ? 'Initiating...' : 'Initiate'}
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

@@ -5,6 +5,8 @@
 
 import { apiClient } from '@/services/core'
 export { isOpenJobPosting, recruitmentService } from './recruitment'
+export { talentDashboardService } from './dashboard'
+export { offboardingService } from './offboarding-service'
 
 export interface Candidate {
   id: string

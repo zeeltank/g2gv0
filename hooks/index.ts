@@ -47,3 +47,9 @@ export {
   type AssignmentFilters,
 } from './use-assignments'
 export { useRecruitment } from './use-recruitment'
+export {
+  useTalentDashboard,
+  formatRangeLabel,
+  toDateParam,
+  type TalentDashboardFilters,
+} from './use-talent-dashboard'
