@@ -91,7 +91,7 @@ function getStoredSession(): Session {
 
   // A restored user without its Laravel token cannot talk to the ERP, so treat
   // that half-state as signed out rather than rendering a shell that 401s. The
-  // routing cookie has to go too, or proxy.ts would bounce /login -> /dashboard.
+  // routing cookie has to go too, or middleware.ts would bounce /login -> /dashboard.
   if (!readLaravelSession()) {
     localStorage.removeItem(SESSION_COOKIE)
     clearSessionCookie()

@@ -16,10 +16,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
+import { PriorityBadge } from './priority-badge'
 import type {
   MyTask,
   MyTaskGroup,
@@ -301,7 +303,7 @@ function TaskTable({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
                 <TableCell>{task.owner}</TableCell>
                 <TableCell>{task.department || '—'}</TableCell>
                 <TableCell><span className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" />{formatDate(task.due_date)}</span></TableCell>
-                <TableCell>{task.priority ?? task.task_type ?? '—'}</TableCell>
+                <TableCell><PriorityBadge priority={task.priority ?? task.task_type} /></TableCell>
                 <TableCell><StatusBadge status={task.status} /></TableCell>
               </TableRow>
             ))}
@@ -328,7 +330,7 @@ function TaskBoard({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
               {matching.map((task) => (
                 <button key={task.id} type="button" onClick={() => onSelect(task.id)} className="w-full rounded-xl border bg-card p-4 text-left shadow-sm transition hover:border-primary/40">
                   <p className="text-sm font-semibold">{task.title}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{formatDate(task.due_date)} · {task.priority ?? task.task_type ?? 'No priority'}</p>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><span>{formatDate(task.due_date)}</span><span>·</span><PriorityBadge priority={task.priority ?? task.task_type} /></div>
                 </button>
               ))}
               {matching.length === 0 && <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">No tasks</div>}
@@ -337,20 +339,6 @@ function TaskBoard({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
         )
       })}
     </div>
-  )
-}
-
-function StatusBadge({ status }: { status: TaskStatus }) {
-  return (
-    <span className={cn(
-      'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
-      status === 'COMPLETED' && 'border-success/30 bg-success/10 text-success',
-      status === 'IN-PROGRESS' && 'border-primary/30 bg-primary/10 text-primary',
-      status === 'ON HOLD' && 'border-warning/30 bg-warning/10 text-warning',
-      status === 'PENDING' && 'border-border bg-muted text-muted-foreground',
-    )}>
-      {status.replace('-', ' ')}
-    </span>
   )
 }
 

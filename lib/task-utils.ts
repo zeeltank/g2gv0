@@ -38,10 +38,12 @@ export const getTaskStatusStyle = (status: string) => {
 }
 
 export const getPriorityColor = (priority: string) => {
-  switch(priority) {
-    case 'urgent': return 'text-destructive font-semibold'
-    case 'high': return 'text-warning font-semibold'
-    case 'medium': return 'text-primary'
-    default: return 'text-muted-foreground'
+  switch(priority.toLowerCase()) {
+    case 'low': return 'border-success/30 bg-success/10 text-success font-semibold'
+    case 'medium': return 'border-warning/40 bg-warning/10 text-warning font-semibold'
+    case 'high': return 'border-destructive/35 bg-destructive/10 text-destructive font-semibold'
+    case 'urgent':
+    case 'critical': return 'border-purple-800/40 bg-purple-950/15 text-purple-800 dark:text-purple-300 font-semibold'
+    default: return 'border-border bg-muted text-muted-foreground'
   }
 }

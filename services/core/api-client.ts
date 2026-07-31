@@ -3,29 +3,7 @@
  * Base HTTP client for all API calls
  */
 
-function resolveConfiguredBaseUrl() {
-  const configuredBase =
-    process.env.NODE_ENV === 'production'
-      ? process.env.NEXT_PUBLIC_API_BASE_URL_PROD
-      : process.env.NEXT_PUBLIC_API_BASE_URL_DEV
-
-  const fallbackBase = process.env.NEXT_PUBLIC_API_URL || ''
-  return (configuredBase || fallbackBase).trim().replace(/\/+$/, '')
-}
-
-function resolveApiBaseUrl() {
-  const rawBase = resolveConfiguredBaseUrl()
-
-  if (!rawBase) return '/api'
-
-  return rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`
-}
-
-function resolveWebBaseUrl() {
-  const rawBase = resolveConfiguredBaseUrl()
-  if (!rawBase) return ''
-  return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase
-}
+import { resolveApiBaseUrl, resolveWebBaseUrl } from '@/lib/api-config'
 
 const API_BASE_URL = resolveApiBaseUrl()
 const WEB_BASE_URL = resolveWebBaseUrl()

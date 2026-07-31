@@ -5,6 +5,8 @@ import { CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Select } from '@/components/ui/select'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { PriorityBadge } from './priority-badge'
 import { Spinner } from '@/components/ui/spinner'
 import { taskService } from '@/services/task'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
@@ -178,8 +180,8 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                 <Info icon={UserCircle2} label="Assigned by" value={task.owner} />
                 <Info icon={CalendarDays} label="Due date" value={formatDate(task.due_date)} />
                 <Info icon={FileText} label="Department" value={task.department || 'Not assigned'} />
-                <Info icon={Clock} label="Priority / cadence" value={task.priority ?? task.task_type ?? 'Not set'} />
-                <Info icon={CheckCircle2} label="Current status" value={task.status} />
+                <Info icon={Clock} label="Priority / cadence" value={<PriorityBadge priority={task.priority ?? task.task_type} />} />
+                <Info icon={CheckCircle2} label="Current status" value={<StatusBadge status={task.status} />} />
               </div>
 
               <section>
@@ -216,6 +218,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                   placeholder="Completion or progress remarks (required)"
                   className="min-h-28 w-full rounded-lg border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/40"
                 />
+                <StatusBadge status={status} />
                 <Button onClick={saveStatus} disabled={saving || !remarks.trim()} className="w-full">
                   {saving ? 'Saving…' : 'Save status and remarks'}
                 </Button>
@@ -228,13 +231,13 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
   )
 }
 
-function Info({ icon: Icon, label, value }: { icon: typeof CalendarDays; label: string; value: string }) {
+function Info({ icon: Icon, label, value }: { icon: typeof CalendarDays; label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
         <Icon className="size-4" /> {label}
       </div>
-      <p className="text-sm font-medium">{value}</p>
+      <div className="text-sm font-medium">{value}</div>
     </div>
   )
 }
