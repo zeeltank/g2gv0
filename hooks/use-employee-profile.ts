@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useAuth } from '@/hooks/use-auth'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { useAuth as useCompetencyAuth } from '@/hooks/use-auth'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { employeeService } from '@/services/hrms'
+import type { EmployeeProfileResponse } from '@/services/hrms/employee'
 import {
   employeeProfileService,
   type EmployeeProfileData,
@@ -14,16 +17,63 @@ import {
   type CareerPathData,
 } from '@/services/competency'
 
+interface UseEmployeeProfileResult {
+  profile: EmployeeProfileResponse | null
+  loading: boolean
+  error: string | null
+}
+
+export function useEmployeeProfile(): UseEmployeeProfileResult {
+  const { user } = useAuth()
+  const [profile, setProfile] = useState<EmployeeProfileResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadProfile = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+
+    const context = getLaravelContext(user)
+
+    if (!isLaravelContextReady(context)) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const data = await employeeService.getEmployeeProfile(context, user.orgType, user.profileName)
+      setProfile(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load employee profile.')
+      setProfile(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadProfile()
+    })
+  }, [loadProfile])
+
+  return { profile, loading, error }
+}
 function toMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
 function useLaravelContext() {
-  const { user } = useAuth()
+  const { user } = useCompetencyAuth()
   return useCallback(() => getLaravelContext(user), [user])
 }
 
-export function useEmployeeProfile(userId: string | null) {
+export function useCompetencyEmployeeProfile(userId: string | null) {
   const resolveContext = useLaravelContext()
 
   const [loading, setLoading] = useState(true)

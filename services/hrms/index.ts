@@ -10,6 +10,9 @@ import { withLaravelParams } from '@/lib/laravel-context'
 // Leave Management module - /api/leave/*
 export * from './leave'
 
+// Employee module
+export * from './employee'
+
 export interface AttendanceRecord {
   id: string
   userId: string
