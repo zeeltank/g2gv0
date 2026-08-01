@@ -2,9 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/auth/gtg-auth'
+import { useAuth as useCompetencyAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { employeeService } from '@/services/hrms'
 import type { EmployeeProfileResponse } from '@/services/hrms/employee'
+import {
+  employeeProfileService,
+  type EmployeeProfileData,
+  type AvailableSkill,
+  type SkillHistoryData,
+  type EmployeeCertification,
+  type EmployeeDevelopmentPlan,
+  type EmployeeEvidence,
+  type CareerPathData,
+} from '@/services/competency'
 
 interface UseEmployeeProfileResult {
   profile: EmployeeProfileResponse | null
@@ -53,30 +64,16 @@ export function useEmployeeProfile(): UseEmployeeProfileResult {
 
   return { profile, loading, error }
 }
-import { useCallback, useEffect, useState } from 'react'
-import { useAuth } from '@/hooks/use-auth'
-import { getLaravelContext } from '@/lib/laravel-context'
-import {
-  employeeProfileService,
-  type EmployeeProfileData,
-  type AvailableSkill,
-  type SkillHistoryData,
-  type EmployeeCertification,
-  type EmployeeDevelopmentPlan,
-  type EmployeeEvidence,
-  type CareerPathData,
-} from '@/services/competency'
-
 function toMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
 function useLaravelContext() {
-  const { user } = useAuth()
+  const { user } = useCompetencyAuth()
   return useCallback(() => getLaravelContext(user), [user])
 }
 
-export function useEmployeeProfile(userId: string | null) {
+export function useCompetencyEmployeeProfile(userId: string | null) {
   const resolveContext = useLaravelContext()
 
   const [loading, setLoading] = useState(true)
