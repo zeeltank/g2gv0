@@ -1,4 +1,5 @@
 export { useAttendance } from './use-attendance'
+export { useEmployeeProfile } from './use-employee-profile'
 export {
   useLeaveDashboard,
   useLeaveOptions,

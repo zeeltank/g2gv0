@@ -233,3 +233,6 @@ export const organizationService = {
       }).toString()}`,
     )),
 }
+
+export * from './employee-profile-service'
+

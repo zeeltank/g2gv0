@@ -1,26 +1,96 @@
 'use client'
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Select } from '@/components/ui/select';
 import { RadioGroup, Radio } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, MapPin, Building2, Clock, Wallet, AlertCircle } from "lucide-react";
+import { User, MapPin, Building2, Clock, Wallet, AlertCircle, Loader2 } from "lucide-react";
 
 interface PersonalInfoTabProps {
   employee: any;
   departments: any[];
   jobRoles: any[];
-  onSave: (data: any) => void;
+  userProfiles?: any[];
+  employeesList?: any[];
+  onSave: (data: any) => Promise<void> | void;
 }
 
-export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: PersonalInfoTabProps) {
-  const [activeSection, setActiveSection] = React.useState('personal');
+export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles = [], employeesList = [], onSave }: PersonalInfoTabProps) {
+  const [activeSection, setActiveSection] = useState('personal');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name_suffix: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    email: '',
+    mobile: '',
+    birthdate: '',
+    gender: 'M',
+    department_id: '',
+    allocated_standards: '',
+    user_profile_id: '',
+    status: '1',
+    address: '',
+    address_2: '',
+    city: '',
+    state: '',
+    pincode: '',
+    supervisor_opt: '',
+    employee_name: '',
+    reporting_method: '',
+    bank_name: '',
+    branch_name: '',
+    account_no: '',
+    ifsc_code: '',
+    amount: '',
+    transfer_type: '',
+  });
+
+  useEffect(() => {
+    if (employee) {
+      const nameParts = (employee.full_name || '').split(' ');
+      setFormData({
+        name_suffix: employee.name_suffix || '',
+        first_name: employee.first_name || nameParts[0] || '',
+        middle_name: employee.middle_name || '',
+        last_name: employee.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''),
+        email: employee.email || '',
+        mobile: employee.mobile || '',
+        birthdate: employee.birthdate ? new Date(employee.birthdate).toISOString().split('T')[0] : '',
+        gender: employee.gender || 'M',
+        department_id: String(employee.department_id || ''),
+        allocated_standards: String(employee.allocated_standards || employee.jobrole_id || ''),
+        user_profile_id: String(employee.user_profile_id || ''),
+        status: String(employee.status ?? '1'),
+        address: employee.address || '',
+        address_2: employee.address_2 || '',
+        city: employee.city || '',
+        state: employee.state || '',
+        pincode: employee.pincode || '',
+        supervisor_opt: String(employee.supervisor_opt || ''),
+        employee_name: employee.employee_name || '',
+        reporting_method: employee.reporting_method || '',
+        bank_name: employee.bank_name || '',
+        branch_name: employee.branch_name || '',
+        account_no: employee.account_no || employee.account || '',
+        ifsc_code: employee.ifsc_code || employee.ifsc || '',
+        amount: employee.amount || '',
+        transfer_type: employee.transfer_type || '',
+      });
+    }
+  }, [employee]);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const sections = [
     { id: 'personal', label: 'Personal Details', icon: User },
@@ -30,9 +100,14 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
     { id: 'deposit', label: 'Direct Deposit', icon: Wallet },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({});
+    setIsSubmitting(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -45,6 +120,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
           return (
             <button
               key={sec.id}
+              type="button"
               onClick={() => setActiveSection(sec.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all whitespace-nowrap cursor-pointer ${
                 isActive 
@@ -60,7 +136,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
       </div>
 
       {/* Main Form Content */}
-      <div className="flex-1 overflow-y-auto pr-2 pb-16">
+      <div className="flex-1 overflow-y-auto pr-2 pb-20">
         <form onSubmit={handleSubmit} className="space-y-6">
           
           {activeSection === 'personal' && (
@@ -70,79 +146,91 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Suffix</Label>
-                  <Select options={[{label: 'Mr.', value: 'Mr.'}, {label: 'Mrs.', value: 'Mrs.'}, {label: 'Ms.', value: 'Ms.'}, {label: 'Dr.', value: 'Dr.'}]} placeholder="Select" />
+                  <Select 
+                    value={formData.name_suffix}
+                    onChange={(val) => handleChange('name_suffix', val)}
+                    options={[{label: 'Mr.', value: 'Mr.'}, {label: 'Mrs.', value: 'Mrs.'}, {label: 'Ms.', value: 'Ms.'}, {label: 'Dr.', value: 'Dr.'}]} 
+                    placeholder="Select" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>First Name</Label>
-                  <Input defaultValue={employee?.first_name || employee?.full_name?.split(' ')[0]} placeholder="First Name" />
+                  <Input value={formData.first_name} onChange={(e) => handleChange('first_name', e.target.value)} placeholder="First Name" required />
                 </div>
                 <div className="space-y-2">
                   <Label>Middle Name</Label>
-                  <Input defaultValue={employee?.middle_name} placeholder="Middle Name" />
+                  <Input value={formData.middle_name} onChange={(e) => handleChange('middle_name', e.target.value)} placeholder="Middle Name" />
                 </div>
                 
                 <div className="space-y-2">
                   <Label>Last Name</Label>
-                  <Input defaultValue={employee?.last_name || employee?.full_name?.split(' ')[1]} placeholder="Last Name" />
+                  <Input value={formData.last_name} onChange={(e) => handleChange('last_name', e.target.value)} placeholder="Last Name" required />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input type="email" defaultValue={employee?.email} placeholder="Email Address" />
+                  <Input type="email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Email Address" required />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Password</Label>
-                  <Input type="password" placeholder="••••••••" />
-                </div>
-
-                <div className="space-y-2">
                   <Label>Birthdate</Label>
-                  <DatePicker value={employee?.birthdate ? new Date(employee.birthdate) : undefined} />
+                  <DatePicker 
+                    value={formData.birthdate ? new Date(formData.birthdate) : undefined} 
+                    onChange={(d) => handleChange('birthdate', d instanceof Date ? d.toISOString().split('T')[0] : (typeof d === 'string' ? d : ''))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Mobile</Label>
-                  <Input type="tel" defaultValue={employee?.mobile} placeholder="Mobile Number" />
+                  <Input type="tel" value={formData.mobile} onChange={(e) => handleChange('mobile', e.target.value)} placeholder="Mobile Number" />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Department</Label>
                   <Select 
+                    value={formData.department_id}
+                    onChange={(val) => handleChange('department_id', val)}
                     placeholder="Select Department"
-                    options={departments?.map((d: any) => ({label: d.name || d, value: d.id || d})) || []} 
+                    options={departments?.map((d: any) => ({
+                      label: d.department || d.name || String(d), 
+                      value: String(d.id || d)
+                    })) || []} 
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Job Role</Label>
                   <Select 
+                    value={formData.allocated_standards}
+                    onChange={(val) => handleChange('allocated_standards', val)}
                     placeholder="Select Job Role"
-                    options={jobRoles?.map((r: any) => ({label: r.name || r, value: r.id || r})) || []} 
+                    options={jobRoles?.map((r: any) => ({
+                      label: r.jobrole || r.name || String(r), 
+                      value: String(r.id || r)
+                    })) || []} 
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Responsibility Level</Label>
-                  <Select placeholder="Level of Responsibility" options={[]} />
-                </div>
-
-                <div className="space-y-2">
                   <Label>Gender</Label>
-                  <RadioGroup className="flex flex-row gap-4 h-10 items-center" value={employee?.gender === 'F' ? 'F' : 'M'}>
+                  <RadioGroup 
+                    className="flex flex-row gap-4 h-10 items-center" 
+                    value={formData.gender === 'F' ? 'F' : 'M'}
+                    onChange={(val) => handleChange('gender', val)}
+                  >
                     <Radio value="M" label="Male" />
                     <Radio value="F" label="Female" />
                   </RadioGroup>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>User Profile</Label>
-                  <Select placeholder="User Profile" options={[]} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Join Year</Label>
+                  <Label>User Profile Role</Label>
                   <Select 
-                    placeholder="Select Year"
-                    options={[2020, 2021, 2022, 2023, 2024, 2025].map(y => ({label: y.toString(), value: y.toString()}))} 
+                    value={formData.user_profile_id}
+                    onChange={(val) => handleChange('user_profile_id', val)}
+                    placeholder="Select User Profile" 
+                    options={userProfiles?.map((p: any) => ({
+                      label: p.name || String(p),
+                      value: String(p.id || p)
+                    })) || []} 
                   />
                 </div>
 
@@ -150,18 +238,13 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
                   <Label>Status</Label>
                   <Select 
                     placeholder="Status"
-                    value={employee?.status || "Active"}
+                    value={formData.status === '1' || formData.status === 'Active' ? '1' : '0'}
+                    onChange={(val) => handleChange('status', val)}
                     options={[
-                      {label: "Active", value: "Active"},
-                      {label: "Inactive", value: "Inactive"},
-                      {label: "Away", value: "Away"}
+                      {label: "Active", value: "1"},
+                      {label: "Inactive", value: "0"}
                     ]} 
                   />
-                </div>
-
-                <div className="space-y-2 col-span-full">
-                  <Label>Profile Image</Label>
-                  <Input type="file" accept="image/*" />
                 </div>
               </div>
             </div>
@@ -173,24 +256,24 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Street Address</Label>
-                  <Input defaultValue={employee?.address} placeholder="123 Main St" />
+                  <Input value={formData.address} onChange={(e) => handleChange('address', e.target.value)} placeholder="123 Main St" />
                 </div>
                 <div className="space-y-2">
                   <Label>Address Line 2</Label>
-                  <Input defaultValue={employee?.address_2} placeholder="Apt, Suite, Bldg" />
+                  <Input value={formData.address_2} onChange={(e) => handleChange('address_2', e.target.value)} placeholder="Apt, Suite, Bldg" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>City</Label>
-                    <Input defaultValue={employee?.city} placeholder="City" />
+                    <Input value={formData.city} onChange={(e) => handleChange('city', e.target.value)} placeholder="City" />
                   </div>
                   <div className="space-y-2">
                     <Label>State</Label>
-                    <Input defaultValue={employee?.state} placeholder="State" />
+                    <Input value={formData.state} onChange={(e) => handleChange('state', e.target.value)} placeholder="State" />
                   </div>
                   <div className="space-y-2">
                     <Label>Pincode</Label>
-                    <Input defaultValue={employee?.pincode} placeholder="Pincode" />
+                    <Input value={formData.pincode} onChange={(e) => handleChange('pincode', e.target.value)} placeholder="Pincode" />
                   </div>
                 </div>
               </div>
@@ -203,21 +286,20 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
               <p className="text-sm text-muted-foreground">Assign managers and reporting methods here.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Supervisor Opt</Label>
-                  <div className="flex items-center gap-4 h-10">
-                    <RadioGroup className="flex flex-row gap-4 h-10 items-center" value="Supervisor">
-                      <Radio value="Supervisor" label="Supervisor" />
-                      <Radio value="Subordinate" label="Subordinate" />
-                    </RadioGroup>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Employee Name</Label>
-                  <Select placeholder="Select Employee" options={[]} />
+                  <Label>Reporting Manager / Supervisor</Label>
+                  <Select 
+                    value={formData.supervisor_opt}
+                    onChange={(val) => handleChange('supervisor_opt', val)}
+                    placeholder="Select Manager" 
+                    options={employeesList?.map((emp: any) => ({
+                      label: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.full_name || emp.user_name || String(emp.id),
+                      value: String(emp.id)
+                    })) || []} 
+                  />
                 </div>
                 <div className="space-y-2 col-span-full">
                   <Label>Reporting Method</Label>
-                  <Input placeholder="Reporting Method" />
+                  <Input value={formData.reporting_method} onChange={(e) => handleChange('reporting_method', e.target.value)} placeholder="Reporting Method (e.g., Direct, Matrix)" />
                 </div>
               </div>
             </div>
@@ -226,7 +308,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
           {activeSection === 'attendance' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground border-b pb-2">Attendance & Schedule</h3>
-              <p className="text-sm text-muted-foreground">Manage working days and shifts.</p>
+              <p className="text-sm text-muted-foreground font-medium">Standard working schedule configured for this employee.</p>
               
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -243,7 +325,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
 
                 <div className="space-y-4 mt-6">
                   <Label className="text-sm font-semibold border-b pb-1">Shift Timings</Label>
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
                     <div key={day} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                       <span className="text-sm font-medium">{day}</span>
                       <TimePicker value="09:00" />
@@ -261,27 +343,29 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Bank Name</Label>
-                  <Input placeholder="Bank Name" />
+                  <Input value={formData.bank_name} onChange={(e) => handleChange('bank_name', e.target.value)} placeholder="Bank Name" />
                 </div>
                 <div className="space-y-2">
                   <Label>Branch Name</Label>
-                  <Input placeholder="Branch Name" />
+                  <Input value={formData.branch_name} onChange={(e) => handleChange('branch_name', e.target.value)} placeholder="Branch Name" />
                 </div>
                 <div className="space-y-2">
                   <Label>Account Number</Label>
-                  <Input placeholder="Account No" />
+                  <Input value={formData.account_no} onChange={(e) => handleChange('account_no', e.target.value)} placeholder="Account No" />
                 </div>
                 <div className="space-y-2">
                   <Label>IFSC Code</Label>
-                  <Input placeholder="IFSC Code" />
+                  <Input value={formData.ifsc_code} onChange={(e) => handleChange('ifsc_code', e.target.value)} placeholder="IFSC Code" />
                 </div>
                 <div className="space-y-2">
                   <Label>Amount</Label>
-                  <Input type="number" placeholder="0.00" />
+                  <Input type="number" value={formData.amount} onChange={(e) => handleChange('amount', e.target.value)} placeholder="0.00" />
                 </div>
                 <div className="space-y-2">
                   <Label>Transfer Type</Label>
                   <Select 
+                    value={formData.transfer_type}
+                    onChange={(val) => handleChange('transfer_type', val)}
                     placeholder="Select Type"
                     options={[
                       {label: "Fixed Amount", value: "Fixed"},
@@ -293,17 +377,21 @@ export function PersonalInfoTab({ employee, departments, jobRoles, onSave }: Per
             </div>
           )}
 
-          {/* Sticky Action Footer */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t flex items-center justify-between z-10">
+          {/* Action Footer */}
+          <div className="pt-6 border-t flex items-center justify-between z-10">
             <p className="text-xs text-muted-foreground hidden sm:flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-alert w-3.5 h-3.5" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg> Please review all items carefully before saving your changes.
+              <AlertCircle className="w-3.5 h-3.5 text-primary" /> Review all details carefully before saving changes.
             </p>
             <div className="flex gap-3 w-full sm:w-auto">
-              <Button type="button" variant="outline" className="flex-1 sm:flex-none">
-                Discard
-              </Button>
-              <Button type="submit" className="flex-1 sm:flex-none">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-none">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </Button>
             </div>
           </div>

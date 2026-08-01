@@ -47,7 +47,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { useEmployeeProfile } from '@/hooks/use-employee-profile'
+import { useCompetencyEmployeeProfile } from '@/hooks/use-employee-profile'
 import { useAuth } from '@/hooks/use-auth'
 import type { EmployeeCompetencyItem } from '@/services/competency'
 
@@ -75,7 +75,7 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
     skillHistory, skillHistoryLoading, loadSkillHistory, clearSkillHistory,
     notes, notesLoading, saveNotes, requestReassessment, assignDevelopmentPlan, addCertification,
     certifications, developmentPlans, evidence, careerPath, addEvidence, removeEvidence,
-  } = useEmployeeProfile(effectiveUserId || null)
+  } = useCompetencyEmployeeProfile(effectiveUserId || null)
 
   // Quick-action dialogs
   const [reassessOpen, setReassessOpen] = useState(false)

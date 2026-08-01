@@ -7,6 +7,7 @@ export type LaravelContext = {
   syear: string
   userId: string
   organizationId: string
+  orgType: string
 }
 
 const EMPTY_CONTEXT: LaravelContext = {
@@ -15,6 +16,7 @@ const EMPTY_CONTEXT: LaravelContext = {
   syear: '',
   userId: '',
   organizationId: '',
+  orgType: '',
 }
 
 function toParam(value: string | number | null | undefined) {
@@ -43,6 +45,7 @@ export function getLaravelContext(user?: User | null): LaravelContext {
     syear: toParam(session.syear),
     userId: toParam(session.user_id) || toParam(user?.id),
     organizationId: toParam(session.org_id),
+    orgType: toParam(session.org_type),
   }
 }
 
@@ -59,6 +62,7 @@ export function withLaravelParams(context: LaravelContext, extra?: Record<string
     financial_year: context.syear,
     user_id: context.userId,
     organization_id: context.organizationId,
+    org_type: context.orgType,
     type: 'API',
     ...extra,
   }
