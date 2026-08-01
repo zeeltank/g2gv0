@@ -124,6 +124,8 @@ export const GTG_NAVIGATION: NavModule[] = [
     menus: [
       { id: 'cm-command-center', label: 'Command Center', icon: LayoutGrid, submenus: [] },
       { id: 'cm-competency-library', label: 'Competency Library', icon: BookOpen, submenus: [] },
+      { id: 'cm-libraries-taxonomy', label: 'Libraries & Taxonomy', icon: Library, submenus: [] },
+      { id: 'cm-skill-taxonomy', label: 'Skill Taxonomy', icon: Network, submenus: [] },
       { id: 'cm-framework-mapping', label: 'Framework & Role Mapping', icon: Network, submenus: [] },
       { id: 'cm-assessments', label: 'Assessments', icon: ClipboardCheck, submenus: [] },
       { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },

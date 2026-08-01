@@ -55,10 +55,22 @@ export interface CompetencyLibraryItem {
   created_at: string | null
   updated_at: string | null
   created_by?: number | null
-  /** present only on the single-record show() response */
+  /**
+   * Detail columns, present only on the single-record show() response.
+   *
+   * They are deliberately off the list payload: the table never shows them and
+   * they are long free text. The edit form fetches the record to prefill them.
+   * Five of them are what the drawer's Attachments tab is built from.
+   */
   job_titles?: string | null
   related_skills?: string | null
   learning_resources?: string | null
+  bussiness_links?: string | null
+  assesment_method?: string | null
+  certification_qualifications?: string | null
+  experience_project?: string | null
+  sop_practice_link?: string | null
+  custom_tags?: string | null
 }
 
 export type CompetencySortField =
@@ -169,9 +181,19 @@ export interface CompetencyLibraryPayload {
   sub_category?: string
   competency_type?: string
   proficiency_level?: string
+  department?: string
   department_id?: string | number
   /** approve_status: Approved | Pending | Cancelled */
   status?: string
+  /* Detail columns folded in from the old separate skill library screen. */
+  bussiness_links?: string
+  learning_resources?: string
+  assesment_method?: string
+  certification_qualifications?: string
+  experience_project?: string
+  sop_practice_link?: string
+  related_skills?: string
+  custom_tags?: string
 }
 
 const BASE = '/skill_library'
