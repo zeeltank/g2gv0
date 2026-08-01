@@ -9,6 +9,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { cn } from '@/lib/utils'
 import { taskService } from '@/services/task'
+import type { JobRoleTask } from '@/services/task'
 
 interface Props { isOpen: boolean; onClose: () => void; onCreated?: (message: string) => void }
 interface Employee { id: string; name: string; departmentId?: string }
@@ -31,6 +32,8 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTaskOption[]>([])
   const [employeeTasksLoading, setEmployeeTasksLoading] = useState(false)
   const [employeeTasksError, setEmployeeTasksError] = useState('')
+  const [jobRoleTasks, setJobRoleTasks] = useState<JobRoleTask[]>([])
+  const [taskTitlesLoading, setTaskTitlesLoading] = useState(false)
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium')
   const [repeatDays, setRepeatDays] = useState('1'); const [dueDate, setDueDate] = useState('')
   const [skills, setSkills] = useState<Skill[]>([]); const [skillIds, setSkillIds] = useState<string[]>([])
@@ -81,29 +84,31 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   const roles = directory[department] ?? []
-  const employees = jobRole ? roleEmployees : []
+  const departmentEmployees = department
+    ? observers.filter((emp) => emp.departmentId === department)
+    : []
+  const employees = departmentEmployees
   const departmentId = roles[0]?.departmentId ?? ''
   const selectedSkillNames = useMemo(() => skillIds.map((id) => skills.find((skill) => skill.id === id)?.name).filter((name): name is string => Boolean(name)), [skillIds, skills])
 
   async function chooseJobRole(roleId: string) {
-    setJobRole(roleId); setRoleEmployees([]); await chooseAssignees([])
-    if (!roleId) return
-    const role = roles.find((item) => item.id === roleId)
-    if (!role) return
-    setEmployeesLoading(true); setError('')
-    try {
-      const session = readLaravelSession()
-      const response = await taskService.getJobRoleEmployees(getLaravelContext(), role.id, session?.org_type ?? '')
-      const values = Array.isArray(response.searchData) ? response.searchData : Object.values(response.searchData ?? {})
-      setRoleEmployees(values.map((employee) => ({
-        id: String(employee.id),
-        name: [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean).join(' '),
-        departmentId: String(employee.department_id ?? role.departmentId ?? ''),
-      })))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load employees for this job role.')
-    } finally { setEmployeesLoading(false) }
-  }
+  setJobRole(roleId); setRoleEmployees([]); await chooseAssignees([])
+  setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription('')
+  setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
+  if (!roleId) return
+  setTaskTitlesLoading(true); setError('')
+  try {
+    const context = getLaravelContext()
+    const response = await taskService.getJobRoleTasks(context, roleId)
+    const tasks = Array.isArray(response.data) ? response.data : []
+    setJobRoleTasks(tasks)
+    setEmployeeTasks(tasks.map((task) => ({
+      value: task.id, label: task.task_title,
+    })))
+  } catch (reason) {
+    setError(reason instanceof Error ? reason.message : 'Unable to load tasks for this job role.')
+  } finally { setTaskTitlesLoading(false) }
+}
 
   async function chooseAssignees(next: string[]) {
     const taskRequestId = ++employeeTasksRequestRef.current
@@ -117,11 +122,10 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     setObserverLoading(true)
     try {
       const session = readLaravelSession()
-      const [skillResult, supervisorResult, jobRoleTaskResult, taskResults] = await Promise.all([
+      const [skillResult, supervisorResult, jobRoleTaskResult] = await Promise.all([
         Promise.resolve(taskService.getUserSkills(context, selectedEmployee)).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
         Promise.resolve(taskService.getSupervisor(context, selectedEmployee)).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
         Promise.resolve(taskService.getJobRoleTaskSuggestions(context, selectedEmployee, session?.org_type ?? '')).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
-        Promise.allSettled(next.map((userId) => taskService.getEmployeeTaskSuggestions(context, userId))),
       ])
       const skillResponse = skillResult.status === 'fulfilled' ? skillResult.value : { data: [] }
       const supervisorResponse = supervisorResult.status === 'fulfilled' ? supervisorResult.value : null
@@ -139,20 +143,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       const roleBased = (jobRoleTaskResponse.jobroleTasks ?? []).map((task) => task.task_title ?? task.task ?? '').filter(Boolean)
       setJobRoleSuggestions(Array.from(new Set(roleBased)))
       if (taskRequestId === employeeTasksRequestRef.current) {
-        const mergedTasks = new Map<string, EmployeeTaskOption>()
-        taskResults.forEach((result) => {
-          if (result.status !== 'fulfilled') return
-          ;(result.value.data ?? []).forEach((task) => {
-            const value = String(task.task_id)
-            if (task.task_title && !mergedTasks.has(value)) {
-              mergedTasks.set(value, { value, label: task.task_title })
-            }
-          })
-        })
-        setEmployeeTasks([...mergedTasks.values()])
-        const failedCount = taskResults.filter((result) => result.status === 'rejected').length
-        if (failedCount === taskResults.length) setEmployeeTasksError('Unable to load tasks for the selected employee.')
-        else if (failedCount > 0) setEmployeeTasksError('Some selected employees’ tasks could not be loaded.')
+        setEmployeeTasksLoading(false)
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load employee details.') }
     finally {
@@ -166,6 +157,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     setRepeatDays('1'); setDueDate(''); setSkills([]); setSkillIds([]); setObserverId(''); setObserverName('')
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
     setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false); setEmployeeTasksError('')
+    setJobRoleTasks([]); setTaskTitlesLoading(false)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
@@ -182,7 +174,6 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
         title: title.trim(), description: description.trim(), assigneeIds: assignees, observerId,
         priority, repeatDays, dueDate, skillIds, skillNames: selectedSkillNames, kra, kpa,
         observationPoint: observation, attachment, departmentId,
-        employeeDepartmentIds: Object.fromEntries(employees.map((employee) => [employee.id, employee.departmentId ?? departmentId])),
       })
       if (response.status_code !== undefined && Number(response.status_code) !== 1) throw new Error(response.message || 'Task creation failed.')
       await notifyAssignedUsers(assignees)
@@ -277,7 +268,6 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
           observerId: row.observerId, priority: row.priority, repeatDays: row.repeatDays,
           dueDate: row.dueDate, skillIds: [], skillNames: [], kra: '', kpa: '',
           observationPoint: '', departmentId,
-          employeeDepartmentIds: Object.fromEntries(employees.map((employee) => [employee.id, employee.departmentId ?? departmentId])),
         })
       }))
       await notifyAssignedUsers(assignees)
@@ -339,16 +329,16 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       <p className="mt-3 text-xs text-muted-foreground">Each row = one task record</p>
     </div>}
     {loading ? <div className="p-12 text-center">Loading assignment options…</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
-      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
+      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
-      <Field label="Assign To *"><Select value={assignees[0] ?? ''} onChange={(userId) => void chooseAssignees(userId ? [userId] : [])} options={employees.map((employee) => ({ value: employee.id, label: employee.name }))} disabled={!jobRole || employeesLoading || !employees.length} placeholder={employeesLoading ? 'Loading employees…' : !jobRole ? 'Select a job role first' : employees.length ? 'Select an employee' : 'No employees mapped to this job role'} /></Field>
-      <Field label="Task Title *"><div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!assignees.length || employeeTasksLoading || !employeeTasks.length} placeholder={employeeTasksLoading ? 'Loading tasks…' : !assignees.length ? 'Select an employee first' : employeeTasks.length ? 'Type or select a task' : 'No tasks available'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || employeeTasksLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
-        {!employeeTasksLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} employee task(s)</div>}
-        {taskDropdownOpen && employeeTasks.length > 0 && <div className="absolute right-0 z-50 mt-1 max-h-80 min-w-[460px] overflow-y-auto rounded-xl border bg-popover p-2 shadow-xl">{employeeTasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase())).map((task) => <button key={task.value} type="button" onClick={() => { setSelectedTaskId(task.value); setTitle(task.label); setTaskSearch(task.label); setTaskDropdownOpen(false) }} className={cn('block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted', selectedTaskId === task.value && 'bg-primary/10 text-primary')}>{task.label}</button>)}</div>}
-        {!employeeTasksLoading && assignees.length > 0 && !employeeTasks.length && !employeeTasksError && <p className="mt-1.5 text-xs text-muted-foreground">No tasks available for the selected employee.</p>}
-        {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
-      </div></Field>
-      <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
+       <Field label="Task Title *"><div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No tasks available'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
+         {!taskTitlesLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} task(s)</div>}
+         {taskDropdownOpen && employeeTasks.length > 0 && <div className="absolute right-0 z-50 mt-1 max-h-80 min-w-[460px] overflow-y-auto rounded-xl border bg-popover p-2 shadow-xl">{employeeTasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase())).map((task) => <button key={task.value} type="button" onClick={() => { const jobRoleTask = jobRoleTasks.find((t) => t.id === task.value); setSelectedTaskId(task.value); setTitle(task.label); setTaskSearch(task.label); setDescription(jobRoleTask?.task_description ?? ''); setTaskDropdownOpen(false) }} className={cn('block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted', selectedTaskId === task.value && 'bg-primary/10 text-primary')}>{task.label}</button>)}</div>}
+         {!taskTitlesLoading && jobRole && !employeeTasks.length && !employeeTasksError && <p className="mt-1.5 text-xs text-muted-foreground">No tasks available for the selected job role.</p>}
+         {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
+       </div></Field>
+       <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
+       <Field label="Assign To *"><Select value={assignees[0] ?? ''} onChange={(userId) => void chooseAssignees(userId ? [userId] : [])} options={departmentEmployees.map((employee) => ({ value: employee.id, label: employee.name }))} disabled={!department || !departmentEmployees.length} placeholder={!department ? 'Select a department first' : departmentEmployees.length ? 'Select an employee' : 'No employees in this department'} /></Field>
       <Field label="Repeat Once in every *" span={4}><Select value={repeatDays} onChange={setRepeatDays} options={Array.from({ length: 14 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} day${index ? 's' : ''}` }))} /></Field>
       <Field label="Repeat until *" span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={new Date().toISOString().slice(0, 10)} /></Field>
       <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>

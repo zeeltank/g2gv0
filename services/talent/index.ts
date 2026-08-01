@@ -6,7 +6,21 @@
 import { apiClient } from '@/services/core'
 export { isOpenJobPosting, recruitmentService } from './recruitment'
 export { talentDashboardService } from './dashboard'
-export { offboardingService } from './offboarding-service'
+export { offboardingService as offboardingServiceV1 } from './offboarding-service'
+
+// Performance & Rewards Center. NB: the PerformanceReview interface and the
+// getReviews / createReview / submitReview calls further down this file target
+// `/performance-reviews`, which does NOT exist in Laravel. The live module is
+// `/api/performance/*` and lives entirely in ./performance.
+export { performanceService } from './performance'
+// Onboarding & Employee Lifecycle Center. NB: the OnboardingTask interface and
+// the getOnboardingTasks / createOnboardingTask / updateOnboardingTask calls
+// further down this file target `/onboarding-tasks`, which does NOT exist in
+// Laravel. The live module is `/api/onboarding/*` and lives entirely in
+// ./onboarding. Left in place rather than deleted so no existing import breaks.
+export { onboardingService } from './onboarding'
+export { mobilityService } from './mobility'
+export { offboardingService } from './offboarding'
 
 export interface Candidate {
   id: string

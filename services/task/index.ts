@@ -5,9 +5,11 @@
 
 import { apiClient, webClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { resolveHpApiBaseUrl, resolveHpApiKey } from '@/lib/api-config'
 import type {
   MyTask,
   MyTaskDetailResponse,
+  MyTaskPriority,
   MyTasksQuery,
   MyTasksResponse,
   ProjectOptions,
@@ -17,6 +19,11 @@ import type {
   TaskPagination,
   Workstream,
   TaskStatus,
+  WorkspaceResponse,
+  WorkspaceScope,
+  WorkspaceTask,
+  DependenciesResponse,
+  DependencyType,
 } from '@/types/task-management'
 
 export interface Project {
@@ -40,6 +47,24 @@ export interface Task {
   dependencies: string[]
 }
 
+export interface JobRoleTask {
+  id: string
+  task_title: string
+  task_description: string
+}
+
+export interface JobRoleTaskResponse {
+  status: number
+  message: string
+  data?: JobRoleTask[]
+}
+
+export interface TaskDescriptionResponse {
+  status: number
+  message: string
+  data?: { task_description: string }
+}
+
 export interface LegacyTaskCreatePayload {
   title: string
   description: string
@@ -55,7 +80,6 @@ export interface LegacyTaskCreatePayload {
   observationPoint: string
   attachment?: File | null
   departmentId?: string
-  employeeDepartmentIds?: Record<string, string>
 }
 
 export const taskService = {
@@ -107,6 +131,89 @@ export const taskService = {
       `/task-management/my-tasks/${id}/status`,
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, status, remarks },
     ),
+
+  getWorkspace: (context: LaravelContext, params: {
+    scope?: WorkspaceScope; search?: string; status?: TaskStatus; priority?: MyTaskPriority
+    projectId?: string; assigneeId?: string; from?: string; to?: string; page?: number; perPage?: number
+  } = {}) =>
+    apiClient.get<WorkspaceResponse>('/task-management/workspace', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      scope: params.scope ?? 'all', ...(params.search ? { search: params.search } : {}),
+      ...(params.status ? { status: params.status } : {}), ...(params.priority ? { priority: params.priority } : {}),
+      ...(params.projectId ? { project_id: params.projectId } : {}),
+      ...(params.assigneeId ? { assignee_id: params.assigneeId } : {}),
+      ...(params.from ? { from: params.from } : {}), ...(params.to ? { to: params.to } : {}),
+      page: String(params.page ?? 1), per_page: String(params.perPage ?? 50),
+    }),
+  getWorkspaceTask: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: 1; message: string; data: WorkspaceTask }>(`/task-management/workspace/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  updateWorkspaceTask: (context: LaravelContext, id: string, payload: {
+    title: string; description?: string; assignee_id: string; owner_id: string
+    status: TaskStatus; priority: MyTaskPriority; due_date?: string; remarks?: string
+  }) => apiClient.put<{ status: 1; message: string; data: WorkspaceTask }>(`/task-management/workspace/${id}`, {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  archiveWorkspaceTask: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/workspace/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  decideWorkspaceTask: (context: LaravelContext, id: string, decision: 'approve' | 'reject', remarks = '') =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/workspace/${id}/approval`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, decision, remarks,
+    }),
+  addWorkspaceComment: (context: LaravelContext, id: string, content: string) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>(`/task-management/workspace/${id}/comments`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, content,
+    }),
+  getWorkspaceWorkload: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: Array<{ id: string; name: string; active_tasks: number; overdue_tasks: number }> }>(
+      '/task-management/workspace/workload',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  getDependencies: (context: LaravelContext, params: { projectId?: string; assigneeId?: string; status?: TaskStatus } = {}) =>
+    apiClient.get<DependenciesResponse>('/task-management/dependencies', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      ...(params.projectId ? { project_id: params.projectId } : {}),
+      ...(params.assigneeId ? { assignee_id: params.assigneeId } : {}),
+      ...(params.status ? { status: params.status } : {}),
+    }),
+  createDependency: (context: LaravelContext, payload: {
+    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string; project_id?: string; workstream_id?: string
+  }) => apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/dependencies', {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  updateDependency: (context: LaravelContext, id: string, payload: {
+    predecessor_task_id: string; successor_task_id: string; dependency_type: DependencyType; lag_days: number; notes?: string; project_id?: string; workstream_id?: string
+  }) => apiClient.put<{ status: 1; message: string }>(`/task-management/dependencies/${id}`, {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  deleteDependency: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/dependencies/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  getWorkstreams: (context: LaravelContext, projectId: string) =>
+    taskService.getProjectRecord(context, projectId).then((response) => ({
+      ...response,
+      data: response.data.workstreams ?? [],
+    })),
+  createMilestone: (context: LaravelContext, payload: {
+    project_id: string; workstream_id?: string; name: string; description?: string
+    target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'
+  }) => apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/milestones', {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  updateMilestone: (context: LaravelContext, id: string, payload: {
+    project_id: string; workstream_id?: string; name: string; description?: string
+    target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'
+  }) => apiClient.put<{ status: 1; message: string }>(`/task-management/milestones/${id}`, {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  deleteMilestone: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/milestones/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
 
   getProjectOptions: (context: LaravelContext) =>
     apiClient.get<{ status: 1; message: string; data: ProjectOptions }>('/task-management/projects/options', {
@@ -208,7 +315,7 @@ export const taskService = {
   createLegacyTask: (context: LaravelContext, payload: LegacyTaskCreatePayload) => {
     const body = new FormData()
     const allocatedTo = payload.assigneeIds.length
-      ? payload.assigneeIds.map((id) => payload.employeeDepartmentIds?.[id] ? `${id}:${payload.employeeDepartmentIds[id]}` : id).join(',')
+      ? payload.assigneeIds.join(',')
       : (payload.departmentId ?? '')
     body.append('TASK_ALLOCATED_TO', allocatedTo)
     body.append('task_title', payload.title)
@@ -298,6 +405,62 @@ export const taskService = {
         syear: context.syear,
       },
     ),
+  getJobRoleTasks: async (context: LaravelContext, jobRoleId: string) => {
+    const hpBase = resolveHpApiBaseUrl()
+    const hpApiKey = resolveHpApiKey()
+    const subInstituteId = context.subInstituteId
+
+    const params = new URLSearchParams({
+      table: 's_user_jobrole_task',
+      'filters[sub_institute_id]': subInstituteId,
+      group_by: 'jobrole',
+    })
+
+    if (hpApiKey) {
+      params.set('api_key', hpApiKey)
+    }
+
+    const url = `${hpBase}/table_data?${params.toString()}`
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`HP API error: ${response.status} ${body}`)
+    }
+
+    const rawData = await response.json()
+    const records = Array.isArray(rawData) ? rawData : []
+
+    const filtered = records.filter(
+      (record: Record<string, unknown>) =>
+        record.jobrole != null &&
+        record.task != null &&
+        String(record.jobrole) === jobRoleId,
+    )
+
+    const data = filtered.map((record: Record<string, unknown>) => ({
+      id: String(record.id ?? ''),
+      task_title: String(record.task ?? ''),
+      task_description: '',
+    }))
+
+    return {
+      status: 200,
+      message: 'OK',
+      data,
+    } as JobRoleTaskResponse
+  },
+  getTaskDescription: (context: LaravelContext, taskTitle: string) =>
+    apiClient.get<TaskDescriptionResponse>('/jobrole-task-description', {
+      token: context.token,
+      sub_institute_id: context.subInstituteId,
+      syear: context.syear,
+      taskTitle,
+    }),
   uploadBulkTasks: (context: LaravelContext, file: File) => {
     const body = new FormData()
     body.append('csv_file', file)
