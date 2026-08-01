@@ -1,5 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 import {
+  Bot,
+  BrainCircuit,
+  GitBranch,
+  ScrollText,
+  Sparkles,
+  Wand2,
   Building2,
   Users,
   ShieldCheck,
@@ -269,6 +275,21 @@ export const GTG_NAVIGATION: NavModule[] = [
           { id: 'audit-logs', label: 'Audit Logs' },
         ],
       },
+    ],
+  },
+  {
+    id: 'm7',
+    label: 'Agentic AI',
+    short: 'AI',
+    icon: Sparkles,
+    menus: [
+      { id: 'ag-agent-dashboard', label: 'Agent Dashboard', icon: Gauge, submenus: [] },
+      { id: 'ag-agent-library', label: 'Agent Library', icon: Bot, submenus: [] },
+      { id: 'ag-create-agent', label: 'Create Agent', icon: Wand2, submenus: [] },
+      { id: 'ag-run-log', label: 'Run Logs & Traces', icon: ScrollText, submenus: [] },
+      { id: 'ag-analytics', label: 'Analytics', icon: BarChart3, submenus: [] },
+      { id: 'ag-multi-agent', label: 'Multi-Agent', icon: GitBranch, submenus: [] },
+      { id: 'ag-reflection', label: 'Reflection', icon: BrainCircuit, submenus: [] },
     ],
   },
 ]

@@ -48,6 +48,15 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   'cm-certifications': ALL_ROLES,
   'cm-audit': ALL_ROLES,
 
+  // M7 — Agentic AI
+  'ag-agent-dashboard': ALL_ROLES,
+  'ag-agent-library': ALL_ROLES,
+  'ag-create-agent': ['admin', 'hr'],
+  'ag-run-log': ALL_ROLES,
+  'ag-analytics': ALL_ROLES,
+  'ag-multi-agent': ['admin', 'hr'],
+  'ag-reflection': ['admin', 'hr'],
+
   // M3 — Talent Management
   // Menus
   'talent-acquisition': ['admin', 'hr', 'dept-head', 'employee'],
