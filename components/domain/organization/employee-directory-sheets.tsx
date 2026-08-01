@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { Briefcase, CheckCircle2, Shield, User, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -18,9 +18,11 @@ import {
   updateEmployeeProfile,
   uploadEmployeeDocument,
   fetchCompetencyProfile,
+  fetchJobRoleKaba,
   updateSkillRating,
   type EmployeeProfileFullResponse
 } from '@/services/organization/employee-profile-service'
+import { getLaravelContext } from '@/lib/laravel-context'
 
 const PersonalInfoTab = lazy(() =>
   import('@/domain/organization/edit-employee/personal-info-tab').then((m) => ({
@@ -79,6 +81,94 @@ type EmployeeDirectorySheetsProps = {
   onAddSheetOpenChange: (open: boolean) => void
   activeEmployee: Employee | null
   onCloseEmployeeSheet: () => void
+}
+
+type CompetencyCategory = 'Skill' | 'Knowledge' | 'Ability' | 'Attitude' | 'Behaviour'
+type CompetencyRatings = Record<CompetencyCategory, Array<{
+  id: string
+  title: string
+  description: string
+  current_level: number | null
+  max_level: number
+}>>
+
+const EMPTY_COMPETENCY_RATINGS: CompetencyRatings = {
+  Skill: [], Knowledge: [], Ability: [], Attitude: [], Behaviour: [],
+}
+
+function competencyCategory(value: unknown): CompetencyCategory {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (normalized.includes('knowledge')) return 'Knowledge'
+  if (normalized.includes('ability')) return 'Ability'
+  if (normalized.includes('attitude')) return 'Attitude'
+  if (normalized.includes('behavio')) return 'Behaviour'
+  return 'Skill'
+}
+
+function numericRating(value: unknown): number | null {
+  const rating = Number(value)
+  return Number.isFinite(rating) && rating >= 0 ? Math.min(5, rating) : null
+}
+
+/** Normalises the KABA response while accepting the API's object- or array-shaped payloads. */
+function mapKabaRatings(payload: any): CompetencyRatings {
+  const ratings: CompetencyRatings = {
+    Skill: [], Knowledge: [], Ability: [], Attitude: [], Behaviour: [],
+  }
+  const source = Array.isArray(payload)
+    ? payload
+    : payload?.data ?? payload?.result ?? payload?.kaba ?? payload ?? []
+
+  const groupedSource = !Array.isArray(source) && typeof source === 'object' ? source : null
+  if (groupedSource) {
+    for (const [categoryName, items] of Object.entries(groupedSource)) {
+      if (!Array.isArray(items)) continue
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue
+        const title = item.competency ?? item.competency_name ?? item.title ?? item.name ?? item.skill ?? item.kaba ?? item.sub_category ?? item.category
+        if (!title) continue
+        const category = competencyCategory(categoryName)
+        ratings[category].push({
+          id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
+          title: String(title),
+          description: String(item.description ?? item.competency_description ?? item.details ?? title),
+          current_level: numericRating(item.current_level ?? item.rating ?? item.proficiency_level ?? item.level),
+          max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
+        })
+      }
+    }
+    return ratings
+  }
+
+  for (const item of source) {
+    if (!item || typeof item !== 'object') continue
+    const category = competencyCategory(item.category ?? item.competency_category ?? item.kaba_type ?? item.type)
+    const title = item.competency ?? item.competency_name ?? item.title ?? item.name ?? item.skill ?? item.kaba ?? item.sub_category ?? item.category
+    if (!title) continue
+    ratings[category].push({
+      id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
+      title: String(title),
+      description: String(item.description ?? item.competency_description ?? item.details ?? title),
+      current_level: numericRating(item.current_level ?? item.rating ?? item.proficiency_level ?? item.level),
+      max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
+    })
+  }
+
+  return ratings
+}
+
+function getJobRoleId(employee: Record<string, any>, profile: EmployeeProfileFullResponse | null) {
+  const profileEmployee = profile?.data ?? {}
+  const directId = profileEmployee.allocated_standards ?? profileEmployee.jobrole_id ?? profileEmployee.job_role_id ??
+    profileEmployee.userJobroleId ?? employee.allocated_standards ?? employee.jobrole_id ?? employee.job_role_id
+  if (directId !== undefined && directId !== null && String(directId).trim()) return String(directId)
+
+  const roleName = profileEmployee.userJobrole ?? employee.jobRole ?? employee.designation
+  const match = (profile?.jobroleList ?? []).find((role: any) =>
+    String(role.jobrole ?? role.name ?? role.title ?? '').trim().toLowerCase() === String(roleName ?? '').trim().toLowerCase(),
+  )
+  const matchedId = match?.id ?? match?.jobrole_id ?? match?.value
+  return matchedId !== undefined && matchedId !== null ? String(matchedId) : null
 }
 
 const tabFallback = (
@@ -278,6 +368,10 @@ function EmployeeOverviewSheet({
   const [isLoading, setIsLoading] = useState(true)
   const [profileData, setProfileData] = useState<EmployeeProfileFullResponse | null>(null)
   const [competencyProfile, setCompetencyProfile] = useState<any | null>(null)
+  const [kabaRatings, setKabaRatings] = useState<CompetencyRatings>(EMPTY_COMPETENCY_RATINGS)
+  const [isKabaLoading, setIsKabaLoading] = useState(false)
+  const [kabaError, setKabaError] = useState<string | null>(null)
+  const [hasLoadedKaba, setHasLoadedKaba] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!employee?.id) return
@@ -306,6 +400,38 @@ function EmployeeOverviewSheet({
       loadData()
     }
   }, [open, loadData])
+
+  const jobRoleId = useMemo(() => getJobRoleId(employee, profileData), [employee, profileData])
+
+  const loadKaba = useCallback(async () => {
+    if (!jobRoleId) {
+      setKabaRatings(EMPTY_COMPETENCY_RATINGS)
+      setKabaError('This employee does not have a Job Role ID assigned.')
+      setHasLoadedKaba(true)
+      return
+    }
+
+    setIsKabaLoading(true)
+    setKabaError(null)
+    try {
+      const response = await fetchJobRoleKaba(jobRoleId, getLaravelContext())
+      setKabaRatings(mapKabaRatings(response))
+      setHasLoadedKaba(true)
+    } catch (error) {
+      console.error('Failed to fetch competency rating data:', error)
+      setKabaRatings(EMPTY_COMPETENCY_RATINGS)
+      setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
+      setHasLoadedKaba(true)
+    } finally {
+      setIsKabaLoading(false)
+    }
+  }, [jobRoleId])
+
+  useEffect(() => {
+    if (open && activeTopTab === 'skill-rating' && !isLoading && !hasLoadedKaba) {
+      loadKaba()
+    }
+  }, [activeTopTab, hasLoadedKaba, isLoading, loadKaba, open])
 
   const handleSavePersonalInfo = async (formData: any) => {
     if (!employee?.id) return
@@ -473,7 +599,11 @@ function EmployeeOverviewSheet({
               <Suspense fallback={tabFallback}>
                 <CompetencyRatingTab
                   onSave={(category, id, level) => handleSaveRating(category, id, level)}
-                  data={
+                  data={kabaRatings}
+                  isLoading={isKabaLoading || !hasLoadedKaba}
+                  error={kabaError}
+                  onRetry={loadKaba}
+                  /*
                     competencyProfile?.currentSkills && competencyProfile.currentSkills.length > 0
                       ? {
                           Skill: competencyProfile.currentSkills.map((s: any) => ({
@@ -509,7 +639,7 @@ function EmployeeOverviewSheet({
                             { id: 'b2', title: 'Mentorship', description: 'Willingness to guide and mentor junior developers in the team.', current_level: null, max_level: 5 },
                           ],
                         }
-                  }
+                  */
                 />
               </Suspense>
             )}
