@@ -119,6 +119,7 @@ export function OffboardingCenter() {
   const [extendOpen, setExtendOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   
   // Forms states
   const [newCase, setNewCase] = useState({
@@ -166,7 +167,7 @@ export function OffboardingCenter() {
       .then(res => setFiltersOptions(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoadingFilters(false))
-  }, [isContextReady])
+  }, [isContextReady, refreshTrigger])
 
   // Load KPI overview
   useEffect(() => {
@@ -266,8 +267,9 @@ export function OffboardingCenter() {
   // Action handlers
   const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newCase.employee_id) return
+    if (!newCase.employee_id || submitting) return
     
+    setSubmitting(true)
     try {
       await offboardingService.createCase(context, {
         employee_id: parseInt(newCase.employee_id),
@@ -294,11 +296,15 @@ export function OffboardingCenter() {
     } catch (err: any) {
       console.error(err)
       showBanner('error', err.message || 'Failed to create exit case')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleExtendNotice = async () => {
-    if (!activeCaseId || !extendDate) return
+    if (!activeCaseId || !extendDate || submitting) return
+    
+    setSubmitting(true)
     try {
       await offboardingService.updateCase(context, activeCaseId, {
         last_working_day: extendDate
@@ -309,11 +315,15 @@ export function OffboardingCenter() {
     } catch (err: any) {
       console.error(err)
       showBanner('error', 'Failed to extend notice period')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleAssignHandover = async () => {
-    if (!activeCaseId || !assigneeId) return
+    if (!activeCaseId || !assigneeId || submitting) return
+    
+    setSubmitting(true)
     try {
       await offboardingService.updateCase(context, activeCaseId, {
         manager_id: parseInt(assigneeId)
@@ -324,11 +334,15 @@ export function OffboardingCenter() {
     } catch (err: any) {
       console.error(err)
       showBanner('error', 'Failed to assign handover manager')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleWithdrawCase = async () => {
-    if (!activeCaseId) return
+    if (!activeCaseId || submitting) return
+    
+    setSubmitting(true)
     try {
       await offboardingService.withdrawCase(context, activeCaseId)
       showBanner('success', 'Resignation case withdrawn and closed')
@@ -338,6 +352,8 @@ export function OffboardingCenter() {
     } catch (err: any) {
       console.error(err)
       showBanner('error', 'Failed to withdraw case')
+    } finally {
+      setSubmitting(false)
     }
   }
 

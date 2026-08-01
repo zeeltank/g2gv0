@@ -5,6 +5,9 @@
 
 import { apiClient } from '@/services/core'
 export { isOpenJobPosting, recruitmentService } from './recruitment'
+export { talentDashboardService } from './dashboard'
+export { offboardingService as offboardingServiceV1 } from './offboarding-service'
+
 // Performance & Rewards Center. NB: the PerformanceReview interface and the
 // getReviews / createReview / submitReview calls further down this file target
 // `/performance-reviews`, which does NOT exist in Laravel. The live module is
@@ -18,7 +21,6 @@ export { performanceService } from './performance'
 export { onboardingService } from './onboarding'
 export { mobilityService } from './mobility'
 export { offboardingService } from './offboarding'
-
 
 export interface Candidate {
   id: string
