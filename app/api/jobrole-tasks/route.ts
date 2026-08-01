@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const params = new URLSearchParams({
       table: 's_user_jobrole_task',
-      'filters[sub_institute_id]': subInstituteId,
+      'filters[sub_institute_id]': String(subInstituteId),
       group_by: 'jobrole',
     })
 

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Download, Upload, FileText } from "lucide-react";
+import { Download, Upload, FileText, Loader2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Select } from "@/components/ui/select";
 
@@ -12,9 +12,10 @@ interface UploadDocTabProps {
   employee: any;
   documentTypes: any[];
   documentLists: any[];
+  onUpload?: (formData: FormData) => Promise<void> | void;
 }
 
-export function UploadDocTab({ employee, documentTypes, documentLists }: UploadDocTabProps) {
+export function UploadDocTab({ employee, documentTypes, documentLists, onUpload }: UploadDocTabProps) {
   const [documentType, setDocumentType] = useState<string>('');
   const [title, setTitle] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
@@ -25,13 +26,24 @@ export function UploadDocTab({ employee, documentTypes, documentLists }: UploadD
     if (!file || !title || !documentType) return;
     
     setUploading(true);
-    // Add real API upload logic here when wired
-    setTimeout(() => {
-      setUploading(false);
+    try {
+      if (onUpload) {
+        const formData = new FormData();
+        formData.append('user_id', String(employee?.id || ''));
+        formData.append('document_type_id', documentType);
+        formData.append('document_title', title);
+        formData.append('title', title);
+        formData.append('file', file);
+        await onUpload(formData);
+      }
       setFile(null);
       setTitle('');
       setDocumentType('');
-    }, 1000);
+    } catch (err) {
+      console.error('Failed to upload document:', err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -50,8 +62,8 @@ export function UploadDocTab({ employee, documentTypes, documentLists }: UploadD
                 onChange={setDocumentType}
                 placeholder="Select Type"
                 options={documentTypes?.map((type: any) => ({
-                  value: type.id || type,
-                  label: type.document_type || type
+                  value: String(type.id || type),
+                  label: type.document_type || type.title || String(type)
                 })) || []}
               />
             </div>
@@ -74,7 +86,7 @@ export function UploadDocTab({ employee, documentTypes, documentLists }: UploadD
                 <Input
                   type="file"
                   required
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                   className="pl-9 cursor-pointer file:text-primary file:font-semibold file:border-0 file:bg-transparent"
                 />
@@ -84,7 +96,14 @@ export function UploadDocTab({ employee, documentTypes, documentLists }: UploadD
 
           <div className="flex justify-end pt-2 border-t mt-6">
             <Button type="submit" disabled={uploading}>
-              {uploading ? 'Uploading...' : 'Submit Document'}
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                'Submit Document'
+              )}
             </Button>
           </div>
         </form>
@@ -109,20 +128,24 @@ export function UploadDocTab({ employee, documentTypes, documentLists }: UploadD
             <TableBody>
               {documentLists && documentLists.length > 0 ? (
                 documentLists.map((doc: any, index: number) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{doc.document_type || 'General'}</TableCell>
-                    <TableCell>{doc.document_title}</TableCell>
+                  <TableRow key={doc.id || index}>
+                    <TableCell className="font-medium">{doc.document_type || 'Staff Document'}</TableCell>
+                    <TableCell>{doc.document_title || doc.title || doc.file_name || 'Document'}</TableCell>
                     <TableCell className="text-right">
-                      <a
-                        href={`https://s3-triz.fra1.digitaloceanspaces.com/public/hp_staff_document/${doc.file_name || doc.filename}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Download className="w-3.5 h-3.5" />
-                          Download
-                        </Button>
-                      </a>
+                      {doc.file_name || doc.file_path || doc.url ? (
+                        <a
+                          href={doc.url || `https://s3-triz.fra1.digitaloceanspaces.com/public/hp_staff_document/${doc.file_name || doc.file_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline" size="sm" className="gap-2">
+                            <Download className="w-3.5 h-3.5" />
+                            Download
+                          </Button>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Unavailable</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

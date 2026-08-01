@@ -1,4 +1,4 @@
-export type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank'
+export type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank' | 'skills'
 
 export interface Profile {
   id: string
@@ -33,6 +33,21 @@ export interface Profile {
     amount: string
     transferType: string
   }
+  skills: Array<{
+    jobrole_skill_id: number
+    jobrole: string
+    skill: string
+    skill_id: number
+    title?: string
+    category?: string
+    sub_category?: string
+    description?: string
+    proficiency_level?: string
+    knowledge?: string[]
+    ability?: string[]
+    behaviour?: string[]
+    attitude?: string[]
+  }>
 }
 
 export interface ProfileProps {
@@ -79,4 +94,43 @@ export const mockProfile = {
     amount: '5,000.00',
     transferType: 'NEFT',
   },
+  skills: [
+    {
+      jobrole_skill_id: 54313,
+      jobrole: 'Nurse Manager',
+      skill: 'Nursing Productivity and Innovation',
+      skill_id: 1241,
+    },
+    {
+      jobrole_skill_id: 54315,
+      jobrole: 'Nurse Manager',
+      skill: 'Emergency Response and Crisis Management',
+      skill_id: 2552,
+      title: 'Emergency Response and Crisis Management',
+      category: 'Technical Skills',
+      sub_category: 'Domain-Specific',
+      description: 'Support, implement and develop emergency response and crisis management plans and policies',
+      proficiency_level: '4',
+      knowledge: [
+        'Role and responsibilities of emergency response teams',
+        'Incident command system protocols',
+        'Crisis communication procedures',
+      ],
+      ability: [
+        'Coordinate multi-disciplinary response teams',
+        'Develop and drill emergency action plans',
+        'Assess incident severity and escalate appropriately',
+      ],
+      behaviour: [
+        'Remains calm under pressure during crisis situations',
+        'Proactively identifies potential emergency scenarios',
+        'Models compliance with safety protocols',
+      ],
+      attitude: [
+        'Demonstrates commitment to safety-first mindset',
+        'Shows accountability for preparedness outcomes',
+        'Encourages continuous improvement in response procedures',
+      ],
+    },
+  ],
 }
