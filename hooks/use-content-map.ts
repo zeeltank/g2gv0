@@ -10,6 +10,7 @@ const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   m4: () => import('./content-map-m4').then((module) => module.M4_CONTENT),
   m5: () => import('./content-map-m5').then((module) => module.M5_CONTENT),
   m6: () => import('./content-map-m6').then((module) => module.M6_CONTENT),
+  m7: () => import('./content-map-m7').then((module) => module.M7_CONTENT),
 }
 
 export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[] | undefined> {
