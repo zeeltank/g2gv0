@@ -1,71 +1,31 @@
 /**
- * Competency Service
- * API calls for competency management
+ * Competency Service barrel.
+ *
+ * The Competency Command Center is backed by the real Laravel
+ * /api/competency/* endpoints via ./command-center. `competencyService` is kept
+ * as an alias so existing re-exports (services/index.ts) keep resolving.
  */
 
-import { apiClient } from '@/services/core'
+export * from './command-center'
+export { competencyCommandCenterService, competencyCommandCenterService as competencyService } from './command-center'
 
-export interface Competency {
-  id: string
-  name: string
-  description: string
-  category: string
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert'
-}
+export * from './library'
+export { competencyLibraryService } from './library'
 
-export interface CompetencyFramework {
-  id: string
-  name: string
-  description: string
-  competencies: Competency[]
-  createdAt: string
-  updatedAt: string
-}
+export * from './studio'
+export { competencyStudioService } from './studio'
 
-export interface CompetencyAssessment {
-  id: string
-  userId: string
-  competencyId: string
-  rating: number
-  assessedBy: string
-  assessedAt: string
-  notes?: string
-}
+export * from './assessment-workspace'
+export { assessmentWorkspaceService } from './assessment-workspace'
 
-export interface Certification {
-  id: string
-  name: string
-  competencyId?: string
-  issuedAt: string
-  expiresAt?: string
-  userId: string
-}
+export * from './employee-profiles'
+export { employeeProfileService } from './employee-profiles'
 
-export const competencyService = {
-  // Competency Frameworks
-  getFrameworks: () => apiClient.get<CompetencyFramework[]>('/competency-frameworks'),
-  getFramework: (id: string) => apiClient.get<CompetencyFramework>(`/competency-frameworks/${id}`),
-  createFramework: (data: Partial<CompetencyFramework>) => 
-    apiClient.post<CompetencyFramework>('/competency-frameworks', data),
-  updateFramework: (id: string, data: Partial<CompetencyFramework>) => 
-    apiClient.patch<CompetencyFramework>(`/competency-frameworks/${id}`, data),
+export * from './development-career'
+export { developmentCareerService } from './development-career'
 
-  // Competencies
-  getCompetencies: (frameworkId?: string) => 
-    apiClient.get<Competency[]>('/competencies', frameworkId ? { frameworkId } : undefined),
-  getCompetency: (id: string) => apiClient.get<Competency>(`/competencies/${id}`),
+export * from './certifications'
+export { certificationService } from './certifications'
 
-  // Assessments
-  getAssessments: (userId?: string) => 
-    apiClient.get<CompetencyAssessment[]>('/competency-assessments', userId ? { userId } : undefined),
-  createAssessment: (data: Partial<CompetencyAssessment>) => 
-    apiClient.post<CompetencyAssessment>('/competency-assessments', data),
-  updateAssessment: (id: string, data: Partial<CompetencyAssessment>) => 
-    apiClient.patch<CompetencyAssessment>(`/competency-assessments/${id}`, data),
-
-  // Certifications
-  getCertifications: (userId?: string) => 
-    apiClient.get<Certification[]>('/competency-certifications', userId ? { userId } : undefined),
-  issueCertification: (data: Partial<Certification>) => 
-    apiClient.post<Certification>('/competency-certifications', data),
-}
+export * from './audit'
+export { competencyAuditService } from './audit'

@@ -1,372 +1,693 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
-  BookOpen,
-  FileText,
+  AlertTriangle,
   Archive,
-  AlertCircle,
-  Users,
-  Search,
-  ListFilter,
-  MoreVertical,
-  Plus,
-  LayoutGrid,
-  List,
-  Upload,
-  Image as ImageIcon,
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
   CheckCircle2,
-  Settings
+  Download,
+  GraduationCap,
+  Image as ImageIcon,
+  Layers,
+  ListFilter,
+  Loader2,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  TrendingUp,
+  Users,
+  X,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { FilterBar, type Filter } from '@/components/ui/filter-bar'
+import { SearchInput } from '@/components/ui/search-input'
+import { Select } from '@/components/ui/select'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { Progress } from '@/components/ui/progress'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/ui/error-state'
+import { EmptyState } from '@/components/ui/empty-state'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/hooks/use-auth'
+import { useCourseCatalog } from '@/hooks/use-course-catalog'
+import type { CatalogCourse, CatalogSortBy } from '@/services/lms'
 import { CourseDetailsSheet } from './course-details-sheet'
+import { CourseFormSheet, type CourseFormMode } from './course-form-sheet'
+import { AiCourseSheet } from './ai-course-sheet'
 
-interface Course {
-  id: string
+function KpiCard({
+  title,
+  value,
+  icon: Icon,
+  loading,
+}: {
   title: string
-  description: string
-  category: string
-  type: string
-  mandatory: boolean
-  version: string
-  assignedLearners: number
-  completionRate: number
-  status: 'Published' | 'Draft' | 'Archived' | 'Under Review'
-  updatedAt: string
-}
-
-const mockCourses: Course[] = [
-  { id: 'c1', title: 'Workplace Safety', description: 'Understand safety protocols and main...', category: 'Compliance', type: 'eLearning', mandatory: true, version: '2.1', assignedLearners: 1245, completionRate: 78, status: 'Published', updatedAt: 'May 12, 2024' },
-  { id: 'c2', title: 'Code of Conduct', description: 'Company policies and ethical guidelines.', category: 'Compliance', type: 'PDF', mandatory: true, version: '1.3', assignedLearners: 1876, completionRate: 92, status: 'Published', updatedAt: 'May 10, 2024' },
-  { id: 'c3', title: 'Effective Communication', description: 'Improve communication skills across...', category: 'Soft Skills', type: 'Video', mandatory: false, version: '1.0', assignedLearners: 856, completionRate: 61, status: 'Published', updatedAt: 'May 08, 2024' },
-  { id: 'c4', title: 'Leadership Essentials', description: 'Core leadership principles for new...', category: 'Leadership', type: 'Blended', mandatory: false, version: '1.2', assignedLearners: 642, completionRate: 45, status: 'Published', updatedAt: 'May 05, 2024' },
-  { id: 'c5', title: 'Data Privacy Awareness', description: 'Protect data and maintain privacy.', category: 'Compliance', type: 'SCORM', mandatory: true, version: '1.1', assignedLearners: 1532, completionRate: 88, status: 'Published', updatedAt: 'Apr 30, 2024' },
-  { id: 'c6', title: 'Microsoft Excel Basics', description: 'Learn Excel from scratch to pro.', category: 'Technical', type: 'eLearning', mandatory: false, version: '1.0', assignedLearners: 1102, completionRate: 34, status: 'Draft', updatedAt: 'Apr 28, 2024' },
-  { id: 'c7', title: 'Customer Service Excellence', description: 'Deliver exceptional service to clients.', category: 'Customer Service', type: 'Video', mandatory: false, version: '1.0', assignedLearners: 967, completionRate: 70, status: 'Draft', updatedAt: 'Apr 25, 2024' },
-  { id: 'c8', title: 'Project Management Fundamentals', description: 'Introduction to project management.', category: 'Project Management', type: 'Blended', mandatory: false, version: '1.0', assignedLearners: 523, completionRate: 20, status: 'Under Review', updatedAt: 'Apr 20, 2024' },
-]
-
-function KpiCard({ title, value, icon: Icon }: { title: string; value: string | number; icon: React.ElementType }) {
+  value: string | number
+  icon: React.ElementType
+  loading: boolean
+}) {
   return (
-    <Card className="rounded-xl border-border/80 shadow-sm transition-shadow hover:shadow-md bg-card">
+    <Card className="rounded-xl border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-semibold text-muted-foreground tracking-wide flex items-center gap-2">
-              <Icon className="size-4" /> {title}
-            </p>
+        <div className="flex flex-col gap-1.5">
+          <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground">
+            <Icon className="size-4" /> {title}
+          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
             <h3 className="text-2xl font-black tracking-tight text-foreground">{value}</h3>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
   )
 }
 
+const SORT_OPTIONS: { value: CatalogSortBy; label: string }[] = [
+  { value: 'updated_at', label: 'Last updated' },
+  { value: 'title', label: 'Course name' },
+  { value: 'category', label: 'Category' },
+  { value: 'type', label: 'Type' },
+  { value: 'learners', label: 'Learners' },
+  { value: 'completion', label: 'Completion' },
+  { value: 'status', label: 'Status' },
+]
+
+/** Client-side CSV of the current page - there is no export endpoint. */
+function exportCsv(courses: CatalogCourse[]) {
+  const headers = [
+    'ID',
+    'Course',
+    'Category',
+    'Type',
+    'Course code',
+    'Department',
+    'Job role',
+    'Learners',
+    'Completed',
+    'Completion %',
+    'Status',
+    'Last updated',
+  ]
+
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+
+  const rows = courses.map((course) =>
+    [
+      course.id,
+      course.display_name,
+      course.subject_category,
+      course.subject_type,
+      course.subject_code,
+      course.standard_name,
+      course.jobrole,
+      course.learners,
+      course.completed_learners,
+      course.completion_rate,
+      course.status === 1 ? 'Active' : 'Inactive',
+      course.updated_at,
+    ]
+      .map(escape)
+      .join(','),
+  )
+
+  const blob = new Blob([[headers.map(escape).join(','), ...rows].join('\n')], {
+    type: 'text/csv;charset=utf-8;',
+  })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `learning-catalog-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export function LearningCatalog() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState('courses')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const [selectedType, setSelectedType] = useState('')
-  const [selectedMandatory, setSelectedMandatory] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const { user } = useAuth()
+  // Course authoring was admin/HR-only in the previous frontend; the API
+  // enforces the same rule, so the UI hides what the server would reject.
+  const canAuthor = user?.role === 'admin' || user?.role === 'hr'
+
+  const catalog = useCourseCatalog(10)
+  const {
+    courses,
+    meta,
+    kpis,
+    filterOptions,
+    loading,
+    error,
+    retry,
+    filters,
+    setFilter,
+    clearFilters,
+    hasActiveFilters,
+    sortBy,
+    sortDir,
+    toggleSort,
+    page,
+    setPage,
+    perPage,
+    saving,
+    actionMessage,
+    actionError,
+    dismissAction,
+    createCourse,
+    updateCourse,
+    deleteCourse,
+    bulkAction,
+  } = catalog
+
   const [selectedRows, setSelectedRows] = useState<string[]>([])
-  
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
+  const [detailsCourse, setDetailsCourse] = useState<CatalogCourse | null>(null)
+  const [formMode, setFormMode] = useState<CourseFormMode>('create')
+  const [formCourse, setFormCourse] = useState<CatalogCourse | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<CatalogCourse | null>(null)
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
 
-  const tabs = [
-    { id: 'courses', label: 'Courses' },
-    { id: 'learning-paths', label: 'Learning Paths' },
-    { id: 'curricula', label: 'Curricula' },
-    { id: 'categories', label: 'Categories' },
-  ]
+  const selectedIds = useMemo(() => selectedRows.map(Number), [selectedRows])
 
-  const filters: Filter[] = [
-    {
-      id: 'search',
-      label: '',
-      type: 'search',
-      value: searchQuery,
-      onChange: (val) => setSearchQuery(val as string),
-    },
-    {
-      id: 'category',
-      label: 'Category',
-      type: 'select',
-      value: selectedCategory,
-      options: [
-        { id: 'compliance', label: 'Compliance', value: 'Compliance' },
-        { id: 'soft-skills', label: 'Soft Skills', value: 'Soft Skills' },
-        { id: 'technical', label: 'Technical', value: 'Technical' },
-      ],
-      onChange: (val) => setSelectedCategory(val as string),
-    },
-    {
-      id: 'type',
-      label: 'Type',
-      type: 'select',
-      value: selectedType,
-      options: [
-        { id: 'elearning', label: 'eLearning', value: 'eLearning' },
-        { id: 'video', label: 'Video', value: 'Video' },
-        { id: 'blended', label: 'Blended', value: 'Blended' },
-        { id: 'pdf', label: 'PDF', value: 'PDF' },
-        { id: 'scorm', label: 'SCORM', value: 'SCORM' },
-      ],
-      onChange: (val) => setSelectedType(val as string),
-    },
-    {
-      id: 'mandatory',
-      label: 'Mandatory',
-      type: 'select',
-      value: selectedMandatory,
-      options: [
-        { id: 'yes', label: 'Yes', value: 'Yes' },
-        { id: 'no', label: 'No', value: 'No' },
-      ],
-      onChange: (val) => setSelectedMandatory(val as string),
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      type: 'select',
-      value: selectedStatus,
-      options: [
-        { id: 'published', label: 'Published', value: 'Published' },
-        { id: 'draft', label: 'Draft', value: 'Draft' },
-        { id: 'archived', label: 'Archived', value: 'Archived' },
-        { id: 'under-review', label: 'Under Review', value: 'Under Review' },
-      ],
-      onChange: (val) => setSelectedStatus(val as string),
-    },
-  ]
+  const openCreate = () => {
+    setFormMode('create')
+    setFormCourse(null)
+    setFormOpen(true)
+  }
 
-  const columns: Column<Course>[] = [
+  const openEdit = (course: CatalogCourse) => {
+    setFormMode('edit')
+    setFormCourse(course)
+    setFormOpen(true)
+    setDetailsCourse(null)
+  }
+
+  const runBulk = async (action: 'activate' | 'deactivate' | 'delete') => {
+    const result = await bulkAction(action, selectedIds)
+    if (result.ok) setSelectedRows([])
+  }
+
+  const columns: Column<CatalogCourse>[] = [
     {
-      id: 'title',
+      id: 'display_name',
       header: 'Course',
       render: (_, row) => (
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted border border-border/50">
-            <ImageIcon className="size-5 text-muted-foreground/50" />
+          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/50 bg-muted">
+            {row.display_image && row.display_image !== '/' ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={row.display_image} alt="" className="size-full object-cover" />
+            ) : (
+              <ImageIcon className="size-5 text-muted-foreground/50" />
+            )}
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-sm truncate text-foreground">{row.title}</span>
-            <span className="text-xs text-muted-foreground truncate">{row.description}</span>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold text-foreground">
+              {row.display_name ?? 'Untitled course'}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {[row.subject_code, row.standard_name].filter(Boolean).join(' · ') || '—'}
+            </span>
           </div>
         </div>
       ),
     },
-    { id: 'category', header: 'Category' },
-    { id: 'type', header: 'Type' },
+    { id: 'subject_category', header: 'Category', render: (val) => (val as string) || '—' },
+    { id: 'subject_type', header: 'Type', render: (val) => (val as string) || '—' },
+    { id: 'jobrole', header: 'Job Role', render: (val) => (val as string) || '—' },
     {
-      id: 'mandatory',
-      header: 'Mandatory',
-      render: (val) => (
-        <span className="text-sm font-medium">{val ? 'Yes' : 'No'}</span>
-      ),
-    },
-    { id: 'version', header: 'Version' },
-    { 
-      id: 'assignedLearners', 
-      header: 'Assigned Learners',
-      render: (val) => <span className="font-medium">{val.toLocaleString()}</span>
+      id: 'learners',
+      header: 'Learners',
+      render: (val) => <span className="font-medium">{(val as number).toLocaleString()}</span>,
     },
     {
-      id: 'completionRate',
+      id: 'completion_rate',
       header: 'Completion',
       render: (val) => (
-        <div className="flex flex-col gap-1.5 w-24">
-          <span className="text-[11px] font-bold text-foreground leading-none">{val}%</span>
-          <Progress value={val as number} className="h-1.5 w-full bg-muted-foreground/20 [&>div]:bg-primary" />
+        <div className="flex w-24 flex-col gap-1.5">
+          <span className="text-[11px] font-bold leading-none text-foreground">
+            {val as number}%
+          </span>
+          <Progress
+            value={val as number}
+            className="h-1.5 w-full bg-muted-foreground/20 [&>div]:bg-primary"
+          />
         </div>
       ),
     },
     {
       id: 'status',
       header: 'Status',
+      render: (val) => (
+        <StatusBadge
+          variant={val === 1 ? 'active' : 'inactive'}
+          className="text-[10px] font-bold uppercase tracking-wider"
+        >
+          {val === 1 ? 'Active' : 'Inactive'}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: 'updated_at',
+      header: 'Updated',
       render: (val) => {
-        let variant: 'default' | 'error' | 'active' | 'inactive' | 'pending' | 'processing' = 'default'
-        if (val === 'Published') variant = 'active'
-        if (val === 'Under Review') variant = 'pending'
-        if (val === 'Draft') variant = 'default'
-        if (val === 'Archived') variant = 'inactive'
-        
-        return (
-          <StatusBadge variant={variant} className="text-[10px] uppercase font-bold tracking-wider">
-            {val as string}
-          </StatusBadge>
-        )
+        if (!val) return <span className="text-muted-foreground">—</span>
+        const parsed = new Date(val as string)
+        return Number.isNaN(parsed.getTime()) ? '—' : format(parsed, 'dd MMM yyyy')
       },
     },
-    { id: 'updatedAt', header: 'Updated' },
     {
       id: 'id',
       header: '',
-      render: () => (
-        <div className="flex justify-end">
-          <Button variant="ghost" size="icon" className="size-8" onClick={(e) => e.stopPropagation()}>
-            <MoreVertical className="size-4 text-muted-foreground" />
-          </Button>
+      render: (_, row) => (
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-8" aria-label="Course actions">
+                <ListFilter className="size-4 rotate-90 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setDetailsCourse(row)}>
+                <BookOpen className="mr-2 size-4" /> View details
+              </DropdownMenuItem>
+              {canAuthor && (
+                <>
+                  <DropdownMenuItem onSelect={() => openEdit(row)}>
+                    <Pencil className="mr-2 size-4" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void bulkAction(row.status === 1 ? 'deactivate' : 'activate', [row.id])
+                    }
+                  >
+                    {row.status === 1 ? (
+                      <>
+                        <Archive className="mr-2 size-4" /> Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 size-4" /> Activate
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setPendingDelete(row)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 size-4" /> Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
   ]
 
-  const filteredCourses = mockCourses.filter((c) => {
-    if (searchQuery && !c.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    if (selectedCategory && c.category !== selectedCategory) return false
-    if (selectedType && c.type !== selectedType) return false
-    if (selectedMandatory && c.mandatory !== (selectedMandatory === 'Yes')) return false
-    if (selectedStatus && c.status !== selectedStatus) return false
-    return true
-  })
+  // A hard failure with nothing cached means there is no table worth showing.
+  if (error && !loading && courses.length === 0) {
+    return (
+      <div className="p-6">
+        <ErrorState title="Couldn't load the learning catalog" description={error} retry={retry} />
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full pb-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex h-full w-full flex-col gap-6 pb-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Learning Catalog
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage courses, learning paths, curricula and categories.
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Learning Catalog</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage the courses available to your organisation.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-border/60">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => exportCsv(courses)}
+            disabled={courses.length === 0}
+          >
+            <Download className="size-4" /> Export
+          </Button>
+          {canAuthor && (
+            <>
+              <Button variant="outline" className="gap-2" onClick={() => setAiOpen(true)}>
+                <Sparkles className="size-4 text-primary" /> Build with AI
+              </Button>
+              <Button className="shrink-0 gap-2" onClick={openCreate}>
+                <Plus className="size-4" /> New Course
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {actionMessage && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-2.5 text-sm font-medium text-success"
+        >
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0" />
+            {actionMessage}
+          </span>
+          <button type="button" onClick={dismissAction} aria-label="Dismiss message">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+      {(actionError || (error && courses.length > 0)) && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive"
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0" />
+            {actionError ?? error}
+          </span>
+          <button type="button" onClick={dismissAction} aria-label="Dismiss message">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <KpiCard title="Total Courses" value={kpis?.total_courses ?? 0} icon={BookOpen} loading={loading} />
+        <KpiCard title="Active" value={kpis?.active_courses ?? 0} icon={CheckCircle2} loading={loading} />
+        <KpiCard title="Inactive" value={kpis?.inactive_courses ?? 0} icon={Archive} loading={loading} />
+        <KpiCard title="Categories" value={kpis?.categories ?? 0} icon={Layers} loading={loading} />
+        <KpiCard
+          title="Total Learners"
+          value={(kpis?.total_learners ?? 0).toLocaleString()}
+          icon={Users}
+          loading={loading}
+        />
+        <KpiCard
+          title="Avg Completion"
+          value={`${kpis?.avg_completion_rate ?? 0}%`}
+          icon={TrendingUp}
+          loading={loading}
+        />
+      </div>
+
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <div className="w-full sm:w-64">
+            <SearchInput
+              value={filters.search}
+              onChange={(event) => setFilter('search', event.target.value)}
+              placeholder="Search courses, codes, job roles..."
+            />
+          </div>
+          <div className="w-40">
+            <Select
+              value={filters.category}
+              onChange={(value) => setFilter('category', String(value))}
+              placeholder="Category"
+              aria-label="Filter by category"
+              options={[
+                { value: '', label: 'All categories' },
+                ...(filterOptions?.categories ?? []).map((category) => ({
+                  value: category,
+                  label: category,
+                })),
+              ]}
+            />
+          </div>
+          <div className="w-40">
+            <Select
+              value={filters.subjectType}
+              onChange={(value) => setFilter('subjectType', String(value))}
+              placeholder="Type"
+              aria-label="Filter by type"
+              options={[
+                { value: '', label: 'All types' },
+                ...(filterOptions?.subject_types ?? []).map((type) => ({
+                  value: type,
+                  label: type,
+                })),
+              ]}
+            />
+          </div>
+          <div className="w-40">
+            <Select
+              value={filters.jobrole}
+              onChange={(value) => setFilter('jobrole', String(value))}
+              placeholder="Job role"
+              aria-label="Filter by job role"
+              options={[
+                { value: '', label: 'All job roles' },
+                ...(filterOptions?.jobroles ?? []).map((jobrole) => ({
+                  value: jobrole,
+                  label: jobrole,
+                })),
+              ]}
+            />
+          </div>
+          <div className="w-36">
+            <Select
+              value={filters.status}
+              onChange={(value) => setFilter('status', String(value))}
+              placeholder="Status"
+              aria-label="Filter by status"
+              options={[
+                { value: '', label: 'Any status' },
+                { value: '1', label: 'Active' },
+                { value: '0', label: 'Inactive' },
+              ]}
+            />
+          </div>
+          {hasActiveFilters && (
             <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="icon"
-              className="size-8 rounded-md"
-              onClick={() => setViewMode('list')}
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="h-9 shrink-0 gap-2 text-muted-foreground"
             >
-              <List className="size-4" />
+              <X className="size-4" /> Clear All
+            </Button>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground">Sort</span>
+          <div className="w-40">
+            <Select
+              value={sortBy}
+              onChange={(value) => toggleSort(value as CatalogSortBy)}
+              options={SORT_OPTIONS}
+              aria-label="Sort by"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 shrink-0"
+            aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+            onClick={() => toggleSort(sortBy)}
+          >
+            {sortDir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {canAuthor && selectedRows.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-card p-2 px-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-[80px] text-sm font-medium text-muted-foreground">
+              {selectedRows.length} selected
+            </span>
+            <div className="mx-2 h-4 w-px bg-border" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2"
+              disabled={saving}
+              onClick={() => void runBulk('activate')}
+            >
+              <CheckCircle2 className="size-4" /> Activate
             </Button>
             <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="icon"
-              className="size-8 rounded-md"
-              onClick={() => setViewMode('grid')}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2"
+              disabled={saving}
+              onClick={() => void runBulk('deactivate')}
             >
-              <LayoutGrid className="size-4" />
+              <Archive className="size-4" /> Deactivate
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={saving}
+              onClick={() => setPendingBulkDelete(true)}
+            >
+              <Trash2 className="size-4" /> Delete
             </Button>
           </div>
-          <Button className="gap-2 shrink-0" onClick={() => router.push('/module/m4/learning/create-course')}>
-            <Plus className="size-4" /> New Course
-          </Button>
-          <Button variant="outline" size="icon" className="shrink-0">
-            <MoreVertical className="size-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+            <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelectedRows([])}>
+              Clear selection
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-border/60">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'relative pb-3 text-sm font-semibold transition-colors outline-none whitespace-nowrap',
-              activeTab === tab.id
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-t-full bg-primary" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-        <FilterBar 
-          filters={filters} 
-          className="flex-1 [&_.flex-wrap]:justify-start" 
-        />
-        <Button variant="ghost" size="sm" className="gap-2 shrink-0 text-muted-foreground h-9 mt-auto">
-          <ListFilter className="size-4" /> Clear All
-        </Button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KpiCard title="Total Courses" value="256" icon={BookOpen} />
-        <KpiCard title="Published" value="198" icon={FileText} />
-        <KpiCard title="Draft" value="32" icon={FileText} />
-        <KpiCard title="Archived" value="26" icon={Archive} />
-        <KpiCard title="Mandatory" value="124" icon={AlertCircle} />
-        <KpiCard title="Total Learners" value="8,342" icon={Users} />
-      </div>
-
-      {/* Bulk Actions */}
-      <div className="flex items-center justify-between border border-border/80 bg-card rounded-lg p-2 px-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-muted-foreground min-w-[80px]">
-            {selectedRows.length} selected
-          </span>
-          <div className="h-4 w-px bg-border mx-2" />
-          <Button variant="ghost" size="sm" className="h-8 gap-2" disabled={selectedRows.length === 0}>
-            <CheckCircle2 className="size-4" /> Publish
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 gap-2" disabled={selectedRows.length === 0}>
-            <Archive className="size-4" /> Archive
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 gap-2" disabled={selectedRows.length === 0}>
-            <Users className="size-4" /> Assign
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 gap-2" disabled={selectedRows.length === 0}>
-            <Plus className="size-4" /> Add to Path
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" disabled={selectedRows.length === 0}>
-            Delete
-          </Button>
-        </div>
-        <Button variant="outline" size="sm" className="h-8 gap-2 bg-card">
-          <Upload className="size-4" /> Export
-        </Button>
-      </div>
-
-      {/* Data Table */}
-      <div className="flex-1 bg-card rounded-xl">
+      <div className="flex-1 rounded-xl bg-card">
         <DataTable
           columns={columns}
-          data={filteredCourses}
-          selectable
+          data={courses}
+          isLoading={loading}
+          selectable={canAuthor}
           selectedIds={selectedRows}
           onSelectChange={setSelectedRows}
-          onRowClick={(row) => setSelectedCourse(row)}
+          onRowClick={(row) => setDetailsCourse(row)}
+          emptyState={
+            <EmptyState
+              icon={<GraduationCap className="size-8" />}
+              title={hasActiveFilters ? 'No matching courses' : 'No courses yet'}
+              description={
+                hasActiveFilters
+                  ? 'Try adjusting or clearing your filters.'
+                  : 'Create your first course to build out the catalog.'
+              }
+              action={
+                hasActiveFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : canAuthor ? (
+                  <Button size="sm" onClick={openCreate}>
+                    New Course
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
           pagination={{
-            page: 1,
-            pageSize: 10,
-            total: 256,
-            onPageChange: () => {},
+            page,
+            pageSize: perPage,
+            total: meta.total,
+            onPageChange: setPage,
           }}
-          className="border-border/80 shadow-sm"
+          className={cn('border-border/80 shadow-sm')}
         />
       </div>
 
-      {/* Details Sheet */}
       <CourseDetailsSheet
-        course={selectedCourse}
-        open={!!selectedCourse}
-        onOpenChange={(open) => !open && setSelectedCourse(null)}
+        course={detailsCourse}
+        open={detailsCourse !== null}
+        onOpenChange={(open) => !open && setDetailsCourse(null)}
+        canAuthor={canAuthor}
+        onEdit={openEdit}
+        onDelete={(course) => {
+          setDetailsCourse(null)
+          setPendingDelete(course)
+        }}
       />
+
+      <AiCourseSheet
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        filterOptions={filterOptions}
+        onPublished={retry}
+      />
+
+      <CourseFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        mode={formMode}
+        course={formCourse}
+        filterOptions={filterOptions}
+        saving={saving}
+        onCreate={createCourse}
+        onUpdate={updateCourse}
+      />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open: boolean) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this course?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `"${pendingDelete.display_name ?? 'This course'}" will be removed from the catalog. Existing enrolments are kept.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDelete) void deleteCourse(pendingDelete)
+                setPendingDelete(null)
+              }}
+            >
+              Delete
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingBulkDelete}
+        onOpenChange={(open: boolean) => !open && setPendingBulkDelete(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedRows.length} course(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The selected courses will be removed from the catalog. Existing enrolments are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setPendingBulkDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void runBulk('delete')
+                setPendingBulkDelete(false)
+              }}
+            >
+              Delete
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

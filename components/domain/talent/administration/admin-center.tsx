@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -16,7 +16,8 @@ import {
   Settings,
   X,
   ChevronDown,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,18 +34,76 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { AdminService, type AdminWorkflowsResponse } from '@/services/talent/admin-service'
 
 import {
   mockAdminKPIs,
-  mockWorkflows,
   type Workflow
 } from './admin-data'
 
 export function AdminCenter() {
   const [activeTab, setActiveTab] = useState('workflows')
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
+  const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null)
   
-  const activeWorkflow = activeWorkflowId ? mockWorkflows.find(w => w.id === activeWorkflowId) : null
+  const [workflows, setWorkflows] = useState<AdminWorkflowsResponse['data']>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
+  
+  // Pagination & Filtering
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [module, setModule] = useState('all')
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+
+  useEffect(() => {
+    if (activeTab === 'workflows') {
+      fetchWorkflows()
+    }
+  }, [activeTab, page, module]) // search handled by pressing enter or debounce in a real app, keeping simple here
+
+  const fetchWorkflows = async () => {
+    try {
+      setIsLoading(true)
+      const res = await AdminService.getWorkflows({ 
+        page, 
+        module: module === 'all' ? undefined : module,
+        search: search || undefined
+      })
+      if (res.status === 1) {
+        setWorkflows(res.data)
+        setTotalPages(res.pagination.last_page)
+        setTotalItems(res.pagination.total)
+      }
+    } catch (error) {
+      console.error('Failed to fetch workflows:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setPage(1)
+      fetchWorkflows()
+    }
+  }
+
+  const loadWorkflowDetails = async (id: string) => {
+    setActiveWorkflowId(id)
+    setIsDetailLoading(true)
+    try {
+      const res = await AdminService.getWorkflowById(id)
+      if (res.status === 1) {
+        setActiveWorkflow(res.data)
+      }
+    } catch (error) {
+      console.error('Failed to load workflow details:', error)
+    } finally {
+      setIsDetailLoading(false)
+    }
+  }
 
   const getStatusVariant = (status: Workflow['status']) => {
     switch (status) {
@@ -105,9 +164,13 @@ export function AdminCenter() {
               </div>
               <div className="flex flex-col gap-2 mt-1">
                 <span className="text-3xl font-bold text-foreground">{kpi.value}</span>
-                <button className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 w-fit">
-                  {kpi.linkText} <ArrowRight className="size-3" />
-                </button>
+              <button
+                key={kpi.id}
+                onClick={() => setActiveTab('workflows')}
+                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 w-fit text-left"
+              >
+                {kpi.linkText} <ArrowRight className="size-3" />
+              </button>
               </div>
             </Card>
           ))}
@@ -144,7 +207,7 @@ export function AdminCenter() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-        {activeTab === 'workflows' && (
+        {activeTab === 'workflows' ? (
           <div className="flex flex-col gap-6 max-w-[1400px]">
             <Card className="shadow-sm overflow-hidden border-border/60">
               <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
@@ -154,11 +217,29 @@ export function AdminCenter() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-[150px]">
-                    <Select value="all" options={[{label: 'All Modules', value: 'all'}]} size="sm" />
+                    <Select 
+                      value={module} 
+                      onValueChange={(val) => { setModule(val); setPage(1); }} 
+                      options={[
+                        {label: 'All Modules', value: 'all'},
+                        {label: 'Recruitment', value: 'Recruitment'},
+                        {label: 'Onboarding', value: 'Onboarding'},
+                        {label: 'Performance', value: 'Performance'},
+                        {label: 'Mobility', value: 'Mobility'},
+                        {label: 'Offboarding', value: 'Offboarding'}
+                      ]} 
+                      size="sm" 
+                    />
                   </div>
                   <div className="relative w-[250px]">
                     <Search className="absolute left-2.5 top-2 size-4 text-muted-foreground" />
-                    <Input placeholder="Search workflows..." className="pl-9 h-8 text-sm" />
+                    <Input 
+                      placeholder="Search workflows... (Press Enter)" 
+                      className="pl-9 h-8 text-sm" 
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      onKeyDown={handleSearch}
+                    />
                   </div>
                   <Button variant="outline" size="icon" className="h-8 w-8"><Filter className="size-4" /></Button>
                 </div>
@@ -177,80 +258,130 @@ export function AdminCenter() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockWorkflows.map((workflow) => (
-                      <TableRow 
-                        key={workflow.id} 
-                        className={cn(
-                          "cursor-pointer hover:bg-muted/50 transition-colors",
-                          activeWorkflowId === workflow.id ? 'bg-primary/5' : ''
-                        )}
-                        onClick={() => setActiveWorkflowId(workflow.id)}
-                      >
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm text-foreground">{workflow.name}</span>
-                            <span className="text-xs text-muted-foreground">{workflow.description}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{workflow.module}</span>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge 
-                            variant={getStatusVariant(workflow.status)} 
-                            className={cn(
-                              "px-2 py-0.5 text-[10px] border-0 h-5",
-                              workflow.status === 'Active' ? 'bg-success/10 text-success' :
-                              workflow.status === 'Draft' ? 'bg-warning/10 text-warning-foreground' :
-                              'bg-muted text-muted-foreground'
-                            )}
-                          >
-                            {workflow.status}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm font-medium">{workflow.version}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="text-sm">{workflow.lastUpdated}</span>
-                            <span className="text-xs text-muted-foreground">by {workflow.updatedBy}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                            <MoreHorizontal className="size-4" />
-                          </Button>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          <Loader2 className="size-6 animate-spin text-muted-foreground mx-auto" />
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : workflows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                          No workflows found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      workflows.map((workflow) => (
+                        <TableRow 
+                          key={workflow.id} 
+                          className={cn(
+                            "cursor-pointer hover:bg-muted/50 transition-colors",
+                            activeWorkflowId === workflow.id ? 'bg-primary/5' : ''
+                          )}
+                          onClick={() => loadWorkflowDetails(workflow.id)}
+                        >
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-sm text-foreground">{workflow.name}</span>
+                              <span className="text-xs text-muted-foreground">{workflow.description}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm">{workflow.module}</span>
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge 
+                              variant={getStatusVariant(workflow.status)} 
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] border-0 h-5",
+                                workflow.status === 'Active' ? 'bg-success/10 text-success' :
+                                workflow.status === 'Draft' ? 'bg-warning/10 text-warning-foreground' :
+                                'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {workflow.status}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm font-medium">{workflow.version}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm">{workflow.lastUpdated}</span>
+                              <span className="text-xs text-muted-foreground">by {workflow.updatedBy}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
               
               <div className="p-3 border-t flex items-center justify-between bg-muted/5">
-                <span className="text-xs text-muted-foreground">Showing 1 to 8 of 28 workflows</span>
+                <span className="text-xs text-muted-foreground">
+                  Showing {workflows.length > 0 ? (page - 1) * 10 + 1 : 0} to {Math.min(page * 10, totalItems)} of {totalItems} workflows
+                </span>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" className="h-7 w-7 text-muted-foreground"><ChevronLeft className="size-4" /></Button>
-                    <Button variant="default" size="icon" className="h-7 w-7 text-xs bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30">1</Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-xs text-muted-foreground">2</Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-xs text-muted-foreground">3</Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-xs text-muted-foreground">4</Button>
-                    <Button variant="outline" size="icon" className="h-7 w-7 text-muted-foreground"><ChevronRight className="size-4" /></Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <div className="text-xs font-medium px-2">Page {page} of {totalPages}</div>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      <ChevronRight className="size-4" />
+                    </Button>
                   </div>
-                  <div className="w-[100px]"><Select value="10" options={[{label: '10 / page', value: '10'}]} size="sm" /></div>
                 </div>
               </div>
             </Card>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-[500px] text-center max-w-[1400px] bg-surface rounded-xl border border-dashed border-border p-8">
+            <div className="p-4 bg-muted/50 rounded-full mb-4">
+              <Settings className="size-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Module Under Construction</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mb-6">
+              This section is currently being built. It will provide advanced configuration capabilities in a future update.
+            </p>
+            <Button variant="outline" onClick={() => setActiveTab('workflows')}>
+              Return to Workflows
+            </Button>
           </div>
         )}
       </div>
 
       {/* Detail Drawer (Sheet) */}
-      <Sheet open={!!activeWorkflowId} onOpenChange={(open) => !open && setActiveWorkflowId(null)}>
+      <Sheet open={!!activeWorkflowId} onOpenChange={(open) => {
+        if (!open) {
+          setActiveWorkflowId(null);
+          setActiveWorkflow(null);
+        }
+      }}>
         <SheetContent side="right" className="w-[95vw] sm:max-w-4xl p-0 flex flex-col gap-0 border-l border-border/80">
-          {activeWorkflow && (
+          {isDetailLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="size-8 animate-spin text-primary" />
+            </div>
+          ) : activeWorkflow && (
             <div className="flex flex-col h-full bg-background overflow-hidden">
               {/* Header */}
               <div className="px-6 py-5 border-b flex items-center justify-between bg-surface relative">
