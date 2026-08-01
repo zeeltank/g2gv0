@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ApprovalQueue } from './audit/approval-queue'
 import {
   Search,
   Filter,
@@ -607,7 +608,13 @@ export function CmAudit() {
           ))}
         </div>
 
-        {activeTab === 'actions' ? (
+        {activeTab === 'approvals' ? (
+          // Was a read-only filter on approval log rows, which meant the module
+          // had nowhere to actually approve a competency or publish a framework.
+          <div className="flex-1 overflow-auto g2g-scrollbar bg-card p-6">
+            <ApprovalQueue />
+          </div>
+        ) : activeTab === 'actions' ? (
           <UserActionsTab state={userActions} />
         ) : (
           <div className="flex flex-1 overflow-hidden">

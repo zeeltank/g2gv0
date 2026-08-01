@@ -230,6 +230,8 @@ export interface CertificationListParams {
   department_id?: string
   jobrole?: string
   certification_type?: string
+  /** Drill-through from a competency's detail panel. */
+  competency_id?: string
   issuing_body?: string
   verification_status?: string
   /** the "My Certifications" tab - plain user_id is the context actor */

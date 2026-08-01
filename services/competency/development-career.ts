@@ -109,6 +109,8 @@ export interface DevelopmentPlanListParams {
   approver_id?: string
   jobrole?: string
   career_path_id?: string
+  /** Drill-through from a competency's detail panel. */
+  competency_id?: string
   /** Command Center drilldown: only plans awaiting approval. */
   pending_approval?: string
   sort?: PlanSortField
@@ -342,6 +344,8 @@ export interface LearningAssignmentListParams {
   assignment_type?: string
   development_plan_id?: string
   employee_id?: string
+  /** Drill-through from a competency's detail panel. */
+  competency_id?: string
   page?: number
   per_page?: number
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   Plus,
@@ -22,6 +23,8 @@ import {
   Users,
   Save,
   Trash2,
+  FolderTree,
+  Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,6 +63,14 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useCompetencyLibrary, useCompetencyDetail } from '@/hooks/use-competency-library'
+import { useLibraryMeta, useTaxonomy } from '@/hooks/use-competency-libraries'
+import { useApprovalTrail, useSubmitForApproval } from '@/hooks/use-competency-approvals'
+import { competencyLibraryService } from '@/services/competency'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { useAuth } from '@/hooks/use-auth'
+import { SKILL_LIBRARY_CONFIG } from './libraries/library-config'
+import { TaxonomyManager } from './libraries/taxonomy-manager'
+import type { ApprovalTrailEntry } from '@/services/competency'
 import type {
   CompetencyLibraryItem,
   CompetencyLibraryPayload,
@@ -322,44 +333,115 @@ function pageWindow(current: number, last: number): (number | 'gap')[] {
 interface CompetencyFormProps {
   initial: CompetencyLibraryItem | null
   saving: boolean
+  /** Categories from the skill taxonomy, so the form and the tree agree. */
+  categories: string[]
+  subCategoriesOf: (category: string) => string[]
+  departments: string[]
   onSubmit: (payload: CompetencyLibraryPayload) => Promise<{ ok: boolean; message: string }>
   onCancel: () => void
   onSaved: () => void
 }
 
-function CompetencyForm({ initial, saving, onSubmit, onCancel, onSaved }: CompetencyFormProps) {
+/** Free text that is long enough to want its own row in the form grid. */
+const DETAIL_FIELDS: { key: keyof CompetencyLibraryPayload; label: string; help?: string; placeholder?: string }[] = [
+  { key: 'bussiness_links', label: 'Business Link', placeholder: 'https://…' },
+  { key: 'learning_resources', label: 'Learning Resources', placeholder: 'Courses, guides, internal material' },
+  { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation + MCQ' },
+  { key: 'certification_qualifications', label: 'Certifications / Qualifications' },
+  { key: 'experience_project', label: 'Experience / Projects' },
+  { key: 'sop_practice_link', label: 'SOP / Practice Link' },
+  { key: 'related_skills', label: 'Related Competencies', help: 'Comma separated.' },
+  { key: 'custom_tags', label: 'Tags', help: 'Comma separated.' },
+]
+
+/**
+ * Create / edit a competency.
+ *
+ * Carries the full column set. The five "Evidence & Resources" fields are what
+ * the detail drawer's Attachments tab is built from - while they were only
+ * editable on a separate screen, that tab could never show anything for a
+ * competency created here.
+ */
+function CompetencyForm({
+  initial,
+  saving,
+  categories,
+  subCategoriesOf,
+  departments,
+  onSubmit,
+  onCancel,
+  onSaved,
+}: CompetencyFormProps) {
   const editing = Boolean(initial)
 
-  const [name, setName] = useState(initial?.name ?? '')
-  const [category, setCategory] = useState(initial?.category ?? '')
-  const [type, setType] = useState(initial?.competency_type ?? '')
-  const [proficiency, setProficiency] = useState(initial?.proficiency_level ?? '')
-  const [status, setStatus] = useState(initial?.approve_status?.trim() || 'Approved')
-  const [description, setDescription] = useState(initial?.description ?? '')
+  const [values, setValues] = useState<Record<string, string>>(() => ({
+    name: initial?.name ?? '',
+    category: initial?.category ?? '',
+    sub_category: initial?.sub_category ?? '',
+    competency_type: initial?.competency_type ?? '',
+    department: initial?.department ?? '',
+    proficiency_level: initial?.proficiency_level ?? '',
+    status: initial?.approve_status?.trim() || 'Approved',
+    description: initial?.description ?? '',
+    ...Object.fromEntries(DETAIL_FIELDS.map((f) => [f.key, (initial?.[f.key as keyof CompetencyLibraryItem] as string) ?? ''])),
+  }))
+  const [showDetails, setShowDetails] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const set = (key: string, value: string) =>
+    setValues((current) => {
+      const next = { ...current, [key]: value }
+      // A sub-category only means something under its parent.
+      if (key === 'category') next.sub_category = ''
+      return next
+    })
+
+  const withCurrent = (list: string[], current: string) =>
+    current && !list.includes(current) ? [current, ...list] : list
+
+  const categoryOptions = [
+    { label: 'Select category', value: '' },
+    ...withCurrent(categories, values.category).map((c) => ({ label: c, value: c })),
+  ]
+  const subCategoryOptions = [
+    { label: values.category ? 'Select sub category' : 'Pick a category first', value: '' },
+    ...withCurrent(values.category ? subCategoriesOf(values.category) : [], values.sub_category).map((c) => ({
+      label: c,
+      value: c,
+    })),
+  ]
+  const departmentOptions = [
+    { label: 'Select department', value: '' },
+    ...withCurrent(departments, values.department).map((d) => ({ label: d, value: d })),
+  ]
+
   const handleSubmit = async () => {
-    if (!name.trim()) {
+    if (!values.name.trim()) {
       setError('Competency name is required.')
       return
     }
     setError(null)
 
+    const text = (key: string) => values[key]?.trim() ?? ''
+    const optional = (key: string) => (text(key) ? { [key]: text(key) } : {})
+
     const payload: CompetencyLibraryPayload = {
-      name: name.trim(),
-      ...(category.trim() ? { category: category.trim() } : {}),
-      ...(type ? { competency_type: type } : {}),
-      ...(description.trim() ? { description: description.trim() } : {}),
-      // Proficiency scale and status are edit-only. On create the backend
-      // defaults approve_status to Approved, and the proficiency scale is
-      // owned by the Framework Studio (it is read-only there and shared with
-      // every rating screen), so a new competency inherits the tenant scale.
-      ...(editing
-        ? {
-            status,
-            ...(proficiency.trim() ? { proficiency_level: proficiency.trim() } : {}),
-          }
-        : {}),
+      name: values.name.trim(),
+      ...optional('category'),
+      ...optional('sub_category'),
+      ...optional('department'),
+      ...(values.competency_type ? { competency_type: values.competency_type } : {}),
+      ...optional('description'),
+      ...optional('proficiency_level'),
+      // Status is edit-only: a new competency is created Approved, and moving it
+      // out of that state is what "Submit for Approval" is for.
+      ...(editing ? { status: values.status } : {}),
+      ...Object.fromEntries(
+        DETAIL_FIELDS.map((f) => [f.key, text(f.key as string)]).filter(([, value]) => {
+          // On edit send blanks too, so a field can be cleared.
+          return editing || value !== ''
+        }),
+      ),
     }
 
     const result = await onSubmit(payload)
@@ -373,51 +455,101 @@ function CompetencyForm({ initial, saving, onSubmit, onCancel, onSaved }: Compet
         <DialogTitle className="text-xl font-bold text-foreground">
           {initial ? 'Edit Competency' : 'Create Competency'}
         </DialogTitle>
-        <DialogDescription className="sr-only">
-          {initial ? 'Update this competency.' : 'Add a new competency to the library.'}
+        <DialogDescription className="text-sm text-muted-foreground">
+          {initial
+            ? 'Update this competency. Evidence & resources feed the Attachments tab.'
+            : 'Add a competency to the library. Evidence & resources feed its Attachments tab.'}
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-6 flex flex-col gap-5 max-h-[70vh] overflow-y-auto g2g-scrollbar">
+      <div className="p-6 flex flex-col gap-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
         <div className="space-y-2">
           <label className="text-sm font-semibold text-foreground">Competency Name<span className="text-destructive"> *</span></label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter name" className="bg-background border-border" />
+          <Input value={values.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter name" className="bg-background border-border" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground">Category</label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Core" className="bg-background border-border" />
+            <Select value={values.category} onChange={(v) => set('category', v)} options={categoryOptions} placeholder="Select category" className="bg-background border-border h-9" aria-label="Category" />
+            {categories.length === 0 && (
+              <p className="text-xs text-muted-foreground">No categories yet — add one from Taxonomy.</p>
+            )}
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Type (KASA)</label>
-            <Select value={type} onChange={setType} options={TYPE_FORM_OPTIONS} placeholder="Select type" className="bg-background border-border h-9" />
+            <label className="text-sm font-semibold text-foreground">Sub Category</label>
+            <Select value={values.sub_category} onChange={(v) => set('sub_category', v)} options={subCategoryOptions} disabled={!values.category} className="bg-background border-border h-9" aria-label="Sub Category" />
           </div>
         </div>
 
-        {/* Edit only - a new competency takes the tenant proficiency scale and
-            is created Approved. */}
-        {editing && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Proficiency Scale</label>
-              <Input value={proficiency} onChange={(e) => setProficiency(e.target.value)} placeholder="e.g. 1-5 Level Scale" className="bg-background border-border" />
-            </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Type (KASA)</label>
+            <Select value={values.competency_type} onChange={(v) => set('competency_type', v)} options={TYPE_FORM_OPTIONS} placeholder="Select type" className="bg-background border-border h-9" aria-label="Type" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Department</label>
+            <Select value={values.department} onChange={(v) => set('department', v)} options={departmentOptions} placeholder="Select department" className="bg-background border-border h-9" aria-label="Department" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Proficiency Scale</label>
+            <Input value={values.proficiency_level} onChange={(e) => set('proficiency_level', e.target.value)} placeholder="e.g. 1-5 Level Scale" className="bg-background border-border" />
+          </div>
+          {editing && (
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Status</label>
-              <Select value={status} onChange={setStatus} options={STATUS_FORM_OPTIONS} className="bg-background border-border h-9" />
+              <Select value={values.status} onChange={(v) => set('status', v)} options={STATUS_FORM_OPTIONS} className="bg-background border-border h-9" aria-label="Status" />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-foreground">Description</label>
           <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[100px] resize-none"
+            value={values.description}
+            onChange={(e) => set('description', e.target.value)}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[90px] resize-none"
             placeholder="Enter description..."
           />
+        </div>
+
+        {/* Collapsed by default: eight optional fields would otherwise bury the
+            five that identify the competency. */}
+        <div className="rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => setShowDetails((open) => !open)}
+            aria-expanded={showDetails}
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-foreground">Evidence &amp; Resources</span>
+              <span className="block text-xs text-muted-foreground">
+                Learning material, assessment method, certifications — these fill the Attachments tab.
+              </span>
+            </span>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', showDetails && 'rotate-180')} />
+          </button>
+
+          {showDetails && (
+            <div className="grid grid-cols-1 gap-4 border-t border-border p-4 md:grid-cols-2">
+              {DETAIL_FIELDS.map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">{field.label}</label>
+                  <Input
+                    value={values[field.key as string] ?? ''}
+                    onChange={(e) => set(field.key as string, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="bg-background border-border"
+                  />
+                  {field.help && <p className="text-xs text-muted-foreground">{field.help}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && <p className="text-sm font-medium text-destructive">{error}</p>}
@@ -525,6 +657,18 @@ export function CmCompetencyLibrary() {
   const { detail, loading: detailLoading } = useCompetencyDetail(selectedItem?.id ?? null)
   const [formOpen, setFormOpen] = useState(false)
   const [formInitial, setFormInitial] = useState<CompetencyLibraryItem | null>(null)
+  const [formLoading, setFormLoading] = useState(false)
+  const [taxonomyOpen, setTaxonomyOpen] = useState(false)
+  const [approvalNote, setApprovalNote] = useState<string | null>(null)
+
+  const router = useRouter()
+  const { user } = useAuth()
+  // Categories come from the skill taxonomy so the form, the filters and the
+  // Skill Taxonomy tree all describe the same tree.
+  const taxonomy = useTaxonomy('skill')
+  const { meta } = useLibraryMeta()
+  const { submit: submitForApproval, submitting } = useSubmitForApproval()
+  const approvalTrail = useApprovalTrail('competency', selectedItem?.id ?? null)
   const [archiveTarget, setArchiveTarget] = useState<CompetencyLibraryItem | null>(null)
   const [importResult, setImportResult] = useState<CompetencyImportResult | null>(null)
   // Parse failures happen before the request, so they need their own surface.
@@ -551,17 +695,20 @@ export function CmCompetencyLibrary() {
     }
   }
 
-  // Category options are derived from the loaded rows (+ the current selection so
-  // it never disappears). A dedicated distinct-category endpoint can replace this later.
+  // The taxonomy is the full category set; the loaded rows are a fallback for a
+  // tenant whose tree has not been built yet. The current selection is always
+  // included so an active filter never vanishes from its own dropdown.
   const categoryOptions = useMemo(() => {
-    const set = new Set<string>()
-    items.forEach((it) => { if (it.category?.trim()) set.add(it.category.trim()) })
+    const set = new Set<string>(taxonomy.categories.filter(Boolean))
+    if (set.size === 0) {
+      items.forEach((it) => { if (it.category?.trim()) set.add(it.category.trim()) })
+    }
     if (category !== 'all') set.add(category)
     return [
       { label: 'All Categories', value: 'all' },
       ...Array.from(set).sort().map((c) => ({ label: c, value: c })),
     ]
-  }, [items, category])
+  }, [taxonomy.categories, items, category])
 
   const changeFilter = (setter: (v: string) => void) => (value: string) => {
     setter(value)
@@ -612,7 +759,50 @@ export function CmCompetencyLibrary() {
   }
 
   const openCreate = () => { clearMessages(); setFormInitial(null); setFormOpen(true) }
-  const openEdit = (item: CompetencyLibraryItem) => { clearMessages(); setSelectedItem(null); setFormInitial(item); setFormOpen(true) }
+
+  /**
+   * The list payload omits the long detail columns, so editing fetches the full
+   * record first. Without it, saving an edit would post blanks for every field
+   * the list never carried and wipe them.
+   */
+  const openEdit = async (item: CompetencyLibraryItem) => {
+    clearMessages()
+    setSelectedItem(null)
+    setFormInitial(item)
+    setFormLoading(true)
+    setFormOpen(true)
+    try {
+      const response = await competencyLibraryService.get(getLaravelContext(user), item.id)
+      setFormInitial(response.data)
+    } catch {
+      // Fall back to the list row: the core fields are all present on it.
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  /**
+   * Open another M2 screen focused on this competency.
+   *
+   * The competency id rides along as a query param so the target can preselect
+   * it; screens that do not read it yet simply open unfiltered rather than
+   * leaving the user on a dead number.
+   */
+  const openInSubmodule = (submenuId: string, item: CompetencyLibraryItem) => {
+    const params = new URLSearchParams({ competency_id: String(item.id), competency: item.name })
+    router.push(`/module/m2/${submenuId}/${submenuId}?${params.toString()}`)
+  }
+
+  /** Move a competency into the approval queue. */
+  const handleSubmitForApproval = async (item: CompetencyLibraryItem) => {
+    clearMessages()
+    const result = await submitForApproval('competency', item.id)
+    setApprovalNote(result.message)
+    if (result.ok) {
+      setSelectedItem(null)
+      retry()
+    }
+  }
 
   const submitForm = (payload: CompetencyLibraryPayload) =>
     formInitial ? update(formInitial.id, payload) : create(payload)
@@ -732,6 +922,13 @@ export function CmCompetencyLibrary() {
           <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational competencies.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setTaxonomyOpen(true)}
+            className="h-10 gap-2 rounded-xl font-semibold"
+          >
+            <FolderTree className="w-4 h-4" /> Taxonomy
+          </Button>
           <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
             <Plus className="w-4 h-4 stroke-[3]" /> Create Competency
           </Button>
@@ -775,7 +972,7 @@ export function CmCompetencyLibrary() {
       </div>
 
       {/* Action feedback (mutations + client-side import parse errors) */}
-      {(actionMessage || actionError || importError) && (
+      {(actionMessage || actionError || importError || approvalNote) && (
         <div
           className={cn(
             'rounded-xl border px-4 py-2.5 text-sm font-medium flex items-center justify-between',
@@ -784,9 +981,9 @@ export function CmCompetencyLibrary() {
               : 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
           )}
         >
-          <span>{importError || actionError || actionMessage}</span>
+          <span>{importError || actionError || actionMessage || approvalNote}</span>
           <button
-            onClick={() => { clearMessages(); setImportError(null) }}
+            onClick={() => { clearMessages(); setImportError(null); setApprovalNote(null) }}
             className="text-xs opacity-70 hover:opacity-100"
           >
             Dismiss
@@ -1017,6 +1214,19 @@ export function CmCompetencyLibrary() {
                   >
                     <Download className="w-3.5 h-3.5" /> Export
                   </Button>
+                  {/* Approved competencies can be sent back through review;
+                      Pending ones are already in the queue. */}
+                  {statusLabel(selectedItem) !== 'Pending' && !isArchived(selectedItem) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSubmitForApproval(selectedItem)}
+                      disabled={submitting}
+                      className="h-9 px-4 gap-2 border-border font-semibold rounded-lg bg-background hover:bg-muted"
+                      title="Move this competency into the approval queue"
+                    >
+                      <Send className="w-3.5 h-3.5" /> {submitting ? 'Submitting…' : 'Submit for Approval'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setArchiveTarget(selectedItem)}
@@ -1070,27 +1280,54 @@ export function CmCompetencyLibrary() {
                       <p className="text-sm text-foreground leading-relaxed">
                         {dash(selectedItem.description)}
                       </p>
+                      {/* Each tile goes somewhere: the two association counts
+                          switch tabs, the rest open the submodule that owns the
+                          record. A count with no destination is a dead end. */}
                       <div className="grid grid-cols-3 gap-3">
                         {[
-                          { label: 'Mapped Roles', value: detail?.summary.role_count, tab: 'associations' as const },
-                          { label: 'Frameworks', value: detail?.summary.framework_count, tab: 'associations' as const },
-                          { label: 'Employees Rated', value: detail?.summary.rated_employees, tab: null },
-                          { label: 'Development Plans', value: detail?.summary.plan_count, tab: null },
-                          { label: 'Certifications', value: detail?.summary.certification_count, tab: null },
-                          { label: 'Learning Assigned', value: detail?.summary.learning_count, tab: null },
-                        ].map((stat) => (
-                          <div
-                            key={stat.label}
-                            className="rounded-xl border border-primary/10 bg-background/40 px-4 py-3"
-                          >
-                            <p className="text-lg font-bold text-foreground leading-none">
-                              {detailLoading ? '…' : (stat.value ?? 0)}
-                            </p>
-                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-1.5">
-                              {stat.label}
-                            </p>
-                          </div>
-                        ))}
+                          { label: 'Mapped Roles', value: detail?.summary.role_count, tab: 'associations' as const, go: null },
+                          { label: 'Frameworks', value: detail?.summary.framework_count, tab: 'associations' as const, go: null },
+                          { label: 'Employees Rated', value: detail?.summary.rated_employees, tab: null, go: 'cm-employee-profiles' },
+                          { label: 'Development Plans', value: detail?.summary.plan_count, tab: null, go: 'cm-development-career' },
+                          { label: 'Certifications', value: detail?.summary.certification_count, tab: null, go: 'cm-certifications' },
+                          { label: 'Learning Assigned', value: detail?.summary.learning_count, tab: null, go: 'cm-development-career' },
+                        ].map((stat) => {
+                          const count = stat.value ?? 0
+                          // Nothing to drill into when the count is zero.
+                          const target = count > 0 ? (stat.tab ?? stat.go) : null
+
+                          return (
+                            <button
+                              key={stat.label}
+                              type="button"
+                              disabled={!target}
+                              onClick={() => {
+                                if (stat.tab) setActiveTab(stat.tab)
+                                else if (stat.go) openInSubmodule(stat.go, selectedItem)
+                              }}
+                              className={cn(
+                                'rounded-xl border border-primary/10 bg-background/40 px-4 py-3 text-left transition-colors',
+                                target
+                                  ? 'hover:border-primary/40 hover:bg-primary/5 cursor-pointer'
+                                  : 'cursor-default',
+                              )}
+                              title={
+                                target
+                                  ? stat.tab
+                                    ? 'Show in Associations'
+                                    : `Open in ${stat.go === 'cm-employee-profiles' ? 'Employee Profiles' : stat.go === 'cm-certifications' ? 'Certifications' : 'Development & Career'}`
+                                  : undefined
+                              }
+                            >
+                              <p className="text-lg font-bold text-foreground leading-none">
+                                {detailLoading ? '…' : count}
+                              </p>
+                              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-1.5">
+                                {stat.label}
+                              </p>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
 
@@ -1190,7 +1427,7 @@ export function CmCompetencyLibrary() {
                 ) : activeTab === 'attachments' ? (
                   <AttachmentsTab detail={detail} />
                 ) : (
-                  <HistoryTab detail={detail} />
+                  <HistoryTab detail={detail} trail={approvalTrail} />
                 )}
               </div>
 
@@ -1224,11 +1461,17 @@ export function CmCompetencyLibrary() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden">
           {formOpen && (
+            // Remounted once the full record arrives, so the detail fields
+            // populate instead of initialising blank.
             <CompetencyForm
+              key={formLoading ? 'loading' : (formInitial?.id ?? 'new')}
               initial={formInitial}
-              saving={saving}
+              saving={saving || formLoading}
+              categories={taxonomy.categories}
+              subCategoriesOf={taxonomy.subCategoriesOf}
+              departments={meta.departments}
               onSubmit={submitForm}
               onCancel={() => setFormOpen(false)}
               onSaved={() => setFormOpen(false)}
@@ -1236,6 +1479,30 @@ export function CmCompetencyLibrary() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Skill taxonomy editor - the category tree this library and the Skill
+          Taxonomy screen both read. */}
+      <Sheet open={taxonomyOpen} onOpenChange={setTaxonomyOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col border-l border-primary/10 bg-card p-0 shadow-2xl sm:w-[560px] sm:max-w-none"
+        >
+          <TaxonomyManager
+            config={SKILL_LIBRARY_CONFIG}
+            taxonomy={taxonomy}
+            onClose={() => {
+              setTaxonomyOpen(false)
+              // A rename can leave the category filter pointing at a name that
+              // no longer exists, which would read as an empty library.
+              if (category !== 'all' && !taxonomy.categories.includes(category)) {
+                setCategory('all')
+                setPage(1)
+              }
+              retry()
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Archive / Restore Confirmation */}
       <Dialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
@@ -1457,12 +1724,34 @@ function AttachmentsTab({ detail }: { detail: CompetencyDetail | null }) {
   )
 }
 
-function HistoryTab({ detail }: { detail: CompetencyDetail | null }) {
+function HistoryTab({ detail, trail }: { detail: CompetencyDetail | null; trail: ApprovalTrailEntry[] }) {
   const history = detail?.history ?? []
-  if (history.length === 0) {
+  if (history.length === 0 && trail.length === 0) {
     return <EmptyState icon={<BookOpen className="w-6 h-6" />} title="No history" description="No change history recorded for this competency." className="border-0" />
   }
   return (
+    <div className="flex flex-col gap-6">
+      {/* Approval decisions first: a rejection note is the thing a submitter
+          opens this tab to find. */}
+      {trail.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">Approvals</h4>
+          {trail.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-border bg-background/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <StatusBadge status={entry.status} label={entry.status} size="sm" />
+                <span className="text-xs text-muted-foreground">{entry.reviewed_at || entry.submitted_at || '—'}</span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Submitted by {entry.submitted_by_name || 'System'}
+                {entry.reviewer_name ? ` · reviewed by ${entry.reviewer_name}` : ''}
+              </p>
+              {entry.note && <p className="mt-1 text-sm text-foreground italic">“{entry.note}”</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
     <div className="relative flex flex-col gap-0 pl-2">
       <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
       {history.map((h, i) => (
@@ -1477,6 +1766,7 @@ function HistoryTab({ detail }: { detail: CompetencyDetail | null }) {
           </div>
         </div>
       ))}
+    </div>
     </div>
   )
 }

@@ -16,6 +16,9 @@ export interface AssessmentCycle {
   id: string
   name: string
   type: string
+  /** The framework the campaign assesses against; null for ad-hoc campaigns. */
+  framework_id?: number | null
+  framework_name?: string | null
   participants: number
   completion: number
   status: string
@@ -72,7 +75,7 @@ export const assessmentWorkspaceService = {
       withLaravelParams(context)
     ),
 
-  createCampaign: (context: LaravelContext, payload: { name: string; type?: string; start_date?: string; end_date?: string }) =>
+  createCampaign: (context: LaravelContext, payload: { name: string; type?: string; framework_id?: number; start_date?: string; end_date?: string }) =>
     apiClient.post<CompetencyApiResponse<{ id: number }>>(
       '/competency/assessment-cycles',
       {

@@ -12,6 +12,12 @@ export { competencyCommandCenterService, competencyCommandCenterService as compe
 export * from './library'
 export { competencyLibraryService } from './library'
 
+export * from './libraries'
+export { competencyLibrariesService } from './libraries'
+
+export * from './approvals'
+export { competencyApprovalService } from './approvals'
+
 export * from './studio'
 export { competencyStudioService } from './studio'
 

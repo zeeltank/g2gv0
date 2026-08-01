@@ -33,6 +33,8 @@ import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useCompetencyFocus } from '@/hooks/use-competency-focus'
+import { CompetencyFocusBanner } from './competency-focus-banner'
 import { ErrorState } from '@/components/ui/error-state'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
@@ -1757,15 +1759,19 @@ function LearningTab({
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const { competencyId } = useCompetencyFocus()
+
   const params = useMemo(
     () => ({
       search: search || undefined,
       status: status === 'all' ? undefined : status,
       employee_id: employeeId === 'all' ? undefined : employeeId,
+      // Set when opened from a competency's detail panel ("Learning Assigned").
+      competency_id: competencyId ?? undefined,
       page,
       per_page: perPage,
     }),
-    [search, status, employeeId, page, perPage],
+    [search, status, employeeId, competencyId, page, perPage],
   )
 
   const { assignments, pagination, loading, error, saving, actionError, retry, update, remove } = useLearningAssignments(params, refreshKey)
@@ -1974,6 +1980,8 @@ export function CmDevelopmentCareer() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const { competencyId, competencyName, clearFocus } = useCompetencyFocus()
+
   const listParams = useMemo(
     () => ({
       search: search || undefined,
@@ -1981,12 +1989,14 @@ export function CmDevelopmentCareer() {
       department_id: departmentId === 'all' ? undefined : departmentId,
       approver_id: ownerId === 'all' ? undefined : ownerId,
       ...(pendingOnly ? { pending_approval: '1' } : {}),
+      // Set when opened from a competency's detail panel ("Development Plans").
+      competency_id: competencyId ?? undefined,
       sort,
       direction,
       page,
       per_page: perPage,
     }),
-    [search, status, departmentId, ownerId, pendingOnly, sort, direction, page, perPage],
+    [search, status, departmentId, ownerId, pendingOnly, competencyId, sort, direction, page, perPage],
   )
 
   const { metrics, loading: metricsLoading } = usePlanMetrics(refreshKey)
@@ -2057,6 +2067,12 @@ export function CmDevelopmentCareer() {
           </Button>
         </div>
       </div>
+
+      <CompetencyFocusBanner
+        competencyId={competencyId}
+        competencyName={competencyName}
+        onClear={clearFocus}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4">
