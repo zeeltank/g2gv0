@@ -11,20 +11,34 @@ import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { TaskStatus, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
+import type { TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
 import { CreateTaskModal } from './create-task-modal'
 import { PriorityBadge } from './priority-badge'
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pending', 'IN-PROGRESS': 'In Progress', 'ON HOLD': 'On Hold', COMPLETED: 'Completed',
 }
+
+/**
+ * What to call a task's status on screen. A tenant's custom status is a label
+ * on one of the four system categories, so the label wins where it exists -
+ * otherwise every "Awaiting Client" task reads as plain "On Hold".
+ */
+function statusText(task: Pick<WorkspaceTask, 'status' | 'status_label'>) {
+  return task.status_label || statusLabels[task.status]
+}
+
+const EMPTY_PAGINATION = { current_page: 1, last_page: 1, per_page: 25, total: 0 }
 type WorkspaceView = 'list' | 'grid' | 'board' | 'analytics'
 
 export function TaskWorkspace() {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [summary, setSummary] = useState({ active: 0, pending_review: 0, blocked_overdue: 0, completed_this_month: 0 })
   const [scope, setScope] = useState<WorkspaceScope>('all')
-  const [status, setStatus] = useState<TaskStatus | 'all'>('all')
+  const [status, setStatus] = useState<string>('all')
+  const [statusOptions, setStatusOptions] = useState<TaskStatusOption[]>([])
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION)
+  const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [view, setView] = useState<WorkspaceView>('list')
@@ -36,7 +50,7 @@ export function TaskWorkspace() {
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 300)
+    const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setPage(1) }, 300)
     return () => window.clearTimeout(timer)
   }, [searchInput])
 
@@ -45,13 +59,20 @@ export function TaskWorkspace() {
     try {
       const response = await taskService.getWorkspace(getLaravelContext(), {
         scope, search: search || undefined, status: status === 'all' ? undefined : status,
+        page, perPage: EMPTY_PAGINATION.per_page,
       })
       setTasks(response.data.tasks); setSummary(response.data.summary)
+      setPagination(response.data.pagination)
+      setStatusOptions(response.data.filters.status_options)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load the task workspace.')
     } finally { setLoading(false) }
-  }, [scope, search, status, reload])
-  useEffect(() => { void load() }, [load])
+  }, [page, scope, search, status])
+  useEffect(() => {
+    // Deferred so the load's first setState lands after this render. `reload`
+    // is the manual refetch trigger the mutation handlers bump.
+    queueMicrotask(() => { void load() })
+  }, [load, reload])
 
   const cards = useMemo(() => [
     { title: 'Active Tasks', value: summary.active, subtitle: 'Open work across this scope', icon: ListChecks },
@@ -89,13 +110,18 @@ export function TaskWorkspace() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative min-w-0 flex-1 lg:max-w-[48%]"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search tasks, assignees, or projects..." className="h-10 w-full rounded-xl border border-input bg-muted/20 pl-9 pr-3 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" /></div>
         <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:items-center lg:justify-end">
-          <div className="lg:w-52"><Select value={scope} onChange={(value) => setScope(value as WorkspaceScope)} className="h-10" options={[
+          <div className="lg:w-52"><Select value={scope} onChange={(value) => { setScope(value as WorkspaceScope); setPage(1) }} className="h-10" options={[
             { value: 'all', label: 'All Tasks Workspace' }, { value: 'mine', label: 'Assigned to me' }, { value: 'created', label: 'Created by me' }, { value: 'team', label: 'My team' }, { value: 'department', label: 'My department' },
           ]} /></div>
-          <div className="lg:w-36"><Select value={status} onChange={(value) => setStatus(value as TaskStatus | 'all')} className="h-10" options={[
-            { value: 'all', label: 'All Statuses' }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label })),
+          <div className="lg:w-44"><Select value={status} onChange={(value) => { setStatus(value); setPage(1) }} className="h-10" options={[
+            // The tenant's own vocabulary, not a hardcoded four - a custom
+            // status filters by its label, a system one by its category.
+            { value: 'all', label: 'All Statuses' },
+            ...(statusOptions.length
+              ? statusOptions.map((option) => ({ value: option.is_system ? option.category : option.name, label: option.name }))
+              : Object.entries(statusLabels).map(([value, label]) => ({ value, label }))),
           ]} /></div>
-          <DropdownMenu><DropdownMenuTrigger className="flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"><Filter className="size-4" />More</DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => setScope('mine')}>Assigned to me</DropdownMenuItem><DropdownMenuItem onClick={() => setScope('created')}>Created by me</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => { setScope('all'); setStatus('all'); setSearchInput('') }}>Clear all filters</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <DropdownMenu><DropdownMenuTrigger className="flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"><Filter className="size-4" />More</DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => setScope('mine')}>Assigned to me</DropdownMenuItem><DropdownMenuItem onClick={() => setScope('created')}>Created by me</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => { setScope('all'); setStatus('all'); setSearchInput(''); setPage(1) }}>Clear all filters</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           <div className="hidden h-6 w-px bg-border lg:block" />
           <div className="col-span-full flex h-10 items-center justify-center rounded-xl border bg-muted/20 p-1 sm:col-span-2 lg:col-span-1">
             {([['list', List, 'List'], ['grid', LayoutGrid, 'Grid'], ['board', CheckSquare, 'Board'], ['analytics', BarChart3, 'Analytics']] as const).map(([value, Icon, label]) =>
@@ -107,10 +133,23 @@ export function TaskWorkspace() {
 
     {loading ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card"><Spinner /></div> : !tasks.length ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">No tasks match the selected filters.</div> : view === 'list' ? <TaskTable tasks={tasks} onSelect={setSelected} onArchive={archive} /> : view === 'grid' ? <TaskGrid tasks={tasks} onSelect={setSelected} /> : view === 'board' ? <TaskApprovals tasks={tasks} onSelect={setSelected} onDecision={decide} /> : <TaskAnalytics tasks={tasks} />}
 
+    {/* The Dashboard is org-wide, so the list is almost always longer than one
+        page. Same pager the My Tasks list uses. */}
+    {!loading && !error && pagination.total > 0 && (
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">{pagination.total} task{pagination.total === 1 ? '' : 's'}</span>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</Button>
+          <span>Page {pagination.current_page} of {pagination.last_page}</span>
+          <Button variant="outline" size="sm" disabled={page >= pagination.last_page} onClick={() => setPage((value) => value + 1)}>Next</Button>
+        </div>
+      </div>
+    )}
+
     <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected && <>
       <SheetHeader><SheetTitle>{selected.title}</SheetTitle><SheetDescription>{selected.project} · {selected.assignee}</SheetDescription></SheetHeader>
       <div className="space-y-5 p-5"><p className="text-sm">{selected.description || 'No description provided.'}</p>
-        <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusLabels[selected.status]], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusLabels[selected.status]} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
+        <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusText(selected)], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusText(selected)} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
         {selected.status === 'COMPLETED' && !selected.approved && <div className="flex gap-2"><Button onClick={() => void decide(selected, 'approve')}>Approve</Button><Button variant="outline" onClick={() => void decide(selected, 'reject')}>Reject</Button></div>}
         <Button variant="outline" className="text-danger" onClick={() => void archive(selected)}>Archive Task</Button>
       </div></>}</SheetContent></Sheet>
@@ -119,7 +158,7 @@ export function TaskWorkspace() {
 }
 
 function TaskTable({ tasks, onSelect, onArchive }: { tasks: WorkspaceTask[]; onSelect: (task: WorkspaceTask) => void; onArchive: (task: WorkspaceTask) => Promise<void> }) {
-  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-6 py-4"><button onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusLabels[task.status]} /></td><td className="whitespace-nowrap px-5 py-4">{formatDueDate(task.due_date)}</td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
+  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-6 py-4"><button onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusText(task)} /></td><td className="whitespace-nowrap px-5 py-4">{formatDueDate(task.due_date)}</td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
 }
 
 function TaskGrid({ tasks, onSelect }: { tasks: WorkspaceTask[]; onSelect: (task: WorkspaceTask) => void }) {

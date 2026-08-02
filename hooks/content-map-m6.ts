@@ -10,6 +10,7 @@ const TmPriorityManagement = createLazyComponent(() => import('@/domain/task/tm-
 const TmPermissions = createLazyComponent(() => import('@/domain/task/tm-permissions').then((m) => ({ default: m.TmPermissions })))
 const TmIntegrations = createLazyComponent(() => import('@/domain/task/tm-integrations').then((m) => ({ default: m.TmIntegrations })))
 const TmAuditLogs = createLazyComponent(() => import('@/domain/task/tm-audit-logs').then((m) => ({ default: m.TmAuditLogs })))
+const TmReports = createLazyComponent(() => import('@/domain/task/tm-reports').then((m) => ({ default: m.TmReports })))
 
 export const M6_CONTENT: ContentRoute[] = [
   { submenuId: 'tm-dashboard', component: TaskWorkspace },
@@ -21,6 +22,7 @@ export const M6_CONTENT: ContentRoute[] = [
   { submenuId: 'tm-dependencies', component: DependenciesView },
   { submenuId: 'dependencies-view', component: DependenciesView },
   { submenuId: 'tm-calendar', component: TaskCalendarView },
+  { submenuId: 'tm-reports', component: TmReports },
   { submenuId: 'calendar-view', component: TaskCalendarView },
   { submenuId: 'status-management', component: TmStatusManagement },
   { submenuId: 'priority-management', component: TmPriorityManagement },

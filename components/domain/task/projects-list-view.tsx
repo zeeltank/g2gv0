@@ -49,7 +49,10 @@ export function ProjectsListView() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load projects.') }
     finally { setLoading(false) }
   }, [page, search, status])
-  useEffect(() => { void load() }, [load, reload])
+  useEffect(() => {
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => { void load() })
+  }, [load, reload])
 
   async function archive(project: ProjectRecord) {
     if (!window.confirm(`Archive ${project.name}? Existing tasks will not be deleted.`)) return
@@ -102,10 +105,15 @@ function ProjectDrawer({ projectId, open, options, onClose, onChanged }: { proje
   const [wsName, setWsName] = useState(''); const [wsOwner, setWsOwner] = useState(''); const [wsStatus, setWsStatus] = useState<ProjectStatus>('PLANNING')
   const [editingWorkstream, setEditingWorkstream] = useState<Workstream | null>(null)
   const load = useCallback(async () => { if (!open || !projectId) return; setLoading(true); setError(''); try { const response = await taskService.getProjectRecord(getLaravelContext(), projectId); setProject(response.data); setMembers(response.data.members?.map((m) => String(m.id)) ?? []); setTaskIds(response.data.task_ids ?? []) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load project.') } finally { setLoading(false) } }, [open, projectId])
-  useEffect(() => { void load() }, [load])
   useEffect(() => {
-    if (wsOwner && !project?.members?.some((member) => String(member.id) === wsOwner)) setWsOwner('')
-  }, [project?.members, wsOwner])
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => { void load() })
+  }, [load])
+  // A selected owner who is no longer a member is invalid the moment the
+  // member list changes - cleared during render rather than one frame later.
+  if (wsOwner && !project?.members?.some((member) => String(member.id) === wsOwner)) {
+    setWsOwner('')
+  }
   async function saveMembers() { if (!project) return; try { const r = await taskService.syncProjectMembers(getLaravelContext(), project.id, members); setMessage(r.message); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to update team.') } }
   async function saveTasks() { if (!project) return; try { const r = await taskService.syncProjectTasks(getLaravelContext(), project.id, taskIds); setMessage(r.message); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to link tasks.') } }
   async function saveWorkstream() { if (!project || !wsName.trim()) return; try { const payload = { name: wsName.trim(), description: editingWorkstream?.description ?? null, owner_id: wsOwner || null, owner_name: null, status: wsStatus, start_date: editingWorkstream?.start_date ?? project.start_date, due_date: editingWorkstream?.due_date ?? project.due_date, sort_order: editingWorkstream?.sort_order ?? project.workstreams?.length ?? 0 }; const r = editingWorkstream ? await taskService.updateWorkstream(getLaravelContext(), project.id, String(editingWorkstream.id), payload) : await taskService.createWorkstream(getLaravelContext(), project.id, payload); setMessage(r.message); setWsName(''); setWsOwner(''); setWsStatus('PLANNING'); setEditingWorkstream(null); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save workstream.') } }

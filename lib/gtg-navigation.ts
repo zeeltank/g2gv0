@@ -266,6 +266,12 @@ export const GTG_NAVIGATION: NavModule[] = [
         submenus: [],
       },
       {
+        id: 'tm-reports',
+        label: 'Reports & Analysis',
+        icon: BarChart3,
+        submenus: [],
+      },
+      {
         id: 'tm-admin',
         label: 'Administration',
         icon: Shield,
