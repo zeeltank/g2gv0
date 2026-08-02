@@ -42,6 +42,9 @@ export interface LibraryFieldDef {
   help?: string
 }
 
+/** Re-exported so a tab config and the grid agree on the vocabulary. */
+export type LibraryShape = 'hexagon' | 'circle' | 'triangle' | 'card'
+
 export interface LibraryTabConfig {
   id: LibraryTabId
   label: string
@@ -59,6 +62,12 @@ export interface LibraryTabConfig {
   subCategoryLabel?: string
   /** False for Invisible - its types are platform-curated, not tenant taxonomy. */
   hasTaxonomy: boolean
+  /**
+   * The tile shape this library is recognised by. Each tab had its own in the
+   * previous app - a honeycomb of skills, circles of knowledge, triangles of
+   * ability - and it is how people tell the libraries apart at a glance.
+   */
+  shape: LibraryShape
   sortOptions: { value: string; label: string }[]
   fields: LibraryFieldDef[]
 }
@@ -84,35 +93,63 @@ const SORT_BY_TITLE = [
 ]
 
 /**
- * The Skill / Competency library.
+ * The Skill / Competency library - the honeycomb tab.
  *
- * NOT a tab here: skills and competencies are the same rows on s_users_skills,
- * and two screens writing one table with different field sets is how a partial
- * edit ends up blanking columns the other form never showed. The Competency
- * Library owns that table - it has the lifecycle, the usage counts and the
- * detail drawer - so this config is exported for its form and taxonomy panel
- * rather than rendered as a ninth tab.
+ * Skills and competencies are the same rows on s_users_skills, so this tab and
+ * the Competency Library screen write one table. The risk that creates is a
+ * partial edit blanking columns the other form never showed, which is why the
+ * field list below covers the columns the API actually accepts rather than a
+ * convenient subset. Anything not listed here is left untouched on update.
  */
 export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
   id: 'skill',
-  label: 'Competency',
+  shape: 'hexagon',
+  // Labelled "Skill" because that is what the tab is called everywhere else -
+  // in the old app, in the taxonomy, and in what people ask for. The rows are
+  // the same s_users_skills the Competency Library screen owns.
+  label: 'Skill',
   icon: Sparkles,
   titleKey: 'title',
-  singular: 'Competency',
-  plural: 'Competencies',
-  description: 'Every competency this organisation tracks.',
+  singular: 'Skill',
+  plural: 'Skills',
+  description: 'Every skill and competency this organisation tracks.',
   categoryKey: 'category',
   categoryLabel: 'Category',
   subCategoryKey: 'sub_category',
   subCategoryLabel: 'Sub Category',
   hasTaxonomy: true,
   sortOptions: SORT_BY_TITLE,
-  fields: [],
+  fields: [
+    { key: 'title', label: 'Title', required: true, column: true, hideInDetail: true, placeholder: 'e.g. Lockout / Tagout' },
+    { key: 'category', label: 'Category', taxonomy: 'category', type: 'select', column: true, width: 'w-48' },
+    { key: 'sub_category', label: 'Sub Category', taxonomy: 'sub_category', type: 'select', column: true, width: 'w-48' },
+    { key: 'description', label: 'Description', type: 'textarea', column: true },
+    { key: 'department', label: 'Department', column: true, width: 'w-44' },
+    { key: 'skill_code', label: 'Skill Code', placeholder: 'e.g. SAF-014' },
+    { key: 'competency_type', label: 'Competency Type', placeholder: 'e.g. Technical, Behavioural' },
+    { key: 'skill_importance', label: 'Importance', placeholder: 'e.g. Critical' },
+    { key: 'proficiency_level', label: 'Proficiency Levels', type: 'textarea', help: 'The levels this competency is rated against.' },
+    { key: 'related_skills', label: 'Related Skills', type: 'textarea' },
+    { key: 'sub_skills', label: 'Sub Skills', type: 'textarea' },
+    { key: 'job_titles', label: 'Job Titles', type: 'textarea' },
+    { key: 'learning_resources', label: 'Learning Resources', type: 'textarea' },
+    { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation, MCQ' },
+    { key: 'certification_qualifications', label: 'Certifications', type: 'textarea' },
+    { key: 'legal_compliance_relevance', label: 'Legal / Compliance Relevance', type: 'textarea' },
+    { key: 'sop_practice_link', label: 'SOP / Practice Link', type: 'url', placeholder: 'https://…' },
+    { key: 'performance_metrics', label: 'Performance Metrics', type: 'textarea' },
+    { key: 'common_errors_tips', label: 'Common Errors & Tips', type: 'textarea' },
+    { key: 'sme_contacts', label: 'SME Contacts', type: 'textarea' },
+    { key: 'bussiness_links', label: 'Business Link', type: 'url', placeholder: 'https://…' },
+    { key: 'custom_tags', label: 'Custom Tags', type: 'textarea' },
+  ],
 }
 
 export const LIBRARY_TABS: LibraryTabConfig[] = [
+  SKILL_LIBRARY_CONFIG,
   {
     id: 'jobrole',
+    shape: 'card',
     label: 'Job Role',
     icon: Briefcase,
     titleKey: 'jobrole',
@@ -146,6 +183,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'jobrole-task',
+    shape: 'card',
     label: 'Job Role Task',
     icon: ListChecks,
     titleKey: 'task',
@@ -180,6 +218,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'knowledge',
+    shape: 'circle',
     label: 'Knowledge',
     icon: Brain,
     titleKey: 'title',
@@ -205,6 +244,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'ability',
+    shape: 'triangle',
     label: 'Ability',
     icon: Zap,
     titleKey: 'title',
@@ -229,6 +269,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'attitude',
+    shape: 'card',
     label: 'Attitude',
     icon: Smile,
     titleKey: 'title',
@@ -251,6 +292,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'behaviour',
+    shape: 'card',
     label: 'Behaviour',
     icon: Heart,
     titleKey: 'title',
@@ -274,6 +316,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
   },
   {
     id: 'invisible',
+    shape: 'card',
     label: 'Invisible',
     icon: EyeOff,
     titleKey: 'title',

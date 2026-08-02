@@ -4,6 +4,7 @@ const CmCommandCenter = createLazyComponent(() => import('@/domain/competency/cm
 const CmCompetencyLibrary = createLazyComponent(() => import('@/domain/competency/cm-competency-library').then((m) => ({ default: m.CmCompetencyLibrary })))
 const CmLibrariesTaxonomy = createLazyComponent(() => import('@/domain/competency/cm-libraries-taxonomy').then((m) => ({ default: m.CmLibrariesTaxonomy })))
 const CmSkillTaxonomy = createLazyComponent(() => import('@/domain/competency/cm-skill-taxonomy').then((m) => ({ default: m.CmSkillTaxonomy })))
+const CmTaxonomyOntology = createLazyComponent(() => import('@/domain/competency/cm-taxonomy-ontology').then((m) => ({ default: m.CmTaxonomyOntology })))
 const CmFrameworkMapping = createLazyComponent(() => import('@/domain/competency/cm-framework-mapping').then((m) => ({ default: m.CmFrameworkMapping })))
 const CmAssessmentWorkspace = createLazyComponent(() => import('@/domain/competency/cm-assessment-workspace').then((m) => ({ default: m.CmAssessmentWorkspace })))
 const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency/cm-employee-profiles').then((m) => ({ default: m.CmEmployeeProfiles })))
@@ -16,6 +17,7 @@ export const M2_CONTENT: ContentRoute[] = [
   { submenuId: 'cm-competency-library', component: CmCompetencyLibrary },
   { submenuId: 'cm-libraries-taxonomy', component: CmLibrariesTaxonomy },
   { submenuId: 'cm-skill-taxonomy', component: CmSkillTaxonomy },
+  { submenuId: 'cm-taxonomy-ontology', component: CmTaxonomyOntology },
   { submenuId: 'cm-framework-mapping', component: CmFrameworkMapping },
   { submenuId: 'cm-assessments', component: CmAssessmentWorkspace },
   { submenuId: 'cm-employee-profiles', component: CmEmployeeProfiles },

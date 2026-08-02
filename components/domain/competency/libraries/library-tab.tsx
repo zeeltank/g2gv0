@@ -10,6 +10,7 @@ import {
   Download,
   Edit2,
   FolderTree,
+  Hexagon,
   LayoutGrid,
   Plus,
   Search,
@@ -60,6 +61,8 @@ import { getLaravelContext } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
 
 import { type LibraryTabConfig } from './library-config'
+import { ShapeGrid, SHAPE_ACTION_ICONS, type ShapeAction } from './shape-grid'
+import { LibraryDetailModal } from './library-detail-modal'
 import { LibraryDetail, dash } from './library-detail'
 import { LibraryForm } from './library-form'
 import { TaxonomyManager } from './taxonomy-manager'
@@ -140,7 +143,10 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
-  const [view, setView] = useState<'table' | 'grid'>('table')
+  // Three views, not two: the shape view is how each library was recognised
+  // in the previous app, and it defaults on because that is what people
+  // expect to land on. Table stays for anyone who wants the columns.
+  const [view, setView] = useState<'shape' | 'table' | 'grid'>('shape')
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -198,6 +204,13 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
 
   /* ------------------------------ ui state ----------------------------- */
   const [selected, setSelected] = useState<LibraryRow | null>(null)
+  // Competencies get the full popup - proficiency levels, mapped roles and
+  // the course builder. The other libraries have no levels to show, so they
+  // keep the side panel.
+  const [richDetail, setRichDetail] = useState<LibraryRow | null>(null)
+  // Which popup section to land on. Set by the tile actions so "usage
+  // insights" opens on roles rather than making the user hunt for it.
+  const [richDetailSection, setRichDetailSection] = useState<string | undefined>(undefined)
   const [formOpen, setFormOpen] = useState(false)
   const [formInitial, setFormInitial] = useState<LibraryRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LibraryRow | null>(null)
@@ -421,6 +434,56 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
    * server caps per_page at 200, so this walks the pages up to EXPORT_MAX_ROWS
    * and says so if it had to stop.
    */
+  /**
+   * Competencies open the full popup; the other libraries have no
+   * proficiency levels or course context, so they keep the side panel.
+   */
+  const openRow = (row: LibraryRow) => {
+    setRichDetail(row)
+  }
+
+  /**
+   * The controls that sit on each tile. Edit and Delete reuse the same
+   * handlers the table rows use, so there is one code path per action rather
+   * than a second one that can drift.
+   *
+   * Usage insights and Link to task open the detail popup on the section that
+   * answers them, rather than being dead icons that look available.
+   */
+  const tileActions: ShapeAction[] = [
+    {
+      id: 'edit',
+      label: 'Edit',
+      icon: SHAPE_ACTION_ICONS.edit,
+      onSelect: openEdit,
+    },
+    {
+      id: 'insights',
+      label: 'Usage insights',
+      icon: SHAPE_ACTION_ICONS.insights,
+      onSelect: (row) => {
+        setRichDetailSection('jobroles')
+        setRichDetail(row)
+      },
+    },
+    {
+      id: 'link',
+      label: 'Linked items',
+      icon: SHAPE_ACTION_ICONS.link,
+      onSelect: (row) => {
+        setRichDetailSection('levels')
+        setRichDetail(row)
+      },
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: SHAPE_ACTION_ICONS.delete,
+      danger: true,
+      onSelect: (row) => setDeleteTarget(row),
+    },
+  ]
+
   const handleExport = async () => {
     if (items.length === 0 || exporting) return
 
@@ -501,6 +564,19 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                 aria-pressed={view === 'table'}
               >
                 <TableIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('shape')}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center border-l border-border transition-colors',
+                  view === 'shape' ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground hover:bg-accent',
+                )}
+                title={`${config.plural} as ${config.shape}s`}
+                aria-label={`${config.shape} view`}
+                aria-pressed={view === 'shape'}
+              >
+                <Hexagon className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -759,7 +835,7 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                 {items.map((row) => (
                   <TableRow
                     key={row.id}
-                    onClick={() => setSelected(row)}
+                    onClick={() => openRow(row)}
                     className="cursor-pointer border-border transition-colors hover:bg-accent/40"
                   >
                     {columns.map((field) => {
@@ -833,6 +909,17 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               </TableBody>
             </Table>
           </div>
+        ) : view === 'shape' ? (
+          <div className="p-5">
+            <ShapeGrid
+              shape={config.shape}
+              rows={items}
+              titleKey={config.titleKey}
+              subtitleKey="description"
+              onOpen={openRow}
+              actions={tileActions}
+            />
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((row) => {
@@ -841,7 +928,7 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                 <button
                   key={row.id}
                   type="button"
-                  onClick={() => setSelected(row)}
+                  onClick={() => openRow(row)}
                   className="flex h-full flex-col gap-2 rounded-2xl border border-border bg-background/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
                   <div className="flex items-start gap-2">
@@ -940,6 +1027,28 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
           </div>
         )}
       </div>
+
+      {richDetail && (
+        <LibraryDetailModal
+          config={config}
+          row={richDetail}
+          initialSection={richDetailSection}
+          onEdit={() => {
+            const row = richDetail
+            setRichDetail(null)
+            openEdit(row)
+          }}
+          onDelete={() => {
+            const row = richDetail
+            setRichDetail(null)
+            setDeleteTarget(row)
+          }}
+          onClose={() => {
+            setRichDetail(null)
+            setRichDetailSection(undefined)
+          }}
+        />
+      )}
 
       {/* Detail panel */}
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>

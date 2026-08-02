@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Bot,
   BrainCircuit,
+  Share2,
   GitBranch,
   ScrollText,
   Sparkles,
@@ -132,6 +133,7 @@ export const GTG_NAVIGATION: NavModule[] = [
       { id: 'cm-competency-library', label: 'Competency Library', icon: BookOpen, submenus: [] },
       { id: 'cm-libraries-taxonomy', label: 'Libraries & Taxonomy', icon: Library, submenus: [] },
       { id: 'cm-skill-taxonomy', label: 'Skill Taxonomy', icon: Network, submenus: [] },
+      { id: 'cm-taxonomy-ontology', label: 'Taxonomy Ontology', icon: Share2, submenus: [] },
       { id: 'cm-framework-mapping', label: 'Framework & Role Mapping', icon: Network, submenus: [] },
       { id: 'cm-assessments', label: 'Assessments', icon: ClipboardCheck, submenus: [] },
       { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },

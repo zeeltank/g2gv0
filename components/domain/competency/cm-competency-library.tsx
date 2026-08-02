@@ -683,7 +683,11 @@ export function CmCompetencyLibrary() {
 
   // Read after mount so server and client markup match before hydration.
   useEffect(() => {
-    setSavedViews(readSavedViews())
+    // Deferred so the read lands after this render rather than cascading out
+    // of the effect body.
+    queueMicrotask(() => {
+      setSavedViews(readSavedViews())
+    })
   }, [])
 
   const persistViews = (views: SavedView[]) => {
