@@ -654,7 +654,7 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
         <div className="bg-card/90 backdrop-blur-2xl border border-primary/10 rounded-2xl shadow-sm p-6 min-h-[400px]">
           <h3 className="font-bold text-foreground mb-6 flex items-center gap-2"><Route className="w-5 h-5" /> Career Path</h3>
           {!careerPath?.current ? (
-            <p className="text-sm text-muted-foreground text-center py-12">No role assigned — a career path can't be mapped yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-12">No role assigned — a career path can&apos;t be mapped yet.</p>
           ) : (
             <div className="flex flex-col gap-6">
               {/* Current role */}

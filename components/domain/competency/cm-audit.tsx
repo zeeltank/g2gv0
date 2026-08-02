@@ -206,7 +206,11 @@ export function CmAudit() {
   // match before hydration.
   const [settings, setSettings] = useState<DisplaySettings>(DEFAULT_SETTINGS)
   useEffect(() => {
-    setSettings(readSettings())
+    // Deferred so the read lands after this render rather than cascading out
+    // of the effect body.
+    queueMicrotask(() => {
+      setSettings(readSettings())
+    })
   }, [])
 
   const persistSettings = useCallback((next: DisplaySettings) => {
@@ -266,10 +270,17 @@ export function CmAudit() {
   const detail = useAuditEntry(selectedActivity)
 
   // Any change to what is being filtered invalidates the current page number.
+  // Adjusted during render rather than in an effect: the page number is
+  // derived from the filters, so resetting it is not a side effect and an
+  // effect would render one frame on a page that no longer exists.
   const filtersKey = JSON.stringify(filters)
-  useEffect(() => {
+  const pageKey = `${filtersKey}|${activeTab}|${settings.perPage}`
+  const [lastPageKey, setLastPageKey] = useState(pageKey)
+
+  if (lastPageKey !== pageKey) {
+    setLastPageKey(pageKey)
     setPage(1)
-  }, [filtersKey, activeTab, settings.perPage])
+  }
 
   const hasActiveFilters =
     Boolean(search) ||

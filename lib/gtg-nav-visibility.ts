@@ -41,6 +41,7 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   'cm-competency-library': ALL_ROLES,
   'cm-libraries-taxonomy': ALL_ROLES,
   'cm-skill-taxonomy': ALL_ROLES,
+  'cm-taxonomy-ontology': ALL_ROLES,
   'cm-framework-mapping': ALL_ROLES,
   'cm-assessments': ALL_ROLES,
   'cm-employee-profiles': ALL_ROLES,

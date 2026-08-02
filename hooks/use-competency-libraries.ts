@@ -47,9 +47,33 @@ const EMPTY_META: LibraryMeta = {
   counts: {} as LibraryMeta['counts'],
 }
 
+/**
+ * Library metadata, cached for the tab this session.
+ *
+ * The payload is dropdown options and tab counts — the same for every screen
+ * that asks and slow to rebuild, because the database is remote. Without this,
+ * navigating away from Libraries & Taxonomy and back pays the round trip again
+ * for a payload that has not changed.
+ *
+ * Module scope, not React state: the point is to survive the component
+ * unmounting. Writes clear it through `invalidateLibraryMeta` so a created or
+ * deleted row shows up in the counts immediately.
+ */
+const META_TTL_MS = 60_000
+
+let metaCache: { key: string; at: number; value: LibraryMeta } | null = null
+
+/** Dropped after any library write, so counts never show a stale number. */
+export function invalidateLibraryMeta() {
+  metaCache = null
+}
+
 export function useLibraryMeta() {
   const resolveContext = useLaravelContext()
 
+  // Reading the cache here would mean calling Date.now() during render, which
+  // is impure. The effect below resolves a hit in a microtask with no network
+  // call, so the saving is the same and the render stays pure.
   const [meta, setMeta] = useState<LibraryMeta>(EMPTY_META)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,11 +82,29 @@ export function useLibraryMeta() {
   useEffect(() => {
     let cancelled = false
     queueMicrotask(async () => {
+      const key = resolveContext().subInstituteId
+      const fresh =
+        metaCache && metaCache.key === key && Date.now() - metaCache.at < META_TTL_MS ? metaCache.value : null
+
+      // A hit still refreshes nothing: the server caches this too, and the
+      // counts are invalidated explicitly on write.
+      if (fresh) {
+        if (!cancelled) {
+          setMeta(fresh)
+          setError(null)
+          setLoading(false)
+        }
+        return
+      }
+
       setLoading(true)
       try {
         const response = await competencyLibrariesService.meta(resolveContext())
+        const value = { ...EMPTY_META, ...response.data }
+        metaCache = { key, at: Date.now(), value }
+
         if (!cancelled) {
-          setMeta({ ...EMPTY_META, ...response.data })
+          setMeta(value)
           setError(null)
         }
       } catch (metaError) {
@@ -76,7 +118,15 @@ export function useLibraryMeta() {
     }
   }, [resolveContext, nonce])
 
-  return { meta, loading, error, refresh: () => setNonce((n) => n + 1) }
+  return {
+    meta,
+    loading,
+    error,
+    refresh: () => {
+      invalidateLibraryMeta()
+      setNonce((n) => n + 1)
+    },
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -158,6 +208,10 @@ export function useLibraryList<T extends LibraryRow = LibraryRow>(
 
       try {
         const response = await action()
+        // A write changes the tab counts, so the cached metadata is stale.
+        // Dropped here rather than at each call site: this is the single
+        // point every create, update and delete passes through.
+        invalidateLibraryMeta()
         setActionMessage(response.message)
         await load()
         return { ok: true, message: response.message }
@@ -320,6 +374,10 @@ export function useTaxonomy(tab: LibraryTabId, enabled = true): UseTaxonomyState
       setActionMessage(null)
       try {
         const response = await action()
+        // A write changes the tab counts, so the cached metadata is stale.
+        // Dropped here rather than at each call site: this is the single
+        // point every create, update and delete passes through.
+        invalidateLibraryMeta()
         setActionMessage(response.message)
         await load()
         return { ok: true, message: response.message }

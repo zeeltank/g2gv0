@@ -641,15 +641,20 @@ function CareerPathForm({ initialId, saving, departments, onSubmit, onCancel, on
   const [steps, setSteps] = useState<string[]>(['', ''])
   const [error, setError] = useState<string | null>(null)
 
-  // Seed the form once the existing path arrives.
-  useEffect(() => {
-    if (!detail) return
+  // Seed the form once the existing path arrives. Keyed on the record's id
+  // and adjusted during render rather than in an effect: opening a different
+  // path re-seeds, but the user's own edits to the one on screen are never
+  // overwritten by a refetch returning the same record.
+  const [seededId, setSeededId] = useState<number | null>(null)
+
+  if (detail && seededId !== detail.id) {
+    setSeededId(detail.id)
     setName(detail.name)
     setDescription(detail.description ?? '')
     setDepartmentId(detail.department_id ? String(detail.department_id) : '')
     setStatus(detail.status)
     setSteps(detail.steps.length ? detail.steps.map((step) => step.jobrole) : ['', ''])
-  }, [detail])
+  }
 
   const roleOptions = useMemo(
     () => [{ label: 'Select role', value: '' }, ...roles.map((role) => ({ label: role.jobrole, value: role.jobrole }))],
