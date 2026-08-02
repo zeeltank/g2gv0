@@ -3,7 +3,7 @@
  * API calls for task management
  */
 
-import { apiClient, webClient } from '@/services/core'
+import { apiClient, webClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { resolveHpApiBaseUrl, resolveHpApiKey } from '@/lib/api-config'
 import type {
@@ -22,6 +22,14 @@ import type {
   WorkspaceResponse,
   WorkspaceScope,
   WorkspaceTask,
+  DeadlineExtension,
+  TaskAuditLog,
+  PermissionAbility,
+  IntegrationStatus,
+  TaskStatusOption,
+  TaskPriorityOption,
+  ProductivityRow,
+  DelayReport,
   DependenciesResponse,
   DependencyType,
 } from '@/types/task-management'
@@ -80,6 +88,8 @@ export interface LegacyTaskCreatePayload {
   observationPoint: string
   attachment?: File | null
   departmentId?: string
+  /** Stable per submission attempt; a repeat replays instead of duplicating. */
+  idempotencyKey?: string
 }
 
 export const taskService = {
@@ -115,6 +125,132 @@ export const taskService = {
       page: String(query.page ?? 1),
       per_page: String(query.perPage ?? 20),
     }),
+  /**
+   * Deadline extensions for one task. The executor requests more time from
+   * the task drawer; the owner decides on the same surface. Approval moves
+   * the task's due date server-side.
+   */
+  getDeadlineExtensions: (context: LaravelContext, taskId: string) =>
+    apiClient.get<{ status: 1; message: string; data: { extensions: DeadlineExtension[] } }>(
+      '/task-management/deadline-extensions',
+      {
+        token: context.token,
+        sub_institute_id: context.subInstituteId,
+        syear: context.syear,
+        task_id: taskId,
+      },
+    ),
+  requestDeadlineExtension: (context: LaravelContext, payload: { taskId: string; requestedDate: string; reason: string }) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/deadline-extensions', {
+      token: context.token,
+      sub_institute_id: context.subInstituteId,
+      syear: context.syear,
+      task_id: payload.taskId,
+      requested_date: payload.requestedDate,
+      reason: payload.reason,
+    }),
+  decideDeadlineExtension: (context: LaravelContext, id: string, decision: 'approve' | 'reject', remarks = '') =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/deadline-extensions/${id}/decision`, {
+      token: context.token,
+      sub_institute_id: context.subInstituteId,
+      syear: context.syear,
+      decision,
+      remarks,
+    }),
+  /** The audit trail, for Administration > Audit Logs. */
+  getAuditLogs: (context: LaravelContext, params: { taskId?: string; event?: string; from?: string; to?: string; page?: number } = {}) =>
+    apiClient.get<{ status: 1; message: string; data: { logs: TaskAuditLog[]; pagination: TaskPagination } }>(
+      '/task-management/audit-logs',
+      {
+        token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+        ...(params.taskId ? { task_id: params.taskId } : {}),
+        ...(params.event ? { event: params.event } : {}),
+        ...(params.from ? { from: params.from } : {}),
+        ...(params.to ? { to: params.to } : {}),
+        page: String(params.page ?? 1),
+      },
+    ),
+  /** CSV export href - a download, so it has to be a URL, not a fetch. */
+  auditLogsExportUrl: (context: LaravelContext) =>
+    buildApiUrl('/task-management/audit-logs/export', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** The permission matrix exactly as the middleware enforces it. */
+  getPermissionsMatrix: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: { profiles: string[]; abilities: PermissionAbility[]; note: string } }>(
+      '/task-management/permissions',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  /** Which integrations are configured - never their keys. */
+  getIntegrations: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: { integrations: IntegrationStatus[] } }>(
+      '/task-management/integrations',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  /* Tenant status/priority vocabularies - Administration screens manage the
+     custom entries; system rows are constants the API refuses to change. */
+  getStatusOptions: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: { statuses: TaskStatusOption[]; categories: TaskStatus[] } }>(
+      '/task-management/statuses',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  createStatusOption: (context: LaravelContext, payload: { name: string; category: TaskStatus; color?: string; sort_order?: number }) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/statuses', {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  updateStatusOption: (context: LaravelContext, id: string, payload: { name: string; category: TaskStatus; color?: string; sort_order?: number; active?: boolean }) =>
+    apiClient.put<{ status: 1; message: string }>(`/task-management/statuses/${id}`, {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deleteStatusOption: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/statuses/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  getPriorityOptions: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: { priorities: TaskPriorityOption[] } }>(
+      '/task-management/priorities',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  createPriorityOption: (context: LaravelContext, payload: { name: string; sort_order?: number; sla_hours?: number }) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/priorities', {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  updatePriorityOption: (context: LaravelContext, id: string, payload: { name: string; sort_order?: number; sla_hours?: number; active?: boolean }) =>
+    apiClient.put<{ status: 1; message: string }>(`/task-management/priorities/${id}`, {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deletePriorityOption: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/priorities/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /* Org-wide reports - the new home of the old task-analysis screen. */
+  getProductivityReport: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: { rows: ProductivityRow[] } }>(
+      '/task-management/reports/productivity',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  getDelaysReport: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: DelayReport }>(
+      '/task-management/reports/delays',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  /**
+   * The Task Management -> LMS hand-off: tasks rejected in review, mapped
+   * through their required skills to recommended courses. The endpoint has
+   * existed since the old frontend; this is its first consumer here.
+   */
+  getRejectedTaskLearning: (context: LaravelContext, userId?: string) =>
+    apiClient.get<{ status: number; message: string; data?: unknown }>(
+      '/user-rejected-tasks-courses',
+      {
+        token: context.token,
+        sub_institute_id: context.subInstituteId,
+        user_id: userId ?? context.userId,
+        type: 'API',
+      },
+    ),
   getMyTask: (context: LaravelContext, id: string) =>
     apiClient.get<MyTaskDetailResponse>(`/task-management/my-tasks/${id}`, {
       token: context.token,
@@ -124,16 +260,19 @@ export const taskService = {
   updateMyTaskStatus: (
     context: LaravelContext,
     id: string,
-    status: TaskStatus,
+    /** A system category or a tenant's custom status label; the API resolves both. */
+    status: string,
     remarks: string,
   ) =>
-    apiClient.patch<{ status: 1; message: string; data: Pick<MyTask, 'id' | 'status' | 'remarks'> }>(
+    apiClient.patch<{ status: 1; message: string; data: Pick<MyTask, 'id' | 'status' | 'status_label' | 'remarks'> }>(
       `/task-management/my-tasks/${id}/status`,
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, status, remarks },
     ),
 
   getWorkspace: (context: LaravelContext, params: {
-    scope?: WorkspaceScope; search?: string; status?: TaskStatus; priority?: MyTaskPriority
+    // `status`/`priority` are plain strings: a tenant's custom option is a
+    // label, not one of the four system categories.
+    scope?: WorkspaceScope; search?: string; status?: string; priority?: string
     projectId?: string; assigneeId?: string; from?: string; to?: string; page?: number; perPage?: number
   } = {}) =>
     apiClient.get<WorkspaceResponse>('/task-management/workspace', {
@@ -153,6 +292,19 @@ export const taskService = {
     title: string; description?: string; assignee_id: string; owner_id: string
     status: TaskStatus; priority: MyTaskPriority; due_date?: string; remarks?: string
   }) => apiClient.put<{ status: 1; message: string; data: WorkspaceTask }>(`/task-management/workspace/${id}`, {
+    ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+  }),
+  /**
+   * Move a task's dates without touching the rest of it. Only the keys sent
+   * are changed, which is what lets the Calendar reschedule by due date alone.
+   */
+  updateTaskSchedule: (context: LaravelContext, id: string, payload: {
+    planned_start_date?: string; due_date?: string; estimated_hours?: number; remaining_hours?: number
+  }) => apiClient.put<{
+    status: 1; message: string
+    data: { schedule: { task_id: string; planned_start_date: string | null; due_date: string | null
+      estimated_hours: number | null; actual_hours: number | null; remaining_hours: number | null } }
+  }>(`/task-management/workspace/${id}/schedule`, {
     ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
   }),
   archiveWorkspaceTask: (context: LaravelContext, id: string) =>
@@ -330,6 +482,9 @@ export const taskService = {
     body.append('repeat_days', payload.repeatDays)
     body.append('repeat_until', payload.dueDate)
     if (payload.attachment) body.append('TASK_ATTACHMENT', payload.attachment)
+    // Retrying this create - a second click, a browser retry after a slow
+    // response - replays the first attempt rather than duplicating the task.
+    if (payload.idempotencyKey) body.append('idempotency_key', payload.idempotencyKey)
     const query = new URLSearchParams({
       type: 'API',
       token: context.token,
@@ -344,6 +499,7 @@ export const taskService = {
       task_id?: string | number
       taskId?: string | number
       id?: string | number
+      replayed?: boolean
       data?: { task_id?: string | number; taskId?: string | number; id?: string | number }
     }>(`/task?${query}`, body)
   },

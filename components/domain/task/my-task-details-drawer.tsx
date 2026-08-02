@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2 } from 'lucide-react'
+import { CalendarClock, CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Select } from '@/components/ui/select'
@@ -10,9 +10,14 @@ import { PriorityBadge } from './priority-badge'
 import { Spinner } from '@/components/ui/spinner'
 import { taskService } from '@/services/task'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import type { MyTask, TaskStatus } from '@/types/task-management'
+import type { DeadlineExtension, MyTask, TaskStatus, TaskStatusOption } from '@/types/task-management'
 
-const STATUS_OPTIONS: Array<{ label: string; value: TaskStatus }> = [
+/**
+ * Shown until the tenant's own vocabulary arrives from /statuses. Custom
+ * statuses are labels on these four categories, so this stays a valid
+ * fallback rather than a competing list.
+ */
+const SYSTEM_STATUS_OPTIONS: Array<{ label: string; value: string }> = [
   { label: 'Pending', value: 'PENDING' },
   { label: 'In Progress', value: 'IN-PROGRESS' },
   { label: 'On Hold', value: 'ON HOLD' },
@@ -28,7 +33,8 @@ interface Props {
 
 export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props) {
   const [task, setTask] = useState<MyTask | null>(null)
-  const [status, setStatus] = useState<TaskStatus>('PENDING')
+  const [status, setStatus] = useState<string>('PENDING')
+  const [statusOptions, setStatusOptions] = useState(SYSTEM_STATUS_OPTIONS)
   const [remarks, setRemarks] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -41,24 +47,56 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
   const [editAssignee, setEditAssignee] = useState('')
   const [editPriority, setEditPriority] = useState('Medium')
   const [editDueDate, setEditDueDate] = useState('')
+  // Deadline extensions: the executor asks for more time from this drawer,
+  // the owner decides here too. Approval moves the due date server-side.
+  const [extensions, setExtensions] = useState<DeadlineExtension[]>([])
+  const [extDate, setExtDate] = useState('')
+  const [extReason, setExtReason] = useState('')
+  const [extBusy, setExtBusy] = useState(false)
 
   useEffect(() => {
     if (!open || !taskId) return
-    const context = getLaravelContext()
-    if (!isLaravelContextReady(context)) {
-      setError('Your ERP session is unavailable. Please sign in again.')
-      return
-    }
+    // Captured after the guard: the narrowing does not carry into the nested
+    // function below, so it would see string | null otherwise.
+    const id = taskId
 
     let active = true
+    // Deferred so the load's first setState lands after this render rather
+    // than cascading out of the effect body.
+    queueMicrotask(() => {
+      if (!active) return
+      const context = getLaravelContext()
+      if (!isLaravelContextReady(context)) {
+        setError('Your ERP session is unavailable. Please sign in again.')
+        return
+      }
+      run(context)
+    })
+
+    function run(context: ReturnType<typeof getLaravelContext>) {
     setLoading(true)
     setError('')
     setMessage('')
-    taskService.getMyTask(context, taskId)
+    taskService.getDeadlineExtensions(context, id)
+      .then((response) => { if (active) setExtensions(response.data.extensions) })
+      .catch(() => { /* the drawer still works without the extension history */ })
+
+    // The tenant's status vocabulary, so the picker offers custom statuses
+    // rather than only the four system categories.
+    taskService.getStatusOptions(context)
+      .then((response) => {
+        if (!active || !response.data.statuses.length) return
+        setStatusOptions(response.data.statuses.map((option: TaskStatusOption) => ({
+          label: option.name, value: option.is_system ? option.category : option.name,
+        })))
+      })
+      .catch(() => { /* the four system statuses remain selectable */ })
+
+    taskService.getMyTask(context, id)
       .then((response) => {
         if (!active) return
         setTask(response.data)
-        setStatus(response.data.status)
+        setStatus(response.data.status_label || response.data.status)
         setRemarks(response.data.remarks ?? '')
         setEditTitle(response.data.title)
         setEditDescription(response.data.description)
@@ -72,6 +110,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
       .finally(() => {
         if (active) setLoading(false)
       })
+    }
 
     return () => { active = false }
   }, [open, taskId])
@@ -87,7 +126,9 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
     setMessage('')
     try {
       const response = await taskService.updateMyTaskStatus(context, task.id, status, remarks.trim())
-      setTask({ ...task, status, remarks: remarks.trim() })
+      // The API resolves a custom label back to its system category, so take
+      // both from the response rather than echoing what was picked.
+      setTask({ ...task, status: response.data.status, status_label: response.data.status_label, remarks: remarks.trim() })
       setMessage(response.message)
       onUpdated()
     } catch (reason) {
@@ -144,6 +185,48 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
     } finally { setSaving(false) }
   }
 
+  async function refreshExtensions() {
+    if (!taskId) return
+    try {
+      const response = await taskService.getDeadlineExtensions(getLaravelContext(), taskId)
+      setExtensions(response.data.extensions)
+    } catch { /* non-fatal */ }
+  }
+
+  async function requestExtension() {
+    if (!task || !extDate || !extReason.trim()) {
+      setError('A new date and a reason are required to request an extension.')
+      return
+    }
+    setExtBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.requestDeadlineExtension(getLaravelContext(), {
+        taskId: task.id, requestedDate: extDate, reason: extReason.trim(),
+      })
+      setMessage(response.message)
+      setExtDate(''); setExtReason('')
+      await refreshExtensions()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to request the extension.')
+    } finally { setExtBusy(false) }
+  }
+
+  async function decideExtension(id: string, decision: 'approve' | 'reject') {
+    if (!task) return
+    setExtBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.decideDeadlineExtension(getLaravelContext(), id, decision)
+      setMessage(response.message)
+      await refreshExtensions()
+      // Approval moved the due date server-side, so the task must be re-read.
+      const refreshed = await taskService.getMyTask(getLaravelContext(), task.id)
+      setTask(refreshed.data)
+      onUpdated()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to record the decision.')
+    } finally { setExtBusy(false) }
+  }
+
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent side="right" className="w-full p-0 sm:max-w-[640px]">
@@ -181,7 +264,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                 <Info icon={CalendarDays} label="Due date" value={formatDate(task.due_date)} />
                 <Info icon={FileText} label="Department" value={task.department || 'Not assigned'} />
                 <Info icon={Clock} label="Priority / cadence" value={<PriorityBadge priority={task.priority ?? task.task_type} />} />
-                <Info icon={CheckCircle2} label="Current status" value={<StatusBadge status={task.status} />} />
+                <Info icon={CheckCircle2} label="Current status" value={<StatusBadge status={task.status} label={task.status_label || undefined} />} />
               </div>
 
               <section>
@@ -206,11 +289,71 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
               )}
 
               <section className="space-y-3 rounded-xl border p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <CalendarClock className="size-4" /> Deadline extension
+                </h3>
+
+                {extensions.length > 0 && (
+                  <ul className="space-y-2">
+                    {extensions.map((extension) => (
+                      <li key={extension.id} className="rounded-lg border bg-muted/20 p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>
+                            <span className="font-semibold">{formatDate(extension.requested_date)}</span>
+                            <span className="text-muted-foreground"> requested by {extension.requested_by ?? 'Unknown'}</span>
+                          </span>
+                          <StatusBadge status={extension.status.toUpperCase()} />
+                        </div>
+                        {extension.reason && <p className="mt-1 text-muted-foreground">{extension.reason}</p>}
+                        {extension.decision_remarks && (
+                          <p className="mt-1 text-xs text-muted-foreground">Decision: {extension.decision_remarks}</p>
+                        )}
+
+                        {/* The owner decides; pending only, decided rows are history. */}
+                        {extension.status === 'pending' && task.owner_id === getLaravelContext().userId && (
+                          <div className="mt-2 flex gap-2">
+                            <Button size="sm" onClick={() => void decideExtension(extension.id, 'approve')} disabled={extBusy}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-danger" onClick={() => void decideExtension(extension.id, 'reject')} disabled={extBusy}>
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* One pending request per task; the form hides while one is open. */}
+                {!extensions.some((extension) => extension.status === 'pending') && (
+                  <div className="grid gap-2 sm:grid-cols-[10rem_1fr_auto]">
+                    <input
+                      type="date"
+                      value={extDate}
+                      onChange={(event) => setExtDate(event.target.value)}
+                      className="h-10 rounded-lg border px-3 text-sm"
+                      aria-label="New due date"
+                    />
+                    <input
+                      value={extReason}
+                      onChange={(event) => setExtReason(event.target.value)}
+                      placeholder="Why is more time needed?"
+                      className="h-10 rounded-lg border px-3 text-sm"
+                    />
+                    <Button variant="outline" onClick={() => void requestExtension()} disabled={extBusy || !extDate || !extReason.trim()}>
+                      {extBusy ? 'Sending…' : 'Request'}
+                    </Button>
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-4">
                 <h3 className="text-sm font-semibold">Update status</h3>
                 <Select
                   value={status}
-                  onChange={(value) => setStatus(value as TaskStatus)}
-                  options={STATUS_OPTIONS}
+                  onChange={(value) => setStatus(value)}
+                  options={statusOptions}
                 />
                 <textarea
                   value={remarks}

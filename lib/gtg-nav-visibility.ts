@@ -121,6 +121,7 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   'tm-projects': ALL_ROLES,
   'tm-dependencies': ALL_ROLES,
   'tm-calendar': ALL_ROLES,
+  'tm-reports': ['admin', 'hr', 'dept-head'],
   'tm-admin': ALL_ROLES,
   'status-management': ALL_ROLES,
   'priority-management': ALL_ROLES,

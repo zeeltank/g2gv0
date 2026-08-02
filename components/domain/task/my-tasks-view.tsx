@@ -29,7 +29,18 @@ import type {
   MyTaskSummary,
   TaskPagination,
   TaskStatus,
+  TaskStatusOption,
 } from '@/types/task-management'
+
+/**
+ * Fallback vocabulary for the first render, before the API answers. A tenant's
+ * custom statuses replace this once `filters.status_options` arrives.
+ */
+const SYSTEM_STATUS_OPTIONS: TaskStatusOption[] = (
+  [['PENDING', 'Pending'], ['IN-PROGRESS', 'In Progress'], ['ON HOLD', 'On Hold'], ['COMPLETED', 'Completed']] as const
+).map(([category, name], index) => ({
+  id: null, name, category, color: null, sort_order: index, is_system: true, active: true,
+}))
 import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { CreateTaskModal } from './create-task-modal'
 
@@ -60,7 +71,8 @@ export function MyTasksView() {
   const [summary, setSummary] = useState(EMPTY_SUMMARY)
   const [pagination, setPagination] = useState(EMPTY_PAGINATION)
   const [group, setGroup] = useState<MyTaskGroup>('all')
-  const [status, setStatus] = useState<TaskStatus | 'all'>('all')
+  const [status, setStatus] = useState<string>('all')
+  const [statusOptions, setStatusOptions] = useState<TaskStatusOption[]>(SYSTEM_STATUS_OPTIONS)
   const [priority, setPriority] = useState<MyTaskPriority | 'all'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -103,6 +115,9 @@ export function MyTasksView() {
       setTasks(response.data.tasks)
       setSummary(response.data.summary)
       setPagination(response.data.pagination)
+      if (response.data.filters.status_options?.length) {
+        setStatusOptions(response.data.filters.status_options)
+      }
     } catch (reason) {
       setTasks([])
       setError(reason instanceof Error ? reason.message : 'Unable to load tasks.')
@@ -112,7 +127,10 @@ export function MyTasksView() {
   }, [group, page, priority, search, status])
 
   useEffect(() => {
-    void loadTasks()
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => {
+      void loadTasks()
+    })
   }, [loadTasks, reloadKey])
 
   function selectGroup(nextGroup: MyTaskGroup) {
@@ -206,15 +224,16 @@ export function MyTasksView() {
           </div>
           <Select
             value={status}
-            onChange={(value) => { setStatus(value as TaskStatus | 'all'); setPage(1) }}
+            onChange={(value) => { setStatus(value); setPage(1) }}
             options={[
+              // The tenant's vocabulary from the API, so administrator-defined
+              // statuses are filterable instead of only the four system ones.
               { label: 'All Statuses', value: 'all' },
-              { label: 'Pending', value: 'PENDING' },
-              { label: 'In Progress', value: 'IN-PROGRESS' },
-              { label: 'On Hold', value: 'ON HOLD' },
-              { label: 'Completed', value: 'COMPLETED' },
+              ...statusOptions.map((option) => ({
+                label: option.name, value: option.is_system ? option.category : option.name,
+              })),
             ]}
-            className="w-full sm:w-40"
+            className="w-full sm:w-44"
           />
           <Select
             value={priority}
@@ -304,7 +323,7 @@ function TaskTable({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
                 <TableCell>{task.department || '—'}</TableCell>
                 <TableCell><span className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" />{formatDate(task.due_date)}</span></TableCell>
                 <TableCell><PriorityBadge priority={task.priority ?? task.task_type} /></TableCell>
-                <TableCell><StatusBadge status={task.status} /></TableCell>
+                <TableCell><StatusBadge status={task.status} label={task.status_label || undefined} /></TableCell>
               </TableRow>
             ))}
             {tasks.length === 0 && (
@@ -330,7 +349,10 @@ function TaskBoard({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
               {matching.map((task) => (
                 <button key={task.id} type="button" onClick={() => onSelect(task.id)} className="w-full rounded-xl border bg-card p-4 text-left shadow-sm transition hover:border-primary/40">
                   <p className="text-sm font-semibold">{task.title}</p>
-                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><span>{formatDate(task.due_date)}</span><span>·</span><PriorityBadge priority={task.priority ?? task.task_type} /></div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{formatDate(task.due_date)}</span><span>·</span><PriorityBadge priority={task.priority ?? task.task_type} />
+                    {/* Columns are the system categories, so a custom label is
+                        only visible if the card carries it. */}
+                    {task.status_label && <StatusBadge status={task.status} label={task.status_label} size="sm" />}</div>
                 </button>
               ))}
               {matching.length === 0 && <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">No tasks</div>}

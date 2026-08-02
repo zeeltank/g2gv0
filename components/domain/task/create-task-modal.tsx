@@ -56,10 +56,21 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const attachmentRef = useRef<HTMLInputElement>(null)
+  /**
+   * Idempotency key for the create in flight. Minted on the first Submit and
+   * kept until the create succeeds, so pressing Submit again after a timeout
+   * or an error replays that create instead of producing a second task (or a
+   * second copy of a whole recurring series). Cleared by reset().
+   */
+  const submissionKey = useRef('')
   const employeeTasksRequestRef = useRef(0)
 
   useEffect(() => {
     if (!isOpen) return
+    let cancelled = false
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => {
+    if (cancelled) return
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); return }
     setLoading(true); setError('')
@@ -79,6 +90,8 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       })))
     }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to load assignment options.'))
       .finally(() => setLoading(false))
+    })
+    return () => { cancelled = true }
   }, [isOpen])
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
@@ -161,6 +174,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
+    submissionKey.current = ''
     if (attachmentRef.current) attachmentRef.current.value = ''
   }
   function close() { reset(); onClose() }
@@ -169,15 +183,21 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !observerId) { setError('Select employees or a department, then enter task title, observer, priority, and repeat-until date.'); return }
     if (attachment && attachment.size > 5 * 1024 * 1024) { setError('Attachment must be 5 MB or smaller.'); return }
     setSaving(true); setError('')
+    if (!submissionKey.current) submissionKey.current = crypto.randomUUID()
     try {
       const response = await taskService.createLegacyTask(getLaravelContext(), {
         title: title.trim(), description: description.trim(), assigneeIds: assignees, observerId,
         priority, repeatDays, dueDate, skillIds, skillNames: selectedSkillNames, kra, kpa,
         observationPoint: observation, attachment, departmentId,
+        idempotencyKey: submissionKey.current,
       })
       if (response.status_code !== undefined && Number(response.status_code) !== 1) throw new Error(response.message || 'Task creation failed.')
-      await notifyAssignedUsers(assignees)
-      void sendAssignmentWebhook(response.task_id ?? response.taskId ?? response.id ?? response.data?.task_id ?? response.data?.taskId ?? response.data?.id)
+      // A replay means the first attempt already notified and fired the
+      // webhook, so doing it again would double-notify the assignee.
+      if (!response.replayed) {
+        await notifyAssignedUsers(assignees)
+        void sendAssignmentWebhook(response.task_id ?? response.taskId ?? response.id ?? response.data?.task_id ?? response.data?.taskId ?? response.data?.id)
+      }
       onCreated?.(response.message); close()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create task.') }
     finally { setSaving(false) }
@@ -259,15 +279,19 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     const invalid = roleBulkSelected.some((task) => !roleBulkRows[task]?.dueDate || !roleBulkRows[task]?.observerId)
     if (invalid) { setError('Repeat-until date and observer are required for every selected task.'); return }
     setRoleBulkSaving(true); setError('')
+    // One key per row, sharing a batch prefix, so retrying the batch replays
+    // whichever rows already landed instead of duplicating them.
+    if (!submissionKey.current) submissionKey.current = crypto.randomUUID()
     try {
       const context = getLaravelContext()
-      await Promise.all(roleBulkSelected.map((task) => {
+      await Promise.all(roleBulkSelected.map((task, index) => {
         const row = roleBulkRows[task]
         return taskService.createLegacyTask(context, {
           title: task, description: row.description, assigneeIds: assignees,
           observerId: row.observerId, priority: row.priority, repeatDays: row.repeatDays,
           dueDate: row.dueDate, skillIds: [], skillNames: [], kra: '', kpa: '',
           observationPoint: '', departmentId,
+          idempotencyKey: `${submissionKey.current}-${index}`,
         })
       }))
       await notifyAssignedUsers(assignees)
