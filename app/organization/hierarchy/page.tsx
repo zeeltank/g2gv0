@@ -14,7 +14,7 @@ export default function DepartmentHierarchyPage() {
       router.push('/login')
       return
     }
-    router.push('/module/m1/org-setup/hierarchy')
+    router.push('/module/organizational-management/org-setup/hierarchy')
   }, [isLoading, user, router])
 
   if (isLoading) {

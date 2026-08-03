@@ -14,7 +14,7 @@ export default function DepartmentListPage() {
       router.push('/login')
       return
     }
-    router.push('/module/m1/org-setup/dept-management')
+    router.push('/module/organizational-management/org-setup/dept-management')
   }, [isLoading, user, router])
 
   if (isLoading) {

@@ -94,11 +94,11 @@ export function CreateCoursePage() {
   } | null>(null)
   const [quizName, setQuizName] = useState('')
 
-  const handleCancel = () => router.push('/module/m4/learning/learning-catalog')
+  const handleCancel = () => router.push('/module/lms/learning/learning-catalog')
 
   const handlePublish = async () => {
     const result = await publish()
-    if (result.ok) router.push('/module/m4/learning/learning-catalog')
+    if (result.ok) router.push('/module/lms/learning/learning-catalog')
   }
 
   return (

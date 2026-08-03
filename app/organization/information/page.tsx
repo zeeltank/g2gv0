@@ -14,7 +14,7 @@ export default function OrganizationInformationPage() {
       router.push('/login')
       return
     }
-    router.push('/module/m1/org-setup/org-profile')
+    router.push('/module/organizational-management/org-setup/org-profile')
   }, [isLoading, user, router])
 
   if (isLoading) {

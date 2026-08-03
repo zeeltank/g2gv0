@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 
 const DEFAULT_ACTIVE: ActiveNav = {
-  moduleId: 'm1',
+  moduleId: 'organizational-management',
   menuId: 'org-setup',
   submenuId: 'org-profile',
 }

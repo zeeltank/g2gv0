@@ -37,10 +37,10 @@ import { EnrollCourseSheet } from './widgets/enroll-course-sheet'
 
 /** Destinations registered in hooks/content-map-m4.ts. */
 const ROUTES = {
-  catalog: '/module/m4/learning/learning-catalog',
-  myLearning: '/module/m4/learning/my-learning',
-  assignments: '/module/m4/training-records/assignments',
-  sessions: '/module/m4/training-records/sessions-calendar',
+  catalog: '/module/lms/learning/learning-catalog',
+  myLearning: '/module/lms/learning/my-learning',
+  assignments: '/module/lms/training-records/assignments',
+  sessions: '/module/lms/training-records/sessions-calendar',
 } as const
 
 /** Transient banner for the enrolment-status mutation and partial load failures. */

@@ -27,7 +27,7 @@ export function SetupCompletionStep({ router }: SetupCompletionStepProps) {
         <Button
           variant="outline"
           onClick={() =>
-            router.push('/module/m1/org-setup/employee-directory')
+            router.push('/module/organizational-management/org-setup/employee-directory')
           }
         >
           Manage Employees
