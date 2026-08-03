@@ -243,19 +243,30 @@ export function DependenciesView() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load dependencies.')
     } finally { setLoading(false) }
-  }, [reload, setEdges, setNodes])
+  }, [setEdges, setNodes])
 
-useEffect(() => { void load() }, [load])
+useEffect(() => {
+  // Deferred so the load's first setState lands after this render. `reload`
+  // is the manual refetch trigger the mutation handlers bump.
+  queueMicrotask(() => { void load() })
+}, [load, reload])
 
   useEffect(() => {
-    if (!selectedProject) { setWorkstreams([]); setSelectedWorkstream(''); setWorkstreamsError(''); return }
-    const context = getLaravelContext()
-    if (!isLaravelContextReady(context)) { setWorkstreamsError('Session unavailable.'); return }
-    setWorkstreamsLoading(true); setSelectedWorkstream(''); setWorkstreamsError('')
-    taskService.getWorkstreams(context, selectedProject)
-      .then((response) => setWorkstreams(response.data ?? []))
-      .catch((reason) => setWorkstreamsError(reason instanceof Error ? reason.message : 'Unable to load workstreams.'))
-      .finally(() => setWorkstreamsLoading(false))
+    // Deferred so every setState (including the resets) lands after this
+    // render rather than cascading out of the effect body.
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      if (!selectedProject) { setWorkstreams([]); setSelectedWorkstream(''); setWorkstreamsError(''); return }
+      const context = getLaravelContext()
+      if (!isLaravelContextReady(context)) { setWorkstreamsError('Session unavailable.'); return }
+      setWorkstreamsLoading(true); setSelectedWorkstream(''); setWorkstreamsError('')
+      taskService.getWorkstreams(context, selectedProject)
+        .then((response) => { if (active) setWorkstreams(response.data ?? []) })
+        .catch((reason) => { if (active) setWorkstreamsError(reason instanceof Error ? reason.message : 'Unable to load workstreams.') })
+        .finally(() => { if (active) setWorkstreamsLoading(false) })
+    })
+    return () => { active = false }
   }, [selectedProject])
 
   // Filter States

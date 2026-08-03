@@ -1,5 +1,12 @@
 import type { LucideIcon } from 'lucide-react'
 import {
+  Bot,
+  BrainCircuit,
+  Share2,
+  GitBranch,
+  ScrollText,
+  Sparkles,
+  Wand2,
   Building2,
   Users,
   ShieldCheck,
@@ -124,6 +131,9 @@ export const GTG_NAVIGATION: NavModule[] = [
     menus: [
       { id: 'cm-command-center', label: 'Command Center', icon: LayoutGrid, submenus: [] },
       { id: 'cm-competency-library', label: 'Competency Library', icon: BookOpen, submenus: [] },
+      { id: 'cm-libraries-taxonomy', label: 'Libraries & Taxonomy', icon: Library, submenus: [] },
+      { id: 'cm-skill-taxonomy', label: 'Skill Taxonomy', icon: Network, submenus: [] },
+      { id: 'cm-taxonomy-ontology', label: 'Taxonomy Ontology', icon: Share2, submenus: [] },
       { id: 'cm-framework-mapping', label: 'Framework & Role Mapping', icon: Network, submenus: [] },
       { id: 'cm-assessments', label: 'Assessments', icon: ClipboardCheck, submenus: [] },
       { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },
@@ -263,6 +273,12 @@ export const GTG_NAVIGATION: NavModule[] = [
         submenus: [],
       },
       {
+        id: 'tm-reports',
+        label: 'Reports & Analysis',
+        icon: BarChart3,
+        submenus: [],
+      },
+      {
         id: 'tm-admin',
         label: 'Administration',
         icon: Shield,
@@ -274,6 +290,21 @@ export const GTG_NAVIGATION: NavModule[] = [
           { id: 'audit-logs', label: 'Audit Logs' },
         ],
       },
+    ],
+  },
+  {
+    id: 'm7',
+    label: 'Agentic AI',
+    short: 'AI',
+    icon: Sparkles,
+    menus: [
+      { id: 'ag-agent-dashboard', label: 'Agent Dashboard', icon: Gauge, submenus: [] },
+      { id: 'ag-agent-library', label: 'Agent Library', icon: Bot, submenus: [] },
+      { id: 'ag-create-agent', label: 'Create Agent', icon: Wand2, submenus: [] },
+      { id: 'ag-run-log', label: 'Run Logs & Traces', icon: ScrollText, submenus: [] },
+      { id: 'ag-analytics', label: 'Analytics', icon: BarChart3, submenus: [] },
+      { id: 'ag-multi-agent', label: 'Multi-Agent', icon: GitBranch, submenus: [] },
+      { id: 'ag-reflection', label: 'Reflection', icon: BrainCircuit, submenus: [] },
     ],
   },
 ]

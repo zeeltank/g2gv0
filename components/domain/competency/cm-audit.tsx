@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ApprovalQueue } from './audit/approval-queue'
 import {
   Search,
   Filter,
@@ -205,7 +206,11 @@ export function CmAudit() {
   // match before hydration.
   const [settings, setSettings] = useState<DisplaySettings>(DEFAULT_SETTINGS)
   useEffect(() => {
-    setSettings(readSettings())
+    // Deferred so the read lands after this render rather than cascading out
+    // of the effect body.
+    queueMicrotask(() => {
+      setSettings(readSettings())
+    })
   }, [])
 
   const persistSettings = useCallback((next: DisplaySettings) => {
@@ -265,10 +270,17 @@ export function CmAudit() {
   const detail = useAuditEntry(selectedActivity)
 
   // Any change to what is being filtered invalidates the current page number.
+  // Adjusted during render rather than in an effect: the page number is
+  // derived from the filters, so resetting it is not a side effect and an
+  // effect would render one frame on a page that no longer exists.
   const filtersKey = JSON.stringify(filters)
-  useEffect(() => {
+  const pageKey = `${filtersKey}|${activeTab}|${settings.perPage}`
+  const [lastPageKey, setLastPageKey] = useState(pageKey)
+
+  if (lastPageKey !== pageKey) {
+    setLastPageKey(pageKey)
     setPage(1)
-  }, [filtersKey, activeTab, settings.perPage])
+  }
 
   const hasActiveFilters =
     Boolean(search) ||
@@ -607,7 +619,13 @@ export function CmAudit() {
           ))}
         </div>
 
-        {activeTab === 'actions' ? (
+        {activeTab === 'approvals' ? (
+          // Was a read-only filter on approval log rows, which meant the module
+          // had nowhere to actually approve a competency or publish a framework.
+          <div className="flex-1 overflow-auto g2g-scrollbar bg-card p-6">
+            <ApprovalQueue />
+          </div>
+        ) : activeTab === 'actions' ? (
           <UserActionsTab state={userActions} />
         ) : (
           <div className="flex flex-1 overflow-hidden">

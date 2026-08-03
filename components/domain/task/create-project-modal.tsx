@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ArrowRight, Briefcase, Building, Calendar as CalendarIcon, CheckCircle2, DollarSign, FileText, ShieldCheck, Target, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -39,8 +39,18 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!isOpen) return
+  // Seeded during render, keyed on open + which project is being edited:
+  // re-opening (or switching projects) re-seeds, while the user's in-progress
+  // edits are never overwritten by a re-render.
+  const seedKey = isOpen ? (project?.id ?? 'new') : null
+  const [lastSeedKey, setLastSeedKey] = useState<string | null>(null)
+
+  if (seedKey !== lastSeedKey) {
+    setLastSeedKey(seedKey)
+    if (seedKey !== null) seedForm()
+  }
+
+  function seedForm() {
     setStep(1); setError('')
     setForm(project ? {
       name: project.name, category: project.category ?? '', description: project.description,
@@ -51,7 +61,7 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
       budget_estimate: project.budget_estimate ?? '', client_name: project.client_name ?? '',
       regulatory_flags: project.regulatory_flags,
     } : { ...EMPTY, member_ids: [], regulatory_flags: [] })
-  }, [isOpen, project])
+  }
 
   const set = <K extends keyof ProjectPayload>(key: K, value: ProjectPayload[K]) => setForm((current) => ({ ...current, [key]: value }))
   const close = () => { setStep(1); setError(''); onClose() }

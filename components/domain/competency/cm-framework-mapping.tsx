@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Info, Copy, Download, Upload, Plus, ChevronDown, ChevronRight,
-  LayoutGrid, Users, Calendar, Search, Layers, Edit2, Trash2, ListChecks,
+  LayoutGrid, Users, Calendar, Search, Layers, Edit2, Trash2, ListChecks, Send,
   Check, X, Folder, FileText, PieChart, Map as MapIcon,
   DownloadCloud, Loader2, MoreVertical, Settings, Filter,
 } from 'lucide-react'
@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { useSubmitForApproval } from '@/hooks/use-competency-approvals'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
@@ -45,6 +46,16 @@ const TABS: { id: string; label: string }[] = [
 ]
 
 /** Fixed dot colour per proficiency level (1..6). */
+/**
+ * The lifecycle the backend already accepts. The dialog used to hardcode
+ * 'draft', so a framework could be created but never published.
+ */
+const FRAMEWORK_STATUS_OPTIONS = [
+  { label: 'Draft', value: 'draft' },
+  { label: 'Active (published)', value: 'active' },
+  { label: 'Archived', value: 'archived' },
+]
+
 function levelColor(level: number | null): string {
   switch (level) {
     case 1: return 'bg-destructive'
@@ -211,6 +222,15 @@ export function CmFrameworkMapping() {
 
   /* -- Framework dialog ----------------------------------------------- */
   const [fwForm, setFwForm] = useState<FrameworkPayload>({ name: '', description: '', status: 'draft', version: 'v1.0' })
+  const { submit: submitForApproval, submitting: submittingApproval } = useSubmitForApproval()
+  const [publishNote, setPublishNote] = useState<string | null>(null)
+
+  /** Route a draft framework through the approval queue instead of self-publishing. */
+  const submitFrameworkForPublish = async (framework: Framework) => {
+    const result = await submitForApproval('framework', framework.id)
+    setPublishNote(result.message)
+    if (result.ok) retry()
+  }
 
   // Seed the form at open time (no setState-in-effect).
   const openFrameworkDialog = (editing: Framework | null) => {
@@ -462,8 +482,22 @@ export function CmFrameworkMapping() {
                       {frameworks.map(fw => (
                         <div key={fw.id} className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-muted rounded-md">
                           <span className="text-sm truncate flex-1">{fw.name}</span>
-                          <button onClick={() => openFrameworkDialog(fw)} className="text-muted-foreground hover:text-primary"><Edit2 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => deleteFramework(fw.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <StatusBadge status={fw.status} label={fw.status} size="sm" />
+                          {/* Only a draft has anywhere to go: publishing is what
+                              the approval queue decides. */}
+                          {fw.status === 'draft' && (
+                            <button
+                              onClick={() => submitFrameworkForPublish(fw)}
+                              disabled={submittingApproval}
+                              title="Submit for publish"
+                              aria-label={`Submit ${fw.name} for publish`}
+                              className="text-muted-foreground hover:text-primary disabled:opacity-40"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => openFrameworkDialog(fw)} aria-label={`Edit ${fw.name}`} className="text-muted-foreground hover:text-primary"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => deleteFramework(fw.id)} aria-label={`Delete ${fw.name}`} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       ))}
                     </DropdownMenuContent>
@@ -973,6 +1007,26 @@ export function CmFrameworkMapping() {
               <Input placeholder="Enter framework name" value={fwForm.name} onChange={e => setFwForm(p => ({ ...p, name: e.target.value }))} className="bg-background border-border" />
             </div>
          
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Version</label>
+                <Input placeholder="v1.0" value={fwForm.version ?? ''} onChange={e => setFwForm(p => ({ ...p, version: e.target.value }))} className="bg-background border-border" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Status</label>
+                {/* Was hardcoded to draft, so a framework could never be
+                    published. Active is reachable directly here or through the
+                    approval queue via Submit for Publish. */}
+                <Select
+                  value={fwForm.status ?? 'draft'}
+                  onChange={value => setFwForm(p => ({ ...p, status: value }))}
+                  options={FRAMEWORK_STATUS_OPTIONS}
+                  className="bg-background border-border h-9"
+                  aria-label="Framework status"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Description</label>
               <textarea value={fwForm.description ?? ''} onChange={e => setFwForm(p => ({ ...p, description: e.target.value }))} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[90px] resize-none" placeholder="Enter description..." />
