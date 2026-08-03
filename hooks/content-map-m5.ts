@@ -13,19 +13,18 @@ const MonthlyPayrollPage = createLazyComponent(() => import('@/domain/hrms/hrit/
 const SalaryCertificatePage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/salary-certificate/page').then((m) => ({ default: m.default })))
 const Form16Page = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/form-16/page').then((m) => ({ default: m.default })))
 
+// Ids are tblmenumaster_g2g rows (HRIT Solutions, module id 5).
 export const M5_CONTENT: ContentRoute[] = [
-  { submenuId: 'attendance-tracking', component: AttendanceDashboard },
-  { submenuId: 'attendance-reports', component: AttendanceReportsPage },
-  { submenuId: 'leave-dashboard', component: LeaveManagementDashboard },
-  { submenuId: 'leave-operations', component: LeaveManagementDashboard },
-  { submenuId: 'leave-requests', component: LeaveRequestsPage },
-  { submenuId: 'leave-reports', component: LeaveReportsPage },
-  { submenuId: 'leave-configuration', component: LeaveConfigurationPage },
-  { submenuId: 'payroll-type', component: PayrollTypePage },
-  { submenuId: 'salary-structure', component: SalaryStructurePage },
-  { submenuId: 'payroll-deduction', component: PayrollDeductionPage },
-  { submenuId: 'monthly-payroll', component: MonthlyPayrollPage },
-  { submenuId: 'payroll-processing', component: MonthlyPayrollPage },
-  { submenuId: 'salary-certificate', component: SalaryCertificatePage },
-  { submenuId: 'form-16', component: Form16Page },
+  { submenuId: '100', component: AttendanceDashboard }, // Attendance Tracking
+  { submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
+  { submenuId: '102', component: LeaveManagementDashboard }, // Leave Dashboard
+  { submenuId: '103', component: LeaveRequestsPage }, // Leave Requests
+  { submenuId: '104', component: LeaveReportsPage }, // Leave Reports
+  { submenuId: '165', component: LeaveConfigurationPage }, // Leave Configuration
+  { submenuId: '105', component: PayrollTypePage }, // Payroll Type
+  { submenuId: '106', component: SalaryStructurePage }, // Salary Structure
+  { submenuId: '108', component: PayrollDeductionPage }, // Payroll Deduction
+  { submenuId: '140', component: MonthlyPayrollPage }, // Monthly Payroll Report
+  { submenuId: '110', component: SalaryCertificatePage }, // Salary Certificate
+  { submenuId: '109', component: Form16Page }, // Form 16
 ]

@@ -4,8 +4,8 @@ import { Component, useState, useEffect, useCallback, useRef, Suspense, type Rea
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
@@ -15,28 +15,6 @@ import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hook
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 
 const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
-
-function getRoutePath(active: ActiveNav): string {
-  if (active.moduleId === 'm0') {
-    return '/dashboard'
-  }
-  return `/module/${active.moduleId}/${active.menuId}/${active.submenuId}`
-}
-
-function parseRoutePath(pathname: string): ActiveNav | null {
-  if (pathname === '/dashboard') {
-    return HOME_NAV
-  }
-  const match = pathname.match(/^\/module\/([^/]+)\/([^/]+)\/([^/]+)/)
-  if (match) {
-    return {
-      moduleId: match[1],
-      menuId: match[2],
-      submenuId: match[3],
-    }
-  }
-  return null
-}
 
 function ComingSoonScreen({ title, description }: { title: string; description: string }) {
   return (
@@ -147,21 +125,17 @@ export function GtgAppShell({
   agentOpen,
   onAgentOpenChange,
 }: GtgAppShellProps = {}) {
-  const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const { modules, getRoutePath, parseRoutePath } = useSidebarNavigation()
   const [active, setActive] = useState<ActiveNav>(() => {
     if (initialActive) return initialActive
-    if (!children && pathname) {
-      const parsed = parseRoutePath(pathname)
-      if (parsed) return parsed
-    }
     return DEFAULT_ACTIVE
   })
 
-  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: sync navigation state with URL */
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: sync navigation state with URL once the menu tree is loaded */
   useEffect(() => {
-    if (children) return
+    if (children || modules.length <= 1) return
     const parsed = parseRoutePath(pathname)
     if (parsed) {
       setActive((prev) => {
@@ -171,11 +145,17 @@ export function GtgAppShell({
         return parsed
       })
     }
-  }, [pathname, children])
+  }, [pathname, children, modules, parseRoutePath])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleNavSelect = (next: ActiveNav) => {
-    router.push(getRoutePath(next))
+    const path = getRoutePath(next)
+    if (path.startsWith('http')) {
+      window.open(path, '_blank', 'noopener,noreferrer')
+      return
+    }
+    setActive(next)
+    router.push(path)
   }
 
   const [internalAgentOpen, setInternalAgentOpen] = useState(false)
@@ -185,7 +165,7 @@ export function GtgAppShell({
     onAgentOpenChange?.(next)
   }, [onAgentOpenChange])
 
-  const breadcrumbItems = resolveBreadcrumb(active)
+  const breadcrumbItems = resolveBreadcrumb(active, modules)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -205,7 +185,7 @@ export function GtgAppShell({
       <GtgSidebar
         active={active}
         onSelect={handleNavSelect}
-        role={user?.role || 'employee'}
+        modules={modules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}

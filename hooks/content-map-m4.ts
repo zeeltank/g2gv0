@@ -9,13 +9,14 @@ const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
 const LmsGovernance = createLazyComponent(() => import('@/domain/lms/governance').then((m) => ({ default: m.LmsGovernance })))
 
+// Ids are tblmenumaster_g2g rows (LMS, module id 4).
 export const M4_CONTENT: ContentRoute[] = [
-  { submenuId: 'lms-dashboard', component: LmsDashboard },
-  { submenuId: 'learning-catalog', component: LearningCatalog },
-  { submenuId: 'my-learning', component: LearningDeliveryWorkspace },
-  { submenuId: 'create-course', component: CreateCoursePage },
-  { submenuId: 'assignments', component: LearningAssignments },
-  { submenuId: 'sessions-calendar', component: SessionsCalendar },
-  { submenuId: 'certifications', component: CertificationsRecords },
-  { submenuId: 'governance', component: LmsGovernance },
+  { submenuId: '80', component: LmsDashboard }, // Learning Dashboard
+  { submenuId: '182', component: LearningCatalog }, // Learning Catalog
+  { submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
+  { submenuId: '84', component: CreateCoursePage }, // Course Builder
+  { submenuId: '81', component: LearningAssignments }, // Assignments
+  { submenuId: '82', component: SessionsCalendar }, // Sessions & Calendar
+  { submenuId: '83', component: CertificationsRecords }, // Certifications & Records
+  { submenuId: '85', component: LmsGovernance }, // Administration & Governance
 ]

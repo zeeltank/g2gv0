@@ -9,13 +9,14 @@ const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competenc
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
+// Ids are tblmenumaster_g2g rows, all under the "Competency Library" menu (id 34) of module 2.
 export const M2_CONTENT: ContentRoute[] = [
-  { submenuId: 'cm-command-center', component: CmCommandCenter },
-  { submenuId: 'cm-competency-library', component: CmCompetencyLibrary },
-  { submenuId: 'cm-framework-mapping', component: CmFrameworkMapping },
-  { submenuId: 'cm-assessments', component: CmAssessmentWorkspace },
-  { submenuId: 'cm-employee-profiles', component: CmEmployeeProfiles },
-  { submenuId: 'cm-development-career', component: CmDevelopmentCareer },
-  { submenuId: 'cm-certifications', component: CmCertifications },
-  { submenuId: 'cm-audit', component: CmAudit },
+  { submenuId: '37', component: CmCommandCenter }, // Command Center
+  { submenuId: '38', component: CmCompetencyLibrary }, // Competency Library
+  { submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
+  { submenuId: '155', component: CmAssessmentWorkspace }, // Assessments
+  { submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
+  { submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
+  { submenuId: '158', component: CmCertifications }, // Certifications
+  { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]

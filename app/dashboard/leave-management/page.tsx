@@ -23,7 +23,7 @@ export default function LeaveManagementPage() {
 
   return (
     <ProtectedLayout>
-      <GtgPageShell initialActive={{ moduleId: 'hrit-solutions', menuId: 'leave-management', submenuId: 'leave-dashboard' }}>
+      <GtgPageShell initialActive={{ moduleId: '5', menuId: '94', submenuId: '102' }}>
         <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           <LeaveManagementDashboard />
         </Suspense>
