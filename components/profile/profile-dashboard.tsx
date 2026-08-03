@@ -13,6 +13,7 @@ import {
   Phone,
   Lock,
   Pencil,
+  BookOpen,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,8 +25,10 @@ import { AddressCard } from '@/components/profile/cards/address-card'
 import { ReportingCard } from '@/components/profile/cards/reporting-card'
 import { AttendanceCard } from '@/components/profile/cards/attendance-card'
 import { BankCard } from '@/components/profile/cards/bank-card'
+import { SkillsPanel } from '@/components/profile/skills-panel'
+import { useEmployeeProfile } from '@/hooks/use-employee-profile'
 
-type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank'
+type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank' | 'skills'
 
 interface ProfileProps {
   user?: {
@@ -42,10 +45,12 @@ const navItems: { id: TabId; label: string; icon: any }[] = [
   { id: 'reporting', label: 'Reporting', icon: Users },
   { id: 'attendance', label: 'Attendance', icon: Clock },
   { id: 'bank', label: 'Deposit', icon: Landmark },
+  { id: 'skills', label: 'Job Role Skills', icon: BookOpen },
 ]
 
 export function ProfileDashboard({ user }: ProfileProps) {
   const [activeTab, setActiveTab] = useState<TabId>('personal')
+  const { profile: employeeProfile, loading, error } = useEmployeeProfile()
 
   const profile = {
     ...mockProfile,
@@ -94,7 +99,7 @@ export function ProfileDashboard({ user }: ProfileProps) {
               </p>
 
               <p className="text-sm font-medium text-primary">
-                {profile.department} 
+                {profile.department}
               </p>
 
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
@@ -157,20 +162,40 @@ export function ProfileDashboard({ user }: ProfileProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 space-y-6">
-          {/* Row 1: Personal Details + Address */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PersonalCard profile={profile} isActive={activeTab === 'personal'} />
-            <AddressCard profile={profile} isActive={activeTab === 'address'} />
-          </div>
+          {activeTab === 'skills' ? (
+            loading ? (
+              <Card className="p-6">
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm text-muted-foreground">Loading skills...</p>
+                </div>
+              </Card>
+            ) : error ? (
+              <Card className="p-6">
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              </Card>
+            ) : (
+              <SkillsPanel skills={employeeProfile?.skills ?? []} />
+            )
+          ) : (
+            <>
+              {/* Row 1: Personal Details + Address */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PersonalCard profile={profile} isActive={activeTab === 'personal'} />
+                <AddressCard profile={profile} isActive={activeTab === 'address'} />
+              </div>
 
-          {/* Row 2: Reporting + Attendance */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ReportingCard profile={profile} isActive={activeTab === 'reporting'} />
-            <AttendanceCard profile={profile} isActive={activeTab === 'attendance'} />
-          </div>
+              {/* Row 2: Reporting + Attendance */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ReportingCard profile={profile} isActive={activeTab === 'reporting'} />
+                <AttendanceCard profile={profile} isActive={activeTab === 'attendance'} />
+              </div>
 
-          {/* Row 3: Bank Details (Full Width) */}
-          <BankCard profile={profile} isActive={activeTab === 'bank'} />
+              {/* Row 3: Bank Details (Full Width) */}
+              <BankCard profile={profile} isActive={activeTab === 'bank'} />
+            </>
+          )}
         </div>
       </div>
     </div>

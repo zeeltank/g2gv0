@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { resolveWebBaseUrl } from '@/lib/api-config'
 import type { Employee } from '@/types/employee'
 
 const LazyEmployeeDirectorySheets = lazy(() =>
@@ -101,8 +102,9 @@ export function EmployeeDirectory() {
         }
 
         const sessionData = JSON.parse(userDataStr)
-        const { APP_URL, token, sub_institute_id, org_type, user_id, user_profile_name, syear } = sessionData
-        const apiUrl = `${APP_URL}/user/add_user?type=API&token=${token}&sub_institute_id=${sub_institute_id || 1}&org_type=${encodeURIComponent(org_type || 'Financial Services')}&user_id=${user_id}&user_profile_name=${encodeURIComponent(user_profile_name || 'Admin')}&syear=${syear || '2025'}`
+        const { token, sub_institute_id, org_type, user_id, user_profile_name, syear } = sessionData
+        const baseUrl = resolveWebBaseUrl()
+        const apiUrl = `${baseUrl}/user/add_user?type=API&token=${token}&sub_institute_id=${sub_institute_id || 1}&org_type=${encodeURIComponent(org_type || 'Financial Services')}&user_id=${user_id}&user_profile_name=${encodeURIComponent(user_profile_name || 'Admin')}&syear=${syear || '2025'}`
 
         const response = await fetch(apiUrl)
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)

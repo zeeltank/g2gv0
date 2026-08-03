@@ -12,6 +12,8 @@ export * from './leave'
 
 // Payroll module - legacy Laravel web routes (routes/hrms.php)
 export * from './payroll'
+// Employee module
+export * from './employee'
 
 export interface AttendanceRecord {
   id: string

@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import {
   Search,
-  Filter,
   Users,
   Shield,
   Key,
@@ -12,23 +11,29 @@ import {
   Zap,
   FileText,
   Settings,
-  Upload,
   Plus,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
   UserPlus,
-  UsersRound,
   ShieldCheck,
   Activity,
+  Edit2,
+  Trash2,
+  Upload,
+  Loader2,
+  X,
+  AlertTriangle,
   CheckCircle2,
-  ExternalLink,
-  Eye,
-  Edit2
+  HelpCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import {
   Table,
   TableBody,
@@ -38,45 +43,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useGovernance, type GovernanceTab } from '@/hooks/use-governance'
+import type { GovernanceUser, HealthStatus } from '@/services/lms'
+import {
+  AuditPanel,
+  Field,
+  FormRow,
+  IntegrationsPanel,
+  RolesPanel,
+  TrainersPanel,
+  VendorsPanel,
+} from './governance-panels'
 
-// ─── Dummy Data ─────────────────────────────────────────────────────────────
+/* ─── Config ───────────────────────────────────────────────────────────────── */
 
-const STATS = [
-  { label: 'Users', value: '3,248', sub: 'Active Users', icon: Users },
-  { label: 'Roles', value: '18', sub: 'System Roles', icon: Shield },
-  { label: 'Permissions', value: '276', sub: 'Total Permissions', icon: Key },
-  { label: 'Trainers', value: '156', sub: 'Active Trainers', icon: GraduationCap },
-  { label: 'Vendors', value: '32', sub: 'Active Vendors', icon: Building2 },
-  { label: 'Integrations', value: '7', sub: 'Connected', icon: Zap },
-  { label: 'Audit Logs', value: '21,458', sub: 'Total Logs (30 Days)', icon: FileText },
-]
-
-const QUICK_ACTIONS = [
-  { label: 'Add New User', icon: UserPlus },
-  { label: 'Bulk Import Users', icon: UsersRound },
-  { label: 'Manage Roles', icon: Shield },
-  { label: 'Permission Matrix', icon: ShieldCheck },
-  { label: 'Manage Integrations', icon: Zap },
-  { label: 'View Audit Logs', icon: FileText },
-]
-
-const SYSTEM_HEALTH = [
-  { label: 'SSO', status: 'Connected', variant: 'active' },
-  { label: 'Email Service', status: 'Healthy', variant: 'active' },
-  { label: 'Storage', status: 'Healthy', variant: 'active' },
-  { label: 'Database', status: 'Healthy', variant: 'active' },
-]
-
-const USERS_DATA = [
-  { initials: 'RK', name: 'Ravi Kumar', email: 'ravi.kumar@acme.com', department: 'Operations', role: 'Department Head', status: 'active', lastLogin: '02 May 2025, 09:15 AM' },
-  { initials: 'SP', name: 'Sneha Patel', email: 'sneha.patel@acme.com', department: 'Human Resources', role: 'HR Manager', status: 'active', lastLogin: '02 May 2025, 08:42 AM' },
-  { initials: 'AD', name: 'Admin User', email: 'admin@acme.com', department: 'IT', role: 'System Administrator', status: 'active', lastLogin: '02 May 2025, 10:20 AM' },
-  { initials: 'AS', name: 'Arjun Singh', email: 'arjun.singh@acme.com', department: 'Sales', role: 'Employee', status: 'active', lastLogin: '01 May 2025, 05:30 PM' },
-  { initials: 'PM', name: 'Priya Mehta', email: 'priya.mehta@acme.com', department: 'Learning & Development', role: 'Trainer', status: 'active', lastLogin: '01 May 2025, 03:22 PM' },
-  { initials: 'KT', name: 'Karan Tiwari', email: 'karan.tiwari@acme.com', department: 'Finance', role: 'Employee', status: 'inactive', lastLogin: '28 Apr 2025, 11:05 AM' },
-]
-
-const TABS = [
+const TABS: { id: GovernanceTab; label: string; icon: typeof Users }[] = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'roles', label: 'Roles & Permissions', icon: Shield },
   { id: 'trainers', label: 'Trainers', icon: GraduationCap },
@@ -86,10 +67,116 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-// ─── Component ──────────────────────────────────────────────────────────────
+const HEALTH_ICON: Record<HealthStatus, typeof CheckCircle2> = {
+  healthy: CheckCircle2,
+  warning: AlertTriangle,
+  error: AlertTriangle,
+  unknown: HelpCircle,
+}
+
+const HEALTH_DOT: Record<HealthStatus, string> = {
+  healthy: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  error: 'bg-destructive',
+  unknown: 'bg-muted-foreground/40',
+}
+
+const EMPTY_USER = {
+  first_name: '', last_name: '', email: '', mobile: '', employee_no: '',
+  user_profile_id: '', department_id: '', user_name: '', password: '',
+}
+
+/* ─── Page ─────────────────────────────────────────────────────────────────── */
 
 export function LmsGovernance() {
-  const [activeTab, setActiveTab] = useState('users')
+  const governance = useGovernance()
+  const {
+    tab, setTab,
+    kpis, health, roles, departments, canAdminister,
+    users, userMeta, userSearch, setUserSearch, userStatus, setUserStatus,
+    userProfileId, setUserProfileId, userPage, setUserPage, userPerPage, setUserPerPage,
+    saveUser, removeUser, importUsers, importErrors,
+    trainers, vendors, expiringVendors, integrations,
+    loadMatrix,
+    loading, error, saving, message, actionError, dismiss, reload,
+  } = governance
+
+  const [userForm, setUserForm] = useState(EMPTY_USER)
+  const [editingUser, setEditingUser] = useState<GovernanceUser | null>(null)
+  const [userFormOpen, setUserFormOpen] = useState(false)
+  const [confirmUser, setConfirmUser] = useState<GovernanceUser | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importProfileId, setImportProfileId] = useState('')
+
+  // KPI cards are driven from the API; each links to the tab that owns it, so
+  // "View all" is a real navigation rather than a dead link.
+  const stats = [
+    { label: 'Users', value: kpis?.users, sub: `${kpis?.active_users ?? 0} active`, icon: Users, tab: 'users' as const },
+    { label: 'Roles', value: kpis?.roles, sub: 'System roles', icon: Shield, tab: 'roles' as const },
+    { label: 'Permissions', value: kpis?.permissions, sub: 'Rights assigned', icon: Key, tab: 'roles' as const },
+    { label: 'Trainers', value: kpis?.trainers, sub: 'Active trainers', icon: GraduationCap, tab: 'trainers' as const },
+    { label: 'Vendors', value: kpis?.vendors, sub: 'Active vendors', icon: Building2, tab: 'vendors' as const },
+    { label: 'Integrations', value: kpis?.integrations, sub: 'Connected', icon: Zap, tab: 'integrations' as const },
+    { label: 'Audit Logs', value: kpis?.audit_logs, sub: 'Last 30 days', icon: FileText, tab: 'audit' as const },
+  ]
+
+  const quickActions = [
+    { label: 'Add New User', icon: UserPlus, run: () => { setTab('users'); setEditingUser(null); setUserForm(EMPTY_USER); setUserFormOpen(true) } },
+    { label: 'Manage Roles', icon: Shield, run: () => setTab('roles') },
+    { label: 'Permission Matrix', icon: ShieldCheck, run: () => { setTab('roles'); if (roles[0]) void loadMatrix(roles[0].id) } },
+    { label: 'Manage Trainers', icon: GraduationCap, run: () => setTab('trainers') },
+    { label: 'Manage Integrations', icon: Zap, run: () => setTab('integrations') },
+    { label: 'View Audit Logs', icon: FileText, run: () => setTab('audit') },
+  ]
+
+  const openUserForm = (user?: GovernanceUser) => {
+    if (user) {
+      setEditingUser(user)
+      setUserForm({
+        first_name: user.first_name ?? '',
+        last_name: user.last_name ?? '',
+        email: user.email ?? '',
+        mobile: user.mobile ?? '',
+        employee_no: user.employee_no ?? '',
+        user_profile_id: user.user_profile_id ? String(user.user_profile_id) : '',
+        department_id: user.department_id ? String(user.department_id) : '',
+        user_name: user.user_name ?? '',
+        password: '',
+      })
+    } else {
+      setEditingUser(null)
+      setUserForm(EMPTY_USER)
+    }
+    setUserFormOpen(true)
+  }
+
+  const submitUser = () =>
+    void saveUser(
+      {
+        first_name: userForm.first_name.trim(),
+        last_name: userForm.last_name || null,
+        email: userForm.email.trim(),
+        mobile: userForm.mobile || null,
+        employee_no: userForm.employee_no || null,
+        user_profile_id: Number(userForm.user_profile_id),
+        department_id: userForm.department_id ? Number(userForm.department_id) : null,
+        status: 1,
+        // Only sent on create; an empty password on update leaves it unchanged.
+        ...(editingUser ? {} : { user_name: userForm.user_name.trim() }),
+        ...(userForm.password ? { password: userForm.password } : {}),
+      },
+      editingUser?.id,
+    ).then((result) => {
+      if (result.ok) {
+        setUserFormOpen(false)
+        setEditingUser(null)
+      }
+    })
+
+  if (error && !kpis) {
+    return <ErrorState title="Couldn't load governance" description={error} retry={reload} />
+  }
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -97,65 +184,87 @@ export function LmsGovernance() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Administration & Governance
+            Administration &amp; Governance
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage users, roles, permissions, trainers, vendors, integrations and system settings.
           </p>
         </div>
-        <div>
-          <Button variant="outline" className="h-9 gap-2">
-            <Settings className="size-4" /> System Settings
-          </Button>
-        </div>
+        <Button variant="outline" className="h-9 gap-2" onClick={() => setTab('settings')}>
+          <Settings className="size-4" /> System Settings
+        </Button>
       </div>
 
-      {/* Stats Overflow Container */}
-      <div className="flex items-center gap-4 overflow-x-auto g2g-scrollbar pb-2 -mb-2">
-        {STATS.map((stat, i) => {
+      {/* Stats */}
+      <div className="g2g-scrollbar -mb-2 flex items-center gap-4 overflow-x-auto pb-2">
+        {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={i} className="shadow-sm min-w-[200px] flex-1 shrink-0">
-              <CardContent className="p-5 flex flex-col gap-3 relative overflow-hidden">
+            <Card key={stat.label} className="min-w-[200px] flex-1 shrink-0 shadow-sm">
+              <CardContent className="relative flex flex-col gap-3 overflow-hidden p-5">
                 <div className="flex items-center gap-2">
                   <Icon className="size-4 text-muted-foreground" />
                   <span className="text-sm font-semibold text-foreground">{stat.label}</span>
                 </div>
                 <div>
-                  <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{stat.sub}</div>
+                  <div className="text-3xl font-bold tracking-tight">
+                    {loading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      (stat.value ?? 0).toLocaleString()
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{stat.sub}</div>
                 </div>
-                <Button variant="link" className="p-0 h-auto text-primary justify-start text-xs mt-2 font-semibold">
+                <Button
+                  variant="link"
+                  className="mt-2 h-auto justify-start p-0 text-xs font-semibold text-primary"
+                  onClick={() => setTab(stat.tab)}
+                >
                   View all
                 </Button>
-                {/* Decorative Icon Background */}
-                <Icon className="absolute -right-4 -bottom-4 size-24 text-muted/10 pointer-events-none" />
+                <Icon className="pointer-events-none absolute -bottom-4 -right-4 size-24 text-muted/10" />
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-        
-        {/* Main Content Area */}
+      {/* Banners */}
+      {(message || actionError) && (
+        <div
+          className={cn(
+            'flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm',
+            actionError
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-success/40 bg-success/10 text-success',
+          )}
+        >
+          <span className="font-medium">{actionError ?? message}</span>
+          <button type="button" onClick={dismiss} aria-label="Dismiss">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-6">
           {/* Tabs */}
-          <div className="flex items-center gap-6 border-b border-border/60 overflow-x-auto g2g-scrollbar">
-            {TABS.map((tab) => {
-              const TabIcon = tab.icon
-              const isActive = activeTab === tab.id
+          <div className="g2g-scrollbar flex items-center gap-6 overflow-x-auto border-b border-border/60">
+            {TABS.map((entry) => {
+              const TabIcon = entry.icon
+              const isActive = tab === entry.id
               return (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  key={entry.id}
+                  onClick={() => setTab(entry.id)}
                   className={cn(
-                    'relative flex items-center gap-2 -mb-px pb-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring whitespace-nowrap',
-                    isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                    '-mb-px relative flex items-center gap-2 whitespace-nowrap pb-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                    isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   <TabIcon className="size-4" />
-                  {tab.label}
+                  {entry.label}
                   {isActive && (
                     <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-primary" />
                   )}
@@ -164,157 +273,413 @@ export function LmsGovernance() {
             })}
           </div>
 
-          {activeTab === 'users' && (
-            <Card className="shadow-sm border-border/60 overflow-hidden flex flex-col flex-1">
-              <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/10 shrink-0">
-                <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          {/* ── Users ── */}
+          {tab === 'users' && (
+            <Card className="flex flex-1 flex-col overflow-hidden border-border/60 shadow-sm">
+              <div className="flex shrink-0 flex-col items-start justify-between gap-4 border-b border-border/60 bg-muted/10 p-4 sm:flex-row sm:items-center">
+                <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                   <div className="relative w-full sm:w-[280px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search users by name, email or ID..."
-                      className="w-full h-9 pl-9 pr-4 rounded-md border border-border bg-background text-sm outline-none focus:ring-1 focus:ring-ring"
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email or employee no..."
+                      className="h-9 pl-9"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" size="sm" className="h-9 bg-background">
-                    <Filter className="mr-2 size-4" /> Filters
-                  </Button>
-                  <select className="h-9 rounded-md border border-border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring min-w-[120px]">
-                    <option>Status: Active</option>
-                    <option>Status: Inactive</option>
-                    <option>Status: Suspended</option>
-                  </select>
+                  <div className="w-[150px]">
+                    <Select
+                      options={[
+                        { label: 'All statuses', value: '' },
+                        { label: 'Active', value: '1' },
+                        { label: 'Inactive', value: '0' },
+                      ]}
+                      value={userStatus}
+                      onChange={(v) => setUserStatus(String(v))}
+                    />
+                  </div>
+                  <div className="w-[160px]">
+                    <Select
+                      options={[
+                        { label: 'All roles', value: '' },
+                        ...roles.map((r) => ({ label: r.name, value: String(r.id) })),
+                      ]}
+                      value={userProfileId}
+                      onChange={(v) => setUserProfileId(String(v))}
+                    />
+                  </div>
                 </div>
-                
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button variant="outline" size="sm" className="h-9 bg-background">
-                    <Upload className="mr-2 size-4" /> Import Users
-                  </Button>
-                  <Button size="sm" className="h-9 bg-primary text-primary-foreground">
-                    <Plus className="mr-2 size-4" /> Add User
-                  </Button>
-                  <Button variant="outline" size="icon" className="h-9 w-9 bg-background shrink-0">
-                    <MoreVertical className="size-4" />
-                  </Button>
-                </div>
+
+                {canAdminister && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-2"
+                      onClick={() => setImportOpen((v) => !v)}
+                    >
+                      <Upload className="size-4" /> Import Users
+                    </Button>
+                    <Button size="sm" className="h-9 gap-2" onClick={() => openUserForm()}>
+                      <Plus className="size-4" /> Add User
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              <div className="overflow-x-auto flex-1">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="w-12 text-center pl-4">
-                        <input type="checkbox" className="rounded border-input" />
-                      </TableHead>
-                      <TableHead className="font-semibold">User Name</TableHead>
-                      <TableHead className="font-semibold">Email</TableHead>
-                      <TableHead className="font-semibold">Department</TableHead>
-                      <TableHead className="font-semibold">Role</TableHead>
-                      <TableHead className="font-semibold">Status</TableHead>
-                      <TableHead className="font-semibold">Last Login</TableHead>
-                      <TableHead className="font-semibold text-right pr-4">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {USERS_DATA.map((user, idx) => (
-                      <TableRow key={idx} className="hover:bg-muted/30">
-                        <TableCell className="text-center pl-4">
-                          <input type="checkbox" className="rounded border-input" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="size-8 rounded-full bg-muted flex items-center justify-center shrink-0 border border-border/50">
-                              <span className="text-xs font-semibold text-muted-foreground">{user.initials}</span>
-                            </div>
-                            <span className="font-medium text-foreground whitespace-nowrap">{user.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                        <TableCell>{user.department}</TableCell>
-                        <TableCell>{user.role}</TableCell>
-                        <TableCell>
-                          <StatusBadge variant={user.status === 'active' ? 'active' : 'inactive'} className="font-medium">
-                            {user.status === 'active' ? 'Active' : 'Inactive'}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{user.lastLogin}</TableCell>
-                        <TableCell className="text-right pr-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <Eye className="size-4 text-muted-foreground" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <Edit2 className="size-4 text-muted-foreground" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <MoreVertical className="size-4 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              {importOpen && (
+                <div className="flex flex-col gap-3 border-b border-border/60 bg-primary/5 p-4">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">Bulk import users from CSV</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Required column: <code className="font-mono">email</code>. Optional:{' '}
+                      <code className="font-mono">
+                        first_name, last_name, mobile, employee_no, user_name, gender, birthdate,
+                        joined_date
+                      </code>
+                      . Institute and role come from this form, not the file, and each user gets a
+                      random password to reset on first sign-in.
+                    </p>
+                  </div>
+
+                  <FormRow>
+                    <Field label="Assign role">
+                      <Select
+                        options={roles.map((r) => ({ label: r.name, value: String(r.id) }))}
+                        value={importProfileId}
+                        onChange={(v) => setImportProfileId(String(v))}
+                        placeholder="Select a role"
+                      />
+                    </Field>
+                    <Field label="CSV file">
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        aria-label="CSV file"
+                        className="h-9 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs file:font-semibold"
+                        onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                      />
+                    </Field>
+                  </FormRow>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={saving || !importFile || !importProfileId}
+                      onClick={() => {
+                        if (!importFile || !importProfileId) return
+                        void importUsers(importFile, Number(importProfileId)).then((r) => {
+                          if (r.ok) setImportFile(null)
+                        })
+                      }}
+                    >
+                      {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      Import
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setImportOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+
+                  {/* Skipped rows are shown, not swallowed — a partial import
+                      that silently drops records is worse than a failed one. */}
+                  {importErrors.length > 0 && (
+                    <div className="max-h-40 overflow-auto rounded border border-warning/40 bg-warning/10 p-3">
+                      <p className="text-xs font-bold text-foreground">
+                        {importErrors.length} row{importErrors.length === 1 ? '' : 's'} skipped
+                      </p>
+                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                        {importErrors.map((entry) => (
+                          <li key={entry}>{entry}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {userFormOpen && (
+                <div className="flex flex-col gap-3 border-b border-border/60 bg-primary/5 p-4">
+                  <FormRow>
+                    <Field label="First name">
+                      <Input className="h-9" value={userForm.first_name} onChange={(e) => setUserForm({ ...userForm, first_name: e.target.value })} />
+                    </Field>
+                    <Field label="Last name">
+                      <Input className="h-9" value={userForm.last_name} onChange={(e) => setUserForm({ ...userForm, last_name: e.target.value })} />
+                    </Field>
+                    <Field label="Email">
+                      <Input className="h-9" type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
+                    </Field>
+                    <Field label="Mobile">
+                      <Input className="h-9" value={userForm.mobile} onChange={(e) => setUserForm({ ...userForm, mobile: e.target.value })} />
+                    </Field>
+                    <Field label="Employee no.">
+                      <Input className="h-9" value={userForm.employee_no} onChange={(e) => setUserForm({ ...userForm, employee_no: e.target.value })} />
+                    </Field>
+                    <Field label="Role">
+                      <Select
+                        options={roles.map((r) => ({ label: r.name, value: String(r.id) }))}
+                        value={userForm.user_profile_id}
+                        onChange={(v) => setUserForm({ ...userForm, user_profile_id: String(v) })}
+                        placeholder="Select a role"
+                      />
+                    </Field>
+                    <Field label="Department">
+                      <Select
+                        options={departments.map((d) => ({ label: d.department, value: String(d.id) }))}
+                        value={userForm.department_id}
+                        onChange={(v) => setUserForm({ ...userForm, department_id: String(v) })}
+                        placeholder="None"
+                      />
+                    </Field>
+                    {!editingUser && (
+                      <Field label="Username">
+                        <Input className="h-9" value={userForm.user_name} onChange={(e) => setUserForm({ ...userForm, user_name: e.target.value })} />
+                      </Field>
+                    )}
+                    <Field label={editingUser ? 'New password (optional)' : 'Password'}>
+                      <Input className="h-9" type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
+                    </Field>
+                  </FormRow>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={
+                        saving ||
+                        !userForm.first_name.trim() ||
+                        !userForm.email.trim() ||
+                        !userForm.user_profile_id ||
+                        (!editingUser && (!userForm.user_name.trim() || userForm.password.length < 8))
+                      }
+                      onClick={submitUser}
+                    >
+                      {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      {editingUser ? 'Update User' : 'Create User'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setUserFormOpen(false); setEditingUser(null) }}>
+                      Cancel
+                    </Button>
+                    {!editingUser && userForm.password.length > 0 && userForm.password.length < 8 && (
+                      <span className="self-center text-xs font-semibold text-destructive">
+                        Password must be at least 8 characters.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {users.length === 0 ? (
+                <EmptyState
+                  title="No users found"
+                  description={userSearch ? 'Try a different search term.' : 'No users match these filters.'}
+                />
+              ) : (
+                <div className="flex-1 overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableHead className="font-semibold">User Name</TableHead>
+                        <TableHead className="font-semibold">Email</TableHead>
+                        <TableHead className="font-semibold">Department</TableHead>
+                        <TableHead className="font-semibold">Role</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">Last Login</TableHead>
+                        <TableHead className="pr-4 text-right font-semibold">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id} className="hover:bg-muted/30">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted">
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                  {user.initials}
+                                </span>
+                              </div>
+                              <span className="whitespace-nowrap font-medium text-foreground">
+                                {user.full_name || user.user_name}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{user.email ?? '—'}</TableCell>
+                          <TableCell>{user.department_name ?? '—'}</TableCell>
+                          <TableCell>{user.profile_name ?? '—'}</TableCell>
+                          <TableCell>
+                            <StatusBadge variant={user.status ? 'active' : 'inactive'} className="font-medium">
+                              {user.status ? 'Active' : 'Inactive'}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+                          </TableCell>
+                          <TableCell className="pr-4 text-right">
+                            {canAdminister && (
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Edit ${user.full_name}`}
+                                  className="size-8"
+                                  onClick={() => openUserForm(user)}
+                                >
+                                  <Edit2 className="size-4 text-muted-foreground" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Deactivate ${user.full_name}`}
+                                  className="size-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setConfirmUser(user)}
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
-              {/* Pagination */}
-              <div className="mt-auto flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/10 shrink-0">
+              {/* Pagination — real totals from the API. */}
+              <div className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-muted/10 px-6 py-4">
                 <span className="text-sm text-muted-foreground">
-                  Showing 1 to 6 of 3,248 users
+                  {userMeta.total === 0
+                    ? 'No users'
+                    : `Showing ${(userMeta.current_page - 1) * userMeta.per_page + 1} to ${Math.min(
+                        userMeta.current_page * userMeta.per_page,
+                        userMeta.total,
+                      )} of ${userMeta.total.toLocaleString()} users`}
                 </span>
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" className="size-8 text-muted-foreground bg-background" disabled>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Previous page"
+                      className="size-8"
+                      disabled={userPage <= 1}
+                      onClick={() => setUserPage(userPage - 1)}
+                    >
                       <ChevronLeft className="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="size-8 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground">1</Button>
-                    <Button variant="outline" size="icon" className="size-8 bg-background">2</Button>
-                    <Button variant="outline" size="icon" className="size-8 bg-background">3</Button>
-                    <span className="px-2 text-muted-foreground">...</span>
-                    <Button variant="outline" size="icon" className="size-8 bg-background">542</Button>
-                    <Button variant="outline" size="icon" className="size-8 bg-background">
+                    <span className="px-2 text-sm font-medium">
+                      {userMeta.current_page} / {userMeta.last_page}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Next page"
+                      className="size-8"
+                      disabled={userPage >= userMeta.last_page}
+                      onClick={() => setUserPage(userPage + 1)}
+                    >
                       <ChevronRight className="size-4" />
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page:</span>
-                    <select className="h-8 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none">
-                      <option>10</option>
-                      <option>20</option>
-                      <option>50</option>
-                    </select>
+                    <span className="text-sm text-muted-foreground">Rows:</span>
+                    <div className="w-20">
+                      <Select
+                        options={[
+                          { label: '10', value: '10' },
+                          { label: '20', value: '20' },
+                          { label: '50', value: '50' },
+                        ]}
+                        value={String(userPerPage)}
+                        onChange={(v) => setUserPerPage(Number(v))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </Card>
           )}
 
-          {activeTab !== 'users' && (
-            <Card className="shadow-sm border-border/60 p-12 flex flex-col items-center justify-center text-center">
-              <Settings className="size-12 text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-semibold text-foreground">Configuration Module</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                This section handles {TABS.find(t => t.id === activeTab)?.label.toLowerCase()} configuration and management.
-              </p>
-              <Button variant="outline" className="mt-6">Configure {TABS.find(t => t.id === activeTab)?.label}</Button>
-            </Card>
+          {tab === 'roles' && <RolesPanel governance={governance} />}
+          {tab === 'trainers' && <TrainersPanel governance={governance} />}
+          {tab === 'vendors' && <VendorsPanel governance={governance} />}
+          {tab === 'integrations' && <IntegrationsPanel governance={governance} />}
+          {tab === 'audit' && <AuditPanel governance={governance} />}
+
+          {/* ── Settings ── */}
+          {tab === 'settings' && (
+            <div className="flex flex-col gap-6">
+              <Card className="border-border/60 shadow-sm">
+                <CardHeader className="border-b border-border/60 pb-3">
+                  <CardTitle className="text-base">Institute Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4 p-5 md:grid-cols-4">
+                  {[
+                    ['Users', kpis?.users ?? 0],
+                    ['Active users', kpis?.active_users ?? 0],
+                    ['Roles', kpis?.roles ?? 0],
+                    ['Rights assigned', kpis?.permissions ?? 0],
+                    ['Trainers', trainers.length],
+                    ['Vendors', vendors.length],
+                    ['Integrations', integrations.length],
+                    ['Audit events (30d)', kpis?.audit_logs ?? 0],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="flex flex-col">
+                      <span className="text-2xl font-bold tracking-tight">{value}</span>
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 shadow-sm">
+                <CardHeader className="border-b border-border/60 pb-3">
+                  <CardTitle className="text-base">Contracts Needing Attention</CardTitle>
+                </CardHeader>
+                <CardContent className="p-5">
+                  {expiringVendors.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No vendor contracts are expiring or overdue.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col divide-y divide-border/50">
+                      {expiringVendors.map((vendor) => (
+                        <div key={vendor.id} className="flex items-center justify-between py-3">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground">{vendor.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Ends {vendor.contract_end}
+                            </span>
+                          </div>
+                          <StatusBadge
+                            variant={vendor.contract_state === 'expired' ? 'error' : 'pending'}
+                          >
+                            {vendor.contract_state}
+                          </StatusBadge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
 
-        {/* Right Sidebar - Quick Actions & Health */}
+        {/* Right rail */}
         <div className="flex flex-col gap-6">
-          <Card className="shadow-sm border-border/60 shrink-0">
-            <CardHeader className="pb-3 border-b border-border/60">
+          <Card className="shrink-0 border-border/60 shadow-sm">
+            <CardHeader className="border-b border-border/60 pb-3">
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-col">
-                {QUICK_ACTIONS.map((action, i) => {
+                {quickActions.map((action) => {
                   const Icon = action.icon
                   return (
-                    <button 
-                      key={i}
-                      className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-b border-border/60 last:border-0"
+                    <button
+                      key={action.label}
+                      onClick={action.run}
+                      className="flex w-full items-center gap-3 border-b border-border/60 px-5 py-3.5 text-sm font-medium text-muted-foreground transition-colors last:border-0 hover:bg-muted/50 hover:text-foreground"
                     >
                       <Icon className="size-4 shrink-0" />
                       {action.label}
@@ -325,36 +690,69 @@ export function LmsGovernance() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-border/60 flex-1 flex flex-col">
-            <CardHeader className="pb-3 border-b border-border/60 shrink-0">
+          <Card className="flex flex-1 flex-col border-border/60 shadow-sm">
+            <CardHeader className="shrink-0 border-b border-border/60 pb-3">
               <CardTitle className="text-base">System Health</CardTitle>
             </CardHeader>
-            <CardContent className="p-5 flex flex-col gap-4 flex-1">
-              {SYSTEM_HEALTH.map((item, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {i === 0 ? <Key className="size-4 text-muted-foreground" /> :
-                     i === 1 ? <Activity className="size-4 text-muted-foreground" /> :
-                     i === 2 ? <Building2 className="size-4 text-muted-foreground" /> :
-                     <ShieldCheck className="size-4 text-muted-foreground" />}
-                    <span className="text-sm font-medium text-foreground">{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="size-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-semibold text-muted-foreground">{item.status}</span>
-                  </div>
-                </div>
-              ))}
-              
-              <div className="mt-auto pt-4 border-t border-border/60 shrink-0">
-                <Button variant="link" className="p-0 h-auto text-primary font-semibold text-sm gap-1">
-                  View System Status <ExternalLink className="size-3" />
-                </Button>
-              </div>
+            <CardContent className="flex flex-1 flex-col gap-4 p-5">
+              {loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : health.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Health checks are unavailable.</p>
+              ) : (
+                health.map((check) => {
+                  const Icon = HEALTH_ICON[check.status as HealthStatus] ?? Activity
+                  return (
+                    <div key={check.key} className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Icon className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {check.label}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5" title={check.detail}>
+                        <div
+                          className={cn(
+                            'size-2 rounded-full',
+                            HEALTH_DOT[check.status as HealthStatus] ?? 'bg-muted-foreground/40',
+                          )}
+                        />
+                        <span className="max-w-[120px] truncate text-xs font-semibold text-muted-foreground">
+                          {check.detail}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Deactivate confirmation */}
+      {confirmUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-foreground">Deactivate this user?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {confirmUser.full_name} will lose access immediately. Their enrolments, progress and
+              certificates are kept, so this can be reversed by an administrator.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmUser(null)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button
+                disabled={saving}
+                onClick={() => void removeUser(confirmUser.id).then(() => setConfirmUser(null))}
+              >
+                {saving ? 'Deactivating…' : 'Deactivate'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
