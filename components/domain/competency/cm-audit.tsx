@@ -316,7 +316,7 @@ export function CmAudit() {
 
   const openRecord = (entry: Pick<AuditEntry, 'submenu_id'>) => {
     if (!entry.submenu_id) return
-    router.push(`/module/m2/${entry.submenu_id}/${entry.submenu_id}`)
+    router.push(`/module/competency-management/${entry.submenu_id}/${entry.submenu_id}`)
   }
 
   const withOption = (options: { value: string; label: string; count?: number }[] | undefined, allLabel: string) => [

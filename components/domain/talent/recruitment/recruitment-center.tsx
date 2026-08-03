@@ -890,7 +890,7 @@ export function RecruitmentCenter() {
                       <DropdownMenuContent>
                         <DropdownMenuItem onClick={() => { setSelectedOfferRecord(offerRecords.find((record) => String(record.id) === offer.id) ?? null); setActiveAction('offer-view') }}>View details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => window.open(recruitmentService.offerLetterUrl(offer.id), '_blank', 'noopener,noreferrer')}>View offer letter</DropdownMenuItem>
-                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/m3/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
+                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/talent-management/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
                         {offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
                           title: 'Reject this offer?',
                           description: 'The offer status will be changed to rejected.',

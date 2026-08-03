@@ -57,7 +57,7 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon; kind: QuickCreateKind }[
 ]
 
 // Where each tile / ring / queue "view" affordance navigates. Every target is an
-// existing competency screen (module m2; leaf menus route to /module/m2/{id}/{id}).
+// existing competency screen (module competency-management; leaf menus route to /module/competency-management/{id}/{id}).
 const SUMMARY_TARGET: Record<string, string> = {
   competencies: 'cm-competency-library',
   frameworks: 'cm-framework-mapping',
@@ -352,8 +352,8 @@ export function CmCommandCenter() {
   }
 
   const router = useRouter()
-  // Navigate to a sibling competency screen (all are module m2 leaf menus).
-  const go = (submenuId: string) => router.push(`/module/m2/${submenuId}/${submenuId}`)
+  // Navigate to a sibling competency screen (all are module competency-management leaf menus).
+  const go = (submenuId: string) => router.push(`/module/competency-management/${submenuId}/${submenuId}`)
 
   const filterConfig: { key: keyof CompetencyFilters; label: string; options: CompetencyFilterOption[] }[] = [
     { key: 'business_unit', label: 'Business Unit', options: filterOptions?.business_units ?? [] },

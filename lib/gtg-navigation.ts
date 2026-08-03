@@ -88,7 +88,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     menus: [],
   },
   {
-    id: 'm1',
+    id: 'organizational-management',
     label: 'Organizational Management',
     short: 'M1',
     icon: Network,
@@ -124,7 +124,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     ],
   },
   {
-    id: 'm2',
+    id: 'competency-management',
     label: 'Competency Management',
     short: 'M2',
     icon: Library,
@@ -143,7 +143,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     ],
   },
   {
-    id: 'm3',
+    id: 'talent-management',
     label: 'Talent Management',
     short: 'M3',
     icon: UserPlus,
@@ -159,7 +159,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     ],
   },
   {
-    id: 'm4',
+    id: 'lms',
     label: 'LMS',
     short: 'M4',
     icon: BookOpen,
@@ -196,7 +196,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     ],
   },
   {
-    id: 'm5',
+    id: 'hrit-solutions',
     label: 'HRIT Solutions',
     short: 'M5',
     icon: CalendarClock,
@@ -237,7 +237,7 @@ export const GTG_NAVIGATION: NavModule[] = [
     ],
   },
   {
-    id: 'm6',
+    id: 'task-management',
     label: 'Task Management',
     short: 'TM',
     icon: ListChecks,

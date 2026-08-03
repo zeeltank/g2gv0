@@ -1104,7 +1104,7 @@ export function OnboardingCenter() {
                 setEditingJourney(journey)
                 setJourneySheetOpen(true)
               }}
-              onViewEmployee={() => router.push('/module/m1/organization/employee-directory')}
+              onViewEmployee={() => router.push('/module/organizational-management/organization/employee-directory')}
               onOpenDocuments={() => setDocumentsOpen(true)}
               onOpenContacts={() => setContactsOpen(true)}
               onOpenNotes={() => setNotesOpen(true)}

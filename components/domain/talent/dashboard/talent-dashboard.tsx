@@ -218,7 +218,7 @@ function DashboardSkeleton() {
 
 /** Menus without submenus route to themselves - see getRoutePath in the shell. */
 function moduleHref(menuId: string, query?: string) {
-  return `/module/m3/${menuId}/${menuId}${query ? `?${query}` : ''}`
+  return `/module/talent-management/${menuId}/${menuId}${query ? `?${query}` : ''}`
 }
 
 export function TalentDashboard() {

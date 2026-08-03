@@ -4,13 +4,12 @@ export type { ContentRoute } from './use-content-map-utils'
 
 const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   m0: () => import('./content-map-m0').then((module) => module.M0_CONTENT),
-  m1: () => import('./content-map-m1').then((module) => module.M1_CONTENT),
-  m2: () => import('./content-map-m2').then((module) => module.M2_CONTENT),
-  m3: () => import('./content-map-m3').then((module) => module.M3_CONTENT),
-  m4: () => import('./content-map-m4').then((module) => module.M4_CONTENT),
-  m5: () => import('./content-map-m5').then((module) => module.M5_CONTENT),
-  m6: () => import('./content-map-m6').then((module) => module.M6_CONTENT),
-  m7: () => import('./content-map-m7').then((module) => module.M7_CONTENT),
+  'organizational-management': () => import('./content-map-m1').then((module) => module.M1_CONTENT),
+  'competency-management': () => import('./content-map-m2').then((module) => module.M2_CONTENT),
+  'talent-management': () => import('./content-map-m3').then((module) => module.M3_CONTENT),
+  lms: () => import('./content-map-m4').then((module) => module.M4_CONTENT),
+  'hrit-solutions': () => import('./content-map-m5').then((module) => module.M5_CONTENT),
+  'task-management': () => import('./content-map-m6').then((module) => module.M6_CONTENT),
 }
 
 export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[] | undefined> {

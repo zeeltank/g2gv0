@@ -103,7 +103,7 @@ export function ModuleConfigurationPage() {
   }
 
   const handleViewOrganization = () => {
-    router.push('/module/m1/org-setup/org-profile')
+    router.push('/module/organizational-management/org-setup/org-profile')
   }
 
   return (
