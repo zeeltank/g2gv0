@@ -5,7 +5,6 @@
 
 import { apiClient, webClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { resolveHpApiBaseUrl, resolveHpApiKey } from '@/lib/api-config'
 import type {
   MyTask,
   MyTaskDetailResponse,
@@ -561,48 +560,38 @@ export const taskService = {
         syear: context.syear,
       },
     ),
-  getJobRoleTasks: async (context: LaravelContext, jobRoleId: string) => {
-    const hpBase = resolveHpApiBaseUrl()
-    const hpApiKey = resolveHpApiKey()
-    const subInstituteId = context.subInstituteId
-
-    const params = new URLSearchParams({
+  /**
+   * The catalogue tasks defined for one job role.
+   *
+   * Keyed by role NAME, not id: s_user_jobrole_task.jobrole stores the role's
+   * name ("Human Resources Specialists"), so matching it against the numeric
+   * id the dropdown carries never found anything.
+   */
+  getJobRoleTasks: async (context: LaravelContext, jobRoleName: string) => {
+    // Same authenticated /table_data call the rest of this service makes.
+    // This used to fetch a hardcoded hp.triz.co.in with an `api_key` param:
+    // /table_data accepts no such param - it wants a session or a Sanctum
+    // token - so the request 401'd, and on a dev machine it was asking
+    // production for the answer anyway.
+    const payload = await webClient.get<unknown>('/table_data', {
       table: 's_user_jobrole_task',
-      'filters[sub_institute_id]': subInstituteId,
-      group_by: 'jobrole',
+      // Filtered server-side. Fetching the tenant's whole catalogue to keep a
+      // handful of rows meant thousands of records over the wire per dropdown.
+      'filters[jobrole]': jobRoleName,
+      token: context.token,
     })
 
-    if (hpApiKey) {
-      params.set('api_key', hpApiKey)
-    }
+    // /table_data answers with a bare array on success and an object on
+    // refusal, so anything that is not an array means "no rows for you".
+    const records: Array<Record<string, unknown>> = Array.isArray(payload) ? payload : []
 
-    const url = `${hpBase}/table_data?${params.toString()}`
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`HP API error: ${response.status} ${body}`)
-    }
-
-    const rawData = await response.json()
-    const records = Array.isArray(rawData) ? rawData : []
-
-    const filtered = records.filter(
-      (record: Record<string, unknown>) =>
-        record.jobrole != null &&
-        record.task != null &&
-        String(record.jobrole) === jobRoleId,
-    )
-
-    const data = filtered.map((record: Record<string, unknown>) => ({
-      id: String(record.id ?? ''),
-      task_title: String(record.task ?? ''),
-      task_description: '',
-    }))
+    const data = records
+      .filter((record) => record.task != null)
+      .map((record) => ({
+        id: String(record.id ?? ''),
+        task_title: String(record.task ?? ''),
+        task_description: '',
+      }))
 
     return {
       status: 200,
