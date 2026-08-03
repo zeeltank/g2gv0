@@ -1115,6 +1115,7 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               saving={saving}
               categories={taxonomy.categories}
               subCategoriesOf={taxonomy.subCategoriesOf}
+              meta={meta}
               onSubmit={submitForm}
               onCancel={() => setFormOpen(false)}
               onSaved={() => setFormOpen(false)}

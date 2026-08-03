@@ -40,6 +40,9 @@ export interface MutationResult {
 
 const EMPTY_META: LibraryMeta = {
   departments: [],
+  sub_departments: [],
+  micro_categories: [],
+  industries: [],
   jobroles_by_department: {},
   proficiency_levels: [],
   invisible_types: [],

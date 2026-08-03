@@ -9,7 +9,9 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { cn } from '@/lib/utils'
 import { taskService } from '@/services/task'
+import { competencyLibrariesService } from '@/services/competency/libraries'
 import type { JobRoleTask } from '@/services/task'
+import type { DependencyType, ProjectRecord, Workstream } from '@/types/task-management'
 
 interface Props { isOpen: boolean; onClose: () => void; onCreated?: (message: string) => void }
 interface Employee { id: string; name: string; departmentId?: string }
@@ -17,6 +19,23 @@ interface JobRole { id: string; name: string; departmentId?: string; employees: 
 interface Skill { id: string; name: string }
 interface EmployeeTaskOption { value: string; label: string }
 type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
+
+/**
+ * Where a task's title comes from.
+ *
+ * `catalogue` picks a standard duty from the job role's task library - the
+ * repeatable, role-defined work. `custom` is for requirement-driven work that
+ * no catalogue entry covers, which is most project delivery. A custom title
+ * can be promoted into the library so the next person can pick it.
+ */
+type TitleSource = 'catalogue' | 'custom'
+
+const DEPENDENCY_TYPES: Array<{ value: DependencyType; label: string }> = [
+  { value: 'FS', label: 'Finish → Start (this starts after it finishes)' },
+  { value: 'SS', label: 'Start → Start (both start together)' },
+  { value: 'FF', label: 'Finish → Finish (both finish together)' },
+  { value: 'SF', label: 'Start → Finish (this finishes after it starts)' },
+]
 
 export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   const [directory, setDirectory] = useState<Record<string, JobRole[]>>({})
@@ -28,6 +47,21 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   const [title, setTitle] = useState(''); const [description, setDescription] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [taskSearch, setTaskSearch] = useState('')
+  // Title source, and whether a typed title should join the role's library.
+  const [titleSource, setTitleSource] = useState<TitleSource>('catalogue')
+  const [saveToLibrary, setSaveToLibrary] = useState(false)
+  // Project delivery: which project/workstream the task belongs to, and what
+  // it waits on. Dependencies are only legal between tasks in one project,
+  // which is why the predecessor list is scoped to the chosen project.
+  const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [projectId, setProjectId] = useState('')
+  const [workstreams, setWorkstreams] = useState<Workstream[]>([])
+  const [workstreamId, setWorkstreamId] = useState('')
+  const [projectTasks, setProjectTasks] = useState<EmployeeTaskOption[]>([])
+  const [dependsOn, setDependsOn] = useState<string[]>([])
+  const [dependencyType, setDependencyType] = useState<DependencyType>('FS')
+  const [lagDays, setLagDays] = useState('0')
+  const [projectLoading, setProjectLoading] = useState(false)
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTaskOption[]>([])
   const [employeeTasksLoading, setEmployeeTasksLoading] = useState(false)
@@ -90,9 +124,38 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       })))
     }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to load assignment options.'))
       .finally(() => setLoading(false))
+
+    // Projects are optional, so a failure here must not block the form.
+    taskService.getProjectRecords(context, { perPage: 100 })
+      .then((response) => { if (!cancelled) setProjects(response.data.projects ?? []) })
+      .catch(() => { /* the task can still be created without a project */ })
     })
     return () => { cancelled = true }
   }, [isOpen])
+
+  // Workstreams and candidate predecessors both belong to the chosen project,
+  // so they load together whenever it changes.
+  async function chooseProject(nextProjectId: string) {
+    setProjectId(nextProjectId); setWorkstreamId(''); setWorkstreams([])
+    setDependsOn([]); setProjectTasks([])
+    if (!nextProjectId) return
+    setProjectLoading(true)
+    try {
+      const context = getLaravelContext()
+      const response = await taskService.getProjectRecord(context, nextProjectId)
+      setWorkstreams(response.data.workstreams ?? [])
+      const ids = response.data.task_ids ?? []
+      if (ids.length) {
+        const tasks = await taskService.getWorkspace(context, { perPage: 100 })
+        const inProject = new Set(ids.map(String))
+        setProjectTasks(tasks.data.tasks
+          .filter((task) => inProject.has(String(task.id)))
+          .map((task) => ({ value: String(task.id), label: task.title })))
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load this project.')
+    } finally { setProjectLoading(false) }
+  }
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
@@ -181,10 +244,72 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
+    setTitleSource('catalogue'); setSaveToLibrary(false)
+    setProjectId(''); setWorkstreams([]); setWorkstreamId(''); setProjectTasks([])
+    setDependsOn([]); setDependencyType('FS'); setLagDays('0')
     submissionKey.current = ''
     if (attachmentRef.current) attachmentRef.current.value = ''
   }
   function close() { reset(); onClose() }
+
+  /**
+   * Put the new tasks into their project, then wire their dependencies.
+   *
+   * The order is forced by the API: a dependency is rejected unless both
+   * tasks already share a project, so linking has to finish first. The task
+   * itself is already saved by this point, so a failure here is reported as a
+   * partial success rather than being thrown - losing the task would be worse
+   * than losing its project link.
+   *
+   * Returns a sentence to append to the success message, or '' if nothing
+   * extra happened.
+   */
+  async function linkProjectAndDependencies(createdIds: string[]): Promise<string> {
+    if (!projectId || !createdIds.length) return ''
+    const context = getLaravelContext()
+    try {
+      for (const taskId of createdIds) {
+        await taskService.attachTaskToProject(context, projectId, taskId, workstreamId || undefined)
+      }
+      if (!dependsOn.length) return `Linked to the project.`
+
+      let created = 0
+      for (const taskId of createdIds) {
+        for (const predecessorId of dependsOn) {
+          await taskService.createDependency(context, {
+            predecessor_task_id: predecessorId, successor_task_id: taskId,
+            dependency_type: dependencyType, lag_days: Number(lagDays) || 0,
+            project_id: projectId,
+          })
+          created += 1
+        }
+      }
+      return `Linked to the project with ${created} dependenc${created === 1 ? 'y' : 'ies'}.`
+    } catch (reason) {
+      setError(`The task was created, but linking it to the project failed: ${reason instanceof Error ? reason.message : 'unknown error'}`)
+      return ''
+    }
+  }
+
+  /**
+   * Add a typed title to this job role's task catalogue so it can be reused.
+   *
+   * Best-effort: the task itself is already created, and failing to file it in
+   * the library is not a reason to report the assignment as failed.
+   */
+  async function saveTitleToLibrary() {
+    const roleName = roles.find((role) => role.id === jobRole)?.name
+    if (!roleName) return
+    try {
+      await competencyLibrariesService.create(getLaravelContext(), 'jobrole-task', {
+        task: title.trim(),
+        jobrole: roleName,
+        task_type: priority,
+      })
+    } catch {
+      setError('The task was created, but it could not be added to the Job Role Task library.')
+    }
+  }
 
   async function submit() {
     if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !observerId) { setError('Select employees or a department, then enter task title, observer, priority, and repeat-until date.'); return }
@@ -205,7 +330,17 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
         await notifyAssignedUsers(assignees)
         void sendAssignmentWebhook(response.task_id ?? response.taskId ?? response.id ?? response.data?.task_id ?? response.data?.taskId ?? response.data?.id)
       }
-      onCreated?.(response.message); close()
+
+      // One submit can create several rows (a recurring task becomes one per
+      // date), and every one of them belongs to the project.
+      const createdIds = (response.task_ids ?? []).map(String).filter(Boolean)
+      const followUp = await linkProjectAndDependencies(createdIds)
+
+      if (titleSource === 'custom' && saveToLibrary && jobRole) {
+        await saveTitleToLibrary()
+      }
+
+      onCreated?.(followUp ? `${response.message} ${followUp}` : response.message); close()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create task.') }
     finally { setSaving(false) }
   }
@@ -362,12 +497,31 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     {loading ? <div className="p-12 text-center">Loading assignment options…</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
-       <Field label="Task Title *"><div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No tasks available'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
+       <Field label="Task Title *">
+       {/* Catalogue work is a standard duty of the role; custom work comes from
+           a requirement no catalogue entry covers. Both end up as the same task
+           - only where the title comes from differs. */}
+       <div className="mb-2 flex w-fit items-center rounded-lg border bg-muted/30 p-0.5 text-xs font-medium">
+         {([['catalogue', 'From job role'], ['custom', 'Custom task']] as const).map(([value, label]) =>
+           <button key={value} type="button" onClick={() => { setTitleSource(value); setTitle(''); setTaskSearch(''); setSelectedTaskId(''); setDescription(''); setSaveToLibrary(false); setTaskDropdownOpen(false) }}
+             className={cn('rounded-md px-3 py-1.5 transition', titleSource === value ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{label}</button>)}
+       </div>
+       {titleSource === 'custom'
+         ? <div className="space-y-2">
+             <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Describe the task to be done" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
+             {/* Promotes a one-off title into the role's library so the next
+                 person assigning this role can pick it from the list. */}
+             <label className="flex items-center gap-2 text-xs text-muted-foreground">
+               <input type="checkbox" checked={saveToLibrary} disabled={!jobRole} onChange={(event) => setSaveToLibrary(event.target.checked)} />
+               Also save to the Job Role Task library{!jobRole && ' (select a job role first)'}
+             </label>
+           </div>
+         : <div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No catalogue tasks — use Custom task'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
          {!taskTitlesLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} task(s)</div>}
          {taskDropdownOpen && employeeTasks.length > 0 && <div className="absolute right-0 z-50 mt-1 max-h-80 min-w-[460px] overflow-y-auto rounded-xl border bg-popover p-2 shadow-xl">{employeeTasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase())).map((task) => <button key={task.value} type="button" onClick={() => { const jobRoleTask = jobRoleTasks.find((t) => t.id === task.value); setSelectedTaskId(task.value); setTitle(task.label); setTaskSearch(task.label); setDescription(jobRoleTask?.task_description ?? ''); setTaskDropdownOpen(false) }} className={cn('block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted', selectedTaskId === task.value && 'bg-primary/10 text-primary')}>{task.label}</button>)}</div>}
-         {!taskTitlesLoading && jobRole && !employeeTasks.length && !employeeTasksError && <p className="mt-1.5 text-xs text-muted-foreground">No tasks available for the selected job role.</p>}
+         {!taskTitlesLoading && jobRole && !employeeTasks.length && !employeeTasksError && <p className="mt-1.5 text-xs text-muted-foreground">This job role has no catalogue tasks yet — switch to “Custom task”.</p>}
          {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
-       </div></Field>
+       </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
        <Field label="Assign To *"><Select value={assignees[0] ?? ''} onChange={(userId) => void chooseAssignees(userId ? [userId] : [])} options={departmentEmployees.map((employee) => ({ value: employee.id, label: employee.name }))} disabled={!department || !departmentEmployees.length} placeholder={!department ? 'Select a department first' : departmentEmployees.length ? 'Select an employee' : 'No employees in this department'} /></Field>
       <Field label="Repeat Once in every *" span={4}><Select value={repeatDays} onChange={setRepeatDays} options={Array.from({ length: 14 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} day${index ? 's' : ''}` }))} /></Field>
@@ -379,6 +533,41 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
       <Field label="Attachment" span={4}><div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
       <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
+
+      {/* Project delivery. Optional: routine role work belongs to nobody's
+          project. A dependency is only legal between two tasks in the same
+          project, so the predecessor list stays empty until one is chosen. */}
+      <div className="col-span-full rounded-xl border bg-muted/10 p-4">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold">Project delivery <span className="font-normal text-muted-foreground">(optional)</span></h3>
+          <p className="text-xs text-muted-foreground">Link this task to a project so it appears on the project board and can wait on other tasks.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+          <Field label="Project" span={4}>
+            <Select value={projectId} onChange={(value) => void chooseProject(value)}
+              options={projects.map((project) => ({ value: project.id, label: `${project.code} · ${project.name}` }))}
+              placeholder={projects.length ? 'No project' : 'No projects available'} disabled={!projects.length} />
+          </Field>
+          <Field label="Workstream" span={4}>
+            <Select value={workstreamId} onChange={setWorkstreamId}
+              options={workstreams.map((workstream) => ({ value: workstream.id, label: workstream.name }))}
+              disabled={!projectId || projectLoading || !workstreams.length}
+              placeholder={!projectId ? 'Select a project first' : projectLoading ? 'Loading…' : workstreams.length ? 'No workstream' : 'This project has no workstreams'} />
+          </Field>
+          <Field label="Dependency type" span={4}>
+            <Select value={dependencyType} onChange={(value) => setDependencyType(value as DependencyType)}
+              options={DEPENDENCY_TYPES} disabled={!dependsOn.length} />
+          </Field>
+          <Field label="Waits for" span={8}>
+            <Multi items={projectTasks.map((task) => ({ id: task.value, name: task.label }))}
+              selected={dependsOn} onChange={setDependsOn} disabled={!projectId || projectLoading}
+              emptyText={!projectId ? 'Select a project first' : 'This project has no other tasks yet'} />
+          </Field>
+          <Field label="Lag (days)" span={4}>
+            <Input type="number" value={lagDays} onChange={setLagDays} disabled={!dependsOn.length} />
+          </Field>
+        </div>
+      </div>
     </div>}
     </>}
     </div>
@@ -386,6 +575,6 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   </SheetContent></Sheet>
 }
 
-function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }
+function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 8 ? 'md:col-span-8' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }
 function Input({ value, onChange, type = 'text', min, disabled }: { value: string; onChange: (value: string) => void; type?: string; min?: string; disabled?: boolean }) { return <input type={type} min={min} disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm disabled:bg-muted" /> }
 function Multi({ items, selected, onChange, disabled = false, emptyText = 'No options available' }: { items: Array<{ id: string; name: string }>; selected: string[]; onChange: (ids: string[]) => void; disabled?: boolean; emptyText?: string }) { return <div className={cn('max-h-32 overflow-y-auto rounded-lg border p-2', disabled && 'cursor-not-allowed bg-muted opacity-60')}>{items.length ? items.map((item) => <label key={item.id} className="flex gap-2 py-1 text-sm"><input type="checkbox" disabled={disabled} checked={selected.includes(item.id)} onChange={(event) => onChange(event.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} />{item.name}</label>) : <span className="text-xs text-muted-foreground">{emptyText}</span>}</div> }

@@ -37,9 +37,37 @@ export interface LibraryFieldDef {
   readOnly?: boolean
   /** Options come from this tab's taxonomy rather than a static list. */
   taxonomy?: 'category' | 'sub_category'
+  /**
+   * Options come from the tenant's live data (library metadata) rather than a
+   * fixed list. Free-typing these columns is how the same department ends up
+   * spelled three ways and how a job role task gets filed against a role that
+   * does not exist.
+   *
+   * `jobroles` is enforced as a strict choice - the value has to match a real
+   * role name exactly or the Add Task drawer will never find the task. The
+   * others suggest known values but still accept a new one, so the first
+   * skill in a brand new department is still possible.
+   */
+  source?:
+    | 'departments'
+    | 'sub_departments'
+    | 'micro_categories'
+    | 'industries'
+    | 'jobroles'
+    | 'proficiency_levels'
+    | 'task_types'
+    | 'invisible_types'
   placeholder?: string
   /** Rendered under the field in the form. */
   help?: string
+  /**
+   * Show in the form's collapsed "More details" section.
+   *
+   * The Skill tab alone has twenty-one columns. Presenting all of them at once
+   * to add one skill buries the four that actually matter, so anything not
+   * needed to create a usable row lives behind a disclosure.
+   */
+  advanced?: boolean
 }
 
 /** Re-exported so a tab config and the grid agree on the vocabulary. */
@@ -79,9 +107,11 @@ function kasaFields(extra: LibraryFieldDef[]): LibraryFieldDef[] {
     { key: 'category', label: 'Category', taxonomy: 'category', type: 'select', column: true, width: 'w-48' },
     { key: 'sub_category', label: 'Sub Category', taxonomy: 'sub_category', type: 'select', column: true, width: 'w-48' },
     { key: 'description', label: 'Description', type: 'textarea', column: true },
-    { key: 'assessment_method', label: 'Assessment Method', placeholder: 'e.g. MCQ, Case study' },
-    { key: 'business_link', label: 'Reference Link', type: 'url', placeholder: 'https://…' },
-    ...extra,
+    { key: 'assessment_method', label: 'Assessment Method', placeholder: 'e.g. MCQ, Case study', advanced: true },
+    { key: 'business_link', label: 'Reference Link', type: 'url', placeholder: 'https://…', advanced: true },
+    // The per-tab specialised columns are all elaboration on a row that is
+    // already usable with a title, a category and a description.
+    ...extra.map((field) => ({ ...field, advanced: true })),
   ]
 }
 
@@ -124,24 +154,36 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     { key: 'category', label: 'Category', taxonomy: 'category', type: 'select', column: true, width: 'w-48' },
     { key: 'sub_category', label: 'Sub Category', taxonomy: 'sub_category', type: 'select', column: true, width: 'w-48' },
     { key: 'description', label: 'Description', type: 'textarea', column: true },
-    { key: 'department', label: 'Department', column: true, width: 'w-44' },
-    { key: 'skill_code', label: 'Skill Code', placeholder: 'e.g. SAF-014' },
-    { key: 'competency_type', label: 'Competency Type', placeholder: 'e.g. Technical, Behavioural' },
-    { key: 'skill_importance', label: 'Importance', placeholder: 'e.g. Critical' },
-    { key: 'proficiency_level', label: 'Proficiency Levels', type: 'textarea', help: 'The levels this competency is rated against.' },
-    { key: 'related_skills', label: 'Related Skills', type: 'textarea' },
-    { key: 'sub_skills', label: 'Sub Skills', type: 'textarea' },
-    { key: 'job_titles', label: 'Job Titles', type: 'textarea' },
-    { key: 'learning_resources', label: 'Learning Resources', type: 'textarea' },
-    { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation, MCQ' },
-    { key: 'certification_qualifications', label: 'Certifications', type: 'textarea' },
-    { key: 'legal_compliance_relevance', label: 'Legal / Compliance Relevance', type: 'textarea' },
-    { key: 'sop_practice_link', label: 'SOP / Practice Link', type: 'url', placeholder: 'https://…' },
-    { key: 'performance_metrics', label: 'Performance Metrics', type: 'textarea' },
-    { key: 'common_errors_tips', label: 'Common Errors & Tips', type: 'textarea' },
-    { key: 'sme_contacts', label: 'SME Contacts', type: 'textarea' },
-    { key: 'bussiness_links', label: 'Business Link', type: 'url', placeholder: 'https://…' },
-    { key: 'custom_tags', label: 'Custom Tags', type: 'textarea' },
+    { key: 'department', label: 'Department', source: 'departments', column: true, width: 'w-44' },
+    { key: 'sub_department', label: 'Sub Department', source: 'sub_departments', help: 'The second level below department.' },
+    // Category > Sub Category > Micro Category. The first two came from the
+    // taxonomy panel; the third is a free column, so it is offered from what
+    // already exists rather than left to drift.
+    { key: 'micro_category', label: 'Micro Category', source: 'micro_categories', help: 'The third level below sub category.' },
+    { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], column: true, width: 'w-28' },
+    { key: 'skill_status', label: 'Skill Status', type: 'select', options: ['Active', 'Futuristic'], help: 'Futuristic marks a skill the organisation is building towards.' },
+    { key: 'skill_code', label: 'Skill Code', placeholder: 'e.g. SAF-014', advanced: true },
+    { key: 'competency_type', label: 'Competency Type', placeholder: 'e.g. Technical, Behavioural', advanced: true },
+    { key: 'skill_importance', label: 'Importance', placeholder: 'e.g. Critical', advanced: true },
+    { key: 'proficiency_level', label: 'Proficiency Levels', type: 'textarea', help: 'The levels this competency is rated against.', advanced: true },
+    { key: 'related_skills', label: 'Related Skills', type: 'textarea', advanced: true },
+    { key: 'sub_skills', label: 'Sub Skills', type: 'textarea', advanced: true },
+    { key: 'job_titles', label: 'Job Titles', type: 'textarea', advanced: true },
+    { key: 'learning_resources', label: 'Learning Resources', type: 'textarea', advanced: true },
+    { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation, MCQ', advanced: true },
+    { key: 'certification_qualifications', label: 'Certifications', type: 'textarea', advanced: true },
+    { key: 'legal_compliance_relevance', label: 'Legal / Compliance Relevance', type: 'textarea', advanced: true },
+    { key: 'sop_practice_link', label: 'SOP / Practice Link', type: 'url', placeholder: 'https://…', advanced: true },
+    { key: 'performance_metrics', label: 'Performance Metrics', type: 'textarea', advanced: true },
+    { key: 'common_errors_tips', label: 'Common Errors & Tips', type: 'textarea', advanced: true },
+    { key: 'sme_contacts', label: 'SME Contacts', type: 'textarea', advanced: true },
+    { key: 'bussiness_links', label: 'Business Link', type: 'url', placeholder: 'https://…', advanced: true },
+    { key: 'custom_tags', label: 'Custom Tags', type: 'textarea', advanced: true },
+    // Populated on almost every row in the data but unreachable from this form
+    // until now, so a skill could be read but never maintained here.
+    { key: 'skill_flow', label: 'Skill Flow', type: 'textarea', help: 'The steps this skill is performed in.', advanced: true },
+    { key: 'tasklist', label: 'Task List', type: 'textarea', help: 'The concrete tasks this skill covers.', advanced: true },
+    { key: 'experience_project', label: 'Experience / Project', type: 'textarea', help: 'Where someone demonstrates this skill in practice.', advanced: true },
   ],
 }
 
@@ -167,18 +209,23 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
     ],
     fields: [
       { key: 'jobrole', label: 'Job Role', required: true, column: true, hideInDetail: true, placeholder: 'e.g. Staff Nurse' },
-      { key: 'department', label: 'Department', column: true, width: 'w-48' },
+      // The department that owns the role. Suggested from the roles that
+      // already exist, but a genuinely new department must still be typeable.
+      { key: 'department', label: 'Department', source: 'departments', column: true, width: 'w-48' },
+      { key: 'sub_department', label: 'Sub Department', source: 'sub_departments', help: 'The second level below department.' },
       { key: 'jobrole_category', label: 'Role Category', taxonomy: 'category', type: 'select', column: true, width: 'w-44' },
+      { key: 'industries', label: 'Industry', source: 'industries' },
       { key: 'description', label: 'Description', type: 'textarea', column: true },
-      { key: 'performance_expectation', label: 'Performance Expectation', type: 'textarea', column: true },
-      { key: 'job_level', label: 'Job Level', placeholder: 'e.g. L3' },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], column: true, width: 'w-28' },
-      { key: 'responsibilities', label: 'Responsibilities', type: 'textarea' },
-      { key: 'education', label: 'Education' },
-      { key: 'experience', label: 'Experience' },
-      { key: 'training', label: 'Training' },
-      { key: 'related_jobrole', label: 'Related Roles', help: 'Comma separated.' },
-      { key: 'keyword_tags', label: 'Tags', help: 'Comma separated.' },
+      { key: 'performance_expectation', label: 'Performance Expectation', type: 'textarea', column: true, advanced: true },
+      { key: 'job_level', label: 'Job Level', placeholder: 'e.g. L3', advanced: true },
+      { key: 'responsibilities', label: 'Responsibilities', type: 'textarea', advanced: true },
+      { key: 'education', label: 'Education', advanced: true },
+      { key: 'experience', label: 'Experience', advanced: true },
+      { key: 'training', label: 'Training', advanced: true },
+      { key: 'related_jobrole', label: 'Related Roles', help: 'Comma separated.', advanced: true },
+      { key: 'keyword_tags', label: 'Tags', help: 'Comma separated.', advanced: true },
+      { key: 'sequence_order', label: 'Sequence Order', help: 'Where this role sits in the department listing.', advanced: true },
     ],
   },
   {
@@ -201,7 +248,20 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
     ],
     fields: [
       { key: 'task', label: 'Task', required: true, type: 'textarea', column: true, hideInDetail: true, placeholder: 'What the role has to do' },
-      { key: 'jobrole', label: 'Job Role', column: true, width: 'w-52' },
+      // Must be a real role name, chosen not typed. This column is the only
+      // link between a task and its role - Task Management matches it against
+      // the role name verbatim - so a typo files the task against a role that
+      // does not exist and it silently disappears from the Add Task drawer.
+      {
+        key: 'jobrole',
+        label: 'Job Role',
+        required: true,
+        type: 'select',
+        source: 'jobroles',
+        column: true,
+        width: 'w-52',
+        help: 'Task Management matches this name exactly. Create the role in the Job Role tab first if it is missing.',
+      },
       { key: 'critical_work_function', label: 'Critical Work Function', column: true, width: 'w-52' },
       { key: 'task_category', label: 'Task Category', taxonomy: 'category', type: 'select', column: true, width: 'w-40' },
       {
@@ -212,8 +272,8 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
         column: true,
         width: 'w-28',
       },
-      { key: 'track', label: 'Track' },
-      { key: 'sector', label: 'Sector' },
+      { key: 'track', label: 'Track', advanced: true },
+      { key: 'sector', label: 'Sector', advanced: true },
     ],
   },
   {
@@ -353,12 +413,12 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
         column: true,
         width: 'w-32',
       },
-      { key: 'purpose', label: 'Purpose', type: 'textarea' },
-      { key: 'when_to_use', label: 'When To Use', type: 'textarea' },
-      { key: 'benefits', label: 'Benefits', type: 'textarea' },
-      { key: 'limitations', label: 'Limitations', type: 'textarea' },
-      { key: 'example_use_case', label: 'Example Use Case', type: 'textarea' },
-      { key: 'tags', label: 'Tags', help: 'Comma separated.' },
+      { key: 'purpose', label: 'Purpose', type: 'textarea', advanced: true },
+      { key: 'when_to_use', label: 'When To Use', type: 'textarea', advanced: true },
+      { key: 'benefits', label: 'Benefits', type: 'textarea', advanced: true },
+      { key: 'limitations', label: 'Limitations', type: 'textarea', advanced: true },
+      { key: 'example_use_case', label: 'Example Use Case', type: 'textarea', advanced: true },
+      { key: 'tags', label: 'Tags', help: 'Comma separated.', advanced: true },
     ],
   },
 ]
