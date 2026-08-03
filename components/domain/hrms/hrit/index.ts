@@ -5,3 +5,4 @@
 
 export * from './attendance-management'
 export * from './leave-management'
+export * from './payroll-management'
