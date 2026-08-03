@@ -97,11 +97,15 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   const roles = directory[department] ?? []
-  const departmentEmployees = department
-    ? observers.filter((emp) => emp.departmentId === department)
+  // `department` is the department's NAME (it keys `directory`), while an
+  // employee carries a numeric department_id. Comparing the two matched
+  // nobody, so every department reported "No employees in this department".
+  // The id for the selected department comes off its job roles.
+  const departmentId = roles[0]?.departmentId ?? ''
+  const departmentEmployees = departmentId
+    ? observers.filter((emp) => emp.departmentId === departmentId)
     : []
   const employees = departmentEmployees
-  const departmentId = roles[0]?.departmentId ?? ''
   const selectedSkillNames = useMemo(() => skillIds.map((id) => skills.find((skill) => skill.id === id)?.name).filter((name): name is string => Boolean(name)), [skillIds, skills])
 
   async function chooseJobRole(roleId: string) {
@@ -109,10 +113,13 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription('')
   setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
   if (!roleId) return
+  // The task catalogue is keyed by role name, not by the id the Select carries.
+  const roleName = roles.find((role) => role.id === roleId)?.name
+  if (!roleName) return
   setTaskTitlesLoading(true); setError('')
   try {
     const context = getLaravelContext()
-    const response = await taskService.getJobRoleTasks(context, roleId)
+    const response = await taskService.getJobRoleTasks(context, roleName)
     const tasks = Array.isArray(response.data) ? response.data : []
     setJobRoleTasks(tasks)
     setEmployeeTasks(tasks.map((task) => ({
