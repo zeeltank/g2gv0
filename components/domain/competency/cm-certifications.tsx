@@ -35,6 +35,8 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useCompetencyFocus } from '@/hooks/use-competency-focus'
+import { CompetencyFocusBanner } from './competency-focus-banner'
 import { ErrorState } from '@/components/ui/error-state'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import {
@@ -730,6 +732,8 @@ export function CmCertifications() {
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false)
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
 
+  const { competencyId, competencyName, clearFocus } = useCompetencyFocus()
+
   // The tab pills are just preset filters on top of the filter bar.
   const tabParams: Partial<CertificationListParams> = useMemo(() => {
     if (activeTab === 'my') return { user_id_filter: user?.id ? String(user.id) : undefined }
@@ -754,9 +758,12 @@ export function CmCertifications() {
       direction,
       page,
       per_page: Number(perPage),
+      // Set when opened from a competency's detail panel.
+      competency_id: competencyId ?? undefined,
       ...tabParams,
     }),
     [
+      competencyId,
       search,
       statusFilter,
       complianceFilter,
@@ -951,6 +958,12 @@ export function CmCertifications() {
           </Button>
         </div>
       </div>
+
+      <CompetencyFocusBanner
+        competencyId={competencyId}
+        competencyName={competencyName}
+        onClear={clearFocus}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4">

@@ -33,6 +33,8 @@ import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useCompetencyFocus } from '@/hooks/use-competency-focus'
+import { CompetencyFocusBanner } from './competency-focus-banner'
 import { ErrorState } from '@/components/ui/error-state'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
@@ -639,15 +641,20 @@ function CareerPathForm({ initialId, saving, departments, onSubmit, onCancel, on
   const [steps, setSteps] = useState<string[]>(['', ''])
   const [error, setError] = useState<string | null>(null)
 
-  // Seed the form once the existing path arrives.
-  useEffect(() => {
-    if (!detail) return
+  // Seed the form once the existing path arrives. Keyed on the record's id
+  // and adjusted during render rather than in an effect: opening a different
+  // path re-seeds, but the user's own edits to the one on screen are never
+  // overwritten by a refetch returning the same record.
+  const [seededId, setSeededId] = useState<number | null>(null)
+
+  if (detail && seededId !== detail.id) {
+    setSeededId(detail.id)
     setName(detail.name)
     setDescription(detail.description ?? '')
     setDepartmentId(detail.department_id ? String(detail.department_id) : '')
     setStatus(detail.status)
     setSteps(detail.steps.length ? detail.steps.map((step) => step.jobrole) : ['', ''])
-  }, [detail])
+  }
 
   const roleOptions = useMemo(
     () => [{ label: 'Select role', value: '' }, ...roles.map((role) => ({ label: role.jobrole, value: role.jobrole }))],
@@ -1757,15 +1764,19 @@ function LearningTab({
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const { competencyId } = useCompetencyFocus()
+
   const params = useMemo(
     () => ({
       search: search || undefined,
       status: status === 'all' ? undefined : status,
       employee_id: employeeId === 'all' ? undefined : employeeId,
+      // Set when opened from a competency's detail panel ("Learning Assigned").
+      competency_id: competencyId ?? undefined,
       page,
       per_page: perPage,
     }),
-    [search, status, employeeId, page, perPage],
+    [search, status, employeeId, competencyId, page, perPage],
   )
 
   const { assignments, pagination, loading, error, saving, actionError, retry, update, remove } = useLearningAssignments(params, refreshKey)
@@ -1974,6 +1985,8 @@ export function CmDevelopmentCareer() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const { competencyId, competencyName, clearFocus } = useCompetencyFocus()
+
   const listParams = useMemo(
     () => ({
       search: search || undefined,
@@ -1981,12 +1994,14 @@ export function CmDevelopmentCareer() {
       department_id: departmentId === 'all' ? undefined : departmentId,
       approver_id: ownerId === 'all' ? undefined : ownerId,
       ...(pendingOnly ? { pending_approval: '1' } : {}),
+      // Set when opened from a competency's detail panel ("Development Plans").
+      competency_id: competencyId ?? undefined,
       sort,
       direction,
       page,
       per_page: perPage,
     }),
-    [search, status, departmentId, ownerId, pendingOnly, sort, direction, page, perPage],
+    [search, status, departmentId, ownerId, pendingOnly, competencyId, sort, direction, page, perPage],
   )
 
   const { metrics, loading: metricsLoading } = usePlanMetrics(refreshKey)
@@ -2057,6 +2072,12 @@ export function CmDevelopmentCareer() {
           </Button>
         </div>
       </div>
+
+      <CompetencyFocusBanner
+        competencyId={competencyId}
+        competencyName={competencyName}
+        onClear={clearFocus}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4">

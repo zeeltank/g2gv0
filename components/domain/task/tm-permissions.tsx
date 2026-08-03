@@ -1,97 +1,117 @@
 'use client'
 
-import React from 'react'
-import { ShieldCheck, Check, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+/**
+ * Administration > Permissions.
+ *
+ * Renders the matrix the server actually enforces: profiles come from
+ * tbluserprofilemaster and the ability list mirrors TaskPermissionMiddleware.
+ * Previously a hardcoded matrix of invented roles ("Executive", "Dept Head")
+ * with a Save button that saved nothing.
+ *
+ * Deliberately read-only: the rule (Employee is denied privileged abilities)
+ * lives in middleware code, so an editable matrix here would be another lie.
+ * Per-tenant permission editing needs a storage decision first.
+ */
+
+import { useEffect, useState } from 'react'
+import { Check, ShieldCheck, X } from 'lucide-react'
+
+import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
-
-const roles = ['Admin', 'Executive', 'Dept Head', 'HR Manager', 'Employee']
-
-const permissionsMatrix = [
-  { module: 'Tasks', actions: [
-    { name: 'Create Task', access: [true, false, true, false, true] },
-    { name: 'Assign Task', access: [true, false, true, false, false] },
-    { name: 'Update Status', access: [true, false, true, false, true] },
-    { name: 'Approve Task', access: [true, true, true, true, false] },
-    { name: 'Delete Task', access: [true, false, false, false, false] },
-  ]},
-  { module: 'Projects', actions: [
-    { name: 'Create Project', access: [true, false, true, false, false] },
-    { name: 'Manage Workstreams', access: [true, true, true, false, false] },
-  ]},
-  { module: 'Administration', actions: [
-    { name: 'Manage Config', access: [true, false, false, false, false] },
-    { name: 'View Audit Logs', access: [true, true, false, true, false] },
-  ]}
-]
+import { taskService } from '@/services/task'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import type { PermissionAbility } from '@/types/task-management'
 
 export function TmPermissions() {
+  const [profiles, setProfiles] = useState<string[]>([])
+  const [abilities, setAbilities] = useState<PermissionAbility[]>([])
+  const [note, setNote] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(async () => {
+      const context = getLaravelContext()
+      if (!isLaravelContextReady(context)) {
+        if (active) { setError('Your ERP session is unavailable. Please sign in again.'); setLoading(false) }
+        return
+      }
+      try {
+        const response = await taskService.getPermissionsMatrix(context)
+        if (!active) return
+        setProfiles(response.data.profiles)
+        setAbilities(response.data.abilities)
+        setNote(response.data.note)
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : 'Unable to load the permission matrix.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })
+    return () => { active = false }
+  }, [])
+
   return (
-    <div className="flex h-full flex-col gap-8 p-8 overflow-y-auto g2g-scrollbar">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20 text-primary shadow-sm">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            Permissions Matrix
-          </h1>
-      
-        </div>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 rounded-xl px-5 h-11 font-bold">
-          Save Changes
-        </Button>
+    <div className="g2g-scrollbar flex h-full flex-col gap-8 overflow-y-auto p-8">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-foreground">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 p-2.5 text-primary shadow-sm">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          Permissions Matrix
+        </h1>
+        {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col gap-6 w-full">
-        <div className="bg-card/90 backdrop-blur-2xl border border-primary/10 rounded-[24px] shadow-xl overflow-hidden">
-          
-          {/* Header Row */}
-          <div className="grid grid-cols-6 border-b border-primary/10 bg-primary/5">
-            <div className="p-4 font-bold text-sm text-foreground flex items-center">
-              Capability
-            </div>
-            {roles.map(role => (
-              <div key={role} className="p-4 flex items-center justify-center font-bold text-sm text-primary">
-                {role}
+      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {loading && <div className="flex h-40 items-center justify-center"><Spinner /></div>}
+
+      {!loading && !error && (
+        <div className="overflow-hidden rounded-[24px] border border-primary/10 bg-card/90 shadow-xl backdrop-blur-2xl">
+          <div
+            className="grid border-b border-primary/10 bg-primary/5"
+            style={{ gridTemplateColumns: `2fr repeat(${profiles.length}, 1fr)` }}
+          >
+            <div className="flex items-center p-4 text-sm font-bold text-foreground">Capability</div>
+            {profiles.map((profile) => (
+              <div key={profile} className="flex items-center justify-center p-4 text-sm font-bold text-primary">
+                {profile}
               </div>
             ))}
           </div>
 
-          {/* Matrix Body */}
-          <div className="flex flex-col">
-            {permissionsMatrix.map((section, idx) => (
-              <React.Fragment key={section.module}>
-                <div className={cn("p-4 font-bold text-muted-foreground uppercase tracking-wider text-xs bg-background/50 flex items-center", idx !== 0 ? "border-t border-primary/10" : "")}>
-                  {section.module}
-                </div>
-                {section.actions.map((action) => (
-                  <div key={action.name} className="grid grid-cols-6 border-t border-primary/5 hover:bg-primary/5 transition-colors group">
-                    <div className="p-4 text-sm font-bold text-foreground flex items-center">
-                      {action.name}
-                    </div>
-                    {action.access.map((hasAccess, rIdx) => (
-                      <div key={rIdx} className="p-4 flex items-center justify-center">
-                        <Button className={cn(
-                          "w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-sm border",
-                          hasAccess 
-                            ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary hover:text-primary-foreground" 
-                            : "bg-background border-border text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
-                        )}>
-                          {hasAccess ? <Check className="w-4 h-4 stroke-[3]" /> : <X className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
+          {abilities.map((ability) => (
+            <div
+              key={ability.key}
+              className="grid border-t border-primary/5 transition-colors hover:bg-primary/5"
+              style={{ gridTemplateColumns: `2fr repeat(${profiles.length}, 1fr)` }}
+            >
+              <div className="flex items-center p-4 text-sm font-bold text-foreground">{ability.label}</div>
+              {profiles.map((profile) => {
+                const allowed = ability.roles[profile] ?? false
 
+                return (
+                  <div key={profile} className="flex items-center justify-center p-4">
+                    <span
+                      title={`${profile} ${allowed ? 'can' : 'cannot'}: ${ability.label}`}
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-lg border shadow-sm',
+                        allowed
+                          ? 'border-primary/30 bg-primary/10 text-primary'
+                          : 'border-border bg-background text-muted-foreground/40',
+                      )}
+                    >
+                      {allowed ? <Check className="h-4 w-4 stroke-[3]" /> : <X className="h-4 w-4" />}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }

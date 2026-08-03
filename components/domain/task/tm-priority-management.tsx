@@ -1,78 +1,209 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Plus, GripVertical, Settings2, Trash2, ShieldAlert } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+/**
+ * Administration > Priority Management — real CRUD.
+ *
+ * System priorities (High / Medium / Low) are constants; custom levels are
+ * created, renamed, ordered (lower sorts first) and deactivated here against
+ * task_management_priorities. Every task write validates against this set, so
+ * a new level is usable in the create form immediately. Deactivation, not
+ * deletion: tasks already using the name keep it for display.
+ */
 
-const mockPriorities = [
-  { id: '1', name: 'Critical', slaHours: 4, color: 'bg-primary/20 text-primary border-primary/40' },
-  { id: '2', name: 'High', slaHours: 24, color: 'bg-primary/10 text-primary border-primary/20' },
-  { id: '3', name: 'Medium', slaHours: 72, color: 'bg-background text-foreground border-border' },
-  { id: '4', name: 'Low', slaHours: 168, color: 'bg-muted/50 text-muted-foreground border-transparent' },
-]
+import { useCallback, useEffect, useState } from 'react'
+import { Lock, Pencil, Plus, Settings2, ShieldAlert, Trash2, X } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { cn } from '@/lib/utils'
+import { taskService } from '@/services/task'
+import { PriorityBadge } from './priority-badge'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import type { TaskPriorityOption } from '@/types/task-management'
 
 export function TmPriorityManagement() {
-  const [priorities, setPriorities] = useState(mockPriorities)
+  const [priorities, setPriorities] = useState<TaskPriorityOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [name, setName] = useState('')
+  const [slaHours, setSlaHours] = useState('')
+
+  const load = useCallback(async () => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) {
+      setError('Your ERP session is unavailable. Please sign in again.')
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const response = await taskService.getPriorityOptions(context)
+      setPriorities(response.data.priorities)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load priorities.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => { void load() })
+  }, [load])
+
+  const startEdit = (option: TaskPriorityOption) => {
+    setEditingId(option.id)
+    setName(option.name)
+    setSlaHours(option.sla_hours !== null ? String(option.sla_hours) : '')
+    setMessage('')
+  }
+
+  const resetForm = () => {
+    setEditingId(null)
+    setName('')
+    setSlaHours('')
+  }
+
+  const save = async () => {
+    if (!name.trim()) { setError('A priority name is required.'); return }
+    const context = getLaravelContext()
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const payload = {
+        name: name.trim(),
+        ...(slaHours.trim() ? { sla_hours: Number(slaHours) } : {}),
+      }
+      const response = editingId
+        ? await taskService.updatePriorityOption(context, editingId, payload)
+        : await taskService.createPriorityOption(context, payload)
+      setMessage(response.message)
+      resetForm()
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to save the priority.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deactivate = async (option: TaskPriorityOption) => {
+    if (!option.id || !window.confirm(`Deactivate "${option.name}"? Tasks already using it keep it for display.`)) return
+    const context = getLaravelContext()
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.deletePriorityOption(context, option.id)
+      setMessage(response.message)
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to deactivate the priority.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
-    <div className="flex h-full flex-col gap-8 p-8 overflow-y-auto g2g-scrollbar">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20 text-primary shadow-sm">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            Priority Management
-          </h1>
-         
-        </div>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 rounded-xl px-5 h-11 font-bold">
-          <Plus className="w-4 h-4 stroke-[3]" /> Add Priority
+    <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-8">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-foreground">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 p-2.5 text-primary shadow-sm">
+            <Settings2 className="h-6 w-6" />
+          </div>
+          Priority Management
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          System levels are fixed; custom levels are validated on every task write the moment they exist.
+          SLA hours are informational for now.
+        </p>
+      </div>
+
+      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
+
+      {/* Add / edit */}
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-primary/10 bg-card/60 p-4">
+        <label className="min-w-52 flex-1">
+          <span className="mb-1 block text-xs font-semibold">{editingId ? 'Rename priority' : 'New priority name'}</span>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Critical"
+            className="h-10 w-full rounded-lg border px-3 text-sm"
+          />
+        </label>
+        <label className="min-w-40">
+          <span className="mb-1 block text-xs font-semibold">SLA hours (optional)</span>
+          <input
+            type="number"
+            min={1}
+            value={slaHours}
+            onChange={(event) => setSlaHours(event.target.value)}
+            placeholder="e.g. 24"
+            className="h-10 w-full rounded-lg border px-3 text-sm"
+          />
+        </label>
+        <Button onClick={() => void save()} disabled={busy || !name.trim()}>
+          {editingId ? <Pencil className="mr-2 size-4" /> : <Plus className="mr-2 size-4" />}
+          {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add Priority'}
         </Button>
+        {editingId && (
+          <Button variant="outline" onClick={resetForm} disabled={busy}>
+            <X className="mr-2 size-4" /> Cancel
+          </Button>
+        )}
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col gap-6 w-full">
-        <div className="bg-card/90 backdrop-blur-2xl border border-primary/10 rounded-[24px] shadow-xl overflow-hidden">
-          
-          <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-primary/10 bg-primary/5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <div className="col-span-1 flex items-center justify-center"></div>
-            <div className="col-span-4 flex items-center">Priority Name</div>
-            <div className="col-span-3 flex items-center">Resolution SLA</div>
-            <div className="col-span-3 flex items-center">Preview</div>
-            <div className="col-span-1 flex items-center justify-end">Actions</div>
-          </div>
+      {loading && <div className="flex h-40 items-center justify-center"><Spinner /></div>}
 
-          <div className="flex flex-col">
-            {priorities.map((priority) => (
-              <div key={priority.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-border/50 last:border-0 hover:bg-primary/5 transition-colors group">
-                <div className="col-span-1 flex justify-center cursor-grab text-muted-foreground hover:text-primary">
-                  <GripVertical className="w-5 h-5" />
-                </div>
-                <div className="col-span-4 font-bold text-sm text-foreground flex items-center">
-                  {priority.name}
-                </div>
-                <div className="col-span-3 flex items-center gap-2">
-                  <span className="font-bold text-primary">{priority.slaHours}</span>
-                  <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Hours</span>
-                </div>
-                <div className="col-span-3 flex items-center">
-                  <div className={cn("px-4 py-1.5 rounded-xl text-xs font-bold border", priority.color)}>
-                    {priority.name}
-                  </div>
-                </div>
-                <div className="col-span-1 flex justify-end items-center">
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+      {!loading && (
+        <div className="overflow-hidden rounded-[24px] border border-primary/10 bg-card/90 shadow-xl backdrop-blur-2xl">
+          {priorities.map((option, index) => (
+            <div
+              key={option.id ?? option.name}
+              className={cn(
+                'flex flex-wrap items-center gap-4 p-5 transition-colors hover:bg-primary/5',
+                index > 0 && 'border-t border-primary/5',
+                !option.active && 'opacity-50',
+              )}
+            >
+              <ShieldAlert className="h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-28">
+                <PriorityBadge priority={option.name} />
               </div>
-            ))}
-          </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground">
+                  {option.name}
+                  {!option.active && <span className="ml-2 text-xs font-medium text-muted-foreground">(inactive)</span>}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {option.sla_hours !== null ? `SLA ${option.sla_hours}h` : 'No SLA'}
+                </p>
+              </div>
+
+              {option.is_system ? (
+                <span className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <Lock className="h-3 w-3" /> System
+                </span>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => startEdit(option)} disabled={busy}>
+                    <Pencil className="mr-1.5 size-3.5" /> Edit
+                  </Button>
+                  {option.active && (
+                    <Button variant="outline" size="sm" className="text-danger" onClick={() => void deactivate(option)} disabled={busy}>
+                      <Trash2 className="mr-1.5 size-3.5" /> Deactivate
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }

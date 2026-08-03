@@ -50,6 +50,12 @@ export interface MyTask {
   owner_id: string | null
   department: string
   status: TaskStatus
+  /**
+   * The tenant's own name for `status`. Custom statuses are labels mapped onto
+   * the four system categories, so a task on "Awaiting Client" still reports
+   * status ON HOLD - without this the custom name is invisible in the UI.
+   */
+  status_label: string | null
   priority: MyTaskPriority | null
   task_type: string | null
   due_date: string | null
@@ -58,6 +64,95 @@ export interface MyTask {
   updated_at: string | null
   observation_point?: string | null
   attachment?: MyTaskAttachment | null
+}
+
+/** A deadline-extension request on a task, as the API returns it. */
+export interface DeadlineExtension {
+  id: string
+  task_id: string
+  task_title: string
+  current_due_date: string | null
+  requested_date: string
+  reason: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  requested_by: string | null
+  decided_by: string | null
+  decided_on: string | null
+  decision_remarks: string | null
+  created_at: string | null
+}
+
+/** One audit-trail entry, as Administration > Audit Logs renders it. */
+export interface TaskAuditLog {
+  id: string
+  task_id: string
+  task_title: string | null
+  event: string
+  actor_id: string | null
+  actor: string | null
+  before: Record<string, unknown> | null
+  created_at: string | null
+}
+
+/** One row of the enforced permission matrix. */
+export interface PermissionAbility {
+  key: string
+  label: string
+  roles: Record<string, boolean>
+}
+
+/** Configured-or-not state of one task-module integration. */
+export interface IntegrationStatus {
+  key: string
+  name: string
+  description: string
+  configured: boolean
+  env: string
+}
+
+/** One status in the tenant's vocabulary: system category or custom label. */
+export interface TaskStatusOption {
+  id: string | null
+  name: string
+  category: TaskStatus
+  color: string | null
+  sort_order: number
+  is_system: boolean
+  active: boolean
+}
+
+/** One priority level in the tenant's vocabulary. */
+export interface TaskPriorityOption {
+  id: string | null
+  name: string
+  sort_order: number
+  sla_hours: number | null
+  is_system: boolean
+  active: boolean
+}
+
+/** Per-assignee productivity, from the reports endpoint. */
+export interface ProductivityRow {
+  user_id: string
+  name: string
+  total: number
+  completed: number
+  open: number
+  overdue: number
+  completion_rate: number
+}
+
+export interface DelayReport {
+  by_category: Array<{ category: string; total: number }>
+  overdue: Array<{
+    id: string
+    title: string
+    due_date: string | null
+    status: string | null
+    delay_category: string | null
+    assignee: string
+    days_overdue: number
+  }>
 }
 
 export interface MyTaskSummary {
@@ -77,7 +172,8 @@ export interface TaskPagination {
 export interface MyTasksQuery {
   group?: MyTaskGroup
   search?: string
-  status?: TaskStatus
+  /** A system category or a tenant's custom status label. */
+  status?: string
   priority?: MyTaskPriority
   page?: number
   perPage?: number
@@ -93,6 +189,8 @@ export interface MyTasksResponse {
     filters: {
       statuses: TaskStatus[]
       priorities: MyTaskPriority[]
+      status_options: TaskStatusOption[]
+      priority_options: TaskPriorityOption[]
     }
   }
 }
@@ -154,6 +252,8 @@ export interface WorkspaceTask {
   owner_id: string | null
   owner: string
   status: TaskStatus
+  /** See {@link MyTask.status_label}. */
+  status_label: string | null
   priority: MyTaskPriority | null
   due_date: string | null
   remarks: string | null
@@ -176,6 +276,8 @@ export interface WorkspaceResponse {
       statuses: TaskStatus[]
       priorities: MyTaskPriority[]
       users: Array<{ id: string; name: string }>
+      status_options: TaskStatusOption[]
+      priority_options: TaskPriorityOption[]
     }
   }
 }

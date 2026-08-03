@@ -46,13 +46,30 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
+import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 
 export function CmAssessmentWorkspace() {
   const [activeTab, setActiveTab] = useState('campaigns')
+  // Frameworks come from the studio hook so the picker offers exactly what
+  // Framework & Role Mapping publishes.
+  const { frameworks } = useCompetencyStudio()
+  const frameworkOptions = React.useMemo(
+    () => [
+      { label: 'No framework (ad-hoc)', value: '' },
+      ...frameworks.map((framework) => ({ label: framework.name, value: String(framework.id) })),
+    ],
+    [frameworks],
+  )
   const [campaignTab, setCampaignTab] = useState('participants')
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newCampaignName, setNewCampaignName] = useState('')
+  // Was a hardcoded value="self" with a no-op onChange, so the picker looked
+  // real but every campaign was created with whatever the server defaulted to.
+  const [newCampaignType, setNewCampaignType] = useState('self')
+  // Which framework the campaign assesses against - every assessment row
+  // already carried a framework_id, the campaign that groups them did not.
+  const [newCampaignFramework, setNewCampaignFramework] = useState('')
   const [newCampaignStartDate, setNewCampaignStartDate] = useState('')
   const [newCampaignEndDate, setNewCampaignEndDate] = useState('')
 
@@ -95,12 +112,16 @@ export function CmAssessmentWorkspace() {
     if (!newCampaignName.trim()) return
     const res = await createCampaign({
       name: newCampaignName,
+      type: newCampaignType,
+      framework_id: newCampaignFramework ? Number(newCampaignFramework) : undefined,
       start_date: newCampaignStartDate || undefined,
       end_date: newCampaignEndDate || undefined,
     })
     if (res.ok) {
       setCreateDialogOpen(false)
       setNewCampaignName('')
+      setNewCampaignType('self')
+      setNewCampaignFramework('')
       setNewCampaignStartDate('')
       setNewCampaignEndDate('')
     } else {
@@ -330,7 +351,7 @@ export function CmAssessmentWorkspace() {
                         {activeCampaign?.name}
                       </h2>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {activeCampaign?.type} • {activeCampaign?.participants} Participants • Due: {activeCampaign?.date}
+                        {activeCampaign?.type} • {activeCampaign?.framework_name || 'No framework'} • {activeCampaign?.participants} Participants • Due: {activeCampaign?.date}
                       </p>
                     </div>
                     <StatusBadge status={activeCampaign?.status === 'Completed' ? 'success' : 'info'} label={activeCampaign?.status || 'In Progress'} />
@@ -479,6 +500,7 @@ export function CmAssessmentWorkspace() {
                   <TableHeader className="bg-muted/30 border-b border-primary/10">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="px-4 py-3 font-bold text-foreground">Campaign</TableHead>
+                      <TableHead className="px-4 py-3 font-bold text-foreground">Framework</TableHead>
                       <TableHead className="px-4 py-3 font-bold text-foreground text-center">Participants</TableHead>
                       <TableHead className="px-4 py-3 font-bold text-foreground">Completion</TableHead>
                       <TableHead className="px-4 py-3 font-bold text-foreground">Period</TableHead>
@@ -489,6 +511,7 @@ export function CmAssessmentWorkspace() {
                     {closedCampaigns.map(c => (
                       <TableRow key={c.id} className="hover:bg-muted/30">
                         <TableCell className="px-4 py-4 font-medium text-foreground">{c.name}</TableCell>
+                        <TableCell className="px-4 py-4 text-muted-foreground">{c.framework_name || '—'}</TableCell>
                         <TableCell className="px-4 py-4 text-center font-semibold">{c.participants}</TableCell>
                         <TableCell className="px-4 py-4">
                           <div className="flex items-center gap-3">
@@ -596,14 +619,28 @@ export function CmAssessmentWorkspace() {
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-muted-foreground">Type</label>
-              <Select 
+              <Select
                 options={[
                   { label: 'Self + Manager', value: 'self' },
-                  { label: '360 Degree Review', value: '360' }
-                ]} 
-                value="self"
-                onChange={() => {}}
+                  { label: '360 Degree Review', value: '360' },
+                ]}
+                value={newCampaignType}
+                onChange={setNewCampaignType}
+                aria-label="Campaign type"
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Framework</label>
+              <Select
+                options={frameworkOptions}
+                value={newCampaignFramework}
+                onChange={setNewCampaignFramework}
+                placeholder="Select framework"
+                aria-label="Framework"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Sets which competencies the campaign rates against. Leave blank for an ad-hoc campaign.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">

@@ -118,7 +118,7 @@ export function useAssessmentWorkspace() {
     }
   }, [resolveContext])
 
-  const createCampaign = useCallback(async (payload: { name: string; type?: string; start_date?: string; end_date?: string }) => {
+  const createCampaign = useCallback(async (payload: { name: string; type?: string; framework_id?: number; start_date?: string; end_date?: string }) => {
     setCreating(true)
     try {
       await assessmentWorkspaceService.createCampaign(resolveContext(), payload)
