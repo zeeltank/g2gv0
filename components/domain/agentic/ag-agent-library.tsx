@@ -41,6 +41,8 @@ import {
 import { cn } from '@/lib/utils'
 import { useAgentDetail, useAgentMeta, useAgents } from '@/hooks/use-agentic'
 import type { Agent, AgentStatus } from '@/services/agentic'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { AG_CREATE_AGENT_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 import { AgentDetail } from './agent-detail'
 import {
@@ -100,6 +102,7 @@ function pageWindow(current: number, last: number): (number | 'gap')[] {
  */
 export function AgAgentLibrary() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -192,10 +195,10 @@ export function AgAgentLibrary() {
     router.push(agent.cta_link)
   }
 
-  const goCreate = (agentId?: number) =>
-    router.push(
-      `/module/m7/ag-create-agent/ag-create-agent${agentId ? `?edit=${agentId}` : ''}`,
-    )
+  const goCreate = (agentId?: number) => {
+    const path = resolveAccessLink(AG_CREATE_AGENT_ACCESS_LINK)
+    router.push(agentId ? `${path}?edit=${agentId}` : path)
+  }
 
   const total = pagination?.total ?? 0
   const lastPage = pagination?.last_page ?? 1

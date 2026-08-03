@@ -31,6 +31,13 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { EMPTY_ONBOARDING, type OnboardingSummary } from '@/lib/onboarding'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import {
+  ORG_PROFILE_ACCESS_LINK,
+  DEPT_MANAGEMENT_ACCESS_LINK,
+  EMPLOYEE_DIRECTORY_ACCESS_LINK,
+  ROLE_PERMISSIONS_ACCESS_LINK,
+} from '@/lib/gtg-navigation'
 
 const STEPS: SetupStep[] = [
   { id: 'modules', label: 'Module Selection' },
@@ -47,7 +54,9 @@ type ReviewCardData = {
   title: string
   icon: typeof CheckCircle2
   tone: 'primary' | 'success' | 'warning'
+  /** The navigation target. `dbRoute: true` means `route` is a tblmenumaster_g2g access_link to resolve (and rights-check) via resolveAccessLink; otherwise it's a literal app route (settings pages aren't part of tblmenumaster_g2g). */
   route: string
+  dbRoute?: boolean
   action: string
   configured: boolean
   details: [string, string][]
@@ -58,6 +67,7 @@ type Icon = typeof Check
 export function PortalReviewPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [summary, setSummary] = useState<OnboardingSummary>(EMPTY_ONBOARDING)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -116,7 +126,8 @@ export function PortalReviewPage() {
       title: 'Organization Details',
       icon: Building2,
       tone: 'success',
-      route: '/module/organizational-management/org-setup/org-profile',
+      route: ORG_PROFILE_ACCESS_LINK,
+      dbRoute: true,
       action: 'View Details',
       configured: Boolean(summary.organization),
       details: [['Company Name', summary.organization?.companyName || 'Not configured'], ['Time Zone', summary.organization?.timeZone || 'Not configured'], ['Currency', summary.organization?.currency || 'Not configured'], ['Financial Year', summary.organization?.financialYear || 'Not configured']],
@@ -125,7 +136,8 @@ export function PortalReviewPage() {
       title: 'Department Setup',
       icon: Network,
       tone: 'primary',
-      route: '/module/organizational-management/org-setup/dept-management',
+      route: DEPT_MANAGEMENT_ACCESS_LINK,
+      dbRoute: true,
       action: 'Manage Departments',
       configured: summary.departments.length > 0,
       details: [['Total Departments', String(summary.departments.length)], ['Department Names', summary.departments.join(', ') || 'Not configured']],
@@ -134,7 +146,8 @@ export function PortalReviewPage() {
       title: 'Employee Import',
       icon: Users,
       tone: 'primary',
-      route: '/module/organizational-management/user-management/employee-directory',
+      route: EMPLOYEE_DIRECTORY_ACCESS_LINK,
+      dbRoute: true,
       action: 'Review Employees',
       configured: Boolean(summary.employees),
       details: [['Total Employees', String(summary.employees?.total ?? 0)], ['Successfully Imported', String(summary.employees?.successful ?? 0)], ['Warnings', String(summary.employees?.warnings ?? 0)], ['Errors', String(summary.employees?.errors ?? 0)]],
@@ -143,7 +156,8 @@ export function PortalReviewPage() {
       title: 'Roles & Permissions',
       icon: ShieldCheck,
       tone: 'warning',
-      route: '/module/organizational-management/user-management/role-permissions',
+      route: ROLE_PERMISSIONS_ACCESS_LINK,
+      dbRoute: true,
       action: 'View Roles',
       configured: Boolean(summary.roles),
       details: [['Total Roles', String(summary.roles?.roles.length ?? 0)], ['Role Names', summary.roles?.roles.join(', ') || 'Not configured'], ['Permissions Set', String(summary.roles?.permissionCount ?? 0)]],
@@ -225,7 +239,13 @@ export function PortalReviewPage() {
                 </Alert>
               )}
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                {cards.map((card) => <ReviewCard key={card.title} {...card} onClick={() => router.push(card.route)} />)}
+                {cards.map((card) => (
+                  <ReviewCard
+                    key={card.title}
+                    {...card}
+                    onClick={() => router.push(card.dbRoute ? resolveAccessLink(card.route) : card.route)}
+                  />
+                ))}
                 <Readiness score={readiness} onClick={downloadSummary} />
               </div>
               <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_0.7fr]">

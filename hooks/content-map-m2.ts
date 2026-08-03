@@ -17,6 +17,9 @@ export const M2_CONTENT: ContentRoute[] = [
   { submenuId: '37', component: CmCommandCenter }, // Command Center
   { submenuId: '38', component: CmCompetencyLibrary }, // Competency Library
   { submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
+  { submenuId: '39', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
+  { submenuId: '41', component: CmSkillTaxonomy }, // Skills & Taxonomy
+  { submenuId: '43', component: CmTaxonomyOntology }, // Taxonomy Ontology
   { submenuId: '155', component: CmAssessmentWorkspace }, // Assessments
   { submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
   { submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths

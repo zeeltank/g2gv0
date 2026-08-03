@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useAgentEditor, useAgentMeta } from '@/hooks/use-agentic'
 import type { AgentPayload } from '@/services/agentic'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { AG_AGENT_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 import { TOOL_ICONS } from './shared'
 
@@ -128,6 +130,7 @@ function validateStep(step: number, data: FormState): Errors {
  */
 export function AgCreateAgent() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
   const isEdit = Boolean(editId)
@@ -268,7 +271,7 @@ export function AgCreateAgent() {
       } catch {
         // Nothing to clean up if storage is unavailable.
       }
-      router.push('/module/m7/ag-agent-library/ag-agent-library')
+      router.push(resolveAccessLink(AG_AGENT_LIBRARY_ACCESS_LINK))
     } else {
       setMessage(result.message)
     }
@@ -297,7 +300,7 @@ export function AgCreateAgent() {
         <div className="flex items-start gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push('/module/m7/ag-agent-library/ag-agent-library')}
+            onClick={() => router.push(resolveAccessLink(AG_AGENT_LIBRARY_ACCESS_LINK))}
             className="h-10 w-10 shrink-0 rounded-xl p-0"
             aria-label="Back to Agent Library"
           >
