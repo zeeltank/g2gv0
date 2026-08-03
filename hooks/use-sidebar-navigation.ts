@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { sidebarService } from '@/services/navigation/sidebar'
 import type { SidebarModuleNode, SidebarMenuNode, SidebarSubmenuNode } from '@/services/navigation/sidebar'
-import { HOME_NAV, type NavModule, type NavMenu, type NavSubmenu, type ActiveNav } from '@/lib/gtg-navigation'
+import { HOME_NAV, getRouteByAccessLink, type NavModule, type NavMenu, type NavSubmenu, type ActiveNav } from '@/lib/gtg-navigation'
 
 const HOME_MODULE: NavModule = {
   id: HOME_NAV.moduleId,
@@ -49,6 +49,8 @@ export interface SidebarNavigationResult {
   error: string | null
   getRoutePath: (active: ActiveNav) => string
   parseRoutePath: (pathname: string) => ActiveNav | null
+  /** Resolves a known tblmenumaster_g2g access_link against the caller's live, rights-filtered tree; falls back to '/dashboard' if the profile can't see it. */
+  resolveAccessLink: (accessLink: string) => string
 }
 
 /**
@@ -108,11 +110,16 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return keyByPath.get(pathname) ?? null
   }
 
+  const resolveAccessLink = (accessLink: string): string => {
+    return getRouteByAccessLink(modules, accessLink) ?? '/dashboard'
+  }
+
   return {
     modules,
     loading: ready && query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     getRoutePath,
     parseRoutePath,
+    resolveAccessLink,
   }
 }

@@ -3,12 +3,16 @@
 import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { EMPLOYEE_DIRECTORY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 interface SetupCompletionStepProps {
   router: ReturnType<typeof useRouter>
 }
 
 export function SetupCompletionStep({ router }: SetupCompletionStepProps) {
+  const { resolveAccessLink } = useSidebarNavigation()
+
   return (
     <div className="rounded-lg border border-border bg-card px-6 py-14 text-center shadow-sm">
       <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
@@ -26,9 +30,7 @@ export function SetupCompletionStep({ router }: SetupCompletionStepProps) {
         </Button>
         <Button
           variant="outline"
-          onClick={() =>
-            router.push('/module/organizational-management/org-setup/employee-directory')
-          }
+          onClick={() => router.push(resolveAccessLink(EMPLOYEE_DIRECTORY_ACCESS_LINK))}
         >
           Manage Employees
         </Button>

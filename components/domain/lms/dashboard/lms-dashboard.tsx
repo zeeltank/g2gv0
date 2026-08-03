@@ -34,14 +34,13 @@ import {
 } from './widgets/insight-widgets'
 import { QuickActionsWidget } from './widgets/quick-actions-widget'
 import { EnrollCourseSheet } from './widgets/enroll-course-sheet'
-
-/** Destinations registered in hooks/content-map-m4.ts. */
-const ROUTES = {
-  catalog: '/module/lms/learning/learning-catalog',
-  myLearning: '/module/lms/learning/my-learning',
-  assignments: '/module/lms/training-records/assignments',
-  sessions: '/module/lms/training-records/sessions-calendar',
-} as const
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import {
+  LMS_LEARNING_CATALOG_ACCESS_LINK,
+  LMS_MY_LEARNING_ACCESS_LINK,
+  LMS_ASSIGNMENTS_ACCESS_LINK,
+  LMS_SESSIONS_CALENDAR_ACCESS_LINK,
+} from '@/lib/gtg-navigation'
 
 /** Transient banner for the enrolment-status mutation and partial load failures. */
 function ActionBanner({
@@ -92,6 +91,7 @@ function ActionBanner({
 
 export function LmsDashboard() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const { user } = useAuth()
   const {
     loading,
@@ -170,7 +170,7 @@ export function LmsDashboard() {
         </div>
         <Button
           variant="outline"
-          onClick={() => router.push(ROUTES.catalog)}
+          onClick={() => router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))}
           className="h-10 justify-center gap-2 rounded-lg border-border/80 bg-card px-4 text-sm font-semibold shadow-sm"
         >
           <BookOpen className="size-4 text-muted-foreground" />
@@ -250,23 +250,23 @@ export function LmsDashboard() {
           updatingCourseId={updatingCourseId}
           onSetStatus={(course, status) => void setCourseStatus(course, status)}
           onUnenroll={(course) => void unenroll(course)}
-          onViewAll={() => router.push(ROUTES.myLearning)}
+          onViewAll={() => router.push(resolveAccessLink(LMS_MY_LEARNING_ACCESS_LINK))}
         />
         <UpcomingDeadlinesWidget
           courses={courses}
           loading={loading}
           error={error}
-          onViewAll={() => router.push(ROUTES.assignments)}
+          onViewAll={() => router.push(resolveAccessLink(LMS_ASSIGNMENTS_ACCESS_LINK))}
         />
         <UpcomingSessionsWidget
           sessions={upcomingSessions}
           loading={loading}
           error={error}
-          onViewCalendar={() => router.push(ROUTES.sessions)}
+          onViewCalendar={() => router.push(resolveAccessLink(LMS_SESSIONS_CALENDAR_ACCESS_LINK))}
         />
         <QuickActionsWidget
           courses={courses}
-          onBrowseCatalog={() => router.push(ROUTES.catalog)}
+          onBrowseCatalog={() => router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))}
           onEnrollClick={() => setEnrollOpen(true)}
         />
 

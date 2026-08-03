@@ -10,6 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { useAgenticDashboard } from '@/hooks/use-agentic'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import {
+  AG_CREATE_AGENT_ACCESS_LINK,
+  AG_AGENT_LIBRARY_ACCESS_LINK,
+  AG_RUN_LOG_ACCESS_LINK,
+  AG_ANALYTICS_ACCESS_LINK,
+} from '@/lib/gtg-navigation'
 
 import {
   KpiTile,
@@ -36,6 +43,7 @@ const WINDOWS = [
  */
 export function AgAgentDashboard() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [days, setDays] = useState('7')
 
   const { data, loading, error, retry } = useAgenticDashboard(Number(days))
@@ -47,7 +55,7 @@ export function AgAgentDashboard() {
   const costSpark = useMemo(() => series.map((point) => point.cost), [series])
   const tokenSpark = useMemo(() => series.map((point) => point.tokens), [series])
 
-  const go = (submenuId: string) => router.push(`/module/m7/${submenuId}/${submenuId}`)
+  const go = (accessLink: string) => router.push(resolveAccessLink(accessLink))
 
   return (
     <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-6">
@@ -63,7 +71,7 @@ export function AgAgentDashboard() {
             <Select value={days} onChange={setDays} options={WINDOWS} className="h-10 rounded-xl border-border bg-background" aria-label="Time window" />
           </div>
           <Button
-            onClick={() => router.push('/module/m7/ag-create-agent/ag-create-agent')}
+            onClick={() => router.push(resolveAccessLink(AG_CREATE_AGENT_ACCESS_LINK))}
             className="h-10 gap-2 rounded-xl px-4 font-bold shadow-md shadow-primary/20"
           >
             <Plus className="h-4 w-4 stroke-[3]" /> Create Agent
@@ -83,7 +91,7 @@ export function AgAgentDashboard() {
               hint={`${data?.agents.deployed ?? 0} deployed · ${data?.agents.draft ?? 0} draft`}
               icon={<Bot className="h-4 w-4" />}
               loading={loading}
-              onClick={() => go('ag-agent-library')}
+              onClick={() => go(AG_AGENT_LIBRARY_ACCESS_LINK)}
             />
             <KpiTile
               label="Total Runs"
@@ -93,7 +101,7 @@ export function AgAgentDashboard() {
               spark={runsSpark}
               sparkColor="hsl(var(--primary))"
               loading={loading}
-              onClick={() => go('ag-run-log')}
+              onClick={() => go(AG_RUN_LOG_ACCESS_LINK)}
             />
             <KpiTile
               label="Success Rate"
@@ -107,7 +115,7 @@ export function AgAgentDashboard() {
               spark={successSpark}
               sparkColor="hsl(var(--success))"
               loading={loading}
-              onClick={() => go('ag-analytics')}
+              onClick={() => go(AG_ANALYTICS_ACCESS_LINK)}
             />
             <KpiTile
               label="Spend"
@@ -132,7 +140,7 @@ export function AgAgentDashboard() {
                   <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Run Activity</h2>
                   <p className="text-xs text-muted-foreground">Successes and failures per day</p>
                 </div>
-                <button onClick={() => go('ag-analytics')} className="text-xs font-bold text-primary hover:underline">
+                <button onClick={() => go(AG_ANALYTICS_ACCESS_LINK)} className="text-xs font-bold text-primary hover:underline">
                   Full analytics
                 </button>
               </div>
@@ -173,7 +181,7 @@ export function AgAgentDashboard() {
                 <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Recent Runs</h2>
                 <p className="text-xs text-muted-foreground">The last few executions across all agents</p>
               </div>
-              <button onClick={() => go('ag-run-log')} className="text-xs font-bold text-primary hover:underline">
+              <button onClick={() => go(AG_RUN_LOG_ACCESS_LINK)} className="text-xs font-bold text-primary hover:underline">
                 View run log
               </button>
             </div>

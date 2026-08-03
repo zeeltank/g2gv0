@@ -12,6 +12,8 @@ import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { updateOnboarding } from '@/lib/onboarding'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { ORG_PROFILE_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 const SETUP_STEPS: SetupStep[] = [
   { id: 'profile', label: 'Profile Setup' },
@@ -80,6 +82,7 @@ const INITIAL_MODULES: Module[] = [
 export function ModuleConfigurationPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [modules, setModules] = useState<Module[]>(INITIAL_MODULES)
   const [modulesCompleted, setModulesCompleted] = useState(false)
 
@@ -103,7 +106,7 @@ export function ModuleConfigurationPage() {
   }
 
   const handleViewOrganization = () => {
-    router.push('/module/organizational-management/org-setup/org-profile')
+    router.push(resolveAccessLink(ORG_PROFILE_ACCESS_LINK))
   }
 
   return (

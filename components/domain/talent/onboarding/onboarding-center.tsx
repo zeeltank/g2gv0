@@ -61,6 +61,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { EMPLOYEE_DIRECTORY_ACCESS_LINK } from '@/lib/gtg-navigation'
 import {
   useJourneyDetail,
   useLifecycleTimeline,
@@ -163,6 +165,7 @@ function workstreamIcon(icon: string) {
 
 export function OnboardingCenter() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
 
   /* -- Screen state -- */
   const [activeTab, setActiveTab] = React.useState<TabId>('preboarding')
@@ -1104,7 +1107,7 @@ export function OnboardingCenter() {
                 setEditingJourney(journey)
                 setJourneySheetOpen(true)
               }}
-              onViewEmployee={() => router.push('/module/organizational-management/organization/employee-directory')}
+              onViewEmployee={() => router.push(resolveAccessLink(EMPLOYEE_DIRECTORY_ACCESS_LINK))}
               onOpenDocuments={() => setDocumentsOpen(true)}
               onOpenContacts={() => setContactsOpen(true)}
               onOpenNotes={() => setNotesOpen(true)}

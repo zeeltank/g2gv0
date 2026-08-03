@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useCourseBuilder } from '@/hooks/use-course-builder'
 import type { ContentKind, CourseVisibility, EnrollmentRule } from '@/services/lms'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { LMS_LEARNING_CATALOG_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -70,6 +72,7 @@ const VALIDITY_OPTIONS = [
 
 export function CreateCoursePage() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const builder = useCourseBuilder()
   const {
     step, steps, goNext, goBack, goToStep,
@@ -94,11 +97,11 @@ export function CreateCoursePage() {
   } | null>(null)
   const [quizName, setQuizName] = useState('')
 
-  const handleCancel = () => router.push('/module/lms/learning/learning-catalog')
+  const handleCancel = () => router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))
 
   const handlePublish = async () => {
     const result = await publish()
-    if (result.ok) router.push('/module/lms/learning/learning-catalog')
+    if (result.ok) router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))
   }
 
   return (

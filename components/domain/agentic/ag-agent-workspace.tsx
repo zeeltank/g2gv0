@@ -28,16 +28,17 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useAgentDetail, useRuns } from '@/hooks/use-agentic'
 import type { AgentRun } from '@/services/agentic'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { AG_AGENT_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { AgentLaunchPanel } from './agent-launch-panel'
 import { AgentResult } from './agent-results'
 import { RunStatusBadge, formatDateTime, formatDuration } from './shared'
 
 type WorkspaceTab = 'launch' | 'history'
 
-const LIBRARY_URL = '/module/m7/ag-agent-library/ag-agent-library'
-
 export function AgAgentWorkspace() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const searchParams = useSearchParams()
   const agentId = Number(searchParams.get('agent'))
 
@@ -64,7 +65,7 @@ export function AgAgentWorkspace() {
         icon={<Sparkles className="h-8 w-8" />}
         title="No agent selected"
         description="Open an agent from the library to work with it."
-        action={<Button onClick={() => router.push(LIBRARY_URL)}>Go to Agent Library</Button>}
+        action={<Button onClick={() => router.push(resolveAccessLink(AG_AGENT_LIBRARY_ACCESS_LINK))}>Go to Agent Library</Button>}
       />
     )
   }
@@ -90,7 +91,7 @@ export function AgAgentWorkspace() {
           <div className="flex min-w-0 items-start gap-3">
             <Button
               variant="outline"
-              onClick={() => router.push(LIBRARY_URL)}
+              onClick={() => router.push(resolveAccessLink(AG_AGENT_LIBRARY_ACCESS_LINK))}
               aria-label="Back to Agent Library"
               className="h-9 w-9 shrink-0 rounded-xl p-0"
             >
@@ -218,7 +219,7 @@ export function AgAgentWorkspace() {
             icon={<Rocket className="h-8 w-8" />}
             title={`This agent is ${detail.status}`}
             description="Deploy it from the Agent Library before it can accept runs."
-            action={<Button onClick={() => router.push(LIBRARY_URL)}>Go to Agent Library</Button>}
+            action={<Button onClick={() => router.push(resolveAccessLink(AG_AGENT_LIBRARY_ACCESS_LINK))}>Go to Agent Library</Button>}
           />
         ))}
 
