@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { LibraryPayload, LibraryRow } from '@/services/competency'
+import type { LibraryMeta, LibraryPayload, LibraryRow } from '@/services/competency'
 
 import { FORM_KEY_OVERRIDES, type LibraryFieldDef, type LibraryTabConfig } from './library-config'
 
@@ -23,9 +23,111 @@ interface LibraryFormProps {
   saving: boolean
   categories: string[]
   subCategoriesOf: (category: string) => string[]
+  /** The tenant's live vocabularies, so departments and roles are picked not typed. */
+  meta: LibraryMeta
   onSubmit: (payload: LibraryPayload) => Promise<{ ok: boolean; message: string }>
   onCancel: () => void
   onSaved: () => void
+}
+
+/** Sentinel option that switches the picker into "type a new one" mode. */
+const ADD_NEW = '__add_new__'
+
+/** "29 departments in this organisation." — plural handling included. */
+function countLabel(count: number, label: string): string {
+  const noun = label.toLowerCase()
+  if (count === 0) return `No ${noun} recorded for this organisation yet.`
+  if (count === 1) return `1 ${noun} in this organisation.`
+  return `${count} ${noun}s in this organisation.`
+}
+
+/**
+ * A dropdown of what already exists, plus an explicit way to add something new.
+ *
+ * A plain text box - even one with autocomplete - never tells you what the
+ * organisation already has, so the same department gets typed three different
+ * ways. A plain dropdown shows you everything but then blocks the first
+ * department that does not exist yet. This does both: the list is visible and
+ * countable, and "Add a new one" is a deliberate choice rather than the
+ * accidental default.
+ */
+function OpenChoice({
+  id,
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: string
+  options: string[]
+  placeholder?: string
+  onChange: (value: string) => void
+}) {
+  // A saved value that is no longer in the list still has to be editable, so
+  // it opens in text mode rather than silently resetting to blank.
+  const [typing, setTyping] = useState(() => Boolean(value) && !options.includes(value))
+
+  if (typing) {
+    return (
+      <div className="space-y-1.5">
+        <Input
+          id={id}
+          value={value}
+          autoFocus
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder ?? `New ${label.toLowerCase()}`}
+          className="bg-background border-border"
+        />
+        <button
+          type="button"
+          onClick={() => { setTyping(false); onChange('') }}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          ← Choose from the existing {label.toLowerCase()} list
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <Select
+      id={id}
+      value={value}
+      onChange={(next) => {
+        if (next === ADD_NEW) { setTyping(true); onChange('') }
+        else onChange(next)
+      }}
+      options={[
+        { label: options.length ? `Select ${label.toLowerCase()}` : `No ${label.toLowerCase()} yet — add the first one`, value: '' },
+        ...options.map((option) => ({ label: option, value: option })),
+        { label: `+ Add a new ${label.toLowerCase()}…`, value: ADD_NEW },
+      ]}
+      className="bg-background border-border h-9"
+      aria-label={label}
+    />
+  )
+}
+
+/** Every distinct value a `source` field should offer, from real tenant data. */
+function sourceValues(meta: LibraryMeta, source: NonNullable<LibraryFieldDef['source']>): string[] {
+  if (source === 'departments') {
+    // Two places record a department: the skills library and the role
+    // catalogue. Offering the union is what stops the same department being
+    // re-typed slightly differently depending on which tab you started from.
+    const set = new Set(meta.departments.filter(Boolean))
+    Object.keys(meta.jobroles_by_department).forEach((name) => set.add(name))
+    return Array.from(set).sort()
+  }
+  if (source === 'jobroles') {
+    const set = new Set(
+      Object.values(meta.jobroles_by_department).flat().map((role) => role.jobrole).filter(Boolean),
+    )
+    return Array.from(set).sort()
+  }
+  return [...(meta[source] ?? [])].filter(Boolean).sort()
 }
 
 function initialValues(config: LibraryTabConfig, initial: LibraryRow | null): Record<string, string> {
@@ -49,15 +151,21 @@ export function LibraryForm({
   saving,
   categories,
   subCategoriesOf,
+  meta,
   onSubmit,
   onCancel,
   onSaved,
 }: LibraryFormProps) {
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(config, initial))
   const [error, setError] = useState<string | null>(null)
+  // Editing opens expanded: the value being changed is often one of the
+  // specialised columns, and hiding it would look like data loss.
+  const [showAdvanced, setShowAdvanced] = useState(() => Boolean(initial))
 
   const editing = Boolean(initial)
   const editable = useMemo(() => config.fields.filter((field) => !field.readOnly), [config])
+  const essentials = useMemo(() => editable.filter((field) => !field.advanced), [editable])
+  const advanced = useMemo(() => editable.filter((field) => field.advanced), [editable])
 
   const categoryValue = config.categoryKey ? values[config.categoryKey] ?? '' : ''
 
@@ -89,15 +197,102 @@ export function LibraryForm({
       return [{ label: categoryValue ? 'Select sub category' : 'Pick a category first', value: '' }, ...merged.map((c) => ({ label: c, value: c }))]
     }
 
+    if (field.source) {
+      const list = sourceValues(meta, field.source)
+      // A row saved before this value disappeared from the data must still be
+      // editable, so whatever is already selected stays in the list.
+      const current = values[field.key]
+      const merged = current && !list.includes(current) ? [current, ...list] : list
+      return [
+        { label: merged.length ? `Select ${field.label.toLowerCase()}` : `No ${field.label.toLowerCase()} available`, value: '' },
+        ...merged.map((option) => ({ label: option, value: option })),
+      ]
+    }
+
     return [
       { label: `Select ${field.label.toLowerCase()}`, value: '' },
       ...(field.options ?? []).map((option) => ({ label: option, value: option })),
     ]
   }
 
+  function renderField(field: LibraryFieldDef) {
+    const isWide = field.type === 'textarea'
+    // A `source` field with an explicit select type is a closed list - the
+    // value has to be one that already exists. An open one shows the same
+    // list but lets you add a value that is genuinely new.
+    const strictChoice = field.type === 'select' || Boolean(field.taxonomy)
+    const openList = Boolean(field.source) && !strictChoice
+
+    return (
+      <div key={field.key} className={isWide ? 'md:col-span-2 space-y-2' : 'space-y-2'}>
+        <label className="text-sm font-semibold text-foreground" htmlFor={`lib-${field.key}`}>
+          {field.label}
+          {field.required && <span className="text-destructive"> *</span>}
+        </label>
+
+        {field.type === 'textarea' ? (
+          <Textarea
+            id={`lib-${field.key}`}
+            value={values[field.key] ?? ''}
+            onChange={(event) => set(field.key, event.target.value)}
+            placeholder={field.placeholder}
+            className="bg-background border-border min-h-[90px]"
+          />
+        ) : openList ? (
+          <OpenChoice
+            id={`lib-${field.key}`}
+            label={field.label}
+            value={values[field.key] ?? ''}
+            options={sourceValues(meta, field.source!)}
+            placeholder={field.placeholder}
+            onChange={(value) => set(field.key, value)}
+          />
+        ) : strictChoice ? (
+          <Select
+            id={`lib-${field.key}`}
+            value={values[field.key] ?? ''}
+            onChange={(value) => set(field.key, value)}
+            options={optionsFor(field)}
+            disabled={field.taxonomy === 'sub_category' && !categoryValue}
+            className="bg-background border-border h-9"
+            aria-label={field.label}
+          />
+        ) : (
+          <Input
+            id={`lib-${field.key}`}
+            type={field.type === 'url' ? 'url' : 'text'}
+            value={values[field.key] ?? ''}
+            onChange={(event) => set(field.key, event.target.value)}
+            placeholder={field.placeholder}
+            className="bg-background border-border"
+          />
+        )}
+
+        {/* Without this the dropdown is an empty box with no way forward. */}
+        {field.taxonomy === 'category' && categories.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No {field.label.toLowerCase()} defined yet — add one from the Taxonomy panel first.
+          </p>
+        ) : field.source ? (
+          // Say how many this organisation actually has. A picker that hides
+          // its size leaves people guessing whether the list is complete.
+          <p className="text-xs text-muted-foreground">
+            {countLabel(sourceValues(meta, field.source).length, field.label)}
+            {field.help ? ` ${field.help}` : ''}
+          </p>
+        ) : (
+          field.help && <p className="text-xs text-muted-foreground">{field.help}</p>
+        )}
+      </div>
+    )
+  }
+
   const handleSubmit = async () => {
     for (const field of editable) {
       if (field.required && !values[field.key]?.trim()) {
+        // Pointing at a field the user cannot see is a dead end, so open the
+        // disclosure when the missing one is hidden inside it.
+        if (field.advanced) setShowAdvanced(true)
         setError(`${field.label} is required.`)
         return
       }
@@ -142,58 +337,35 @@ export function LibraryForm({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
-        {editable.map((field) => {
-          const isWide = field.type === 'textarea'
-          return (
-            <div key={field.key} className={isWide ? 'md:col-span-2 space-y-2' : 'space-y-2'}>
-              <label className="text-sm font-semibold text-foreground" htmlFor={`lib-${field.key}`}>
-                {field.label}
-                {field.required && <span className="text-destructive"> *</span>}
-              </label>
+      <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {essentials.map(renderField)}
+        </div>
 
-              {field.type === 'textarea' ? (
-                <Textarea
-                  id={`lib-${field.key}`}
-                  value={values[field.key] ?? ''}
-                  onChange={(event) => set(field.key, event.target.value)}
-                  placeholder={field.placeholder}
-                  className="bg-background border-border min-h-[90px]"
-                />
-              ) : field.type === 'select' || field.taxonomy ? (
-                <Select
-                  id={`lib-${field.key}`}
-                  value={values[field.key] ?? ''}
-                  onChange={(value) => set(field.key, value)}
-                  options={optionsFor(field)}
-                  disabled={field.taxonomy === 'sub_category' && !categoryValue}
-                  className="bg-background border-border h-9"
-                  aria-label={field.label}
-                />
-              ) : (
-                <Input
-                  id={`lib-${field.key}`}
-                  type={field.type === 'url' ? 'url' : 'text'}
-                  value={values[field.key] ?? ''}
-                  onChange={(event) => set(field.key, event.target.value)}
-                  placeholder={field.placeholder}
-                  className="bg-background border-border"
-                />
-              )}
+        {advanced.length > 0 && (
+          <div className="rounded-lg border border-border/70">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((open) => !open)}
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-foreground"
+            >
+              <span>
+                More details
+                <span className="ml-2 font-normal text-muted-foreground">
+                  {advanced.length} optional field{advanced.length === 1 ? '' : 's'}
+                </span>
+              </span>
+              <span className="text-muted-foreground">{showAdvanced ? '−' : '+'}</span>
+            </button>
+            {showAdvanced && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-border/70 p-4">
+                {advanced.map(renderField)}
+              </div>
+            )}
+          </div>
+        )}
 
-              {/* Without this the dropdown is an empty box with no way forward. */}
-              {field.taxonomy === 'category' && categories.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No {field.label.toLowerCase()} defined yet — add one from the Taxonomy panel first.
-                </p>
-              ) : (
-                field.help && <p className="text-xs text-muted-foreground">{field.help}</p>
-              )}
-            </div>
-          )
-        })}
-
-        {error && <p className="md:col-span-2 text-sm font-medium text-destructive">{error}</p>}
+        {error && <p className="text-sm font-medium text-destructive">{error}</p>}
       </div>
 
       <DialogFooter className="p-6 pt-4 border-t border-primary/5 bg-muted/10 m-0">

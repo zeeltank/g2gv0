@@ -370,12 +370,14 @@ export const taskService = {
     apiClient.get<{ status: 1; message: string; data: ProjectOptions }>('/task-management/projects/options', {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
-  getProjectRecords: (context: LaravelContext, params: { search?: string; status?: ProjectStatus; page?: number } = {}) =>
+  // `perPage` exists for callers that need the whole list at once, such as a
+  // project picker, rather than the 12-per-page project board.
+  getProjectRecords: (context: LaravelContext, params: { search?: string; status?: ProjectStatus; page?: number; perPage?: number } = {}) =>
     apiClient.get<{ status: 1; message: string; data: { projects: ProjectRecord[]; pagination: TaskPagination } }>(
       '/task-management/projects',
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
         ...(params.search ? { search: params.search } : {}), ...(params.status ? { status: params.status } : {}),
-        page: String(params.page ?? 1), per_page: '12' },
+        page: String(params.page ?? 1), per_page: String(params.perPage ?? 12) },
     ),
   getProjectRecord: (context: LaravelContext, id: string) =>
     apiClient.get<{ status: 1; message: string; data: ProjectRecord }>(`/task-management/projects/${id}`, {
@@ -401,6 +403,21 @@ export const taskService = {
     apiClient.put<{ status: 1; message: string }>(`/task-management/projects/${id}/tasks`, {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, task_ids: taskIds,
     }),
+  /**
+   * Link one task to a project, optionally inside a workstream.
+   *
+   * Unlike syncProjectTasks this leaves the project's other tasks alone, which
+   * is what lets a freshly created task join a project without the caller
+   * having to resend every existing task id.
+   */
+  attachTaskToProject: (context: LaravelContext, projectId: string, taskId: string, workstreamId?: string) =>
+    apiClient.post<{ status: 1; message: string; data: { project_id: string; task_id: string; workstream_id: string | null } }>(
+      `/task-management/projects/${projectId}/tasks`,
+      {
+        token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+        task_id: taskId, ...(workstreamId ? { workstream_id: workstreamId } : {}),
+      },
+    ),
   createWorkstream: (context: LaravelContext, projectId: string, payload: Omit<Workstream, 'id' | 'project_id'>) =>
     apiClient.post<{ status: 1; message: string; data: Workstream }>(`/task-management/projects/${projectId}/workstreams`, {
       ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
@@ -498,6 +515,8 @@ export const taskService = {
       task_id?: string | number
       taskId?: string | number
       id?: string | number
+      /** Every row this submit created - a recurring task yields one per date. */
+      task_ids?: Array<string | number>
       replayed?: boolean
       data?: { task_id?: string | number; taskId?: string | number; id?: string | number }
     }>(`/task?${query}`, body)

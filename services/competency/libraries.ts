@@ -240,6 +240,11 @@ export interface GenericDetail {
 
 export interface LibraryMeta {
   departments: string[]
+  /** Second level below department, from both the skill and job role tables. */
+  sub_departments: string[]
+  /** Third taxonomy level, below category and sub category. */
+  micro_categories: string[]
+  industries: string[]
   jobroles_by_department: Record<string, { id: number; jobrole: string }[]>
   proficiency_levels: string[]
   invisible_types: string[]
