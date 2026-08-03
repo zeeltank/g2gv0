@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/components/auth/gtg-auth'
 import { QueryProvider } from '@/components/providers/query-provider'
+import '@mdi/font/css/materialdesignicons.min.css'
 import './globals.css'
 
 const systemSans = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'

@@ -14,3 +14,4 @@ export { lmsService, lmsDashboardService, lmsCatalogService, aiCourseService, lm
 export { hrmsService, leaveService, payrollService, employeeService } from './hrms'
 export { competencyService } from './competency'
 export { talentService } from './talent'
+export { sidebarService } from './navigation/sidebar'

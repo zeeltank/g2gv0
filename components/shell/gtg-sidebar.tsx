@@ -3,17 +3,16 @@
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronRight, ChevronDown, X } from 'lucide-react'
-import { GTG_NAVIGATION, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
+import { HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
 import type { NavModule } from '@/lib/gtg-navigation'
-import { type Role } from '@/hooks/use-role-visibility'
-import { filterNavigationByRole } from '@/hooks/use-role-visibility'
 import { IconButton } from '@/components/ui/icon-button'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
+import { IconGlyph } from '@/components/shell/icon-glyph'
 
 interface GtgSidebarProps {
   active: ActiveNav
   onSelect: (next: ActiveNav) => void
-  role?: Role
+  modules: NavModule[]
   mobileOpen?: boolean
   onMobileClose?: () => void
   collapsed?: boolean
@@ -23,7 +22,7 @@ interface GtgSidebarProps {
 export function GtgSidebar({
   active,
   onSelect,
-  role = 'admin',
+  modules,
   mobileOpen = false,
   onMobileClose,
   collapsed = true,
@@ -42,7 +41,7 @@ export function GtgSidebar({
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null)
   const [expandedMenuId, setExpandedMenuId] = useState<string | null>(null)
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const filteredNav = filterNavigationByRole(role)
+  const filteredNav = modules
 
   const clearFlyout = useCallback(() => {
     setFlyoutModuleId(null)
@@ -270,7 +269,6 @@ export function GtgSidebar({
         <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 pt-2 pb-4" : "px-3 py-3")}>
           <div className={cn("flex flex-col", collapsed ? "items-center gap-1.5" : "gap-1")}>
             {filteredNav.map((module) => {
-              const Icon = module.icon
               const isActive = active.moduleId === module.id
               const isDesktopModuleOpen = !collapsed && desktopExpandedModuleId === module.id
 
@@ -312,7 +310,7 @@ export function GtgSidebar({
                         : "bg-muted text-muted-foreground",
                       collapsed ? "size-7" : "size-7",
                     )}>
-                      <Icon className={cn("shrink-0 transition-transform duration-200", collapsed ? "size-5" : "size-5")} />
+                      <IconGlyph icon={module.icon} className={cn("shrink-0 transition-transform duration-200 text-[18px]", collapsed ? "size-5" : "size-5")} />
                     </span>
                     {!collapsed && (
                       <span className="flex-1 truncate text-left">{module.label}</span>
@@ -331,7 +329,6 @@ export function GtgSidebar({
                   {isDesktopModuleOpen && module.menus.length > 0 && (
                     <div className="ml-5 mt-1 flex flex-col gap-1 border-l border-sidebar-border pl-3">
                       {module.menus.map((menu) => {
-                        const MenuIcon = menu.icon
                         const isMenuActive = active.menuId === menu.id && active.moduleId === module.id
                         const hasActiveSubmenu =
                           active.moduleId === module.id &&
@@ -365,12 +362,12 @@ export function GtgSidebar({
                                   : 'text-sidebar-foreground hover:bg-sidebar-hover',
                               )}
                             >
-                              <MenuIcon
+                              <IconGlyph
+                                icon={menu.icon}
                                 className={cn(
-                                  'size-4 shrink-0',
+                                  'size-4 shrink-0 text-[14px]',
                                   isMenuActive || hasActiveSubmenu ? 'text-primary' : 'text-muted-foreground',
                                 )}
-                                aria-hidden="true"
                               />
                               <span className="min-w-0 flex-1 truncate">{menu.label}</span>
                               {!menuIsLeaf && (
@@ -462,7 +459,6 @@ export function GtgSidebar({
         <nav className="g2g-page-scroll g2g-scrollbar flex-1 overflow-y-auto px-3 py-4">
           <div className="flex flex-col gap-1">
             {filteredNav.map((module) => {
-              const Icon = module.icon
               const isModuleActive = active.moduleId === module.id
               const isModuleExpanded = expandedModuleId === module.id
 
@@ -485,7 +481,7 @@ export function GtgSidebar({
                         ? "bg-primary/10 text-primary"
                         : "bg-muted text-muted-foreground",
                     )}>
-                      <Icon className="size-4 shrink-0" />
+                      <IconGlyph icon={module.icon} className="size-4 shrink-0 text-[14px]" />
                     </span>
                     <span className="flex-1 truncate text-left">{module.label}</span>
                     {module.menus.length > 1 || module.menus[0]?.submenus.length > 1 ? (
@@ -604,7 +600,7 @@ export function GtgSidebar({
             onMouseLeave={handleFlyoutLeave}
           >
           {(() => {
-            const foundModule = GTG_NAVIGATION.find((m) => m.id === flyoutModuleId)
+            const foundModule = filteredNav.find((m) => m.id === flyoutModuleId)
             if (!foundModule) return null
 
             return (

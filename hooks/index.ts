@@ -48,8 +48,8 @@ export {
   type DashboardCourse,
   type CourseBucket,
 } from './use-lms-dashboard'
-export { useNavigation, GTG_NAVIGATION, resolveBreadcrumb, type ActiveNav } from './use-navigation'
-export { useRoleVisibility, filterNavigationByRole, isMenuVisible, canAccessMenu, type Role } from './use-role-visibility'
+export { useNavigation, HOME_NAV, resolveBreadcrumb, type ActiveNav } from './use-navigation'
+export { useSidebarNavigation, type SidebarNavigationResult } from './use-sidebar-navigation'
 export { ROLES, roleLabel, getAccess, type Role as RoleType, type Access } from './use-roles'
 export { 
   loadContentRoute,

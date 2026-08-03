@@ -2,14 +2,15 @@ import type { ContentRoute } from './use-content-map-utils'
 export type { LazyComponent } from './use-content-map-utils'
 export type { ContentRoute } from './use-content-map-utils'
 
+// Keyed by tblmenumaster_g2g module id (level=1 row id); 'm0' is the synthetic Home module.
 const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   m0: () => import('./content-map-m0').then((module) => module.M0_CONTENT),
-  'organizational-management': () => import('./content-map-m1').then((module) => module.M1_CONTENT),
-  'competency-management': () => import('./content-map-m2').then((module) => module.M2_CONTENT),
-  'talent-management': () => import('./content-map-m3').then((module) => module.M3_CONTENT),
-  lms: () => import('./content-map-m4').then((module) => module.M4_CONTENT),
-  'hrit-solutions': () => import('./content-map-m5').then((module) => module.M5_CONTENT),
-  'task-management': () => import('./content-map-m6').then((module) => module.M6_CONTENT),
+  '1': () => import('./content-map-m1').then((module) => module.M1_CONTENT), // Organizational Management
+  '2': () => import('./content-map-m2').then((module) => module.M2_CONTENT), // Competency Management
+  '3': () => import('./content-map-m3').then((module) => module.M3_CONTENT), // Talent Management
+  '4': () => import('./content-map-m4').then((module) => module.M4_CONTENT), // LMS
+  '5': () => import('./content-map-m5').then((module) => module.M5_CONTENT), // HRIT Solutions
+  '204': () => import('./content-map-m6').then((module) => module.M6_CONTENT), // Task Management
 }
 
 export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[] | undefined> {
@@ -33,12 +34,8 @@ export async function loadContentRoute(
 }
 
 export const COMING_SOON_CONTENT: Record<string, { title: string; description: string }> = {
-  compensation: {
+  '50': { // Compensation (menu id, Talent Management)
     title: 'Compensation',
     description: 'Manage salaries, bonuses, and equity grants. Coming soon.',
-  },
-  'payroll-processing': {
-    title: 'Payroll Processing',
-    description: 'Run payroll cycles, manage salary components, and generate payslips. Coming soon.',
   },
 }

@@ -1,56 +1,15 @@
-import type { LucideIcon } from 'lucide-react'
-import {
-  Bot,
-  BrainCircuit,
-  Share2,
-  GitBranch,
-  ScrollText,
-  Sparkles,
-  Wand2,
-  Building2,
-  Users,
-  ShieldCheck,
-  Library,
-  Briefcase,
-  Gauge,
-  BookOpen,
-  ClipboardCheck,
-  CalendarClock,
-  CalendarDays,
-  Wallet,
-  LayoutDashboard,
-  CheckSquare,
-  Network,
-  Link,
-  CheckCircle,
-  Calendar,
-  FileDown,
-  Shield,
-  Settings,
-  UserPlus,
-  TrendingUp,
-  FileText,
-  LayoutGrid,
-  User,
-  Target,
-  Award,
-  Megaphone,
-  BarChart3,
-  ListChecks,
-  ArrowRightLeft,
-  LogOut,
-  DollarSign
-} from 'lucide-react'
-
 export type NavSubmenu = {
   id: string
   label: string
+  icon?: string | null
+  accessLink?: string | null
 }
 
 export type NavMenu = {
   id: string
   label: string
-  icon: LucideIcon
+  icon?: string | null
+  accessLink?: string | null
   submenus: NavSubmenu[]
 }
 
@@ -58,7 +17,8 @@ export type NavModule = {
   id: string
   label: string
   short: string
-  icon: LucideIcon
+  icon?: string | null
+  accessLink?: string | null
   menus: NavMenu[]
   /** Standalone modules navigate directly to their page and have no child menus/submenus. */
   standalone?: boolean
@@ -66,248 +26,13 @@ export type NavModule = {
 
 /**
  * Direct navigation target for the standalone Main Dashboard (Home) module.
- * The application's landing screen after login.
+ * The application's landing screen after login - not a tblmenumaster_g2g row.
  */
 export const HOME_NAV: ActiveNav = {
   moduleId: 'm0',
   menuId: 'main-dashboard',
   submenuId: 'main-dashboard',
 }
-
-/**
- * Exact navigation hierarchy from the GTG Architecture Reference:
- * 5 Modules -> 16 Menus -> 30 Submenus.
- */
-export const GTG_NAVIGATION: NavModule[] = [
-  {
-    id: 'm0',
-    label: 'Main Dashboard',
-    short: 'Home',
-    icon: LayoutDashboard,
-    standalone: true,
-    menus: [],
-  },
-  {
-    id: 'organizational-management',
-    label: 'Organizational Management',
-    short: 'M1',
-    icon: Network,
-    menus: [
-      {
-        id: 'org-setup',
-        label: 'Organization Setup',
-        icon: Building2,
-        submenus: [
-          { id: 'org-profile', label: 'Organization Profile' },
-          { id: 'dept-management', label: 'Department Management' },
-        ],
-      },
-      {
-        id: 'user-management',
-        label: 'User Management',
-        icon: Users,
-        submenus: [
-          { id: 'employee-directory', label: 'Employee Directory' },
-          { id: 'role-permissions', label: 'Role & Permissions' },
-        ],
-      },
-
-      {
-        id: 'compliance-discipline',
-        label: 'Compliance & Discipline',
-        icon: ShieldCheck,
-        submenus: [
-          { id: 'compliance-management', label: 'Compliance Management' },
-          { id: 'disciplinary-management', label: 'Disciplinary Management' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'competency-management',
-    label: 'Competency Management',
-    short: 'M2',
-    icon: Library,
-    menus: [
-      { id: 'cm-command-center', label: 'Command Center', icon: LayoutGrid, submenus: [] },
-      { id: 'cm-competency-library', label: 'Competency Library', icon: BookOpen, submenus: [] },
-      { id: 'cm-libraries-taxonomy', label: 'Libraries & Taxonomy', icon: Library, submenus: [] },
-      { id: 'cm-skill-taxonomy', label: 'Skill Taxonomy', icon: Network, submenus: [] },
-      { id: 'cm-taxonomy-ontology', label: 'Taxonomy Ontology', icon: Share2, submenus: [] },
-      { id: 'cm-framework-mapping', label: 'Framework & Role Mapping', icon: Network, submenus: [] },
-      { id: 'cm-assessments', label: 'Assessments', icon: ClipboardCheck, submenus: [] },
-      { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },
-      { id: 'cm-development-career', label: 'Development & Career Paths', icon: Target, submenus: [] },
-      { id: 'cm-certifications', label: 'Certifications', icon: Award, submenus: [] },
-      { id: 'cm-audit', label: 'Audit & Activity Center', icon: ShieldCheck, submenus: [] },
-    ],
-  },
-  {
-    id: 'talent-management',
-    label: 'Talent Management',
-    short: 'M3',
-    icon: UserPlus,
-    menus: [
-      { id: 'tm-dashboard', label: 'Dashboard', icon: LayoutDashboard, submenus: [] },
-      { id: 'recruitment', label: 'Recruitment', icon: Briefcase, submenus: [] },
-      { id: 'onboarding', label: 'Onboarding', icon: UserPlus, submenus: [] },
-      { id: 'performance', label: 'Performance', icon: TrendingUp, submenus: [] },
-      { id: 'compensation', label: 'Compensation', icon: DollarSign, submenus: [] },
-      { id: 'mobility-succession', label: 'Mobility & Succession', icon: ArrowRightLeft, submenus: [] },
-      { id: 'offboarding', label: 'Offboarding', icon: LogOut, submenus: [] },
-      { id: 'administration', label: 'Administration', icon: Settings, submenus: [] },
-    ],
-  },
-  {
-    id: 'lms',
-    label: 'LMS',
-    short: 'M4',
-    icon: BookOpen,
-    menus: [
-      {
-        id: 'learning',
-        label: 'Learning',
-        icon: BookOpen,
-        submenus: [
-          { id: 'lms-dashboard', label: 'Dashboard' },
-          { id: 'learning-catalog', label: 'Learning Catalog' },
-          { id: 'my-learning', label: 'My Learning' },
-        ],
-      },
-      {
-        id: 'training-records',
-        label: 'Training & Records',
-        icon: CalendarClock,
-        submenus: [
-          { id: 'assignments', label: 'Assignments' },
-          { id: 'sessions-calendar', label: 'Sessions & Calendar' },
-          { id: 'certifications', label: 'Certifications & Records' },
-        ],
-      },
-      {
-        id: 'lms-administration',
-        label: 'Administration',
-        icon: Settings,
-        submenus: [
-          { id: 'create-course', label: 'Course Builder' },
-          { id: 'governance', label: 'Admin & Governance' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'hrit-solutions',
-    label: 'HRIT Solutions',
-    short: 'M5',
-    icon: CalendarClock,
-    menus: [
-      {
-        id: 'attendance-management',
-        label: 'Attendance Management',
-        icon: CalendarClock,
-        submenus: [
-          { id: 'attendance-tracking', label: 'Attendance Tracking' },
-          { id: 'attendance-reports', label: 'Attendance Reports' },
-        ],
-      },
-      {
-        id: 'leave-management',
-        label: 'Leave Management',
-        icon: CalendarDays,
-        submenus: [
-          { id: 'leave-dashboard', label: 'Dashboard' },
-          { id: 'leave-requests', label: 'Leave Requests' },
-          { id: 'leave-reports', label: 'Reports' },
-          { id: 'leave-configuration', label: 'Configuration' },
-        ],
-      },
-      {
-        id: 'payroll-management',
-        label: 'Payroll Management',
-        icon: Wallet,
-        submenus: [
-          { id: 'payroll-type', label: 'Payroll Type' },
-          { id: 'salary-structure', label: 'Salary Structure' },
-          { id: 'payroll-deduction', label: 'Payroll Deduction' },
-          { id: 'monthly-payroll', label: 'Monthly Payroll' },
-          { id: 'salary-certificate', label: 'Salary Certificate' },
-          { id: 'form-16', label: 'Form 16' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'task-management',
-    label: 'Task Management',
-    short: 'TM',
-    icon: ListChecks,
-    menus: [
-      {
-        id: 'tm-dashboard',
-        label: 'Dashboard',
-        icon: LayoutDashboard,
-        submenus: [],
-      },
-      {
-        id: 'tm-tasks',
-        label: 'My Tasks',
-        icon: CheckSquare,
-        submenus: [],
-      },
-      {
-        id: 'tm-projects',
-        label: 'Projects & Workstreams',
-        icon: Briefcase,
-        submenus: [],
-      },
-      {
-        id: 'tm-dependencies',
-        label: 'Dependencies',
-        icon: Link,
-        submenus: [],
-      },
-      {
-        id: 'tm-calendar',
-        label: 'Calendar',
-        icon: Calendar,
-        submenus: [],
-      },
-      {
-        id: 'tm-reports',
-        label: 'Reports & Analysis',
-        icon: BarChart3,
-        submenus: [],
-      },
-      {
-        id: 'tm-admin',
-        label: 'Administration',
-        icon: Shield,
-        submenus: [
-          { id: 'status-management', label: 'Status Management' },
-          { id: 'priority-management', label: 'Priority Management' },
-          { id: 'permissions', label: 'Permissions' },
-          { id: 'integrations', label: 'Integrations' },
-          { id: 'audit-logs', label: 'Audit Logs' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'm7',
-    label: 'Agentic AI',
-    short: 'AI',
-    icon: Sparkles,
-    menus: [
-      { id: 'ag-agent-dashboard', label: 'Agent Dashboard', icon: Gauge, submenus: [] },
-      { id: 'ag-agent-library', label: 'Agent Library', icon: Bot, submenus: [] },
-      { id: 'ag-create-agent', label: 'Create Agent', icon: Wand2, submenus: [] },
-      { id: 'ag-run-log', label: 'Run Logs & Traces', icon: ScrollText, submenus: [] },
-      { id: 'ag-analytics', label: 'Analytics', icon: BarChart3, submenus: [] },
-      { id: 'ag-multi-agent', label: 'Multi-Agent', icon: GitBranch, submenus: [] },
-      { id: 'ag-reflection', label: 'Reflection', icon: BrainCircuit, submenus: [] },
-    ],
-  },
-]
 
 export type BreadcrumbItem = {
   label: string
@@ -320,25 +45,25 @@ export type ActiveNav = {
   submenuId: string
 }
 
-export function resolveBreadcrumb(active: ActiveNav): BreadcrumbItem[] {
+export function resolveBreadcrumb(active: ActiveNav, modules: NavModule[]): BreadcrumbItem[] {
   const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
-
-  const navModule = GTG_NAVIGATION.find((m) => m.id === active.moduleId)
-  const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
-  const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
 
   if (active.moduleId === 'm0') {
     return [{ label: 'Home', href: '/dashboard' }, { label: 'Main Dashboard' }]
   }
 
+  const navModule = modules.find((m) => m.id === active.moduleId)
+  const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
+  const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
+
   if (navModule?.label) {
     items.push({ label: navModule.label })
   }
   if (menu?.label) {
-    items.push({ label: menu.label })
+    items.push({ label: menu.label, href: menu.accessLink ?? undefined })
   }
   if (submenu?.label) {
-    items.push({ label: submenu.label, href: `/module/${active.moduleId}/${active.menuId}/${active.submenuId}` })
+    items.push({ label: submenu.label, href: submenu.accessLink ?? undefined })
   }
 
   return items

@@ -8,12 +8,13 @@ const MobilityCenter = createLazyComponent(() => import('@/domain/talent/mobilit
 const OffboardingCenter = createLazyComponent(() => import('@/domain/talent/offboarding').then((m) => ({ default: m.OffboardingCenter })))
 const AdminCenter = createLazyComponent(() => import('@/domain/talent/administration').then((m) => ({ default: m.AdminCenter })))
 
+// Ids are tblmenumaster_g2g menu-level rows (Talent Management, module id 3).
 export const M3_CONTENT: ContentRoute[] = [
-  { menuId: 'tm-dashboard', component: TalentDashboard },
-  { menuId: 'recruitment', component: RecruitmentCenter },
-  { menuId: 'onboarding', component: OnboardingCenter },
-  { menuId: 'performance', component: PerformanceCenter },
-  { menuId: 'mobility-succession', component: MobilityCenter },
-  { menuId: 'offboarding', component: OffboardingCenter },
-  { menuId: 'administration', component: AdminCenter },
+  { menuId: '46', component: TalentDashboard }, // Talent Dashboard
+  { menuId: '47', component: RecruitmentCenter }, // Recruitment
+  { menuId: '48', component: OnboardingCenter }, // Onboarding
+  { menuId: '49', component: PerformanceCenter }, // Performance Reviews & Appraisals
+  { menuId: '52', component: MobilityCenter }, // Mobility & Succession
+  { menuId: '171', component: OffboardingCenter }, // Offboarding
+  { menuId: '178', component: AdminCenter }, // Administration
 ]
