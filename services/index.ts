@@ -15,3 +15,4 @@ export { hrmsService, leaveService, payrollService, employeeService } from './hr
 export { competencyService } from './competency'
 export { talentService } from './talent'
 export { sidebarService } from './navigation/sidebar'
+export { menuRightsService } from './navigation/menu-rights'
