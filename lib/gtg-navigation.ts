@@ -1,25 +1,20 @@
-export type NavSubmenu = {
+/**
+ * A single node in the Modules -> Menus -> Submenus -> ... tree, at any
+ * depth. The tree is built entirely from tblmenumaster_g2g id/parent_id
+ * relationships (see useSidebarNavigation), so a node's `children` can be
+ * empty (a leaf), or nest arbitrarily deep — nothing in this type or the
+ * code that walks it assumes a fixed number of levels.
+ */
+export type NavNode = {
   id: string
   label: string
   icon?: string | null
   accessLink?: string | null
+  children: NavNode[]
 }
 
-export type NavMenu = {
-  id: string
-  label: string
-  icon?: string | null
-  accessLink?: string | null
-  submenus: NavSubmenu[]
-}
-
-export type NavModule = {
-  id: string
-  label: string
+export type NavModule = NavNode & {
   short: string
-  icon?: string | null
-  accessLink?: string | null
-  menus: NavMenu[]
   /** Standalone modules navigate directly to their page and have no child menus/submenus. */
   standalone?: boolean
 }
@@ -47,6 +42,8 @@ export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organi
 export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
 export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
+export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
+export const DISCIPLINARY_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/disciplinary-library'
 export const LMS_LEARNING_CATALOG_ACCESS_LINK = '/module/lms/learning/learning-catalog'
 export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
@@ -67,6 +64,21 @@ export type ActiveNav = {
   submenuId: string
 }
 
+/**
+ * Depth-first search for the node with the given id, starting from `nodes`.
+ * Returns the full ancestor chain (root-first, target last) or null if not
+ * found. Used by resolveBreadcrumb and the sidebar so both work at any tree
+ * depth without assuming a fixed number of levels.
+ */
+export function findNodePath(nodes: NavNode[], id: string): NavNode[] | null {
+  for (const node of nodes) {
+    if (node.id === id) return [node]
+    const childPath = findNodePath(node.children, id)
+    if (childPath) return [node, ...childPath]
+  }
+  return null
+}
+
 export function resolveBreadcrumb(active: ActiveNav, modules: NavModule[]): BreadcrumbItem[] {
   const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
 
@@ -75,38 +87,35 @@ export function resolveBreadcrumb(active: ActiveNav, modules: NavModule[]): Brea
   }
 
   const navModule = modules.find((m) => m.id === active.moduleId)
-  const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
-  const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
+  if (!navModule) return items
 
-  if (navModule?.label) {
-    items.push({ label: navModule.label })
-  }
-  if (menu?.label) {
-    items.push({ label: menu.label, href: menu.accessLink ?? undefined })
-  }
-  if (submenu?.label) {
-    items.push({ label: submenu.label, href: submenu.accessLink ?? undefined })
+  items.push({ label: navModule.label })
+
+  const targetId = active.submenuId || active.menuId
+  const path = targetId ? findNodePath(navModule.children, targetId) : null
+  for (const node of path ?? []) {
+    items.push({ label: node.label, href: node.accessLink ?? undefined })
   }
 
   return items
 }
 
 /**
- * Walks the live Modules -> Menus -> Submenus tree (already filtered to the
- * caller's profile rights) and returns accessLink back only if some node in
- * the tree actually has it — i.e. the target exists and the caller can see
- * it. Returns undefined otherwise, so callers can fall back to a safe route
- * instead of navigating somewhere the profile has no rights to.
+ * Walks the live Modules -> Menus -> Submenus -> ... tree (already filtered
+ * to the caller's profile rights, arbitrary depth) and returns accessLink
+ * back only if some node in the tree actually has it — i.e. the target
+ * exists and the caller can see it. Returns undefined otherwise, so callers
+ * can fall back to a safe route instead of navigating somewhere the profile
+ * has no rights to.
  */
 export function getRouteByAccessLink(modules: NavModule[], accessLink: string): string | undefined {
-  for (const mod of modules) {
-    if (mod.accessLink === accessLink) return mod.accessLink
-    for (const menu of mod.menus) {
-      if (menu.accessLink === accessLink) return menu.accessLink
-      for (const submenu of menu.submenus) {
-        if (submenu.accessLink === accessLink) return submenu.accessLink
-      }
+  const search = (nodes: NavNode[]): string | undefined => {
+    for (const node of nodes) {
+      if (node.accessLink === accessLink) return node.accessLink
+      const found = search(node.children)
+      if (found) return found
     }
+    return undefined
   }
-  return undefined
+  return search(modules)
 }

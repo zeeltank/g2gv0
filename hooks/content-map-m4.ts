@@ -9,14 +9,15 @@ const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
 const LmsGovernance = createLazyComponent(() => import('@/domain/lms/governance').then((m) => ({ default: m.LmsGovernance })))
 
-// Ids are tblmenumaster_g2g rows (LMS, module id 4).
+// accessLink is the stable tblmenumaster_g2g column (LMS, module id 4);
+// submenuId is kept as a fallback.
 export const M4_CONTENT: ContentRoute[] = [
-  { submenuId: '80', component: LmsDashboard }, // Learning Dashboard
-  { submenuId: '182', component: LearningCatalog }, // Learning Catalog
-  { submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
-  { submenuId: '84', component: CreateCoursePage }, // Course Builder
-  { submenuId: '81', component: LearningAssignments }, // Assignments
-  { submenuId: '82', component: SessionsCalendar }, // Sessions & Calendar
-  { submenuId: '83', component: CertificationsRecords }, // Certifications & Records
-  { submenuId: '85', component: LmsGovernance }, // Administration & Governance
+  { accessLink: '/module/lms/learning/learning-dashboard', submenuId: '80', component: LmsDashboard }, // Learning Dashboard
+  { accessLink: '/module/lms/learning/learning-catalog', submenuId: '182', component: LearningCatalog }, // Learning Catalog
+  { accessLink: '/module/lms/learning/my-learning', submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
+  { accessLink: '/module/lms/administration/course-builder', submenuId: '84', component: CreateCoursePage }, // Course Builder
+  { accessLink: '/module/lms/training-and-records/assignments', submenuId: '81', component: LearningAssignments }, // Assignments
+  { accessLink: '/module/lms/training-and-records/sessions-and-calendar', submenuId: '82', component: SessionsCalendar }, // Sessions & Calendar
+  { accessLink: '/module/lms/training-and-records/certifications-and-records', submenuId: '83', component: CertificationsRecords }, // Certifications & Records
+  { accessLink: '/module/lms/administration/administration-and-governance', submenuId: '85', component: LmsGovernance }, // Administration & Governance
 ]

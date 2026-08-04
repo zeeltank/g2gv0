@@ -8,13 +8,15 @@ const MobilityCenter = createLazyComponent(() => import('@/domain/talent/mobilit
 const OffboardingCenter = createLazyComponent(() => import('@/domain/talent/offboarding').then((m) => ({ default: m.OffboardingCenter })))
 const AdminCenter = createLazyComponent(() => import('@/domain/talent/administration').then((m) => ({ default: m.AdminCenter })))
 
-// Ids are tblmenumaster_g2g menu-level rows (Talent Management, module id 3).
+// accessLink is the stable tblmenumaster_g2g column (Talent Management,
+// module id 3, menu-level rows); menuId is kept as a fallback.
 export const M3_CONTENT: ContentRoute[] = [
-  { menuId: '46', component: TalentDashboard }, // Talent Dashboard
-  { menuId: '47', component: RecruitmentCenter }, // Recruitment
-  { menuId: '48', component: OnboardingCenter }, // Onboarding
-  { menuId: '49', component: PerformanceCenter }, // Performance Reviews & Appraisals
-  { menuId: '52', component: MobilityCenter }, // Mobility & Succession
-  { menuId: '171', component: OffboardingCenter }, // Offboarding
-  { menuId: '178', component: AdminCenter }, // Administration
+  { accessLink: '/module/talent-management/talent-dashboard', menuId: '46', component: TalentDashboard }, // Talent Dashboard
+  { accessLink: '/module/talent-management/recruitment', menuId: '47', component: RecruitmentCenter }, // Recruitment
+  { accessLink: '/module/talent-management/onboarding', menuId: '48', component: OnboardingCenter }, // Onboarding
+  { accessLink: '/module/talent-management/performance-reviews-and-appraisals', menuId: '49', component: PerformanceCenter }, // Performance Reviews & Appraisals
+ { accessLink: '/module/talent-management/compensation', menuId: '50', component: PerformanceCenter }, // Compensation
+  { accessLink: '/module/talent-management/mobility-and-succession', menuId: '52', component: MobilityCenter }, // Mobility & Succession
+  { accessLink: '/module/talent-management/offboarding', menuId: '171', component: OffboardingCenter }, // Offboarding
+  { accessLink: '/module/talent-management/administration', menuId: '178', component: AdminCenter }, // Administration
 ]

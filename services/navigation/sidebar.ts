@@ -8,27 +8,32 @@ import { webClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLaravelParams } from '@/lib/laravel-context'
 
-export interface SidebarSubmenuNode {
+/**
+ * A single tblmenumaster_g2g row, at any depth (module, menu, submenu, or
+ * deeper). The API is free to either nest children inline (under `menus`,
+ * `submenus`, or `children` — whichever key it uses at a given level) or
+ * stamp each row with its own `parent_id`; the tree builder in
+ * useSidebarNavigation reads both and prefers the explicit `parent_id` when
+ * present, so neither the field name nor the nesting depth is assumed here.
+ */
+export interface SidebarMenuNode {
   id: number
+  parent_id?: number | null
+  level?: number
   label: string
   icon: string | null
   access_link: string | null
   page_type: string | null
   sort_order: number
-}
-
-export interface SidebarMenuNode extends SidebarSubmenuNode {
-  submenus: SidebarSubmenuNode[]
-}
-
-export interface SidebarModuleNode extends SidebarSubmenuNode {
-  menus: SidebarMenuNode[]
+  menus?: SidebarMenuNode[]
+  submenus?: SidebarMenuNode[]
+  children?: SidebarMenuNode[]
 }
 
 export interface SidebarMenuResponse {
   status_code: number
   message: string
-  data: SidebarModuleNode[]
+  data: SidebarMenuNode[]
 }
 
 export const sidebarService = {

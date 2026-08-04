@@ -5,8 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { sidebarService } from '@/services/navigation/sidebar'
-import type { SidebarModuleNode, SidebarMenuNode, SidebarSubmenuNode } from '@/services/navigation/sidebar'
-import { HOME_NAV, getRouteByAccessLink, type NavModule, type NavMenu, type NavSubmenu, type ActiveNav } from '@/lib/gtg-navigation'
+import type { SidebarMenuNode } from '@/services/navigation/sidebar'
+import {
+  HOME_NAV,
+  getRouteByAccessLink,
+  type NavNode,
+  type NavModule,
+  type ActiveNav,
+} from '@/lib/gtg-navigation'
 
 const HOME_MODULE: NavModule = {
   id: HOME_NAV.moduleId,
@@ -15,32 +21,63 @@ const HOME_MODULE: NavModule = {
   icon: 'mdi mdi-view-dashboard-outline',
   accessLink: '/dashboard',
   standalone: true,
-  menus: [],
+  children: [],
 }
 
-function toSubmenu(node: SidebarSubmenuNode): NavSubmenu {
-  return { id: String(node.id), label: node.label, icon: node.icon, accessLink: node.access_link }
+type FlatNode = {
+  id: number
+  parentId: number | null
+  label: string
+  icon: string | null
+  accessLink: string | null
+  sortOrder: number
 }
 
-function toMenu(node: SidebarMenuNode): NavMenu {
-  return {
-    id: String(node.id),
-    label: node.label,
-    icon: node.icon,
-    accessLink: node.access_link,
-    submenus: (node.submenus ?? []).map(toSubmenu),
+/**
+ * Flattens whatever nesting shape the API sends (children under `menus`,
+ * `submenus`, or `children`, at any depth) into a single list, resolving
+ * each row's parent purely from tblmenumaster_g2g's own `parent_id` column
+ * when the row carries one — falling back to wherever it was structurally
+ * nested only if it doesn't. This means a row that's nested in the wrong
+ * place in the raw response (as Task Management's Administration children
+ * currently are — see content-map-m6.ts) still ends up under its real
+ * parent, without any menu id/name ever being hardcoded here. Top-level
+ * `data[]` entries are always modules, regardless of any parent_id they
+ * might carry.
+ */
+function flattenMenuNodes(rawNodes: SidebarMenuNode[] | undefined, structuralParentId: number | null, isRoot: boolean, out: FlatNode[]) {
+  for (const raw of rawNodes ?? []) {
+    const parentId = isRoot ? null : raw.parent_id ?? structuralParentId
+    out.push({
+      id: raw.id,
+      parentId,
+      label: raw.label,
+      icon: raw.icon,
+      accessLink: raw.access_link,
+      sortOrder: raw.sort_order ?? 0,
+    })
+    flattenMenuNodes(raw.children ?? raw.submenus ?? raw.menus, raw.id, false, out)
   }
 }
 
-function toModule(node: SidebarModuleNode): NavModule {
-  return {
-    id: String(node.id),
-    label: node.label,
-    short: node.label,
-    icon: node.icon,
-    accessLink: node.access_link,
-    menus: (node.menus ?? []).map(toMenu),
-  }
+function buildChildren(flat: FlatNode[], parentId: number | null): NavNode[] {
+  return flat
+    .filter((node) => node.parentId === parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((node) => ({
+      id: String(node.id),
+      label: node.label,
+      icon: node.icon,
+      accessLink: node.accessLink,
+      children: buildChildren(flat, node.id),
+    }))
+}
+
+/** Builds the full Modules -> Menus -> Submenus -> ... tree from tblmenumaster_g2g id/parent_id relationships, to any depth. */
+function buildModuleTree(rawModules: SidebarMenuNode[]): NavModule[] {
+  const flat: FlatNode[] = []
+  flattenMenuNodes(rawModules, null, true, flat)
+  return buildChildren(flat, null).map((node) => ({ ...node, short: node.label }))
 }
 
 export interface SidebarNavigationResult {
@@ -72,11 +109,13 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   })
 
   const modules = useMemo(() => {
-    const apiModules = (query.data?.data ?? []).map(toModule)
-    return [HOME_MODULE, ...apiModules]
+    return [HOME_MODULE, ...buildModuleTree(query.data?.data ?? [])]
   }, [query.data])
 
   // `${moduleId}:${menuId}:${submenuId}` -> access_link, and the reverse lookup.
+  // ActiveNav only carries 3 ids, so for a node deeper than module->menu->submenu,
+  // menuId is its immediate parent and submenuId is the node itself — the tree
+  // itself (walked via findNodePath) is what actually carries full depth.
   const { pathByKey, keyByPath } = useMemo(() => {
     const pathByKey = new Map<string, string>()
     const keyByPath = new Map<string, ActiveNav>()
@@ -87,13 +126,18 @@ export function useSidebarNavigation(): SidebarNavigationResult {
       keyByPath.set(accessLink, active)
     }
 
+    const walk = (moduleId: string, node: NavNode, parent: NavNode | null) => {
+      const menuId = parent ? parent.id : node.id
+      record({ moduleId, menuId, submenuId: node.id }, node.accessLink)
+      for (const child of node.children) {
+        walk(moduleId, child, node)
+      }
+    }
+
     for (const mod of modules) {
       record({ moduleId: mod.id, menuId: mod.id, submenuId: mod.id }, mod.accessLink)
-      for (const menu of mod.menus) {
-        record({ moduleId: mod.id, menuId: menu.id, submenuId: menu.id }, menu.accessLink)
-        for (const submenu of menu.submenus) {
-          record({ moduleId: mod.id, menuId: menu.id, submenuId: submenu.id }, submenu.accessLink)
-        }
+      for (const menu of mod.children) {
+        walk(mod.id, menu, null)
       }
     }
 

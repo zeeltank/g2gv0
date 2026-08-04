@@ -13,18 +13,19 @@ const MonthlyPayrollPage = createLazyComponent(() => import('@/domain/hrms/hrit/
 const SalaryCertificatePage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/salary-certificate/page').then((m) => ({ default: m.default })))
 const Form16Page = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/form-16/page').then((m) => ({ default: m.default })))
 
-// Ids are tblmenumaster_g2g rows (HRIT Solutions, module id 5).
+// accessLink is the stable tblmenumaster_g2g column (HRIT Solutions, module
+// id 5); submenuId is kept as a fallback.
 export const M5_CONTENT: ContentRoute[] = [
-  { submenuId: '100', component: AttendanceDashboard }, // Attendance Tracking
-  { submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
-  { submenuId: '102', component: LeaveManagementDashboard }, // Leave Dashboard
-  { submenuId: '103', component: LeaveRequestsPage }, // Leave Requests
-  { submenuId: '104', component: LeaveReportsPage }, // Leave Reports
-  { submenuId: '165', component: LeaveConfigurationPage }, // Leave Configuration
-  { submenuId: '105', component: PayrollTypePage }, // Payroll Type
-  { submenuId: '106', component: SalaryStructurePage }, // Salary Structure
-  { submenuId: '108', component: PayrollDeductionPage }, // Payroll Deduction
-  { submenuId: '140', component: MonthlyPayrollPage }, // Monthly Payroll Report
-  { submenuId: '110', component: SalaryCertificatePage }, // Salary Certificate
-  { submenuId: '109', component: Form16Page }, // Form 16
+  { accessLink: '/module/hrit-solutions/attendance-management/attendance-tracking', submenuId: '100', component: AttendanceDashboard }, // Attendance Tracking
+  { accessLink: '/module/hrit-solutions/attendance-management/attendance-reports', submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
+  { accessLink: '/module/hrit-solutions/leave-management/leave-dashboard', submenuId: '102', component: LeaveManagementDashboard }, // Leave Dashboard
+  { accessLink: '/module/hrit-solutions/leave-management/leave-requests', submenuId: '103', component: LeaveRequestsPage }, // Leave Requests
+  { accessLink: '/module/hrit-solutions/leave-management/leave-reports', submenuId: '104', component: LeaveReportsPage }, // Leave Reports
+  { accessLink: '/module/hrit-solutions/leave-management/leave-configuration', submenuId: '165', component: LeaveConfigurationPage }, // Leave Configuration
+  { accessLink: '/module/hrit-solutions/payroll-management/payroll-type', submenuId: '105', component: PayrollTypePage }, // Payroll Type
+  { accessLink: '/module/hrit-solutions/payroll-management/salary-structure', submenuId: '106', component: SalaryStructurePage }, // Salary Structure
+  { accessLink: '/module/hrit-solutions/payroll-management/payroll-deduction', submenuId: '108', component: PayrollDeductionPage }, // Payroll Deduction
+  { accessLink: '/module/hrit-solutions/payroll-management/monthly-payroll-report', submenuId: '140', component: MonthlyPayrollPage }, // Monthly Payroll Report
+  { accessLink: '/module/hrit-solutions/payroll-management/salary-certificate', submenuId: '110', component: SalaryCertificatePage }, // Salary Certificate
+  { accessLink: '/module/hrit-solutions/payroll-management/form-16', submenuId: '109', component: Form16Page }, // Form 16
 ]
