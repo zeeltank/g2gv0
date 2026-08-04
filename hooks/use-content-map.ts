@@ -11,6 +11,7 @@ const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   '4': () => import('./content-map-m4').then((module) => module.M4_CONTENT), // LMS
   '5': () => import('./content-map-m5').then((module) => module.M5_CONTENT), // HRIT Solutions
   '204': () => import('./content-map-m6').then((module) => module.M6_CONTENT), // Task Management
+  '186': () => import('./content-map-m7').then((module) => module.M7_CONTENT), // Agentic AI
 }
 
 export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[] | undefined> {
@@ -21,11 +22,17 @@ export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[
 
 export async function loadContentRoute(
   active: { moduleId: string; menuId: string; submenuId: string },
+  accessLink?: string,
 ): Promise<ContentRoute | undefined> {
   const routes = await loadContentRoutes(active.moduleId)
   if (!routes) return undefined
 
-  let match = routes.find((route) => route.submenuId === active.submenuId)
+  // accessLink is the stable tblmenumaster_g2g column; submenuId/menuId are
+  // its numeric ids, kept as a fallback for routes not yet migrated.
+  let match = accessLink ? routes.find((route) => route.accessLink === accessLink) : undefined
+  if (!match) {
+    match = routes.find((route) => route.submenuId === active.submenuId)
+  }
   if (!match) {
     match = routes.find((route) => route.menuId === active.menuId)
   }

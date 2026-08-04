@@ -12,17 +12,23 @@ const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competenc
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
-// Ids are tblmenumaster_g2g rows, all under the "Competency Library" menu (id 34) of module 2.
+// accessLink is the stable tblmenumaster_g2g column (Competency Library menu,
+// id 34, of module 2); submenuId is kept as a fallback.
+// NOTE: ids 38 ("Competency Library"), 39 ("Libraries & Taxonomy") and 208
+// ("Audit & Activity Center") don't currently exist as tblmenumaster_g2g
+// rows — confirmed via a live DB query — so they have no access_link and
+// keep matching on submenuId only (already broken pre-migration; unchanged).
 export const M2_CONTENT: ContentRoute[] = [
-  { submenuId: '37', component: CmCommandCenter }, // Command Center
-  { submenuId: '38', component: CmCompetencyLibrary }, // Competency Library
-  { submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
+  { accessLink: '/module/competency-management/competency-library/command-center', component: CmCommandCenter }, // Command Center
+  { accessLink: '/module/competency-management/competency-library/framework-and-role-mapping',submenuId: '34', component: CmCompetencyLibrary }, // Competency Library
+  { accessLink: '/module/competency-management/competency-library/framework-and-role-mapping', submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
+  { accessLink: '/module/competency-management/competency-library/libraries-and-taxonomy', submenuId: '223', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
   { submenuId: '39', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
-  { submenuId: '41', component: CmSkillTaxonomy }, // Skills & Taxonomy
-  { submenuId: '43', component: CmTaxonomyOntology }, // Taxonomy Ontology
-  { submenuId: '155', component: CmAssessmentWorkspace }, // Assessments
-  { submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
-  { submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
-  { submenuId: '158', component: CmCertifications }, // Certifications
+  { accessLink: '/module/competency-management/competency-library/skill-taxonomy', submenuId: '41', component: CmSkillTaxonomy }, // Skills & Taxonomy
+  { accessLink: '/module/competency-management/competency-library/taxonomy-ontology', submenuId: '43', component: CmTaxonomyOntology }, // Taxonomy Ontology
+  { accessLink: '/module/competency-management/competency-library/assessments', submenuId: '155', component: CmAssessmentWorkspace }, // Assessments
+  { accessLink: '/module/competency-management/competency-library/employee-profiles', submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
+  { accessLink: '/module/competency-management/competency-library/development-and-career-paths', submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
+  { accessLink: '/module/competency-management/competency-library/certifications', submenuId: '158', component: CmCertifications }, // Certifications
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]

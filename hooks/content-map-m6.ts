@@ -13,19 +13,33 @@ const TmPermissions = createLazyComponent(() => import('@/domain/task/tm-permiss
 const TmIntegrations = createLazyComponent(() => import('@/domain/task/tm-integrations').then((m) => ({ default: m.TmIntegrations })))
 const TmAuditLogs = createLazyComponent(() => import('@/domain/task/tm-audit-logs').then((m) => ({ default: m.TmAuditLogs })))
 
-// Ids are tblmenumaster_g2g menu-level rows (Task Management, module id 204).
-// The DB has no "Administration" menu/submenus yet, so status/priority/permissions/
-// integrations/audit-logs have no row to key off and fall back to Coming Soon.
+// accessLink is the stable tblmenumaster_g2g column (Task Management, module
+// id 204, menu-level rows); menuId is kept as a fallback.
+// NOTE: ids 217-221 (status/priority/permissions/integrations/audit-logs)
+// exist as rows under parent id 222 ("Administration", itself a child of 204)
+// but currently share the SAME access_link as id 215
+// ("/module/task-management/reports-and-analysis") — confirmed via a live DB
+// query, looks like an unfinished backend slug backfill for that group.
+// Assigning that link here would make .find() always resolve to whichever
+// entry comes first, so these keep matching on submenuId (they're nested
+// under Administration in the sidebar tree — normally via the backend's own
+// parent_id nesting, with normalizeTaskManagementAdministration in
+// lib/gtg-navigation.ts as a defensive fallback that makes '222' the menuId
+// and each of these its own submenuId if the API ever returns them flat) —
+// menuId is also set as a defensive fallback in case that nesting isn't
+// applied. Swap to accessLink for these five once the backend gives each row
+// its own distinct value.
 export const M6_CONTENT: ContentRoute[] = [
-  { menuId: '210', component: TaskWorkspace }, // Task Management Dashboard
-  { menuId: '211', component: MyTasksView }, // My Tasks
-  { menuId: '212', component: ProjectsListView }, // Projects & Workstreams
-  { menuId: '213', component: DependenciesView }, // Dependencies & Workstreams
-  { menuId: '214', component: TaskCalendarView }, // Task Calendar
-  { menuId: '215', component: TmReports },
-  { menuId: '217', component: TmStatusManagement },
-  { menuId: '218', component: TmPriorityManagement },
-  { menuId: '219', component: TmPermissions },
-  { menuId: '220', component: TmIntegrations },
-  { menuId: '221', component: TmAuditLogs },
+  { accessLink: '/module/task-management/task-management-dashboard', menuId: '210', component: TaskWorkspace }, // Task Management Dashboard
+  { accessLink: '/module/task-management/my-tasks', menuId: '211', component: MyTasksView }, // My Tasks
+  { accessLink: '/module/task-management/projects-and-workstreams', menuId: '212', component: ProjectsListView }, // Projects & Workstreams
+  { accessLink: '/module/task-management/dependencies-and-workstreams', menuId: '213', component: DependenciesView }, // Dependencies & Workstreams
+  { accessLink: '/module/task-management/task-calendar', menuId: '214', component: TaskCalendarView }, // Task Calendar
+  { accessLink: '/module/task-management/reports-and-analysis', menuId: '215', component: TmReports },
+
+  {accessLink: '/module/task-management/task-status', submenuId: '217', component: TmStatusManagement }, // Status Management
+  { accessLink: '/module/task-management/task-priority', submenuId: '218', component: TmPriorityManagement }, // Priority Management
+  { accessLink: '/module/task-management/task-permission', submenuId: '219', component: TmPermissions }, // Permissions
+  { accessLink: '/module/task-management/task-integrations', submenuId: '220', component: TmIntegrations }, // Integrations
+  { accessLink: '/module/task-management/task-audit-logs', submenuId: '221', component: TmAuditLogs }, // Audit Logs
 ]

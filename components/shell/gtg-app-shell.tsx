@@ -81,11 +81,12 @@ function ComingSoonFallback({ active }: { active: ActiveNav }) {
 }
 
 function ContentRenderer({ active }: { active: ActiveNav }) {
+  const pathname = usePathname()
   const [route, setRoute] = useState<ContentRoute | undefined | null>(undefined)
 
   useEffect(() => {
     let cancelled = false
-    loadContentRoute(active)
+    loadContentRoute(active, pathname)
       .then((resolved) => {
         if (!cancelled) setRoute(resolved ?? null)
       })
@@ -95,7 +96,7 @@ function ContentRenderer({ active }: { active: ActiveNav }) {
     return () => {
       cancelled = true
     }
-  }, [active])
+  }, [active, pathname])
 
   if (route === undefined) {
     return <ContentSkeleton />

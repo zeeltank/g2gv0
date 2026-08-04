@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react
 import { cn } from '@/lib/utils'
 import { ChevronRight, ChevronDown, X } from 'lucide-react'
 import { HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
-import type { NavModule } from '@/lib/gtg-navigation'
+import { findNodePath, type NavModule, type NavNode } from '@/lib/gtg-navigation'
 import { IconButton } from '@/components/ui/icon-button'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { IconGlyph } from '@/components/shell/icon-glyph'
@@ -19,6 +19,127 @@ interface GtgSidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
+/** All ancestor ids (down to and including the active leaf) within `module`, for pre-expanding the branch that contains the active item. */
+function activePathIds(module: NavModule, active: ActiveNav): Set<string> {
+  const targetId = active.submenuId || active.menuId
+  if (!targetId) return new Set()
+  const path = findNodePath(module.children, targetId)
+  return new Set((path ?? []).map((node) => node.id))
+}
+
+function containsId(node: NavNode, id: string): boolean {
+  if (node.id === id) return true
+  return node.children.some((child) => containsId(child, id))
+}
+
+/** A module has no meaningful expand/collapse when it resolves to exactly one leaf — clicking it should navigate straight there. */
+function isDirectLeafModule(module: NavModule): boolean {
+  return module.children.length === 1 && module.children[0].children.length === 0
+}
+
+interface SidebarMenuBranchProps {
+  node: NavNode
+  depth: number
+  moduleId: string
+  parentId: string | null
+  active: ActiveNav
+  expandedIds: Set<string>
+  onToggle: (id: string) => void
+  onLeafSelect: (next: ActiveNav) => void
+}
+
+/**
+ * Renders one menu node and, if expanded, recurses into its children — to
+ * whatever depth the tblmenumaster_g2g hierarchy actually has. Used by the
+ * desktop rail, the mobile drawer, and the collapsed-rail flyout, so a menu
+ * with grandchildren (e.g. Task Management's Administration) renders and
+ * expands correctly everywhere without any per-level code.
+ */
+function SidebarMenuBranch({
+  node,
+  depth,
+  moduleId,
+  parentId,
+  active,
+  expandedIds,
+  onToggle,
+  onLeafSelect,
+}: SidebarMenuBranchProps) {
+  const hasChildren = node.children.length > 0
+  const isOpen = expandedIds.has(node.id)
+  const activeLeafId = active.submenuId || active.menuId
+  const isActiveLeaf = !hasChildren && active.moduleId === moduleId && node.id === activeLeafId
+  const hasActiveDescendant =
+    hasChildren && active.moduleId === moduleId && node.children.some((child) => containsId(child, activeLeafId))
+  const isTopLevel = depth === 0
+
+  const handleClick = () => {
+    if (hasChildren) {
+      onToggle(node.id)
+    } else {
+      onLeafSelect({ moduleId, menuId: parentId ?? node.id, submenuId: node.id })
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-current={isActiveLeaf ? 'page' : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        className={cn(
+          'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          isTopLevel ? 'min-h-9 text-sm' : 'min-h-8 text-xs',
+          isActiveLeaf || hasActiveDescendant
+            ? isTopLevel ? 'bg-primary/10 text-primary font-semibold' : 'bg-primary/15 text-primary font-semibold'
+            : isTopLevel
+              ? 'text-sidebar-foreground hover:bg-sidebar-hover'
+              : 'text-muted-foreground hover:bg-sidebar-hover hover:text-sidebar-foreground',
+        )}
+      >
+        {isTopLevel && (
+          <IconGlyph
+            icon={node.icon}
+            className={cn(
+              'size-4 shrink-0 text-[14px]',
+              isActiveLeaf || hasActiveDescendant ? 'text-primary' : 'text-muted-foreground',
+            )}
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate">{node.label}</span>
+        {hasChildren && (
+          <ChevronRight
+            className={cn(
+              'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+              isOpen && 'rotate-90',
+            )}
+            aria-hidden="true"
+          />
+        )}
+      </button>
+
+      {hasChildren && isOpen && (
+        <div className="ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
+          {node.children.map((child) => (
+            <SidebarMenuBranch
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              moduleId={moduleId}
+              parentId={node.id}
+              active={active}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              onLeafSelect={onLeafSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function GtgSidebar({
   active,
   onSelect,
@@ -29,36 +150,33 @@ export function GtgSidebar({
   onCollapsedChange,
 }: GtgSidebarProps) {
   const [flyoutModuleId, setFlyoutModuleId] = useState<string | null>(null)
-  const [flyoutMenuId, setFlyoutMenuId] = useState<string | null>(null)
+  const [flyoutExpandedIds, setFlyoutExpandedIds] = useState<Set<string>>(new Set())
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; height: number } | null>(null)
   const [flyoutStyle, setFlyoutStyle] = useState<{ top: number; left: number; maxHeight: number; fromLeft: boolean } | null>(null)
   const sidebarRef = useRef<HTMLElement>(null)
   const flyoutRef = useRef<HTMLDivElement>(null)
   const [desktopExpandedModuleId, setDesktopExpandedModuleId] = useState<string | null>(active.moduleId)
-  const [desktopExpandedMenuIds, setDesktopExpandedMenuIds] = useState<Set<string>>(
-    () => new Set([`${active.moduleId}:${active.menuId}`]),
-  )
+  const [desktopExpandedIds, setDesktopExpandedIds] = useState<Set<string>>(() => {
+    const activeModule = modules.find((m) => m.id === active.moduleId)
+    return activeModule ? activePathIds(activeModule, active) : new Set()
+  })
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null)
-  const [expandedMenuId, setExpandedMenuId] = useState<string | null>(null)
+  const [expandedMobileIds, setExpandedMobileIds] = useState<Set<string>>(new Set())
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const filteredNav = modules
 
   const clearFlyout = useCallback(() => {
     setFlyoutModuleId(null)
-    setFlyoutMenuId(null)
+    setFlyoutExpandedIds(new Set())
     setFlyoutPosition(null)
   }, [])
 
-  const expandDesktopSidebar = useCallback((moduleId: string) => {
+  const expandDesktopSidebar = useCallback((module: NavModule) => {
     clearFlyout()
-    setDesktopExpandedModuleId(moduleId)
-    setDesktopExpandedMenuIds(
-      moduleId === active.moduleId
-        ? new Set([`${active.moduleId}:${active.menuId}`])
-        : new Set(),
-    )
+    setDesktopExpandedModuleId(module.id)
+    setDesktopExpandedIds(module.id === active.moduleId ? activePathIds(module, active) : new Set())
     onCollapsedChange?.(false)
-  }, [active.menuId, active.moduleId, clearFlyout, onCollapsedChange])
+  }, [active, clearFlyout, onCollapsedChange])
 
   const handleModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
@@ -69,15 +187,11 @@ export function GtgSidebar({
     if (!collapsed) {
       const nextModuleId = desktopExpandedModuleId === module.id ? null : module.id
       setDesktopExpandedModuleId(nextModuleId)
-      setDesktopExpandedMenuIds(
-        nextModuleId === active.moduleId
-          ? new Set([`${active.moduleId}:${active.menuId}`])
-          : new Set(),
-      )
+      setDesktopExpandedIds(nextModuleId === active.moduleId ? activePathIds(module, active) : new Set())
       return
     }
-    expandDesktopSidebar(module.id)
-  }, [active.menuId, active.moduleId, clearFlyout, collapsed, desktopExpandedModuleId, expandDesktopSidebar, onSelect])
+    expandDesktopSidebar(module)
+  }, [active, clearFlyout, collapsed, desktopExpandedModuleId, expandDesktopSidebar, onSelect])
 
   const handleModuleActivate = useCallback((module: NavModule) => {
     if (module.standalone) {
@@ -85,7 +199,7 @@ export function GtgSidebar({
       onSelect(HOME_NAV)
       return
     }
-    expandDesktopSidebar(module.id)
+    expandDesktopSidebar(module)
   }, [clearFlyout, expandDesktopSidebar, onSelect])
 
   const handleModuleMouseEnter = useCallback((module: NavModule, element: HTMLElement) => {
@@ -97,7 +211,7 @@ export function GtgSidebar({
     const rect = element.getBoundingClientRect()
     setFlyoutPosition({ top: rect.top, height: rect.height })
     setFlyoutModuleId(module.id)
-    setFlyoutMenuId(null)
+    setFlyoutExpandedIds(new Set())
   }, [collapsed])
 
   const closeFlyout = useCallback(() => {
@@ -191,19 +305,50 @@ export function GtgSidebar({
   const handleDesktopLeafSelect = useCallback((next: ActiveNav) => {
     clearFlyout()
     setDesktopExpandedModuleId(next.moduleId)
-    setDesktopExpandedMenuIds(new Set([`${next.moduleId}:${next.menuId}`]))
+    const nextModule = modules.find((m) => m.id === next.moduleId)
+    setDesktopExpandedIds(nextModule ? activePathIds(nextModule, next) : new Set())
     onSelect(next)
     onCollapsedChange?.(true)
-  }, [clearFlyout, onSelect, onCollapsedChange])
+  }, [clearFlyout, modules, onSelect, onCollapsedChange])
 
-  const toggleDesktopMenu = useCallback((moduleId: string, menuId: string) => {
-    const key = `${moduleId}:${menuId}`
-    setDesktopExpandedMenuIds((current) => {
+  const handleFlyoutLeafSelect = useCallback((next: ActiveNav) => {
+    setFlyoutModuleId(null)
+    setFlyoutExpandedIds(new Set())
+    setFlyoutPosition(null)
+    onSelect(next)
+  }, [onSelect])
+
+  const toggleDesktopNode = useCallback((nodeId: string) => {
+    setDesktopExpandedIds((current) => {
       const next = new Set(current)
-      if (next.has(key)) {
-        next.delete(key)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
       } else {
-        next.add(key)
+        next.add(nodeId)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleMobileNode = useCallback((nodeId: string) => {
+    setExpandedMobileIds((current) => {
+      const next = new Set(current)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleFlyoutNode = useCallback((nodeId: string) => {
+    setFlyoutExpandedIds((current) => {
+      const next = new Set(current)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
       }
       return next
     })
@@ -211,11 +356,7 @@ export function GtgSidebar({
 
   const toggleMobileModule = useCallback((moduleId: string) => {
     setExpandedModuleId((current) => (current === moduleId ? null : moduleId))
-    setExpandedMenuId(null)
-  }, [])
-
-  const toggleMobileMenu = useCallback((menuId: string) => {
-    setExpandedMenuId((current) => (current === menuId ? null : menuId))
+    setExpandedMobileIds(new Set())
   }, [])
 
   const handleMobileModuleClick = useCallback((module: NavModule) => {
@@ -223,10 +364,9 @@ export function GtgSidebar({
       handleMobileLeafSelect({ moduleId: module.id, menuId: HOME_NAV.menuId, submenuId: HOME_NAV.submenuId })
       return
     }
-    if (module.menus.length === 1 && module.menus[0].submenus.length === 1) {
-      const menu = module.menus[0]
-      const submenu = menu.submenus[0]
-      handleMobileLeafSelect({ moduleId: module.id, menuId: menu.id, submenuId: submenu.id })
+    if (isDirectLeafModule(module)) {
+      const leaf = module.children[0]
+      handleMobileLeafSelect({ moduleId: module.id, menuId: leaf.id, submenuId: leaf.id })
     } else {
       toggleMobileModule(module.id)
     }
@@ -326,97 +466,21 @@ export function GtgSidebar({
                     )}
                   </button>
 
-                  {isDesktopModuleOpen && module.menus.length > 0 && (
+                  {isDesktopModuleOpen && module.children.length > 0 && (
                     <div className="ml-5 mt-1 flex flex-col gap-1 border-l border-sidebar-border pl-3">
-                      {module.menus.map((menu) => {
-                        const isMenuActive = active.menuId === menu.id && active.moduleId === module.id
-                        const hasActiveSubmenu =
-                          active.moduleId === module.id &&
-                          active.menuId === menu.id &&
-                          menu.submenus.some((s) => s.id === active.submenuId)
-                        const menuIsLeaf = menu.submenus.length === 0
-                        const isDesktopMenuOpen = desktopExpandedMenuIds.has(`${module.id}:${menu.id}`)
-
-                        return (
-                          <div key={menu.id} className="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (menuIsLeaf) {
-                                  handleDesktopLeafSelect({
-                                    moduleId: module.id,
-                                    menuId: menu.id,
-                                    submenuId: menu.id,
-                                  })
-                                } else {
-                                  toggleDesktopMenu(module.id, menu.id)
-                                }
-                              }}
-                              aria-current={menuIsLeaf && isMenuActive ? 'page' : undefined}
-                              aria-expanded={!menuIsLeaf ? isDesktopMenuOpen : undefined}
-                              className={cn(
-                                'flex min-h-9 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                'cursor-pointer',
-                                isMenuActive || hasActiveSubmenu
-                                  ? 'bg-primary/10 text-primary font-semibold'
-                                  : 'text-sidebar-foreground hover:bg-sidebar-hover',
-                              )}
-                            >
-                              <IconGlyph
-                                icon={menu.icon}
-                                className={cn(
-                                  'size-4 shrink-0 text-[14px]',
-                                  isMenuActive || hasActiveSubmenu ? 'text-primary' : 'text-muted-foreground',
-                                )}
-                              />
-                              <span className="min-w-0 flex-1 truncate">{menu.label}</span>
-                              {!menuIsLeaf && (
-                                <ChevronRight
-                                  className={cn(
-                                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                                    isDesktopMenuOpen && 'rotate-90',
-                                  )}
-                                  aria-hidden="true"
-                                />
-                              )}
-                            </button>
-
-                            {menu.submenus.length > 0 && isDesktopMenuOpen && (
-                              <div className="ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
-                                {menu.submenus.map((submenu) => {
-                                  const isSubmenuActive =
-                                    active.submenuId === submenu.id &&
-                                    active.menuId === menu.id &&
-                                    active.moduleId === module.id
-
-                                  return (
-                                    <button
-                                      key={submenu.id}
-                                      type="button"
-                                      onClick={() => {
-                                        handleDesktopLeafSelect({
-                                          moduleId: module.id,
-                                          menuId: menu.id,
-                                          submenuId: submenu.id,
-                                        })
-                                      }}
-                                      aria-current={isSubmenuActive ? 'page' : undefined}
-                                      className={cn(
-                                        'flex min-h-8 w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-left text-xs font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                        isSubmenuActive
-                                          ? 'bg-primary/15 text-primary font-semibold'
-                                          : 'text-muted-foreground hover:bg-sidebar-hover hover:text-sidebar-foreground',
-                                      )}
-                                    >
-                                      <span className="truncate">{submenu.label}</span>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                      {module.children.map((menu) => (
+                        <SidebarMenuBranch
+                          key={menu.id}
+                          node={menu}
+                          depth={0}
+                          moduleId={module.id}
+                          parentId={null}
+                          active={active}
+                          expandedIds={desktopExpandedIds}
+                          onToggle={toggleDesktopNode}
+                          onLeafSelect={handleDesktopLeafSelect}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -461,13 +525,14 @@ export function GtgSidebar({
             {filteredNav.map((module) => {
               const isModuleActive = active.moduleId === module.id
               const isModuleExpanded = expandedModuleId === module.id
+              const showModuleExpand = !module.standalone && !isDirectLeafModule(module) && module.children.length > 0
 
               return (
                 <div key={module.id} className="flex flex-col">
                   <button
                     type="button"
                     onClick={() => handleMobileModuleClick(module)}
-                    aria-expanded={module.menus.length > 1 || module.menus[0]?.submenus.length > 1 ? isModuleExpanded : undefined}
+                    aria-expanded={showModuleExpand ? isModuleExpanded : undefined}
                     className={cn(
                       'flex h-11 w-full items-center gap-3 rounded-md px-2 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       isModuleActive
@@ -484,7 +549,7 @@ export function GtgSidebar({
                       <IconGlyph icon={module.icon} className="size-4 shrink-0 text-[14px]" />
                     </span>
                     <span className="flex-1 truncate text-left">{module.label}</span>
-                    {module.menus.length > 1 || module.menus[0]?.submenus.length > 1 ? (
+                    {showModuleExpand ? (
                       <ChevronDown
                         className={cn(
                           'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
@@ -497,71 +562,19 @@ export function GtgSidebar({
 
                   {isModuleExpanded && (
                     <div className="ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
-                      {module.menus.map((menu) => {
-                        const isMenuActive = active.menuId === menu.id && active.moduleId === module.id
-                        const hasActiveSubmenu = menu.submenus.some((s) => s.id === active.submenuId)
-                        const isMenuExpanded = expandedMenuId === menu.id
-                        const showExpand = menu.submenus.length > 1
-
-                        return (
-                          <div key={menu.id} className="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (menu.submenus.length === 0) {
-                                  handleMobileLeafSelect({ moduleId: module.id, menuId: menu.id, submenuId: menu.id })
-                                } else if (menu.submenus.length === 1) {
-                                  handleMobileLeafSelect({ moduleId: module.id, menuId: menu.id, submenuId: menu.submenus[0].id })
-                                } else {
-                                  toggleMobileMenu(menu.id)
-                                }
-                              }}
-                              aria-expanded={showExpand ? isMenuExpanded : undefined}
-                              className={cn(
-                                'flex h-10 w-full items-center justify-between gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                isMenuActive || hasActiveSubmenu
-                                  ? 'bg-primary/15 text-primary font-semibold'
-                                  : 'text-sidebar-foreground hover:bg-primary/10',
-                              )}
-                            >
-                              <span className="truncate text-left">{menu.label}</span>
-                              {showExpand && (
-                                <ChevronRight
-                                  className={cn(
-                                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                                    isMenuExpanded && 'rotate-90',
-                                  )}
-                                  aria-hidden="true"
-                                />
-                              )}
-                            </button>
-
-                            {showExpand && isMenuExpanded && (
-                              <div className="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
-                                {menu.submenus.map((submenu) => {
-                                  const isSubmenuActive = active.submenuId === submenu.id && active.menuId === menu.id
-                                  return (
-                                    <button
-                                      key={submenu.id}
-                                      type="button"
-                                      onClick={() => handleMobileLeafSelect({ moduleId: module.id, menuId: menu.id, submenuId: submenu.id })}
-                                      aria-current={isSubmenuActive ? 'page' : undefined}
-                                      className={cn(
-                                        'flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                        isSubmenuActive
-                                          ? 'bg-primary/15 text-primary font-semibold'
-                                          : 'text-sidebar-foreground hover:bg-primary/10',
-                                      )}
-                                    >
-                                      <span className="truncate">{submenu.label}</span>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                      {module.children.map((menu) => (
+                        <SidebarMenuBranch
+                          key={menu.id}
+                          node={menu}
+                          depth={0}
+                          moduleId={module.id}
+                          parentId={null}
+                          active={active}
+                          expandedIds={expandedMobileIds}
+                          onToggle={toggleMobileNode}
+                          onLeafSelect={handleMobileLeafSelect}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -609,85 +622,19 @@ export function GtgSidebar({
                   <h2 className="text-sm font-semibold text-foreground">{foundModule.label}</h2>
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5 px-2 py-2 overflow-y-auto g2g-scrollbar">
-                  {foundModule.menus.map((menu) => {
-                    const isFlyoutMenuOpen = flyoutMenuId === menu.id
-                    const isMenuActive = active.menuId === menu.id && active.moduleId === flyoutModuleId
-                    const hasActiveSubmenu = menu.submenus.some((s) => s.id === active.submenuId)
-
-                    return (
-                      <div
-                        key={menu.id}
-                        className="flex flex-col gap-0.5"
-                        onMouseEnter={() => setFlyoutMenuId(menu.id)}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // If the menu has no submenus, it would be a standalone page (currently none exist)
-                            if (menu.submenus.length === 0) {
-                              setFlyoutModuleId(null)
-                              setFlyoutMenuId(null)
-                              setFlyoutPosition(null)
-                              onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: menu.id })
-                            } else {
-                              // Toggle the submenu open/close on click
-                              setFlyoutMenuId(isFlyoutMenuOpen ? null : menu.id)
-                            }
-                          }}
-                          className={cn(
-                            'flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-200 outline-none',
-                            'focus-visible:ring-2 focus-visible:ring-ring',
-                            isMenuActive || hasActiveSubmenu
-                              ? 'bg-primary/15 text-primary font-semibold'
-                              : 'text-sidebar-foreground hover:bg-primary/10',
-                          )}
-                        >
-                          <span className="truncate">{menu.label}</span>
-                          {menu.submenus.length > 0 && (
-                            <ChevronRight
-                              className={cn(
-                                'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                                isFlyoutMenuOpen && 'rotate-90',
-                              )}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </button>
-
-                        {menu.submenus.length > 0 && isFlyoutMenuOpen && (
-                          <div
-                            className="flex flex-col gap-0.5 border-l border-sidebar-border pl-3 ml-3"
-                            onMouseEnter={() => setFlyoutMenuId(menu.id)}
-                          >
-                            {menu.submenus.map((submenu) => {
-                              const isSubmenuActive = active.submenuId === submenu.id && active.menuId === menu.id
-                              return (
-                                <button
-                                  key={submenu.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setFlyoutModuleId(null)
-                                    setFlyoutMenuId(null)
-                                    setFlyoutPosition(null)
-                                    onSelect({ moduleId: flyoutModuleId, menuId: menu.id, submenuId: submenu.id })
-                                  }}
-                                  className={cn(
-                                    'flex h-9 w-full cursor-pointer items-center rounded-md px-3 text-left text-sm font-medium transition-colors duration-200 outline-none',
-                                    'focus-visible:ring-2 focus-visible:ring-ring',
-                                    isSubmenuActive
-                                      ? 'bg-primary/15 text-primary font-semibold'
-                                      : 'text-sidebar-foreground hover:bg-primary/10',
-                                  )}
-                                >
-                                  <span className="truncate">{submenu.label}</span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {foundModule.children.map((menu) => (
+                    <SidebarMenuBranch
+                      key={menu.id}
+                      node={menu}
+                      depth={0}
+                      moduleId={foundModule.id}
+                      parentId={null}
+                      active={active}
+                      expandedIds={flyoutExpandedIds}
+                      onToggle={toggleFlyoutNode}
+                      onLeafSelect={handleFlyoutLeafSelect}
+                    />
+                  ))}
                 </div>
               </>
             )
