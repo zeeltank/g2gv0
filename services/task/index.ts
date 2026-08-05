@@ -562,6 +562,11 @@ export const taskService = {
         user_role?: string
       }>
     }>('/get-employee-tasks', {
+      // The route requires a token now: it used to be unauthenticated, so any
+      // caller could read any employee's tasks in any organisation. The tenant
+      // is derived server-side from this token; sub_institute_id is still sent
+      // because other callers of this endpoint pass it, but it is ignored.
+      token: context.token,
       user_id: userId, sub_institute_id: context.subInstituteId,
     }),
   getJobRoleTaskSuggestions: (
