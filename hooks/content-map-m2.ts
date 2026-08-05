@@ -20,7 +20,7 @@ const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit')
 // keep matching on submenuId only (already broken pre-migration; unchanged).
 export const M2_CONTENT: ContentRoute[] = [
   { accessLink: '/module/competency-management/competency-library/command-center', component: CmCommandCenter }, // Command Center
-  { accessLink: '/module/competency-management/competency-library/framework-and-role-mapping',submenuId: '34', component: CmCompetencyLibrary }, // Competency Library
+  { accessLink: '/module/competency-management/competency-library', submenuId: '34', component: CmCompetencyLibrary }, // Competency Library
   { accessLink: '/module/competency-management/competency-library/framework-and-role-mapping', submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
   { accessLink: '/module/competency-management/competency-library/libraries-and-taxonomy', submenuId: '223', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
   { submenuId: '39', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
