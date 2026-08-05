@@ -4,6 +4,26 @@
  */
 
 import { resolveApiBaseUrl, resolveWebBaseUrl } from '@/lib/api-config'
+import { readLaravelSession } from '@/lib/laravel-session'
+
+/**
+ * The caller's Sanctum token as an `Authorization: Bearer` header.
+ *
+ * Tokens were previously sent only as a `token` query parameter. A URL is not a
+ * private place: it is written to web server access logs, browser history,
+ * proxy and CDN logs, and leaks through the `Referer` header on any outbound
+ * link. A token harvested from a log is a working credential.
+ *
+ * Laravel accepts either form (`$request->bearerToken() ?: $request->input('token')`),
+ * so sending the header costs nothing and is the shape to keep. The query
+ * parameter is still sent by individual callers for now; once every one of them
+ * has been migrated, the backend's `?: $request->input('token')` fallback can be
+ * dropped and the credential will have left the URL entirely.
+ */
+function authHeader(): Record<string, string> {
+  const token = readLaravelSession()?.token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 const API_BASE_URL = resolveApiBaseUrl()
 const WEB_BASE_URL = resolveWebBaseUrl()
@@ -75,6 +95,7 @@ class ApiClient {
       method,
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...authHeader(),
         ...headers,
       },
       body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
