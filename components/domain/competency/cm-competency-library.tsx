@@ -96,7 +96,9 @@ const TYPE_FORM_OPTIONS = [
   ...TYPE_VALUES.map((t) => ({ label: t, value: t })),
 ]
 
-const STATUS_VALUES = ['Approved', 'Pending', 'Cancelled'] as const
+// 'Rejected' is a real stored state: a rejected subject is moved there so it is
+// neither pending nor approved and can be revised and resubmitted.
+const STATUS_VALUES = ['Approved', 'Pending', 'Rejected', 'Cancelled'] as const
 
 /**
  * approve_status is stored as 'Cancelled' but the screen calls that state
@@ -117,7 +119,6 @@ const STATUS_FILTER_OPTIONS = [
   ...STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s })),
 ]
 
-const STATUS_FORM_OPTIONS = STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s }))
 
 const PER_PAGE_OPTIONS = [
   { label: '10 / page', value: '10' },
@@ -433,9 +434,10 @@ function CompetencyForm({
       ...(values.competency_type ? { competency_type: values.competency_type } : {}),
       ...optional('description'),
       ...optional('proficiency_level'),
-      // Status is edit-only: a new competency is created Approved, and moving it
-      // out of that state is what "Submit for Approval" is for.
-      ...(editing ? { status: values.status } : {}),
+      // G-COMP-01: `status` is no longer sent. approve_status is server-owned -
+      // the API ignores it, and sending a field the server discards is the
+      // silent-data-loss pattern this audit exists to remove. Approval moves
+      // through "Submit for Approval" and the approval queue.
       ...Object.fromEntries(
         DETAIL_FIELDS.map((f) => [f.key, text(f.key as string)]).filter(([, value]) => {
           // On edit send blanks too, so a field can be cleared.
@@ -498,12 +500,14 @@ function CompetencyForm({
             <label className="text-sm font-semibold text-foreground">Proficiency Scale</label>
             <Input value={values.proficiency_level} onChange={(e) => set('proficiency_level', e.target.value)} placeholder="e.g. 1-5 Level Scale" className="bg-background border-border" />
           </div>
-          {editing && (
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Status</label>
-              <Select value={values.status} onChange={(v) => set('status', v)} options={STATUS_FORM_OPTIONS} className="bg-background border-border h-9" aria-label="Status" />
-            </div>
-          )}
+          {/*
+            G-COMP-01: the Status dropdown was removed. It wrote straight to
+            approve_status with no reviewer, which bypassed the whole approval
+            workflow from an edit form. The server now owns that field, so
+            leaving the control would show a dropdown that silently does
+            nothing. Approval moves through Submit for Approval and the
+            approval queue.
+          */}
         </div>
 
         <div className="space-y-2">
@@ -820,7 +824,10 @@ export function CmCompetencyLibrary() {
       // archiving is reversible, so the user may well want to undo it.
       setSelectedItem((current) =>
         current && current.id === archiveTarget.id
-          ? { ...current, approve_status: restoring ? 'Approved' : 'Cancelled' }
+          // Restore returns the item to Pending, not Approved (G-COMP-01):
+          // housekeeping must never grant approval. Mirror the server exactly,
+          // or the panel shows a state the database does not hold.
+          ? { ...current, approve_status: restoring ? 'Pending' : 'Cancelled' }
           : current,
       )
       setArchiveTarget(null)

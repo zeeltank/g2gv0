@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import {
-  useLibraryDetail,
   useLibraryList,
   useTaxonomy,
   useWorkFunctions,
@@ -63,9 +62,15 @@ import { useAuth } from '@/hooks/use-auth'
 import { type LibraryTabConfig } from './library-config'
 import { ShapeGrid, SHAPE_ACTION_ICONS, type ShapeAction } from './shape-grid'
 import { LibraryDetailModal } from './library-detail-modal'
-import { LibraryDetail, dash } from './library-detail'
 import { LibraryForm } from './library-form'
 import { TaxonomyManager } from './taxonomy-manager'
+
+/** Empty, null and whitespace all render as one em dash rather than a blank cell. */
+function dash(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  const text = String(value).trim()
+  return text === '' ? '—' : text
+}
 
 const PER_PAGE_OPTIONS = [
   { label: '25 / page', value: '25' },
@@ -120,7 +125,7 @@ interface LibraryTabProps {
 }
 
 /**
- * One library tab: toolbar, table or card grid, pager, detail panel, create /
+ * One library tab: toolbar, table or card grid, pager, detail popup, create /
  * edit form, delete confirm and (where the tab owns a taxonomy) its editor.
  *
  * All eight tabs render through this component - what differs between them is
@@ -203,10 +208,9 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const taxonomy = useTaxonomy(config.id, active && config.hasTaxonomy)
 
   /* ------------------------------ ui state ----------------------------- */
-  const [selected, setSelected] = useState<LibraryRow | null>(null)
-  // Competencies get the full popup - proficiency levels, mapped roles and
-  // the course builder. The other libraries have no levels to show, so they
-  // keep the side panel.
+  // Every tab opens the popup. An earlier design gave the non-competency tabs
+  // a side panel instead, but nothing ever put a row into its state, so it was
+  // unreachable on all eight tabs and has been removed.
   const [richDetail, setRichDetail] = useState<LibraryRow | null>(null)
   // Which popup section to land on. Set by the tile actions so "usage
   // insights" opens on roles rather than making the user hunt for it.
@@ -219,11 +223,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const [cloneError, setCloneError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportNote, setExportNote] = useState<string | null>(null)
-
-  const { detail, loading: detailLoading } = useLibraryDetail(
-    config.id,
-    selected && (config.id === 'skill' || config.id === 'jobrole') ? selected.id : null,
-  )
 
   /* ------------------------------ options ------------------------------ */
 
@@ -397,7 +396,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
 
   const openEdit = (row: LibraryRow) => {
     clearMessages()
-    setSelected(null)
     setFormInitial(row)
     setFormOpen(true)
   }
@@ -410,7 +408,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     const result = await remove(deleteTarget.id)
     if (result.ok) {
       setDeleteTarget(null)
-      setSelected(null)
     }
   }
 
@@ -419,7 +416,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     setCloneError(null)
     try {
       await competencyLibrariesService.cloneInvisible(getLaravelContext(user), row.id)
-      setSelected(null)
       retry()
     } catch (error) {
       setCloneError(error instanceof Error ? error.message : 'Failed to copy the entry.')
@@ -1049,28 +1045,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
           }}
         />
       )}
-
-      {/* Detail panel */}
-      <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent
-          side="right"
-          className="flex w-full flex-col border-l border-primary/10 bg-card p-0 shadow-2xl sm:w-[640px] sm:max-w-none lg:w-[760px]"
-        >
-          {selected && (
-            <LibraryDetail
-              config={config}
-              row={selected}
-              detail={detail}
-              detailLoading={detailLoading}
-              canEdit={canEditRow(selected)}
-              onEdit={() => openEdit(selected)}
-              onDelete={() => setDeleteTarget(selected)}
-              onClone={config.id === 'invisible' ? () => handleClone(selected) : undefined}
-              cloning={cloning}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
 
       {/* Taxonomy editor */}
       {config.hasTaxonomy && (
