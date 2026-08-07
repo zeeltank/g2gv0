@@ -53,7 +53,22 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon; kind: QuickCreateKind }[
   { label: 'Launch Assessment', icon: ClipboardCheck, kind: 'assessment' },
   { label: 'Create Development Plan', icon: Target, kind: 'development-plan' },
   { label: 'Add Certification', icon: Award, kind: 'certification' },
-  { label: 'Create Role Mapping', icon: Briefcase, kind: 'framework' },
+  // G-MAP-01: "Create Role Mapping" was REMOVED, not disabled.
+  //
+  // It carried kind:'framework' - the same kind as "Create Framework" two lines
+  // above - so clicking it silently created a FRAMEWORK and reported success.
+  // The user asked for a role mapping and got a different object, with no error.
+  // A control that quietly does the wrong thing is worse than an absent one.
+  //
+  // It cannot simply be re-pointed: QuickCreateKind has five kinds and
+  // CREATE_ENDPOINTS five endpoints (services/competency/command-center.ts:111),
+  // and there is no role-mapping kind or endpoint to point at. s_user_skill_jobrole
+  // (79,295 rows) has NO create path at all - only cell-by-cell edits through
+  // RoleMappingController::upsertCell.
+  //
+  // Reinstatement is tracked as M-03: build the create path by surfacing the bulk
+  // insert that already exists at SchoolSetupController.php:392-408, then wire a
+  // button to it. This stays gone until then.
 ]
 
 // Where each tile / ring / queue "view" affordance navigates. Every target is an
