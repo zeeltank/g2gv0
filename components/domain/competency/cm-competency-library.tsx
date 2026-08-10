@@ -266,7 +266,7 @@ function parseCsv(text: string): string[][] {
 function csvToImportRows(text: string): { rows: CompetencyImportRow[]; error: string | null } {
   const table = parseCsv(text)
   if (table.length < 2) {
-    return { rows: [], error: 'The file needs a header row and at least one competency.' }
+    return { rows: [], error: 'The file needs a header row and at least one skill.' }
   }
 
   const headers = table[0].map((h) => h.trim().toLowerCase().replace(/^﻿/, ''))
@@ -301,6 +301,22 @@ interface SavedView {
   status: string
 }
 
+/*
+ * VOCABULARY: this screen manages SKILL LIBRARY entries.
+ *
+ * It reads and writes `s_users_skills` through /competency/competencies (aliased
+ * in routes/api.php as SkillLibraryCrudController). It has always created a flat
+ * skill row - the labels said "Competency", which is G-RBAC-02b: a name promising
+ * a capability that was never built.
+ *
+ * A competency in Q-A2's sense - a named bundle of KASBA items - lives in
+ * `competency` + `competency_kasba_item` and is composed in
+ * cm-competency-composer.tsx.
+ *
+ * LABELS ONLY were changed. No identifier, storage key, endpoint, type name or
+ * behaviour moved: renaming SAVED_VIEWS_KEY would silently discard every saved
+ * view a user already has.
+ */
 const SAVED_VIEWS_KEY = 'cm-competency-library:saved-views'
 
 function readSavedViews(): SavedView[] {
@@ -418,7 +434,7 @@ function CompetencyForm({
 
   const handleSubmit = async () => {
     if (!values.name.trim()) {
-      setError('Competency name is required.')
+      setError('Skill name is required.')
       return
     }
     setError(null)
@@ -455,18 +471,18 @@ function CompetencyForm({
     <>
       <DialogHeader className="p-6 pb-4 border-b border-primary/10 m-0">
         <DialogTitle className="text-xl font-bold text-foreground">
-          {initial ? 'Edit Competency' : 'Create Competency'}
+          {initial ? 'Edit Skill' : 'Create Skill'}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           {initial
-            ? 'Update this competency. Evidence & resources feed the Attachments tab.'
-            : 'Add a competency to the library. Evidence & resources feed its Attachments tab.'}
+            ? 'Update this skill. Evidence & resources feed the Attachments tab.'
+            : 'Add a skill to the library. Evidence & resources feed its Attachments tab.'}
         </DialogDescription>
       </DialogHeader>
 
       <div className="p-6 flex flex-col gap-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-foreground">Competency Name<span className="text-destructive"> *</span></label>
+          <label className="text-sm font-semibold text-foreground">Skill Name<span className="text-destructive"> *</span></label>
           <Input value={values.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter name" className="bg-background border-border" />
         </div>
 
@@ -929,7 +945,7 @@ export function CmCompetencyLibrary() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Competency Library</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Skill Library</h1>
           <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational competencies.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -941,7 +957,7 @@ export function CmCompetencyLibrary() {
             <FolderTree className="w-4 h-4" /> Taxonomy
           </Button>
           <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
-            <Plus className="w-4 h-4 stroke-[3]" /> Create Competency
+            <Plus className="w-4 h-4 stroke-[3]" /> Create Skill
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger className="w-10 h-10 p-0 rounded-xl bg-background border border-border flex items-center justify-center hover:bg-accent hover:text-accent-foreground outline-none transition-colors">
@@ -1090,7 +1106,7 @@ export function CmCompetencyLibrary() {
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/30 border-b border-primary/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <TableRow className="hover:bg-transparent">
-                    <SortableHead label="Competency Name" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
+                    <SortableHead label="Skill Name" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
                     <SortableHead label="Category" field="category" activeField={sort} direction={direction} onSort={handleSort} />
                     <SortableHead label="Type" field="competency_type" activeField={sort} direction={direction} onSort={handleSort} />
                     <TableHead className="px-6 py-4">Proficiency Scale</TableHead>
@@ -1399,7 +1415,7 @@ export function CmCompetencyLibrary() {
                     <div className="flex flex-col gap-4">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Basic Information</h3>
                       <div className="grid grid-cols-[140px_1fr] gap-y-4 text-sm">
-                        <span className="text-muted-foreground font-medium">Competency Name</span>
+                        <span className="text-muted-foreground font-medium">Skill Name</span>
                         <span className="text-foreground font-semibold">{selectedItem.name}</span>
 
                         <span className="text-muted-foreground font-medium">Category</span>
@@ -1456,9 +1472,9 @@ export function CmCompetencyLibrary() {
                   )}
                 >
                   {isArchived(selectedItem) ? (
-                    <><ArchiveRestore className="w-4 h-4 mr-2" /> Restore Competency</>
+                    <><ArchiveRestore className="w-4 h-4 mr-2" /> Restore Skill</>
                   ) : (
-                    <><Archive className="w-4 h-4 mr-2" /> Archive Competency</>
+                    <><Archive className="w-4 h-4 mr-2" /> Archive Skill</>
                   )}
                 </Button>
                 <Button variant="outline" onClick={() => setSelectedItem(null)} className="h-9 px-6 rounded-lg font-bold border-border bg-background">

@@ -47,7 +47,10 @@ const QUEUE_ICONS: Record<string, LucideIcon> = {
 }
 
 const QUICK_ACTIONS: { label: string; icon: LucideIcon; kind: QuickCreateKind }[] = [
-  { label: 'Create Competency', icon: BookOpen, kind: 'competency' },
+  // kind:'competency' posts to /competency/competencies, which writes a flat
+  // SKILL row (G-RBAC-02b). The label now says what it creates. Composing a real
+  // competency - a named bundle of KASBA items - is cm-competency-composer.tsx.
+  { label: 'Create Skill', icon: BookOpen, kind: 'competency' },
   { label: 'Create Framework', icon: Layers, kind: 'framework' },
   { label: 'Launch Assessment', icon: ClipboardCheck, kind: 'assessment' },
   { label: 'Create Development Plan', icon: Target, kind: 'development-plan' },
@@ -273,7 +276,7 @@ function QuickCreateForm({ initialKind, departments, jobroles, creating, onSubmi
               <Field label="Category">
                 <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" />
               </Field>
-              <Field label="Competency Type">
+              <Field label="Skill Type">
                 <Select value={competencyType} options={COMPETENCY_TYPES} onChange={setCompetencyType} className="h-9" />
               </Field>
             </div>
