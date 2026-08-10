@@ -4,8 +4,7 @@ import React from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BookOpen, Layers, Briefcase, ClipboardCheck, Award, User, Target,
-  Filter, Plus, Clock, Users, ArrowRight, CalendarDays, RotateCcw, type LucideIcon,
-} from 'lucide-react'
+  Filter, Plus, Clock, Users, ArrowRight, CalendarDays, RotateCcw, Network, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
@@ -53,22 +52,17 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon; kind: QuickCreateKind }[
   { label: 'Launch Assessment', icon: ClipboardCheck, kind: 'assessment' },
   { label: 'Create Development Plan', icon: Target, kind: 'development-plan' },
   { label: 'Add Certification', icon: Award, kind: 'certification' },
-  // G-MAP-01: "Create Role Mapping" was REMOVED, not disabled.
+  // G-MAP-01 / M-03 — REINSTATED 2026-08-10, now that a create path exists.
   //
-  // It carried kind:'framework' - the same kind as "Create Framework" two lines
-  // above - so clicking it silently created a FRAMEWORK and reported success.
-  // The user asked for a role mapping and got a different object, with no error.
-  // A control that quietly does the wrong thing is worse than an absent one.
+  // This button previously carried kind:'framework' - the same kind as "Create
+  // Framework" above - so clicking it silently created a FRAMEWORK and reported
+  // success. It was REMOVED rather than disabled, because a control that quietly
+  // does the wrong thing is worse than an absent one.
   //
-  // It cannot simply be re-pointed: QuickCreateKind has five kinds and
-  // CREATE_ENDPOINTS five endpoints (services/competency/command-center.ts:111),
-  // and there is no role-mapping kind or endpoint to point at. s_user_skill_jobrole
-  // (79,295 rows) has NO create path at all - only cell-by-cell edits through
-  // RoleMappingController::upsertCell.
-  //
-  // Reinstatement is tracked as M-03: build the create path by surfacing the bulk
-  // insert that already exists at SchoolSetupController.php:392-408, then wire a
-  // button to it. This stays gone until then.
+  // It could not simply be re-pointed: there was no role-mapping kind and no
+  // endpoint to point at. There is now - POST /competency/role-map writes
+  // jobrole_competency_map BY KEY, with no text column to drift.
+  { label: 'Map Role Requirements', icon: Network, kind: 'role-map' },
 ]
 
 // Where each tile / ring / queue "view" affordance navigates. Every target is an
@@ -106,6 +100,9 @@ const ALL = 'all'
  * ------------------------------------------------------------------ */
 
 const STATUS_OPTIONS: Record<QuickCreateKind, { value: string; label: string }[]> = {
+  // A role mapping has no status of its own - it is a requirement, not a record
+  // with a lifecycle. Empty rather than invented, so the dialog shows no field.
+  'role-map': [],
   competency: [
     { value: 'published', label: 'Published' },
     { value: 'draft', label: 'Draft' },

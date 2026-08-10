@@ -114,6 +114,8 @@ export type QuickCreateKind =
   | 'assessment'
   | 'certification'
   | 'development-plan'
+  /** M-03: role→competency requirements. Added once a create path existed. */
+  | 'role-map'
 
 export interface CreateResult {
   id: number
@@ -143,7 +145,12 @@ function filterParams(filters?: CompetencyFilters) {
 }
 
 const CREATE_ENDPOINTS: Record<QuickCreateKind, string> = {
+  // ⚠ '/competency/competencies' writes a flat SKILL row into s_users_skills
+  // (G-RBAC-02b). A competency in Q-A2's sense is created through
+  // services/competency/definitions.ts, not here.
   competency: '/competency/competencies',
+  /** M-03 / G-MAP-01 — jobrole_competency_map, keyed, no text. */
+  'role-map': '/competency/role-map',
   framework: '/competency/frameworks',
   assessment: '/competency/assessments',
   certification: '/competency/certifications',
