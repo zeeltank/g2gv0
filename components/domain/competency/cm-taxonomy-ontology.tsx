@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Network, RefreshCw } from 'lucide-react'
+import { ExternalLink, Network, RefreshCw, Info } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -101,6 +101,25 @@ export function CmTaxonomyOntology() {
             <ExternalLink className="h-4 w-4" /> Open full screen
           </Button>
         </div>
+      </div>
+
+      {/* The graph is a REFERENCE view: its adjacency comes from a hosted
+          example dataset, not from this organisation's own role/competency
+          mapping. Unlabelled, a user may reasonably read it as organisational
+          fact. C-T3-ONT replaces it with adjacency computed from
+          jobrole_competency_map, at which point this notice comes out. */}
+      <div
+        role="note"
+        className="mb-3 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2"
+      >
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+          <span className="font-semibold">Reference view.</span> This graph shows an
+          example competency ontology to illustrate how skills relate. It is{' '}
+          <span className="font-semibold">not built from your organisation&rsquo;s
+          own role and competency mapping</span>, so it should not be used to draw
+          conclusions about your employees or roles.
+        </p>
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-border bg-card/40">
