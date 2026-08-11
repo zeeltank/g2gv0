@@ -81,7 +81,7 @@ export default function ReadinessGatesPage() {
     }
 
     try {
-      const url = new URL(`${resolveApiBaseUrl()}/api/readiness/gates`)
+      const url = new URL(`${resolveApiBaseUrl()}/readiness/gates`)
       url.searchParams.set('token', session.token)
       url.searchParams.set('type', 'API')
       url.searchParams.set('user_profile_name', session.user_profile_name ?? '')
@@ -114,7 +114,7 @@ export default function ReadinessGatesPage() {
     if (!session?.token) return
     setBusy(true)
     try {
-      const url = new URL(`${resolveApiBaseUrl()}/api/readiness/gates/acknowledge`)
+      const url = new URL(`${resolveApiBaseUrl()}/readiness/gates/acknowledge`)
       url.searchParams.set('token', session.token)
       url.searchParams.set('type', 'API')
       url.searchParams.set('user_profile_name', session.user_profile_name ?? '')
