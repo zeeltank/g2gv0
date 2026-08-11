@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react'
 
+import { apiClient } from '@/services/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -56,7 +57,7 @@ import {
   type LibraryPayload,
   type LibraryRow,
 } from '@/services/competency'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady, withLaravelParams } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
 
 import { type LibraryTabConfig } from './library-config'
@@ -131,6 +132,14 @@ interface LibraryTabProps {
  * All eight tabs render through this component - what differs between them is
  * declared in library-config.ts rather than duplicated per screen.
  */
+/** L-06. `divergence` is null unless counting by name would differ. */
+interface LibraryImpact {
+  total: number
+  basis: string
+  breakdown: { label: string; count: number }[]
+  divergence: { by_text: number; difference: number; reason: string } | null
+}
+
 export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const { user } = useAuth()
 
@@ -218,6 +227,31 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const [formOpen, setFormOpen] = useState(false)
   const [formInitial, setFormInitial] = useState<LibraryRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LibraryRow | null>(null)
+  // L-06. The dialog used to admit that orphans would be created and never say
+  // how many. This is the number, and it is computed BY KEY (G-LIB-09): the same
+  // count by title over-reports by 1.6% inside a tenant and by SIX TIMES without
+  // a tenant condition.
+  const [impact, setImpact] = useState<LibraryImpact | null>(null)
+  const [impactState, setImpactState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  useEffect(() => {
+    if (!deleteTarget) { setImpact(null); setImpactState('idle'); return }
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) { setImpactState('error'); return }
+    let cancelled = false
+    setImpactState('loading')
+
+    apiClient
+      .get<{ status: number; data: LibraryImpact }>('/competency/library/dependants',
+        withLaravelParams(context, { kind: config.id, id: String(deleteTarget.id) }))
+      .then((res) => { if (!cancelled) { setImpact(res.data); setImpactState('idle') } })
+      // A COUNT THAT FAILED TO LOAD IS NOT A COUNT OF ZERO. Saying "0 records
+      // depend on this" because the request failed is the dead-bell lie applied
+      // to a deletion, which is a worse place for it.
+      .catch(() => { if (!cancelled) setImpactState('error') })
+
+    return () => { cancelled = true }
+  }, [deleteTarget, config.id])
   const [taxonomyOpen, setTaxonomyOpen] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [cloneError, setCloneError] = useState<string | null>(null)
@@ -1107,8 +1141,37 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               <span className="font-semibold text-foreground">
                 {dash(deleteTarget?.[config.titleKey])}
               </span>{' '}
-              will be removed from the {config.plural.toLowerCase()} library. Anything already mapped to it keeps its
-              existing record.
+              will be removed from the {config.plural.toLowerCase()} library.
+              {impactState === 'loading' && <span className="block pt-2">Checking what depends on it…</span>}
+              {impactState === 'error' && (
+                <span className="block pt-2">
+                  What depends on it could not be checked. This is a connection problem, not a count of zero.
+                </span>
+              )}
+              {impactState === 'idle' && impact && (
+                <span className="block pt-2">
+                  {impact.total === 0 ? (
+                    <span className="font-semibold text-foreground">Nothing depends on it.</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-foreground">
+                        {impact.total} record{impact.total === 1 ? '' : 's'} depend on it
+                      </span>{' '}
+                      ({impact.breakdown.filter((b) => b.count > 0).map((b) => `${b.count} ${b.label}`).join(', ')}).
+                      Those records keep their own row and lose what they pointed at.
+                      {/* Named basis, because the product still joins by name in
+                          twelve places and a bare number would hide which one
+                          this is. */}
+                      <span className="block pt-1 text-xs">Counted by key.</span>
+                      {impact.divergence && (
+                        <span className="block text-xs">
+                          Counting by name gives {impact.divergence.by_text} — {impact.divergence.reason}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
