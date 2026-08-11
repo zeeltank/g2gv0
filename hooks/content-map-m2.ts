@@ -10,6 +10,7 @@ const CmAssessmentWorkspace = createLazyComponent(() => import('@/domain/compete
 const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency/cm-employee-profiles').then((m) => ({ default: m.CmEmployeeProfiles })))
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
+const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
 // accessLink is the stable tblmenumaster_g2g column (Competency Library menu,
@@ -30,5 +31,9 @@ export const M2_CONTENT: ContentRoute[] = [
   { accessLink: '/module/competency-management/competency-library/employee-profiles', submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
   { accessLink: '/module/competency-management/competency-library/development-and-career-paths', submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
   { accessLink: '/module/competency-management/competency-library/certifications', submenuId: '158', component: CmCertifications }, // Certifications
+  // G-UI-01: menu row 224, derived from sibling 156 rather than guessed. The
+  // component existed and was correct for the whole of Slice 1; nothing mapped
+  // an accessLink to it, so nobody could open it.
+  { accessLink: '/module/competency-management/competency-library/my-capability', submenuId: '224', component: CmMyCapabilityScreen }, // My Capability
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]
