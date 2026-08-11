@@ -184,6 +184,18 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     { key: 'skill_flow', label: 'Skill Flow', type: 'textarea', help: 'The steps this skill is performed in.', advanced: true },
     { key: 'tasklist', label: 'Task List', type: 'textarea', help: 'The concrete tasks this skill covers.', advanced: true },
     { key: 'experience_project', label: 'Experience / Project', type: 'textarea', help: 'Where someone demonstrates this skill in practice.', advanced: true },
+    // C-10. Both were on the wire and discarded by the drawer.
+    //
+    // approve_status is the find: it is an enum('Approved','Pending','Cancelled')
+    // POPULATED ON 3,974 OF 5,171 SKILLS (77%) and rendered nowhere. A library
+    // that tracks approval on three quarters of its rows and never shows it
+    // leaves the reader unable to tell a governed row from an ungoverned one.
+    // Rendered read-only: approval is a workflow outcome, and a free edit here
+    // would let anyone approve their own row from the detail drawer.
+    { key: 'approve_status', label: 'Approval', type: 'select', options: ['Approved', 'Pending', 'Cancelled'], readOnly: true, column: true, width: 'w-32', help: 'Set by the approval workflow, not edited here.' },
+    // The lesser half - 94 of 5,171 (2%). Free text describing what the skill
+    // maps onto; kept as a textarea because that is what the data is.
+    { key: 'skill_maps', label: 'Skill Maps', type: 'textarea', advanced: true, help: 'What this skill maps onto elsewhere.' },
   ],
 }
 
