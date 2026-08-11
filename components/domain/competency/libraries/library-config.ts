@@ -165,7 +165,11 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     { key: 'skill_code', label: 'Skill Code', placeholder: 'e.g. SAF-014', advanced: true },
     { key: 'competency_type', label: 'Competency Type', placeholder: 'e.g. Technical, Behavioural', advanced: true },
     { key: 'skill_importance', label: 'Importance', placeholder: 'e.g. Critical', advanced: true },
-    { key: 'proficiency_level', label: 'Proficiency Levels', type: 'textarea', help: 'The levels this competency is rated against.', advanced: true },
+    // X-03. `proficiency_levels` was already returned by /library/meta and already
+    // in the `source` union - the field ignored both and stayed free text, so
+    // every author reinvented the wording. Suggested, not closed: an open list
+    // offers what the tenant already uses while still allowing a new value.
+    { key: 'proficiency_level', label: 'Proficiency Levels', source: 'proficiency_levels', help: 'Suggested from the levels this organisation already uses.', advanced: true },
     { key: 'related_skills', label: 'Related Skills', type: 'textarea', advanced: true },
     { key: 'sub_skills', label: 'Sub Skills', type: 'textarea', advanced: true },
     { key: 'job_titles', label: 'Job Titles', type: 'textarea', advanced: true },
