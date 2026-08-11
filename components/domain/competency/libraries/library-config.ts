@@ -54,6 +54,9 @@ export interface LibraryFieldDef {
     | 'micro_categories'
     | 'industries'
     | 'jobroles'
+    | 'related_skills'
+    | 'job_titles'
+    | 'learning_resources'
     | 'proficiency_levels'
     | 'task_types'
     | 'invisible_types'
@@ -170,11 +173,14 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     // every author reinvented the wording. Suggested, not closed: an open list
     // offers what the tenant already uses while still allowing a new value.
     { key: 'proficiency_level', label: 'Proficiency Levels', source: 'proficiency_levels', help: 'Suggested from the levels this organisation already uses.', advanced: true },
-    { key: 'related_skills', label: 'Related Skills', type: 'textarea', advanced: true },
+    { key: 'related_skills', label: 'Related Skills', source: 'related_skills', advanced: true, help: 'Suggested from this library; a skill not yet in it can still be typed.' },
     { key: 'sub_skills', label: 'Sub Skills', type: 'textarea', advanced: true },
-    { key: 'job_titles', label: 'Job Titles', type: 'textarea', advanced: true },
-    { key: 'learning_resources', label: 'Learning Resources', type: 'textarea', advanced: true },
+    { key: 'job_titles', label: 'Job Titles', source: 'job_titles', advanced: true, help: 'Suggested from the job role catalogue.' },
+    { key: 'learning_resources', label: 'Learning Resources', source: 'learning_resources', advanced: true, help: 'Suggested from the course catalogue.' },
     { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation, MCQ', advanced: true },
+    // X-03: STAYS FREE TEXT. certification_type holds 0 rows, and a picker over
+    // an empty table looks like a closed list and offers nothing. Scheduled on
+    // 'certification_type populated', not parked.
     { key: 'certification_qualifications', label: 'Certifications', type: 'textarea', advanced: true },
     { key: 'legal_compliance_relevance', label: 'Legal / Compliance Relevance', type: 'textarea', advanced: true },
     { key: 'sop_practice_link', label: 'SOP / Practice Link', type: 'url', placeholder: 'https://…', advanced: true },
