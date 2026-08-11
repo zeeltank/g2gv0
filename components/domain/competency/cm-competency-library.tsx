@@ -946,7 +946,7 @@ export function CmCompetencyLibrary() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Skill Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational competencies.</p>
+          <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational skills.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -1026,7 +1026,7 @@ export function CmCompetencyLibrary() {
             <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by competency name, category, type..."
+                placeholder="Search by skill name, category, type..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="h-10 pl-9 pr-4 rounded-xl border-input bg-background/50 text-sm focus-visible:ring-primary/50 w-full"
@@ -1059,8 +1059,8 @@ export function CmCompetencyLibrary() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuItem onClick={clearAll}>Default View</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatus('Approved'); setPage(1) }}>Approved Competencies</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatus('Cancelled'); setPage(1) }}>Archived Competencies</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setStatus('Approved'); setPage(1) }}>Approved Skills</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setStatus('Cancelled'); setPage(1) }}>Archived Skills</DropdownMenuItem>
 
               {savedViews.length > 0 && <DropdownMenuSeparator />}
               {savedViews.map((view) => (
@@ -1249,7 +1249,7 @@ export function CmCompetencyLibrary() {
                       onClick={() => handleSubmitForApproval(selectedItem)}
                       disabled={submitting}
                       className="h-9 px-4 gap-2 border-border font-semibold rounded-lg bg-background hover:bg-muted"
-                      title="Move this competency into the approval queue"
+                      title="Move this skill into the approval queue"
                     >
                       <Send className="w-3.5 h-3.5" /> {submitting ? 'Submitting…' : 'Submit for Approval'}
                     </Button>
@@ -1700,7 +1700,7 @@ function AssociationsTab({ detail }: { detail: CompetencyDetail | null }) {
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Job Roles Requiring This ({roles.length})</h3>
         {roles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No roles require this competency.</p>
+          <p className="text-sm text-muted-foreground">No roles require this skill.</p>
         ) : (
           <div className="flex flex-col divide-y divide-primary/5 border border-border rounded-xl overflow-hidden">
             {roles.map((r, i) => (
