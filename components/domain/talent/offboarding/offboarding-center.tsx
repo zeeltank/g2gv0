@@ -626,11 +626,24 @@ export function OffboardingCenter() {
               </Button>
 
               <div className="w-[140px]">
-                <Select 
+                {/*
+                  Disabled on purpose. THERE IS NO SAVED-VIEW STORE - nothing in
+                  the schema persists a view, so this could never have listed
+                  anything but its own placeholder. Same treatment as
+                  talent-dashboard.tsx's business-unit filter, where the pattern
+                  comes from.
+
+                  It previously rendered "Saved Views" as an enabled dropdown
+                  with one option and an empty handler, which reads as a feature
+                  that exists and is empty rather than one that was never built.
+                */}
+                <Select
                   value="saved"
                   onChange={() => {}}
+                  disabled
+                  aria-label="Saved views (not available in this workspace)"
                   placeholder="Saved Views"
-                  options={[{ label: 'Saved Views', value: 'saved' }]}
+                  options={[{ label: 'Saved views: not configured', value: 'saved' }]}
                   size="sm"
                   className="rounded-xl"
                 />
