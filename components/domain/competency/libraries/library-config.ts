@@ -240,7 +240,14 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
       { key: 'description', label: 'Description', type: 'textarea', column: true },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], column: true, width: 'w-28' },
       { key: 'performance_expectation', label: 'Performance Expectation', type: 'textarea', column: true, advanced: true },
-      { key: 'job_level', label: 'Job Level', placeholder: 'e.g. L3', advanced: true },
+      // L-04: STAYS FREE TEXT. s_level_responsibility holds SFIA levels 1-7; the
+    // job_level column holds ENTRY / MID / SENIOR / ADVANCED / EXECUTIVE. A
+    // picker over the catalogue would make ALL 70 EXISTING VALUES UNSELECTABLE -
+    // a customer editing a job role would find their own value gone. That is
+    // worse than X-03's empty picker: it orphans real data.
+    // Scheduled on 'a customer's job levels are mapped to a grading scale', which
+    // is AUTHORING and belongs with the seed-library import, not a form field.
+    { key: 'job_level', label: 'Job Level', placeholder: 'e.g. Senior', advanced: true },
       { key: 'responsibilities', label: 'Responsibilities', type: 'textarea', advanced: true },
       { key: 'education', label: 'Education', advanced: true },
       { key: 'experience', label: 'Experience', advanced: true },
