@@ -223,11 +223,36 @@ export function RoleRequirementsPanel() {
         )}
       </div>
 
+      {/*
+        X-03's ruling, applied to this screen: A PICKER OVER AN EMPTY TABLE LOOKS
+        LIKE A CLOSED LIST. An empty dropdown with no explanation reads as "this
+        organisation has nothing and cannot have anything".
+
+        WHAT THIS DOES NOT DO IS LINK ANYWHERE, and that is measured, not lazy.
+        The `competency` table has exactly two writers - POST /competency/definitions
+        and the framework importer - and NEITHER IS REACHABLE FROM ANY SCREEN: the
+        composer that calls the first is not in the content map, and the second has
+        no frontend caller at all. Sending someone to a page that does not exist is
+        worse than telling them plainly where things stand.
+      */}
       {competencies.length === 0 && (
-        <p className="text-sm text-amber-600 dark:text-amber-500 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          No competencies are defined in this organisation yet, so there is nothing to require.
-        </p>
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-500" />
+            <div className="text-sm">
+              <p className="font-medium text-foreground">No competencies are defined for this organisation</p>
+              <p className="mt-1 text-muted-foreground">
+                Requirements are chosen from your organisation’s competency list, and that list is
+                empty. Competencies are defined separately from this screen — until at least one
+                exists, a role cannot be given a requirement here.
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                Competencies arrive today by import or during setup. If your organisation should
+                already have them, they have not been loaded for this tenant.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {error && <p className="text-sm text-destructive flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{error}</p>}
