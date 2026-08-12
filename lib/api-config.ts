@@ -42,6 +42,20 @@ export function resolveHpApiBaseUrl() {
   return normalizeApiBaseUrl(process.env.NEXT_PUBLIC_HP_API_URL) || 'https://hp.triz.co.in'
 }
 
-export function resolveHpApiKey() {
-  return process.env.NEXT_PUBLIC_HP_API_KEY || ''
-}
+// `resolveHpApiKey()` REMOVED 2026-08-12. It had TWO consumers, both removed
+// with it:
+//   app/api/jobrole-tasks/route.ts          deleted (dead route, see its REMOVED.md)
+//   services/organization/employee-profile-service.ts   api_key param dropped
+//
+// I first wrote "its only consumer" here after grepping app/ components/ lib/
+// hooks/ - and missing services/. THE SEARCH SCOPE WAS THE ERROR, not the
+// finding: a claim about a population made from part of it.
+//
+// THE LARAVEL BACKEND HAS NO INBOUND api_key MECHANISM. All four backend
+// mentions of api_key are OUTBOUND third-party keys (gemini, google/youtube,
+// deepseek, gamma). Sending one to hp_erp attached a credential nobody reads.
+//
+// A CREDENTIAL NOBODY CHECKS IS WORSE THAN NONE, because it reads as protection:
+// a developer deciding whether an endpoint needs a guard would see a key on the
+// wire and move on. Removing it is not a security change - nothing was
+// protecting anything - it removes a FALSE SIGNAL.

@@ -6,7 +6,7 @@
 import { apiClient, webClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { getLaravelContext, withLaravelParams } from '@/lib/laravel-context'
-import { resolveHpApiBaseUrl, resolveHpApiKey } from '@/lib/api-config'
+import { resolveHpApiBaseUrl } from '@/lib/api-config'
 
 export interface EmployeeProfileFullResponse {
   status_code?: number | string
@@ -79,8 +79,9 @@ export async function fetchJobRoleKaba(
     type: 'jobrole',
     type_id: String(jobRoleId),
   })
-  const apiKey = resolveHpApiKey()
-  if (apiKey) params.set('api_key', apiKey)
+  // `api_key` REMOVED 2026-08-12 - the Laravel backend has no inbound api_key
+  // mechanism. See lib/api-config.ts. A credential nobody checks reads as
+  // protection and is worse than none.
 
   const response = await fetch(`${resolveHpApiBaseUrl()}/get-kaba?${params.toString()}`)
   if (!response.ok) {
