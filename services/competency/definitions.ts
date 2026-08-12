@@ -10,10 +10,9 @@
  *   item_id populated → resolved BY KEY. The target state.
  *   item_label only   → a HOLDING state. Counted as unresolved in coverage.
  *
- * Today only `skill` has a canonical table (`s_users_skills`). Knowledge,
- * ability, attitude and behaviour have none, so every item in those four
- * dimensions is a label — and the UI must say so rather than offering a picker
- * with nothing behind it.
+ * ALL FIVE dimensions have a canonical table and all five resolve by key. The
+ * server validates each `item_id` against its own table inside the caller's
+ * tenant, and drops it to a label if it does not exist there.
  */
 
 import { apiClient } from '@/services/core'
@@ -23,8 +22,29 @@ import { withLaravelParams } from '@/lib/laravel-context'
 export const KASBA_TYPES = ['skill', 'knowledge', 'ability', 'attitude', 'behaviour'] as const
 export type KasbaType = (typeof KASBA_TYPES)[number]
 
-/** The only dimension with a canonical table today. */
-export const RESOLVABLE_KASBA_TYPES: readonly KasbaType[] = ['skill']
+/**
+ * Every dimension has a canonical table, and every one of them resolves.
+ *
+ * CORRECTED - this used to read `['skill']` with the comment "the only dimension
+ * with a canonical table today", and the header above said the other four "have
+ * none". THAT WAS NEVER TRUE OF THE DATA (G-SEED-01). The four library tabs have
+ * been writing their tables all along:
+ *
+ *     s_user_knowledge 6,950 · s_user_ability 6,175
+ *     s_user_attitude    655 · s_user_behaviour  694     = 14,474 rows
+ *
+ * What was missing was anything pointing AT them, and a server branch that
+ * validated `item_id` only when `kasba_type === 'skill'` - so an id sent for the
+ * other four was stored unchecked into a column with no foreign key. It had
+ * already produced one dangling pointer.
+ *
+ * WIDENED ONLY AFTER THAT BRANCH LANDED AND WAS PROVED 12/12 - a real id stored
+ * as a key and a nonexistent id dropped to a label, for all five dimensions.
+ * Widening first would have manufactured dangling rows at scale.
+ */
+export const RESOLVABLE_KASBA_TYPES: readonly KasbaType[] = [
+  'skill', 'knowledge', 'ability', 'attitude', 'behaviour',
+]
 
 export function isResolvable(kind: KasbaType): boolean {
   return RESOLVABLE_KASBA_TYPES.includes(kind)

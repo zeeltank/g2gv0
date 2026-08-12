@@ -50,12 +50,20 @@ const blankItem = (): DraftItem => ({
 })
 
 export function CmCompetencyComposer({
-  skills,
+  optionsByType,
   onSubmit,
   canCreate,
 }: {
-  /** The caller's OWN tenant's skills. An id from anywhere else is held by label. */
-  skills: SkillOption[]
+  /**
+   * The caller's OWN tenant's items, per dimension. An id from anywhere else is
+   * dropped to a label by the server, which validates each `item_id` against
+   * that dimension's own table inside the caller's tenant.
+   *
+   * WAS `skills: SkillOption[]` - one list, because only `skill` was thought to
+   * have a canonical table. All five do, and hold 14,474 rows between the four
+   * that were called label-only.
+   */
+  optionsByType: Partial<Record<KasbaType, SkillOption[]>>
   onSubmit: (input: CompetencyDefinitionInput) => Promise<void>
   /** HR/Admin. The server enforces it regardless (profile:admin,hr). */
   canCreate: boolean
@@ -156,14 +164,16 @@ export function CmCompetencyComposer({
                   onChange={(e) => update(i, { item_id: e.target.value === '' ? null : Number(e.target.value) })}
                   className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm"
                 >
-                  <option value="">— choose a skill, or leave blank and label it below —</option>
-                  {skills.map((s) => (
+                  <option value="">— choose one, or leave blank and label it below —</option>
+                  {(optionsByType[item.kasba_type] ?? []).map((s) => (
                     <option key={s.id} value={s.id}>{s.title}</option>
                   ))}
                 </select>
               ) : (
-                /* NO EMPTY DROPDOWN. There is no canonical table for this
-                   dimension, and pretending otherwise would be dishonest. */
+                /* NO EMPTY DROPDOWN. Reached only if a dimension is added to the
+                   type list without a table behind it - the server drops such an
+                   id to a label rather than storing it unverified, and the UI
+                   says so instead of offering a picker with nothing in it. */
                 <p className="text-xs text-muted-foreground">
                   <span className="font-semibold capitalize">{item.kasba_type}</span> items have no
                   central list yet, so this is recorded as a <span className="font-semibold">label</span>.

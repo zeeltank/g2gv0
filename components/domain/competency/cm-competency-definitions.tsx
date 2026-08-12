@@ -33,17 +33,19 @@ import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   competencyDefinitionsService,
+  KASBA_TYPES,
   type CompetencyDefinition,
   type CompetencyDefinitionInput,
+  type KasbaType,
 } from '@/services/competency/definitions'
-import { competencyLibrariesService } from '@/services/competency'
+import { competencyLibrariesService, type LibraryTabId } from '@/services/competency'
 import { CmCompetencyComposer } from './cm-competency-composer'
 
 export function CmCompetencyDefinitions() {
   const { user } = useAuth()
 
   const [definitions, setDefinitions] = useState<CompetencyDefinition[]>([])
-  const [skills, setSkills] = useState<{ id: number; title: string }[]>([])
+  const [optionsByType, setOptionsByType] = useState<Partial<Record<KasbaType, { id: number; title: string }[]>>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,19 +69,28 @@ export function CmCompetencyDefinitions() {
 
   useEffect(() => { load() }, [load])
 
-  /* The composer holds an item by LABEL unless it can resolve an id. Only
-     `skill` has a canonical table today, so only skills are offered. */
+  /* ALL FIVE dimensions have a canonical table and all five resolve by key. The
+     library tab id and the KASBA type share a vocabulary except for `skill`,
+     whose tab is also `skill`. Each list is loaded independently so one failing
+     dimension does not blank the others. */
   useEffect(() => {
     const ctx = getLaravelContext(user)
     if (!isLaravelContextReady(ctx)) return
-    competencyLibrariesService.list(ctx, 'skill', { per_page: 500 })
-      .then((res) => {
-        const rows = (res?.data ?? []) as Array<Record<string, unknown>>
-        setSkills(rows
-          .map((r) => ({ id: Number(r.id), title: String(r.title ?? '') }))
-          .filter((s) => s.id && s.title))
-      })
-      .catch(() => setSkills([]))
+    const tabFor: Record<KasbaType, LibraryTabId> = {
+      skill: 'skill', knowledge: 'knowledge', ability: 'ability',
+      attitude: 'attitude', behaviour: 'behaviour',
+    }
+    for (const kind of KASBA_TYPES) {
+      competencyLibrariesService.list(ctx, tabFor[kind], { per_page: 500 })
+        .then((res) => {
+          const rows = (res?.data ?? []) as Array<Record<string, unknown>>
+          const opts = rows
+            .map((r) => ({ id: Number(r.id), title: String(r.title ?? '') }))
+            .filter((o) => o.id && o.title)
+          setOptionsByType((prev) => ({ ...prev, [kind]: opts }))
+        })
+        .catch(() => setOptionsByType((prev) => ({ ...prev, [kind]: [] })))
+    }
   }, [user])
 
   const submit = async (input: CompetencyDefinitionInput) => {
@@ -160,7 +171,7 @@ export function CmCompetencyDefinitions() {
             Defining competencies is limited to HR and administrators.
           </p>
         )}
-        <CmCompetencyComposer skills={skills} onSubmit={submit} canCreate={canCreate} />
+        <CmCompetencyComposer optionsByType={optionsByType} onSubmit={submit} canCreate={canCreate} />
       </section>
     </div>
   )
