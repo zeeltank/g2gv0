@@ -11,6 +11,7 @@ const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
+const CmCourseCompetencies = createLazyComponent(() => import('@/domain/competency/cm-course-competencies').then((m) => ({ default: m.CmCourseCompetencies })))
 const CmCompetencyDefinitions = createLazyComponent(() => import('@/domain/competency/cm-competency-definitions').then((m) => ({ default: m.CmCompetencyDefinitions })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
@@ -50,5 +51,10 @@ export const M2_CONTENT: ContentRoute[] = [
   // change script prints the id it created and says to correct this line if it
   // differs; that last line is the only reason the map is right.
   { accessLink: '/module/competency-management/competency-library/competency-definitions', submenuId: '227', component: CmCompetencyDefinitions }, // Competency Definitions
+  // COURSE -> COMPETENCY. The table LearningAssigner and RemediationRecommender
+  // have been reading since they landed, with no writer until now. Menu row
+  // derived from sibling 156, and the id taken from what the insert RETURNED -
+  // the map said 225 for Competency Definitions until the database said 227.
+  { accessLink: '/module/competency-management/competency-library/course-competencies', submenuId: '228', component: CmCourseCompetencies }, // Course Competencies
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]
