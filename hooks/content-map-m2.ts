@@ -11,6 +11,7 @@ const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
+const CmCompetencyDefinitions = createLazyComponent(() => import('@/domain/competency/cm-competency-definitions').then((m) => ({ default: m.CmCompetencyDefinitions })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
 // accessLink is the stable tblmenumaster_g2g column (Competency Library menu,
@@ -35,5 +36,19 @@ export const M2_CONTENT: ContentRoute[] = [
   // component existed and was correct for the whole of Slice 1; nothing mapped
   // an accessLink to it, so nobody could open it.
   { accessLink: '/module/competency-management/competency-library/my-capability', submenuId: '224', component: CmMyCapabilityScreen }, // My Capability
+  // G-UI-01 AGAIN, and this time the component was a SUB-COMPONENT with props,
+  // so it needed a host screen as well as a map row. `CmCompetencyComposer` was
+  // built, correct, and unreachable: the `competency` table's only two writers
+  // had no reachable caller, so no customer could define a competency at all.
+  // Menu row 227 derived from sibling 156 (Employee Profiles) - parent_id 2,
+  // level 2, page_type 'page', sub_institute_id '1,2,3,4,5,6,7,8,9,10,11',
+  // sort_order 12 (next free) - NOT guessed.
+  //
+  // THE ID ITSELF WAS ALSO NOT GUESSED, and it needed not to be: this comment
+  // said 225 until the insert returned 227. AUTO_INCREMENT is not "highest id
+  // you can see plus one" - deleted rows and other tables' history move it. The
+  // change script prints the id it created and says to correct this line if it
+  // differs; that last line is the only reason the map is right.
+  { accessLink: '/module/competency-management/competency-library/competency-definitions', submenuId: '227', component: CmCompetencyDefinitions }, // Competency Definitions
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]

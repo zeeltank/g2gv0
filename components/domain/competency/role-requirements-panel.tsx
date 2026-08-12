@@ -228,12 +228,12 @@ export function RoleRequirementsPanel() {
         LIKE A CLOSED LIST. An empty dropdown with no explanation reads as "this
         organisation has nothing and cannot have anything".
 
-        WHAT THIS DOES NOT DO IS LINK ANYWHERE, and that is measured, not lazy.
-        The `competency` table has exactly two writers - POST /competency/definitions
-        and the framework importer - and NEITHER IS REACHABLE FROM ANY SCREEN: the
-        composer that calls the first is not in the content map, and the second has
-        no frontend caller at all. Sending someone to a page that does not exist is
-        worse than telling them plainly where things stand.
+        IT NOW NAMES A DESTINATION, AND ONLY BECAUSE ONE EXISTS. The first version
+        of this copy deliberately linked nowhere: the `competency` table's two
+        writers had no reachable caller, so any "create one here" would have sent
+        a user to a page that does not exist - turning "I do not know how" into
+        "the product is broken". Competency Definitions (menu 227) was mounted
+        first; the copy changed second. That order is the point.
       */}
       {competencies.length === 0 && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
@@ -243,12 +243,12 @@ export function RoleRequirementsPanel() {
               <p className="font-medium text-foreground">No competencies are defined for this organisation</p>
               <p className="mt-1 text-muted-foreground">
                 Requirements are chosen from your organisation’s competency list, and that list is
-                empty. Competencies are defined separately from this screen — until at least one
-                exists, a role cannot be given a requirement here.
+                empty. Until at least one competency exists, a role cannot be given a requirement
+                here and no gap can be calculated for anyone holding it.
               </p>
               <p className="mt-2 text-muted-foreground">
-                Competencies arrive today by import or during setup. If your organisation should
-                already have them, they have not been loaded for this tenant.
+                Define one under <span className="font-medium text-foreground">Competency
+                Library → Competency Definitions</span>, then come back to this screen.
               </p>
             </div>
           </div>
