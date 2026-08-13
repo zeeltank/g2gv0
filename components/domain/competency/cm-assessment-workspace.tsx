@@ -91,6 +91,36 @@ export function CmAssessmentWorkspace() {
     reviewing,
   } = useAssessmentWorkspace()
 
+  // ── FILTER OPTIONS COME FROM THE DATA ──────────────────────────────────────
+  // Both of these were hardcoded lists. Deriving them means a status that exists
+  // can always be filtered for, and a type that does not exist is never offered.
+  //
+  // `type` is null on every campaign today, so typeOptions correctly collapses to
+  // "All Types" plus "Not set". THAT IS THE HONEST VIEW — the backend stopped
+  // substituting a default for it, and the screen must not reintroduce one.
+  const statusOptions = React.useMemo(() => {
+    const seen = Array.from(new Set((campaigns ?? []).map((c) => c.status).filter(Boolean)))
+    return [
+      { label: 'All Status', value: 'all' },
+      ...seen.map((s) => ({
+        label: String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()),
+        value: String(s),
+      })),
+    ]
+  }, [campaigns])
+
+  const typeOptions = React.useMemo(() => {
+    const seen = Array.from(new Set((campaigns ?? []).map((c) => c.type).filter(Boolean)))
+    const hasUnset = (campaigns ?? []).some((c) => !c.type)
+    return [
+      { label: 'All Types', value: 'all' },
+      ...seen.map((t) => ({ label: String(t), value: String(t) })),
+      // Named, not hidden. A campaign with no type is a real state, and the only
+      // state any campaign is currently in.
+      ...(hasUnset ? [{ label: 'Not set', value: '__unset' }] : []),
+    ]
+  }, [campaigns])
+
   // Load the list for the active top tab (Participant Ratings / Calibration / Approvals / Closed).
   useEffect(() => {
     if (['participant', 'calibration', 'approvals', 'closed'].includes(activeTab)) {
@@ -245,8 +275,16 @@ export function CmAssessmentWorkspace() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Select options={[{label: 'All Status', value: 'all'}, {label: 'In Progress', value: 'progress'}]} placeholder="Status" className="h-9 bg-background w-32" />
-                  <Select options={[{label: 'All Types', value: 'all'}, {label: 'Self + Manager', value: 'self'}]} placeholder="Assessment Type" className="h-9 bg-background w-44" />
+                  {/* DERIVED FROM THE DATA, NOT LISTED HERE.
+                      The status list was hardcoded to two values when the data
+                      holds four (open, in_progress, completed, overdue), so two
+                      real states could never be filtered for. The type list
+                      offered "Self + Manager" — a value NO campaign has, because
+                      `type` is null on every one of them. A filter that offers a
+                      value nothing matches is worse than no filter: it reports an
+                      empty result as "none found" rather than "never set". */}
+                  <Select options={statusOptions} placeholder="Status" className="h-9 bg-background w-32" />
+                  <Select options={typeOptions} placeholder="Assessment Type" className="h-9 bg-background w-44" />
                   <Button variant="outline" className="h-9 px-3 gap-2 bg-background border-border text-sm">
                     <Filter className="w-3.5 h-3.5" /> More Filters
                   </Button>
@@ -388,7 +426,19 @@ export function CmAssessmentWorkspace() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" className="h-9 text-xs gap-2"><Filter className="w-3.5 h-3.5" /> Filters</Button>
-                          <Select options={[{label: 'Bulk Actions', value: 'bulk'}]} placeholder="Bulk Actions" className="h-9 bg-background w-32" />
+                          {/* A DEAD CONTROL, NOW HONEST ABOUT IT. This was a
+                              dropdown whose only option was its own placeholder —
+                              it looked operable and did nothing. Disabled and
+                              labelled rather than removed, so the intent stays
+                              visible: a control that looks live and does nothing
+                              is worse than one that says it is unavailable. */}
+                          <Select
+                            options={[]}
+                            placeholder="Bulk actions — not available yet"
+                            disabled
+                            title="Bulk actions are not implemented yet"
+                            className="h-9 bg-background w-52 opacity-60 cursor-not-allowed"
+                          />
                         </div>
                       </div>
 
