@@ -54,6 +54,9 @@ export interface LibraryFieldDef {
     | 'micro_categories'
     | 'industries'
     | 'jobroles'
+    | 'related_skills'
+    | 'job_titles'
+    | 'learning_resources'
     | 'proficiency_levels'
     | 'task_types'
     | 'invisible_types'
@@ -165,12 +168,19 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     { key: 'skill_code', label: 'Skill Code', placeholder: 'e.g. SAF-014', advanced: true },
     { key: 'competency_type', label: 'Competency Type', placeholder: 'e.g. Technical, Behavioural', advanced: true },
     { key: 'skill_importance', label: 'Importance', placeholder: 'e.g. Critical', advanced: true },
-    { key: 'proficiency_level', label: 'Proficiency Levels', type: 'textarea', help: 'The levels this competency is rated against.', advanced: true },
-    { key: 'related_skills', label: 'Related Skills', type: 'textarea', advanced: true },
+    // X-03. `proficiency_levels` was already returned by /library/meta and already
+    // in the `source` union - the field ignored both and stayed free text, so
+    // every author reinvented the wording. Suggested, not closed: an open list
+    // offers what the tenant already uses while still allowing a new value.
+    { key: 'proficiency_level', label: 'Proficiency Levels', source: 'proficiency_levels', help: 'Suggested from the levels this organisation already uses.', advanced: true },
+    { key: 'related_skills', label: 'Related Skills', source: 'related_skills', advanced: true, help: 'Suggested from this library; a skill not yet in it can still be typed.' },
     { key: 'sub_skills', label: 'Sub Skills', type: 'textarea', advanced: true },
-    { key: 'job_titles', label: 'Job Titles', type: 'textarea', advanced: true },
-    { key: 'learning_resources', label: 'Learning Resources', type: 'textarea', advanced: true },
+    { key: 'job_titles', label: 'Job Titles', source: 'job_titles', advanced: true, help: 'Suggested from the job role catalogue.' },
+    { key: 'learning_resources', label: 'Learning Resources', source: 'learning_resources', advanced: true, help: 'Suggested from the course catalogue.' },
     { key: 'assesment_method', label: 'Assessment Method', placeholder: 'e.g. Observation, MCQ', advanced: true },
+    // X-03: STAYS FREE TEXT. certification_type holds 0 rows, and a picker over
+    // an empty table looks like a closed list and offers nothing. Scheduled on
+    // 'certification_type populated', not parked.
     { key: 'certification_qualifications', label: 'Certifications', type: 'textarea', advanced: true },
     { key: 'legal_compliance_relevance', label: 'Legal / Compliance Relevance', type: 'textarea', advanced: true },
     { key: 'sop_practice_link', label: 'SOP / Practice Link', type: 'url', placeholder: 'https://…', advanced: true },
@@ -184,6 +194,18 @@ export const SKILL_LIBRARY_CONFIG: LibraryTabConfig = {
     { key: 'skill_flow', label: 'Skill Flow', type: 'textarea', help: 'The steps this skill is performed in.', advanced: true },
     { key: 'tasklist', label: 'Task List', type: 'textarea', help: 'The concrete tasks this skill covers.', advanced: true },
     { key: 'experience_project', label: 'Experience / Project', type: 'textarea', help: 'Where someone demonstrates this skill in practice.', advanced: true },
+    // C-10. Both were on the wire and discarded by the drawer.
+    //
+    // approve_status is the find: it is an enum('Approved','Pending','Cancelled')
+    // POPULATED ON 3,974 OF 5,171 SKILLS (77%) and rendered nowhere. A library
+    // that tracks approval on three quarters of its rows and never shows it
+    // leaves the reader unable to tell a governed row from an ungoverned one.
+    // Rendered read-only: approval is a workflow outcome, and a free edit here
+    // would let anyone approve their own row from the detail drawer.
+    { key: 'approve_status', label: 'Approval', type: 'select', options: ['Approved', 'Pending', 'Cancelled'], readOnly: true, column: true, width: 'w-32', help: 'Set by the approval workflow, not edited here.' },
+    // The lesser half - 94 of 5,171 (2%). Free text describing what the skill
+    // maps onto; kept as a textarea because that is what the data is.
+    { key: 'skill_maps', label: 'Skill Maps', type: 'textarea', advanced: true, help: 'What this skill maps onto elsewhere.' },
   ],
 }
 
@@ -218,7 +240,14 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
       { key: 'description', label: 'Description', type: 'textarea', column: true },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], column: true, width: 'w-28' },
       { key: 'performance_expectation', label: 'Performance Expectation', type: 'textarea', column: true, advanced: true },
-      { key: 'job_level', label: 'Job Level', placeholder: 'e.g. L3', advanced: true },
+      // L-04: STAYS FREE TEXT. s_level_responsibility holds SFIA levels 1-7; the
+    // job_level column holds ENTRY / MID / SENIOR / ADVANCED / EXECUTIVE. A
+    // picker over the catalogue would make ALL 70 EXISTING VALUES UNSELECTABLE -
+    // a customer editing a job role would find their own value gone. That is
+    // worse than X-03's empty picker: it orphans real data.
+    // Scheduled on 'a customer's job levels are mapped to a grading scale', which
+    // is AUTHORING and belongs with the seed-library import, not a form field.
+    { key: 'job_level', label: 'Job Level', placeholder: 'e.g. Senior', advanced: true },
       { key: 'responsibilities', label: 'Responsibilities', type: 'textarea', advanced: true },
       { key: 'education', label: 'Education', advanced: true },
       { key: 'experience', label: 'Experience', advanced: true },

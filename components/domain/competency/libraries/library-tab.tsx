@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react'
 
+import { apiClient } from '@/services/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -44,7 +45,6 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import {
-  useLibraryDetail,
   useLibraryList,
   useTaxonomy,
   useWorkFunctions,
@@ -57,15 +57,21 @@ import {
   type LibraryPayload,
   type LibraryRow,
 } from '@/services/competency'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady, withLaravelParams } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
 
 import { type LibraryTabConfig } from './library-config'
 import { ShapeGrid, SHAPE_ACTION_ICONS, type ShapeAction } from './shape-grid'
 import { LibraryDetailModal } from './library-detail-modal'
-import { LibraryDetail, dash } from './library-detail'
 import { LibraryForm } from './library-form'
 import { TaxonomyManager } from './taxonomy-manager'
+
+/** Empty, null and whitespace all render as one em dash rather than a blank cell. */
+function dash(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  const text = String(value).trim()
+  return text === '' ? '—' : text
+}
 
 const PER_PAGE_OPTIONS = [
   { label: '25 / page', value: '25' },
@@ -120,12 +126,20 @@ interface LibraryTabProps {
 }
 
 /**
- * One library tab: toolbar, table or card grid, pager, detail panel, create /
+ * One library tab: toolbar, table or card grid, pager, detail popup, create /
  * edit form, delete confirm and (where the tab owns a taxonomy) its editor.
  *
  * All eight tabs render through this component - what differs between them is
  * declared in library-config.ts rather than duplicated per screen.
  */
+/** L-06. `divergence` is null unless counting by name would differ. */
+interface LibraryImpact {
+  total: number
+  basis: string
+  breakdown: { label: string; count: number }[]
+  divergence: { by_text: number; difference: number; reason: string } | null
+}
+
 export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const { user } = useAuth()
 
@@ -203,10 +217,9 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const taxonomy = useTaxonomy(config.id, active && config.hasTaxonomy)
 
   /* ------------------------------ ui state ----------------------------- */
-  const [selected, setSelected] = useState<LibraryRow | null>(null)
-  // Competencies get the full popup - proficiency levels, mapped roles and
-  // the course builder. The other libraries have no levels to show, so they
-  // keep the side panel.
+  // Every tab opens the popup. An earlier design gave the non-competency tabs
+  // a side panel instead, but nothing ever put a row into its state, so it was
+  // unreachable on all eight tabs and has been removed.
   const [richDetail, setRichDetail] = useState<LibraryRow | null>(null)
   // Which popup section to land on. Set by the tile actions so "usage
   // insights" opens on roles rather than making the user hunt for it.
@@ -214,16 +227,36 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   const [formOpen, setFormOpen] = useState(false)
   const [formInitial, setFormInitial] = useState<LibraryRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LibraryRow | null>(null)
+  // L-06. The dialog used to admit that orphans would be created and never say
+  // how many. This is the number, and it is computed BY KEY (G-LIB-09): the same
+  // count by title over-reports by 1.6% inside a tenant and by SIX TIMES without
+  // a tenant condition.
+  const [impact, setImpact] = useState<LibraryImpact | null>(null)
+  const [impactState, setImpactState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  useEffect(() => {
+    if (!deleteTarget) { setImpact(null); setImpactState('idle'); return }
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) { setImpactState('error'); return }
+    let cancelled = false
+    setImpactState('loading')
+
+    apiClient
+      .get<{ status: number; data: LibraryImpact }>('/competency/library/dependants',
+        withLaravelParams(context, { kind: config.id, id: String(deleteTarget.id) }))
+      .then((res) => { if (!cancelled) { setImpact(res.data); setImpactState('idle') } })
+      // A COUNT THAT FAILED TO LOAD IS NOT A COUNT OF ZERO. Saying "0 records
+      // depend on this" because the request failed is the dead-bell lie applied
+      // to a deletion, which is a worse place for it.
+      .catch(() => { if (!cancelled) setImpactState('error') })
+
+    return () => { cancelled = true }
+  }, [deleteTarget, config.id])
   const [taxonomyOpen, setTaxonomyOpen] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [cloneError, setCloneError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportNote, setExportNote] = useState<string | null>(null)
-
-  const { detail, loading: detailLoading } = useLibraryDetail(
-    config.id,
-    selected && (config.id === 'skill' || config.id === 'jobrole') ? selected.id : null,
-  )
 
   /* ------------------------------ options ------------------------------ */
 
@@ -397,7 +430,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
 
   const openEdit = (row: LibraryRow) => {
     clearMessages()
-    setSelected(null)
     setFormInitial(row)
     setFormOpen(true)
   }
@@ -410,7 +442,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     const result = await remove(deleteTarget.id)
     if (result.ok) {
       setDeleteTarget(null)
-      setSelected(null)
     }
   }
 
@@ -419,7 +450,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     setCloneError(null)
     try {
       await competencyLibrariesService.cloneInvisible(getLaravelContext(user), row.id)
-      setSelected(null)
       retry()
     } catch (error) {
       setCloneError(error instanceof Error ? error.message : 'Failed to copy the entry.')
@@ -1050,28 +1080,6 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
         />
       )}
 
-      {/* Detail panel */}
-      <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent
-          side="right"
-          className="flex w-full flex-col border-l border-primary/10 bg-card p-0 shadow-2xl sm:w-[640px] sm:max-w-none lg:w-[760px]"
-        >
-          {selected && (
-            <LibraryDetail
-              config={config}
-              row={selected}
-              detail={detail}
-              detailLoading={detailLoading}
-              canEdit={canEditRow(selected)}
-              onEdit={() => openEdit(selected)}
-              onDelete={() => setDeleteTarget(selected)}
-              onClone={config.id === 'invisible' ? () => handleClone(selected) : undefined}
-              cloning={cloning}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
-
       {/* Taxonomy editor */}
       {config.hasTaxonomy && (
         <Sheet open={taxonomyOpen} onOpenChange={setTaxonomyOpen}>
@@ -1133,8 +1141,37 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               <span className="font-semibold text-foreground">
                 {dash(deleteTarget?.[config.titleKey])}
               </span>{' '}
-              will be removed from the {config.plural.toLowerCase()} library. Anything already mapped to it keeps its
-              existing record.
+              will be removed from the {config.plural.toLowerCase()} library.
+              {impactState === 'loading' && <span className="block pt-2">Checking what depends on it…</span>}
+              {impactState === 'error' && (
+                <span className="block pt-2">
+                  What depends on it could not be checked. This is a connection problem, not a count of zero.
+                </span>
+              )}
+              {impactState === 'idle' && impact && (
+                <span className="block pt-2">
+                  {impact.total === 0 ? (
+                    <span className="font-semibold text-foreground">Nothing depends on it.</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-foreground">
+                        {impact.total} record{impact.total === 1 ? '' : 's'} depend on it
+                      </span>{' '}
+                      ({impact.breakdown.filter((b) => b.count > 0).map((b) => `${b.count} ${b.label}`).join(', ')}).
+                      Those records keep their own row and lose what they pointed at.
+                      {/* Named basis, because the product still joins by name in
+                          twelve places and a bare number would hide which one
+                          this is. */}
+                      <span className="block pt-1 text-xs">Counted by key.</span>
+                      {impact.divergence && (
+                        <span className="block text-xs">
+                          Counting by name gives {impact.divergence.by_text} — {impact.divergence.reason}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

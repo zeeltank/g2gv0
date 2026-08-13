@@ -96,7 +96,9 @@ const TYPE_FORM_OPTIONS = [
   ...TYPE_VALUES.map((t) => ({ label: t, value: t })),
 ]
 
-const STATUS_VALUES = ['Approved', 'Pending', 'Cancelled'] as const
+// 'Rejected' is a real stored state: a rejected subject is moved there so it is
+// neither pending nor approved and can be revised and resubmitted.
+const STATUS_VALUES = ['Approved', 'Pending', 'Rejected', 'Cancelled'] as const
 
 /**
  * approve_status is stored as 'Cancelled' but the screen calls that state
@@ -117,7 +119,6 @@ const STATUS_FILTER_OPTIONS = [
   ...STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s })),
 ]
 
-const STATUS_FORM_OPTIONS = STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s }))
 
 const PER_PAGE_OPTIONS = [
   { label: '10 / page', value: '10' },
@@ -265,7 +266,7 @@ function parseCsv(text: string): string[][] {
 function csvToImportRows(text: string): { rows: CompetencyImportRow[]; error: string | null } {
   const table = parseCsv(text)
   if (table.length < 2) {
-    return { rows: [], error: 'The file needs a header row and at least one competency.' }
+    return { rows: [], error: 'The file needs a header row and at least one skill.' }
   }
 
   const headers = table[0].map((h) => h.trim().toLowerCase().replace(/^﻿/, ''))
@@ -300,6 +301,22 @@ interface SavedView {
   status: string
 }
 
+/*
+ * VOCABULARY: this screen manages SKILL LIBRARY entries.
+ *
+ * It reads and writes `s_users_skills` through /competency/competencies (aliased
+ * in routes/api.php as SkillLibraryCrudController). It has always created a flat
+ * skill row - the labels said "Competency", which is G-RBAC-02b: a name promising
+ * a capability that was never built.
+ *
+ * A competency in Q-A2's sense - a named bundle of KASBA items - lives in
+ * `competency` + `competency_kasba_item` and is composed in
+ * cm-competency-composer.tsx.
+ *
+ * LABELS ONLY were changed. No identifier, storage key, endpoint, type name or
+ * behaviour moved: renaming SAVED_VIEWS_KEY would silently discard every saved
+ * view a user already has.
+ */
 const SAVED_VIEWS_KEY = 'cm-competency-library:saved-views'
 
 function readSavedViews(): SavedView[] {
@@ -417,7 +434,7 @@ function CompetencyForm({
 
   const handleSubmit = async () => {
     if (!values.name.trim()) {
-      setError('Competency name is required.')
+      setError('Skill name is required.')
       return
     }
     setError(null)
@@ -433,9 +450,10 @@ function CompetencyForm({
       ...(values.competency_type ? { competency_type: values.competency_type } : {}),
       ...optional('description'),
       ...optional('proficiency_level'),
-      // Status is edit-only: a new competency is created Approved, and moving it
-      // out of that state is what "Submit for Approval" is for.
-      ...(editing ? { status: values.status } : {}),
+      // G-COMP-01: `status` is no longer sent. approve_status is server-owned -
+      // the API ignores it, and sending a field the server discards is the
+      // silent-data-loss pattern this audit exists to remove. Approval moves
+      // through "Submit for Approval" and the approval queue.
       ...Object.fromEntries(
         DETAIL_FIELDS.map((f) => [f.key, text(f.key as string)]).filter(([, value]) => {
           // On edit send blanks too, so a field can be cleared.
@@ -453,18 +471,18 @@ function CompetencyForm({
     <>
       <DialogHeader className="p-6 pb-4 border-b border-primary/10 m-0">
         <DialogTitle className="text-xl font-bold text-foreground">
-          {initial ? 'Edit Competency' : 'Create Competency'}
+          {initial ? 'Edit Skill' : 'Create Skill'}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           {initial
-            ? 'Update this competency. Evidence & resources feed the Attachments tab.'
-            : 'Add a competency to the library. Evidence & resources feed its Attachments tab.'}
+            ? 'Update this skill. Evidence & resources feed the Attachments tab.'
+            : 'Add a skill to the library. Evidence & resources feed its Attachments tab.'}
         </DialogDescription>
       </DialogHeader>
 
       <div className="p-6 flex flex-col gap-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-foreground">Competency Name<span className="text-destructive"> *</span></label>
+          <label className="text-sm font-semibold text-foreground">Skill Name<span className="text-destructive"> *</span></label>
           <Input value={values.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter name" className="bg-background border-border" />
         </div>
 
@@ -498,12 +516,14 @@ function CompetencyForm({
             <label className="text-sm font-semibold text-foreground">Proficiency Scale</label>
             <Input value={values.proficiency_level} onChange={(e) => set('proficiency_level', e.target.value)} placeholder="e.g. 1-5 Level Scale" className="bg-background border-border" />
           </div>
-          {editing && (
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Status</label>
-              <Select value={values.status} onChange={(v) => set('status', v)} options={STATUS_FORM_OPTIONS} className="bg-background border-border h-9" aria-label="Status" />
-            </div>
-          )}
+          {/*
+            G-COMP-01: the Status dropdown was removed. It wrote straight to
+            approve_status with no reviewer, which bypassed the whole approval
+            workflow from an edit form. The server now owns that field, so
+            leaving the control would show a dropdown that silently does
+            nothing. Approval moves through Submit for Approval and the
+            approval queue.
+          */}
         </div>
 
         <div className="space-y-2">
@@ -820,7 +840,10 @@ export function CmCompetencyLibrary() {
       // archiving is reversible, so the user may well want to undo it.
       setSelectedItem((current) =>
         current && current.id === archiveTarget.id
-          ? { ...current, approve_status: restoring ? 'Approved' : 'Cancelled' }
+          // Restore returns the item to Pending, not Approved (G-COMP-01):
+          // housekeeping must never grant approval. Mirror the server exactly,
+          // or the panel shows a state the database does not hold.
+          ? { ...current, approve_status: restoring ? 'Pending' : 'Cancelled' }
           : current,
       )
       setArchiveTarget(null)
@@ -922,8 +945,8 @@ export function CmCompetencyLibrary() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Competency Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational competencies.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Skill Library</h1>
+          <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational skills.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -934,7 +957,7 @@ export function CmCompetencyLibrary() {
             <FolderTree className="w-4 h-4" /> Taxonomy
           </Button>
           <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
-            <Plus className="w-4 h-4 stroke-[3]" /> Create Competency
+            <Plus className="w-4 h-4 stroke-[3]" /> Create Skill
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger className="w-10 h-10 p-0 rounded-xl bg-background border border-border flex items-center justify-center hover:bg-accent hover:text-accent-foreground outline-none transition-colors">
@@ -1003,7 +1026,7 @@ export function CmCompetencyLibrary() {
             <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by competency name, category, type..."
+                placeholder="Search by skill name, category, type..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="h-10 pl-9 pr-4 rounded-xl border-input bg-background/50 text-sm focus-visible:ring-primary/50 w-full"
@@ -1036,8 +1059,8 @@ export function CmCompetencyLibrary() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuItem onClick={clearAll}>Default View</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatus('Approved'); setPage(1) }}>Approved Competencies</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setStatus('Cancelled'); setPage(1) }}>Archived Competencies</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setStatus('Approved'); setPage(1) }}>Approved Skills</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setStatus('Cancelled'); setPage(1) }}>Archived Skills</DropdownMenuItem>
 
               {savedViews.length > 0 && <DropdownMenuSeparator />}
               {savedViews.map((view) => (
@@ -1083,7 +1106,7 @@ export function CmCompetencyLibrary() {
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/30 border-b border-primary/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <TableRow className="hover:bg-transparent">
-                    <SortableHead label="Competency Name" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
+                    <SortableHead label="Skill Name" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
                     <SortableHead label="Category" field="category" activeField={sort} direction={direction} onSort={handleSort} />
                     <SortableHead label="Type" field="competency_type" activeField={sort} direction={direction} onSort={handleSort} />
                     <TableHead className="px-6 py-4">Proficiency Scale</TableHead>
@@ -1226,7 +1249,7 @@ export function CmCompetencyLibrary() {
                       onClick={() => handleSubmitForApproval(selectedItem)}
                       disabled={submitting}
                       className="h-9 px-4 gap-2 border-border font-semibold rounded-lg bg-background hover:bg-muted"
-                      title="Move this competency into the approval queue"
+                      title="Move this skill into the approval queue"
                     >
                       <Send className="w-3.5 h-3.5" /> {submitting ? 'Submitting…' : 'Submit for Approval'}
                     </Button>
@@ -1392,7 +1415,7 @@ export function CmCompetencyLibrary() {
                     <div className="flex flex-col gap-4">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Basic Information</h3>
                       <div className="grid grid-cols-[140px_1fr] gap-y-4 text-sm">
-                        <span className="text-muted-foreground font-medium">Competency Name</span>
+                        <span className="text-muted-foreground font-medium">Skill Name</span>
                         <span className="text-foreground font-semibold">{selectedItem.name}</span>
 
                         <span className="text-muted-foreground font-medium">Category</span>
@@ -1449,9 +1472,9 @@ export function CmCompetencyLibrary() {
                   )}
                 >
                   {isArchived(selectedItem) ? (
-                    <><ArchiveRestore className="w-4 h-4 mr-2" /> Restore Competency</>
+                    <><ArchiveRestore className="w-4 h-4 mr-2" /> Restore Skill</>
                   ) : (
-                    <><Archive className="w-4 h-4 mr-2" /> Archive Competency</>
+                    <><Archive className="w-4 h-4 mr-2" /> Archive Skill</>
                   )}
                 </Button>
                 <Button variant="outline" onClick={() => setSelectedItem(null)} className="h-9 px-6 rounded-lg font-bold border-border bg-background">
@@ -1677,7 +1700,7 @@ function AssociationsTab({ detail }: { detail: CompetencyDetail | null }) {
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Job Roles Requiring This ({roles.length})</h3>
         {roles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No roles require this competency.</p>
+          <p className="text-sm text-muted-foreground">No roles require this skill.</p>
         ) : (
           <div className="flex flex-col divide-y divide-primary/5 border border-border rounded-xl overflow-hidden">
             {roles.map((r, i) => (

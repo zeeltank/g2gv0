@@ -28,6 +28,7 @@ import {
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 import { competencyLibraryService } from '@/services/competency'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { RoleRequirementsPanel } from './role-requirements-panel'
 import { useAuth } from '@/hooks/use-auth'
 import type {
   Framework, FrameworkPayload, MatrixCompetency, ProficiencyLevel,
@@ -40,6 +41,11 @@ import type {
 const TABS: { id: string; label: string }[] = [
   { id: 'framework', label: 'Framework Structure' },
   { id: 'matrix', label: 'Role Mapping Matrix' },
+  // Writes `jobrole_competency_map` through the existing guarded endpoint.
+  // Sits beside the matrix because that is where a person looks for "what does
+  // this role need" - and until now the matrix was the only thing there, and it
+  // writes a different table (`s_user_skill_jobrole`, keyed by text).
+  { id: 'requirements', label: 'Role Requirements' },
   { id: 'weighting', label: 'Weighting & Configuration' },
   { id: 'proficiency', label: 'Proficiency Scale' },
   { id: 'workflow', label: 'Workflow & Review' },
@@ -620,6 +626,13 @@ export function CmFrameworkMapping() {
               <EmptyState icon={<FileText className="w-10 h-10" />} title="Select a category" description="Choose a category on the left to view its structure." />
             )}
           </div>
+        </div>
+      )}
+
+      {/* ---- Role Requirements — writes jobrole_competency_map ---- */}
+      {activeTab === 'requirements' && (
+        <div className="w-full flex-1 bg-card/90 border border-primary/10 rounded-2xl shadow-sm p-4">
+          <RoleRequirementsPanel />
         </div>
       )}
 

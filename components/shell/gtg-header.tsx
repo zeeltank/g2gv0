@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search,
-  Bell,
   ChevronDown,
   LayoutGrid,
   User,
@@ -14,62 +13,9 @@ import {
 } from 'lucide-react'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NotificationsMenu } from '@/components/shell/notifications-menu'
 import { useAuth } from '@/hooks/use-auth'
 import { AgentButton } from '@/components/shell/agent/agent-button'
-
-
-function NotificationsMenu() {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Notifications"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="relative flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Bell className="size-5" aria-hidden="true" />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
-        >
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <span className="text-sm font-semibold">Notifications</span>
-            <span className="rounded-sm bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-              New
-            </span>
-          </div>
-          <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-            <Bell className="size-6 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">
-              You&apos;re all caught up
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Notifications will appear here.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function UserProfileMenu() {
   const router = useRouter()

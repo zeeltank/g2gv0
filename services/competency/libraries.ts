@@ -246,6 +246,10 @@ export interface LibraryMeta {
   micro_categories: string[]
   industries: string[]
   jobroles_by_department: Record<string, { id: number; jobrole: string }[]>
+  /** X-03: suggested-not-closed sources for fields that name another entity. */
+  related_skills: string[]
+  job_titles: string[]
+  learning_resources: string[]
   proficiency_levels: string[]
   invisible_types: string[]
   task_types: string[]

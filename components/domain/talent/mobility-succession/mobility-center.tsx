@@ -814,12 +814,25 @@ export function MobilityCenter() {
         {isJobsTab && (
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              {/* Business Unit (static mockup placeholder) */}
+              {/*
+                Disabled on purpose, and the label says why. NO BUSINESS UNIT
+                MASTER EXISTS IN THIS SCHEMA - the same fact talent-dashboard.tsx
+                already states, where this treatment comes from. Populating it
+                from departments would be a lie.
+
+                It previously read "Business Unit: All" over a single hardcoded
+                option with an empty handler, and was labelled "(static mockup
+                placeholder)" in a comment a user never sees. A CONTROL THAT
+                LOOKS LIVE AND DOES NOTHING IS WORSE THAN ONE THAT SAYS IT IS
+                UNAVAILABLE: the first invites a click and silently ignores it.
+              */}
               <div className="w-[150px]">
                 <Select
                   value="All"
                   onChange={() => {}}
-                  options={[{ label: 'Business Unit: All', value: 'All' }]}
+                  disabled
+                  aria-label="Business Unit (not available in this workspace)"
+                  options={[{ label: 'Business Unit: not configured', value: 'All' }]}
                   size="sm"
                   className="border-none bg-transparent hover:bg-muted/50 h-9 font-semibold text-xs text-foreground/90"
                 />
