@@ -11,6 +11,7 @@ const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
+const CmTaskCompetencies = createLazyComponent(() => import('@/domain/competency/cm-task-competencies').then((m) => ({ default: m.CmTaskCompetencies })))
 const CmCourseCompetencies = createLazyComponent(() => import('@/domain/competency/cm-course-competencies').then((m) => ({ default: m.CmCourseCompetencies })))
 const CmCompetencyDefinitions = createLazyComponent(() => import('@/domain/competency/cm-competency-definitions').then((m) => ({ default: m.CmCompetencyDefinitions })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
@@ -56,5 +57,8 @@ export const M2_CONTENT: ContentRoute[] = [
   // derived from sibling 156, and the id taken from what the insert RETURNED -
   // the map said 225 for Competency Definitions until the database said 227.
   { accessLink: '/module/competency-management/competency-library/course-competencies', submenuId: '228', component: CmCourseCompetencies }, // Course Competencies
+  // TASK -> COMPETENCY. jobrole_task_competency_map holds 0 rows; golden thread 2
+  // carries the signal on task.skill_id today, hand-picked per ticket at 67%.
+  { accessLink: '/module/competency-management/competency-library/task-competencies', submenuId: '229', component: CmTaskCompetencies }, // Task Competencies
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]
