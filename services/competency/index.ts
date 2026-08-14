@@ -35,3 +35,7 @@ export { certificationService } from './certifications'
 
 export * from './audit'
 export { competencyAuditService } from './audit'
+export { kasbaRatingService } from './kasba-rating'
+export type { RatableItem, RatableItemsResult } from './kasba-rating'
+export { aiAssessmentService } from './ai-assessment'
+export type { AiTest, AiQuestion, MyTestResult, GenerateResult, PublishResult } from './ai-assessment'

@@ -46,6 +46,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
+// AI generation, review and publish. Mounted on the Campaigns tab because that
+// is where an HR user already comes to create an assessment — a separate menu
+// would need its own rights row to say the same thing twice.
+import { CmAssessmentGenerator } from './cm-assessment-generator'
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 
 export function CmAssessmentWorkspace() {
@@ -261,6 +265,12 @@ export function CmAssessmentWorkspace() {
       </div>
 
       {/* Main Studio Area */}
+      {activeTab === 'campaigns' && (
+        <div className="mb-4">
+          <CmAssessmentGenerator />
+        </div>
+      )}
+
       {activeTab === 'campaigns' ? (
         <div className="w-full overflow-x-auto pb-4 g2g-scrollbar">
           <div className="flex gap-6 items-stretch min-w-[1000px] h-[700px]">
@@ -432,13 +442,19 @@ export function CmAssessmentWorkspace() {
                               labelled rather than removed, so the intent stays
                               visible: a control that looks live and does nothing
                               is worse than one that says it is unavailable. */}
-                          <Select
-                            options={[]}
-                            placeholder="Bulk actions — not available yet"
+                          {/* A DEAD CONTROL, HONEST ABOUT IT. Rendered as a
+                              disabled button rather than a Select, because Select
+                              has no `disabled` prop — a disabled-looking dropdown
+                              that still opens is worse than one that plainly
+                              cannot be pressed. */}
+                          <Button
+                            variant="outline"
                             disabled
                             title="Bulk actions are not implemented yet"
-                            className="h-9 bg-background w-52 opacity-60 cursor-not-allowed"
-                          />
+                            className="h-9 w-52 justify-start text-muted-foreground"
+                          >
+                            Bulk actions — not available yet
+                          </Button>
                         </div>
                       </div>
 

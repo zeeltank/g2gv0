@@ -48,6 +48,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useCompetencyEmployeeProfile } from '@/hooks/use-employee-profile'
+// KASBA rating capture. The endpoints have been guarded and proved since the
+// rating work and NOTHING CALLED THEM — this is the mount that makes the last
+// link of the capability chain reachable by a person.
+import { KasbaRatingPanel } from './kasba-rating-panel'
 import { useAuth } from '@/hooks/use-auth'
 import type { EmployeeCompetencyItem } from '@/services/competency'
 
@@ -352,6 +356,16 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
           )
         })}
       </div>
+
+      {activeTab === 'ratings' && userId && (
+        <div className="mb-4">
+          {/* Rating against THIS person's job-role requirements. Rendered only
+              when a person is actually selected — a rating form with no subject
+              would post nowhere, and an empty control that looks live is worse
+              than one that is absent. */}
+          <KasbaRatingPanel userId={Number(userId)} />
+        </div>
+      )}
 
       {activeTab === 'ratings' && (
         <div className="flex gap-6 items-start min-h-[600px]">

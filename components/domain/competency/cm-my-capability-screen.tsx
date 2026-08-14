@@ -18,6 +18,11 @@
 
 import { useEffect, useState } from 'react'
 import { CmMyCapability } from './cm-my-capability'
+// The employee's own assessment, below their capability. Mounted here rather
+// than on a new menu because this screen ALREADY means 'my own capability' and
+// already carries the employee's identity from their token — a separate menu
+// would need its own rights row to say the same thing twice.
+import { CmMyAssessment } from './cm-my-assessment'
 import { competencyGapService, type CompetencyGap } from '@/services/competency/gap'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 
@@ -82,5 +87,12 @@ export function CmMyCapabilityScreen() {
     )
   }
 
-  return <CmMyCapability gap={gap} />
+  return (
+    <div className="flex flex-col gap-8">
+      <CmMyCapability gap={gap} />
+      {/* Takes no props. It cannot be pointed at another person because it
+          accepts no subject — the endpoints behind it have no user_id. */}
+      <CmMyAssessment />
+    </div>
+  )
 }
