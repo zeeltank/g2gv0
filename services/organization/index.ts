@@ -247,3 +247,5 @@ export const organizationService = {
 
 export * from './employee-profile-service'
 
+export { rolePermissionsService } from './role-permissions'
+export type { RightsRow, RightsMenu, UserProfile } from './role-permissions'
