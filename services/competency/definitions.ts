@@ -75,6 +75,15 @@ export interface CompetencyDefinitionInput {
   name: string
   code?: string | null
   description?: string | null
+  /**
+   * The framework this competency is filed under, or null.
+   *
+   * NULLABLE END TO END and permanently valid - a competency with no framework is
+   * a normal competency, not an incomplete one. The server verifies any id against
+   * the CALLER'S OWN TENANT rather than with a bare exists rule, which would have
+   * accepted a valid id belonging to another organisation.
+   */
+  framework_id?: number | null
   competency_type?: string | null
   criticality?: string | null
   items: Array<{

@@ -46,6 +46,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
+// AI generation, review and publish. Mounted on the Campaigns tab because that
+// is where an HR user already comes to create an assessment — a separate menu
+// would need its own rights row to say the same thing twice.
+import { CmAssessmentGenerator } from './cm-assessment-generator'
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 
 export function CmAssessmentWorkspace() {
@@ -90,6 +94,36 @@ export function CmAssessmentWorkspace() {
     reviewAssessment,
     reviewing,
   } = useAssessmentWorkspace()
+
+  // ── FILTER OPTIONS COME FROM THE DATA ──────────────────────────────────────
+  // Both of these were hardcoded lists. Deriving them means a status that exists
+  // can always be filtered for, and a type that does not exist is never offered.
+  //
+  // `type` is null on every campaign today, so typeOptions correctly collapses to
+  // "All Types" plus "Not set". THAT IS THE HONEST VIEW — the backend stopped
+  // substituting a default for it, and the screen must not reintroduce one.
+  const statusOptions = React.useMemo(() => {
+    const seen = Array.from(new Set((campaigns ?? []).map((c) => c.status).filter(Boolean)))
+    return [
+      { label: 'All Status', value: 'all' },
+      ...seen.map((s) => ({
+        label: String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()),
+        value: String(s),
+      })),
+    ]
+  }, [campaigns])
+
+  const typeOptions = React.useMemo(() => {
+    const seen = Array.from(new Set((campaigns ?? []).map((c) => c.type).filter(Boolean)))
+    const hasUnset = (campaigns ?? []).some((c) => !c.type)
+    return [
+      { label: 'All Types', value: 'all' },
+      ...seen.map((t) => ({ label: String(t), value: String(t) })),
+      // Named, not hidden. A campaign with no type is a real state, and the only
+      // state any campaign is currently in.
+      ...(hasUnset ? [{ label: 'Not set', value: '__unset' }] : []),
+    ]
+  }, [campaigns])
 
   // Load the list for the active top tab (Participant Ratings / Calibration / Approvals / Closed).
   useEffect(() => {
@@ -231,6 +265,12 @@ export function CmAssessmentWorkspace() {
       </div>
 
       {/* Main Studio Area */}
+      {activeTab === 'campaigns' && (
+        <div className="mb-4">
+          <CmAssessmentGenerator />
+        </div>
+      )}
+
       {activeTab === 'campaigns' ? (
         <div className="w-full overflow-x-auto pb-4 g2g-scrollbar">
           <div className="flex gap-6 items-stretch min-w-[1000px] h-[700px]">
@@ -245,8 +285,16 @@ export function CmAssessmentWorkspace() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Select options={[{label: 'All Status', value: 'all'}, {label: 'In Progress', value: 'progress'}]} placeholder="Status" className="h-9 bg-background w-32" />
-                  <Select options={[{label: 'All Types', value: 'all'}, {label: 'Self + Manager', value: 'self'}]} placeholder="Assessment Type" className="h-9 bg-background w-44" />
+                  {/* DERIVED FROM THE DATA, NOT LISTED HERE.
+                      The status list was hardcoded to two values when the data
+                      holds four (open, in_progress, completed, overdue), so two
+                      real states could never be filtered for. The type list
+                      offered "Self + Manager" — a value NO campaign has, because
+                      `type` is null on every one of them. A filter that offers a
+                      value nothing matches is worse than no filter: it reports an
+                      empty result as "none found" rather than "never set". */}
+                  <Select options={statusOptions} placeholder="Status" className="h-9 bg-background w-32" />
+                  <Select options={typeOptions} placeholder="Assessment Type" className="h-9 bg-background w-44" />
                   <Button variant="outline" className="h-9 px-3 gap-2 bg-background border-border text-sm">
                     <Filter className="w-3.5 h-3.5" /> More Filters
                   </Button>
@@ -388,7 +436,25 @@ export function CmAssessmentWorkspace() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" className="h-9 text-xs gap-2"><Filter className="w-3.5 h-3.5" /> Filters</Button>
-                          <Select options={[{label: 'Bulk Actions', value: 'bulk'}]} placeholder="Bulk Actions" className="h-9 bg-background w-32" />
+                          {/* A DEAD CONTROL, NOW HONEST ABOUT IT. This was a
+                              dropdown whose only option was its own placeholder —
+                              it looked operable and did nothing. Disabled and
+                              labelled rather than removed, so the intent stays
+                              visible: a control that looks live and does nothing
+                              is worse than one that says it is unavailable. */}
+                          {/* A DEAD CONTROL, HONEST ABOUT IT. Rendered as a
+                              disabled button rather than a Select, because Select
+                              has no `disabled` prop — a disabled-looking dropdown
+                              that still opens is worse than one that plainly
+                              cannot be pressed. */}
+                          <Button
+                            variant="outline"
+                            disabled
+                            title="Bulk actions are not implemented yet"
+                            className="h-9 w-52 justify-start text-muted-foreground"
+                          >
+                            Bulk actions — not available yet
+                          </Button>
                         </div>
                       </div>
 

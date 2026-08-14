@@ -40,9 +40,17 @@ import {
 } from '@/services/competency/definitions'
 import { competencyLibrariesService, type LibraryTabId } from '@/services/competency'
 import { CmCompetencyComposer } from './cm-competency-composer'
+// The tenant's frameworks, so a new competency can be filed under one.
+// WITHOUT THIS THE PICKER NEVER RENDERS: the composer's `frameworks` prop is
+// optional, and an optional prop nothing passes is a control that silently does
+// nothing — the same shape as a default that hides an absence.
+import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 
 export function CmCompetencyDefinitions() {
   const { user } = useAuth()
+  // The framework list the composer needs. Read here rather than in the composer
+  // so the form stays a pure input component with no fetching of its own.
+  const { frameworks } = useCompetencyStudio()
 
   const [definitions, setDefinitions] = useState<CompetencyDefinition[]>([])
   const [optionsByType, setOptionsByType] = useState<Partial<Record<KasbaType, { id: number; title: string }[]>>>({})
@@ -171,7 +179,7 @@ export function CmCompetencyDefinitions() {
             Defining competencies is limited to HR and administrators.
           </p>
         )}
-        <CmCompetencyComposer optionsByType={optionsByType} onSubmit={submit} canCreate={canCreate} />
+        <CmCompetencyComposer optionsByType={optionsByType} frameworks={frameworks} onSubmit={submit} canCreate={canCreate} />
       </section>
     </div>
   )

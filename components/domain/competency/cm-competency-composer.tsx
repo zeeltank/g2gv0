@@ -64,12 +64,25 @@ export function CmCompetencyComposer({
    * that were called label-only.
    */
   optionsByType: Partial<Record<KasbaType, SkillOption[]>>
+  /**
+   * The tenant's frameworks, for filing this competency under one.
+   *
+   * OPTIONAL, AND THE PICKER IS HIDDEN WHEN THE LIST IS EMPTY. A tenant with no
+   * frameworks should not be shown an empty dropdown asking them to choose from
+   * nothing — that reads as a broken control rather than as "you have not created
+   * any yet". Same reason the capability screens say `empty_is_expected`.
+   *
+   * `framework_id` is nullable end to end: a competency not filed under a
+   * framework is a normal competency, not an incomplete one.
+   */
+  frameworks?: { id: number; name: string }[]
   onSubmit: (input: CompetencyDefinitionInput) => Promise<void>
   /** HR/Admin. The server enforces it regardless (profile:admin,hr). */
   canCreate: boolean
 }) {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
+  const [frameworkId, setFrameworkId] = useState<string>('')
   const [items, setItems] = useState<DraftItem[]>([blankItem()])
   const [busy, setBusy] = useState(false)
 
@@ -209,6 +222,10 @@ export function CmCompetencyComposer({
             await onSubmit({
               name: name.trim(),
               code: code.trim() || null,
+              // null, not omitted. The server treats null as "not filed under a
+              // framework" and verifies any id against the caller's OWN tenant -
+              // a bare exists rule would have accepted another organisation's.
+              framework_id: frameworkId ? Number(frameworkId) : null,
               items: items.map((i) => ({
                 kasba_type: i.kasba_type,
                 item_id: i.item_id,

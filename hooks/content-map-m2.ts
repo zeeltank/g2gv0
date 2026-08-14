@@ -12,6 +12,9 @@ const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competenc
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
 const CmTaskCompetencies = createLazyComponent(() => import('@/domain/competency/cm-task-competencies').then((m) => ({ default: m.CmTaskCompetencies })))
+// Role Requirements - competency to job role. The chain link that had a screen,
+// an API and no way to reach either: menu row 231 created 2026-08-13.
+const CmRoleRequirements = createLazyComponent(() => import('@/domain/competency/role-requirements-panel').then((m) => ({ default: m.RoleRequirementsPanel })))
 const CmCourseCompetencies = createLazyComponent(() => import('@/domain/competency/cm-course-competencies').then((m) => ({ default: m.CmCourseCompetencies })))
 const CmCompetencyDefinitions = createLazyComponent(() => import('@/domain/competency/cm-competency-definitions').then((m) => ({ default: m.CmCompetencyDefinitions })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
@@ -60,5 +63,6 @@ export const M2_CONTENT: ContentRoute[] = [
   // TASK -> COMPETENCY. jobrole_task_competency_map holds 0 rows; golden thread 2
   // carries the signal on task.skill_id today, hand-picked per ticket at 67%.
   { accessLink: '/module/competency-management/competency-library/task-competencies', submenuId: '229', component: CmTaskCompetencies }, // Task Competencies
+  { accessLink: '/module/competency-management/competency-library/role-requirements', submenuId: '231', component: CmRoleRequirements }, // Role Requirements
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]
