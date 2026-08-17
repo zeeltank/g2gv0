@@ -190,6 +190,7 @@ function UserProfileMenu() {
 export function GtgHeader({
   agentOpen,
   onAgentOpenChange,
+  onSendAgentMessage,
   onMenuClick,
   toolbarOpen,
   onToolbarToggle,
@@ -197,6 +198,7 @@ export function GtgHeader({
 }: {
   agentOpen?: boolean
   onAgentOpenChange?: (open: boolean) => void
+  onSendAgentMessage?: (message: string) => void | Promise<void>
   onMenuClick?: () => void
   toolbarOpen?: boolean
   onToolbarToggle?: () => void
@@ -236,7 +238,11 @@ export function GtgHeader({
 
       <div className="ml-auto flex items-center gap-2">
         <NotificationsMenu />
-               <AgentButton agentOpen={agentOpen} onAgentOpenChange={onAgentOpenChange} />
+        <AgentButton
+          agentOpen={agentOpen}
+          onAgentOpenChange={onAgentOpenChange}
+          onSendMessage={onSendAgentMessage}
+        />
         <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
         <UserProfileMenu />
          <button

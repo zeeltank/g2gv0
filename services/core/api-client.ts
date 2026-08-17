@@ -153,3 +153,15 @@ export function buildApiUrl(endpoint: string, params?: Record<string, string>) {
   if (!params) return url
   return `${url}?${new URLSearchParams(params).toString()}`
 }
+
+/**
+ * Same as buildApiUrl but for the Laravel *web* root (no /api prefix) - the
+ * routes declared in routes/web.php, routes/settings.php and routes/lms.php,
+ * such as /table_data and /settings/organization_data. Server-side callers
+ * (the conversational AI gateway) need the absolute form.
+ */
+export function buildWebUrl(endpoint: string, params?: Record<string, string>) {
+  const url = `${WEB_BASE_URL}${endpoint}`
+  if (!params) return url
+  return `${url}?${new URLSearchParams(params).toString()}`
+}

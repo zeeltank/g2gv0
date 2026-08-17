@@ -29,9 +29,11 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const containerRef = React.useRef<HTMLDivElement>(null)
     const listRef = React.useRef<HTMLDivElement>(null)
     const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>()
+    const [openAbove, setOpenAbove] = React.useState(false)
     const typeaheadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
     const typeaheadBufferRef = React.useRef('')
     const listboxId = React.useId()
+    const MAX_POPOVER_HEIGHT = 240
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
@@ -66,10 +68,25 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       const positionPopover = () => {
         const trigger = containerRef.current?.getBoundingClientRect()
         if (!trigger) return
+        const viewportHeight = window.innerHeight
+        const spaceBelow = viewportHeight - trigger.bottom - 12
+        const spaceAbove = trigger.top - 12
+        const shouldOpenAbove =
+          spaceBelow < 180 && spaceAbove > spaceBelow
+        const availableHeight = shouldOpenAbove ? spaceAbove : spaceBelow
+        const nextMaxHeight = Math.max(
+          120,
+          Math.min(MAX_POPOVER_HEIGHT, availableHeight)
+        )
+
+        setOpenAbove(shouldOpenAbove)
         setPopoverStyle({
-          top: trigger.bottom + 4,
+          top: shouldOpenAbove
+            ? Math.max(8, trigger.top - nextMaxHeight - 4)
+            : trigger.bottom + 4,
           left: trigger.left,
           width: Math.max(trigger.width, 128),
+          maxHeight: nextMaxHeight,
         })
       }
 
@@ -178,8 +195,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
     const selectedLabel = options.find(o => String(o.value) === String(value))?.label || placeholder
     const portalContainer =
-      containerRef.current?.closest('[data-slot="sheet-content"]')
-      ?? (typeof document !== 'undefined' ? document.body : null)
+      typeof document !== 'undefined' ? document.body : null
 
     return (
       <div 
@@ -216,8 +232,13 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             aria-label={ariaLabel || 'Select options'}
             className={cn(
               'pointer-events-auto fixed z-[100] max-h-60 min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
-              'origin-top transition-all duration-150 ease-out',
-              open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+              'transition-all duration-150 ease-out',
+              openAbove ? 'origin-bottom' : 'origin-top',
+              open
+                ? 'opacity-100 scale-100 translate-y-0'
+                : openAbove
+                  ? 'opacity-0 scale-95 translate-y-2 pointer-events-none'
+                  : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
             )}
           >
             <div className="flex flex-col gap-0.5">

@@ -9,6 +9,7 @@ import { withLaravelParams } from '@/lib/laravel-context'
 
 // Leave Management module - /api/leave/*
 export * from './leave'
+export * from './leave-bi'
 
 export interface AttendanceRecord {
   id: string

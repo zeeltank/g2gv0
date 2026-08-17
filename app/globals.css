@@ -110,7 +110,7 @@
   --chart-indigo: hsl(239 84% 67%);
   --chart-track: hsl(221 83% 94%);
 
-  --agent-panel-width: 24rem;
+  --agent-panel-width: 30rem;
 }
 
 .dark {
@@ -182,7 +182,7 @@
 
 @media (max-width: 1024px) {
   :root {
-    --agent-panel-width: 20rem;
+    --agent-panel-width: 24rem;
   }
 }
 
