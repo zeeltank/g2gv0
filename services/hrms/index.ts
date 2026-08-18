@@ -9,6 +9,7 @@ import { withLaravelParams } from '@/lib/laravel-context'
 
 // Leave Management module - /api/leave/*
 export * from './leave'
+export * from './leave-bi'
 
 // Payroll module - legacy Laravel web routes (routes/hrms.php)
 export * from './payroll'

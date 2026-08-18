@@ -13,6 +13,7 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -43,6 +44,18 @@
       ],
       "@/lib/*": [
         "./lib/*"
+      ],
+      "@shared/conversational-ai-core": [
+        "./packages/conversational-ai-core/src/index.ts"
+      ],
+      "@shared/conversational-ai-core/*": [
+        "./packages/conversational-ai-core/src/*"
+      ],
+      "@shared/conversational-mcp-core": [
+        "./packages/conversational-mcp-core/src/index.ts"
+      ],
+      "@shared/conversational-mcp-core/*": [
+        "./packages/conversational-mcp-core/src/*"
       ],
       "@/hooks/*": [
         "./hooks/*"

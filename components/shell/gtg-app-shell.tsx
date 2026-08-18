@@ -11,8 +11,10 @@ import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
+import type { Message as AgentMessage } from '@/components/shell/agent/agent-chat'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
+import { getLaravelContext } from '@/lib/laravel-context'
 
 const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
 
@@ -160,13 +162,129 @@ export function GtgAppShell({
   }
 
   const [internalAgentOpen, setInternalAgentOpen] = useState(false)
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([])
+  const [agentLoading, setAgentLoading] = useState(false)
+  const [agentError, setAgentError] = useState<string | null>(null)
+  const agentMessagesRef = useRef<AgentMessage[]>([])
+  /**
+   * Stable per-mount id so the server can keep follow-up context ("show me
+   * their names") for this chat panel without persisting it anywhere.
+   */
+  const agentSessionIdRef = useRef<string>(`agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
   const agentOpenState = agentOpen ?? internalAgentOpen
   const setAgentOpen = useCallback((next: boolean) => {
     setInternalAgentOpen(next)
     onAgentOpenChange?.(next)
   }, [onAgentOpenChange])
 
-  const breadcrumbItems = resolveBreadcrumb(active, modules)
+  useEffect(() => {
+    agentMessagesRef.current = agentMessages
+  }, [agentMessages])
+
+  const handleAgentSendMessage = useCallback(async (message: string) => {
+    const trimmed = message.trim()
+    if (!trimmed) return
+
+    const userMessage: AgentMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+    }
+
+    const nextMessages = [...agentMessagesRef.current, userMessage]
+    setAgentOpen(true)
+    setAgentError(null)
+    setAgentMessages(nextMessages)
+    setAgentLoading(true)
+
+    try {
+      const currentUser = user as (typeof user & { subInstituteId?: string }) | null
+      /**
+       * The Laravel session (token, sub_institute_id, syear) is what lets the
+       * conversational layer read live module data through the same token
+       * authenticated endpoints the screens use. Without it the assistant still
+       * answers general questions and says system data is unavailable.
+       */
+      const laravelContext = getLaravelContext(user)
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          responseMode: 'json',
+          messages: nextMessages.map((item) => ({
+            id: item.id,
+            role: item.role,
+            content: item.content,
+          })),
+          context: {
+            userId: laravelContext.userId || currentUser?.id,
+            subInstituteId: laravelContext.subInstituteId || currentUser?.subInstituteId,
+            role: currentUser?.role,
+            profileName: currentUser?.profileName,
+            employeeNo: currentUser?.employeeNo,
+            orgId: laravelContext.organizationId || currentUser?.orgId,
+            token: laravelContext.token,
+            syear: laravelContext.syear,
+            sessionId: agentSessionIdRef.current,
+          },
+        }),
+      })
+
+      const payload = (await response.json()) as {
+        error?: string
+        message?: {
+          id?: string
+          role?: 'assistant'
+          content?: string
+        }
+        response?: {
+          message?: string
+          status?: string
+          conversationType?: string
+          activeTools?: string[]
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'The AI agent request failed.')
+      }
+
+      setAgentMessages((current) => [
+        ...current,
+        {
+          id: payload.message?.id || `assistant-${Date.now()}`,
+          role: 'assistant',
+          content:
+            payload.response?.message?.trim() ||
+            payload.message?.content?.trim() ||
+            'No visible response was returned.',
+          status: payload.response?.status,
+          conversationType: payload.response?.conversationType,
+          tools: payload.response?.activeTools,
+        },
+      ])
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'The AI agent request failed.'
+
+      setAgentError(errorMessage)
+      setAgentMessages((current) => [
+        ...current,
+        {
+          id: `assistant-error-${Date.now()}`,
+          role: 'assistant',
+          content: errorMessage,
+          variant: 'error',
+        },
+      ])
+    } finally {
+      setAgentLoading(false)
+    }
+  }, [setAgentOpen, user])
+
+  const breadcrumbItems = resolveBreadcrumb(active)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -201,6 +319,7 @@ export function GtgAppShell({
         <GtgHeader
           agentOpen={agentOpenState}
           onAgentOpenChange={setAgentOpen}
+          onSendAgentMessage={handleAgentSendMessage}
           onMenuClick={() => setMobileNavOpen(true)}
           toolbarOpen={toolbarOpen}
           onToolbarToggle={() => setToolbarOpen((open) => !open)}
@@ -223,7 +342,15 @@ export function GtgAppShell({
             <aside aria-label="AI Agent Panel" className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
               style={{ width: agentOpenState ? 'var(--agent-panel-width)' : '0px', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}>
               <div className="h-full">
-                {agentOpenState && <AgentPanel onClose={() => setAgentOpen(false)} />}
+                {agentOpenState && (
+                  <AgentPanel
+                    messages={agentMessages}
+                    isLoading={agentLoading}
+                    error={agentError}
+                    onClose={() => setAgentOpen(false)}
+                    onSendMessage={handleAgentSendMessage}
+                  />
+                )}
               </div>
             </aside>
           </div>
