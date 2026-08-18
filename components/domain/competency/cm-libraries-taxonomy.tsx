@@ -33,9 +33,9 @@ export function CmLibrariesTaxonomy() {
     <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Libraries &amp; Taxonomy</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Capability</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Curate the skill, role and behavioural libraries the whole competency model draws on.
+          The building blocks every competency is assembled from: job roles, tasks, and the knowledge, ability, behaviour and attitude items behind them.
         </p>
       </div>
 

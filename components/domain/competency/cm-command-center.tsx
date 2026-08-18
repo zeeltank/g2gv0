@@ -382,7 +382,7 @@ export function CmCommandCenter() {
     <div className="flex h-full flex-col gap-6 p-6 overflow-y-auto g2g-scrollbar">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Competency Command Center</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
         <Button
           onClick={() => openCreate('competency')}
           className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2"

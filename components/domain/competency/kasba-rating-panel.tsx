@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
+import { Skeleton } from '@/components/ui/skeleton'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { kasbaRatingService, type RatableItem } from '@/services/competency/kasba-rating'
 
@@ -83,7 +84,15 @@ export function KasbaRatingPanel({ userId, employeeName }: { userId: number; emp
   const scale = Array.from({ length: range.max - range.min + 1 }, (_, i) => range.min + i)
 
   if (loading) {
-    return <div className="p-4 text-sm text-muted-foreground">Loading capability items…</div>
+    // Rows, because rows are what arrives.
+    return (
+      <div className="flex flex-col gap-2 p-4">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+    )
   }
 
   if (emptyReason) {

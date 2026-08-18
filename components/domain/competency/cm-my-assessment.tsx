@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, Radio } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
-import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { aiAssessmentService, type AiQuestion, type MyTestResult } from '@/services/competency/ai-assessment'
 
 /**
@@ -118,8 +118,14 @@ export function CmMyAssessment() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-        <Spinner /> Loading your assessment…
+      <div className="flex flex-col gap-4 p-6">
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-4 w-96" />
+        <Skeleton className="h-2 w-full max-w-sm" />
+        <div className="flex flex-col gap-3 pt-2">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
       </div>
     )
   }

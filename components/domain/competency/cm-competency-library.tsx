@@ -305,9 +305,9 @@ interface SavedView {
  * VOCABULARY: this screen manages SKILL LIBRARY entries.
  *
  * It reads and writes `s_users_skills` through /competency/competencies (aliased
- * in routes/api.php as SkillLibraryCrudController). It has always created a flat
- * skill row - the labels said "Competency", which is G-RBAC-02b: a name promising
- * a capability that was never built.
+ * NOW READS AND WRITES REAL COMPETENCIES via CompetencyLibraryCrudController
+ * on `competency` + `competency_kasba_item`. It previously used
+ * SkillLibraryCrudController on `s_users_skills` - G-RBAC-02b, a name
  *
  * A competency in Q-A2's sense - a named bundle of KASBA items - lives in
  * `competency` + `competency_kasba_item` and is composed in
@@ -391,6 +391,20 @@ function CompetencyForm({
 }: CompetencyFormProps) {
   const editing = Boolean(initial)
 
+  // ── KASBA ITEMS — WHAT COMPETENCY DEFINITIONS USED TO OWN ────────────────
+  // A competency is a BUNDLE OF CAPABILITY ITEMS across five dimensions, and
+  // people are rated on the ITEMS, never on the competency itself. Without
+  // these, creating from this screen produced a heading that measures nothing.
+  //
+  // Only on CREATE. Editing items on an existing competency changes what people
+  // were already rated against, so it belongs in its own flow rather than
+  // hidden inside a general edit form.
+  const [items, setItems] = useState<{ kasba_type: string; item_label: string; weight: string }[]>([])
+  const addItem = () => setItems((x) => [...x, { kasba_type: 'knowledge', item_label: '', weight: '1' }])
+  const setItem = (i: number, k: string, v: string) =>
+    setItems((x) => x.map((it, n) => (n === i ? { ...it, [k]: v } : it)))
+  const removeItem = (i: number) => setItems((x) => x.filter((_, n) => n !== i))
+
   const [values, setValues] = useState<Record<string, string>>(() => ({
     name: initial?.name ?? '',
     category: initial?.category ?? '',
@@ -434,7 +448,7 @@ function CompetencyForm({
 
   const handleSubmit = async () => {
     if (!values.name.trim()) {
-      setError('Skill name is required.')
+      setError('Competency name is required.')
       return
     }
     setError(null)
@@ -442,8 +456,20 @@ function CompetencyForm({
     const text = (key: string) => values[key]?.trim() ?? ''
     const optional = (key: string) => (text(key) ? { [key]: text(key) } : {})
 
+    // ITEMS ONLY ON CREATE, and only the ones actually filled in. A row the
+    // user added and left blank is not an item - sending it would store an
+    // unnamed capability that can never be rated meaningfully.
+    const filledItems = items
+      .filter((it) => it.item_label.trim() !== '')
+      .map((it) => ({
+        kasba_type: it.kasba_type as 'knowledge' | 'ability' | 'skill' | 'behaviour' | 'attitude',
+        item_label: it.item_label.trim(),
+        weight: Number(it.weight) || 1,
+      }))
+
     const payload: CompetencyLibraryPayload = {
       name: values.name.trim(),
+      ...(!editing && filledItems.length ? { items: filledItems } : {}),
       ...optional('category'),
       ...optional('sub_category'),
       ...optional('department'),
@@ -471,18 +497,18 @@ function CompetencyForm({
     <>
       <DialogHeader className="p-6 pb-4 border-b border-primary/10 m-0">
         <DialogTitle className="text-xl font-bold text-foreground">
-          {initial ? 'Edit Skill' : 'Create Skill'}
+          {initial ? 'Edit Competency' : 'Create Competency'}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           {initial
-            ? 'Update this skill. Evidence & resources feed the Attachments tab.'
-            : 'Add a skill to the library. Evidence & resources feed its Attachments tab.'}
+            ? 'Update this competency. Evidence & resources feed the Attachments tab.'
+            : 'Add a competency to the library. You can add its capability items after saving.'}
         </DialogDescription>
       </DialogHeader>
 
       <div className="p-6 flex flex-col gap-5 max-h-[65vh] overflow-y-auto g2g-scrollbar">
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-foreground">Skill Name<span className="text-destructive"> *</span></label>
+          <label className="text-sm font-semibold text-foreground">Competency Name<span className="text-destructive"> *</span></label>
           <Input value={values.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter name" className="bg-background border-border" />
         </div>
 
@@ -571,6 +597,66 @@ function CompetencyForm({
             </div>
           )}
         </div>
+
+        {!editing && (
+          <div className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Capability items</h4>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  What this competency is made of. People are rated on these, not on the competency
+                  itself — so a competency with none cannot be measured.
+                </p>
+              </div>
+              <Button variant="outline" onClick={addItem} className="h-8 shrink-0 px-3 text-xs font-semibold">
+                Add item
+              </Button>
+            </div>
+
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                None yet. You can save without them and add them later, but this competency will not
+                be measurable until you do.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {items.map((it, i) => (
+                  <div key={i} className="flex flex-wrap items-end gap-2">
+                    <Select
+                      value={it.kasba_type}
+                      onChange={(v) => setItem(i, 'kasba_type', v)}
+                      options={[
+                        { label: 'Knowledge', value: 'knowledge' },
+                        { label: 'Ability', value: 'ability' },
+                        { label: 'Skill', value: 'skill' },
+                        { label: 'Behaviour', value: 'behaviour' },
+                        { label: 'Attitude', value: 'attitude' },
+                      ]}
+                      className="h-9 w-36 bg-background"
+                      aria-label="Dimension"
+                    />
+                    <Input
+                      value={it.item_label}
+                      onChange={(e) => setItem(i, 'item_label', e.target.value)}
+                      placeholder="What the person must know, do or show"
+                      className="h-9 min-w-[16rem] flex-1 bg-background"
+                    />
+                    <Input
+                      value={it.weight}
+                      onChange={(e) => setItem(i, 'weight', e.target.value)}
+                      placeholder="Weight"
+                      className="h-9 w-20 bg-background"
+                      aria-label="Weight"
+                    />
+                    <Button variant="outline" onClick={() => removeItem(i)} className="h-9 px-3 text-xs">
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {error && <p className="text-sm font-medium text-destructive">{error}</p>}
       </div>
@@ -945,8 +1031,8 @@ export function CmCompetencyLibrary() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Skill Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create, manage and maintain organizational skills.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Competency Library</h1>
+          <p className="text-sm text-muted-foreground mt-1">Create and maintain the competencies your organisation measures people against.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -957,7 +1043,7 @@ export function CmCompetencyLibrary() {
             <FolderTree className="w-4 h-4" /> Taxonomy
           </Button>
           <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
-            <Plus className="w-4 h-4 stroke-[3]" /> Create Skill
+            <Plus className="w-4 h-4 stroke-[3]" /> Create Competency
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger className="w-10 h-10 p-0 rounded-xl bg-background border border-border flex items-center justify-center hover:bg-accent hover:text-accent-foreground outline-none transition-colors">
@@ -1026,7 +1112,7 @@ export function CmCompetencyLibrary() {
             <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by skill name, category, type..."
+                placeholder="Search by competency name, framework, type..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="h-10 pl-9 pr-4 rounded-xl border-input bg-background/50 text-sm focus-visible:ring-primary/50 w-full"
@@ -1106,8 +1192,8 @@ export function CmCompetencyLibrary() {
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/30 border-b border-primary/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <TableRow className="hover:bg-transparent">
-                    <SortableHead label="Skill Name" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
-                    <SortableHead label="Category" field="category" activeField={sort} direction={direction} onSort={handleSort} />
+                    <SortableHead label="Competency" field="title" activeField={sort} direction={direction} onSort={handleSort} className="rounded-tl-2xl" />
+                    <SortableHead label="Framework" field="category" activeField={sort} direction={direction} onSort={handleSort} />
                     <SortableHead label="Type" field="competency_type" activeField={sort} direction={direction} onSort={handleSort} />
                     <TableHead className="px-6 py-4">Proficiency Scale</TableHead>
                     <SortableHead label="Status" field="approve_status" activeField={sort} direction={direction} onSort={handleSort} />
@@ -1415,7 +1501,7 @@ export function CmCompetencyLibrary() {
                     <div className="flex flex-col gap-4">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Basic Information</h3>
                       <div className="grid grid-cols-[140px_1fr] gap-y-4 text-sm">
-                        <span className="text-muted-foreground font-medium">Skill Name</span>
+                        <span className="text-muted-foreground font-medium">Competency</span>
                         <span className="text-foreground font-semibold">{selectedItem.name}</span>
 
                         <span className="text-muted-foreground font-medium">Category</span>

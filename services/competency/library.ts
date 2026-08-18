@@ -174,8 +174,33 @@ export interface CompetencyImportResult {
   details: { row: number; name: string; reason: string }[]
 }
 
+/**
+ * A capability item inside a competency — the KASBA breakdown.
+ *
+ * item_id is the TARGET: a row in a canonical table. item_label is the HOLDING:
+ * free text for something not yet canonical. BOTH ARE VALID AND NEITHER IS
+ * DERIVED FROM THE OTHER — a label is not a failed id, it is a different claim.
+ */
+export interface CompetencyKasbaItemInput {
+  kasba_type: 'knowledge' | 'ability' | 'skill' | 'behaviour' | 'attitude'
+  item_id?: number | null
+  item_label?: string | null
+  weight?: number
+}
+
 export interface CompetencyLibraryPayload {
   name: string
+  /** The competency's own code, unique within the organisation. */
+  code?: string
+  /** The framework this competency is filed under. */
+  framework_id?: number | null
+  /**
+   * THE CAPABILITY ITEMS. Without these a competency is a heading with nothing
+   * measurable under it — people are rated on ITEMS, never on the competency
+   * itself. Optional so a competency can be drafted first, but the server says
+   * so in `next_step` when the list is empty.
+   */
+  items?: CompetencyKasbaItemInput[]
   description?: string
   category?: string
   sub_category?: string
@@ -196,7 +221,23 @@ export interface CompetencyLibraryPayload {
   custom_tags?: string
 }
 
-const BASE = '/skill_library'
+/**
+ * THE COMPETENCY LIBRARY NOW READS COMPETENCIES.
+ *
+ * This was '/skill_library' — SkillLibraryCrudController on `s_users_skills`.
+ * The screen showed skill rows under competency labels, which is G-RBAC-02b:
+ * a name promising something the data was not.
+ *
+ * CompetencyLibraryCrudController serves the SAME response shape from
+ * `competency` + `competency_kasba_item`, so this 1,799-line screen keeps every
+ * feature — filters, sorting, detail drawer, pagination — and starts showing
+ * real competencies. Only this line moved.
+ *
+ * The /skill_library routes are LEFT IN PLACE. Skill management has no other
+ * home, and silently orphaning it would be invisible until someone needed to
+ * add a skill.
+ */
+const BASE = '/competency-library'
 
 /** Serialise a mixed param bag into the string map apiClient.get expects, dropping blanks. */
 function toStringParams(input: Record<string, string | number | undefined | null>): Record<string, string> {

@@ -101,3 +101,49 @@ export async function updateSkillRating(
   const params = withLaravelParams(ctx)
   return apiClient.put(`/competency/employee-profiles/${id}/skills/${matrixId}`, { proficiency_level: level }, { params })
 }
+
+/**
+ * THE EMPLOYEE LIST — GET /competency/employee-profiles.
+ *
+ * Added because Employee Profiles took a `userId` prop and NOTHING COULD SUPPLY
+ * ONE: the backend had show/{id} and no index, so HR always saw their own record.
+ * Same shape of gap as the AI generator's job-role list.
+ *
+ * Tenant-scoped server-side from the token; guarded profile:admin,hr. An HR user
+ * cannot list another organization's people, and an employee cannot call it.
+ */
+export interface EmployeeListItem {
+  id: number
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  jobtitle_id: number | null
+  jobrole: string | null
+}
+
+export async function fetchEmployeeList(
+  context: LaravelContext,
+  q?: string,
+): Promise<{
+  employees: EmployeeListItem[]
+  shown: number
+  total: number
+  truncated: boolean
+  empty_reason: string | null
+}> {
+  const res = await apiClient.get<{
+    status: number
+    data: { employees: EmployeeListItem[]; shown: number; total: number }
+    truncated: boolean
+    empty_reason: string | null
+  }>(
+    '/competency/employee-profiles',
+    withLaravelParams(context, q ? { q } : {}),
+  )
+
+  return {
+    ...res.data,
+    truncated: res.truncated,
+    empty_reason: res.empty_reason,
+  }
+}
