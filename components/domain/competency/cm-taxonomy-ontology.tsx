@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Taxonomy Ontology — the competency graph.
+ * Capability Explorer — the competency graph.
  *
  * The graph itself is a separate Neo4j-backed service, so this embeds it
  * scoped to the current organisation rather than reimplementing a graph
@@ -77,7 +77,7 @@ export function CmTaxonomyOntology() {
             <Network className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-bold tracking-tight text-foreground">Taxonomy Ontology</h2>
+            <h2 className="text-lg font-bold tracking-tight text-foreground">Capability Explorer</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
               How this organisation&apos;s competencies, job roles and taxonomies connect to each other, as a graph.
               Useful for spotting orphaned competencies and roles that share more than they appear to.

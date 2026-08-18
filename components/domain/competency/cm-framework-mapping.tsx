@@ -404,7 +404,7 @@ export function CmFrameworkMapping() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            Framework &amp; Role Mapping Studio <Info className="w-5 h-5 text-muted-foreground" />
+            Competency Framework Studio <Info className="w-5 h-5 text-muted-foreground" />
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Design competency frameworks, set proficiency requirements and map them to job roles.

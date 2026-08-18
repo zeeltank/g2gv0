@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Info,
   MoreVertical,
@@ -48,6 +48,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useCompetencyEmployeeProfile } from '@/hooks/use-employee-profile'
+import { fetchEmployeeList, type EmployeeListItem } from '@/services/organization/employee-profile-service'
+import { getLaravelContext } from '@/lib/laravel-context'
 // KASBA rating capture. The endpoints have been guarded and proved since the
 // rating work and NOTHING CALLED THEM — this is the mount that makes the last
 // link of the capability chain reachable by a person.
@@ -71,7 +73,38 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
   const [selectedSkillId, setSelectedSkillId] = useState<string>('')
   const [newLevel, setNewLevel] = useState(3)
 
-  const effectiveUserId = userId || user?.id?.toString()
+  // ── THE EMPLOYEE PICKER ────────────────────────────────────────────────
+  // This screen took a `userId` prop and NOTHING COULD SUPPLY ONE — the backend
+  // had show/{id} and no index — so it fell back to the caller's own id and HR
+  // only ever saw themselves. The list endpoint exists now.
+  //
+  // A picked employee wins over the prop, and the prop over "me". Falling back
+  // to the caller is still right when nobody is chosen: an empty screen would
+  // read as broken.
+  const [pickedId, setPickedId] = useState<string>('')
+  const [people, setPeople] = useState<EmployeeListItem[]>([])
+  const [peopleNote, setPeopleNote] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchEmployeeList(getLaravelContext(user))
+      .then((res) => {
+        if (cancelled) return
+        setPeople(res.employees ?? [])
+        // Truncation is SAID, never silent — 500 is not "all of them".
+        setPeopleNote(res.truncated ? `Showing the first ${res.shown} of ${res.total}. Search to narrow it.` : res.empty_reason)
+      })
+      .catch(() => {
+        if (cancelled) return
+        // An employee reaching this screen is refused by profile:admin,hr. That
+        // is not an error worth shouting about — the picker simply does not
+        // appear and they see their own profile, which is correct for them.
+        setPeople([])
+      })
+    return () => { cancelled = true }
+  }, [user])
+
+  const effectiveUserId = pickedId || userId || user?.id?.toString()
   const {
     data, loading, error,
     availableSkills, availableSkillsLoading, loadAvailableSkills,
@@ -357,13 +390,33 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
         })}
       </div>
 
-      {activeTab === 'ratings' && userId && (
+      {people.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <label className="text-sm font-medium">Viewing</label>
+          <Select
+            options={[
+              { label: 'Myself', value: '' },
+              ...people.map((p) => ({
+                label: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || `#${p.id}`,
+                value: String(p.id),
+              })),
+            ]}
+            value={pickedId}
+            onChange={setPickedId}
+            placeholder="Select an employee"
+            className="h-9 w-72 bg-background"
+          />
+          {peopleNote && <span className="text-xs text-muted-foreground">{peopleNote}</span>}
+        </div>
+      )}
+
+      {activeTab === 'ratings' && effectiveUserId && (
         <div className="mb-4">
           {/* Rating against THIS person's job-role requirements. Rendered only
               when a person is actually selected — a rating form with no subject
               would post nowhere, and an empty control that looks live is worse
               than one that is absent. */}
-          <KasbaRatingPanel userId={Number(userId)} />
+          <KasbaRatingPanel userId={Number(effectiveUserId)} />
         </div>
       )}
 
