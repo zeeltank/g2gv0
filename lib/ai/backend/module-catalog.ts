@@ -3,10 +3,11 @@
  *
  * Two separate things live here:
  *
- * 1. The module list, which is *derived* from `GTG_NAVIGATION` - the same
- *    structure the sidebar renders. There is deliberately no second hand-written
- *    module list to drift out of sync: if a module/menu/submenu is added to the
- *    navigation it appears here automatically.
+ * 1. The module list (`MODULES`), which names the m0..m6 buckets the datasets
+ *    below are grouped into. The sidebar tree itself is served per-user from
+ *    tblmenumaster_g2g (see useSidebarNavigation) and is not reachable from
+ *    server-side code without a request, so only the stable module ids and
+ *    labels are held here - never the menu/submenu tree.
  *
  * 2. The dataset registry, which maps a question-shaped dataset id onto an
  *    *existing* Laravel route. Every entry below points at a route that already
@@ -17,7 +18,28 @@
  * knows to turn "Engineering" into department_id=7 before calling Laravel.
  */
 
-import { GTG_NAVIGATION } from "@/lib/gtg-navigation";
+export interface CatalogModule {
+  id: string;
+  label: string;
+  short: string;
+  /** Standalone modules navigate straight to their page and have no child menus. */
+  standalone?: boolean;
+}
+
+/**
+ * The m0..m6 module buckets every dataset below belongs to. The ids and labels
+ * match what the sidebar renders for a fully-privileged profile; the menus and
+ * submenus underneath them are per-user database rows and deliberately absent.
+ */
+export const MODULES: CatalogModule[] = [
+  { id: "m0", label: "Main Dashboard", short: "Home", standalone: true },
+  { id: "m1", label: "Organizational Management", short: "M1" },
+  { id: "m2", label: "Competency Management", short: "M2" },
+  { id: "m3", label: "Talent Management", short: "M3" },
+  { id: "m4", label: "LMS", short: "M4" },
+  { id: "m5", label: "HRIT Solutions", short: "M5" },
+  { id: "m6", label: "Task Management", short: "M6" },
+];
 
 export type DatasetFilterKey =
   | "departmentId"
@@ -66,7 +88,7 @@ export interface DatasetFilters {
 
 export interface DatasetDefinition {
   id: string;
-  /** Module id from GTG_NAVIGATION (m0..m6). */
+  /** Module id from `MODULES` (m0..m6). */
   moduleId: string;
   label: string;
   /** What a question about this dataset sounds like - used by the model. */
@@ -1013,25 +1035,16 @@ export interface ModuleSummary {
   label: string;
   short: string;
   standalone: boolean;
-  menus: { id: string; label: string; submenus: string[] }[];
   datasets: { id: string; label: string; description: string }[];
 }
 
-/**
- * The live module list, read from the navigation the application itself renders,
- * joined with the datasets each module can answer from.
- */
+/** The module list joined with the datasets each module can answer from. */
 export function describeModules(): ModuleSummary[] {
-  return GTG_NAVIGATION.map((navModule) => ({
+  return MODULES.map((navModule) => ({
     moduleId: navModule.id,
     label: navModule.label,
     short: navModule.short,
     standalone: Boolean(navModule.standalone),
-    menus: navModule.menus.map((menu) => ({
-      id: menu.id,
-      label: menu.label,
-      submenus: menu.submenus.map((submenu) => submenu.label),
-    })),
     datasets: DATASETS.filter((dataset) => dataset.moduleId === navModule.id).map(
       (dataset) => ({
         id: dataset.id,

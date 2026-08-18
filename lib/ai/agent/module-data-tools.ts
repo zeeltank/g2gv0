@@ -82,7 +82,7 @@ export function createModuleDataTools(context: ModuleToolContext) {
   return {
     listModules: tool({
       description:
-        "List the modules this G2G installation actually has, with the datasets each one can answer from. Call this when unsure which module or dataset a question belongs to. The module list is read from the live application navigation, not hardcoded.",
+        "List the modules this G2G installation actually has, with the datasets each one can answer from. Call this when unsure which module or dataset a question belongs to.",
       inputSchema: z.object({
         moduleId: z
           .string()

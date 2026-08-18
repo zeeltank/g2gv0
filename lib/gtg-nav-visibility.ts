@@ -1,5 +1,4 @@
 import { type Role } from '@/types/role'
-import { GTG_NAVIGATION } from '@/lib/gtg-navigation'
 
 const ALL_ROLES: Role[] = ['admin', 'hr', 'dept-head', 'employee']
 
@@ -140,20 +139,6 @@ export function isMenuVisible(menuId: string, role: Role): boolean {
   const allowed = VISIBILITY_RULES[menuId]
   if (!allowed) return false
   return allowed.includes(role)
-}
-
-export function filterNavigationByRole(role: Role) {
-  return GTG_NAVIGATION.map((module) => ({
-    ...module,
-    menus: module.menus.flatMap((menu) => {
-      if (!isMenuVisible(menu.id, role)) return []
-
-      const submenus = menu.submenus.filter((submenu) => isMenuVisible(submenu.id, role))
-      if (menu.submenus.length > 0 && submenus.length === 0) return []
-
-      return [{ ...menu, submenus }]
-    }),
-  }))
 }
 
 /**
