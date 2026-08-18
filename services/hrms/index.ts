@@ -11,6 +11,11 @@ import { withLaravelParams } from '@/lib/laravel-context'
 export * from './leave'
 export * from './leave-bi'
 
+// Payroll module - legacy Laravel web routes (routes/hrms.php)
+export * from './payroll'
+// Employee module
+export * from './employee'
+
 export interface AttendanceRecord {
   id: string
   userId: string

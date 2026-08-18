@@ -1,65 +1,27 @@
-import type { LucideIcon } from 'lucide-react'
-import {
-  Building2,
-  Users,
-  ShieldCheck,
-  Library,
-  Briefcase,
-  Gauge,
-  BookOpen,
-  ClipboardCheck,
-  CalendarClock,
-  CalendarDays,
-  Wallet,
-  LayoutDashboard,
-  CheckSquare,
-  Network,
-  Link,
-  CheckCircle,
-  Calendar,
-  FileDown,
-  Shield,
-  Settings,
-  UserPlus,
-  TrendingUp,
-  FileText,
-  LayoutGrid,
-  User,
-  Target,
-  Award,
-  Megaphone,
-  BarChart3,
-  ListChecks,
-  ArrowRightLeft,
-  LogOut,
-  DollarSign
-} from 'lucide-react'
-
-export type NavSubmenu = {
+/**
+ * A single node in the Modules -> Menus -> Submenus -> ... tree, at any
+ * depth. The tree is built entirely from tblmenumaster_g2g id/parent_id
+ * relationships (see useSidebarNavigation), so a node's `children` can be
+ * empty (a leaf), or nest arbitrarily deep — nothing in this type or the
+ * code that walks it assumes a fixed number of levels.
+ */
+export type NavNode = {
   id: string
   label: string
+  icon?: string | null
+  accessLink?: string | null
+  children: NavNode[]
 }
 
-export type NavMenu = {
-  id: string
-  label: string
-  icon: LucideIcon
-  submenus: NavSubmenu[]
-}
-
-export type NavModule = {
-  id: string
-  label: string
+export type NavModule = NavNode & {
   short: string
-  icon: LucideIcon
-  menus: NavMenu[]
   /** Standalone modules navigate directly to their page and have no child menus/submenus. */
   standalone?: boolean
 }
 
 /**
  * Direct navigation target for the standalone Main Dashboard (Home) module.
- * The application's landing screen after login.
+ * The application's landing screen after login - not a tblmenumaster_g2g row.
  */
 export const HOME_NAV: ActiveNav = {
   moduleId: 'm0',
@@ -68,208 +30,28 @@ export const HOME_NAV: ActiveNav = {
 }
 
 /**
- * Exact navigation hierarchy from the GTG Architecture Reference:
- * 5 Modules -> 16 Menus -> 30 Submenus.
+ * Well-known tblmenumaster_g2g access_link values referenced from onboarding/setup
+ * flows that need to navigate to a specific screen before the sidebar tree has
+ * rendered a clickable link for it. These are the actual access_link strings
+ * returned by ajax_sidebar_menu_g2g — not database ids — so they track whatever
+ * the backend currently serves. Resolve with useSidebarNavigation's
+ * resolveAccessLink() so a target the caller's profile can't see falls back
+ * gracefully instead of navigating to a page they have no rights to.
  */
-export const GTG_NAVIGATION: NavModule[] = [
-  {
-    id: 'm0',
-    label: 'Main Dashboard',
-    short: 'Home',
-    icon: LayoutDashboard,
-    standalone: true,
-    menus: [],
-  },
-  {
-    id: 'm1',
-    label: 'Organizational Management',
-    short: 'M1',
-    icon: Network,
-    menus: [
-      {
-        id: 'org-setup',
-        label: 'Organization Setup',
-        icon: Building2,
-        submenus: [
-          { id: 'org-profile', label: 'Organization Profile' },
-          { id: 'dept-management', label: 'Department Management' },
-        ],
-      },
-      {
-        id: 'user-management',
-        label: 'User Management',
-        icon: Users,
-        submenus: [
-          { id: 'employee-directory', label: 'Employee Directory' },
-          { id: 'role-permissions', label: 'Role & Permissions' },
-        ],
-      },
-
-      {
-        id: 'compliance-discipline',
-        label: 'Compliance & Discipline',
-        icon: ShieldCheck,
-        submenus: [
-          { id: 'compliance-management', label: 'Compliance Management' },
-          { id: 'disciplinary-management', label: 'Disciplinary Management' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'm2',
-    label: 'Competency Management',
-    short: 'M2',
-    icon: Library,
-    menus: [
-      { id: 'cm-command-center', label: 'Command Center', icon: LayoutGrid, submenus: [] },
-      { id: 'cm-competency-library', label: 'Competency Library', icon: BookOpen, submenus: [] },
-      { id: 'cm-framework-mapping', label: 'Framework & Role Mapping', icon: Network, submenus: [] },
-      { id: 'cm-assessments', label: 'Assessments', icon: ClipboardCheck, submenus: [] },
-      { id: 'cm-employee-profiles', label: 'Employee Profiles', icon: User, submenus: [] },
-      { id: 'cm-development-career', label: 'Development & Career Paths', icon: Target, submenus: [] },
-      { id: 'cm-certifications', label: 'Certifications', icon: Award, submenus: [] },
-      { id: 'cm-audit', label: 'Audit & Activity Center', icon: ShieldCheck, submenus: [] },
-    ],
-  },
-  {
-    id: 'm3',
-    label: 'Talent Management',
-    short: 'M3',
-    icon: UserPlus,
-    menus: [
-      { id: 'tm-dashboard', label: 'Dashboard', icon: LayoutDashboard, submenus: [] },
-      { id: 'recruitment', label: 'Recruitment', icon: Briefcase, submenus: [] },
-      { id: 'onboarding', label: 'Onboarding', icon: UserPlus, submenus: [] },
-      { id: 'performance', label: 'Performance', icon: TrendingUp, submenus: [] },
-      { id: 'compensation', label: 'Compensation', icon: DollarSign, submenus: [] },
-      { id: 'mobility-succession', label: 'Mobility & Succession', icon: ArrowRightLeft, submenus: [] },
-      { id: 'offboarding', label: 'Offboarding', icon: LogOut, submenus: [] },
-      { id: 'administration', label: 'Administration', icon: Settings, submenus: [] },
-    ],
-  },
-  {
-    id: 'm4',
-    label: 'LMS',
-    short: 'M4',
-    icon: BookOpen,
-    menus: [
-      {
-        id: 'learning',
-        label: 'Learning',
-        icon: BookOpen,
-        submenus: [
-          { id: 'lms-dashboard', label: 'Dashboard' },
-          { id: 'learning-catalog', label: 'Learning Catalog' },
-          { id: 'my-learning', label: 'My Learning' },
-        ],
-      },
-      {
-        id: 'training-records',
-        label: 'Training & Records',
-        icon: CalendarClock,
-        submenus: [
-          { id: 'assignments', label: 'Assignments' },
-          { id: 'sessions-calendar', label: 'Sessions & Calendar' },
-          { id: 'certifications', label: 'Certifications & Records' },
-        ],
-      },
-      {
-        id: 'lms-administration',
-        label: 'Administration',
-        icon: Settings,
-        submenus: [
-          { id: 'create-course', label: 'Course Builder' },
-          { id: 'governance', label: 'Admin & Governance' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'm5',
-    label: 'HRIT Solutions',
-    short: 'M5',
-    icon: CalendarClock,
-    menus: [
-      {
-        id: 'attendance-management',
-        label: 'Attendance Management',
-        icon: CalendarClock,
-        submenus: [
-          { id: 'attendance-tracking', label: 'Attendance Tracking' },
-          { id: 'attendance-reports', label: 'Attendance Reports' },
-        ],
-      },
-      {
-        id: 'leave-management',
-        label: 'Leave Management',
-        icon: CalendarDays,
-        submenus: [
-          { id: 'leave-dashboard', label: 'Dashboard' },
-          { id: 'leave-requests', label: 'Leave Requests' },
-          { id: 'leave-reports', label: 'Reports' },
-          { id: 'leave-configuration', label: 'Configuration' },
-        ],
-      },
-      {
-        id: 'payroll-management',
-        label: 'Payroll Management',
-        icon: Wallet,
-        submenus: [{ id: 'payroll-processing', label: 'Payroll Processing' }],
-      },
-    ],
-  },
-  {
-    id: 'm6',
-    label: 'Task Management',
-    short: 'TM',
-    icon: ListChecks,
-    menus: [
-      {
-        id: 'tm-dashboard',
-        label: 'Dashboard',
-        icon: LayoutDashboard,
-        submenus: [],
-      },
-      {
-        id: 'tm-tasks',
-        label: 'My Tasks',
-        icon: CheckSquare,
-        submenus: [],
-      },
-      {
-        id: 'tm-projects',
-        label: 'Projects & Workstreams',
-        icon: Briefcase,
-        submenus: [],
-      },
-      {
-        id: 'tm-dependencies',
-        label: 'Dependencies',
-        icon: Link,
-        submenus: [],
-      },
-      {
-        id: 'tm-calendar',
-        label: 'Calendar',
-        icon: Calendar,
-        submenus: [],
-      },
-      {
-        id: 'tm-admin',
-        label: 'Administration',
-        icon: Shield,
-        submenus: [
-          { id: 'status-management', label: 'Status Management' },
-          { id: 'priority-management', label: 'Priority Management' },
-          { id: 'permissions', label: 'Permissions' },
-          { id: 'integrations', label: 'Integrations' },
-          { id: 'audit-logs', label: 'Audit Logs' },
-        ],
-      },
-    ],
-  },
-]
+export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organization-setup/organization-profile'
+export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
+export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
+export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
+export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
+export const DISCIPLINARY_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/disciplinary-library'
+export const LMS_LEARNING_CATALOG_ACCESS_LINK = '/module/lms/learning/learning-catalog'
+export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
+export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
+export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
+export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
+export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
+export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
+export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
 
 export type BreadcrumbItem = {
   label: string
@@ -282,26 +64,58 @@ export type ActiveNav = {
   submenuId: string
 }
 
-export function resolveBreadcrumb(active: ActiveNav): BreadcrumbItem[] {
-  const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
+/**
+ * Depth-first search for the node with the given id, starting from `nodes`.
+ * Returns the full ancestor chain (root-first, target last) or null if not
+ * found. Used by resolveBreadcrumb and the sidebar so both work at any tree
+ * depth without assuming a fixed number of levels.
+ */
+export function findNodePath(nodes: NavNode[], id: string): NavNode[] | null {
+  for (const node of nodes) {
+    if (node.id === id) return [node]
+    const childPath = findNodePath(node.children, id)
+    if (childPath) return [node, ...childPath]
+  }
+  return null
+}
 
-  const navModule = GTG_NAVIGATION.find((m) => m.id === active.moduleId)
-  const menu = navModule?.menus.find((mn) => mn.id === active.menuId)
-  const submenu = menu?.submenus.find((s) => s.id === active.submenuId)
+export function resolveBreadcrumb(active: ActiveNav, modules: NavModule[]): BreadcrumbItem[] {
+  const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
 
   if (active.moduleId === 'm0') {
     return [{ label: 'Home', href: '/dashboard' }, { label: 'Main Dashboard' }]
   }
 
-  if (navModule?.label) {
-    items.push({ label: navModule.label })
-  }
-  if (menu?.label) {
-    items.push({ label: menu.label })
-  }
-  if (submenu?.label) {
-    items.push({ label: submenu.label, href: `/module/${active.moduleId}/${active.menuId}/${active.submenuId}` })
+  const navModule = modules.find((m) => m.id === active.moduleId)
+  if (!navModule) return items
+
+  items.push({ label: navModule.label })
+
+  const targetId = active.submenuId || active.menuId
+  const path = targetId ? findNodePath(navModule.children, targetId) : null
+  for (const node of path ?? []) {
+    items.push({ label: node.label, href: node.accessLink ?? undefined })
   }
 
   return items
+}
+
+/**
+ * Walks the live Modules -> Menus -> Submenus -> ... tree (already filtered
+ * to the caller's profile rights, arbitrary depth) and returns accessLink
+ * back only if some node in the tree actually has it — i.e. the target
+ * exists and the caller can see it. Returns undefined otherwise, so callers
+ * can fall back to a safe route instead of navigating somewhere the profile
+ * has no rights to.
+ */
+export function getRouteByAccessLink(modules: NavModule[], accessLink: string): string | undefined {
+  const search = (nodes: NavNode[]): string | undefined => {
+    for (const node of nodes) {
+      if (node.accessLink === accessLink) return node.accessLink
+      const found = search(node.children)
+      if (found) return found
+    }
+    return undefined
+  }
+  return search(modules)
 }

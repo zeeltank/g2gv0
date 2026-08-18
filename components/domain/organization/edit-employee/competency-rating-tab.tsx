@@ -7,7 +7,8 @@ import {
   Wrench, 
   HeartHandshake, 
   Users,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,9 @@ export interface RatingItem {
 interface CompetencyRatingTabProps {
   data: Record<CategoryType, RatingItem[]>;
   onSave?: (category: CategoryType, id: string, newLevel: number) => void;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 const CategoryIcons: Record<CategoryType, React.ElementType> = {
@@ -34,7 +38,7 @@ const CategoryIcons: Record<CategoryType, React.ElementType> = {
   Behaviour: Users,
 };
 
-export function CompetencyRatingTab({ data, onSave }: CompetencyRatingTabProps) {
+export function CompetencyRatingTab({ data, onSave, isLoading = false, error, onRetry }: CompetencyRatingTabProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryType>("Skill");
   const [ratings, setRatings] = useState<Record<string, number>>({});
 
@@ -45,6 +49,19 @@ export function CompetencyRatingTab({ data, onSave }: CompetencyRatingTabProps) 
 
   const currentItems = data[activeCategory] || [];
   const Icon = CategoryIcons[activeCategory];
+
+  if (isLoading) {
+    return <div className="flex h-[420px] items-center justify-center rounded-xl border border-border bg-muted/20 text-sm text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading competency data...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-[420px] flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+        <p className="text-sm text-destructive">{error}</p>
+        {onRetry && <Button variant="outline" size="sm" onClick={onRetry}>Retry</Button>}
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 pt-4">
@@ -79,7 +96,7 @@ export function CompetencyRatingTab({ data, onSave }: CompetencyRatingTabProps) 
         {currentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground bg-surface border border-dashed rounded-2xl">
             <AlertCircle className="w-8 h-8 mb-3 opacity-50" />
-            <p>No items found for {activeCategory}.</p>
+            <p>No competency data available</p>
           </div>
         ) : (
           <div className="bg-surface border border-border/40 rounded-2xl overflow-hidden shadow-sm">

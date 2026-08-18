@@ -153,7 +153,7 @@ export default function DashboardPage() {
 
   const navigate = useCallback(
     (submenu: string, query = '') => {
-      router.push(`/module/m5/leave-management/${submenu}${query}`)
+      router.push(`/module/hrit-solutions/leave-management/${submenu}${query}`)
     },
     [router],
   )

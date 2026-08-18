@@ -22,7 +22,7 @@ export default function AttendanceTrackingPage() {
 
   return (
     <ProtectedLayout>
-      <GtgPageShell initialActive={{ moduleId: 'm5', menuId: 'attendance-management', submenuId: 'attendance-reports' }}>
+      <GtgPageShell initialActive={{ moduleId: '5', menuId: '93', submenuId: '101' }}>
         <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           <LazyAttendanceReportsPage />
         </Suspense>

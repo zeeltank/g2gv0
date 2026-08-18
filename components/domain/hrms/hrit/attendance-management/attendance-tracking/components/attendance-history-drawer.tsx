@@ -48,10 +48,15 @@ export function AttendanceHistoryDrawer({
     return result
   }, [search, statusFilter, records])
 
-  const handleExport = () => {
-    // Placeholder for export functionality
-    console.log('Exporting attendance data...')
-  }
+  // EXPORT IS NOT BUILT. This handler logged to the console and returned, so the
+  // button reported success by doing nothing visible - the same shape as the
+  // notification bell before X-06, and the only one of the four dead controls
+  // that a literal pattern could not see.
+  //
+  // The button is disabled rather than removed: an attendance export is a
+  // reasonable thing to want, and deleting it would erase the fact that somebody
+  // intended it. Disabled and labelled says both true things at once - it is not
+  // available, and it is not forgotten.
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -84,7 +89,7 @@ export function AttendanceHistoryDrawer({
                 { value: 'leave', label: 'Leave' },
               ]}
             />
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" disabled title="Export is not available yet">
               Export
             </Button>
           </div>

@@ -3,28 +3,26 @@
  * Base HTTP client for all API calls
  */
 
-function resolveConfiguredBaseUrl() {
-  const configuredBase =
-    process.env.NODE_ENV === 'production'
-      ? process.env.NEXT_PUBLIC_API_BASE_URL_PROD
-      : process.env.NEXT_PUBLIC_API_BASE_URL_DEV
+import { resolveApiBaseUrl, resolveWebBaseUrl } from '@/lib/api-config'
+import { readLaravelSession } from '@/lib/laravel-session'
 
-  const fallbackBase = process.env.NEXT_PUBLIC_API_URL || ''
-  return (configuredBase || fallbackBase).trim().replace(/\/+$/, '')
-}
-
-function resolveApiBaseUrl() {
-  const rawBase = resolveConfiguredBaseUrl()
-
-  if (!rawBase) return '/api'
-
-  return rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`
-}
-
-function resolveWebBaseUrl() {
-  const rawBase = resolveConfiguredBaseUrl()
-  if (!rawBase) return ''
-  return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase
+/**
+ * The caller's Sanctum token as an `Authorization: Bearer` header.
+ *
+ * Tokens were previously sent only as a `token` query parameter. A URL is not a
+ * private place: it is written to web server access logs, browser history,
+ * proxy and CDN logs, and leaks through the `Referer` header on any outbound
+ * link. A token harvested from a log is a working credential.
+ *
+ * Laravel accepts either form (`$request->bearerToken() ?: $request->input('token')`),
+ * so sending the header costs nothing and is the shape to keep. The query
+ * parameter is still sent by individual callers for now; once every one of them
+ * has been migrated, the backend's `?: $request->input('token')` fallback can be
+ * dropped and the credential will have left the URL entirely.
+ */
+function authHeader(): Record<string, string> {
+  const token = readLaravelSession()?.token
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const API_BASE_URL = resolveApiBaseUrl()
@@ -97,6 +95,7 @@ class ApiClient {
       method,
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...authHeader(),
         ...headers,
       },
       body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
@@ -148,10 +147,14 @@ export const apiClient = new ApiClient()
 export const webClient = new ApiClient(WEB_BASE_URL)
 export { ApiClient }
 
-export function buildApiUrl(endpoint: string, params?: Record<string, string>) {
-  const url = `${API_BASE_URL}${endpoint}`
-  if (!params) return url
-  return `${url}?${new URLSearchParams(params).toString()}`
+/**
+ * Absolute URL for an API endpoint, for the cases fetch cannot serve: a file
+ * download that has to reach the browser's download manager, or an href the
+ * user can copy. Everything else should go through apiClient.
+ */
+export function buildApiUrl(endpoint: string, params: Record<string, string> = {}) {
+  const query = new URLSearchParams(params).toString()
+  return `${API_BASE_URL}${endpoint}${query ? `?${query}` : ''}`
 }
 
 /**

@@ -145,9 +145,20 @@ export const organizationService = {
   getDepartmentsManagement: (context: LaravelContext) =>
     apiClient.get<DepartmentsManagementResponse>('/departments-management', departmentParams(context)),
 
+  /**
+   * The token is not optional here. tbluser stores credentials, so /table_data
+   * refuses to serve it to an anonymous caller whatever tenant is named - this
+   * call used to be the one place in this service that omitted it, and it came
+   * back 401 while every neighbouring call worked.
+   *
+   * sub_institute_id stays in the request for older backends, but the server
+   * now derives the tenant from the token and ignores this value, so the two
+   * can never disagree.
+   */
   getEmployeesByDepartment: (context: LaravelContext, departmentId: string) => {
     const params = new URLSearchParams({
       table: 'tbluser',
+      token: context.token,
       'filters[sub_institute_id]': context.subInstituteId,
       'filters[department_id]': departmentId,
       'filters[status]': '1',
@@ -233,3 +244,8 @@ export const organizationService = {
       }).toString()}`,
     )),
 }
+
+export * from './employee-profile-service'
+
+export { rolePermissionsService } from './role-permissions'
+export type { RightsRow, RightsMenu, UserProfile } from './role-permissions'

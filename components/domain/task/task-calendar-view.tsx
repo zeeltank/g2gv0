@@ -1,198 +1,101 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Calendar, ChevronLeft, ChevronRight, Clock, User, CheckCircle2, AlertCircle, FileText, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from 'date-fns'
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { taskService } from '@/services/task'
+import type { WorkspaceTask } from '@/types/task-management'
 
-import { Task } from '@/types/task-management'
-import { mockTasks } from '@/lib/mock-data/task-management'
+export function TaskCalendarView() {
+  const [month, setMonth] = useState(startOfMonth(new Date()))
+  const [tasks, setTasks] = useState<WorkspaceTask[]>([])
+  const [selected, setSelected] = useState<WorkspaceTask | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  // Rescheduling: the due date the user is moving the selected task to.
+  const [newDueDate, setNewDueDate] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
 
-interface TaskCalendarViewProps {
-  tasks?: Task[]
-  onSelectTask?: (task: Task) => void
-}
+  const range = useMemo(() => ({
+    from: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+    to: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+  }), [month])
 
-export function TaskCalendarView({ tasks = mockTasks as Task[], onSelectTask }: TaskCalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 26)) // June 26, 2026 as reference day
-  const [view, setView] = useState<'month' | 'week' | 'day'>('month')
+  const load = useCallback(async () => {
+    setLoading(true); setError('')
+    try {
+      const response = await taskService.getWorkspace(getLaravelContext(), {
+        from: format(range.from, 'yyyy-MM-dd'), to: format(range.to, 'yyyy-MM-dd'), perPage: 100,
+      })
+      setTasks(response.data.tasks)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load calendar tasks.') }
+    finally { setLoading(false) }
+  }, [range])
+  useEffect(() => {
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => { void load() })
+  }, [load])
 
-  const prevPeriod = () => {
-    if (view === 'month') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-    else if (view === 'week') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7))
-    else if (view === 'day') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1))
+  const openTask = (task: WorkspaceTask) => {
+    setSelected(task); setNewDueDate(task.due_date ?? ''); setMessage('')
   }
 
-  const nextPeriod = () => {
-    if (view === 'month') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-    else if (view === 'week') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7))
-    else if (view === 'day') setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1))
+  const reschedule = async () => {
+    if (!selected || !newDueDate || newDueDate === selected.due_date) return
+    setRescheduling(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.updateTaskSchedule(getLaravelContext(), selected.id, { due_date: newDueDate })
+      setSelected({ ...selected, due_date: response.data.schedule.due_date })
+      setMessage(response.message)
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reschedule this task.')
+    } finally { setRescheduling(false) }
   }
 
-  const getStatusClasses = (status: string) => {
-    switch(status) {
-      case 'completed': return 'bg-primary/20 text-primary border-primary/30'
-      case 'in_progress': return 'bg-primary/10 text-primary border-primary/20'
-      case 'at_risk': return 'bg-background text-primary border-primary/50 shadow-sm'
-      case 'planning': return 'bg-muted text-foreground border-border'
-      default: return 'bg-muted/50 text-muted-foreground border-border/50'
-    }
-  }
-
-  // Generate calendar data based on view
-  let visibleDays: (Date | null)[] = []
-  
-  if (view === 'month') {
-    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
-    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()
-    
-    // Fill blanks
-    for (let i = 0; i < firstDayOfMonth; i++) visibleDays.push(null)
-    // Fill days
-    for (let i = 1; i <= daysInMonth; i++) {
-      visibleDays.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), i))
-    }
-  } else if (view === 'week') {
-    const startOfWeek = new Date(currentDate)
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay())
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(startOfWeek)
-      d.setDate(d.getDate() + i)
-      visibleDays.push(d)
-    }
-  } else if (view === 'day') {
-    visibleDays.push(currentDate)
-  }
-
-  const headerDateString = view === 'day' 
-    ? currentDate.toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' })
-    : currentDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })
-
-  return (
-    <div className="flex h-full w-full overflow-hidden bg-background/50">
-      
-      {/* Main Calendar Area */}
-      <div className="flex flex-col flex-1 p-6 transition-all duration-300">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20 text-primary shadow-sm">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </h2>
-              <p className="text-sm text-muted-foreground">Deadline Tracking & Scheduling</p>
-            </div>
+  const days = eachDayOfInterval({ start: range.from, end: range.to })
+  return <div className="space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h1 className="text-3xl font-bold tracking-tight">Task Calendar</h1><p className="text-sm text-muted-foreground">Deadlines across all visible projects and assignments.</p></div>
+      <div className="flex items-center gap-2"><Button variant="outline" size="icon" onClick={() => setMonth((value) => subMonths(value, 1))}><ChevronLeft className="size-4" /></Button><Button variant="outline" onClick={() => setMonth(startOfMonth(new Date()))}>Today</Button><Button variant="outline" size="icon" onClick={() => setMonth((value) => addMonths(value, 1))}><ChevronRight className="size-4" /></Button></div>
+    </div>
+    {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+    {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
+    <Card><CardContent className="p-0">
+      <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{format(month, 'MMMM yyyy')}</h2><span className="text-sm text-muted-foreground">{tasks.length} scheduled tasks</span></div>
+      {loading ? <div className="flex h-96 items-center justify-center"><Spinner /></div> : <>
+        <div className="grid grid-cols-7 border-b bg-muted/30 text-center text-xs font-medium uppercase text-muted-foreground">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day) => <div key={day} className="p-3">{day}</div>)}</div>
+        <div className="grid grid-cols-7">{days.map((day) => {
+          const dayTasks = tasks.filter((task) => task.due_date && isSameDay(new Date(`${task.due_date}T00:00:00`), day))
+          return <div key={day.toISOString()} className="min-h-32 border-b border-r p-2"><span className={isSameMonth(day, month) ? 'text-sm font-medium' : 'text-sm text-muted-foreground/50'}>{format(day, 'd')}</span>
+            <div className="mt-2 space-y-1">{dayTasks.map((task) => <button key={task.id} onClick={() => openTask(task)} className="block w-full truncate rounded bg-primary/10 px-2 py-1 text-left text-xs font-medium text-primary hover:bg-primary/20">{task.title}</button>)}</div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex bg-card/50 backdrop-blur-md border border-primary/10 p-1 rounded-xl shadow-sm">
-              {['month', 'week', 'day'].map((v) => (
-                <Button
-                  variant={view === v ? 'default' : 'ghost'}
-                  key={v}
-                  onClick={() => setView(v as any)}
-                  className={cn(
-                    "rounded-lg capitalize transition-all duration-300",
-                    view === v ? "shadow-md" : "text-muted-foreground hover:bg-muted/50"
-                  )}
-                >
-                  {v}
-                </Button>
-              ))}
-            </div>
-            
-            <div className="flex items-center gap-1 bg-card/50 backdrop-blur-md border border-primary/10 rounded-xl p-1 shadow-sm">
-              <Button variant="ghost" size="icon" onClick={prevPeriod} className="rounded-lg hover:bg-primary/10 hover:text-primary">
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={nextPeriod} className="rounded-lg hover:bg-primary/10 hover:text-primary">
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="flex-1 bg-card/90 backdrop-blur-2xl border border-primary/10 rounded-[24px] shadow-xl overflow-hidden flex flex-col">
-          {/* Days Header */}
-          <div className={cn("grid border-b border-primary/10 bg-primary/5", view === 'day' ? "grid-cols-1" : "grid-cols-7")}>
-            {view === 'day' ? (
-              <div className="p-4 text-center text-sm font-bold text-primary">
-                {currentDate.toLocaleDateString('default', { weekday: 'long' })}
-              </div>
-            ) : (
-              ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="p-4 text-center text-sm font-bold text-primary">
-                  {day}
-                </div>
-              ))
-            )}
-          </div>
-          
-          {/* Calendar Body */}
-          <div className={cn("flex-1 grid g2g-scrollbar overflow-y-auto", view === 'day' ? "grid-cols-1" : "grid-cols-7")}>
-            {visibleDays.map((dateObj, idx) => {
-              if (!dateObj) {
-                return <div key={`blank-${idx}`} className="border-r border-b border-primary/5 bg-background/20 p-2 min-h-[120px]" />
-              }
-
-              const y = dateObj.getFullYear()
-              const m = (dateObj.getMonth() + 1).toString().padStart(2, '0')
-              const d = dateObj.getDate().toString().padStart(2, '0')
-              const dateString = `${y}-${m}-${d}`
-              const dayTasks = tasks.filter(t => t.dueDate === dateString)
-              const isToday = dateObj.getDate() === 26 && dateObj.getMonth() === 5 && dateObj.getFullYear() === 2026 // Hardcoded 'today' for demo
-
-              return (
-                <div key={dateString} className={cn("border-r border-b border-primary/5 p-2 transition-colors hover:bg-primary/5 group", view === 'month' ? "min-h-[120px]" : "min-h-[400px]")}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all",
-                      isToday ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground group-hover:text-primary bg-background/50"
-                    )}>
-                      {dateObj.getDate()}
-                    </span>
-                    {dayTasks.length > 0 && (
-                      <span className="text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-full">
-                        {dayTasks.length} Tasks
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex flex-col gap-2">
-                    {dayTasks.map(task => (
-                      <div
-                        key={task.id}
-                        onClick={() => onSelectTask?.(task)}
-                        className={cn(
-                          "px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border shadow-sm hover:scale-[1.02] flex flex-col gap-1",
-                          getStatusClasses(task.status)
-                        )}
-                      >
-                        <span className="truncate">{task.title}</span>
-                        {(view === 'week' || view === 'day') && (
-                           <span className="font-medium opacity-80 text-[10px] flex items-center gap-1">
-                             <User className="w-3 h-3" /> {task.assignee}
-                           </span>
-                        )}
-                      </div>
-                    ))}
-                    {dayTasks.length === 0 && view === 'day' && (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50">
-                        <CheckCircle2 className="w-12 h-12 mb-2" />
-                        <span className="text-sm font-bold">No tasks due this day</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        })}</div>
+      </>}
+    </CardContent></Card>
+    {selected && <Card><CardContent className="flex flex-wrap items-start justify-between gap-4 p-5">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2"><CalendarDays className="size-4 text-primary" /><h3 className="font-semibold">{selected.title}</h3></div>
+        <p className="mt-2 text-sm text-muted-foreground">{selected.project} · {selected.assignee} · Due {selected.due_date ?? '—'}</p>
+        <p className="mt-2 text-sm">{selected.description}</p>
+        {/* A calendar you can only read is half a calendar - moving a deadline
+            is the one edit people expect to make from this screen. */}
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <label className="text-xs font-semibold text-muted-foreground">
+            <span className="mb-1 block">Move deadline to</span>
+            <input type="date" value={newDueDate} onChange={(event) => setNewDueDate(event.target.value)} className="h-10 rounded-lg border px-3 text-sm font-normal text-foreground" />
+          </label>
+          <Button onClick={() => void reschedule()} disabled={rescheduling || !newDueDate || newDueDate === selected.due_date}>
+            {rescheduling ? 'Rescheduling…' : 'Reschedule'}
+          </Button>
         </div>
       </div>
-    </div>
-  )
+      <Button variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+    </CardContent></Card>}
+  </div>
 }

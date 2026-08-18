@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Briefcase,
   Users,
@@ -118,6 +118,26 @@ function getStageVariant(stage: CandidateStage): 'default' | 'active' | 'inactiv
 type MainTab = 'requisitions' | 'job-openings' | 'candidates' | 'interviews' | 'offers'
 type CandidateView = 'kanban' | 'table' | 'calendar'
 
+/**
+ * Deep links into this screen, used by the Talent Dashboard's Quick Links and
+ * KPI cards: ?tab=<MainTab> lands on a tab, ?action=<RecruitmentAction> opens
+ * the matching create drawer.
+ *
+ * Read once, as the initial state, rather than kept in sync with the URL: once
+ * the user is here their own clicks own the state, and re-applying the param on
+ * every render would reopen a drawer they had just closed.
+ */
+const DEEP_LINK_TABS: MainTab[] = ['requisitions', 'job-openings', 'candidates', 'interviews', 'offers']
+const DEEP_LINK_ACTIONS: RecruitmentAction[] = ['job', 'candidate', 'interview', 'offer']
+
+function readDeepLinkTab(value: string | null): MainTab | null {
+  return DEEP_LINK_TABS.includes(value as MainTab) ? (value as MainTab) : null
+}
+
+function readDeepLinkAction(value: string | null): RecruitmentAction | null {
+  return DEEP_LINK_ACTIONS.includes(value as RecruitmentAction) ? (value as RecruitmentAction) : null
+}
+
 // -------------------------------------------------------------------
 // Main Component
 // -------------------------------------------------------------------
@@ -140,8 +160,11 @@ export function RecruitmentCenter() {
     moveCandidate,
     stageCounts: backendStageCounts,
   } = useRecruitment()
+  const searchParams = useSearchParams()
   // State
-  const [activeTab, setActiveTab] = useState<MainTab>('candidates')
+  const [activeTab, setActiveTab] = useState<MainTab>(
+    () => readDeepLinkTab(searchParams.get('tab')) ?? 'candidates',
+  )
   const [candidateView, setCandidateView] = useState<CandidateView>('kanban')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedJob, setSelectedJob] = useState('')
@@ -155,7 +178,9 @@ export function RecruitmentCenter() {
   const [viewingProfileFor, setViewingProfileFor] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
-  const [activeAction, setActiveAction] = useState<RecruitmentAction | null>(null)
+  const [activeAction, setActiveAction] = useState<RecruitmentAction | null>(
+    () => readDeepLinkAction(searchParams.get('action')),
+  )
   const [interviewTool, setInterviewTool] = useState<'panels' | 'feedback' | 'decision' | null>(null)
   const [decisionInterviewId, setDecisionInterviewId] = useState<string | null>(null)
   const [selectedJobRecord, setSelectedJobRecord] = useState<(typeof jobRecords)[number] | null>(null)
@@ -865,7 +890,7 @@ export function RecruitmentCenter() {
                       <DropdownMenuContent>
                         <DropdownMenuItem onClick={() => { setSelectedOfferRecord(offerRecords.find((record) => String(record.id) === offer.id) ?? null); setActiveAction('offer-view') }}>View details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => window.open(recruitmentService.offerLetterUrl(offer.id), '_blank', 'noopener,noreferrer')}>View offer letter</DropdownMenuItem>
-                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/m3/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
+                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/talent-management/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
                         {offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
                           title: 'Reject this offer?',
                           description: 'The offer status will be changed to rejected.',

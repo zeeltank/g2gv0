@@ -23,7 +23,7 @@ export default function ComplianceManagementPage() {
 
   return (
     <ProtectedLayout>
-      <GtgPageShell initialActive={{ moduleId: 'm1', menuId: 'compliance-discipline', submenuId: 'compliance-management' }}>
+      <GtgPageShell initialActive={{ moduleId: '1', menuId: '205', submenuId: '206' }}>
         <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           <ComplianceLibraryManagement />
         </Suspense>

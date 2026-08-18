@@ -8,12 +8,15 @@ const MobilityCenter = createLazyComponent(() => import('@/domain/talent/mobilit
 const OffboardingCenter = createLazyComponent(() => import('@/domain/talent/offboarding').then((m) => ({ default: m.OffboardingCenter })))
 const AdminCenter = createLazyComponent(() => import('@/domain/talent/administration').then((m) => ({ default: m.AdminCenter })))
 
+// accessLink is the stable tblmenumaster_g2g column (Talent Management,
+// module id 3, menu-level rows); menuId is kept as a fallback.
 export const M3_CONTENT: ContentRoute[] = [
-  { menuId: 'tm-dashboard', component: TalentDashboard },
-  { menuId: 'recruitment', component: RecruitmentCenter },
-  { menuId: 'onboarding', component: OnboardingCenter },
-  { menuId: 'performance', component: PerformanceCenter },
-  { menuId: 'mobility-succession', component: MobilityCenter },
-  { menuId: 'offboarding', component: OffboardingCenter },
-  { menuId: 'administration', component: AdminCenter },
+  { accessLink: '/module/talent-management/talent-dashboard', menuId: '46', component: TalentDashboard }, // Talent Dashboard
+  { accessLink: '/module/talent-management/recruitment', menuId: '47', component: RecruitmentCenter }, // Recruitment
+  { accessLink: '/module/talent-management/onboarding', menuId: '48', component: OnboardingCenter }, // Onboarding
+  { accessLink: '/module/talent-management/performance-reviews-and-appraisals', menuId: '49', component: PerformanceCenter }, // Performance Reviews & Appraisals
+ { accessLink: '/module/talent-management/compensation', menuId: '50', component: PerformanceCenter }, // Compensation
+  { accessLink: '/module/talent-management/mobility-and-succession', menuId: '52', component: MobilityCenter }, // Mobility & Succession
+  { accessLink: '/module/talent-management/offboarding', menuId: '171', component: OffboardingCenter }, // Offboarding
+  { accessLink: '/module/talent-management/administration', menuId: '178', component: AdminCenter }, // Administration
 ]

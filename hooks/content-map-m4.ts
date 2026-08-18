@@ -9,13 +9,15 @@ const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
 const LmsGovernance = createLazyComponent(() => import('@/domain/lms/governance').then((m) => ({ default: m.LmsGovernance })))
 
+// accessLink is the stable tblmenumaster_g2g column (LMS, module id 4);
+// submenuId is kept as a fallback.
 export const M4_CONTENT: ContentRoute[] = [
-  { submenuId: 'lms-dashboard', component: LmsDashboard },
-  { submenuId: 'learning-catalog', component: LearningCatalog },
-  { submenuId: 'my-learning', component: LearningDeliveryWorkspace },
-  { submenuId: 'create-course', component: CreateCoursePage },
-  { submenuId: 'assignments', component: LearningAssignments },
-  { submenuId: 'sessions-calendar', component: SessionsCalendar },
-  { submenuId: 'certifications', component: CertificationsRecords },
-  { submenuId: 'governance', component: LmsGovernance },
+  { accessLink: '/module/lms/learning/learning-dashboard', submenuId: '80', component: LmsDashboard }, // Learning Dashboard
+  { accessLink: '/module/lms/learning/learning-catalog', submenuId: '182', component: LearningCatalog }, // Learning Catalog
+  { accessLink: '/module/lms/learning/my-learning', submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
+  { accessLink: '/module/lms/administration/course-builder', submenuId: '84', component: CreateCoursePage }, // Course Builder
+  { accessLink: '/module/lms/training-and-records/assignments', submenuId: '81', component: LearningAssignments }, // Assignments
+  { accessLink: '/module/lms/training-and-records/sessions-and-calendar', submenuId: '82', component: SessionsCalendar }, // Sessions & Calendar
+  { accessLink: '/module/lms/training-and-records/certifications-and-records', submenuId: '83', component: CertificationsRecords }, // Certifications & Records
+  { accessLink: '/module/lms/administration/administration-and-governance', submenuId: '85', component: LmsGovernance }, // Administration & Governance
 ]

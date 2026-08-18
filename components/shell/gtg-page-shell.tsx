@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/use-auth'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeaderBase } from '@/components/shell/gtg-header-base'
 import { BreadcrumbItemsProvider } from '@/components/shell/gtg-breadcrumb'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import type { BreadcrumbItem } from '@/lib/gtg-navigation'
 import { cn } from '@/lib/utils'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 
+/** Organizational Management > Organization Setup > Organization Profile (tblmenumaster_g2g ids 1/7/12). */
 const DEFAULT_ACTIVE: ActiveNav = {
-  moduleId: 'm1',
-  menuId: 'org-setup',
-  submenuId: 'org-profile',
+  moduleId: '1',
+  menuId: '7',
+  submenuId: '12',
 }
 
 interface GtgPageShellProps {
@@ -24,13 +25,13 @@ interface GtgPageShellProps {
 }
 
 export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPageShellProps) {
-  const { user } = useAuth()
   const router = useRouter()
+  const { modules, getRoutePath } = useSidebarNavigation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   const active = initialActive ?? DEFAULT_ACTIVE
-  const items = breadcrumbItems ?? resolveBreadcrumb(active)
+  const items = breadcrumbItems ?? resolveBreadcrumb(active, modules)
 
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
@@ -41,15 +42,20 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
   }, [])
 
   const handleNavSelect = useCallback((next: ActiveNav) => {
-    router.push(`/module/${next.moduleId}/${next.menuId}/${next.submenuId}`)
-  }, [router])
+    const path = getRoutePath(next)
+    if (path.startsWith('http')) {
+      window.open(path, '_blank', 'noopener,noreferrer')
+      return
+    }
+    router.push(path)
+  }, [router, getRoutePath])
 
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full overflow-hidden bg-background">
       <GtgSidebar
         active={active}
         onSelect={handleNavSelect}
-        role={user?.role || 'employee'}
+        modules={modules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}

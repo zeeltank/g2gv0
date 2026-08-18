@@ -1,9 +1,21 @@
 /**
  * LMS Service
  * API calls for learning management system
+ *
+ * NOTE: `lmsService` below is an unverified scaffold - /courses, /assignments
+ * and /certifications do not exist on this Laravel backend. Use the verified
+ * `lmsDashboardService` for anything touching the learning dashboard.
  */
 
 import { apiClient } from '@/services/core'
+
+export * from './dashboard'
+export * from './catalog'
+export * from './ai-course'
+export * from './learning'
+export * from './sessions'
+export * from './course-builder'
+export * from './governance'
 
 export interface Course {
   id: string
@@ -55,3 +67,4 @@ export const lmsService = {
   getCertifications: (userId?: string) => 
     apiClient.get<Certification[]>('/certifications', userId ? { userId } : undefined),
 }
+export * from './assignment'
