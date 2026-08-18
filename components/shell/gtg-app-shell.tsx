@@ -15,6 +15,7 @@ import type { Message as AgentMessage } from '@/components/shell/agent/agent-cha
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { useAuth } from '@/components/auth/gtg-auth'
 
 const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
 
@@ -130,6 +131,7 @@ export function GtgAppShell({
 }: GtgAppShellProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
+  const { user } = useAuth()
   const { modules, getRoutePath, parseRoutePath } = useSidebarNavigation()
   const [active, setActive] = useState<ActiveNav>(() => {
     if (initialActive) return initialActive
@@ -198,7 +200,6 @@ export function GtgAppShell({
     setAgentLoading(true)
 
     try {
-      const currentUser = user as (typeof user & { subInstituteId?: string }) | null
       /**
        * The Laravel session (token, sub_institute_id, syear) is what lets the
        * conversational layer read live module data through the same token
@@ -219,12 +220,12 @@ export function GtgAppShell({
             content: item.content,
           })),
           context: {
-            userId: laravelContext.userId || currentUser?.id,
-            subInstituteId: laravelContext.subInstituteId || currentUser?.subInstituteId,
-            role: currentUser?.role,
-            profileName: currentUser?.profileName,
-            employeeNo: currentUser?.employeeNo,
-            orgId: laravelContext.organizationId || currentUser?.orgId,
+            userId: laravelContext.userId || user?.id,
+            subInstituteId: laravelContext.subInstituteId || user?.subInstituteId,
+            role: user?.role,
+            profileName: user?.profileName,
+            employeeNo: user?.employeeNo,
+            orgId: laravelContext.organizationId || user?.orgId,
             token: laravelContext.token,
             syear: laravelContext.syear,
             sessionId: agentSessionIdRef.current,
@@ -284,7 +285,7 @@ export function GtgAppShell({
     }
   }, [setAgentOpen, user])
 
-  const breadcrumbItems = resolveBreadcrumb(active)
+  const breadcrumbItems = resolveBreadcrumb(active, modules)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
