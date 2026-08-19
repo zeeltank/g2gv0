@@ -12,13 +12,8 @@ const CmLibrariesTaxonomy = createLazyComponent(() => import('@/domain/competenc
 // kept too — Library & Taxonomy reads it.
 const CmTaxonomyOntology = createLazyComponent(() => import('@/domain/competency/cm-taxonomy-ontology').then((m) => ({ default: m.CmTaxonomyOntology })))
 const CmFrameworkMapping = createLazyComponent(() => import('@/domain/competency/cm-framework-mapping').then((m) => ({ default: m.CmFrameworkMapping })))
-const CmAssessmentWorkspace = createLazyComponent(() => import('@/domain/competency/cm-assessment-workspace').then((m) => ({ default: m.CmAssessmentWorkspace })))
-const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
-const CmTaskCompetencies = createLazyComponent(() => import('@/domain/competency/cm-task-competencies').then((m) => ({ default: m.CmTaskCompetencies })))
 // Role Requirements - competency to job role. The chain link that had a screen,
 // an API and no way to reach either: menu row 231 created 2026-08-13.
-const CmRoleRequirements = createLazyComponent(() => import('@/domain/competency/role-requirements-panel').then((m) => ({ default: m.RoleRequirementsPanel })))
-const CmCourseCompetencies = createLazyComponent(() => import('@/domain/competency/cm-course-competencies').then((m) => ({ default: m.CmCourseCompetencies })))
 const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit').then((m) => ({ default: m.CmAudit })))
 
 // accessLink is the stable tblmenumaster_g2g column (Competency Library menu,
@@ -31,14 +26,18 @@ export const M2_CONTENT: ContentRoute[] = [
   { accessLink: '/module/capability-intelligence/dashboard', component: CmCommandCenter }, // Command Center
   { accessLink: '/module/capability-intelligence/competency-library', submenuId: '34', component: CmCompetencyLibrary }, // Competency Library
   { accessLink: '/module/capability-intelligence/competency-framework', submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
-  { accessLink: '/module/capability-intelligence/capability', submenuId: '223', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
+  { accessLink: '/module/capability-intelligence/capability-library', submenuId: '223', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
   { submenuId: '39', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
   { accessLink: '/module/capability-intelligence/capability-explorer', submenuId: '43', component: CmTaxonomyOntology }, // Taxonomy Ontology
-  { accessLink: '/module/capability-intelligence/assessments', submenuId: '155', component: CmAssessmentWorkspace }, // Assessments
+  // ASSESSMENTS MOVED TO LMS on 2026-08-19 - see content-map-m4.ts. It is a
+  // learning activity, not a competency-authoring screen, so it belongs with
+  // the courses it assesses.
   // G-UI-01: menu row 224, derived from sibling 156 rather than guessed. The
   // component existed and was correct for the whole of Slice 1; nothing mapped
   // an accessLink to it, so nobody could open it.
-  { accessLink: '/module/capability-intelligence/my-capability', submenuId: '224', component: CmMyCapabilityScreen }, // My Capability
+  // MY CAPABILITY MOVED TO /profile on 2026-08-19, as a tab beside Job Role
+  // Skills. It answers for whoever is signed in - the endpoint takes no user id
+  // at all - so a profile page is where it belongs, not a sidebar submenu.
   // G-UI-01 AGAIN, and this time the component was a SUB-COMPONENT with props,
   // so it needed a host screen as well as a map row. `CmCompetencyComposer` was
   // built, correct, and unreachable: the `competency` table's only two writers
@@ -56,10 +55,14 @@ export const M2_CONTENT: ContentRoute[] = [
   // have been reading since they landed, with no writer until now. Menu row
   // derived from sibling 156, and the id taken from what the insert RETURNED -
   // the map said 225 for Competency Definitions until the database said 227.
-  { accessLink: '/module/capability-intelligence/course-competencies', submenuId: '228', component: CmCourseCompetencies }, // Course Competencies
-  // TASK -> COMPETENCY. jobrole_task_competency_map holds 0 rows; golden thread 2
-  // carries the signal on task.skill_id today, hand-picked per ticket at 67%.
-  { accessLink: '/module/capability-intelligence/task-competencies', submenuId: '229', component: CmTaskCompetencies }, // Task Competencies
-  { accessLink: '/module/capability-intelligence/role-requirements', submenuId: '231', component: CmRoleRequirements }, // Role Requirements
+  // COURSE -> COMPETENCY LIVES IN THE COURSE BUILDER NOW, not on its own screen.
+  // Menu removed 2026-08-19 (local 228 / live 225 - the ids differ). Mapped by
+  // the person authoring the course, in Basic Information.
+  // TASK -> COMPETENCY LIVES IN THE ASSIGN-TASK MODAL NOW, not on its own screen.
+  // Menu 229 removed 2026-08-19; the mapping is edited by the person assigning the
+  // work, who knows what it takes, instead of on a matrix nobody visited.
+  // ROLE -> COMPETENCY LIVES IN THE JOB ROLE FORM NOW, not on its own screen.
+  // Menu removed 2026-08-19 (local 231 / live 227 - the ids differ). Set by the
+  // person defining the role, on the Capability screen's Job Role tab.
   { submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]

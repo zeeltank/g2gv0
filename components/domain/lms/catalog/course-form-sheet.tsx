@@ -21,6 +21,12 @@ import type {
   CourseCreatePayload,
   CourseUpdatePayload,
 } from '@/services/lms'
+import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { competencyLibraryService } from '@/services/competency/library'
+import { courseCompetenciesService } from '@/services/competency/course-competencies'
+import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competency-inline-panel'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 export type CourseFormMode = 'create' | 'edit'
 
@@ -134,11 +140,21 @@ export function CourseFormSheet({
   course: CatalogCourse | null
   filterOptions: CatalogFilterOptions | null
   saving: boolean
-  onCreate: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string }>
+  onCreate: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string; courseId: number | null }>
   onUpdate: (id: number, payload: CourseUpdatePayload) => Promise<{ ok: boolean; message: string }>
 }) {
+  const { user } = useAuth()
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [image, setImage] = useState<File | null>(null)
+  // CREATE MODE ONLY. A course that does not exist yet has no id to map
+  // against, so the picks are held here and written straight after the course
+  // is created. In edit mode the live panel talks to the API directly.
+  const [pickedComps, setPickedComps] = useState<number[]>([])
+  const [library, setLibrary] = useState<{ id: number; name: string }[]>([])
+  // An empty list and a failed request are not the same fact - see the same
+  // note on the job role form. Do not let a 403 read as "none exist".
+  const [libraryError, setLibraryError] = useState<string | null>(null)
+  const [mapError, setMapError] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
 
   // Reset whenever the sheet opens so a previous edit never leaks into a create.
@@ -146,10 +162,24 @@ export function CourseFormSheet({
     if (!open) return
     queueMicrotask(() => {
       setForm(mode === 'edit' ? toFormState(course) : EMPTY_FORM)
+      setPickedComps([])
+      setMapError(null)
+      if (mode === 'create') {
+        void competencyLibraryService
+          .list(getLaravelContext(user))
+          .then((res) => {
+            setLibrary((res.data ?? []).map((c) => ({ id: c.id, name: c.name })))
+            setLibraryError(null)
+          })
+          .catch((e: unknown) => {
+            setLibrary([])
+            setLibraryError(e instanceof Error ? e.message : 'Could not load the competency library.')
+          })
+      }
       setImage(null)
       setErrors({})
     })
-  }, [open, mode, course])
+  }, [open, mode, course, user])
 
   const departmentOptions = useMemo(
     () =>
@@ -207,7 +237,35 @@ export function CourseFormSheet({
         ? await onCreate({ ...base, display_image: image })
         : course
           ? await onUpdate(course.id, base)
-          : { ok: false, message: 'No course selected.' }
+          : { ok: false, message: 'No course selected.', courseId: null }
+
+    // THE COURSE IS CREATED FIRST, THEN MAPPED - it has no id until it exists.
+    // A failure here must not read as a failed create: the course IS saved, so
+    // the sheet says what did not happen rather than closing silently.
+    if (result.ok && mode === 'create' && pickedComps.length > 0) {
+      // `result` is a union of the create and update return shapes, so the id
+      // is read explicitly rather than relying on narrowing that mode !== 'edit'
+      // cannot express to the compiler.
+      const newId: number | null = (result as { courseId?: number | null }).courseId ?? null
+      if (!newId) {
+        setMapError('The course was created, but no id came back, so the competencies were not mapped.')
+        return
+      }
+      try {
+        await courseCompetenciesService.save(
+          getLaravelContext(user),
+          newId,
+          pickedComps.map((id) => ({ competency_id: id })),
+        )
+      } catch (e) {
+        setMapError(
+          e instanceof Error
+            ? `The course was created, but the competencies were not mapped: ${e.message}`
+            : 'The course was created, but the competencies were not mapped.',
+        )
+        return
+      }
+    }
 
     if (result.ok) onOpenChange(false)
   }
@@ -354,6 +412,86 @@ export function CourseFormSheet({
               </p>
             </div>
           )}
+
+          {/* ── WHAT THIS COURSE BUILDS ──────────────────────────────────
+              Merged in from the standalone Course Competencies screen, which
+              has been removed. Mapped by the person creating the course, who
+              knows what it develops - not by an admin filling a matrix later.
+
+              TWO MODES, because a course id is required to store a mapping:
+                edit   - the course exists, so the live panel reads and writes
+                         through the API immediately.
+                create - nothing exists yet, so the picks are held locally and
+                         written straight after the course is created.
+              ─────────────────────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-1.5 border-t border-border/60 pt-4">
+            <Label>What this course builds</Label>
+            <span className="mb-1 text-xs text-muted-foreground">
+              The competencies this course develops. This is what lets it be suggested to someone
+              with a matching gap.
+            </span>
+
+            {mapError && (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {mapError}
+              </p>
+            )}
+
+            {mode === 'edit' && course ? (
+              <CourseCompetencyInlinePanel courseId={course.id} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {pickedComps.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {pickedComps.map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs"
+                      >
+                        {library.find((c) => c.id === id)?.name ?? `#${id}`}
+                        <button
+                          type="button"
+                          aria-label="Remove competency"
+                          onClick={() => setPickedComps((current) => current.filter((x) => x !== id))}
+                          className="text-muted-foreground transition hover:text-destructive"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <SearchableSelect
+                  options={library
+                    .filter((c) => !pickedComps.includes(c.id))
+                    .map((c) => ({ label: c.name, value: String(c.id) }))}
+                  value=""
+                  onChange={(next) => {
+                    const id = Number(next)
+                    if (id && !pickedComps.includes(id)) setPickedComps((current) => [...current, id])
+                  }}
+                  placeholder={library.length ? "Add a competency this course builds…" : libraryError ? "Competency library could not be loaded" : "No competencies in this library yet"}
+                  searchPlaceholder="Search competencies…"
+                  emptyMessage="No competency matches that search"
+                  disabled={!library.length}
+                  className="w-full"
+                  aria-label="Add a competency this course builds"
+                />
+                {libraryError ? (
+                  <span className="text-xs text-destructive">{libraryError}</span>
+                ) : !library.length ? (
+                  <span className="text-xs text-muted-foreground">
+                    This organisation has no competencies yet — create them in Competency Library
+                    first, then this course can build them.
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Saved right after the course is created.
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
             <div className="flex flex-col">

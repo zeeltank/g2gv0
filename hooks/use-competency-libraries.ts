@@ -232,12 +232,21 @@ export function useLibraryList<T extends LibraryRow = LibraryRow>(
     [load],
   )
 
+  // RETURNS THE NEW ROW'S ID, which this used to discard. The job role tab maps
+  // competencies onto the role it just created, and role_map keys on jobrole_id
+  // - so the form cannot write the mapping without knowing what was created.
+  // runMutation's shape is shared with update/delete, so the id rides alongside
+  // its result rather than widening it for every caller.
   const create = useCallback(
-    (payload: LibraryPayload) =>
-      runMutation(
-        () => competencyLibrariesService.create(resolveContext(), tab, payload),
-        'Failed to create the entry.',
-      ),
+    async (payload: LibraryPayload) => {
+      let createdId: number | null = null
+      const result = await runMutation(async () => {
+        const response = await competencyLibrariesService.create(resolveContext(), tab, payload)
+        createdId = response?.data?.id ?? null
+        return { message: response.message }
+      }, 'Failed to create the entry.')
+      return { ...result, createdId }
+    },
     [runMutation, resolveContext, tab],
   )
 
