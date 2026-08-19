@@ -14,6 +14,7 @@ import {
   Lock,
   Pencil,
   BookOpen,
+  Target,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,8 +28,9 @@ import { AttendanceCard } from '@/components/profile/cards/attendance-card'
 import { BankCard } from '@/components/profile/cards/bank-card'
 import { SkillsPanel } from '@/components/profile/skills-panel'
 import { useEmployeeProfile } from '@/hooks/use-employee-profile'
+import { CmMyCapabilityScreen } from '@/domain/competency/cm-my-capability-screen'
 
-type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank' | 'skills'
+type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank' | 'skills' | 'capability'
 
 interface ProfileProps {
   user?: {
@@ -46,6 +48,11 @@ const navItems: { id: TabId; label: string; icon: any }[] = [
   { id: 'attendance', label: 'Attendance', icon: Clock },
   { id: 'bank', label: 'Deposit', icon: Landmark },
   { id: 'skills', label: 'Job Role Skills', icon: BookOpen },
+  // MY CAPABILITY LIVES HERE NOW, not as its own sidebar submenu. It shows the
+  // signed-in person their own standing, which is what a profile is - and the
+  // endpoint behind it takes no user id at all, so it can only ever answer for
+  // whoever is asking.
+  { id: 'capability', label: 'My Capability', icon: Target },
 ]
 
 export function ProfileDashboard({ user }: ProfileProps) {
@@ -162,7 +169,9 @@ export function ProfileDashboard({ user }: ProfileProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 space-y-6">
-          {activeTab === 'skills' ? (
+          {activeTab === 'capability' ? (
+            <CmMyCapabilityScreen />
+          ) : activeTab === 'skills' ? (
             loading ? (
               <Card className="p-6">
                 <div className="flex items-center justify-center py-12">

@@ -36,6 +36,7 @@ import { useCourseBuilder } from '@/hooks/use-course-builder'
 import type { ContentKind, CourseVisibility, EnrollmentRule } from '@/services/lms'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { LMS_LEARNING_CATALOG_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competency-inline-panel'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -457,6 +458,20 @@ export function CreateCoursePage() {
                         Selected: {form.thumbnail.name}
                       </p>
                     )}
+                  </div>
+
+                  {/* WHAT THIS COURSE BUILDS - merged in from the standalone
+                      Course Competencies screen, which has been removed. The
+                      author knows what the course develops; an admin filling a
+                      matrix later is guessing. It sits in Basic Information
+                      because it describes the course, not its content. */}
+                  <div className="mt-6 border-t border-border/40 pt-6">
+                    <h3 className="mb-1 text-sm font-bold text-foreground">What this course builds</h3>
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Map the competencies this course develops. This is what lets it be suggested to
+                      someone with a matching gap.
+                    </p>
+                    <CourseCompetencyInlinePanel courseId={courseId ? Number(courseId) : null} />
                   </div>
                 </CardContent>
               </>

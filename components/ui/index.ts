@@ -12,6 +12,7 @@ export { RadioGroup, Radio } from './radio-group'
 export { Switch } from './switch'
 export { FileUpload } from './file-upload'
 export { SearchInput } from './search-input'
+export { SearchableSelect, type SearchableOption } from './searchable-select'
 
 // Layout Components
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card'

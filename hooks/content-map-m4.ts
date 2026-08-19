@@ -8,10 +8,12 @@ const LearningDeliveryWorkspace = createLazyComponent(() => import('@/domain/lms
 const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions').then((m) => ({ default: m.SessionsCalendar })))
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
 const LmsGovernance = createLazyComponent(() => import('@/domain/lms/governance').then((m) => ({ default: m.LmsGovernance })))
+const CmAssessmentWorkspace = createLazyComponent(() => import('@/domain/competency/cm-assessment-workspace').then((m) => ({ default: m.CmAssessmentWorkspace })))
 
 // accessLink is the stable tblmenumaster_g2g column (LMS, module id 4);
 // submenuId is kept as a fallback.
 export const M4_CONTENT: ContentRoute[] = [
+  { accessLink: '/module/lms/assessments', submenuId: '155', component: CmAssessmentWorkspace }, // Assessments — moved from Capability Intelligence 2026-08-19
   { accessLink: '/module/lms/learning/learning-dashboard', submenuId: '80', component: LmsDashboard }, // Learning Dashboard
   { accessLink: '/module/lms/learning/learning-catalog', submenuId: '182', component: LearningCatalog }, // Learning Catalog
   { accessLink: '/module/lms/learning/my-learning', submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning

@@ -74,7 +74,7 @@ export interface CourseCatalogState {
   actionMessage: string | null
   actionError: string | null
   dismissAction: () => void
-  createCourse: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string }>
+  createCourse: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string; courseId: number | null }>
   updateCourse: (
     id: number,
     payload: CourseUpdatePayload,
@@ -224,13 +224,24 @@ export function useCourseCatalog(perPage = 10): CourseCatalogState {
     [refresh],
   )
 
+  // RETURNS THE NEW COURSE ID, which this used to discard. The competency
+  // mapping is stored against a course id, and the sheet cannot map anything
+  // until it knows what was just created. The API has always returned it.
+  // runMutation's shape is shared with update/delete, so the id is carried
+  // alongside its result rather than by widening it for every caller.
   const createCourse = useCallback(
-    (payload: CourseCreatePayload) =>
-      runMutation(async () => {
+    async (payload: CourseCreatePayload) => {
+      let courseId: number | null = null
+      const result = await runMutation(async () => {
         const context = resolveContext()
-        await lmsCatalogService.createCourse(context, payload)
+        const response = await lmsCatalogService.createCourse(context, payload)
+        // The controller answers with data.id; course_id is the older key. Take
+        // whichever is present rather than assuming one of them.
+        courseId = response?.course_id ?? response?.data?.id ?? null
         return `"${payload.display_name}" created successfully.`
-      }, 'Failed to create the course.'),
+      }, 'Failed to create the course.')
+      return { ...result, courseId }
+    },
     [runMutation, resolveContext],
   )
 

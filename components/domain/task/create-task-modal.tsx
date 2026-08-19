@@ -9,6 +9,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { cn } from '@/lib/utils'
 import { taskService } from '@/services/task'
+import { TaskCompetencyInlinePanel } from '@/domain/competency/task-competency-inline-panel'
 import { competencyLibrariesService } from '@/services/competency/libraries'
 import type { JobRoleTask } from '@/services/task'
 import type { DependencyType, ProjectRecord, Workstream } from '@/types/task-management'
@@ -188,6 +189,12 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     setEmployeeTasks(tasks.map((task) => ({
       value: task.id, label: task.task_title,
     })))
+    // 119 of this tenant's 269 roles carry no catalogue task. Leaving those on
+    // the catalogue tab is a dead end: the title stays empty and submit fails
+    // its !title.trim() check with nothing on screen explaining why. Custom is
+    // the only workable mode for such a role, so land there rather than making
+    // the user find the toggle.
+    setTitleSource(tasks.length ? 'catalogue' : 'custom')
   } catch (reason) {
     setError(reason instanceof Error ? reason.message : 'Unable to load tasks for this job role.')
   } finally { setTaskTitlesLoading(false) }
@@ -197,7 +204,12 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     const taskRequestId = ++employeeTasksRequestRef.current
     const newlySelected = next.find((id) => !assignees.includes(id))
     setAssignees(next); setSkills([]); setSkillIds([]); setObserverId(''); setObserverName('')
-    setSelectedTaskId(''); setTitle(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksError('')
+    setSelectedTaskId(''); setTitle(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
+    // THE CATALOGUE BELONGS TO THE ROLE, NOT THE ASSIGNEE.
+    // Clearing it here is why picking a person emptied the task list and left
+    // the form unsubmittable: the role's 33 tasks were fetched, then discarded
+    // on the very next click. Re-derive from the role's list instead.
+    setEmployeeTasks(jobRoleTasks.map((task) => ({ value: task.id, label: task.task_title })))
     setEmployeeTasksLoading(next.length > 0)
     const selectedEmployee = newlySelected ?? next[next.length - 1]
     if (!selectedEmployee) { setEmployeeTasksLoading(false); return }
@@ -497,6 +509,33 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     {loading ? <div className="p-12 text-center">Loading assignment options…</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
+      {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
+          the role narrows the work, and the person is settled before the task so
+          the catalogue list on screen is the one actually being assigned.
+
+          MULTIPLE ASSIGNEES: the payload already joined ids with commas into
+          TASK_ALLOCATED_TO and the backend already accepted it - the only thing
+          missing was a way to pick more than one. Add one at a time; remove with
+          the chip. No new primitive: the same Select, plus chips. */}
+      <Field label="Assign To *">
+        <Select
+          value=""
+          onChange={(userId) => { if (userId && !assignees.includes(userId)) void chooseAssignees([...assignees, userId]) }}
+          options={departmentEmployees.filter((employee) => !assignees.includes(employee.id)).map((employee) => ({ value: employee.id, label: employee.name }))}
+          disabled={!department || !departmentEmployees.length}
+          placeholder={!department ? 'Select a department first' : !departmentEmployees.length ? 'No employees in this department' : assignees.length ? 'Add another employee' : 'Select an employee'}
+        />
+        {assignees.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {assignees.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs">
+                {departmentEmployees.find((employee) => employee.id === id)?.name ?? id}
+                <button type="button" aria-label="Remove assignee" onClick={() => void chooseAssignees(assignees.filter((other) => other !== id))} className="text-muted-foreground transition hover:text-destructive">&times;</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </Field>
        <Field label="Task Title *">
        {/* Catalogue work is a standard duty of the role; custom work comes from
            a requirement no catalogue entry covers. Both end up as the same task
@@ -523,10 +562,37 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
          {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
        </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
-       <Field label="Assign To *"><Select value={assignees[0] ?? ''} onChange={(userId) => void chooseAssignees(userId ? [userId] : [])} options={departmentEmployees.map((employee) => ({ value: employee.id, label: employee.name }))} disabled={!department || !departmentEmployees.length} placeholder={!department ? 'Select a department first' : departmentEmployees.length ? 'Select an employee' : 'No employees in this department'} /></Field>
       <Field label="Repeat Once in every *" span={4}><Select value={repeatDays} onChange={setRepeatDays} options={Array.from({ length: 14 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} day${index ? 's' : ''}` }))} /></Field>
       <Field label="Repeat until *" span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={new Date().toISOString().slice(0, 10)} /></Field>
       <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>
+      {/* WHAT THIS TASK BUILDS — the competency mapping, at the moment of
+          judgement rather than on a matrix screen nobody opens.
+          Editable because the mapping is PER-TENANT: jobrole_task_competency_map
+          carries sub_institute_id even though s_jobrole_task does not, so this
+          records your organisation's view and never anyone else's. */}
+      <Field label="What this task builds" span={12}>
+        {/* THE MAPPING KEYS ON A CATALOGUE TASK ID. jobrole_task_competency_map
+            has jobrole_task_id - a row in the job role's task catalogue. A
+            custom task is free text with no catalogue row, so there is nothing
+            for a mapping to point at. Saying "pick a task" here would be a lie:
+            in custom mode there is no task to pick. */}
+        {titleSource === 'custom' ? (
+          <p className="text-xs text-muted-foreground">
+            Competency mapping applies to tasks from the job role catalogue. A custom task has no
+            catalogue entry to map against, so this stays unavailable — switch to “From job role”
+            and pick a task if you want this work to count towards capability.
+          </p>
+        ) : !selectedTaskId ? (
+          <p className="text-xs text-muted-foreground">
+            Pick a task above to see and edit which capabilities it builds.
+          </p>
+        ) : (
+          <TaskCompetencyInlinePanel
+            jobroleTaskId={Number(selectedTaskId)}
+            userId={assignees[0] ? Number(assignees[0]) : null}
+          />
+        )}
+      </Field>
       <Field label="Observer *" span={4}><Select value={observerId} onChange={(value) => { setObserverId(value); setObserverName(observers.find((item) => item.id === value)?.name ?? '') }} options={observers.map((item) => ({ value: item.id, label: item.name }))} disabled={!assignees.length || observerLoading} placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'} /></Field>
       <Field label="Key Result Areas (KRAs)" span={4}><Input value={kra} onChange={setKra} /></Field>
       <Field label="Performance Indicators (KPIs)" span={4}><Input value={kpa} onChange={setKpa} /></Field>

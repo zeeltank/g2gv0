@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,12 @@ import {
 import type { LibraryMeta, LibraryPayload, LibraryRow } from '@/services/competency'
 
 import { FORM_KEY_OVERRIDES, type LibraryFieldDef, type LibraryTabConfig } from './library-config'
+import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { competencyLibraryService } from '@/services/competency/library'
+import { roleRequirementsService } from '@/services/competency/role-requirements'
+import { RoleCompetencyInlinePanel } from '@/domain/competency/role-competency-inline-panel'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface LibraryFormProps {
   config: LibraryTabConfig
@@ -25,7 +31,7 @@ interface LibraryFormProps {
   subCategoriesOf: (category: string) => string[]
   /** The tenant's live vocabularies, so departments and roles are picked not typed. */
   meta: LibraryMeta
-  onSubmit: (payload: LibraryPayload) => Promise<{ ok: boolean; message: string }>
+  onSubmit: (payload: LibraryPayload) => Promise<{ ok: boolean; message: string; createdId?: number | null }>
   onCancel: () => void
   onSaved: () => void
 }
@@ -156,13 +162,39 @@ export function LibraryForm({
   onCancel,
   onSaved,
 }: LibraryFormProps) {
+  const { user } = useAuth()
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(config, initial))
   const [error, setError] = useState<string | null>(null)
+  // JOB ROLE TAB ONLY. role_map keys on jobrole_id, so a role that does not
+  // exist yet has nothing to map against: the picks are held here and written
+  // straight after the role is created. Editing an existing role uses the live
+  // panel instead.
+  const [pickedComps, setPickedComps] = useState<number[]>([])
+  const [roleLibrary, setRoleLibrary] = useState<{ id: number; name: string }[]>([])
+  // AN EMPTY LIST AND A FAILED REQUEST ARE NOT THE SAME FACT. Swallowing the
+  // error rendered "No competencies available" for a 401, a 403 and a genuinely
+  // empty tenant alike, which sends you looking in the wrong place.
+  const [roleLibraryError, setRoleLibraryError] = useState<string | null>(null)
   // Editing opens expanded: the value being changed is often one of the
   // specialised columns, and hiding it would look like data loss.
   const [showAdvanced, setShowAdvanced] = useState(() => Boolean(initial))
 
   const editing = Boolean(initial)
+  const isJobRole = config.id === 'jobrole'
+
+  useEffect(() => {
+    if (!isJobRole || editing) return
+    void competencyLibraryService
+      .list(getLaravelContext(user))
+      .then((res) => {
+        setRoleLibrary((res.data ?? []).map((c) => ({ id: c.id, name: c.name })))
+        setRoleLibraryError(null)
+      })
+      .catch((e: unknown) => {
+        setRoleLibrary([])
+        setRoleLibraryError(e instanceof Error ? e.message : 'Could not load the competency library.')
+      })
+  }, [isJobRole, editing, user])
   const editable = useMemo(() => config.fields.filter((field) => !field.readOnly), [config])
   const essentials = useMemo(() => editable.filter((field) => !field.advanced), [editable])
   const advanced = useMemo(() => editable.filter((field) => field.advanced), [editable])
@@ -320,6 +352,34 @@ export function LibraryForm({
     }
 
     const result = await onSubmit(payload)
+
+    // THE ROLE IS CREATED FIRST, THEN MAPPED - it has no id until it exists.
+    // A failure here must not read as a failed create: the role IS saved, so
+    // say what did not happen rather than closing as if all of it worked.
+    if (result.ok && isJobRole && !editing && pickedComps.length > 0) {
+      const newId = result.createdId ?? null
+      if (!newId) {
+        setError('The job role was created, but no id came back, so the competencies were not mapped.')
+        return
+      }
+      try {
+        await roleRequirementsService.save(
+          getLaravelContext(user),
+          newId,
+          // required_proficiency is mandatory and must be 1-5; 3 is mid scale
+          // and stays editable on the role afterwards.
+          pickedComps.map((id) => ({ competency_id: id, required_proficiency: 3, is_mandatory: true })),
+        )
+      } catch (e) {
+        setError(
+          e instanceof Error
+            ? `The job role was created, but its competencies were not mapped: ${e.message}`
+            : 'The job role was created, but its competencies were not mapped.',
+        )
+        return
+      }
+    }
+
     if (result.ok) onSaved()
     else setError(result.message)
   }
@@ -360,6 +420,80 @@ export function LibraryForm({
             {showAdvanced && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-border/70 p-4">
                 {advanced.map(renderField)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── WHAT THIS ROLE REQUIRES ──────────────────────────────────────
+            Merged in from the standalone Role Requirements screen. Set by the
+            person defining the role, who knows what it demands, rather than on
+            a matrix filled in months later.
+
+            TWO MODES, because role_map keys on jobrole_id:
+              edit   - the role exists, so the live panel reads/writes the API.
+              create - nothing exists yet, so picks are held here and written
+                       immediately after the role is created.
+            ───────────────────────────────────────────────────────────────── */}
+        {isJobRole && (
+          <div className="flex flex-col gap-1.5 border-t border-border/70 pt-4">
+            <span className="text-sm font-semibold text-foreground">What this role requires</span>
+            <span className="mb-1 text-xs text-muted-foreground">
+              The competencies this role demands. Gaps are measured against these.
+            </span>
+
+            {editing && initial ? (
+              <RoleCompetencyInlinePanel jobroleId={Number(initial.id)} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {pickedComps.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {pickedComps.map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs"
+                      >
+                        {roleLibrary.find((c) => c.id === id)?.name ?? `#${id}`}
+                        <button
+                          type="button"
+                          aria-label="Remove competency"
+                          onClick={() => setPickedComps((current) => current.filter((x) => x !== id))}
+                          className="text-muted-foreground transition hover:text-destructive"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <SearchableSelect
+                  options={roleLibrary
+                    .filter((c) => !pickedComps.includes(c.id))
+                    .map((c) => ({ label: c.name, value: String(c.id) }))}
+                  value=""
+                  onChange={(next) => {
+                    const id = Number(next)
+                    if (id && !pickedComps.includes(id)) setPickedComps((current) => [...current, id])
+                  }}
+                  placeholder={roleLibrary.length ? "Add a competency this role requires…" : roleLibraryError ? "Competency library could not be loaded" : "No competencies in this library yet"}
+                  searchPlaceholder="Search competencies…"
+                  emptyMessage="No competency matches that search"
+                  disabled={!roleLibrary.length}
+                  className="w-full"
+                  aria-label="Add a competency this role requires"
+                />
+                {roleLibraryError ? (
+                  <span className="text-xs text-destructive">{roleLibraryError}</span>
+                ) : !roleLibrary.length ? (
+                  <span className="text-xs text-muted-foreground">
+                    This organisation has no competencies yet — create them in Competency Library
+                    first, then they can be required here.
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Saved at level 3 right after the role is created, and editable afterwards.
+                  </span>
+                )}
               </div>
             )}
           </div>
