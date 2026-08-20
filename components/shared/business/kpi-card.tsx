@@ -61,7 +61,13 @@ const KPICard = React.forwardRef<HTMLDivElement, KPICardProps>(
     ref,
   ) => (
     <Card ref={ref} className={cn(kpiCardVariants({ variant, size }), className)} {...props}>
-      <CardContent className="space-y-2">
+      {/* p-0 IS LOAD-BEARING. CardContent defaults to `p-6 pt-0`, and the Card
+          above already carries the size variant's own padding (p-3/p-4/p-6).
+          Stacking them gave 72px of horizontal padding at size="sm" inside an
+          `overflow-hidden` Card, so at six-across a value like "12,548" was
+          clipped to "12,5". The variant owns the padding; the content does not
+          add its own. */}
+      <CardContent className="space-y-2 p-0">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground">{label}</p>
