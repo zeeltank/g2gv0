@@ -77,7 +77,19 @@ function buildChildren(flat: FlatNode[], parentId: number | null): NavNode[] {
 function buildModuleTree(rawModules: SidebarMenuNode[]): NavModule[] {
   const flat: FlatNode[] = []
   flattenMenuNodes(rawModules, null, true, flat)
-  return buildChildren(flat, null).map((node) => ({ ...node, short: node.label }))
+  // A MODULE WITH NO SUBMENUS IS STANDALONE. The sidebar uses `standalone` to
+  // decide between "navigate straight there" and "expand a list", so a module
+  // built from the database without it renders a chevron for children it does
+  // not have — which is what Main Dashboard did once it became a real
+  // tblmenumaster_g2g row instead of a frontend constant.
+  //
+  // Derived from the children rather than hardcoded for Home, so any module a
+  // tenant creates without submenus behaves correctly too.
+  return buildChildren(flat, null).map((node) => ({
+    ...node,
+    short: node.label,
+    standalone: node.children.length === 0,
+  }))
 }
 
 export interface SidebarNavigationResult {
@@ -109,7 +121,16 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   })
 
   const modules = useMemo(() => {
-    return [HOME_MODULE, ...buildModuleTree(query.data?.data ?? [])]
+    const fromDb = buildModuleTree(query.data?.data ?? [])
+
+    // THE HOME ENTRY COMES FROM THE DATABASE when a row for it exists, so it
+    // behaves like every other module: rights-filtered, renameable, and
+    // orderable by sort_order. HOME_MODULE remains only as a fallback for a
+    // tenant whose menu tree predates that row - without it those users would
+    // have no way back to the dashboard at all.
+    const hasDbHome = fromDb.some((m) => m.accessLink === '/dashboard')
+
+    return hasDbHome ? fromDb : [HOME_MODULE, ...fromDb]
   }, [query.data])
 
   // `${moduleId}:${menuId}:${submenuId}` -> access_link, and the reverse lookup.

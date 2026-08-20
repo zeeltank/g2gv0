@@ -5,6 +5,11 @@ export type { ContentRoute } from './use-content-map-utils'
 // Keyed by tblmenumaster_g2g module id (level=1 row id); 'm0' is the synthetic Home module.
 const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   m0: () => import('./content-map-m0').then((module) => module.M0_CONTENT),
+  // The Home dashboard is a real tblmenumaster_g2g row now, not a frontend
+  // constant. Id 300 was chosen because it was free in BOTH databases, so
+  // unlike every other menu this one has the same id in local and live - which
+  // is what lets a single key here be correct in both.
+  '300': () => import('./content-map-m0').then((module) => module.M0_CONTENT),
   '1': () => import('./content-map-m1').then((module) => module.M1_CONTENT), // Organizational Management
   '2': () => import('./content-map-m2').then((module) => module.M2_CONTENT), // Competency Management
   '3': () => import('./content-map-m3').then((module) => module.M3_CONTENT), // Talent Management
