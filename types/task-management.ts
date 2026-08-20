@@ -217,6 +217,18 @@ export interface Workstream {
   due_date: string | null
   sort_order: number
 }
+/** One task linked to a project, as returned inside the project detail. */
+export interface ProjectLinkedTask {
+  id: string
+  title: string
+  status: string | null
+  due_date: string | null
+  assignee: string | null
+  /** NULL = linked to the project but not placed in any workstream. */
+  workstream_id: string | null
+  workstream_name: string | null
+}
+
 export interface ProjectRecord {
   id: string; code: string; name: string; category: string | null; description: string
   department_id: string | null; department: string | null; sponsor_id: string | null; sponsor: string | null
@@ -225,9 +237,23 @@ export interface ProjectRecord {
   client_name: string | null; regulatory_flags: string[]; members_count: number; tasks_total: number
   tasks_completed: number; progress: number; archived_at: string | null
   members?: ProjectMember[]; workstreams?: Workstream[]; task_ids?: string[]
+  /**
+   * The tasks actually linked to this project, hydrated from
+   * task_management_project_tasks. `task_ids` above is the same set as bare
+   * ids and is kept for the link-editing checklist.
+   *
+   * `workstream_id` is the field that made workstreams useful: it is written
+   * when a task is attached to a project, and until now was never returned by
+   * any endpoint — so a task's workstream placement could not be seen anywhere.
+   */
+  tasks?: ProjectLinkedTask[]
+  /** Every department on the project, primary first. */
+  departments?: Array<{ id: string; name: string | null; is_primary: boolean }>
 }
 export interface ProjectPayload {
   name: string; category?: string; description: string; department_id?: string; sponsor_id?: string
+  /** Departments beyond the primary. `department_id` remains THE primary. */
+  department_ids?: string[]
   manager_id: string; team_size?: string; member_ids: string[]; priority: ProjectPriority; status?: ProjectStatus
   start_date: string; due_date: string; budget_estimate?: string; client_name?: string; regulatory_flags: string[]
 }
@@ -283,27 +309,75 @@ export interface WorkspaceResponse {
 }
 
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF'
-export interface DependencyTaskRef { id: string; title: string; status: string; due_date: string | null }
+export interface DependencyTaskRef { id: string; title: string; status: string; due_date: string | null; start_date: string | null }
+/**
+ * WHAT THE TYPE AND LAG ACTUALLY IMPLY.
+ *
+ * `implied_date` is where the successor's `target_field` SHOULD sit given the
+ * predecessor's anchor date, the dependency type and the lag. It is null when
+ * the anchor is missing — SS and SF read `planned_start_date`, which no screen
+ * sets — and `reason` then names what is missing rather than guessing.
+ *
+ * Nothing is ever moved automatically. `violates` only reports.
+ */
+export interface DependencySchedule {
+  implied_date: string | null
+  target_field: 'planned_start_date' | 'due_date'
+  current_date: string | null
+  violates: boolean
+  reason: string | null
+}
 export interface TaskDependency {
   id: string
   type: DependencyType
   lag_days: number
   notes: string | null
   project_id: string | null
+  /** Inferred from the successor's project link; kept in step with
+      `project_id` on write, and returned so a divergence is visible. */
+  derived_project_id: string | null
+  workstream_id: string | null
   project: string
   assignee_id: string | null
   assignee: string
   predecessor: DependencyTaskRef
   successor: DependencyTaskRef
   blocking: boolean
+  schedule: DependencySchedule
 }
 export interface DependencyNode {
+  /** NULL for most tasks - the column is set by no screen, so the timeline
+      shows a marker on the due date instead of a fabricated span. */
+  planned_start_date?: string | null
   id: string; title: string; status: string; priority: string | null; due_date: string | null
   project: string; assignee: string; at_risk: boolean
+  /** The map filters on the id, never on the rendered name. */
+  assignee_id: string | null
+  /** The board is grouped by WORKSTREAM, not by project. Both are nullable:
+      a task can be linked to a project without belonging to a workstream. */
+  project_id: string | null; workstream_id: string | null; workstream: string | null
+}
+export interface MilestoneCounts {
+  total: number; completed: number; open: number; blocked: number; overdue: number
 }
 export interface TaskMilestone {
   id: string; project_id: string; workstream_id: string | null; name: string; description: string | null
   target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'; project_name: string; workstream_name: string | null
+  /** Scoped to THIS milestone's project (and workstream when it has one).
+      The cards used to print one tenant-wide number on every card. */
+  counts: MilestoneCounts
+}
+export interface MilestonesResponse {
+  status: 1
+  message: string
+  data: {
+    milestones: TaskMilestone[]
+    options: {
+      projects: Array<{ id: string; name: string }>
+      workstreams: Array<{ id: string; name: string; project_id: string }>
+      statuses: Array<'UPCOMING' | 'AT RISK' | 'COMPLETED'>
+    }
+  }
 }
 export interface DependenciesResponse {
   status: 1
@@ -316,7 +390,8 @@ export interface DependenciesResponse {
     options: {
       types: DependencyType[]
       projects: Array<{ id: string; name: string }>
-      tasks: Array<{ id: string; title: string; status: string; due_date: string | null }>
+      /** project_id has always been returned by taskOptions(); it was never typed, so nothing used it. */
+      tasks: Array<{ id: string; title: string; status: string; due_date: string | null; project_id: string | null }>
       users: Array<{ id: string; name: string }>
     }
   }

@@ -30,7 +30,7 @@ import type {
   ProductivityRow,
   DelayReport,
   DependenciesResponse,
-  DependencyType,
+  DependencyType, MilestonesResponse,
 } from '@/types/task-management'
 
 export interface Project {
@@ -349,6 +349,15 @@ export const taskService = {
       ...response,
       data: response.data.workstreams ?? [],
     })),
+  /**
+   * Milestones on their own. They used to arrive only inside getDependencies,
+   * so the milestone tab could not refresh without refetching the whole graph.
+   */
+  getMilestones: (context: LaravelContext, params: { projectId?: string } = {}) =>
+    apiClient.get<MilestonesResponse>('/task-management/milestones', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      ...(params.projectId ? { project_id: params.projectId } : {}),
+    }),
   createMilestone: (context: LaravelContext, payload: {
     project_id: string; workstream_id?: string; name: string; description?: string
     target_date: string; status: 'UPCOMING' | 'AT RISK' | 'COMPLETED'
