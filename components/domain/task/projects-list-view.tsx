@@ -80,7 +80,18 @@ export function ProjectsListView() {
         </div>
       )}
       {!loading && pagination.total > 0 && <div className="flex items-center justify-between border-t pt-3 text-sm"><span>{pagination.total} projects</span><div className="flex items-center gap-3"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((v) => v - 1)}>Previous</Button><span>Page {pagination.current_page} of {pagination.last_page}</span><Button variant="outline" size="sm" disabled={page >= pagination.last_page} onClick={() => setPage((v) => v + 1)}>Next</Button></div></div>}
-      <CreateProjectModal isOpen={formOpen} onClose={() => setFormOpen(false)} options={options} project={editing} onSaved={(text) => { setMessage(text); setReload((v) => v + 1) }} />
+      {/* `editing` is cleared on close so a re-edit cannot reseed the form from
+          a stale record, and the list refresh is deferred to the next frame so
+          it does not unmount every card - and every DropdownMenu inside them -
+          while the dialog is still animating out. Both were making the
+          pointer-events race above more likely to land badly. */}
+      <CreateProjectModal
+        isOpen={formOpen}
+        onClose={() => { setFormOpen(false); setEditing(null) }}
+        options={options}
+        project={editing}
+        onSaved={(text) => { setMessage(text); requestAnimationFrame(() => setReload((v) => v + 1)) }}
+      />
       <ProjectDrawer projectId={selectedId} open={selectedId !== null} options={options} onClose={() => setSelectedId(null)} onChanged={() => setReload((v) => v + 1)} />
     </div>
   )
@@ -89,7 +100,18 @@ export function ProjectsListView() {
 function ProjectCard({ project, onOpen, onEdit, onArchive }: { project: ProjectRecord; onOpen: () => void; onEdit: () => void; onArchive: () => void }) {
   return <Card className="cursor-pointer transition hover:border-primary/40 hover:shadow-md" onClick={onOpen}><CardContent className="p-5">
     <div className="flex items-start justify-between"><div className="flex gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><Briefcase className="size-5" /></div><div><h3 className="font-semibold">{project.name}</h3><p className="text-xs text-muted-foreground">{project.code}</p></div></div>
-      <DropdownMenu><DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="rounded-lg p-2 hover:bg-muted"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit Project</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen() }}>Manage Team & Workstreams</DropdownMenuItem><DropdownMenuItem className="text-danger" onClick={(e) => { e.stopPropagation(); onArchive() }}>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      {/* modal={false} IS THE FIX FOR THE FROZEN SCREEN, and it is not cosmetic.
+          A modal Radix menu and a modal Radix dialog both register into
+          dismissable-layer's MODULE-LEVEL `originalBodyPointerEvents`. Opening
+          the edit dialog from this menu overlaps their teardowns, and whichever
+          unmounts last writes the captured value back onto <body> - which can
+          be "none". The page then looks normal and swallows every click.
+
+          Creating a project never hits this because it opens from a plain
+          button with no second layer. recruitment-center.tsx and
+          talent-dashboard.tsx already carry this same fix; this file was the
+          outlier. */}
+      <DropdownMenu modal={false}><DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="rounded-lg p-2 hover:bg-muted"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit Project</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen() }}>Manage Team & Workstreams</DropdownMenuItem><DropdownMenuItem className="text-danger" onClick={(e) => { e.stopPropagation(); onArchive() }}>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
     </div>
     <p className="my-4 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
     <div className="grid grid-cols-2 gap-3 text-sm"><span className="flex items-center gap-2"><Calendar className="size-4 text-muted-foreground" />{date(project.due_date)}</span><span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-muted-foreground" />{project.tasks_completed}/{project.tasks_total} tasks</span><span className="flex items-center gap-2"><Users className="size-4 text-muted-foreground" />{project.members_count} members</span><Status status={project.status} /></div>
@@ -123,12 +145,52 @@ function ProjectDrawer({ projectId, open, options, onClose, onChanged }: { proje
       <div className="flex gap-1 overflow-x-auto border-b">{(['overview','team','workstreams','tasks'] as const).map((value) => <Button key={value} variant="ghost" onClick={() => setTab(value)} className={cn('rounded-none border-b-2 capitalize', tab === value ? 'border-primary text-primary' : 'border-transparent')}>{value}</Button>)}</div>
       {project && tab === 'overview' && <div className="space-y-4"><p className="rounded-xl bg-muted/30 p-4 text-sm">{project.description}</p><div className="grid grid-cols-2 gap-3 text-sm"><Info label="Manager" value={project.manager ?? '—'} /><Info label="Sponsor" value={project.sponsor ?? '—'} /><Info label="Department" value={project.department ?? '—'} /><Info label="Timeline" value={`${date(project.start_date)} – ${date(project.due_date)}`} /><Info label="Priority" value={<PriorityBadge priority={project.priority} />} /><Info label="Status" value={<StatusBadge status={project.status} />} /><Info label="Client" value={project.client_name ?? '—'} /><Info label="Budget" value={project.budget_estimate ? Number(project.budget_estimate).toLocaleString() : '—'} /></div></div>}
       {project && tab === 'team' && <div><h3 className="mb-3 font-semibold">Project members</h3><Checklist items={options.users.map((u) => ({ id: String(u.id), label: u.name }))} selected={members} setSelected={setMembers} /><Button className="mt-4" onClick={saveMembers}>Save Team</Button></div>}
+      {/* THE TASKS TAB READS THE PROJECT'S OWN LINK, not a department.
+          It used to filter the global 200-task option list by the project's
+          department — and that list carries the ASSIGNEE's department, not the
+          task's. So it showed "No tasks available for the selected department"
+          even for projects that already had tasks linked, and any linked task
+          outside that department was invisible.
+
+          `project.tasks` now comes hydrated from task_management_project_tasks,
+          and carries workstream_id — which was written in four places and never
+          read back anywhere, so workstream placement was invisible product-wide. */}
       {project && tab === 'tasks' && (() => {
-        const departmentTasks = project.department_id
-          ? options.tasks.filter((task) => String(task.department_id ?? '') === String(project.department_id))
-          : []
-        return <div><h3 className="mb-1 font-semibold">Linked tasks</h3><p className="mb-3 text-xs text-muted-foreground">{project.department ? `Showing tasks for ${project.department}` : 'This project has no department assigned.'}</p>
-          {departmentTasks.length ? <><Checklist items={departmentTasks.map((task) => ({ id: String(task.id), label: `${task.title} (${task.status ?? 'Pending'})` }))} selected={taskIds.filter((id) => departmentTasks.some((task) => String(task.id) === id))} setSelected={(next) => setTaskIds([...taskIds.filter((id) => !departmentTasks.some((task) => String(task.id) === id)), ...next])} /><Button className="mt-4" onClick={saveTasks}>Save Linked Tasks</Button></> : <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No tasks available for the selected department.</div>}
+        const linked = project.tasks ?? []
+        const groups = new Map<string, { name: string; tasks: typeof linked }>()
+        for (const task of linked) {
+          const key = task.workstream_id ?? 'none'
+          if (!groups.has(key)) groups.set(key, { name: task.workstream_name ?? 'Not in a workstream', tasks: [] })
+          groups.get(key)!.tasks.push(task)
+        }
+
+        return <div className="space-y-5">
+          <div>
+            <h3 className="mb-1 font-semibold">Linked tasks</h3>
+            <p className="mb-3 text-xs text-muted-foreground">{linked.length ? `${linked.length} task(s) linked to this project, grouped by workstream.` : 'No tasks are linked to this project yet.'}</p>
+            {linked.length ? <div className="space-y-4">{[...groups.entries()].map(([key, group]) => (
+              <div key={key}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.name}</p>
+                <div className="space-y-1.5">{group.tasks.map((task) => (
+                  <div key={task.id} className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{task.status ?? 'Pending'}</span>
+                    {task.assignee && <span className="shrink-0 text-xs text-muted-foreground">· {task.assignee}</span>}
+                    {task.due_date && <span className="shrink-0 text-xs text-muted-foreground">· {date(task.due_date)}</span>}
+                  </div>
+                ))}</div>
+              </div>
+            ))}</div> : <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Link tasks below to track them under this project.</div>}
+          </div>
+
+          <div>
+            <h3 className="mb-1 font-semibold">Link more tasks</h3>
+            {/* The option list is the tenant's most recent 200 tasks; say so
+                rather than letting an absent task look like a missing record. */}
+            <p className="mb-3 text-xs text-muted-foreground">Choosing from this organisation&apos;s {options.tasks.length} most recent tasks.</p>
+            <Checklist items={options.tasks.map((task) => ({ id: String(task.id), label: `${task.title} (${task.status ?? 'Pending'})` }))} selected={taskIds} setSelected={setTaskIds} />
+            <Button className="mt-4" onClick={saveTasks}>Save Linked Tasks</Button>
+          </div>
         </div>
       })()}
       {project && tab === 'workstreams' && <div className="space-y-4"><div className="grid gap-2 sm:grid-cols-3"><input value={wsName} onChange={(e) => setWsName(e.target.value)} placeholder="Workstream name" className="h-10 rounded-lg border px-3 text-sm" /><Select value={wsOwner} onChange={setWsOwner} options={(project.members ?? []).map((member) => ({ value: String(member.id), label: member.name }))} placeholder={project.members?.length ? 'Owner' : 'No team members available'} disabled={!project.members?.length} /><Select value={wsStatus} onChange={(v) => setWsStatus(v as ProjectStatus)} options={options.statuses.filter((s) => s !== 'ARCHIVED').map((s) => ({ value: s, label: s }))} /></div>{!project.members?.length && <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">No team members available. Please add team members first.</p>}<div className="flex gap-2"><Button onClick={saveWorkstream} disabled={!wsName.trim()}>{editingWorkstream ? 'Save Workstream' : 'Add Workstream'}</Button>{editingWorkstream && <Button variant="outline" onClick={() => { setEditingWorkstream(null); setWsName(''); setWsOwner(''); setWsStatus('PLANNING') }}>Cancel</Button>}</div><div className="space-y-2">{project.workstreams?.map((item) => <div key={item.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.owner_name || 'No owner'} · {item.status}</p></div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => { setEditingWorkstream(item); setWsName(item.name); setWsOwner(item.owner_id && project.members?.some((member) => String(member.id) === String(item.owner_id)) ? String(item.owner_id) : ''); setWsStatus(item.status) }}>Edit</Button><Button variant="outline" size="sm" onClick={() => removeWorkstream(item)}>Delete</Button></div></div>)}{!project.workstreams?.length && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No workstreams yet.</p>}</div></div>}

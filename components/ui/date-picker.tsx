@@ -26,11 +26,30 @@ interface DatePickerProps {
   toYear?: number
 }
 
-/** Strings arrive from forms and APIs; reject the ones date-fns would throw on. */
+/**
+ * Strings arrive from forms and APIs; reject the ones date-fns would throw on.
+ *
+ * A BARE "YYYY-MM-DD" MUST BE PARSED AS LOCAL, NOT UTC. `new Date("2026-01-02")`
+ * is defined to parse as UTC midnight, so west of Greenwich it renders as
+ * 1 January — the calendar highlights the day before the stored one. Splitting
+ * the parts and using the Date(y, m, d) constructor pins it to local midnight,
+ * which is what every caller means by a date-only value.
+ *
+ * Datetime strings (anything with a "T") keep the standard parse; those carry a
+ * real instant and their offset is meaningful.
+ */
 function toValidDate(value?: Date | string): Date | undefined {
   if (!value) return undefined
 
-  const parsed = value instanceof Date ? value : new Date(value)
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value
+  }
+
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
+  const parsed = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(value)
 
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }

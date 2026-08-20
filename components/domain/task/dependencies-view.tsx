@@ -1,26 +1,24 @@
 'use client'
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react'
-import { 
-  Users, 
-  AlertTriangle, 
-  Clock, 
-  CheckCircle2, 
-  Flag, 
-  GitMerge, 
-  Search, 
-  Filter, 
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import {
+  Users,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Flag,
+  GitMerge,
+  Filter,
   Plus,
   Layout,
-  ArrowRight,
-  UserCircle2,
   Calendar,
   AlertCircle,
   CalendarDays,
   Columns,
   Target,
-  MoreVertical,
-  ChevronRight
+  Pencil,
+  Trash2,
+  CalendarClock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -39,7 +37,6 @@ import {
 
 import {
   ReactFlow,
-  MiniMap,
   Controls,
   Background,
   useNodesState,
@@ -48,17 +45,18 @@ import {
   Position,
   BackgroundVariant,
   MarkerType,
-  Panel,
   Edge,
   Node,
-  addEdge,
   Connection,
+  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import dagre from '@dagrejs/dagre'
 import { taskChartColors } from '@/lib/chart-colors'
+import { fromDateOnly } from '@/lib/date-only'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { DependenciesResponse, DependencyNode, DependencyType, TaskDependency, Workstream } from '@/types/task-management'
+import type { DependenciesResponse, DependencyNode, DependencyType, TaskDependency, TaskMilestone, Workstream } from '@/types/task-management'
 
 // Custom Premium Node Component
 const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
@@ -68,8 +66,7 @@ const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
       case 'in_progress': return 'from-blue-500/20 to-blue-500/5 text-primary border-blue-500/30 ring-blue-500/20'
       case 'at_risk': return 'from-amber-500/20 to-amber-500/5 text-amber-500 border-amber-500/30 ring-amber-500/20'
       case 'blocked': return 'from-rose-500/20 to-rose-500/5 text-rose-500 border-rose-500/30 ring-rose-500/20'
-      case 'milestone': return 'from-purple-500/20 to-purple-500/5 text-primary border-purple-500/30 ring-purple-500/20'
-      default: return 'from-slate-500/20 to-slate-500/5 text-slate-500 border-slate-500/30 ring-slate-500/20'
+      default:return 'from-slate-500/20 to-slate-500/5 text-slate-500 border-slate-500/30 ring-slate-500/20'
     }
   }
 
@@ -79,7 +76,6 @@ const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
       case 'in_progress': return 'text-primary bg-primary/10'
       case 'at_risk': return 'text-amber-500 bg-warning/10'
       case 'blocked': return 'text-rose-500 bg-rose-500/10'
-      case 'milestone': return 'text-primary bg-primary/10'
       default: return 'text-slate-500 bg-slate-500/10'
     }
   }
@@ -90,34 +86,35 @@ const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
       case 'in_progress': return <Clock className="h-4 w-4" />
       case 'at_risk': return <AlertCircle className="h-4 w-4" />
       case 'blocked': return <AlertTriangle className="h-4 w-4" />
-      case 'milestone': return <Flag className="h-4 w-4" />
       default: return <Clock className="h-4 w-4" />
     }
   }
 
   const formatStatus = (status: string) => status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-  const isMilestone = data.status === 'milestone'
+  // The handles must face the way the graph flows, or a top-to-bottom layout
+  // draws every edge looping out of a node's right side and back into the left
+  // of the node beneath it.
+  const vertical = data.direction === 'TB'
 
   return (
     <div className={cn(
-      "group relative w-[280px] rounded-2xl border bg-card/90 backdrop-blur-2xl p-4 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-50",
+      "group relative w-[280px] rounded-2xl border bg-card/90 backdrop-blur-2xl p-4 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-50 ring-0",
       getStatusColor(data.status),
-      data.selected ? 'ring-4' : 'ring-0',
       data.status === 'blocked' ? 'animate-pulse shadow-rose-500/20' : ''
     )}>
       {/* Handles with custom styling to ensure connection points are visible */}
-      <Handle 
-        type="target" 
-        position={Position.Left} 
+      <Handle
+        type="target"
+        position={vertical ? Position.Top : Position.Left}
         className={cn(
           "w-5 h-5 border-2 transition-all duration-300 group-hover:scale-125 !bg-background cursor-crosshair z-20",
           getStatusColor(data.status).split(' ')[1] // Uses text color class as border
         )}
       />
-      <Handle 
-        type="source" 
-        position={Position.Right} 
+      <Handle
+        type="source"
+        position={vertical ? Position.Bottom : Position.Right}
         className={cn(
           "w-5 h-5 border-2 transition-all duration-300 group-hover:scale-125 !bg-background cursor-crosshair z-20",
           getStatusColor(data.status).split(' ')[1]
@@ -173,6 +170,77 @@ const emptyData: DependenciesResponse['data'] = {
   options: { types: ['FS', 'SS', 'FF', 'SF'], projects: [], tasks: [], users: [] },
 }
 
+/**
+ * WHAT THE FOUR TYPES MEAN, in the words the form needs.
+ *
+ * `dependency_type` was stored and echoed back and branched nothing, so the
+ * four letters were interchangeable. The server now anchors on the right date
+ * per type; this is the same rule stated for the person choosing it.
+ */
+const DEPENDENCY_TYPE_LABELS: Record<string, string> = {
+  FS: 'Finish → Start', SS: 'Start → Start', FF: 'Finish → Finish', SF: 'Start → Finish',
+}
+const DEPENDENCY_TYPE_HELP: Record<string, string> = {
+  FS: 'The successor starts after the predecessor finishes — the day after its due date.',
+  SS: 'The two start together: the successor starts when the predecessor starts.',
+  FF: 'The two finish together: the successor is due when the predecessor is due.',
+  SF: 'The successor is due once the predecessor starts.',
+}
+/** The server's own list, mirrored for the create form's dropdown. */
+const MILESTONE_STATUSES: Array<TaskMilestone['status']> = ['UPCOMING', 'AT RISK', 'COMPLETED']
+
+/** The node card is w-[280px]; the height is measured from a rendered card. */
+const NODE_WIDTH = 280
+const NODE_HEIGHT = 170
+
+/**
+ * A GENUINE HIERARCHICAL LAYOUT.
+ *
+ * "Left to Right (Dagre)" named a library that was not installed. The handler
+ * behind it restored the original grid, and "Top to Bottom" multiplied the grid
+ * coordinates by 3 and 0.8 — a comment in the file called it a mock. Neither
+ * consulted a single edge, so nodes were placed in insert order and arrows ran
+ * in every direction.
+ *
+ * Dagre ranks nodes by their dependency edges, which is what makes a dependency
+ * graph readable: predecessors on one side, successors on the other.
+ */
+function layoutGraph(nodes: Node[], edges: Edge[], direction: 'LR' | 'TB'): Node[] {
+  if (!nodes.length) return nodes
+  const graph = new dagre.graphlib.Graph()
+  graph.setDefaultEdgeLabel(() => ({}))
+  graph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 140, marginx: 40, marginy: 40 })
+
+  const known = new Set(nodes.map((node) => node.id))
+  nodes.forEach((node) => graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }))
+  edges.forEach((edge) => {
+    // An edge to a node that is not on the canvas would make dagre invent one.
+    if (known.has(edge.source) && known.has(edge.target)) graph.setEdge(edge.source, edge.target)
+  })
+  dagre.layout(graph)
+
+  return nodes.map((node) => {
+    const placed = graph.node(node.id)
+    if (!placed) return node
+    return {
+      ...node,
+      // dagre returns the CENTRE; React Flow positions by the top-left corner.
+      position: { x: placed.x - NODE_WIDTH / 2, y: placed.y - NODE_HEIGHT / 2 },
+      data: { ...node.data, direction },
+      targetPosition: direction === 'LR' ? Position.Left : Position.Top,
+      sourcePosition: direction === 'LR' ? Position.Right : Position.Bottom,
+    }
+  })
+}
+
+/** `2026-03-13` -> `13 Mar 2026`, parsed as a local date-only value. */
+function formatDate(value: string | null | undefined) {
+  if (!value) return null
+  const date = fromDateOnly(value)
+  if (!date || Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 function normalizeStatus(status: string, atRisk = false) {
   if (atRisk) return 'at_risk'
   const value = status.toUpperCase()
@@ -185,10 +253,13 @@ function normalizeStatus(status: string, atRisk = false) {
 function graphNodes(tasks: DependencyNode[]): Node[] {
   return Array.from(new Map(tasks.map((task) => [task.id, task])).values()).map((task, index) => ({
     id: task.id, type: 'taskNode',
+    // A holding grid only. layoutGraph() replaces these the moment data lands.
     position: { x: (index % 4) * 390 + 50, y: Math.floor(index / 4) * 230 + 80 },
     data: {
       id: `T-${task.id}`, title: task.title, status: normalizeStatus(task.status, task.at_risk),
-      assignee: task.assignee, duration: task.due_date ?? 'No due date', project: task.project,
+      assignee: task.assignee, duration: formatDate(task.due_date) ?? 'No due date', project: task.project,
+      // IDS, not display names - the filters compare on these.
+      assigneeId: task.assignee_id ?? '', projectId: task.project_id ?? '', direction: 'LR',
     },
   }))
 }
@@ -230,19 +301,56 @@ export function DependenciesView() {
   const [workstreams, setWorkstreams] = useState<Workstream[]>([])
   const [workstreamsLoading, setWorkstreamsLoading] = useState(false)
   const [workstreamsError, setWorkstreamsError] = useState('')
+  // The create dialog reports its own failures. A 422 rendered behind the
+  // overlay is a 422 nobody sees.
+  const [formError, setFormError] = useState('')
+  const [direction, setDirection] = useState<'LR' | 'TB'>('LR')
+  const flowRef = useRef<ReactFlowInstance | null>(null)
+  const [applyingId, setApplyingId] = useState('')
+  // Milestone CRUD. POST/PUT/DELETE existed on the server with nothing calling
+  // them, so a milestone could only be created by writing to the database.
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false)
+  const [editingMilestone, setEditingMilestone] = useState<TaskMilestone | null>(null)
+  const [milestoneForm, setMilestoneForm] = useState({
+    project_id: '', workstream_id: '', name: '', description: '',
+    target_date: '', status: 'UPCOMING' as TaskMilestone['status'],
+  })
+  const [milestoneWorkstreams, setMilestoneWorkstreams] = useState<Workstream[]>([])
+  const [milestoneError, setMilestoneError] = useState('')
+  const [milestoneSaving, setMilestoneSaving] = useState(false)
+
+  // Candidates for predecessor/successor: this project's tasks when one is
+  // chosen, otherwise everything. A dependency needs two tasks from ONE
+  // project, so narrowing here is what removes the confusing 422.
+  const eligibleTasks = selectedProject
+    ? (data?.options.tasks ?? []).filter((task) => String(task.project_id ?? '') === selectedProject)
+    : (data?.options.tasks ?? [])
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
+    // WITHOUT A SESSION THERE IS NO TENANT, and the request would come back as
+    // an authentication failure dressed up as an empty graph.
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) {
+      setError('Your session is not ready yet. Reload the page to continue.')
+      setLoading(false)
+      return
+    }
     try {
-      const response = await taskService.getDependencies(getLaravelContext())
+      const response = await taskService.getDependencies(context)
       const uniqueTasks = Array.from(new Map(response.data.tasks.map((task) => [task.id, task])).values())
       const uniqueDependencies = Array.from(new Map(response.data.dependencies.map((dependency) => [dependency.id, dependency])).values())
       const nextData = { ...response.data, tasks: uniqueTasks, dependencies: uniqueDependencies }
-      const nextNodes = graphNodes(uniqueTasks)
-      setData(nextData); setBaseNodes(nextNodes); setNodes(nextNodes); setEdges(graphEdges(uniqueDependencies))
+      const nextEdges = graphEdges(uniqueDependencies)
+      // Laid out by the dependency edges, not by insert order.
+      const nextNodes = layoutGraph(graphNodes(uniqueTasks), nextEdges, direction)
+      setData(nextData); setBaseNodes(nextNodes); setNodes(nextNodes); setEdges(nextEdges)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load dependencies.')
     } finally { setLoading(false) }
+    // `direction` is read, not tracked: re-laying out on a direction change is
+    // handleLayout's job and must not trigger a refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setEdges, setNodes])
 
 useEffect(() => {
@@ -257,6 +365,11 @@ useEffect(() => {
     let active = true
     queueMicrotask(() => {
       if (!active) return
+      // CHANGING PROJECT INVALIDATES THE TASKS. It used to reset only the
+      // workstream, so predecessor/successor kept ids from the previous
+      // project and submit produced the very "two tasks from the same project"
+      // 422 the filter exists to prevent.
+      setPredecessor(''); setSuccessor('')
       if (!selectedProject) { setWorkstreams([]); setSelectedWorkstream(''); setWorkstreamsError(''); return }
       const context = getLaravelContext()
       if (!isLaravelContextReady(context)) { setWorkstreamsError('Session unavailable.'); return }
@@ -269,7 +382,19 @@ useEffect(() => {
     return () => { active = false }
   }, [selectedProject])
 
-  // Filter States
+  // THE MAP OPENED BLANK. React Flow's `fitView` prop fits once, on mount, when
+  // `nodes` is still the empty array; the data arrived a moment later and the
+  // viewport was never re-fitted - which is why switching tabs and back
+  // "fixed" it. Re-fit whenever the node set changes while the map is visible.
+  useEffect(() => {
+    if (activeTab !== 'map' || !nodes.length) return
+    const frame = requestAnimationFrame(() => {
+      flowRef.current?.fitView({ padding: 0.2, duration: 300 })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [activeTab, nodes.length])
+
+  // Filter States - these hold IDS, matched against ids on the node.
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterProject, setFilterProject] = useState<string | null>(null)
@@ -282,10 +407,10 @@ useEffect(() => {
         if (filterStatus && node.data.status !== filterStatus) {
           isVisible = false
         }
-        if (filterAssignee && node.data.assignee !== filterAssignee) {
+        if (filterAssignee && node.data.assigneeId !== filterAssignee) {
           isVisible = false
         }
-        if (filterProject && node.data.project !== filterProject) {
+        if (filterProject && node.data.projectId !== filterProject) {
           isVisible = false
         }
         return { ...node, hidden: !isVisible }
@@ -300,39 +425,45 @@ useEffect(() => {
         let isVisible = true
         
         if (filterStatus && (sourceNode?.data.status !== filterStatus && targetNode?.data.status !== filterStatus)) isVisible = false
-        if (filterAssignee && (sourceNode?.data.assignee !== filterAssignee && targetNode?.data.assignee !== filterAssignee)) isVisible = false
-        if (filterProject && (sourceNode?.data.project !== filterProject && targetNode?.data.project !== filterProject)) isVisible = false
+        if (filterAssignee && (sourceNode?.data.assigneeId !== filterAssignee && targetNode?.data.assigneeId !== filterAssignee)) isVisible = false
+        if (filterProject && (sourceNode?.data.projectId !== filterProject && targetNode?.data.projectId !== filterProject)) isVisible = false
 
         return { ...edge, hidden: !isVisible }
       })
     )
   }, [baseNodes, filterStatus, filterAssignee, filterProject, setNodes, setEdges])
 
-  const handleLayout = (direction: 'TB' | 'LR' | 'reset') => {
-    if (direction === 'reset') {
-      setNodes(baseNodes.map((node) => ({ ...node })))
-      return
-    }
-
-    const newNodes = nodes.map(node => {
-      const initial = baseNodes.find(n => n.id === node.id)
-      if (!initial) return node
-
-      if (direction === 'TB') {
-        // Mock a top-to-bottom layout by flipping coordinates
-        return { 
-          ...node, 
-          position: { 
-            x: initial.position.y * 3, 
-            y: initial.position.x * 0.8 
-          } 
-        }
-      } else {
-        // Left to Right (restore original)
-        return { ...node, position: initial.position }
-      }
+  const handleLayout = (next: 'TB' | 'LR' | 'reset') => {
+    // "Reset" means back to the laid-out positions the graph loaded with, in
+    // whichever direction is currently selected - not back to the holding grid.
+    const target = next === 'reset' ? direction : next
+    setDirection(target)
+    setNodes((current) => {
+      const laid = layoutGraph(next === 'reset' ? baseNodes : current, edges, target)
+      if (next === 'reset') setBaseNodes(laid)
+      return laid
     })
-    setNodes(newNodes)
+    requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.2, duration: 300 }))
+  }
+
+  /**
+   * MOVE THE SUCCESSOR TO THE DATE ITS DEPENDENCY IMPLIES.
+   *
+   * Never automatic. `schedule.implied_date` says where the date should sit;
+   * this is the click that puts it there, and `schedule.target_field` decides
+   * whether that is the start date or the due date.
+   */
+  const applySchedule = async (dependency: TaskDependency) => {
+    const { implied_date: implied, target_field: field } = dependency.schedule
+    if (!implied) return
+    setApplyingId(dependency.id); setError(''); setMessage('')
+    try {
+      await taskService.updateTaskSchedule(getLaravelContext(), dependency.successor.id, { [field]: implied })
+      setMessage(`"${dependency.successor.title}" moved to ${formatDate(implied)}.`)
+      setReload((value) => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to move that task.')
+    } finally { setApplyingId('') }
   }
 
   const onConnect = useCallback((params: Connection) => {
@@ -353,8 +484,8 @@ useEffect(() => {
   )
 
   const createDependency = async () => {
-    if (!predecessor || !successor) { setError('Select predecessor and successor tasks.'); return }
-    setSaving(true); setError('')
+    if (!predecessor || !successor) { setFormError('Select both a predecessor and a successor task.'); return }
+    setSaving(true); setFormError('')
     try {
       const response = await taskService.createDependency(getLaravelContext(), {
         predecessor_task_id: predecessor, successor_task_id: successor,
@@ -364,9 +495,92 @@ useEffect(() => {
       setMessage(response.message); setIsCreateModalOpen(false); setPredecessor(''); setSuccessor(''); setNotes(''); setLagDays('0')
       setSelectedProject(''); setSelectedWorkstream(''); setWorkstreams([])
       setReload((value) => value + 1)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create dependency.') }
+    } catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Unable to create dependency.') }
     finally { setSaving(false) }
   }
+
+  const openMilestoneModal = (milestone: TaskMilestone | null) => {
+    setEditingMilestone(milestone)
+    setMilestoneError('')
+    setMilestoneForm(milestone
+      ? { project_id: String(milestone.project_id), workstream_id: milestone.workstream_id ? String(milestone.workstream_id) : '',
+          name: milestone.name, description: milestone.description ?? '', target_date: milestone.target_date, status: milestone.status }
+      : { project_id: '', workstream_id: '', name: '', description: '', target_date: '', status: 'UPCOMING' })
+    setMilestoneModalOpen(true)
+  }
+
+  const saveMilestone = async () => {
+    if (!milestoneForm.project_id || !milestoneForm.name.trim() || !milestoneForm.target_date) {
+      setMilestoneError('A milestone needs a project, a name and a target date.')
+      return
+    }
+    setMilestoneSaving(true); setMilestoneError('')
+    const payload = {
+      project_id: milestoneForm.project_id,
+      ...(milestoneForm.workstream_id ? { workstream_id: milestoneForm.workstream_id } : {}),
+      name: milestoneForm.name.trim(),
+      ...(milestoneForm.description.trim() ? { description: milestoneForm.description.trim() } : {}),
+      target_date: milestoneForm.target_date, status: milestoneForm.status,
+    }
+    try {
+      const response = editingMilestone
+        ? await taskService.updateMilestone(getLaravelContext(), editingMilestone.id, payload)
+        : await taskService.createMilestone(getLaravelContext(), payload)
+      setMessage(response.message); setMilestoneModalOpen(false); setReload((value) => value + 1)
+    } catch (reason) {
+      setMilestoneError(reason instanceof Error ? reason.message : 'Unable to save that milestone.')
+    } finally { setMilestoneSaving(false) }
+  }
+
+  const removeMilestone = async (milestone: TaskMilestone) => {
+    if (!window.confirm(`Delete the milestone "${milestone.name}"?`)) return
+    try {
+      const response = await taskService.deleteMilestone(getLaravelContext(), milestone.id)
+      setMessage(response.message); setReload((value) => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete that milestone.')
+    }
+  }
+
+  // The milestone dialog needs the chosen project's workstreams, exactly as the
+  // dependency dialog does.
+  useEffect(() => {
+    let active = true
+    // Deferred so the reset lands after this render rather than cascading out
+    // of the effect body - the same shape as the dependency dialog's loader.
+    queueMicrotask(() => {
+      if (!active) return
+      const projectId = milestoneForm.project_id
+      if (!projectId) { setMilestoneWorkstreams([]); return }
+      const context = getLaravelContext()
+      if (!isLaravelContextReady(context)) return
+      taskService.getWorkstreams(context, projectId)
+        .then((response) => { if (active) setMilestoneWorkstreams(response.data ?? []) })
+        .catch(() => { if (active) setMilestoneWorkstreams([]) })
+    })
+    return () => { active = false }
+  }, [milestoneForm.project_id])
+
+  // Only dependencies whose successor sits earlier than their type and lag
+  // allow. `implied_date` is null when the anchor date is missing, and those
+  // carry a reason instead of a number.
+  const scheduleIssues = data.dependencies.filter((dependency) => dependency.schedule?.violates)
+
+  // FILTERS OFFER ONLY WHAT IS ON THE CANVAS. data.options.users lists every
+  // active person in the tenant; offering all of them would fill the menu with
+  // choices that blank the graph, because the graph only holds tasks that take
+  // part in a dependency.
+  const assigneeOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    data.tasks.forEach((task) => { if (task.assignee_id) seen.set(task.assignee_id, task.assignee) })
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.tasks])
+
+  const projectOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    data.tasks.forEach((task) => { if (task.project_id) seen.set(task.project_id, task.project) })
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.tasks])
 
   const pulseData = [
     { id: 'total', title: 'Total Dependencies', value: data.summary.total, subtitle: 'Across all active projects', icon: GitMerge },
@@ -397,9 +611,15 @@ useEffect(() => {
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-2 py-1.5 text-sm font-bold text-foreground/70 tracking-wide uppercase">Auto-Layout Algorithm</div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleLayout('LR')} className="cursor-pointer font-medium text-primary">Left to Right (Dagre)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleLayout('TB')} className="cursor-pointer">Top to Bottom</DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">Radial Hierarchy</DropdownMenuItem>
+                {/* "Radial Hierarchy" used to sit here with no onClick at
+                    all - a menu entry that did nothing when clicked. Removed
+                    rather than left looking live. */}
+                <DropdownMenuItem onClick={() => handleLayout('LR')} className={cn('cursor-pointer', direction === 'LR' && 'font-medium text-primary')}>
+                  <span className="w-4 inline-block">{direction === 'LR' ? '✓' : ''}</span> Left to Right
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleLayout('TB')} className={cn('cursor-pointer', direction === 'TB' && 'font-medium text-primary')}>
+                  <span className="w-4 inline-block">{direction === 'TB' ? '✓' : ''}</span> Top to Bottom
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleLayout('reset')} className="cursor-pointer text-muted-foreground">Reset Node Positions</DropdownMenuItem>
               </DropdownMenuContent>
@@ -421,26 +641,33 @@ useEffect(() => {
                   <span className="w-4 inline-block">{filterStatus === 'completed' ? '✓' : ''}</span> Only Completed Tasks
                 </DropdownMenuItem>
 
+                {/* THESE WERE THREE INVENTED NAMES AND TWO INVENTED PROJECTS -
+                    "Sarah", "Michael", "Dwight", "Alpha Release", "Beta
+                    Testing" - none of which exist in any tenant, and each
+                    compared against a full "First Middle Last" string. Every
+                    click hid the entire graph. The lists now come from
+                    data.options, and match on the id. */}
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-xs font-bold text-foreground/50 tracking-wider uppercase">Filter By Assignee</div>
-                <DropdownMenuItem onClick={() => setFilterAssignee(filterAssignee === 'Sarah' ? null : 'Sarah')} className="cursor-pointer">
-                  <span className="w-4 inline-block">{filterAssignee === 'Sarah' ? '✓' : ''}</span> Sarah
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterAssignee(filterAssignee === 'Michael' ? null : 'Michael')} className="cursor-pointer">
-                  <span className="w-4 inline-block">{filterAssignee === 'Michael' ? '✓' : ''}</span> Michael
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterAssignee(filterAssignee === 'Dwight' ? null : 'Dwight')} className="cursor-pointer">
-                  <span className="w-4 inline-block">{filterAssignee === 'Dwight' ? '✓' : ''}</span> Dwight
-                </DropdownMenuItem>
+                <div className="max-h-48 overflow-y-auto">
+                  {assigneeOptions.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No assignee on any task here.</div>}
+                  {assigneeOptions.map((person) => (
+                    <DropdownMenuItem key={person.id} onClick={() => setFilterAssignee(filterAssignee === person.id ? null : person.id)} className="cursor-pointer">
+                      <span className="w-4 inline-block">{filterAssignee === person.id ? '✓' : ''}</span> {person.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
 
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-xs font-bold text-foreground/50 tracking-wider uppercase">Filter By Project</div>
-                <DropdownMenuItem onClick={() => setFilterProject(filterProject === 'Alpha Release' ? null : 'Alpha Release')} className="cursor-pointer">
-                  <span className="w-4 inline-block">{filterProject === 'Alpha Release' ? '✓' : ''}</span> Alpha Release
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterProject(filterProject === 'Beta Testing' ? null : 'Beta Testing')} className="cursor-pointer">
-                  <span className="w-4 inline-block">{filterProject === 'Beta Testing' ? '✓' : ''}</span> Beta Testing
-                </DropdownMenuItem>
+                <div className="max-h-48 overflow-y-auto">
+                  {projectOptions.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No project on any task here.</div>}
+                  {projectOptions.map((project) => (
+                    <DropdownMenuItem key={project.id} onClick={() => setFilterProject(filterProject === project.id ? null : project.id)} className="cursor-pointer">
+                      <span className="w-4 inline-block">{filterProject === project.id ? '✓' : ''}</span> {project.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
 
                 {(filterStatus || filterAssignee || filterProject) && (
                   <>
@@ -518,29 +745,87 @@ useEffect(() => {
                     <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" /><span className="text-sm font-semibold">In Progress</span></div>
                     <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-warning shadow-[0_0_10px_rgba(245,158,11,0.5)]" /><span className="text-sm font-semibold">At Risk</span></div>
                     <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)] animate-pulse" /><span className="text-sm font-semibold">Blocked</span></div>
-                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-sm bg-primary shadow-[0_0_10px_rgba(168,85,247,0.5)] rotate-45" /><span className="text-sm font-semibold">Milestone</span></div>
+                    {/* A "Milestone" swatch used to sit here. normalizeStatus()
+                        returns one of five values and 'milestone' is not among
+                        them, so no node could ever wear it. */}
                   </div>
                 </div>
-                
+
                 <div className="h-px bg-border/50" />
-                
+
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Edge Types</h4>
+                  {/* THE SWATCHES READ FROM THE SAME CONSTANTS THE EDGES DO.
+                      The blocking swatch was rose while graphEdges() drew
+                      blocking edges in taskChartColors.blocked - amber. The
+                      legend described a colour that was not on the canvas. */}
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-0 border-t-2 border-emerald-500" />
+                      <div className="w-8 h-0 border-t-2" style={{ borderColor: taskChartColors.completed }} />
                       <span className="text-xs font-semibold text-muted-foreground">Completed Line</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-0 border-t-2 border-blue-500 border-dashed" />
+                      <div className="w-8 h-0 border-t-2 border-dashed" style={{ borderColor: taskChartColors.inProgress }} />
                       <span className="text-xs font-semibold text-muted-foreground">Active Flow</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-0 border-t-2 border-rose-500 border-dashed animate-pulse" />
-                      <span className="text-xs font-semibold text-muted-foreground">Blocking Error</span>
+                      <div className="w-8 h-0 border-t-2 border-dashed animate-pulse" style={{ borderColor: taskChartColors.blocked }} />
+                      {/* Named apart from the "Blocked" NODE status above -
+                          one is a task on hold, the other is a link whose
+                          predecessor has not finished. */}
+                      <span className="text-xs font-semibold text-muted-foreground">Blocking dependency</span>
                     </div>
                   </div>
                 </div>
+
+                {/* ─────────────────────────────────────────────────────────
+                    WHAT THE TYPE AND LAG ACTUALLY IMPLY - AND THE CLICK THAT
+                    APPLIES IT.
+
+                    Before this, `dependency_type` and `lag_days` were stored,
+                    echoed back, and used by nothing: setting "lag 2 days"
+                    moved no date, ever. The server now computes the date the
+                    dependency implies; this is where a person sees it and
+                    decides. Nothing moves on its own.
+                    ───────────────────────────────────────────────────────── */}
+                {scheduleIssues.length > 0 && (
+                  <>
+                    <div className="h-px bg-border/50" />
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+                        <CalendarClock className="h-3.5 w-3.5" /> Schedule ({scheduleIssues.length})
+                      </h4>
+                      <div className="flex flex-col gap-3">
+                        {scheduleIssues.map((dependency) => (
+                          <div key={dependency.id} className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+                            <p className="text-xs font-bold text-foreground leading-snug line-clamp-2" title={dependency.successor.title}>
+                              {dependency.successor.title}
+                            </p>
+                            <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                              {dependency.type} {dependency.lag_days !== 0 && `${dependency.lag_days > 0 ? '+' : ''}${dependency.lag_days}d `}
+                              after <span className="font-medium">{dependency.predecessor.title.slice(0, 28)}{dependency.predecessor.title.length > 28 ? '…' : ''}</span>
+                            </p>
+                            <p className="mt-1.5 text-[11px] text-foreground">
+                              {dependency.schedule.target_field === 'due_date' ? 'Due' : 'Starts'}{' '}
+                              <span className="font-semibold text-warning">{formatDate(dependency.schedule.current_date) ?? 'not set'}</span>
+                              {' → should be '}
+                              <span className="font-semibold text-success">{formatDate(dependency.schedule.implied_date)}</span>
+                            </p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={applyingId === dependency.id}
+                              onClick={() => void applySchedule(dependency)}
+                              className="mt-2 h-7 w-full text-[11px] font-bold"
+                            >
+                              {applyingId === dependency.id ? 'Moving…' : 'Apply'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* ReactFlow Canvas Area */}
@@ -550,6 +835,16 @@ useEffect(() => {
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                   Drag between nodes to connect. Double-click any line to delete.
                 </div>
+                {!loading && !nodes.length && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 px-8 text-center">
+                    <GitMerge className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm font-semibold text-foreground">No dependencies yet</p>
+                    <p className="max-w-sm text-xs text-muted-foreground">
+                      A dependency links two tasks in the same project — the predecessor has to move before the successor can. Create one to see the graph.
+                    </p>
+                    <Button size="sm" onClick={() => setIsCreateModalOpen(true)} className="mt-1 gap-2"><Plus className="h-4 w-4" /> Create Dependency</Button>
+                  </div>
+                )}
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -557,6 +852,7 @@ useEffect(() => {
                   onEdgesChange={onEdgesChange}
                   onConnect={onConnect}
                   onEdgeDoubleClick={onEdgeDoubleClick}
+                  onInit={(instance) => { flowRef.current = instance }}
                   nodeTypes={nodeTypes}
                   fitView
                   fitViewOptions={{ padding: 0.2 }}
@@ -571,128 +867,283 @@ useEffect(() => {
               </div>
             </div>
           )}
-          {activeTab === 'timeline' && (
+          {activeTab === 'timeline' && (() => {
+            // A REAL TIMELINE, COMPUTED FROM THE TASKS' OWN DATES.
+            //
+            // This tab used to hardcode six column headers ("May 01" ... "Jun
+            // 05") and set each bar's width from its STATUS — 100% done, 65%
+            // in-progress, 35% otherwise — always starting at position 0. No
+            // date was involved anywhere, so the chart was decoration that
+            // looked like a schedule.
+            //
+            // Bars span planned_start_date -> due_date. Most tasks have no
+            // planned start: that column is write-only schema, set by no
+            // screen. Rather than invent a span, those render as a POINT MARKER
+            // on their due date — an honest "this is when it is due, we do not
+            // know when it starts".
+            const dated = data.tasks
+              .filter((task) => task.due_date)
+              // Earliest first. It used to render in task-id order, which is
+              // insert order — a Gantt chart whose rows ignore time.
+              .slice()
+              .sort((a, b) => {
+                const aStart = a.planned_start_date ?? a.due_date ?? ''
+                const bStart = b.planned_start_date ?? b.due_date ?? ''
+                return aStart.localeCompare(bStart) || (a.due_date ?? '').localeCompare(b.due_date ?? '')
+              })
+
+            // THE RANGE MUST COVER STARTS AS WELL AS DUES. Taking min/max from
+            // due dates alone, while positioning bars from planned_start_date,
+            // put any task starting before the earliest due date at a NEGATIVE
+            // offset — and the track had no overflow clip, so the bar ran out
+            // of the chart and across the page.
+            const stamps = dated.flatMap((task) => [
+              fromDateOnly(task.due_date!)?.getTime(),
+              task.planned_start_date ? fromDateOnly(task.planned_start_date)?.getTime() : undefined,
+            ]).filter((value): value is number => typeof value === 'number' && !Number.isNaN(value))
+            const min = stamps.length ? Math.min(...stamps) : 0
+            const max = stamps.length ? Math.max(...stamps) : 0
+            // A single-day range would divide by zero; give it a week of air.
+            const span = Math.max(max - min, 6 * 86400000)
+            const pct = (time: number) => Math.min(100, Math.max(0, ((time - min) / span) * 100))
+
+            const TICKS = 6
+            const ticks = Array.from({ length: TICKS }, (_, index) => ({
+              at: (100 / (TICKS - 1)) * index,
+              date: new Date(min + (span / (TICKS - 1)) * index),
+            }))
+            const withoutStart = dated.filter((task) => !task.planned_start_date).length
+
+            return (
             <div className="flex h-full flex-col bg-background/30 p-6 overflow-y-auto">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-primary/10 rounded-lg text-primary"><CalendarDays className="h-5 w-5" /></div>
-                <h2 className="text-xl font-bold text-foreground">Project Timeline (Gantt)</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Project Timeline (Gantt)</h2>
+                  {dated.length > 0 && withoutStart > 0 && (
+                    <p className="text-xs text-muted-foreground">{withoutStart} of {dated.length} tasks have no planned start date, so they show as a marker on their due date rather than a bar.</p>
+                  )}
+                </div>
               </div>
+              {!dated.length ? (
+                <div className="flex-1 rounded-xl border border-dashed border-border/50 p-10 text-center text-sm text-muted-foreground">
+                  No task in this view has a due date, so there is nothing to place on a timeline.
+                </div>
+              ) : (
               <div className="flex-1 rounded-xl border border-border/50 bg-card/50 overflow-hidden flex flex-col">
-                <div className="flex border-b border-border/50 bg-muted/30">
-                  <div className="w-[300px] p-3 font-semibold text-sm border-r border-border/50">Task Name</div>
-                  <div className="flex-1 flex text-xs text-muted-foreground">
-                    {['May 01', 'May 08', 'May 15', 'May 22', 'May 29', 'Jun 05'].map(date => (
-                      <div key={date} className="flex-1 p-3 border-r border-border/50 truncate text-center">{date}</div>
+                {/* THE NAME COLUMN IS ONE WIDTH IN BOTH ROWS. The header used
+                    w-[300px] while the rows used w-[280px] inside a p-4 track,
+                    so every tick sat ~4px left of the bars it labelled. */}
+                <div className="flex border-b border-border/50 bg-muted/30 pr-4">
+                  <div className="w-[300px] shrink-0 p-3 font-semibold text-sm border-r border-border/50">Task Name</div>
+                  {/* Ticks are ABSOLUTELY POSITIONED at the same percentages
+                      the bars use. As flex-1 cells they were centred inside
+                      equal columns — roughly 8% away from the date they named. */}
+                  <div className="relative flex-1 h-11">
+                    {ticks.map((tick) => (
+                      <div
+                        key={tick.date.toISOString()}
+                        className="absolute top-0 h-full flex items-center text-xs text-muted-foreground whitespace-nowrap"
+                        style={{ left: `${tick.at}%`, transform: tick.at === 0 ? 'none' : tick.at === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}
+                      >
+                        {tick.date.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                      </div>
                     ))}
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  {data.tasks.map((task, i) => {
+                <div className="flex-1 overflow-y-auto py-4 pr-4 flex flex-col gap-3">
+                  {dated.map((task) => {
                     const status = normalizeStatus(task.status, task.at_risk)
                     const color = status === 'completed' ? 'bg-success' : status === 'in_progress' ? 'bg-primary' : status === 'blocked' ? 'bg-rose-500' : status === 'at_risk' ? 'bg-warning' : 'bg-muted-foreground'
-                    const width = status === 'completed' ? '100%' : status === 'in_progress' ? '65%' : '35%'
+                    // A malformed date must not take the whole tab down with
+                    // it; an unparseable due date drops the row instead.
+                    const due = fromDateOnly(task.due_date)?.getTime()
+                    if (due === undefined || Number.isNaN(due)) return null
+                    const start = task.planned_start_date ? fromDateOnly(task.planned_start_date)?.getTime() ?? null : null
+                    const left = pct(start !== null ? Math.min(start, due) : due)
+                    const width = start !== null ? Math.min(Math.max(pct(due) - left, 1.5), 100 - left) : null
+
                     return (
-                    <div key={i} className="flex items-center group">
-                      <div className="w-[280px] shrink-0 text-sm font-medium pr-4 truncate">{task.title}</div>
-                      <div className="flex-1 relative h-8 rounded-md bg-muted/20 border border-border/50">
-                        <div 
-                          className={cn("absolute top-1 bottom-1 rounded-md shadow-sm transition-all hover:brightness-110 cursor-pointer", color)}
-                          style={{ left: 0, width }}
-                        />
+                    <div key={task.id} className="flex items-center group">
+                      <div className="w-[300px] shrink-0 text-sm font-medium px-3 truncate" title={task.title}>{task.title}</div>
+                      <div className="flex-1 relative h-8 rounded-md bg-muted/20 border border-border/50 overflow-hidden">
+                        {width === null ? (
+                          // No planned start: a marker at the due date, not a
+                          // fabricated span. Clamped so a marker at 0% or 100%
+                          // stays inside its own track.
+                          <div
+                            className={cn('absolute top-1/2 size-3 -translate-y-1/2 rotate-45 rounded-sm shadow-sm', color)}
+                            style={{ left: `calc(${left}% - 6px)`, marginLeft: left === 0 ? '6px' : left === 100 ? '-6px' : 0 }}
+                            title={`${task.title} — due ${formatDate(task.due_date)} (no planned start)`}
+                          />
+                        ) : (
+                          <div
+                            className={cn('absolute top-1 bottom-1 rounded-md shadow-sm transition-all hover:brightness-110 cursor-pointer', color)}
+                            style={{ left: `${left}%`, width: `${width}%` }}
+                            title={`${task.title} — ${formatDate(task.planned_start_date)} to ${formatDate(task.due_date)}`}
+                          />
+                        )}
                       </div>
                     </div>
                   )})}
                 </div>
               </div>
+              )}
             </div>
-          )}
+            )
+          })()}
 
-          {activeTab === 'workstream' && (
-            <div className="flex h-full flex-col bg-background/30 p-6 overflow-x-auto">
+          {activeTab === 'workstream' && (() => {
+            // A BOARD OF WORKSTREAMS, NOT OF PROJECTS.
+            //
+            // This tab is called "Workstream Boards" and grouped by
+            // `task.project`, because the workstream never left the server.
+            // Tasks that belong to no workstream get their own explicit column
+            // rather than being silently folded into a project.
+            const columns = new Map<string, { name: string; tasks: DependencyNode[] }>()
+            data.tasks.forEach((task) => {
+              const key = task.workstream_id ?? 'none'
+              const name = task.workstream ?? 'Not in a workstream'
+              if (!columns.has(key)) columns.set(key, { name, tasks: [] })
+              columns.get(key)!.tasks.push(task)
+            })
+            // The unassigned column sorts last; the rest alphabetically.
+            const board = Array.from(columns, ([id, column]) => ({ id, ...column }))
+              .sort((a, b) => (a.id === 'none' ? 1 : b.id === 'none' ? -1 : a.name.localeCompare(b.name)))
+
+            return (
+            // min-h-0 lets the inner scroll area shrink. Without it the header
+            // pushes the board row past the bottom of its parent.
+            <div className="flex h-full min-h-0 flex-col bg-background/30 p-6">
               <div className="flex items-center gap-3 mb-6 shrink-0">
                 <div className="p-2 bg-primary/10 rounded-lg text-primary"><Columns className="h-5 w-5" /></div>
-                <h2 className="text-xl font-bold text-foreground">Workstream Boards</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Workstream Boards</h2>
+                  <p className="text-xs text-muted-foreground">A workstream is a lane of related work inside a project. Set one on a task from the project drawer.</p>
+                </div>
               </div>
-              <div className="flex gap-6 h-full pb-4">
-                {Array.from(new Set(data.tasks.map((task) => task.project))).map((project, i) => {
-                  const streamTasks = data.tasks.filter((task) => task.project === project)
-                  return (
-                  <div key={i} className="w-[320px] shrink-0 flex flex-col h-full rounded-3xl bg-card/30 backdrop-blur-2xl border border-primary/10 shadow-xl p-5">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", i === 0 ? "bg-primary shadow-[0_0_8px_rgba(168,85,247,0.8)]" : i === 1 ? "bg-primary shadow-[0_0_8px_rgba(59,130,246,0.8)]" : i === 2 ? "bg-success shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-warning shadow-[0_0_8px_rgba(245,158,11,0.8)]")} />
-                        <h3 className="font-bold text-sm text-foreground">{project}</h3>
+              {!board.length ? (
+                <div className="flex-1 rounded-xl border border-dashed border-border/50 p-10 text-center text-sm text-muted-foreground">
+                  No task is on this board yet. Tasks appear here once they take part in a dependency.
+                </div>
+              ) : (
+              <div className="flex flex-1 min-h-0 gap-6 overflow-x-auto pb-4">
+                {board.map((column) => (
+                  <div key={column.id} className="w-[320px] shrink-0 flex flex-col min-h-0 rounded-3xl bg-card/30 backdrop-blur-2xl border border-primary/10 shadow-xl p-5">
+                    <div className="flex items-center justify-between mb-5 shrink-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={cn('w-2 h-2 rounded-full shrink-0', column.id === 'none' ? 'bg-muted-foreground' : 'bg-primary shadow-[0_0_8px_rgba(59,130,246,0.8)]')} />
+                        <h3 className="font-bold text-sm text-foreground truncate" title={column.name}>{column.name}</h3>
                       </div>
-                      <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">{streamTasks.length}</span>
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full shrink-0">{column.tasks.length}</span>
                     </div>
-                    <div className="flex flex-col gap-4 flex-1 overflow-y-auto pr-1">
-                      {streamTasks.map((task) => (
-                        <div key={task.id} className="group bg-card/80 backdrop-blur-md p-5 rounded-2xl shadow-lg border border-primary/5 hover:border-primary/40 hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col gap-3">
-                          <div className="flex justify-between items-center">
+                    <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
+                      {column.tasks.map((task) => (
+                        <div key={task.id} className="group bg-card/80 backdrop-blur-md p-5 rounded-2xl shadow-lg border border-primary/5 hover:border-primary/40 hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300 flex flex-col gap-3">
+                          <div className="flex justify-between items-center gap-2">
                             <div className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-md">T-{task.id}</div>
-                            <MoreVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-[10px] text-muted-foreground truncate" title={task.project}>{task.project}</span>
                           </div>
-                          <h4 className="font-bold text-sm text-foreground/90 group-hover:text-foreground transition-colors leading-snug">{task.title}</h4>
+                          <h4 className="font-bold text-sm text-foreground/90 leading-snug">{task.title}</h4>
                           <div className="flex justify-between items-center mt-2 pt-3 border-t border-border/50">
                             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                              <Calendar className="h-3.5 w-3.5" /> {task.due_date ?? 'No due date'}
+                              <Calendar className="h-3.5 w-3.5" /> {formatDate(task.due_date) ?? 'No due date'}
                             </div>
-                            <div className="flex -space-x-2">
-                              <div className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">{task.assignee.charAt(0)}</div>
+                            <div className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm" title={task.assignee}>
+                              {task.assignee.charAt(0)}
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                )})}
+                ))}
               </div>
+              )}
             </div>
-          )}
+            )
+          })()}
 
           {activeTab === 'milestone' && (
             <div className="flex h-full flex-col bg-background/30 p-6 overflow-y-auto">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary"><Target className="h-5 w-5" /></div>
-                <h2 className="text-xl font-bold text-foreground">Project Milestones</h2>
+              <div className="flex items-center justify-between gap-3 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary"><Target className="h-5 w-5" /></div>
+                  <h2 className="text-xl font-bold text-foreground">Project Milestones</h2>
+                </div>
+                {/* CREATE/EDIT/DELETE ALL EXISTED ON THE SERVER AND NOTHING
+                    CALLED THEM — a milestone could only appear by writing to
+                    the database directly. */}
+                <Button size="sm" onClick={() => openMilestoneModal(null)} className="gap-2"><Plus className="h-4 w-4" /> New Milestone</Button>
               </div>
               <div className="max-w-4xl mx-auto w-full flex flex-col gap-4">
+                {!data.milestones.length && (
+                  <div className="rounded-xl border border-dashed border-border/50 p-10 text-center">
+                    <p className="text-sm font-semibold text-foreground">No milestones yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">A milestone marks a date a project — or one workstream inside it — has to hit.</p>
+                  </div>
+                )}
                 {data.milestones.map((ms, i) => {
                   const Icon = ms.status === 'COMPLETED' ? CheckCircle2 : ms.status === 'AT RISK' ? AlertCircle : Flag
                   const color = ms.status === 'COMPLETED' ? 'text-emerald-500 bg-success/10 border-emerald-500/20' : ms.status === 'AT RISK' ? 'text-amber-500 bg-warning/10 border-amber-500/20' : 'text-primary bg-primary/10 border-primary/20'
                   return (
-                  <div key={i} className="flex items-stretch gap-6 group cursor-pointer">
+                  // Keyed on the milestone's id. Keyed on the array index, a
+                  // delete re-used the removed card's state on its neighbour.
+                  <div key={ms.id} className="flex items-stretch gap-6 group">
                     <div className="flex flex-col items-center">
                       <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg", color.split(' ')[1])}>
                         <Icon className={cn("h-6 w-6", color.split(' ')[0])} />
                       </div>
                       {i !== data.milestones.length - 1 && <div className="w-0.5 flex-1 bg-gradient-to-b from-primary/30 to-transparent my-3 rounded-full" />}
                     </div>
-                    <div className="flex-1 bg-card/30 backdrop-blur-3xl border border-primary/10 rounded-3xl p-6 mb-6 shadow-xl group-hover:shadow-2xl group-hover:shadow-primary/5 group-hover:border-primary/30 group-hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                    <div className="flex-1 bg-card/30 backdrop-blur-3xl border border-primary/10 rounded-3xl p-6 mb-6 shadow-xl group-hover:shadow-2xl group-hover:shadow-primary/5 group-hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                      <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div>
-                          <h3 className="text-xl font-black text-foreground tracking-tight mb-1.5 group-hover:text-primary transition-colors">{ms.name}</h3>
-                          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <CalendarDays className="h-4 w-4 text-primary/70" /> {ms.target_date}
+                      <div className="flex justify-between items-start gap-4 mb-4 relative z-10">
+                        <div className="min-w-0">
+                          <h3 className="text-xl font-black text-foreground tracking-tight mb-1.5">{ms.name}</h3>
+                          {/* project_name, workstream_name and description
+                              were all returned and all discarded, so a card
+                              could not say which project it belonged to. */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm font-medium text-muted-foreground">
+                            <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary/70" /> {formatDate(ms.target_date) ?? ms.target_date}</span>
+                            <span className="flex items-center gap-2"><Columns className="h-4 w-4 text-primary/70" /> {ms.project_name}{ms.workstream_name ? ` · ${ms.workstream_name}` : ''}</span>
                           </div>
+                          {ms.description && <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{ms.description}</p>}
                         </div>
-                        <StatusBadge status={ms.status} />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <StatusBadge status={ms.status} />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between mt-6 pt-5 border-t border-primary/10 relative z-10">
+                      <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-5 border-t border-primary/10 relative z-10">
+                        {/* THESE NUMBERS DESCRIBE THIS MILESTONE. Every card
+                            used to print data.summary.blocking — one
+                            tenant-wide figure repeated on all of them. */}
                         <div className="flex items-center gap-6 text-sm">
                           <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Blocked</span>
-                            <span className="font-black text-rose-500">{data.summary.blocking} Tasks</span>
+                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Tasks</span>
+                            <span className="font-black text-foreground">{ms.counts?.total ?? 0}</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Completed</span>
-                            <span className="font-black text-emerald-500">{data.tasks.filter((task) => task.status?.toUpperCase() === 'COMPLETED').length} Tasks</span>
+                            <span className="font-black text-emerald-500">{ms.counts?.completed ?? 0}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Blocked</span>
+                            <span className="font-black text-rose-500">{ms.counts?.blocked ?? 0}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-0.5">Overdue</span>
+                            <span className="font-black text-amber-500">{ms.counts?.overdue ?? 0}</span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-9 gap-1 text-primary hover:bg-primary/10 rounded-xl font-bold">
-                          View Details <ChevronRight className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => openMilestoneModal(ms)} className="h-9 gap-1.5 rounded-xl font-bold">
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => void removeMilestone(ms)} className="h-9 gap-1.5 rounded-xl font-bold text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -703,27 +1154,128 @@ useEffect(() => {
         </div>
       </div>
       
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent>
-          <DialogHeader>
+      {/* ─────────────────────────────────────────────────────────────────
+          THE LAYOUT BREAK.
+
+          DialogContent was passed no className, so it inherited max-w-lg with
+          NO max-height and NO overflow. The form is around 600px tall; on a
+          1366x768 screen it clipped at BOTH ends with nothing to scroll. The
+          sizing here is copied from create-project-modal.tsx, which solved the
+          same problem in the same module.
+          ───────────────────────────────────────────────────────────────── */}
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) setFormError('') }}>
+        <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Create Dependency</DialogTitle>
             <DialogDescription>Connect two tasks. Duplicate and cyclic relationships are rejected by the API.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 px-1">
+            {/* ERRORS BELONG INSIDE THE DIALOG. setError() renders a banner in
+                the page behind this overlay, so a duplicate or cycle 422 looked
+                like the button simply did nothing. */}
+            {formError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+                {formError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-medium"><span>Project</span><Select value={selectedProject} onChange={setSelectedProject} placeholder="Select project" options={data.options.projects.map((project) => ({ value: String(project.id), label: project.name }))} /></label>
               <label className="block space-y-1.5 text-sm font-medium"><span>Workstream</span><Select value={selectedWorkstream} onChange={setSelectedWorkstream} placeholder={workstreamsLoading ? 'Loading...' : selectedProject ? 'Select workstream' : 'Select project first'} options={workstreams.map((ws) => ({ value: String(ws.id), label: ws.name }))} disabled={!selectedProject || workstreamsLoading} /></label>
             </div>
             {workstreamsError && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{workstreamsError}</div>}
-            <label className="block space-y-1.5 text-sm font-medium"><span>Predecessor</span><Select value={predecessor} onChange={setPredecessor} placeholder="Select predecessor" options={data.options.tasks.map((task) => ({ value: String(task.id), label: task.title }))} /></label>
-            <label className="block space-y-1.5 text-sm font-medium"><span>Successor</span><Select value={successor} onChange={setSuccessor} placeholder="Select successor" options={data.options.tasks.filter((task) => String(task.id) !== predecessor).map((task) => ({ value: String(task.id), label: task.title }))} /></label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block space-y-1.5 text-sm font-medium"><span>Type</span><Select value={dependencyType} onChange={(value) => setDependencyType(value as DependencyType)} options={data.options.types.map((value) => ({ value, label: value }))} /></label>
-              <label className="block space-y-1.5 text-sm font-medium"><span>Lag days</span><input type="number" min={-365} max={365} value={lagDays} onChange={(event) => setLagDays(event.target.value)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm" /></label>
+            {/* THE PROJECT SELECT NOW NARROWS THESE LISTS.
+                It never did, so a user could pick project A then two tasks from
+                project B — and the server refused with a confusing
+                "Dependencies require two tasks from the same project". The
+                option rows already carry project_id; nothing was reading it. */}
+            <label className="block space-y-1.5 text-sm font-medium"><span>Predecessor</span><Select value={predecessor} onChange={setPredecessor} placeholder={selectedProject ? 'Select predecessor' : 'Select a task'} options={eligibleTasks.map((task) => ({ value: String(task.id), label: task.title }))} /></label>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Successor</span><Select value={successor} onChange={setSuccessor} placeholder="Select successor" options={eligibleTasks.filter((task) => String(task.id) !== predecessor).map((task) => ({ value: String(task.id), label: task.title }))} /></label>
+            {selectedProject && !eligibleTasks.length && <div className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">This project has no linked tasks yet, so no dependency can be created inside it.</div>}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm font-medium"><span>Type</span><Select value={dependencyType} onChange={(value) => setDependencyType(value as DependencyType)} options={data.options.types.map((value) => ({ value, label: DEPENDENCY_TYPE_LABELS[value] ?? value }))} /></label>
+              {/* The Select renders at h-8 and this input was h-10, so the two
+                  halves of one row sat at different heights. */}
+              <label className="block space-y-1.5 text-sm font-medium"><span>Lag days</span><input type="number" min={-365} max={365} step={1} value={lagDays} onChange={(event) => setLagDays(event.target.value)} className="h-8 w-full rounded-lg border bg-background px-3 text-sm" /></label>
             </div>
-            <label className="block space-y-1.5 text-sm font-medium"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" /></label>
+            {/* WHAT THESE FOUR FIELDS MEAN, where someone filling them in can
+                read it. The lag is applied to the predecessor's anchor date;
+                the result is shown on the map with an Apply button. */}
+            <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">{DEPENDENCY_TYPE_LABELS[dependencyType]}</span> — {DEPENDENCY_TYPE_HELP[dependencyType]}
+              {Number(lagDays) !== 0 && ` A lag of ${lagDays} day(s) shifts that date by ${lagDays}.`}
+            </p>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-24 w-full resize-none rounded-lg border bg-background p-3 text-sm" /></label>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button disabled={saving || !predecessor || !successor} onClick={() => void createDependency()}>{saving ? 'Creating…' : 'Create Dependency'}</Button></DialogFooter>
+          <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button disabled={saving || !predecessor || !successor} onClick={() => void createDependency()}>{saving ? 'Creating…' : 'Create Dependency'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MILESTONE CRUD. The endpoints have always been there; this is the
+          first thing that calls them. */}
+      <Dialog open={milestoneModalOpen} onOpenChange={(open) => { setMilestoneModalOpen(open); if (!open) setMilestoneError('') }}>
+        <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>{editingMilestone ? 'Edit Milestone' : 'New Milestone'}</DialogTitle>
+            <DialogDescription>A milestone marks a date a project — or one workstream inside it — has to hit.</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 px-1">
+            {milestoneError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+                {milestoneError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Project</span>
+                <Select
+                  value={milestoneForm.project_id}
+                  onChange={(value) => setMilestoneForm((form) => ({ ...form, project_id: value, workstream_id: '' }))}
+                  placeholder="Select project"
+                  options={data.options.projects.map((project) => ({ value: String(project.id), label: project.name }))}
+                />
+              </label>
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Workstream <span className="font-normal text-muted-foreground">(optional)</span></span>
+                <Select
+                  value={milestoneForm.workstream_id}
+                  onChange={(value) => setMilestoneForm((form) => ({ ...form, workstream_id: value }))}
+                  placeholder={milestoneForm.project_id ? 'Whole project' : 'Select project first'}
+                  options={milestoneWorkstreams.map((ws) => ({ value: String(ws.id), label: ws.name }))}
+                  disabled={!milestoneForm.project_id}
+                />
+              </label>
+            </div>
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>Name</span>
+              <input value={milestoneForm.name} onChange={(event) => setMilestoneForm((form) => ({ ...form, name: event.target.value }))} maxLength={191} className="h-8 w-full rounded-lg border bg-background px-3 text-sm" />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Target date</span>
+                {/* A plain date input keeps the value in `YYYY-MM-DD` from end
+                    to end, which is the one format the column stores. */}
+                <input type="date" value={milestoneForm.target_date} onChange={(event) => setMilestoneForm((form) => ({ ...form, target_date: event.target.value }))} className="h-8 w-full rounded-lg border bg-background px-3 text-sm" />
+              </label>
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Status</span>
+                <Select
+                  value={milestoneForm.status}
+                  onChange={(value) => setMilestoneForm((form) => ({ ...form, status: value as TaskMilestone['status'] }))}
+                  options={MILESTONE_STATUSES.map((value) => ({ value, label: value }))}
+                />
+              </label>
+            </div>
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>Description <span className="font-normal text-muted-foreground">(optional)</span></span>
+              <textarea value={milestoneForm.description} onChange={(event) => setMilestoneForm((form) => ({ ...form, description: event.target.value }))} maxLength={5000} className="min-h-24 w-full resize-none rounded-lg border bg-background p-3 text-sm" />
+            </label>
+          </div>
+          <DialogFooter className="shrink-0">
+            <Button variant="outline" onClick={() => setMilestoneModalOpen(false)}>Cancel</Button>
+            <Button disabled={milestoneSaving} onClick={() => void saveMilestone()}>
+              {milestoneSaving ? 'Saving…' : editingMilestone ? 'Save Changes' : 'Create Milestone'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

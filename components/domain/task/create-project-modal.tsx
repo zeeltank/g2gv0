@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
+import { toDateOnly } from '@/lib/date-only'
 import type { ProjectOptions, ProjectPayload, ProjectRecord, ProjectStatus } from '@/types/task-management'
 import { PriorityBadge } from './priority-badge'
 
@@ -23,7 +24,7 @@ interface Props {
 type WizardStep = 1 | 2 | 3 | 4
 
 const EMPTY: ProjectPayload = {
-  name: '', category: '', description: '', department_id: '', sponsor_id: '', manager_id: '',
+  name: '', category: '', description: '', department_id: '', department_ids: [], sponsor_id: '', manager_id: '',
   team_size: '1-5', member_ids: [], priority: 'Medium', status: 'PLANNING',
   start_date: '', due_date: '', budget_estimate: '', client_name: '', regulatory_flags: [],
 }
@@ -54,7 +55,11 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
     setStep(1); setError('')
     setForm(project ? {
       name: project.name, category: project.category ?? '', description: project.description,
-      department_id: project.department_id ?? '', sponsor_id: project.sponsor_id ?? '',
+      department_id: project.department_id ?? '',
+      // Seed the extras from the resolved list, excluding the primary so it is
+      // not offered twice.
+      department_ids: (project.departments ?? []).filter((d) => !d.is_primary).map((d) => String(d.id)),
+      sponsor_id: project.sponsor_id ?? '',
       manager_id: project.manager_id ?? '', team_size: project.team_size ?? '1-5',
       member_ids: project.members?.map((member) => String(member.id)) ?? [], priority: project.priority,
       status: project.status, start_date: project.start_date ?? '', due_date: project.due_date ?? '',
@@ -107,7 +112,30 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
           </div>}
 
           {step === 2 && <div className="space-y-5">
+            {/* PRIMARY + OTHERS. `department_id` stays the primary — it is what
+                the project list, the Home dashboard and every existing report
+                read — and `department_ids` carries the full set into the new
+                join table. Chips follow the team-members pattern below rather
+                than inventing a second multi-select idiom. */}
             <Field label={<><Building className="size-4" />Primary Department</>}><Select value={form.department_id ?? ''} onChange={(value) => set('department_id', value)} options={uniqueDepartments(options.departments, form.department_id ?? '').map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select department" className="h-11 rounded-xl" /></Field>
+            <Field label="Other Departments Involved">
+              <Select
+                value=""
+                onChange={(value) => {
+                  if (!value) return
+                  // The primary is already counted; adding it again would make
+                  // one department appear twice in the chip list.
+                  if (value === form.department_id) return
+                  if ((form.department_ids ?? []).includes(value)) return
+                  set('department_ids', [...(form.department_ids ?? []), value])
+                }}
+                options={[{ value: '', label: 'Add a department...' }, ...uniqueDepartments(options.departments, '')
+                  .filter((item) => String(item.id) !== form.department_id && !(form.department_ids ?? []).includes(String(item.id)))
+                  .map((item) => ({ value: String(item.id), label: item.name }))]}
+                className="h-11 rounded-xl"
+              />
+              {!!(form.department_ids ?? []).length && <div className="mt-3 flex flex-wrap gap-2">{(form.department_ids ?? []).map((id) => <span key={id} className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">{options.departments.find((item) => String(item.id) === id)?.name ?? id}<button type="button" onClick={() => set('department_ids', (form.department_ids ?? []).filter((value) => value !== id))} className="rounded-full p-0.5 hover:bg-primary/20"><X className="size-3.5" /></button></span>)}</div>}
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Project Manager (Lead) *"><Select value={form.manager_id} onChange={(value) => set('manager_id', value)} options={options.users.map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select manager" className="h-11 rounded-xl" /></Field><Field label="Executive Sponsor"><Select value={form.sponsor_id ?? ''} onChange={(value) => set('sponsor_id', value)} options={options.users.map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select sponsor" className="h-11 rounded-xl" /></Field></div>
             <Field label="Expected Team Size"><div className="flex flex-wrap gap-2">{['1-5','6-10','11-25','26-50','50+'].map((size) => <Button type="button" variant="ghost" key={size} onClick={() => set('team_size', size)} className={cn('rounded-xl border px-4 py-2 text-sm', form.team_size === size ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background/50 text-muted-foreground')}>{size}</Button>)}</div></Field>
             <Field label="Assign Core Team Members"><Select value="" onChange={(value) => value && set('member_ids', [...form.member_ids, value])} options={[{ value: '', label: 'Select an employee...' }, ...memberOptions.map((user) => ({ value: String(user.id), label: user.name }))]} className="h-11 rounded-xl" />
@@ -117,7 +145,12 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
 
           {step === 3 && <div className="space-y-5">
             <Field label="Strategic Priority"><div className="grid grid-cols-3 gap-3">{(['High','Medium','Low'] as const).map((priority) => <Button type="button" variant="ghost" key={priority} onClick={() => set('priority', priority)} className={cn('rounded-xl border-2 px-4 py-3 text-sm font-bold', form.priority === priority ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-transparent bg-background/50 text-muted-foreground hover:bg-muted')}><PriorityBadge priority={priority} /></Button>)}</div></Field>
-            <div className="grid gap-4 sm:grid-cols-2"><Field label={<><CalendarIcon className="size-4" />Start Date *</>}><DatePicker value={form.start_date} onChange={(value) => set('start_date', typeof value === 'string' ? value : value?.toISOString().slice(0, 10) ?? '')} placeholder="Select start date" /></Field><Field label={<><CalendarIcon className="size-4" />Target End Date *</>}><DatePicker value={form.due_date} onChange={(value) => set('due_date', typeof value === 'string' ? value : value?.toISOString().slice(0, 10) ?? '')} placeholder="Select target date" /></Field></div>
+            {/* toDateOnly() FORMATS FROM LOCAL PARTS. The previous
+                `value?.toISOString().slice(0, 10)` converted a local-midnight
+                Date to UTC first, so picking 2 January in IST stored
+                "2026-01-01" — and because the backend writes the string
+                straight into a DATE column, the day was lost permanently. */}
+            <div className="grid gap-4 sm:grid-cols-2"><Field label={<><CalendarIcon className="size-4" />Start Date *</>}><DatePicker value={form.start_date} onChange={(value) => set('start_date', toDateOnly(value))} placeholder="Select start date" /></Field><Field label={<><CalendarIcon className="size-4" />Target End Date *</>}><DatePicker value={form.due_date} onChange={(value) => set('due_date', toDateOnly(value))} placeholder="Select target date" /></Field></div>
             <Field label={<><DollarSign className="size-4" />Budget Estimate (Optional)</>}><Input type="number" value={form.budget_estimate ?? ''} onChange={(value) => set('budget_estimate', value)} placeholder="0.00" /></Field>
           </div>}
 

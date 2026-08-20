@@ -34,6 +34,11 @@ export function TmReports() {
   const [learningMessage, setLearningMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // The file's own docblock promised productivity was "sortable at a glance".
+  // It never was - there was no control and no state. Default stays `total`
+  // desc, which is the order the endpoint returns.
+  const [sortKey, setSortKey] = useState<'name' | 'total' | 'completed' | 'open' | 'overdue' | 'completion_rate'>('total')
+  const [sortDesc, setSortDesc] = useState(true)
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -73,6 +78,24 @@ export function TmReports() {
     // Deferred so the load's first setState lands after this render.
     queueMicrotask(() => { void load() })
   }, [load])
+
+  const sorted = [...productivity].sort((a, b) => {
+    const factor = sortDesc ? -1 : 1
+    if (sortKey === 'name') return a.name.localeCompare(b.name) * factor
+    return (a[sortKey] - b[sortKey]) * factor
+  })
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (key === sortKey) { setSortDesc((value) => !value); return }
+    setSortKey(key)
+    setSortDesc(key !== 'name')
+  }
+
+  // Top ten only. A stacked bar per assignee is readable at ten and unreadable
+  // at two hundred; the table below carries the full set, so nothing is hidden
+  // - and the caption says so rather than letting the cut pass unnoticed.
+  const chartRows = sorted.slice(0, 10)
+  const chartMax = Math.max(1, ...chartRows.map((row) => row.total))
 
   return (
     <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-8">
@@ -114,18 +137,84 @@ export function TmReports() {
       {!loading && !error && tab === 'productivity' && (
         <Card>
           <CardContent className="p-0">
-            <div className="grid grid-cols-6 border-b bg-primary/5 px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              <div className="col-span-2">Assignee</div>
-              <div className="text-center">Total</div>
-              <div className="text-center">Completed</div>
-              <div className="text-center">Overdue</div>
-              <div className="text-center">Completion</div>
+            {/* THE CHART: one stacked bar per assignee, split completed /
+                open / overdue.
+
+                These are STATUS colours, not a categorical palette - good,
+                neutral, critical - so they come from the reserved status slots
+                rather than a series ramp. Validated against the light surface:
+                CVD separation worst-adjacent dE 26.7, normal-vision 38.2, both
+                well clear. The success green warns at 2.24 contrast, which
+                obligates relief: the segments carry direct labels AND the full
+                table sits directly below. */}
+            {chartRows.length > 0 && (
+              <div className="border-b p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Workload by assignee</p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-success" />Completed</span>
+                    <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-primary" />Open</span>
+                    <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-danger" />Overdue</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {chartRows.map((row) => (
+                    <div key={row.user_id} className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-3">
+                      <span className="truncate text-xs text-muted-foreground" title={row.name}>{row.name}</span>
+                      <div className="flex h-5 items-center gap-0.5" role="img" aria-label={`${row.name}: ${row.completed} completed, ${row.open} open, ${row.overdue} overdue`}>
+                        {([
+                          ['completed', row.completed, 'bg-success'],
+                          ['open', row.open, 'bg-primary'],
+                          ['overdue', row.overdue, 'bg-danger'],
+                        ] as const).map(([key, value, tone], index, all) => value > 0 && (
+                          <div
+                            key={key}
+                            title={`${value} ${key}`}
+                            style={{ width: `${(value / chartMax) * 100}%` }}
+                            className={cn(
+                              'flex h-5 min-w-6 items-center justify-center text-[10px] font-semibold text-white',
+                              tone,
+                              // 4px rounded data-ends: the outermost segments
+                              // round, interior joins stay square.
+                              index === 0 && 'rounded-l',
+                              index === all.length - 1 && 'rounded-r',
+                            )}
+                          >
+                            {value}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {sorted.length > chartRows.length && (
+                  <p className="mt-3 text-xs text-muted-foreground">Charting the top {chartRows.length} of {sorted.length} assignees. The table below lists them all.</p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-7 border-b bg-primary/5 px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {([
+                ['name', 'Assignee', 'col-span-2 text-left'],
+                ['total', 'Total', 'text-center'],
+                ['completed', 'Completed', 'text-center'],
+                ['open', 'Open', 'text-center'],
+                ['overdue', 'Overdue', 'text-center'],
+                ['completion_rate', 'Completion', 'text-center'],
+              ] as const).map(([key, label, className]) => (
+                <button key={key} type="button" onClick={() => toggleSort(key)} className={cn('uppercase tracking-wider transition hover:text-foreground', className, sortKey === key && 'text-foreground')}>
+                  {label}{sortKey === key ? (sortDesc ? ' ↓' : ' ↑') : ''}
+                </button>
+              ))}
             </div>
-            {productivity.map((row) => (
-              <div key={row.user_id} className="grid grid-cols-6 items-center border-t px-4 py-3 text-sm transition-colors hover:bg-primary/5">
+            {sorted.map((row) => (
+              <div key={row.user_id} className="grid grid-cols-7 items-center border-t px-4 py-3 text-sm transition-colors hover:bg-primary/5">
                 <div className="col-span-2 font-medium">{row.name}</div>
                 <div className="text-center tabular-nums">{row.total}</div>
                 <div className="text-center tabular-nums">{row.completed}</div>
+                {/* `open` was fetched on every request and never rendered, even
+                    though this file's docblock listed it. */}
+                <div className="text-center tabular-nums">{row.open}</div>
                 <div className={cn('text-center tabular-nums', row.overdue > 0 && 'font-bold text-danger')}>{row.overdue}</div>
                 <div className="text-center">
                   <span className={cn(
@@ -151,7 +240,13 @@ export function TmReports() {
           <Card>
             <CardContent className="p-5">
               <h3 className="mb-3 text-sm font-bold">On Hold, by reason</h3>
-              {delays.by_category.length === 0 && <p className="text-sm text-muted-foreground">Nothing on hold.</p>}
+              {delays.by_category.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nothing is on hold. A reason is only recorded when a task is moved to ON HOLD and
+                  the person doing it picks a delay category — so this panel stays empty until that
+                  happens, rather than because anything is broken.
+                </p>
+              )}
               <div className="space-y-2">
                 {delays.by_category.map((entry) => (
                   <div key={entry.category} className="flex items-center justify-between rounded-lg border p-3 text-sm">
@@ -171,7 +266,11 @@ export function TmReports() {
                   <div key={task.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium">{task.title}</p>
-                      <p className="text-xs text-muted-foreground">{task.assignee} · due {task.due_date}</p>
+                      {/* status and delay_category arrive on every overdue row
+                          and were both discarded before this. */}
+                      <p className="text-xs text-muted-foreground">
+                        {[task.assignee, task.due_date ? `due ${task.due_date}` : null, task.status, task.delay_category].filter(Boolean).join(' · ')}
+                      </p>
                     </div>
                     <span className="rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-bold text-danger">
                       {task.days_overdue}d overdue

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from '@/components/ui/date-picker';
+import { toDateOnly, fromDateOnly } from '@/lib/date-only';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Select } from '@/components/ui/select';
 import { RadioGroup, Radio } from '@/components/ui/radio-group';
@@ -64,7 +65,10 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
         last_name: employee.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''),
         email: employee.email || '',
         mobile: employee.mobile || '',
-        birthdate: employee.birthdate ? new Date(employee.birthdate).toISOString().split('T')[0] : '',
+        // A birthdate is three numbers, not an instant. The old
+        // new Date(...).toISOString() round-trip shifted it by a day in any
+        // negative-offset timezone - on a person's identity record.
+        birthdate: toDateOnly(employee.birthdate),
         gender: employee.gender || 'M',
         department_id: String(employee.department_id || ''),
         allocated_standards: String(employee.allocated_standards || employee.jobrole_id || ''),
@@ -174,8 +178,8 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
                 <div className="space-y-2">
                   <Label>Birthdate</Label>
                   <DatePicker 
-                    value={formData.birthdate ? new Date(formData.birthdate) : undefined} 
-                    onChange={(d) => handleChange('birthdate', d instanceof Date ? d.toISOString().split('T')[0] : (typeof d === 'string' ? d : ''))}
+                    value={fromDateOnly(formData.birthdate)}
+                    onChange={(d) => handleChange('birthdate', toDateOnly(d))}
                   />
                 </div>
                 <div className="space-y-2">
