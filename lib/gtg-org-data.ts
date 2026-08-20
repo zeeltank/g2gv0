@@ -56,35 +56,49 @@ export const SISTER_COMPANIES: SisterCompany[] = [
   },
 ]
 
+/**
+ * A department as the Department Management screen holds it.
+ *
+ * `code`, `description`, `hodId`, `sortOrder` and `updated` are populated from
+ * the API. They were previously either absent or fabricated on the client - the
+ * code came from a hardcoded lookup table, `hod` was always null, `employees`
+ * was always 0, and `status` was always 'Active'.
+ *
+ * NOTE ON 'Draft': the status filter offered it, but hrms_departments.status is
+ * an int with two states. It is kept in the union only because DeptNode and the
+ * status badge share it; nothing produces it.
+ */
 export type Department = {
   id: string
   name: string
+  code?: string | null
+  description?: string | null
   parentId?: string | null
   parent: string | null
   hod: string | null
+  hodId?: string | null
   employees: number
   status: 'Active' | 'Inactive' | 'Draft'
+  sortOrder?: number
   created: string
+  updated?: string | null
 }
 
-export const DEPARTMENTS: Department[] = [
-  { id: 'd1', name: 'Executive Office', parent: null, hod: 'Avin Mehta', employees: 8, status: 'Active', created: '2014-03-12' },
-  { id: 'd2', name: 'Human Resources', parent: 'Executive Office', hod: 'Priya Nair', employees: 42, status: 'Active', created: '2014-04-01' },
-  { id: 'd3', name: 'Talent Acquisition', parent: 'Human Resources', hod: 'Rahul Verma', employees: 18, status: 'Active', created: '2015-06-20' },
-  { id: 'd4', name: 'Engineering', parent: 'Executive Office', hod: 'Sanjay Kapoor', employees: 486, status: 'Active', created: '2014-04-15' },
-  { id: 'd5', name: 'Platform Engineering', parent: 'Engineering', hod: 'Meera Iyer', employees: 124, status: 'Active', created: '2016-01-10' },
-  { id: 'd6', name: 'Quality Assurance', parent: 'Engineering', hod: 'Arjun Rao', employees: 76, status: 'Active', created: '2016-02-22' },
-  { id: 'd7', name: 'Product Management', parent: 'Executive Office', hod: 'Neha Gupta', employees: 54, status: 'Active', created: '2015-09-05' },
-  { id: 'd8', name: 'Sales & Marketing', parent: 'Executive Office', hod: 'Vikram Singh', employees: 132, status: 'Active', created: '2014-07-18' },
-  { id: 'd9', name: 'Customer Success', parent: 'Sales & Marketing', hod: 'Anita Desai', employees: 64, status: 'Active', created: '2017-03-30' },
-  { id: 'd10', name: 'Finance & Accounts', parent: 'Executive Office', hod: 'Rohit Sharma', employees: 38, status: 'Active', created: '2014-05-09' },
-  { id: 'd11', name: 'Legal & Compliance', parent: 'Executive Office', hod: null, employees: 12, status: 'Draft', created: '2023-11-02' },
-  { id: 'd12', name: 'Information Security', parent: 'Engineering', hod: 'Kabir Khan', employees: 22, status: 'Inactive', created: '2018-08-14' },
-]
+/*
+ * DEPARTMENTS (the 12-row demo fixture - Executive Office/Avin Mehta,
+ * Engineering/486 employees, and so on) has been removed.
+ *
+ * Its only consumer was department-hierarchy.tsx, which rendered it instead of
+ * the API and has been deleted along with it. Keeping a realistic-looking
+ * fixture exported from a lib/ module is how it got rendered to users in the
+ * first place: the component looked correct in isolation and nothing about the
+ * import said "this is not real data".
+ */
 
 export type DeptNode = {
   id: string
   name: string
+  code?: string | null
   hod: string | null
   employees: number
   status: 'Active' | 'Inactive' | 'Draft'
