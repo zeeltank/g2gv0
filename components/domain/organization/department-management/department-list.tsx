@@ -82,37 +82,24 @@ type DepartmentDialogMode = 'add' | 'edit'
 
 const PAGE_SIZE = 10
 
-const HOD_TITLES: Record<string, string> = {
-  'Avin Mehta': 'CEO',
-  'Priya Nair': 'CHRO',
-  'Rahul Verma': 'TA Manager',
-  'Sanjay Kapoor': 'CTO',
-  'Meera Iyer': 'Platform Head',
-  'Arjun Rao': 'QA Manager',
-  'Neha Gupta': 'Product Lead',
-  'Vikram Singh': 'Growth Head',
-  'Anita Desai': 'Success Lead',
-  'Rohit Sharma': 'CFO',
-  'Kabir Khan': 'Security Lead',
-}
-
+/*
+ * HOD_TITLES and the hardcoded departmentCode() lookup table used to live here.
+ *
+ * HOD_TITLES mapped eleven invented people ('Avin Mehta' -> 'CEO') to job
+ * titles. It could never match anything: mapDepartments() set `hod: null` for
+ * every row, so the lookup was dead code decorating data that did not exist.
+ *
+ * departmentCode() was a twelve-entry table of names to codes, with an initials
+ * fallback for everything else - and it WAS rendering, as the table's Code
+ * column. Those codes are now a real, editable `code` column on
+ * hrms_departments, backfilled from this exact table so nothing visibly
+ * changed, and the two other copies of it elsewhere in this folder are gone.
+ *
+ * departmentCode() survives only as a display fallback for a row whose code is
+ * genuinely empty.
+ */
 function departmentCode(department: Department) {
-  const explicit: Record<string, string> = {
-    'Executive Office': 'EXO',
-    'Human Resources': 'HR',
-    'Talent Acquisition': 'HR-TA',
-    Engineering: 'ENG',
-    'Platform Engineering': 'ENG-PLT',
-    'Quality Assurance': 'ENG-QA',
-    'Product Management': 'PRD',
-    'Sales & Marketing': 'SM',
-    'Customer Success': 'CS',
-    'Finance & Accounts': 'FIN',
-    'Legal & Compliance': 'LGL',
-    'Information Security': 'SEC',
-  }
-
-  if (explicit[department.name]) return explicit[department.name]
+  if (department.code) return department.code
 
   return department.name
     .split(/\s|&/)
@@ -174,16 +161,26 @@ function mapDepartments(main: LaravelDepartment[], grouped: Record<string, Larav
   return Array.from(unique.values()).map((department) => ({
     id: String(department.id),
     name: department.department,
+    code: department.code ?? null,
+    description: department.description ?? null,
     parentId: department.parent_id && Number(department.parent_id) !== 0
       ? String(department.parent_id)
       : null,
     parent: department.parent_id && Number(department.parent_id) !== 0
       ? names.get(String(department.parent_id)) ?? null
       : null,
-    hod: null,
-    employees: 0,
-    status: department.status === 1 ? 'Active' : 'Inactive',
+    // These three lines were `hod: null`, `employees: 0` and a status that
+    // could only ever be 'Active'. That was the whole reason four of the
+    // table's columns showed the same value on every row: not a rendering
+    // bug, but this function having nothing to render. The API now sends
+    // head_name, employee_count and both statuses.
+    hod: department.head_name ?? null,
+    hodId: department.head_id ? String(department.head_id) : null,
+    employees: Number(department.employee_count ?? 0),
+    status: Number(department.status) === 1 ? 'Active' : 'Inactive',
+    sortOrder: Number(department.sort_order ?? 0),
     created: department.created_at ?? '',
+    updated: department.updated_at ?? null,
   }))
 }
 
@@ -195,6 +192,7 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
     byId.set(department.id, {
       id: department.id,
       name: department.name,
+      code: department.code ?? null,
       hod: department.hod,
       employees: department.employees,
       status: department.status,
@@ -249,6 +247,19 @@ export function DepartmentList({ role }: { role: Role }) {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [deleteDepartment, setDeleteDepartment] = useState<Department | null>(null)
   const [departmentName, setDepartmentName] = useState('')
+  // The add/edit dialog collected a name and nothing else, because the endpoint
+  // wrote a name and nothing else. Both now handle the full record.
+  const [departmentCodeInput, setDepartmentCodeInput] = useState('')
+  const [departmentDescription, setDepartmentDescription] = useState('')
+  // Targets for the two pickers. Non-null means the dialog is open for that row.
+  const [hodTarget, setHodTarget] = useState<Department | null>(null)
+  const [parentTarget, setParentTarget] = useState<Department | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [hodFilter, setHodFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
+  const [staffedFilter, setStaffedFilter] = useState<'all' | 'staffed' | 'empty'>('all')
+  const [reorderingId, setReorderingId] = useState<string | null>(null)
+  const [showCodes, setShowCodes] = useState(true)
+  const [showCounts, setShowCounts] = useState(true)
   const context = useMemo(() => getLaravelContext(user), [user])
 
   const loadDepartments = useCallback(async (options?: { clearNotice?: boolean }) => {
@@ -302,8 +313,14 @@ export function DepartmentList({ role }: { role: Role }) {
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter
       const matchesParent = parentFilter === 'all' || (d.parent ?? 'Root') === parentFilter
       const matchesHierarchy = !selectedHierarchyIds || selectedHierarchyIds.has(d.id)
+      const matchesHod =
+        hodFilter === 'all' ||
+        (hodFilter === 'assigned' ? Boolean(d.hod) : !d.hod)
+      const matchesStaffed =
+        staffedFilter === 'all' ||
+        (staffedFilter === 'staffed' ? d.employees > 0 : d.employees === 0)
 
-      return matchesQuery && matchesStatus && matchesParent && matchesHierarchy
+      return matchesQuery && matchesStatus && matchesParent && matchesHierarchy && matchesHod && matchesStaffed
     })
 
     rows.sort((a, b) => {
@@ -342,7 +359,15 @@ export function DepartmentList({ role }: { role: Role }) {
     })
 
     return rows
-  }, [scopedDepts, query, statusFilter, parentFilter, selectedHierarchyIds, sortKey, sortAsc])
+  }, [scopedDepts, query, statusFilter, parentFilter, hodFilter, staffedFilter, selectedHierarchyIds, sortKey, sortAsc])
+
+  /** How many filters are narrowing the list, for the Filters button's badge. */
+  const activeFilterCount = useMemo(
+    () =>
+      [statusFilter !== 'all', parentFilter !== 'all', hodFilter !== 'all', staffedFilter !== 'all']
+        .filter(Boolean).length,
+    [statusFilter, parentFilter, hodFilter, staffedFilter],
+  )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
@@ -387,6 +412,8 @@ export function DepartmentList({ role }: { role: Role }) {
     setDialogParent(parent ?? null)
     setEditingDepartment(null)
     setDepartmentName('')
+    setDepartmentCodeInput('')
+    setDepartmentDescription('')
     setNotice('')
   }
 
@@ -395,6 +422,10 @@ export function DepartmentList({ role }: { role: Role }) {
     setDialogParent(null)
     setEditingDepartment(department)
     setDepartmentName(department.name)
+    // Seeded from the row, so an edit round-trips instead of silently
+    // clearing the fields the dialog did not used to show.
+    setDepartmentCodeInput(department.code ?? '')
+    setDepartmentDescription(department.description ?? '')
     setNotice('')
   }
 
@@ -413,7 +444,17 @@ export function DepartmentList({ role }: { role: Role }) {
       return
     }
 
-    if (editingDepartment && nextName === editingDepartment.name) {
+    const nextCode = departmentCodeInput.trim()
+    const nextDescription = departmentDescription.trim()
+
+    // The early-out used to compare the name alone, so editing only the code or
+    // the description looked like a no-op and closed without saving.
+    if (
+      editingDepartment &&
+      nextName === editingDepartment.name &&
+      nextCode === (editingDepartment.code ?? '') &&
+      nextDescription === (editingDepartment.description ?? '')
+    ) {
       closeDepartmentDialog()
       return
     }
@@ -422,12 +463,18 @@ export function DepartmentList({ role }: { role: Role }) {
     try {
       let successMessage = ''
       if (editingDepartment) {
-        await organizationService.updateDepartment(context, editingDepartment.id, { department: nextName })
+        await organizationService.updateDepartment(context, editingDepartment.id, {
+          department: nextName,
+          code: nextCode,
+          description: nextDescription,
+        })
         successMessage = `${editingDepartment.parent ? 'Sub-department' : 'Department'} updated successfully.`
       } else {
         await organizationService.createDepartment(context, {
           department: nextName,
           parent_id: dialogParent?.id,
+          code: nextCode,
+          description: nextDescription,
         })
         successMessage = dialogParent ? 'Sub-department added successfully.' : 'Department added successfully.'
       }
@@ -435,6 +482,8 @@ export function DepartmentList({ role }: { role: Role }) {
       setEditingDepartment(null)
       setDepartmentDialogMode(null)
       setDepartmentName('')
+      setDepartmentCodeInput('')
+      setDepartmentDescription('')
       await loadDepartments({ clearNotice: false })
       setNotice(successMessage)
     } catch (error) {
@@ -455,10 +504,97 @@ export function DepartmentList({ role }: { role: Role }) {
       await loadDepartments({ clearNotice: false })
       setNotice(successMessage)
     } catch (error) {
+      // The backend refuses (409) when LMS content still points at this
+      // department as a "standard". Surfacing that message tells the user why,
+      // instead of a generic failure for what looks like an ordinary delete.
       setNotice(error instanceof Error ? error.message : 'Failed to remove department.')
     } finally {
       setIsSaving(false)
     }
+  }
+
+  /**
+   * Download the CSV.
+   *
+   * A plain navigation rather than fetch(): the response is an attachment, and
+   * fetching it would land the CSV in memory instead of the user's downloads.
+   */
+  function handleExport() {
+    if (typeof window === 'undefined') return
+    window.location.href = organizationService.departmentExportUrl(context)
+  }
+
+  /** Move a department one place up or down among its siblings. */
+  async function handleReorder(direction: 'up' | 'down') {
+    const target = selected ?? lastShown
+    if (!target) {
+      setNotice('Select a department in the hierarchy first.')
+      return
+    }
+
+    setReorderingId(target.id)
+    try {
+      const response = await organizationService.reorderDepartment(context, target.id, direction)
+      await loadDepartments({ clearNotice: false })
+      setNotice(response?.data?.moved === false
+        ? `"${target.name}" is already ${direction === 'up' ? 'first' : 'last'}.`
+        : `"${target.name}" moved ${direction}.`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to reorder department.')
+    } finally {
+      setReorderingId(null)
+    }
+  }
+
+  /** Assign, change or clear (null) a head of department. */
+  async function handleAssignHod(employeeId: string | null) {
+    if (!hodTarget) return
+    setIsSaving(true)
+    try {
+      await organizationService.setDepartmentHead(context, hodTarget.id, employeeId)
+      setHodTarget(null)
+      await loadDepartments({ clearNotice: false })
+      setNotice(employeeId
+        ? `Head of department updated for "${hodTarget.name}".`
+        : `Head of department cleared for "${hodTarget.name}".`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to update department head.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  /** Re-parent a department. '0' moves it to the root. */
+  async function handleChangeParent(parentId: string) {
+    if (!parentTarget) return
+    setIsSaving(true)
+    try {
+      await organizationService.setDepartmentParent(context, parentTarget.id, parentId)
+      setParentTarget(null)
+      await loadDepartments({ clearNotice: false })
+      setNotice(`Parent updated for "${parentTarget.name}".`)
+    } catch (error) {
+      // 422 here means the move would have created a cycle - putting a
+      // department beneath one of its own descendants.
+      setNotice(error instanceof Error ? error.message : 'Failed to change parent department.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  /** Open the details panel for a row. */
+  function openDetails(department: Department) {
+    setSelectedId(department.id)
+    setLastShown(department)
+  }
+
+  function resetFilters() {
+    setStatusFilter('all')
+    setParentFilter('all')
+    setHodFilter('all')
+    setStaffedFilter('all')
+    setQuery('')
+    setPage(1)
   }
 
   return (
@@ -483,7 +619,7 @@ export function DepartmentList({ role }: { role: Role }) {
               Add Department
             </Button>
           )}
-          <Button type="button" variant="outline" size="lg" className="h-10 px-4">
+          <Button type="button" variant="outline" size="lg" className="h-10 px-4" onClick={handleExport}>
             <Download className="size-4" aria-hidden="true" />
             Export
           </Button>
@@ -519,6 +655,9 @@ export function DepartmentList({ role }: { role: Role }) {
               selectedId={selected?.id}
               query={treeQuery}
               onSelect={selectFromHierarchy}
+              showCodes={showCodes}
+              showCounts={showCounts}
+              expandSignal={expandSignal}
             />
           </div>
           <div className="grid grid-cols-4 border-t border-border p-4">
@@ -527,9 +666,47 @@ export function DepartmentList({ role }: { role: Role }) {
               icon={<Plus className="size-4" />}
               onClick={() => openAddDialog(selected)}
             />
-            <FooterIcon label="Move up" icon={<ChevronDown className="size-4 rotate-180" />} />
-            <FooterIcon label="Move down" icon={<ChevronDown className="size-4" />} />
-            <FooterIcon label="Hierarchy settings" icon={<ChevronsUpDown className="size-4" />} />
+            {/*
+              * These three had no onClick prop passed at all - FooterIcon
+              * accepts one, and each of them simply omitted it. Move up/down
+              * now reorder the selected department among its siblings, which
+              * needed a sort_order column that did not exist either.
+              */}
+            <FooterIcon
+              label="Move up"
+              icon={<ChevronDown className="size-4 rotate-180" />}
+              disabled={!detailDept || reorderingId !== null}
+              onClick={() => void handleReorder('up')}
+            />
+            <FooterIcon
+              label="Move down"
+              icon={<ChevronDown className="size-4" />}
+              disabled={!detailDept || reorderingId !== null}
+              onClick={() => void handleReorder('down')}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Hierarchy settings"
+                  title="Hierarchy settings"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <ChevronsUpDown className="size-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={expandAll}>Expand all</DropdownMenuItem>
+                <DropdownMenuItem onClick={collapseAll}>Collapse all</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowCodes((value) => !value)}>
+                  {showCodes ? 'Hide' : 'Show'} department codes
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCounts((value) => !value)}>
+                  {showCounts ? 'Hide' : 'Show'} employee counts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </section>
 
@@ -574,7 +751,10 @@ export function DepartmentList({ role }: { role: Role }) {
                 { value: 'all', label: 'Status: All' },
                 { value: 'Active', label: 'Active' },
                 { value: 'Inactive', label: 'Inactive' },
-                { value: 'Draft', label: 'Draft' },
+                // 'Draft' removed. hrms_departments.status is an int with two
+                // states, so nothing could ever match it - and while the API
+                // filtered to status = 1, Inactive matched nothing either. Both
+                // options now select real rows.
               ]}
             />
             <SelectInput
@@ -590,15 +770,63 @@ export function DepartmentList({ role }: { role: Role }) {
                 ...parents.map((parent) => ({ value: parent, label: parent })),
               ]}
             />
-            <Button
-              type="button"
-              variant="outline"
-              aria-label="Filters"
-              className="h-10 w-10 shrink-0 px-0 @md/deptlist:w-auto @md/deptlist:px-3"
-            >
-              <Filter className="size-4" aria-hidden="true" />
-              <span className="hidden @md/deptlist:inline">Filters</span>
-            </Button>
+            {/*
+              * Was a bare <Button> with no onClick. It now opens the two
+              * filters that have no dedicated dropdown of their own, and
+              * carries a count so an active filter is visible when the panel
+              * is closed.
+              */}
+            <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label="Filters"
+                  className="h-10 w-10 shrink-0 px-0 @md/deptlist:w-auto @md/deptlist:px-3"
+                >
+                  <Filter className="size-4" aria-hidden="true" />
+                  <span className="hidden @md/deptlist:inline">Filters</span>
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center px-1 text-[11px]">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Head of department</div>
+                {([
+                  ['all', 'Any'],
+                  ['assigned', 'Assigned'],
+                  ['unassigned', 'Not assigned'],
+                ] as const).map(([value, label]) => (
+                  <DropdownMenuItem
+                    key={value}
+                    onClick={() => { setHodFilter(value); setPage(1) }}
+                    className={cn(hodFilter === value && 'bg-accent font-medium')}
+                  >
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Employees</div>
+                {([
+                  ['all', 'Any'],
+                  ['staffed', 'Has employees'],
+                  ['empty', 'No employees'],
+                ] as const).map(([value, label]) => (
+                  <DropdownMenuItem
+                    key={value}
+                    onClick={() => { setStaffedFilter(value); setPage(1) }}
+                    className={cn(staffedFilter === value && 'bg-accent font-medium')}
+                  >
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={resetFilters}>Clear all filters</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               variant="outline"
@@ -881,16 +1109,32 @@ function SearchField({
   )
 }
 
+/**
+ * `expandSignal` is how Expand all / Collapse all reach every node.
+ *
+ * Each node owns its own open/closed state, so there is nothing central to
+ * flip. Rather than lift all of it, the menu bumps a nonce and every node
+ * reacts once - a node opened by hand stays open until the next Expand or
+ * Collapse, which is the behaviour the two menu items describe.
+ */
+type ExpandSignal = { open: boolean; nonce: number }
+
 function HierarchyTree({
   nodes,
   selectedId,
   query,
   onSelect,
+  showCodes,
+  showCounts,
+  expandSignal,
 }: {
   nodes: DeptNode[]
   selectedId?: string
   query: string
   onSelect: (id: string) => void
+  showCodes: boolean
+  showCounts: boolean
+  expandSignal: ExpandSignal
 }) {
   return (
     <ul className="space-y-1">
@@ -902,6 +1146,9 @@ function HierarchyTree({
           selectedId={selectedId}
           query={query}
           onSelect={onSelect}
+          showCodes={showCodes}
+          showCounts={showCounts}
+          expandSignal={expandSignal}
         />
       ))}
     </ul>
@@ -914,16 +1161,37 @@ function HierarchyNode({
   selectedId,
   query,
   onSelect,
+  showCodes,
+  showCounts,
+  expandSignal,
 }: {
   node: DeptNode
   depth: number
   selectedId?: string
   query: string
   onSelect: (id: string) => void
+  showCodes: boolean
+  showCounts: boolean
+  expandSignal: ExpandSignal
 }) {
   const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    setOpen(expandSignal.open)
+  }, [expandSignal])
+
   const hasChildren = node.children.length > 0
-  const count = Math.max(node.employees, descendantCount(node))
+  /*
+   * Was `Math.max(node.employees, descendantCount(node))`.
+   *
+   * node.employees was hardcoded to 0, so the max() always resolved to the
+   * descendant count - meaning a badge sitting next to a Users icon, in a
+   * column headed Employees, was actually showing how many sub-departments a
+   * node had. Now that employees is a real headcount the two are separated:
+   * the badge shows people, the sub-department count has its own tooltip.
+   */
+  const count = node.employees
+  const subCount = descendantCount(node)
   const q = query.trim().toLowerCase()
   const childMatches = node.children.some((child) => hierarchyMatches(child, q))
   const visible =
@@ -965,10 +1233,21 @@ function HierarchyNode({
             <Folder className="size-4 shrink-0 text-primary" />
           )}
           <span className="truncate font-medium">{node.name}</span>
+          {showCodes && node.code && (
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {node.code}
+            </span>
+          )}
         </button>
-        <Badge variant="muted" className="rounded-md px-2">
-          {count}
-        </Badge>
+        {showCounts && (
+          <Badge
+            variant="muted"
+            className="rounded-md px-2"
+            title={`${count} employee${count === 1 ? '' : 's'}${subCount ? ` · ${subCount} sub-department${subCount === 1 ? '' : 's'}` : ''}`}
+          >
+            {count}
+          </Badge>
+        )}
         {selectedId === node.id && <MoreVertical className="size-4 shrink-0 text-foreground" />}
       </div>
       {hasChildren && (open || childMatches) && (
@@ -981,6 +1260,9 @@ function HierarchyNode({
               selectedId={selectedId}
               query={query}
               onSelect={onSelect}
+              showCodes={showCodes}
+              showCounts={showCounts}
+              expandSignal={expandSignal}
             />
           ))}
         </ul>
