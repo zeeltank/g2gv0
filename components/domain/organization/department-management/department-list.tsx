@@ -260,7 +260,13 @@ export function DepartmentList({ role }: { role: Role }) {
   const [reorderingId, setReorderingId] = useState<string | null>(null)
   const [showCodes, setShowCodes] = useState(true)
   const [showCounts, setShowCounts] = useState(true)
+  const [expandSignal, setExpandSignal] = useState<ExpandSignal>({ open: true, nonce: 0 })
   const context = useMemo(() => getLaravelContext(user), [user])
+
+  // The nonce is what makes a repeated "Collapse all" work: without it the
+  // prop would be identical to last time and no node's effect would re-run.
+  const expandAll = useCallback(() => setExpandSignal((s) => ({ open: true, nonce: s.nonce + 1 })), [])
+  const collapseAll = useCallback(() => setExpandSignal((s) => ({ open: false, nonce: s.nonce + 1 })), [])
 
   const loadDepartments = useCallback(async (options?: { clearNotice?: boolean }) => {
     setIsLoading(true)
@@ -1328,11 +1334,20 @@ function RowMenu({
   onEdit,
   onAddSubDepartment,
   onDelete,
+  onViewDetails,
+  onAssignHod,
+  onChangeParent,
 }: {
   isSubDepartment: boolean
   onEdit: () => void
   onAddSubDepartment: () => void
   onDelete: () => void
+  // "View Details" and "Assign / Change HOD" were rendered as
+  // <DropdownMenuItem> with no onClick - the menu opened, the item highlighted
+  // on hover, and clicking it did nothing but close the menu.
+  onViewDetails: () => void
+  onAssignHod: () => void
+  onChangeParent: () => void
 }) {
   return (
     <DropdownMenu>
