@@ -48,6 +48,14 @@ export const LMS_LEARNING_CATALOG_ACCESS_LINK = '/module/lms/learning/learning-c
 export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
+/**
+ * Capability Library - where job roles, skills and competencies are authored.
+ *
+ * Matches tblmenumaster_g2g row 223 exactly; content-map-m2.ts resolves it to
+ * CmLibrariesTaxonomy, which opens on the Job Role tab.
+ */
+export const CAPABILITY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/capability-library'
+export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/competency-library'
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
