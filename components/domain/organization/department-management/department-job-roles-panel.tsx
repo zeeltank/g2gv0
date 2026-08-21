@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils'
 import type { Department } from '@/lib/gtg-org-data'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { organizationService, type DepartmentJobRole } from '@/services/organization'
+import { useRouter } from 'next/navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 /**
  * The job roles that belong to a department.
@@ -26,7 +29,17 @@ import { organizationService, type DepartmentJobRole } from '@/services/organiza
  * step of the create wizard.
  */
 
-const JOB_ROLE_LIBRARY_LINK = '/module/capability-management/libraries/job-role-library'
+/*
+ * The link is resolved through the user's own menu tree, not hardcoded.
+ *
+ * This previously pushed an invented path,
+ * `/module/capability-management/libraries/job-role-library`, which matches no
+ * row in tblmenumaster_g2g and no entry in any content map. The shell rendered
+ * (HTTP 200) and then found nothing to put in it, so the button appeared to do
+ * nothing. The real link is CAPABILITY_LIBRARY_ACCESS_LINK - row 223, resolved
+ * by content-map-m2 - and resolveAccessLink() also checks the caller actually
+ * has rights to it rather than sending them somewhere they cannot open.
+ */
 
 export function DepartmentJobRolesPanel({
   department,
@@ -40,6 +53,8 @@ export function DepartmentJobRolesPanel({
   canManage: boolean
   employeeCountByRole?: Record<string, number>
 }) {
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [roles, setRoles] = useState<DepartmentJobRole[]>([])
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -73,12 +88,18 @@ export function DepartmentJobRolesPanel({
     )
   }, [roles, search])
 
+  /**
+   * Open Capability Library, where job roles are authored.
+   *
+   * Navigates in place rather than opening a tab: the shell, sidebar and
+   * permission checks all live inside the app, and a bare tab bypasses them.
+   *
+   * No `?department=` any more - CmLibrariesTaxonomy does not read query
+   * params, so that parameter promised a pre-filter it never applied. It does
+   * open on the Job Role tab by default, which is the part that matters here.
+   */
   function openLibrary() {
-    if (typeof window === 'undefined') return
-    // Carries the department so the Library form opens pre-filtered, rather
-    // than making the user find it again in a list of every department.
-    const url = `${JOB_ROLE_LIBRARY_LINK}?department=${encodeURIComponent(department.name)}`
-    window.open(url, '_blank', 'noopener')
+    router.push(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK))
   }
 
   return (

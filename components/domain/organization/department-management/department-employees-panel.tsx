@@ -9,6 +9,9 @@ import type { Department } from '@/lib/gtg-org-data'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { organizationService, type LaravelDepartmentEmployee, type DepartmentJobRole } from '@/services/organization'
 import { SelectInput } from '../components'
+import { useRouter } from 'next/navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { EMPLOYEE_DIRECTORY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 /**
  * Staffing a department: transfer people in, pull in employees who have no
@@ -51,6 +54,8 @@ export function DepartmentEmployeesPanel({
   /** Fired after any successful move, so the caller can reload headcounts. */
   onChanged?: () => void
 }) {
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [source, setSource] = useState<Source>('transfer')
   const [sourceDepartmentId, setSourceDepartmentId] = useState('')
   // The role the moved employees take in THIS department. Optional, because a
@@ -191,8 +196,11 @@ export function DepartmentEmployeesPanel({
    * partial employee form living inside department setup.
    */
   function goToEmployeeDirectory() {
-    if (typeof window === 'undefined') return
-    window.open('/organization/employees', '_blank', 'noopener')
+    // Was window.open('/organization/employees') - a bare page outside the app
+    // shell, with no sidebar and no rights check, in a new tab. Same mistake as
+    // the Capability Library link: navigate through the user's own menu tree so
+    // the destination is the real screen and they are allowed to see it.
+    router.push(resolveAccessLink(EMPLOYEE_DIRECTORY_ACCESS_LINK))
   }
 
   return (
