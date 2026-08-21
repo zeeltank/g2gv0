@@ -106,6 +106,58 @@ export type DepartmentRule = DepartmentContentRecord & {
   rule_definition?: string | null
 }
 
+/**
+ * Result of a bulk employee move.
+ *
+ * Always HTTP 200 with a verdict per employee - a refusal on one row (wrong
+ * tenant, already in the department) never aborts the others, so the caller can
+ * report exactly what moved and what did not.
+ */
+/**
+ * A job role in the tenant's catalogue.
+ *
+ * s_user_jobrole is a per-department catalogue of role definitions, not a
+ * user-to-role mapping - it has no user_id. An employee points AT one of these
+ * through tbluser.allocated_standards (or jobtitle_id).
+ */
+export type DepartmentJobRole = {
+  id: number
+  jobrole: string
+  description?: string | null
+  jobrole_category?: string | null
+  department_id?: number | null
+  department_name?: string | null
+}
+
+/**
+ * What is attached to a department.
+ *
+ * `blocking` marks the LMS rows: they carry a real foreign key, so they are
+ * why a delete is refused and why merge is offered instead.
+ */
+export type DepartmentImpact = {
+  total: number
+  sub_departments: number
+  lms_blocking: number
+  department?: string
+  breakdown: Array<{ label: string; count: number; blocking: boolean }>
+}
+
+export type DepartmentMergeResponse = LaravelStatusResponse & {
+  data?: {
+    moved?: Record<string, number>
+    employees?: number
+    job_roles_folded?: number
+    children?: number
+  }
+}
+
+export type BulkEmployeeResponse = LaravelStatusResponse & {
+  applied?: number
+  refused?: number
+  rows?: Array<{ index: number; user_id: number; ok: boolean; reason: string | null }>
+}
+
 export type LaravelComplianceRecord = {
   id: number
   name?: string | null
@@ -139,6 +191,14 @@ export type LaravelDepartmentEmployee = LaravelEmployee & {
   employee_no?: string | null
   email?: string | null
   mobile?: string | null
+  /**
+   * The employee's current department name, resolved by the API's LEFT JOIN.
+   *
+   * It was already being returned and already being read by the HOD picker,
+   * but was missing from this type - so the picker's subtitle silently fell
+   * through to "No department" for everyone.
+   */
+  department_name?: string | null
 }
 
 export type LaravelDisciplinaryRecord = {
@@ -264,6 +324,28 @@ export const organizationService = {
       },
     )),
 
+  /**
+   * What is attached to a department, before anything is done to it.
+   *
+   * `mode` genuinely changes the answer: delete cascades to the subtree, merge
+   * moves only this department (its children are re-parented and keep their
+   * own data). A GET, so it is NOT wrapped in ensureLaravelSuccess - the
+   * caller distinguishes "failed to load" from "zero", which matters when the
+   * number is about to justify a destructive action.
+   */
+  getDepartmentImpact: (context: LaravelContext, id: string, mode: 'delete' | 'merge') =>
+    apiClient.get<{ status?: number; data?: DepartmentImpact }>(
+      `/departments-management/${id}/impact`,
+      { ...departmentParams(context), mode },
+    ),
+
+  /** Move everything into another department, then retire this one. */
+  mergeDepartment: (context: LaravelContext, id: string, targetDepartmentId: string) =>
+    ensureLaravelSuccess(apiClient.post<DepartmentMergeResponse>(
+      `/departments-management/${id}/merge?${new URLSearchParams(departmentParams(context)).toString()}`,
+      { target_department_id: Number(targetDepartmentId) },
+    )),
+
   deleteDepartment: (context: LaravelContext, id: string) =>
     ensureLaravelSuccess(apiClient.delete<LaravelStatusResponse>(
       `/departments-management/${id}?${new URLSearchParams(departmentParams(context)).toString()}`,
@@ -300,12 +382,68 @@ export const organizationService = {
   departmentExportUrl: (context: LaravelContext) =>
     buildApiUrl('/departments-management/export', departmentParams(context)),
 
-  /** Tenant employees, for the head-of-department picker. */
-  getDepartmentCandidates: (context: LaravelContext, search = '') =>
+  /**
+   * Tenant employees.
+   *
+   * No filter = the head-of-department picker. `department_id` = that
+   * department's current staff, for transfers. `unassigned` = employees with
+   * no department at all, which nothing in the app could list before: the
+   * generic /table_data reader builds `where(column, value)` and so cannot
+   * express "department_id IS NULL".
+   */
+  getDepartmentCandidates: (
+    context: LaravelContext,
+    options: { search?: string; departmentId?: string; unassigned?: boolean } = {},
+  ) =>
     apiClient.get<LaravelStatusResponse<LaravelDepartmentEmployee[]>>(
       '/departments-management/employees',
-      { ...departmentParams(context), ...(search ? { search } : {}) },
+      {
+        ...departmentParams(context),
+        ...(options.search ? { search: options.search } : {}),
+        ...(options.departmentId ? { department_id: options.departmentId } : {}),
+        ...(options.unassigned ? { unassigned: '1' } : {}),
+      },
     ),
+
+  /**
+   * Job roles belonging to a department.
+   *
+   * `/jobroles-by-department` is the only tenant-scoped job role list in the
+   * app. The two department-named alternatives (`/department/{id}/jobroles`
+   * and `/department-jobroles`) both query `s_jobrole` by `track` - a different
+   * table, keyed on something that is not a department - and neither is
+   * tenant-scoped.
+   */
+  getDepartmentJobRoles: (context: LaravelContext, departmentId: string) =>
+    apiClient.get<{ status?: number; department_id?: number; department_name?: string; data?: DepartmentJobRole[] }>(
+      '/jobroles-by-department',
+      { ...departmentParams(context), department_id: departmentId },
+    ),
+
+  /** Per-employee verdicts; one refusal never aborts the batch. */
+  assignDepartmentEmployees: (
+    context: LaravelContext,
+    departmentId: string,
+    userIds: Array<string | number>,
+    extra: { effective_date?: string; remarks?: string; jobrole_id?: string | number } = {},
+  ) =>
+    ensureLaravelSuccess(apiClient.post<BulkEmployeeResponse>(
+      `/departments-management/${departmentId}/employees?${new URLSearchParams(departmentParams(context)).toString()}`,
+      { user_ids: userIds.map(Number), ...extra },
+    )),
+
+  unassignDepartmentEmployees: (
+    context: LaravelContext,
+    departmentId: string,
+    userIds: Array<string | number>,
+  ) =>
+    ensureLaravelSuccess(apiClient.post<BulkEmployeeResponse>(
+      `/departments-management/${departmentId}/employees?${new URLSearchParams({
+        ...departmentParams(context),
+        _method: 'DELETE',
+      }).toString()}`,
+      { user_ids: userIds.map(Number) },
+    )),
 
   // -- SOPs / Policies / Rules -------------------------------------------
   //

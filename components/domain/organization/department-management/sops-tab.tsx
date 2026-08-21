@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import {
   Activity,
@@ -44,6 +44,9 @@ import {
 import { SelectInput } from '../components'
 import { cn } from '@/lib/utils'
 import type { Department } from '@/lib/gtg-org-data'
+import type { LaravelContext } from '@/lib/laravel-context'
+import { organizationService } from '@/services/organization'
+import { useDepartmentContent } from './use-department-content'
 
 export interface Sop {
   id: string
@@ -53,6 +56,8 @@ export interface Sop {
   status: string
   uploadedBy: string
   uploadedOn: string
+  /** Whether a document is actually attached, so Download can be disabled. */
+  hasFile?: boolean
 }
 
 export interface ActivityEvent {
@@ -76,96 +81,18 @@ export function sopStatusClass(status: string) {
   }
 }
 
-export const MOCK_SOPS: Sop[] = [
-  {
-    id: 'sop-1',
-    title: 'Employee Onboarding Workflow',
-    version: 'v2.3',
-    type: 'PDF',
-    status: 'Active',
-    uploadedBy: 'Priya Nair',
-    uploadedOn: '12 Jun 2025',
-  },
-  {
-    id: 'sop-2',
-    title: 'Incident Reporting & Escalation',
-    version: 'v1.1',
-    type: 'DOCX',
-    status: 'Active',
-    uploadedBy: 'Sanjay Kapoor',
-    uploadedOn: '28 May 2025',
-  },
-  {
-    id: 'sop-3',
-    title: 'Quarterly Performance Review',
-    version: 'v3.0',
-    type: 'PDF',
-    status: 'Active',
-    uploadedBy: 'Meera Iyer',
-    uploadedOn: '15 May 2025',
-  },
-  {
-    id: 'sop-4',
-    title: 'Remote Work & Connectivity',
-    version: 'v1.4',
-    type: 'PDF',
-    status: 'Draft',
-    uploadedBy: 'Rahul Verma',
-    uploadedOn: '02 Apr 2025',
-  },
-  {
-    id: 'sop-5',
-    title: 'Data Privacy & Retention',
-    version: 'v2.0',
-    type: 'DOCX',
-    status: 'Archived',
-    uploadedBy: 'Kabir Khan',
-    uploadedOn: '19 Mar 2025',
-  },
-]
-
-export const SOP_SUMMARY: { label: string; value: string; icon: ReactNode }[] = [
-  { label: 'Total Tasks', value: '48', icon: <ClipboardList className="size-4" /> },
-  { label: 'Completed Tasks', value: '31', icon: <CheckCircle2 className="size-4" /> },
-  { label: 'Pending Tasks', value: '12', icon: <Clock className="size-4" /> },
-  { label: 'Overdue Tasks', value: '5', icon: <AlertTriangle className="size-4" /> },
-  { label: 'Employees', value: '86', icon: <Users className="size-4" /> },
-  { label: 'Open Positions', value: '9', icon: <UserPlus className="size-4" /> },
-  { label: 'Policies', value: '14', icon: <ScrollText className="size-4" /> },
-  { label: 'Decision Rules', value: '7', icon: <ShieldCheck className="size-4" /> },
-]
-
-export const RECENT_ACTIVITY: ActivityEvent[] = [
-  {
-    id: 'act-1',
-    icon: <FileText className="size-4" />,
-    text: 'uploaded SOP "Employee Onboarding Workflow"',
-    user: 'Priya Nair',
-    date: '12 Jun 2025',
-  },
-  {
-    id: 'act-2',
-    icon: <ScrollText className="size-4" />,
-    text: 'updated policy "Code of Conduct"',
-    user: 'Sanjay Kapoor',
-    date: '09 Jun 2025',
-  },
-  {
-    id: 'act-3',
-    icon: <ShieldCheck className="size-4" />,
-    text: 'modified decision rule "Leave Approval Threshold"',
-    user: 'Meera Iyer',
-    date: '03 Jun 2025',
-  },
-  {
-    id: 'act-4',
-    icon: <FileText className="size-4" />,
-    text: 'uploaded SOP "Incident Reporting & Escalation"',
-    user: 'Sanjay Kapoor',
-    date: '28 May 2025',
-  },
-]
-
+/*
+ * Three fixtures lived here and are gone:
+ *
+ *   MOCK_SOPS        - five hardcoded SOPs shown for every department.
+ *   SOP_SUMMARY      - eight hardcoded stat cards (Total Tasks 48, Employees
+ *                      86, ...) that were exported and never rendered by
+ *                      anything, so they described nothing at all.
+ *   RECENT_ACTIVITY  - a four-entry activity feed that WAS rendered, and was
+ *                      identical under every department in every tenant.
+ *
+ * SOPs now load per department from /api/department-sops.
+ */
 function IconButton({
   label,
   icon,
@@ -194,13 +121,22 @@ function UploadSopForm({
   onCancel,
 }: {
   department: Department
-  onSubmit: (sop: Sop) => void
+  /**
+   * The second argument is the real File.
+   *
+   * This form previously kept only `event.target.files[0].name` - a string -
+   * and threw the File itself away, which is part of why "Download" had
+   * nothing to serve and had to fabricate a text blob instead.
+   */
+  onSubmit: (sop: Sop, file: File | null) => void
   onCancel: () => void
 }) {
   const [title, setTitle] = useState('')
   const [version, setVersion] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState('Active')
+
+  const fileName = file?.name ?? ''
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -209,15 +145,18 @@ function UploadSopForm({
       month: 'short',
       year: 'numeric',
     })
-    onSubmit({
-      id: `sop-${Date.now()}`,
-      title: title.trim(),
-      version: version.trim() || 'v1.0',
-      type: fileName ? (fileName.split('.').pop() ?? 'FILE').toUpperCase() : 'PDF',
-      status,
-      uploadedBy: 'You',
-      uploadedOn: today,
-    })
+    onSubmit(
+      {
+        id: `sop-${Date.now()}`,
+        title: title.trim(),
+        version: version.trim() || 'v1.0',
+        type: fileName ? (fileName.split('.').pop() ?? 'FILE').toUpperCase() : 'PDF',
+        status,
+        uploadedBy: 'You',
+        uploadedOn: today,
+      },
+      file,
+    )
   }
 
   return (
@@ -273,7 +212,7 @@ function UploadSopForm({
               id="sop-file"
               type="file"
               className="sr-only"
-              onChange={(event) => setFileName(event.target.files?.[0]?.name ?? '')}
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
           </label>
         </div>
@@ -521,23 +460,65 @@ function ViewAllDialog({
 
 export function SopsTab({
   department,
-  sops,
-  onAddSop,
-  onDeleteSop,
-  onUpdateSop,
+  context,
+  canManage,
 }: {
   department: Department
-  sops: Sop[]
-  onAddSop: (sop: Sop) => void
-  onDeleteSop: (id: string) => void
-  onUpdateSop: (sop: Sop) => void
+  context: LaravelContext
+  canManage: boolean
 }) {
+  const loader = useCallback(
+    (departmentId: string) => organizationService.getDepartmentSops(context, departmentId),
+    [context],
+  )
+  const { items, isLoading, error, reload, setError } = useDepartmentContent(department.id, loader)
+
+  /**
+   * The tab's own view-model, derived from the API records.
+   *
+   * `uploadedBy` was the literal string 'You' on everything this UI created,
+   * and 'Priya Nair' / 'Sanjay Kapoor' on the fixtures. It is now whoever
+   * actually last touched the record, resolved server-side.
+   */
+  const sops: Sop[] = useMemo(
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        title: item.name,
+        version: item.version || 'v1.0',
+        type: item.fileName ? (item.fileName.split('.').pop() ?? 'FILE').toUpperCase() : '—',
+        status: item.status,
+        uploadedBy: item.updatedBy,
+        uploadedOn: item.lastUpdated,
+        hasFile: item.hasFile,
+      })),
+    [items],
+  )
+
+  const recentlyUpdated = useMemo(() => sops.slice(0, 4), [sops])
+
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [editingSop, setEditingSop] = useState<Sop | null>(null)
   const [deletingSop, setDeletingSop] = useState<Sop | null>(null)
   const [viewAllOpen, setViewAllOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  async function persist(action: () => Promise<unknown>, failureMessage: string) {
+    setIsSaving(true)
+    setError('')
+    try {
+      await action()
+      await reload()
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : failureMessage)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!openMenu) return
@@ -550,27 +531,35 @@ export function SopsTab({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu])
 
+  /**
+   * Download the actual stored document.
+   *
+   * This used to assemble a text blob whose body was the literal sentence
+   * "This is a mock SOP document." and hand that to the user as their file -
+   * named .txt regardless of what had supposedly been uploaded. View and
+   * Download were both wired to it, so neither did what its label said.
+   */
   const handleDownload = (sop: Sop) => {
-    const content = [
-      `SOP: ${sop.title}`,
-      `Version: ${sop.version}`,
-      `Status: ${sop.status}`,
-      `Type: ${sop.type}`,
-      `Uploaded By: ${sop.uploadedBy}`,
-      `Uploaded On: ${sop.uploadedOn}`,
-      '',
-      'This is a mock SOP document.',
-    ].join('\n')
+    if (typeof window === 'undefined') return
 
-    const blob = new Blob([content], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${sop.title.replace(/[^a-z0-9]/gi, '_')}_${sop.version}.txt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    if (!sop.hasFile) {
+      setError(`"${sop.title}" has no document attached.`)
+      return
+    }
+
+    window.location.href = organizationService.departmentSopDownloadUrl(context, sop.id)
+  }
+
+  /** Open the document in a new tab instead of saving it. */
+  const handleView = (sop: Sop) => {
+    if (typeof window === 'undefined') return
+
+    if (!sop.hasFile) {
+      setError(`"${sop.title}" has no document attached.`)
+      return
+    }
+
+    window.open(organizationService.departmentSopDownloadUrl(context, sop.id), '_blank', 'noopener')
   }
 
   const handleEdit = (sop: Sop) => {
@@ -583,11 +572,14 @@ export function SopsTab({
     setOpenMenu(null)
   }
 
-  const confirmDelete = () => {
-    if (deletingSop) {
-      onDeleteSop(deletingSop.id)
-      setDeletingSop(null)
-    }
+  const confirmDelete = async () => {
+    if (!deletingSop) return
+    const target = deletingSop
+    setDeletingSop(null)
+    await persist(
+      () => organizationService.deleteDepartmentSop(context, target.id),
+      'Failed to delete SOP.',
+    )
   }
 
   if (uploadOpen) {
@@ -595,9 +587,18 @@ export function SopsTab({
       <UploadSopForm
         department={department}
         onCancel={() => setUploadOpen(false)}
-        onSubmit={(sop) => {
-          onAddSop(sop)
-          setUploadOpen(false)
+        onSubmit={async (sop, file) => {
+          const ok = await persist(
+            () => organizationService.saveDepartmentSop(context, {
+              department_id: String(department.id),
+              title: sop.title,
+              version: sop.version,
+              status: sop.status,
+              ...(file ? { document: file } : {}),
+            }),
+            'Failed to upload SOP.',
+          )
+          if (ok) setUploadOpen(false)
         }}
       />
     )
@@ -608,9 +609,21 @@ export function SopsTab({
       <EditSopForm
         sop={editingSop}
         onCancel={() => setEditingSop(null)}
-        onSubmit={(updated) => {
-          onUpdateSop(updated)
-          setEditingSop(null)
+        onSubmit={async (updated) => {
+          const ok = await persist(
+            () => organizationService.saveDepartmentSop(
+              context,
+              {
+                department_id: String(department.id),
+                title: updated.title,
+                version: updated.version,
+                status: updated.status,
+              },
+              updated.id,
+            ),
+            'Failed to update SOP.',
+          )
+          if (ok) setEditingSop(null)
         }}
       />
     )
@@ -619,12 +632,24 @@ export function SopsTab({
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-foreground">Standard Operating Procedures</h3>
-        <Button size="sm" className="h-9" onClick={() => setUploadOpen(true)}>
-          <Plus className="size-4" aria-hidden="true" />
-          Upload SOP
-        </Button>
+        <h3 className="text-base font-semibold text-foreground">
+          Standard Operating Procedures ({sops.length})
+        </h3>
+        {canManage && (
+          <Button size="sm" className="h-9" onClick={() => setUploadOpen(true)} disabled={isSaving}>
+            <Plus className="size-4" aria-hidden="true" />
+            Upload SOP
+          </Button>
+        )}
       </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground">Loading SOPs...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!isLoading && !error && sops.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No SOPs have been uploaded for {department.name} yet.
+        </p>
+      )}
 
       <div className="space-y-2">
         {sops.map((sop) => (
@@ -656,7 +681,9 @@ export function SopsTab({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <IconButton label={`View ${sop.title}`} icon={<FileText className="size-4" />} onClick={() => handleDownload(sop)} />
+              {/* View opens the document; Download saves it. Both used to
+                  call the same handler, which fabricated a text file. */}
+              <IconButton label={`View ${sop.title}`} icon={<FileText className="size-4" />} onClick={() => handleView(sop)} />
               <IconButton label={`Download ${sop.title}`} icon={<Download className="size-4" />} onClick={() => handleDownload(sop)} />
               <div
                 ref={(el) => {
@@ -678,12 +705,12 @@ export function SopsTab({
                     >
                       Edit details
                     </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                    >
-                      Move to folder
-                    </button>
+                    {/*
+                      * "Move to folder" was a <button> with no onClick, and
+                      * SOPs have no folder concept in the schema - there is
+                      * nowhere to move one to. Removed rather than left as a
+                      * menu item that silently does nothing.
+                      */}
                     <button
                       type="button"
                       className="flex w-full items-center rounded-md px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10"
@@ -707,27 +734,37 @@ export function SopsTab({
         View All SOPs
       </button>
 
+      {/*
+        * Recent Activity was RECENT_ACTIVITY.map(...) - four invented events
+        * ("Priya Nair uploaded...") rendered identically under every
+        * department. There is no activity log behind SOPs, so rather than
+        * keep a convincing fiction this shows the real thing we do have: the
+        * most recently updated documents, and who touched them.
+        */}
       <div>
         <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Activity className="size-4" />
-          Recent Activity
+          Recently Updated
         </h4>
-        <ul className="space-y-3">
-          {RECENT_ACTIVITY.map((event) => (
-            <li key={event.id} className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-                {event.icon}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-foreground">
-                  <span className="font-medium">{event.user}</span> {event.text}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{event.date}</p>
-              </div>
-            </li>
-            
-          ))}
-        </ul>
+        {recentlyUpdated.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No SOP activity yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {recentlyUpdated.map((sop) => (
+              <li key={sop.id} className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                  <FileText className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-foreground">
+                    <span className="font-medium">{sop.uploadedBy}</span> updated {sop.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{sop.uploadedOn}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {deletingSop && (

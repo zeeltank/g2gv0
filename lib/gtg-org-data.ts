@@ -102,6 +102,21 @@ export type DeptNode = {
   hod: string | null
   employees: number
   status: 'Active' | 'Inactive' | 'Draft'
+  /**
+   * Position among siblings.
+   *
+   * The tree had no ordering field at all, so it rendered in whatever order
+   * the API happened to return - which made the Move up / Move down buttons
+   * look broken even when they had correctly written a new order to the
+   * database.
+   */
+  sortOrder?: number
+  /**
+   * True when this department's `parent_id` points at a row that does not
+   * exist, so it has been promoted to a root to keep the tree renderable.
+   * Surfaced in the UI rather than silently hidden.
+   */
+  orphaned?: boolean
   children: DeptNode[]
 }
 

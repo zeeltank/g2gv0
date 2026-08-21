@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SelectInput } from '../components'
 import type { Department } from '@/lib/gtg-org-data'
+import type { LaravelContext } from '@/lib/laravel-context'
+import { organizationService } from '@/services/organization'
+import { useDepartmentContent } from './use-department-content'
 
 export interface Rule {
   id: string
@@ -32,50 +35,18 @@ export interface Rule {
   description?: string
 }
 
-export const MOCK_RULES: Rule[] = [
-  {
-    id: 'rul-1',
-    name: 'Leave Approval Threshold',
-    code: 'RUL-LAT-001',
-    category: 'Leave',
-    status: 'Active',
-    lastUpdated: '03 Jun 2025',
-    updatedBy: 'Meera Iyer',
-    description: 'Leaves up to 3 days are auto-approved by the reporting manager.',
-  },
-  {
-    id: 'rul-2',
-    name: 'Overtime Cap',
-    code: 'RUL-OTC-002',
-    category: 'Attendance',
-    status: 'Active',
-    lastUpdated: '21 May 2025',
-    updatedBy: 'Rahul Verma',
-    description: 'Weekly overtime is capped at 10 hours without director approval.',
-  },
-  {
-    id: 'rul-3',
-    name: 'Expense Auto-Approve',
-    code: 'RUL-EXP-003',
-    category: 'Finance',
-    status: 'Draft',
-    lastUpdated: '09 Jun 2025',
-    updatedBy: 'Kabir Khan',
-    description: 'Expenses below ₹2,000 are auto-approved for verified vendors.',
-  },
-  {
-    id: 'rul-4',
-    name: 'Remote Check-in Window',
-    code: 'RUL-RCW-004',
-    category: 'Attendance',
-    status: 'Active',
-    lastUpdated: '28 May 2025',
-    updatedBy: 'Priya Nair',
-    description: 'Remote check-in allowed between 08:00 and 11:00 IST.',
-  },
-]
-
-const RULE_CATEGORIES = ['Leave', 'Attendance', 'Approval', 'Finance', 'Security']
+/*
+ * MOCK_RULES lived here: four hardcoded records (Leave Approval Threshold,
+ * Overtime Cap, Expense Auto-Approve, Remote Check-in Window) shown
+ * identically for every department, held in useState and never persisted.
+ * Rules are now stored per department and loaded from /api/department-rules.
+ */
+/*
+ * RULE_CATEGORIES was here - five strings frozen in the bundle, offered as the
+ * category dropdown for every tenant. Categories now come from
+ * /api/department-rules/categories, which returns the ones an organisation is
+ * actually using, seeded with these same five.
+ */
 
 type RuleView = 'list' | 'add' | 'edit' | 'view'
 
@@ -225,16 +196,19 @@ function RuleCard({
 
 function RuleForm({
   rule,
+  categories,
   onSubmit,
   onCancel,
 }: {
   rule?: Rule
+  /** Categories in use by this organisation, from the API. */
+  categories: string[]
   onSubmit: (rule: Rule) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState(rule?.name ?? '')
   const [code, setCode] = useState(rule?.code ?? '')
-  const [category, setCategory] = useState(rule?.category ?? RULE_CATEGORIES[0])
+  const [category, setCategory] = useState(rule?.category ?? categories[0] ?? '')
   const [status, setStatus] = useState(rule?.status ?? 'Draft')
   const [description, setDescription] = useState(rule?.description ?? '')
 
@@ -289,7 +263,7 @@ function RuleForm({
             id="rule-category"
             value={category}
             onChange={setCategory}
-            options={RULE_CATEGORIES.map((value) => ({ value, label: value }))}
+            options={categories.map((value) => ({ value, label: value }))}
           />
         </div>
         <div className="space-y-1.5">
@@ -398,13 +372,91 @@ function RuleDetail({
   )
 }
 
-export function RulesTab({ department }: { department: Department }) {
-  const [rules, setRules] = useState<Rule[]>(MOCK_RULES)
+export function RulesTab({
+  department,
+  context,
+  canManage,
+}: {
+  department: Department
+  context: LaravelContext
+  canManage: boolean
+}) {
+  const loader = useCallback(
+    (departmentId: string) => organizationService.getDepartmentRules(context, departmentId),
+    [context],
+  )
+  const { items, isLoading, error, reload, setError } = useDepartmentContent(
+    department.id,
+    loader,
+  )
+
+  // `Rule` requires a category; the API's is nullable, so it is defaulted here
+  // rather than loosening the type the cards and forms are built around.
+  const rules: Rule[] = useMemo(
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        code: item.code,
+        category: item.category ?? 'Uncategorised',
+        status: item.status,
+        lastUpdated: item.lastUpdated,
+        updatedBy: item.updatedBy,
+        description: item.description,
+      })),
+    [items],
+  )
+
   const [view, setView] = useState<RuleView>('list')
   const [selected, setSelected] = useState<Rule | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Rule | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  // Was RULE_CATEGORIES - five strings frozen in the bundle. The endpoint
+  // returns the categories this organisation actually uses, seeded with those
+  // same five so a tenant with no rules yet still gets a usable dropdown.
+  const [categories, setCategories] = useState<string[]>([])
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    organizationService
+      .getDepartmentRuleCategories(context)
+      .then((response) => {
+        if (!cancelled) setCategories(response?.data ?? [])
+      })
+      .catch(() => {
+        // A failed category lookup must not block rule editing.
+        if (!cancelled) setCategories([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [context])
+
+  const toPayload = (rule: Rule) => ({
+    department_id: Number(department.id),
+    title: rule.name,
+    code: rule.code,
+    category: rule.category,
+    status: rule.status,
+    description: rule.description ?? '',
+  })
+
+  async function persist(action: () => Promise<unknown>, failureMessage: string) {
+    setIsSaving(true)
+    setError('')
+    try {
+      await action()
+      await reload()
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : failureMessage)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!openMenu) return
@@ -423,34 +475,42 @@ export function RulesTab({ department }: { department: Department }) {
     setPendingDelete(null)
   }
 
-  const handleAdd = (rule: Rule) => {
-    setRules((current) => [rule, ...current])
-    goToList()
+  const handleAdd = async (rule: Rule) => {
+    const ok = await persist(
+      () => organizationService.saveDepartmentRule(context, toPayload(rule)),
+      'Failed to create rule.',
+    )
+    if (ok) goToList()
   }
 
-  const handleUpdate = (updated: Rule) => {
-    setRules((current) => current.map((rule) => (rule.id === updated.id ? updated : rule)))
-    goToList()
+  const handleUpdate = async (updated: Rule) => {
+    const ok = await persist(
+      () => organizationService.saveDepartmentRule(context, toPayload(updated), updated.id),
+      'Failed to update rule.',
+    )
+    if (ok) goToList()
   }
 
-  const handleDuplicate = (rule: Rule) => {
-    const copy: Rule = {
-      ...rule,
-      id: `rul-${Date.now()}`,
-      name: `${rule.name} (Copy)`,
-      status: 'Draft',
-      lastUpdated: formatToday(),
-      updatedBy: 'You',
-    }
-    setRules((current) => [copy, ...current])
+  const handleDuplicate = async (rule: Rule) => {
     setOpenMenu(null)
+    await persist(
+      () => organizationService.saveDepartmentRule(context, {
+        ...toPayload(rule),
+        title: `${rule.name} (Copy)`,
+        status: 'Draft',
+      }),
+      'Failed to duplicate rule.',
+    )
   }
 
-  const confirmDelete = () => {
-    if (pendingDelete) {
-      setRules((current) => current.filter((rule) => rule.id !== pendingDelete.id))
-      setPendingDelete(null)
-    }
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const target = pendingDelete
+    setPendingDelete(null)
+    await persist(
+      () => organizationService.deleteDepartmentRule(context, target.id),
+      'Failed to delete rule.',
+    )
   }
 
   if (view === 'add' || view === 'edit') {
@@ -472,6 +532,7 @@ export function RulesTab({ department }: { department: Department }) {
         </div>
         <RuleForm
           rule={isEdit ? selected ?? undefined : undefined}
+          categories={categories}
           onSubmit={isEdit ? handleUpdate : handleAdd}
           onCancel={goToList}
         />
@@ -504,11 +565,21 @@ export function RulesTab({ department }: { department: Department }) {
         <h3 className="text-base font-semibold text-foreground">
           Rules ({rules.length})
         </h3>
-        <Button size="sm" className="h-9 shrink-0" onClick={() => setView('add')}>
-          <Plus className="size-4" aria-hidden="true" />
-          Create Rule
-        </Button>
+        {canManage && (
+          <Button size="sm" className="h-9 shrink-0" onClick={() => setView('add')} disabled={isSaving}>
+            <Plus className="size-4" aria-hidden="true" />
+            Create Rule
+          </Button>
+        )}
       </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground">Loading rules...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!isLoading && !error && rules.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No rules have been added for {department.name} yet.
+        </p>
+      )}
 
       {pendingDelete && (
         <div className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
