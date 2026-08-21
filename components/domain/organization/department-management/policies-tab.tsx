@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SelectInput } from '../components'
 import type { Department } from '@/lib/gtg-org-data'
+import type { LaravelContext } from '@/lib/laravel-context'
+import { organizationService } from '@/services/organization'
+import { useDepartmentContent } from './use-department-content'
 
 export interface Policy {
   id: string
@@ -31,45 +34,13 @@ export interface Policy {
   description?: string
 }
 
-export const MOCK_POLICIES: Policy[] = [
-  {
-    id: 'pol-1',
-    name: 'Code of Conduct',
-    code: 'HR-COD-001',
-    status: 'Active',
-    lastUpdated: '09 Jun 2025',
-    updatedBy: 'Sanjay Kapoor',
-    description: 'Defines the expected standards of behaviour for all employees.',
-  },
-  {
-    id: 'pol-2',
-    name: 'Data Privacy & Retention',
-    code: 'SEC-DSP-002',
-    status: 'Active',
-    lastUpdated: '15 May 2025',
-    updatedBy: 'Kabir Khan',
-    description: 'Governs the collection, storage and disposal of personal data.',
-  },
-  {
-    id: 'pol-3',
-    name: 'Remote Work & Connectivity',
-    code: 'ENG-RWP-003',
-    status: 'Draft',
-    lastUpdated: '02 Jun 2025',
-    updatedBy: 'Rahul Verma',
-    description: 'Outlines eligibility and expectations for remote work arrangements.',
-  },
-  {
-    id: 'pol-4',
-    name: 'Leave & Attendance',
-    code: 'HR-LAP-004',
-    status: 'Active',
-    lastUpdated: '28 May 2025',
-    updatedBy: 'Priya Nair',
-    description: 'Covers leave entitlements, accrual and attendance tracking.',
-  },
-]
-
+/*
+ * MOCK_POLICIES lived here: four hardcoded records (Code of Conduct, Data
+ * Privacy & Retention, Remote Work & Connectivity, Leave & Attendance) that
+ * every department in every tenant displayed identically, attributed to
+ * invented authors. Policies are now stored per department and loaded from
+ * /api/department-policies.
+ */
 type PolicyView = 'list' | 'add' | 'edit' | 'view'
 
 function IconButton({
@@ -368,13 +339,54 @@ function PolicyDetail({
   )
 }
 
-export function PoliciesTab({ department }: { department: Department }) {
-  const [policies, setPolicies] = useState<Policy[]>(MOCK_POLICIES)
+export function PoliciesTab({
+  department,
+  context,
+  canManage,
+}: {
+  department: Department
+  context: LaravelContext
+  canManage: boolean
+}) {
+  const loader = useCallback(
+    (departmentId: string) => organizationService.getDepartmentPolicies(context, departmentId),
+    [context],
+  )
+  const { items: policies, isLoading, error, reload, setError } = useDepartmentContent(
+    department.id,
+    loader,
+  )
+
   const [view, setView] = useState<PolicyView>('list')
   const [selected, setSelected] = useState<Policy | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Policy | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  /** Translate the tab's view-model into the API's column names. */
+  const toPayload = (policy: Policy) => ({
+    department_id: Number(department.id),
+    title: policy.name,
+    code: policy.code,
+    status: policy.status,
+    description: policy.description ?? '',
+  })
+
+  async function persist(action: () => Promise<unknown>, failureMessage: string) {
+    setIsSaving(true)
+    setError('')
+    try {
+      await action()
+      await reload()
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : failureMessage)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!openMenu) return
@@ -393,36 +405,43 @@ export function PoliciesTab({ department }: { department: Department }) {
     setPendingDelete(null)
   }
 
-  const handleAdd = (policy: Policy) => {
-    setPolicies((current) => [policy, ...current])
-    goToList()
-  }
-
-  const handleUpdate = (updated: Policy) => {
-    setPolicies((current) =>
-      current.map((policy) => (policy.id === updated.id ? updated : policy)),
+  const handleAdd = async (policy: Policy) => {
+    const ok = await persist(
+      () => organizationService.saveDepartmentPolicy(context, toPayload(policy)),
+      'Failed to create policy.',
     )
-    goToList()
+    if (ok) goToList()
   }
 
-  const handleDuplicate = (policy: Policy) => {
-    const copy: Policy = {
-      ...policy,
-      id: `pol-${Date.now()}`,
-      name: `${policy.name} (Copy)`,
-      status: 'Draft',
-      lastUpdated: formatToday(),
-      updatedBy: 'You',
-    }
-    setPolicies((current) => [copy, ...current])
+  const handleUpdate = async (updated: Policy) => {
+    const ok = await persist(
+      () => organizationService.saveDepartmentPolicy(context, toPayload(updated), updated.id),
+      'Failed to update policy.',
+    )
+    if (ok) goToList()
+  }
+
+  const handleDuplicate = async (policy: Policy) => {
     setOpenMenu(null)
+    // A copy is a real new record now, not a second entry in a local array.
+    await persist(
+      () => organizationService.saveDepartmentPolicy(context, {
+        ...toPayload(policy),
+        title: `${policy.name} (Copy)`,
+        status: 'Draft',
+      }),
+      'Failed to duplicate policy.',
+    )
   }
 
-  const confirmDelete = () => {
-    if (pendingDelete) {
-      setPolicies((current) => current.filter((policy) => policy.id !== pendingDelete.id))
-      setPendingDelete(null)
-    }
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const target = pendingDelete
+    setPendingDelete(null)
+    await persist(
+      () => organizationService.deleteDepartmentPolicy(context, target.id),
+      'Failed to delete policy.',
+    )
   }
 
   if (view === 'add' || view === 'edit') {
@@ -476,11 +495,21 @@ export function PoliciesTab({ department }: { department: Department }) {
         <h3 className="text-base font-semibold text-foreground">
           Policies ({policies.length})
         </h3>
-        <Button size="sm" className="h-9 shrink-0" onClick={() => setView('add')}>
-          <Plus className="size-4" aria-hidden="true" />
-          Add Policy
-        </Button>
+        {canManage && (
+          <Button size="sm" className="h-9 shrink-0" onClick={() => setView('add')} disabled={isSaving}>
+            <Plus className="size-4" aria-hidden="true" />
+            Add Policy
+          </Button>
+        )}
       </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground">Loading policies...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!isLoading && !error && policies.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No policies have been added for {department.name} yet.
+        </p>
+      )}
 
       {pendingDelete && (
         <div className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">

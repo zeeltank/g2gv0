@@ -3,14 +3,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
   Download,
   Eye,
-  FileText,
   Filter,
   Folder,
   FolderOpen,
@@ -22,7 +20,6 @@ import {
   Search,
   Trash2,
   UserPlus,
-  Users,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,14 +34,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -52,6 +41,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   Table,
   TableBody,
@@ -66,10 +61,13 @@ import {
   type Department,
   type DeptNode,
 } from '@/lib/gtg-org-data'
+import { HodPickerDialog, ParentPickerDialog } from './department-pickers'
+import { DepartmentCreateWizard } from './department-create-wizard'
+import { DepartmentDeleteMergeDialog } from './department-delete-merge-dialog'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { organizationService, type LaravelDepartment } from '@/services/organization'
+import { organizationService, type LaravelDepartment, type LaravelDepartmentEmployee } from '@/services/organization'
 
 const LazyDepartmentDetailsPanel = lazy(() =>
   import('@/domain/organization/department-management/department-details-panel').then((module) => ({
@@ -78,7 +76,8 @@ const LazyDepartmentDetailsPanel = lazy(() =>
 )
 
 type SortKey = 'name' | 'code' | 'parent' | 'hod' | 'employees' | 'status'
-type DepartmentDialogMode = 'add' | 'edit'
+// The dialog is edit-only now; creating goes through DepartmentCreateWizard.
+type DepartmentDialogMode = 'edit'
 
 const PAGE_SIZE = 10
 
@@ -196,6 +195,7 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
       hod: department.hod,
       employees: department.employees,
       status: department.status,
+      sortOrder: department.sortOrder ?? 0,
       children: [],
     })
   }
@@ -216,11 +216,32 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
     const parentNode = department.parentId ? byId.get(department.parentId) : undefined
 
     if (!department.parentId || !parentNode || department.parentId === department.id || hasAncestor(department.id, byDepartmentId.get(department.parentId)?.parentId)) {
+      // A department that names a parent we cannot resolve is not a root - it
+      // is broken data being displayed as a root so the tree still renders.
+      // Flagging it means it can be fixed instead of quietly looking correct.
+      node.orphaned = Boolean(department.parentId) && !parentNode
       roots.push(node)
     } else if (!parentNode.children.some((child) => child.id === node.id)) {
       parentNode.children.push(node)
     }
   }
+
+  /*
+   * Order every level by sort_order, then name.
+   *
+   * Without this the tree rendered in API order and the Move up / Move down
+   * buttons appeared to do nothing - the new order was written to the database
+   * and then ignored on the way back in.
+   */
+  const byOrder = (a: DeptNode, b: DeptNode) =>
+    (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+
+  const sortTree = (nodes: DeptNode[]) => {
+    nodes.sort(byOrder)
+    for (const node of nodes) sortTree(node.children)
+  }
+
+  sortTree(roots)
 
   return roots
 }
@@ -243,7 +264,6 @@ export function DepartmentList({ role }: { role: Role }) {
   const [isSaving, setIsSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [departmentDialogMode, setDepartmentDialogMode] = useState<DepartmentDialogMode | null>(null)
-  const [dialogParent, setDialogParent] = useState<Department | null>(null)
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [deleteDepartment, setDeleteDepartment] = useState<Department | null>(null)
   const [departmentName, setDepartmentName] = useState('')
@@ -251,9 +271,20 @@ export function DepartmentList({ role }: { role: Role }) {
   // wrote a name and nothing else. Both now handle the full record.
   const [departmentCodeInput, setDepartmentCodeInput] = useState('')
   const [departmentDescription, setDepartmentDescription] = useState('')
+  // Parent, status and head are edited in the SAME form as name/code/description.
+  // Parent and head used to be reachable only from the row's kebab menu, and
+  // status could not be changed at all even though the API accepted it - so a
+  // department could be created Inactive by the wizard and never turned on.
+  const [departmentParentInput, setDepartmentParentInput] = useState('')
+  const [departmentStatusInput, setDepartmentStatusInput] = useState<'1' | '0'>('1')
+  const [departmentHeadInput, setDepartmentHeadInput] = useState<string>('')
+  const [departmentHeadName, setDepartmentHeadName] = useState<string>('')
+  const [headCandidates, setHeadCandidates] = useState<LaravelDepartmentEmployee[]>([])
   // Targets for the two pickers. Non-null means the dialog is open for that row.
   const [hodTarget, setHodTarget] = useState<Department | null>(null)
   const [parentTarget, setParentTarget] = useState<Department | null>(null)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [wizardParent, setWizardParent] = useState<Department | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [hodFilter, setHodFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
   const [staffedFilter, setStaffedFilter] = useState<'all' | 'staffed' | 'empty'>('all')
@@ -367,13 +398,75 @@ export function DepartmentList({ role }: { role: Role }) {
     return rows
   }, [scopedDepts, query, statusFilter, parentFilter, hodFilter, staffedFilter, selectedHierarchyIds, sortKey, sortAsc])
 
-  /** How many filters are narrowing the list, for the Filters button's badge. */
+  /**
+   * How many filters are narrowing the list, for the Filters button's badge.
+   *
+   * `hierarchyFilter` is counted here. It was not, so a filter set by clicking
+   * the tree was invisible in the badge and survived "Clear all filters" -
+   * leaving the table narrowed with no on-screen explanation.
+   */
   const activeFilterCount = useMemo(
     () =>
-      [statusFilter !== 'all', parentFilter !== 'all', hodFilter !== 'all', staffedFilter !== 'all']
-        .filter(Boolean).length,
-    [statusFilter, parentFilter, hodFilter, staffedFilter],
+      [
+        statusFilter !== 'all',
+        parentFilter !== 'all',
+        hodFilter !== 'all',
+        staffedFilter !== 'all',
+        hierarchyFilter !== null,
+      ].filter(Boolean).length,
+    [statusFilter, parentFilter, hodFilter, staffedFilter, hierarchyFilter],
   )
+
+  /**
+   * Valid parents for the department being edited.
+   *
+   * Excludes itself and everything beneath it. The backend rejects those moves
+   * anyway ("Cannot move a department beneath one of its own sub-departments"),
+   * so offering them would only produce a guaranteed 422.
+   */
+  const parentCandidates = useMemo(() => {
+    if (!editingDepartment) return []
+
+    const childrenOf = new Map<string, string[]>()
+    for (const item of scopedDepts) {
+      const key = item.parentId ?? 'root'
+      childrenOf.set(key, [...(childrenOf.get(key) ?? []), item.id])
+    }
+
+    const blocked = new Set<string>([editingDepartment.id])
+    const queue = [editingDepartment.id]
+    while (queue.length) {
+      const current = queue.shift()!
+      for (const childId of childrenOf.get(current) ?? []) {
+        if (blocked.has(childId)) continue
+        blocked.add(childId)
+        queue.push(childId)
+      }
+    }
+
+    return scopedDepts
+      .filter((item) => !blocked.has(item.id))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [editingDepartment, scopedDepts])
+
+  const headCandidateOptions = useMemo(
+    () =>
+      headCandidates.map((employee) => ({
+        value: String(employee.id),
+        label:
+          [employee.name, employee.employee_no].filter(Boolean).join(' · ') ||
+          `Employee #${employee.id}`,
+      })),
+    [headCandidates],
+  )
+
+  /** Departments matching the tree search, for the "N matching" line. */
+  const treeMatchCount = useMemo(() => {
+    const q = treeQuery.trim().toLowerCase()
+    if (!q) return scopedDepts.length
+    return scopedDepts.filter((d) => d.name.toLowerCase().includes(q)).length
+  }, [treeQuery, scopedDepts])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
@@ -413,32 +506,46 @@ export function DepartmentList({ role }: { role: Role }) {
     setHierarchyFilter(null)
   }
 
+  /**
+   * Creating goes through the wizard; editing keeps the small dialog.
+   *
+   * A new department needs a head, staff and documents before it is of any use,
+   * and none of that had a route in. An edit is usually a one-field change, so
+   * putting it behind five steps would be worse, not better.
+   */
   function openAddDialog(parent?: Department | null) {
-    setDepartmentDialogMode('add')
-    setDialogParent(parent ?? null)
-    setEditingDepartment(null)
-    setDepartmentName('')
-    setDepartmentCodeInput('')
-    setDepartmentDescription('')
+    setWizardParent(parent ?? null)
+    setWizardOpen(true)
     setNotice('')
   }
 
   function openEditDialog(department: Department) {
     setDepartmentDialogMode('edit')
-    setDialogParent(null)
     setEditingDepartment(department)
     setDepartmentName(department.name)
     // Seeded from the row, so an edit round-trips instead of silently
     // clearing the fields the dialog did not used to show.
     setDepartmentCodeInput(department.code ?? '')
     setDepartmentDescription(department.description ?? '')
+    setDepartmentParentInput(department.parentId ?? '')
+    setDepartmentStatusInput(department.status === 'Active' ? '1' : '0')
+    setDepartmentHeadInput(department.hodId ?? '')
+    setDepartmentHeadName(department.hod ?? '')
     setNotice('')
+
+    // The head picker needs the tenant's employees. Loaded when the form
+    // opens rather than on mount - most sessions never edit a department.
+    if (headCandidates.length === 0) {
+      void organizationService
+        .getDepartmentCandidates(context, {})
+        .then((response) => setHeadCandidates(response?.data ?? []))
+        .catch(() => setHeadCandidates([]))
+    }
   }
 
   function closeDepartmentDialog() {
     if (isSaving) return
     setDepartmentDialogMode(null)
-    setDialogParent(null)
     setEditingDepartment(null)
     setDepartmentName('')
   }
@@ -452,44 +559,62 @@ export function DepartmentList({ role }: { role: Role }) {
 
     const nextCode = departmentCodeInput.trim()
     const nextDescription = departmentDescription.trim()
+    const nextParent = departmentParentInput
+    const nextStatus = Number(departmentStatusInput)
+    const nextHead = departmentHeadInput
 
-    // The early-out used to compare the name alone, so editing only the code or
-    // the description looked like a no-op and closed without saving.
-    if (
-      editingDepartment &&
+    // This dialog is the EDIT path only - creating goes through
+    // DepartmentCreateWizard, which is the only way to reach the head,
+    // employee and document steps a new department needs.
+    if (!editingDepartment) return
+
+    // Compares every field the form shows. It used to compare the name alone,
+    // so editing only the code looked like a no-op and closed without saving.
+    const unchanged =
       nextName === editingDepartment.name &&
       nextCode === (editingDepartment.code ?? '') &&
-      nextDescription === (editingDepartment.description ?? '')
-    ) {
+      nextDescription === (editingDepartment.description ?? '') &&
+      nextParent === (editingDepartment.parentId ?? '') &&
+      nextStatus === (editingDepartment.status === 'Active' ? 1 : 0) &&
+      nextHead === (editingDepartment.hodId ?? '')
+
+    if (unchanged) {
       closeDepartmentDialog()
       return
     }
 
     setIsSaving(true)
     try {
-      let successMessage = ''
-      if (editingDepartment) {
-        await organizationService.updateDepartment(context, editingDepartment.id, {
-          department: nextName,
-          code: nextCode,
-          description: nextDescription,
-        })
-        successMessage = `${editingDepartment.parent ? 'Sub-department' : 'Department'} updated successfully.`
-      } else {
-        await organizationService.createDepartment(context, {
-          department: nextName,
-          parent_id: dialogParent?.id,
-          code: nextCode,
-          description: nextDescription,
-        })
-        successMessage = dialogParent ? 'Sub-department added successfully.' : 'Department added successfully.'
+      // The head lives on its own endpoint (it validates the employee against
+      // the tenant), so a head change is a second call rather than a field on
+      // update. Done first: if it is refused, nothing else has been written.
+      if (nextHead !== (editingDepartment.hodId ?? '')) {
+        await organizationService.setDepartmentHead(context, editingDepartment.id, nextHead || null)
       }
-      setDialogParent(null)
+
+      await organizationService.updateDepartment(context, editingDepartment.id, {
+        department: nextName,
+        code: nextCode,
+        description: nextDescription,
+        status: nextStatus,
+        // Only sent when it actually changed - the backend cycle-check rejects
+        // a parent that is the department's own descendant, and there is no
+        // reason to invite that on an unrelated edit.
+        ...(nextParent !== (editingDepartment.parentId ?? '')
+          ? { parent_id: Number(nextParent) || 0 }
+          : {}),
+      })
+
+      const successMessage = `${editingDepartment.parent ? 'Sub-department' : 'Department'} updated successfully.`
+
       setEditingDepartment(null)
       setDepartmentDialogMode(null)
       setDepartmentName('')
       setDepartmentCodeInput('')
       setDepartmentDescription('')
+      setDepartmentParentInput('')
+      setDepartmentHeadInput('')
+      setDepartmentHeadName('')
       await loadDepartments({ clearNotice: false })
       setNotice(successMessage)
     } catch (error) {
@@ -514,6 +639,34 @@ export function DepartmentList({ role }: { role: Role }) {
       // department as a "standard". Surfacing that message tells the user why,
       // instead of a generic failure for what looks like an ordinary delete.
       setNotice(error instanceof Error ? error.message : 'Failed to remove department.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  /**
+   * Merge this department into another, instead of deleting it.
+   *
+   * Everything attached becomes the target's, so nothing is stranded - and it
+   * is the only way past the LMS block, because those rows carry a real
+   * foreign key that a delete cannot satisfy.
+   */
+  async function confirmMergeDepartment(targetDepartmentId: string) {
+    if (!deleteDepartment || !targetDepartmentId) return
+
+    setIsSaving(true)
+    try {
+      const response = await organizationService.mergeDepartment(
+        context,
+        deleteDepartment.id,
+        targetDepartmentId,
+      )
+      setSelectedId((value) => (value === deleteDepartment.id ? null : value))
+      setDeleteDepartment(null)
+      await loadDepartments({ clearNotice: false })
+      setNotice(response?.message || 'Department merged successfully.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Failed to merge department.')
     } finally {
       setIsSaving(false)
     }
@@ -600,6 +753,9 @@ export function DepartmentList({ role }: { role: Role }) {
     setHodFilter('all')
     setStaffedFilter('all')
     setQuery('')
+    // "Clear all filters" left this one set, so the table stayed narrowed to a
+    // tree selection the badge no longer showed.
+    setHierarchyFilter(null)
     setPage(1)
   }
 
@@ -637,23 +793,37 @@ export function DepartmentList({ role }: { role: Role }) {
         </div>
       )}
 
+      {/*
+        * Two columns now - hierarchy and list. The details column is gone; it
+        * lives in a drawer, so the table keeps its full width whether or not a
+        * department is selected.
+        */}
       <div
         className={cn(
-          'grid grid-cols-1 auto-rows-[720px] items-stretch gap-3 overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
+          'grid grid-cols-1 auto-rows-[720px] items-stretch gap-3 overflow-hidden',
           'xl:h-[720px] xl:auto-rows-auto xl:grid-rows-[720px]',
-          isDetailsOpen
-            ? 'xl:grid-cols-[300px_minmax(0,1fr)_340px] 2xl:grid-cols-[320px_minmax(0,1fr)_360px]'
-            : 'xl:grid-cols-[300px_minmax(0,1fr)_0px] 2xl:grid-cols-[320px_minmax(0,1fr)_0px]',
+          'xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]',
         )}
       >
         <section className="flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-          <PanelHeader title="Department Hierarchy" />
-          <div className="border-b border-border px-4 pb-4">
+          <PanelHeader title={`Department Hierarchy (${tree.length})`} />
+          <div className="space-y-2 border-b border-border px-4 pb-4">
             <SearchField
               value={treeQuery}
               onChange={setTreeQuery}
               placeholder="Search department..."
             />
+            {/*
+              * Departments in this organisation are largely flat - most of
+              * them sit at the top level. Saying so, with the numbers, is more
+              * honest than presenting a 300-item list as though it were a
+              * hierarchy and leaving the user to work out why nothing nests.
+              */}
+            <p className="text-xs text-muted-foreground">
+              {treeQuery.trim()
+                ? `${treeMatchCount} matching of ${scopedDepts.length}`
+                : `${tree.length} top-level of ${scopedDepts.length} departments`}
+            </p>
           </div>
           <div className="g2g-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
             <HierarchyTree
@@ -903,8 +1073,21 @@ export function DepartmentList({ role }: { role: Role }) {
                         <StatusBadge status={department.status} size="sm" />
                       </TableCell>
                       <TableCell className="px-2 @md/deptlist:px-4">
-                        <div className="flex items-center justify-center gap-1">
-                          <IconAction label="View details" icon={<Eye className="size-4" />} className={cn(canManage && 'hidden @md/deptlist:flex')} />
+                        {/*
+                          * gap-1 (4px) put five 32px buttons shoulder to
+                          * shoulder, so the icons read as one block and were
+                          * easy to mis-tap. gap-2 gives each its own target.
+                          */}
+                        <div className="flex items-center justify-center gap-2">
+                          <IconAction
+                            label="View details"
+                            icon={<Eye className="size-4" />}
+                            className={cn(canManage && 'hidden @md/deptlist:flex')}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              openDetails(department)
+                            }}
+                          />
                           {canManage && (
                             <>
                               <IconAction label="Edit department" icon={<Pencil className="size-4" />} onClick={(event) => {
@@ -915,12 +1098,23 @@ export function DepartmentList({ role }: { role: Role }) {
                                 event.stopPropagation()
                                 setDeleteDepartment(department)
                               }} />
-                              <IconAction label="Assign HOD" icon={<UserPlus className="size-4" />} className="hidden @3xl/deptlist:flex" />
+                              <IconAction
+                                label={department.hod ? 'Change HOD' : 'Assign HOD'}
+                                icon={<UserPlus className="size-4" />}
+                                className="hidden @3xl/deptlist:flex"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setHodTarget(department)
+                                }}
+                              />
                               <RowMenu
                                 isSubDepartment={Boolean(department.parent)}
                                 onEdit={() => openEditDialog(department)}
                                 onAddSubDepartment={() => openAddDialog(department)}
                                 onDelete={() => setDeleteDepartment(department)}
+                                onViewDetails={() => openDetails(department)}
+                                onAssignHod={() => setHodTarget(department)}
+                                onChangeParent={() => setParentTarget(department)}
                               />
                             </>
                           )}
@@ -972,37 +1166,96 @@ export function DepartmentList({ role }: { role: Role }) {
           </div>
         </section>
 
-        <div
-          className={cn(
-            'h-full min-h-0 min-w-0 self-stretch overflow-hidden transition-opacity duration-300 ease-in-out',
-            isDetailsOpen
-              ? 'opacity-100'
-              : 'pointer-events-none opacity-0 max-xl:hidden',
-          )}
-          aria-hidden={!isDetailsOpen}
+      </div>
+
+      {/*
+        * Department details open in a right-hand DRAWER, matching the employee
+        * details drawer in Employee Directory.
+        *
+        * It used to be a third column inside the page grid, which meant the
+        * table lost roughly a third of its width whenever the panel opened -
+        * and on anything narrower than xl the panel was hidden outright, so
+        * "View details" did nothing visible on a laptop. A sheet overlays
+        * instead of competing for width, and behaves the same at every size.
+        */}
+      <Sheet
+        open={isDetailsOpen}
+        onOpenChange={(next) => {
+          if (!next) setSelectedId(null)
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="flex h-full w-[95vw] flex-col gap-0 border-l border-border/80 p-0 sm:max-w-2xl"
         >
+          <SheetTitle className="sr-only">
+            {detailDept ? `${detailDept.name} details` : 'Department details'}
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Overview, employees, job roles, SOPs, policies and rules for this department.
+          </SheetDescription>
+
           {detailDept && (
             <Suspense
               fallback={
-                <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-                  <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-                    Loading department details...
-                  </div>
-                </aside>
+                <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                  Loading department details...
+                </div>
               }
             >
               <LazyDepartmentDetailsPanel
                 department={detailDept}
+                departments={scopedDepts}
                 canManage={canManage}
-                onClose={() => setSelectedId(null)}
+                context={context}
                 onEdit={openEditDialog}
                 onAddSubDepartment={openAddDialog}
                 onDelete={setDeleteDepartment}
+                onAssignHod={setHodTarget}
+                onChangeParent={setParentTarget}
+                onSaved={() => void loadDepartments({ clearNotice: false })}
               />
             </Suspense>
           )}
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
+
+      <DepartmentCreateWizard
+        open={wizardOpen}
+        context={context}
+        departments={scopedDepts}
+        initialParent={wizardParent}
+        onCancel={() => {
+          setWizardOpen(false)
+          setWizardParent(null)
+          // A department created but not finished stays Inactive and is left
+          // in place, so reload to show it rather than pretend it is not there.
+          void loadDepartments({ clearNotice: false })
+        }}
+        onCreated={() => void loadDepartments({ clearNotice: false })}
+        onFinished={() => {
+          setWizardOpen(false)
+          setWizardParent(null)
+          void loadDepartments({ clearNotice: false })
+          setNotice('Department created and activated.')
+        }}
+      />
+
+      <HodPickerDialog
+        department={hodTarget}
+        context={context}
+        isSaving={isSaving}
+        onCancel={() => setHodTarget(null)}
+        onSelect={(employeeId) => void handleAssignHod(employeeId)}
+      />
+
+      <ParentPickerDialog
+        department={parentTarget}
+        departments={scopedDepts}
+        isSaving={isSaving}
+        onCancel={() => setParentTarget(null)}
+        onSelect={(parentId) => void handleChangeParent(parentId)}
+      />
 
       <Dialog open={isDepartmentDialogOpen} onOpenChange={(open) => {
         if (!open) closeDepartmentDialog()
@@ -1010,32 +1263,133 @@ export function DepartmentList({ role }: { role: Role }) {
         <DialogContent className="rounded-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingDepartment
-                ? `Edit ${editingDepartment.parent ? 'Sub-Department' : 'Department'}`
-                : dialogParent
-                  ? 'Add Sub-Department'
-                  : 'Add Department'}
+              Edit {editingDepartment?.parent ? 'Sub-Department' : 'Department'}
             </DialogTitle>
+            {/* Was "Department details are saved to the Laravel department
+                management API." - an implementation note shown to the user. */}
             <DialogDescription>
-              {dialogParent
-                ? `Parent department: ${dialogParent.name}`
-                : 'Department details are saved to the Laravel department management API.'}
+              {editingDepartment?.parent
+                ? `Parent department: ${editingDepartment.parent}`
+                : 'Update this department’s name, code and description.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <label htmlFor="department-name" className="text-sm font-medium text-foreground">
-              Department Name
-            </label>
-            <Input
-              id="department-name"
-              value={departmentName}
-              onChange={(event) => setDepartmentName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void saveDepartment()
-              }}
-              placeholder="Enter department name"
-              disabled={isSaving}
-            />
+          {/*
+            * The dialog used to collect a name and nothing else, because the
+            * update endpoint wrote a name and nothing else. Code and
+            * description are real columns now, so the form that claims to edit
+            * a department can actually edit one.
+            */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="department-name" className="text-sm font-medium text-foreground">
+                Department Name
+              </label>
+              <Input
+                id="department-name"
+                value={departmentName}
+                onChange={(event) => setDepartmentName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void saveDepartment()
+                }}
+                placeholder="Enter department name"
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="department-code" className="text-sm font-medium text-foreground">
+                Code <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                id="department-code"
+                value={departmentCodeInput}
+                onChange={(event) => setDepartmentCodeInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void saveDepartment()
+                }}
+                placeholder="e.g. HR, ENG-QA"
+                maxLength={50}
+                disabled={isSaving}
+              />
+            </div>
+
+            {/*
+              * Parent, Status and Head. All three were previously unreachable
+              * from this form: parent and head only from the row's kebab menu,
+              * and status not at all.
+              */}
+            <div className="grid gap-4 @md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="department-parent" className="text-sm font-medium text-foreground">
+                  Parent Department
+                </label>
+                <SelectInput
+                  id="department-parent"
+                  value={departmentParentInput}
+                  onChange={setDepartmentParentInput}
+                  className="h-10"
+                  options={[
+                    { value: '', label: 'None (top level)' },
+                    // Self and descendants excluded - the backend refuses a
+                    // parent that would put a department beneath itself, so
+                    // offering it would only produce a 422.
+                    ...parentCandidates.map((d) => ({ value: d.id, label: d.name })),
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="department-status" className="text-sm font-medium text-foreground">
+                  Status
+                </label>
+                <SelectInput
+                  id="department-status"
+                  value={departmentStatusInput}
+                  onChange={(value) => setDepartmentStatusInput(value === '0' ? '0' : '1')}
+                  className="h-10"
+                  options={[
+                    { value: '1', label: 'Active' },
+                    { value: '0', label: 'Inactive' },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="department-head" className="text-sm font-medium text-foreground">
+                Head of Department{' '}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <SelectInput
+                id="department-head"
+                value={departmentHeadInput}
+                onChange={setDepartmentHeadInput}
+                className="h-10"
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...headCandidateOptions,
+                ]}
+              />
+              {departmentHeadName && !departmentHeadInput && (
+                <p className="text-xs text-muted-foreground">
+                  Saving will clear the current head ({departmentHeadName}).
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="department-description" className="text-sm font-medium text-foreground">
+                Description <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                id="department-description"
+                value={departmentDescription}
+                onChange={(event) => setDepartmentDescription(event.target.value)}
+                placeholder="What this department is responsible for"
+                rows={3}
+                disabled={isSaving}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeDepartmentDialog} disabled={isSaving}>
@@ -1048,35 +1402,21 @@ export function DepartmentList({ role }: { role: Role }) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={Boolean(deleteDepartment)} onOpenChange={(open) => {
-        if (!open && !isSaving) setDeleteDepartment(null)
-      }}>
-        <AlertDialogContent className="rounded-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Remove {deleteDepartment?.parent ? 'Sub-Department' : 'Department'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteDepartment
-                ? `This will remove ${deleteDepartment.name}${deleteDepartment.parent ? '' : ' and its sub-departments'} from Laravel department management.`
-                : 'This department will be removed.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteDepartment(null)} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void confirmDeleteDepartment()}
-              disabled={isSaving}
-            >
-              {isSaving ? 'Removing...' : 'Remove'}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/*
+        * Delete-or-merge, replacing an AlertDialog that offered one
+        * irreversible button and named no consequences at all. All three
+        * delete entry points (row icon, row menu, details panel) already set
+        * the same `deleteDepartment` state, so this one swap covers them.
+        */}
+      <DepartmentDeleteMergeDialog
+        department={deleteDepartment}
+        departments={scopedDepts}
+        context={context}
+        isSaving={isSaving}
+        onCancel={() => setDeleteDepartment(null)}
+        onDelete={() => void confirmDeleteDepartment()}
+        onMerge={(targetId) => void confirmMergeDepartment(targetId)}
+      />
     </div>
   )
 }
@@ -1170,6 +1510,7 @@ function HierarchyNode({
   showCodes,
   showCounts,
   expandSignal,
+  parentMatched = false,
 }: {
   node: DeptNode
   depth: number
@@ -1179,6 +1520,8 @@ function HierarchyNode({
   showCodes: boolean
   showCounts: boolean
   expandSignal: ExpandSignal
+  /** True when an ancestor matched the search, so this subtree stays visible. */
+  parentMatched?: boolean
 }) {
   const [open, setOpen] = useState(true)
 
@@ -1199,13 +1542,41 @@ function HierarchyNode({
   const count = node.employees
   const subCount = descendantCount(node)
   const q = query.trim().toLowerCase()
-  const childMatches = node.children.some((child) => hierarchyMatches(child, q))
-  const visible =
-    !q ||
-    node.name.toLowerCase().includes(q) ||
-    childMatches
+  const selfMatches = q !== '' && node.name.toLowerCase().includes(q)
+
+  /*
+   * BUG 1 - COLLAPSE DID NOTHING.
+   *
+   * This was `node.children.some((child) => hierarchyMatches(child, q))`, and
+   * hierarchyMatches() opens with `if (!query) return true`. So with an empty
+   * search box every child "matched", childMatches was true for every node
+   * with children, and the render gate below - `(open || childMatches)` - was
+   * permanently true. Clicking the chevron flipped `open`, the arrow rotated
+   * and the folder icon swapped, and the subtree stayed on screen. "Collapse
+   * all" was defeated by the same line.
+   *
+   * Guarding on `q !== ''` means childMatches now describes what its name
+   * says: a descendant matched an actual search term.
+   */
+  const childMatches = q !== '' && node.children.some((child) => hierarchyMatches(child, q))
+
+  /*
+   * BUG 2 - SEARCHING A PARENT HID ITS CHILDREN.
+   *
+   * Visibility was self-match OR descendant-match, evaluated independently per
+   * node. Searching "Engineering" showed Engineering and hid "QA" and
+   * "Platform" underneath it, because neither child contains the word.
+   *
+   * `parentMatched` carries a matched ancestor down the tree, so matching a
+   * department reveals its whole subtree - which is what a tree search is
+   * expected to do.
+   */
+  const visible = !q || parentMatched || selfMatches || childMatches
 
   if (!visible) return null
+
+  // Once an ancestor has matched, everything below it is in the result set.
+  const subtreeMatched = parentMatched || selfMatches
 
   return (
     <li>
@@ -1244,6 +1615,14 @@ function HierarchyNode({
               {node.code}
             </span>
           )}
+          {node.orphaned && (
+            <span
+              title="This department's parent no longer exists. It is shown at the top level until the parent is corrected."
+              className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+            >
+              Orphaned
+            </span>
+          )}
         </button>
         {showCounts && (
           <Badge
@@ -1256,7 +1635,12 @@ function HierarchyNode({
         )}
         {selectedId === node.id && <MoreVertical className="size-4 shrink-0 text-foreground" />}
       </div>
-      {hasChildren && (open || childMatches) && (
+      {/*
+        * `open` alone when there is no search. During a search the subtree is
+        * force-opened so matches deeper down are actually reachable without
+        * the user expanding every node by hand.
+        */}
+      {hasChildren && (open || childMatches || (q !== '' && subtreeMatched)) && (
         <ul className="ml-5 space-y-1 border-l border-dotted border-primary/30 py-1">
           {node.children.map((child) => (
             <HierarchyNode
@@ -1269,6 +1653,7 @@ function HierarchyNode({
               showCodes={showCodes}
               showCounts={showCounts}
               expandSignal={expandSignal}
+              parentMatched={subtreeMatched}
             />
           ))}
         </ul>
@@ -1322,7 +1707,9 @@ function Person({ name }: { name?: string | null }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-foreground">{name ?? 'Unassigned'}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {name ? HOD_TITLES[name] ?? 'Department Head' : 'No HOD'}
+          {/* Was HOD_TITLES[name] - a lookup into eleven invented people that
+              could never hit, since every row's hod was null. */}
+          {name ? 'Department Head' : 'No HOD'}
         </p>
       </div>
     </div>
@@ -1359,7 +1746,7 @@ function RowMenu({
         <MoreVertical className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[220px] rounded-lg">
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onViewDetails}>
           <Eye className="size-4" />
           View Details
         </DropdownMenuItem>
@@ -1371,9 +1758,13 @@ function RowMenu({
           <Plus className="size-4" />
           Add Sub Department
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onAssignHod}>
           <UserPlus className="size-4" />
           Assign / Change HOD
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onChangeParent}>
+          <Folder className="size-4" />
+          Change Parent
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onDelete}>
@@ -1402,14 +1793,15 @@ function IconAction({ label, icon, className, onClick }: { label: string; icon: 
   )
 }
 
-function FooterIcon({ label, icon, onClick }: { label: string; icon: ReactNode; onClick?: () => void }) {
+function FooterIcon({ label, icon, onClick, disabled }: { label: string; icon: ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-10 items-center justify-center border border-border bg-background text-foreground transition-colors first:rounded-l-md last:rounded-r-md hover:bg-muted"
+      disabled={disabled}
+      className="flex h-10 items-center justify-center border border-border bg-background text-foreground transition-colors first:rounded-l-md last:rounded-r-md hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background"
     >
       {icon}
     </button>
