@@ -6,7 +6,6 @@
 import { apiClient, webClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { getLaravelContext, withLaravelParams } from '@/lib/laravel-context'
-import { resolveHpApiBaseUrl } from '@/lib/api-config'
 
 export interface EmployeeProfileFullResponse {
   status_code?: number | string
@@ -64,57 +63,94 @@ export async function fetchCompetencyProfile(
   return apiClient.get(`/competency/employee-profiles/${id}`, params)
 }
 
-/**
- * Gets the competency matrix assigned to a job role from the HP KABA service.
- * This is intentionally separate from the employee competency profile: KABA
- * describes the competencies for the selected employee's current job role.
+/*
+ * fetchJobRoleKaba() WAS REMOVED HERE.
+ *
+ * It read GET /get-kaba, which walks `s_library_map` - a NAME-keyed side table
+ * that is not the competency model - and it had exactly one caller: the
+ * employee drawer's Competency Rating tab. That tab now reads
+ * fetchKasbaRatings() below, which walks the real chain, so this had no callers
+ * left.
+ *
+ * THE ENDPOINT ITSELF IS NOT RETIRED, and that is worth being precise about.
+ * lib/ai/services/hp-api.ts still calls /get-kaba directly for the AI
+ * generator's job-role skill lookup. So `s_library_map` still has a reader and
+ * cannot be dropped - only this client of it is gone.
  */
-export async function fetchJobRoleKaba(
-  jobRoleId: string | number,
+
+/**
+ * THE COMPETENCY CHAIN, which is what this tab was always meant to show.
+ *
+ * `fetchJobRoleKaba` above reads /get-kaba, which walks `s_library_map` — a
+ * NAME-keyed side table that is not the competency model. This one walks the
+ * real chain:
+ *
+ *   jobrole_competency_map -> competency_kasba_item -> competency
+ *
+ * and LEFT JOINs the employee's own ratings, so an unrated item comes back with
+ * `rating: null`. That distinction is the point: /get-kaba defaults
+ * proficiency_level to "5", which is what made every unassessed competency
+ * render as full marks.
+ *
+ * It is tenant-scoped on both joined tables from the token, resolves the
+ * employee's role through both the id column and the legacy text one, and says
+ * honestly which of the two empty states it is in.
+ */
+export interface KasbaRatingItem {
+  kasba_item_id: number
+  kasba_type: string
+  item_id: number | null
+  item_label: string | null
+  /** Resolved from the dimension's library when item_id is set, else item_label. */
+  title: string | null
+  /** The id points at a library row that no longer exists. Shown, not hidden. */
+  title_missing: boolean
+  competency_id: number
+  competency_name: string | null
+  /** What the ROLE requires. Never this person's score. */
+  required_proficiency: number | null
+  is_mandatory: number | boolean | null
+  /** null means nobody has assessed them — not zero. */
+  rating: number | null
+  note: string | null
+  rated_at: string | null
+}
+
+export interface KasbaRatingResponse {
+  status: number
+  data: {
+    user_id: number
+    jobrole_id: number | null
+    items: KasbaRatingItem[]
+    rated: number
+    total: number
+  }
+  empty_is_expected: boolean
+  empty_reason: string | null
+  rating_range: { min: number; max: number }
+}
+
+export async function fetchKasbaRatings(
+  userId: string | number,
   context?: LaravelContext,
-): Promise<unknown> {
+): Promise<KasbaRatingResponse> {
   const ctx = context || getLaravelContext()
-  const params = new URLSearchParams({
-    sub_institute_id: ctx.subInstituteId,
-    type: 'jobrole',
-    type_id: String(jobRoleId),
-  })
-  // `api_key` REMOVED 2026-08-12 - the Laravel backend has no inbound api_key
-  // mechanism. See lib/api-config.ts. A credential nobody checks reads as
-  // protection and is worse than none.
-
-  const response = await fetch(`${resolveHpApiBaseUrl()}/get-kaba?${params.toString()}`)
-
-  /*
-   * A 404 here is an ANSWER, not a fault.
-   *
-   * SkillMatrixController::getKaba returns 404 {'error':'Mapping not found'}
-   * when the job role has no s_library_map row - i.e. nobody has mapped that
-   * role to a competency library yet. That is common: on tenant 6 it is all 15
-   * roles held by staff, so every employee's tab hit it. Reporting it as
-   * "Unable to load competency data (404)" made a configuration gap look like
-   * a broken system.
-   */
-  if (response.status === 404) {
-    throw new JobRoleNotMappedError()
-  }
-
-  if (!response.ok) {
-    throw new Error(`Unable to load competency data (${response.status}).`)
-  }
-
-  return response.json()
+  return apiClient.get<KasbaRatingResponse>(
+    '/competency/kasba-rating',
+    withLaravelParams(ctx, { user_id: String(userId) }),
+  )
 }
 
-/** The job role exists but has no competency-library mapping. */
-export class JobRoleNotMappedError extends Error {
-  readonly notMapped = true
-
-  constructor() {
-    super('This job role is not mapped to a competency library yet.')
-    this.name = 'JobRoleNotMappedError'
-  }
-}
+/*
+ * JobRoleNotMappedError WAS REMOVED HERE, with fetchJobRoleKaba that threw it.
+ *
+ * It existed to turn /get-kaba's 404 into "not mapped yet" rather than an error
+ * card. The replacement endpoint does not need it: it answers 200 with
+ * `empty_is_expected` and a reason naming WHICH empty it is - no job role, or a
+ * role with no competencies mapped. An expected state is better as a field than
+ * as an exception, because there are two of them and an exception only carries
+ * one.
+ */
 
 export async function updateSkillRating(
   id: string | number,

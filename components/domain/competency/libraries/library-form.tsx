@@ -201,6 +201,31 @@ export function LibraryForm({
 
   const categoryValue = config.categoryKey ? values[config.categoryKey] ?? '' : ''
 
+  /**
+   * The job role id behind a chosen role name, when there is exactly one.
+   *
+   * `meta.jobroles_by_department` carries `{ id, jobrole }`, so the browser has
+   * had the id all along - `sourceValues` just flattens it to a name list and
+   * throws it away. Sending the id is what stops a task detaching when its role
+   * is renamed.
+   *
+   * Ambiguity is HELD, not guessed: 91 (tenant, role name) groups on live cover
+   * 220 rows - "Vice President" exists eleven times in one organisation - so a
+   * name can genuinely mean two roles. Returning null there lets the server
+   * store the name with a NULL id rather than picking one at random, which is
+   * the same rule its department resolver follows.
+   */
+  const resolveJobroleId = (name: string): string | null => {
+    const wanted = name.trim().toLowerCase()
+    if (!wanted) return null
+
+    const matches = Object.values(meta.jobroles_by_department)
+      .flat()
+      .filter((role) => String(role.jobrole ?? '').trim().toLowerCase() === wanted)
+
+    return matches.length === 1 ? String(matches[0].id) : null
+  }
+
   const set = (key: string, value: string) => {
     setValues((current) => {
       const next = { ...current, [key]: value }
@@ -208,6 +233,10 @@ export function LibraryForm({
       // category clears it rather than leaving an orphaned pair.
       if (config.categoryKey && key === config.categoryKey && config.subCategoryKey) {
         next[config.subCategoryKey] = ''
+      }
+      // Capture the id alongside the name the moment a role is picked.
+      if (key === 'jobrole') {
+        next.jobrole_id = resolveJobroleId(value) ?? ''
       }
       return next
     })
@@ -344,6 +373,18 @@ export function LibraryForm({
       if (editing ? value === originalText : value === '') continue
 
       payload[overrides[field.key] ?? field.key] = value
+    }
+
+    /*
+     * `jobrole_id` rides alongside `jobrole`, and is not a configured field.
+     *
+     * The loop above only walks `config.fields`, so the id has to be added
+     * explicitly. It is sent whenever the name is being sent, including the
+     * empty case: on edit, clearing the id matters as much as setting it, or a
+     * role change would leave the previous role's id in place.
+     */
+    if ('jobrole' in payload) {
+      payload.jobrole_id = values.jobrole_id ?? ''
     }
 
     if (editing && Object.keys(payload).length === 0) {
