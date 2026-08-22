@@ -10,8 +10,8 @@ import {
   fetchEmployeeProfile,
   uploadEmployeeDocument,
   fetchCompetencyProfile,
-  fetchJobRoleKaba,
-  JobRoleNotMappedError,
+  fetchKasbaRatings,
+  type KasbaRatingResponse,
   type EmployeeProfileFullResponse
 } from '@/services/organization/employee-profile-service'
 import { getLaravelContext } from '@/lib/laravel-context'
@@ -118,79 +118,72 @@ function numericRating(value: unknown): number | null {
   return Number.isFinite(rating) && rating >= 0 ? Math.min(5, rating) : null
 }
 
-/** Normalises the KABA response while accepting the API's object- or array-shaped payloads. */
-function mapKabaRatings(payload: any): CompetencyRatings {
+/**
+ * Maps GET /competency/kasba-rating into the five buckets the tab renders.
+ *
+ * ── WHAT THIS REPLACED, AND WHY ────────────────────────────────────────────
+ *
+ * The previous mapper read /get-kaba, and had to guess at eight different key
+ * names for a title and two payload shapes, because that endpoint walks
+ * `s_library_map` — a NAME-keyed side table that is not the competency model.
+ * This one reads the real chain, so every field has exactly one name:
+ *
+ *   jobrole_competency_map -> competency_kasba_item -> competency
+ *
+ * ── UNMEASURED IS NOT ZERO, AND NOT FIVE ───────────────────────────────────
+ *
+ * `rating` is null until somebody assesses this person, and it stays null
+ * here. The old endpoint defaulted `proficiency_level` to "5", so an
+ * unassessed competency rendered with all five dots filled — the worst
+ * possible default, because it reads as a completed assessment.
+ *
+ * `required_proficiency` is what the ROLE asks for and is kept separate. It is
+ * never rendered as a score.
+ */
+function mapCompetencyChain(response: KasbaRatingResponse | null): CompetencyRatings {
   const ratings: CompetencyRatings = {
     Skill: [], Knowledge: [], Ability: [], Attitude: [], Behaviour: [],
   }
-  const source = Array.isArray(payload)
-    ? payload
-    : payload?.data ?? payload?.result ?? payload?.kaba ?? payload ?? []
 
-  const groupedSource = !Array.isArray(source) && typeof source === 'object' ? source : null
-  if (groupedSource) {
-    for (const [categoryName, items] of Object.entries(groupedSource)) {
-      if (!Array.isArray(items)) continue
-      for (const item of items) {
-        if (!item || typeof item !== 'object') continue
-        const title = item.competency ?? item.competency_name ?? item.title ?? item.name ?? item.skill ?? item.kaba ?? item.sub_category ?? item.category
-        if (!title) continue
-        const category = competencyCategory(categoryName)
-        ratings[category].push({
-          id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
-          title: String(title),
-          description: String(item.description ?? item.competency_description ?? item.details ?? title),
-          /*
-           * proficiency_level is NOT this person's rating.
-           *
-           * It used to be third in this chain, and /get-kaba defaults it to
-           * "5" (SkillMatrixController: `$item->proficiency_level ?? "5"`), so
-           * every unassessed competency rendered with all five dots filled and
-           * a "Lvl 5" badge. What it actually describes is what the ROLE
-           * requires. It is kept, separately, as required_level.
-           */
-          current_level: numericRating(item.current_level ?? item.rating),
-          required_level: numericRating(item.proficiency_level ?? item.required_level),
-          max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
-        })
-      }
-    }
-    return ratings
-  }
+  const items = response?.data?.items ?? []
+  const maxLevel = numericRating(response?.rating_range?.max) ?? 5
 
-  for (const item of source) {
-    if (!item || typeof item !== 'object') continue
-    const category = competencyCategory(item.category ?? item.competency_category ?? item.kaba_type ?? item.type)
-    const title = item.competency ?? item.competency_name ?? item.title ?? item.name ?? item.skill ?? item.kaba ?? item.sub_category ?? item.category
-    if (!title) continue
+  for (const item of items) {
+    if (!item) continue
+
+    const category = competencyCategory(item.kasba_type)
+
+    /*
+     * A missing title is NAMED, not blanked.
+     *
+     * `title_missing` means the item points at a library row that no longer
+     * exists — one such row on live, a behaviour item holding an id from the
+     * skill library's id-space. KASBA is five separate id-spaces, so an id
+     * from the wrong one resolves to nothing. Printing an empty cell would
+     * hide a data fault that somebody has to fix; printing the id shows them
+     * where to look.
+     */
+    const title = item.title
+      ?? (item.title_missing
+        ? `Missing ${item.kasba_type} item #${item.item_id}`
+        : item.item_label)
+
     ratings[category].push({
-      id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
-      title: String(title),
-      description: String(item.description ?? item.competency_description ?? item.details ?? title),
-      // Same separation as the grouped branch above: proficiency_level is the
-      // role's requirement, not this person's rating, and /get-kaba defaults
-      // it to "5" when unset.
-      current_level: numericRating(item.current_level ?? item.rating),
-      required_level: numericRating(item.proficiency_level ?? item.required_level),
-      max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
+      id: String(item.kasba_item_id),
+      title: title ? String(title) : `Item #${item.kasba_item_id}`,
+      // The competency this item belongs to is the useful context here: the
+      // tab groups by dimension, so without it there is nothing on screen
+      // saying WHY the item is being asked for.
+      description: item.competency_name
+        ? `Required by ${item.competency_name}${item.is_mandatory ? ' (mandatory)' : ''}`
+        : '',
+      current_level: numericRating(item.rating),
+      required_level: numericRating(item.required_proficiency),
+      max_level: maxLevel,
     })
   }
 
   return ratings
-}
-
-function getJobRoleId(employee: Record<string, any>, profile: EmployeeProfileFullResponse | null) {
-  const profileEmployee = profile?.data ?? {}
-  const directId = profileEmployee.allocated_standards ?? profileEmployee.jobrole_id ?? profileEmployee.job_role_id ??
-    profileEmployee.userJobroleId ?? employee.allocated_standards ?? employee.jobrole_id ?? employee.job_role_id
-  if (directId !== undefined && directId !== null && String(directId).trim()) return String(directId)
-
-  const roleName = profileEmployee.userJobrole ?? employee.jobRole ?? employee.designation
-  const match = (profile?.jobroleList ?? []).find((role: any) =>
-    String(role.jobrole ?? role.name ?? role.title ?? '').trim().toLowerCase() === String(roleName ?? '').trim().toLowerCase(),
-  )
-  const matchedId = match?.id ?? match?.jobrole_id ?? match?.value
-  return matchedId !== undefined && matchedId !== null ? String(matchedId) : null
 }
 
 const tabFallback = (
@@ -232,6 +225,8 @@ function EmployeeOverviewSheet({
   const [kabaError, setKabaError] = useState<string | null>(null)
   const [hasLoadedKaba, setHasLoadedKaba] = useState(false)
   const [kabaNotMapped, setKabaNotMapped] = useState(false)
+  /** The endpoint's own words for WHICH empty this is. Not reworded here. */
+  const [kabaEmptyReason, setKabaEmptyReason] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     if (!employee?.id) return
@@ -270,12 +265,22 @@ function EmployeeOverviewSheet({
     }
   }, [open, loadData])
 
-  const jobRoleId = useMemo(() => getJobRoleId(employee, profileData), [employee, profileData])
-
+  /*
+   * THE ROLE IS RESOLVED SERVER-SIDE NOW, so there is no jobRoleId here.
+   *
+   * This used to compute one in the browser by reading six possible fields off
+   * the employee and, failing that, matching the role NAME against a list. The
+   * endpoint resolves it from `jobtitle_id` with a fallback to the legacy text
+   * column, inside the tenant, in one place - so the client guessing at it was
+   * a second answer to a question that already had one.
+   *
+   * It also means "this person has no job role" is now reported BY the endpoint
+   * rather than inferred from a failed lookup, which is why the not-mapped card
+   * below prints the server's own reason.
+   */
   const loadKaba = useCallback(async () => {
-    if (!jobRoleId) {
+    if (!employee?.id) {
       setKabaRatings(EMPTY_COMPETENCY_RATINGS)
-      setKabaError('This employee does not have a Job Role ID assigned.')
       setHasLoadedKaba(true)
       return
     }
@@ -283,25 +288,28 @@ function EmployeeOverviewSheet({
     setIsKabaLoading(true)
     setKabaError(null)
     setKabaNotMapped(false)
+    setKabaEmptyReason(null)
     try {
-      const response = await fetchJobRoleKaba(jobRoleId, getLaravelContext())
-      setKabaRatings(mapKabaRatings(response))
+      const response = await fetchKasbaRatings(employee.id, getLaravelContext())
+      setKabaRatings(mapCompetencyChain(response))
+
+      // AN EXPECTED EMPTY IS NOT AN ERROR. The endpoint distinguishes "no job
+      // role" from "role has no competencies mapped" and says which; both are
+      // ordinary states for a new organisation, and neither deserves a Retry
+      // button or a status code.
+      if (response?.empty_is_expected) {
+        setKabaNotMapped(true)
+        setKabaEmptyReason(response.empty_reason ?? null)
+      }
       setHasLoadedKaba(true)
     } catch (error) {
       setKabaRatings(EMPTY_COMPETENCY_RATINGS)
-      // "Not mapped yet" is a different answer from "the request failed", and
-      // only one of them is worth a Retry button.
-      if (error instanceof JobRoleNotMappedError) {
-        setKabaNotMapped(true)
-        setKabaError(null)
-      } else {
-        setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
-      }
+      setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
       setHasLoadedKaba(true)
     } finally {
       setIsKabaLoading(false)
     }
-  }, [jobRoleId])
+  }, [employee?.id])
 
   useEffect(() => {
     if (open && activeTopTab === 'skill-rating' && !isLoading && !hasLoadedKaba) {
@@ -618,20 +626,25 @@ function EmployeeOverviewSheet({
               <Suspense fallback={tabFallback}>
                 {kabaNotMapped ? (
                   /*
-                   * Not an error card. The role simply has no s_library_map
-                   * row, which on some tenants is true of every role - so the
-                   * screen has to name the fix rather than show a status code.
+                   * Not an error card, and not one message either.
+                   *
+                   * There are TWO ordinary empties here and they need different
+                   * fixes: the employee has no job role, or the role has no
+                   * competencies mapped to it. The endpoint knows which and
+                   * says so in `empty_reason`, so this prints the server's
+                   * words rather than asserting the second one every time -
+                   * which is what it used to do, sending people to map a role
+                   * the employee did not have.
                    */
                   <div className="flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-6 text-center">
                     <Briefcase className="size-8 text-muted-foreground opacity-50" aria-hidden="true" />
                     <p className="text-sm font-medium text-foreground">
-                      This job role is not mapped to a competency library yet.
+                      {kabaEmptyReason ?? 'There is nothing to rate for this employee yet.'}
                     </p>
                     <p className="max-w-md text-xs text-muted-foreground">
                       {mergedEmployee.jobRole
-                        ? `"${mergedEmployee.jobRole}" has no competencies attached, so there is nothing to rate.`
-                        : 'The role has no competencies attached, so there is nothing to rate.'}{' '}
-                      Map it in Capability Library and this tab will fill in.
+                        ? `Nothing has been mapped for "${mergedEmployee.jobRole}", so this tab has nothing to show.`
+                        : 'Once a role is assigned and competencies are attached to it, they appear here.'}
                     </p>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={openCapabilityLibrary}>

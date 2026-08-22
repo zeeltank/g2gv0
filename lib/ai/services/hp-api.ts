@@ -32,11 +32,12 @@ function toAbsoluteUrl(urlOrPath: string) {
   return `${resolveHpBaseUrl()}${urlOrPath.startsWith("/") ? urlOrPath : `/${urlOrPath}`}`;
 }
 
-async function fetchJson(urlOrPath: string): Promise<RawApiPayload> {
+async function fetchJson(urlOrPath: string, token?: string): Promise<RawApiPayload> {
   const response = await fetch(toAbsoluteUrl(urlOrPath), {
     method: "GET",
     headers: {
       Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     cache: "no-store",
   });
@@ -131,13 +132,29 @@ export async function fetchSkillsByJobRole(
   options?: {
     jobRoleId?: string | number;
     subInstituteId?: string | number;
+    /** The caller's Laravel token. /get-kaba now requires one. */
+    token?: string;
   }
 ): Promise<SkillGapOption[]> {
-  const { jobRoleId, subInstituteId } = options || {};
+  const { jobRoleId, subInstituteId, token } = options || {};
 
-  const payload = jobRoleId
+  /*
+   * /get-kaba REQUIRES A TOKEN NOW.
+   *
+   * It used to be unauthenticated, which is how this server-side helper could
+   * call it with no credential at all. The endpoint now takes the tenant from
+   * the token and refuses anonymous callers.
+   *
+   * This chain does not carry a token today - SkillGapInput has no such field -
+   * so rather than invent one, an untokened call falls back to the by-name
+   * branch this function already had for roles with no id. That keeps the
+   * assistant working and keeps the anonymous call out of the codebase. When a
+   * token is threaded through the AI context, the id branch resumes.
+   */
+  const payload = jobRoleId && token
     ? await fetchJson(
-        `/get-kaba?sub_institute_id=${encodeURIComponent(String(subInstituteId || ""))}&type=jobrole&type_id=${encodeURIComponent(String(jobRoleId))}&title=${encodeURIComponent(jobRole)}`
+        `/get-kaba?sub_institute_id=${encodeURIComponent(String(subInstituteId || ""))}&type=jobrole&type_id=${encodeURIComponent(String(jobRoleId))}&title=${encodeURIComponent(jobRole)}`,
+        token
       )
     : await fetchJson(
         `/table_data?table=s_user_skill_jobrole&filters[jobrole]=${encodeURIComponent(jobRole)}${withSubInstituteFilter(subInstituteId)}&group_by=skill`
