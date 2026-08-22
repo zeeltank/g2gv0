@@ -84,11 +84,36 @@ export async function fetchJobRoleKaba(
   // protection and is worse than none.
 
   const response = await fetch(`${resolveHpApiBaseUrl()}/get-kaba?${params.toString()}`)
+
+  /*
+   * A 404 here is an ANSWER, not a fault.
+   *
+   * SkillMatrixController::getKaba returns 404 {'error':'Mapping not found'}
+   * when the job role has no s_library_map row - i.e. nobody has mapped that
+   * role to a competency library yet. That is common: on tenant 6 it is all 15
+   * roles held by staff, so every employee's tab hit it. Reporting it as
+   * "Unable to load competency data (404)" made a configuration gap look like
+   * a broken system.
+   */
+  if (response.status === 404) {
+    throw new JobRoleNotMappedError()
+  }
+
   if (!response.ok) {
     throw new Error(`Unable to load competency data (${response.status}).`)
   }
 
   return response.json()
+}
+
+/** The job role exists but has no competency-library mapping. */
+export class JobRoleNotMappedError extends Error {
+  readonly notMapped = true
+
+  constructor() {
+    super('This job role is not mapped to a competency library yet.')
+    this.name = 'JobRoleNotMappedError'
+  }
 }
 
 export async function updateSkillRating(

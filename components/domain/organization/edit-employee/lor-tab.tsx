@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { 
   BookOpen, 
   Lightbulb, 
@@ -36,7 +37,13 @@ interface LorData {
 }
 
 interface LorTabProps {
-  data: LorData | {};
+  data: LorData | Record<string, any> | null;
+  /** The seven real levels from s_level_responsibility, for the picker. */
+  levels?: { id: number; level: number; guiding_phrase: string | null }[];
+  /** The employee's currently stored level id (tbluser.subject_ids). */
+  currentLevelId?: number | string | null;
+  canEdit?: boolean;
+  onSave?: (levelId: string) => Promise<void> | void;
 }
 
 const cleanText = (text?: string) => text?.replace(/in SFIA/g, "").trim() || "";
@@ -56,20 +63,38 @@ const getAttributeIcon = (name: string) => {
   return <Star className="w-5 h-5 text-primary" />;
 };
 
-export function LorTab({ data }: LorTabProps) {
-  const lorData = data as LorData;
+export function LorTab({ data, levels = [], currentLevelId, canEdit, onSave }: LorTabProps) {
+  const lorData = (data ?? {}) as LorData;
   const [activeTab, setActiveTab] = useState<"overview" | "attributes" | "business">("overview");
 
   const attributes = lorData?.Attributes ? Object.values(lorData.Attributes).filter(a => cleanText(a.attribute_overall_description)) : [];
   const businessSkills = lorData?.Business_skills ? Object.values(lorData.Business_skills).filter(b => cleanText(b.attribute_overall_description)) : [];
 
+  const picker = canEdit && levels.length > 0
+    ? <LevelPicker levels={levels} currentLevelId={currentLevelId} onSave={onSave} />
+    : null;
+
+  /*
+   * The genuinely-empty case, which used to be unreachable.
+   *
+   * The parent substituted a complete SFIA Level 5 record whenever the API
+   * returned nothing, so an employee with no level assigned was displayed as
+   * "Level 5 - Ensure, advise" - assessed, and near the top of the scale.
+   * Nothing said otherwise. Now the absence shows, and the picker beside it is
+   * how someone fixes it.
+   */
   if (!lorData || Object.keys(lorData).length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4 animate-in fade-in zoom-in duration-300">
-        <div className="p-4 rounded-full bg-muted/50">
+      <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground animate-in fade-in zoom-in duration-300">
+        <div className="rounded-full bg-muted/50 p-4">
           <Target className="size-8 opacity-50" />
         </div>
-        <p>No Level of Responsibility data has been assigned to this profile.</p>
+        <p>No level of responsibility has been assigned to this employee.</p>
+        {picker ?? (
+          <p className="max-w-md text-center text-xs">
+            Levels are defined in the responsibility framework and assigned per employee.
+          </p>
+        )}
       </div>
     );
   }
@@ -97,6 +122,8 @@ export function LorTab({ data }: LorTabProps) {
             </div>
           </div>
         </div>
+
+        {picker && <div className="mb-6">{picker}</div>}
 
         {/* Section Navigation Tabs */}
         <div className="grid grid-cols-3 gap-2 bg-surface p-1.5 rounded-xl border border-border/50 shadow-sm">
@@ -213,6 +240,68 @@ export function LorTab({ data }: LorTabProps) {
         )}
 
       </div>
+    </div>
+  );
+}
+
+/**
+ * Assign the employee's level of responsibility.
+ *
+ * All seven levels, from s_level_responsibility - the old Add form offered
+ * only 1, 4 and 5, and the drawer offered none at all because the tab was
+ * read-only over a fabricated record.
+ */
+function LevelPicker({
+  levels,
+  currentLevelId,
+  onSave,
+}: {
+  levels: { id: number; level: number; guiding_phrase: string | null }[];
+  currentLevelId?: number | string | null;
+  onSave?: (levelId: string) => Promise<void> | void;
+}) {
+  const [selected, setSelected] = useState(currentLevelId ? String(currentLevelId) : "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const dirty = selected !== "" && selected !== String(currentLevelId ?? "");
+
+  async function save() {
+    if (!onSave || !dirty) return;
+    setIsSaving(true);
+    setError("");
+    try {
+      await onSave(selected);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save the level.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-64 flex-1 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground" htmlFor="lor-level">
+            Level of responsibility
+          </label>
+          <Select
+            id="lor-level"
+            value={selected}
+            onChange={setSelected}
+            placeholder="Select a level..."
+            options={levels.map((l) => ({
+              label: `Level ${l.level}${l.guiding_phrase ? ` — ${l.guiding_phrase}` : ""}`,
+              value: String(l.id),
+            }))}
+          />
+        </div>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={!dirty || isSaving}>
+          {isSaving ? "Saving..." : "Save level"}
+        </Button>
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 }

@@ -1,14 +1,35 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-interface RadioGroupProps extends React.HTMLAttributes<HTMLDivElement> {
+interface RadioGroupProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'defaultValue'> {
   value?: string
+  defaultValue?: string
   onValueChange?: (value: string) => void
   disabled?: boolean
 }
 
 const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
-  ({ className, value, onValueChange, disabled, children, ...props }, ref) => {
+  ({ className, value: valueProp, defaultValue, onValueChange, disabled, children, ...props }, ref) => {
+    /*
+     * Controlled when `value` is passed, uncontrolled otherwise.
+     *
+     * There was no `defaultValue` prop at all, so callers passing one had it
+     * swept into ...props and spread onto the div as an invalid DOM attribute.
+     * `value` was then undefined, every child cloned with
+     * `checked={childProps.value === undefined}` - false - and onChange called
+     * an undefined onValueChange. The result was a radio group that could not
+     * be checked by default OR by clicking: the gender radios in the Add
+     * Employee wizard were inert.
+     */
+    const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue)
+    const isControlled = valueProp !== undefined
+    const value = isControlled ? valueProp : internalValue
+
+    const select = (next: string) => {
+      if (!isControlled) setInternalValue(next)
+      onValueChange?.(next)
+    }
+
     return (
       <div
         ref={ref}
@@ -22,7 +43,7 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
             return React.cloneElement(child, {
               ...childProps,
               checked: childProps.value === value,
-              onChange: () => onValueChange?.(childProps.value),
+              onChange: () => select(childProps.value),
               disabled: disabled || childProps.disabled,
             } as any)
           }

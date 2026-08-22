@@ -66,7 +66,9 @@ import { useCompetencyLibrary, useCompetencyDetail } from '@/hooks/use-competenc
 import { useLibraryMeta, useTaxonomy } from '@/hooks/use-competency-libraries'
 import { useApprovalTrail, useSubmitForApproval } from '@/hooks/use-competency-approvals'
 import { competencyLibraryService } from '@/services/competency'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { apiClient } from '@/services/core'
+import { competencyLibrariesService } from '@/services/competency/libraries'
 import { useAuth } from '@/hooks/use-auth'
 import { SKILL_LIBRARY_CONFIG } from './libraries/library-config'
 import { TaxonomyManager } from './libraries/taxonomy-manager'
@@ -350,9 +352,19 @@ function pageWindow(current: number, last: number): (number | 'gap')[] {
 interface CompetencyFormProps {
   initial: CompetencyLibraryItem | null
   saving: boolean
-  /** Categories from the skill taxonomy, so the form and the tree agree. */
-  categories: string[]
-  subCategoriesOf: (category: string) => string[]
+  /**
+   * The competency taxonomy: frameworks.
+   *
+   * This used to be `categories` / `subCategoriesOf` from the SKILL taxonomy -
+   * `useTaxonomy('skill')`, i.e. `SELECT DISTINCT category FROM s_users_skills`.
+   * A competency is not a skill and is not filed under one. The backend has
+   * always known this ("a competency belongs to a FRAMEWORK, not a skill
+   * taxonomy") and reads `category` back from the framework name, so the value
+   * the user picked was silently thrown away on write.
+   */
+  frameworks: { id: number; name: string }[]
+  /** Canonical library items per dimension, so an item resolves to an id. */
+  itemOptionsByType: Record<string, { id: number; title: string }[]>
   departments: string[]
   onSubmit: (payload: CompetencyLibraryPayload) => Promise<{ ok: boolean; message: string }>
   onCancel: () => void
@@ -382,8 +394,8 @@ const DETAIL_FIELDS: { key: keyof CompetencyLibraryPayload; label: string; help?
 function CompetencyForm({
   initial,
   saving,
-  categories,
-  subCategoriesOf,
+  frameworks,
+  itemOptionsByType,
   departments,
   onSubmit,
   onCancel,
@@ -396,19 +408,49 @@ function CompetencyForm({
   // people are rated on the ITEMS, never on the competency itself. Without
   // these, creating from this screen produced a heading that measures nothing.
   //
-  // Only on CREATE. Editing items on an existing competency changes what people
-  // were already rated against, so it belongs in its own flow rather than
-  // hidden inside a general edit form.
-  const [items, setItems] = useState<{ kasba_type: string; item_label: string; weight: string }[]>([])
-  const addItem = () => setItems((x) => [...x, { kasba_type: 'knowledge', item_label: '', weight: '1' }])
+  /*
+   * EDITABLE NOW, AND RESOLVED BY ID.
+   *
+   * Two changes from what was here. First, this was create-only, so once a
+   * competency existed its composition was frozen and there was no screen
+   * anywhere that could correct it. Second, it captured only `item_label` -
+   * free text - so nothing it wrote could ever be resolved to a library row.
+   * That is why 66 of 266 items on live are still labels, and it is why the
+   * employee drawer cannot rate Knowledge, Ability or Attitude: those items
+   * have no id to rate against.
+   *
+   * `item_id` is now the target and `item_label` the fallback for something
+   * genuinely not in the library yet. Neither is invented from the other -
+   * the same rule the backend states.
+   */
+  const [items, setItems] = useState<{ kasba_type: string; item_id: string; item_label: string; weight: string }[]>(
+    () =>
+      (initial?.items ?? []).map((it: any) => ({
+        kasba_type: String(it.kasba_type ?? 'knowledge'),
+        item_id: it.item_id ? String(it.item_id) : '',
+        item_label: String(it.item_label ?? ''),
+        weight: String(it.weight ?? '1'),
+      })),
+  )
+  const addItem = () => setItems((x) => [...x, { kasba_type: 'knowledge', item_id: '', item_label: '', weight: '1' }])
   const setItem = (i: number, k: string, v: string) =>
-    setItems((x) => x.map((it, n) => (n === i ? { ...it, [k]: v } : it)))
+    setItems((x) =>
+      x.map((it, n) => {
+        if (n !== i) return it
+        const next = { ...it, [k]: v }
+        // Switching dimension invalidates the chosen item - an id only means
+        // something inside its own dimension's table.
+        if (k === 'kasba_type') { next.item_id = ''; next.item_label = '' }
+        // Picking a real item clears the free-text holding value, and vice versa.
+        if (k === 'item_id' && v) next.item_label = ''
+        return next
+      }),
+    )
   const removeItem = (i: number) => setItems((x) => x.filter((_, n) => n !== i))
 
   const [values, setValues] = useState<Record<string, string>>(() => ({
     name: initial?.name ?? '',
-    category: initial?.category ?? '',
-    sub_category: initial?.sub_category ?? '',
+    framework_id: initial?.framework_id ? String(initial.framework_id) : '',
     competency_type: initial?.competency_type ?? '',
     department: initial?.department ?? '',
     proficiency_level: initial?.proficiency_level ?? '',
@@ -430,16 +472,9 @@ function CompetencyForm({
   const withCurrent = (list: string[], current: string) =>
     current && !list.includes(current) ? [current, ...list] : list
 
-  const categoryOptions = [
-    { label: 'Select category', value: '' },
-    ...withCurrent(categories, values.category).map((c) => ({ label: c, value: c })),
-  ]
-  const subCategoryOptions = [
-    { label: values.category ? 'Select sub category' : 'Pick a category first', value: '' },
-    ...withCurrent(values.category ? subCategoriesOf(values.category) : [], values.sub_category).map((c) => ({
-      label: c,
-      value: c,
-    })),
+  const frameworkOptions = [
+    { label: 'No framework', value: '' },
+    ...frameworks.map((f) => ({ label: f.name, value: String(f.id) })),
   ]
   const departmentOptions = [
     { label: 'Select department', value: '' },
@@ -456,22 +491,29 @@ function CompetencyForm({
     const text = (key: string) => values[key]?.trim() ?? ''
     const optional = (key: string) => (text(key) ? { [key]: text(key) } : {})
 
-    // ITEMS ONLY ON CREATE, and only the ones actually filled in. A row the
-    // user added and left blank is not an item - sending it would store an
-    // unnamed capability that can never be rated meaningfully.
+    // A row is an item if it names something - either a library row (item_id)
+    // or, failing that, free text. A row with neither is a blank the user added
+    // and abandoned; sending it would store an unnamed capability nobody can
+    // rate.
     const filledItems = items
-      .filter((it) => it.item_label.trim() !== '')
+      .filter((it) => it.item_id.trim() !== '' || it.item_label.trim() !== '')
       .map((it) => ({
         kasba_type: it.kasba_type as 'knowledge' | 'ability' | 'skill' | 'behaviour' | 'attitude',
-        item_label: it.item_label.trim(),
+        ...(it.item_id.trim() ? { item_id: Number(it.item_id) } : {}),
+        ...(it.item_label.trim() ? { item_label: it.item_label.trim() } : {}),
         weight: Number(it.weight) || 1,
       }))
 
     const payload: CompetencyLibraryPayload = {
       name: values.name.trim(),
-      ...(!editing && filledItems.length ? { items: filledItems } : {}),
-      ...optional('category'),
-      ...optional('sub_category'),
+      // Sent on edit too, now that update() syncs the composition. Omitting the
+      // key leaves it untouched; sending it replaces it.
+      ...(filledItems.length || editing ? { items: filledItems } : {}),
+      // A competency is filed under a FRAMEWORK, which is its taxonomy. The
+      // form used to send `category` from the SKILL taxonomy, which the backend
+      // correctly discarded - so the field the user filled in went nowhere and
+      // 209 of 226 competencies ended up with no framework at all.
+      ...(values.framework_id ? { framework_id: Number(values.framework_id) } : {}),
       ...optional('department'),
       ...(values.competency_type ? { competency_type: values.competency_type } : {}),
       ...optional('description'),
@@ -512,18 +554,21 @@ function CompetencyForm({
           <Input value={values.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter name" className="bg-background border-border" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Category</label>
-            <Select value={values.category} onChange={(v) => set('category', v)} options={categoryOptions} placeholder="Select category" className="bg-background border-border h-9" aria-label="Category" />
-            {categories.length === 0 && (
-              <p className="text-xs text-muted-foreground">No categories yet — add one from Taxonomy.</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Sub Category</label>
-            <Select value={values.sub_category} onChange={(v) => set('sub_category', v)} options={subCategoryOptions} disabled={!values.category} className="bg-background border-border h-9" aria-label="Sub Category" />
-          </div>
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">Framework</label>
+          <Select
+            value={values.framework_id}
+            onChange={(v) => set('framework_id', v)}
+            options={frameworkOptions}
+            placeholder="Select framework"
+            className="bg-background border-border h-9"
+            aria-label="Framework"
+          />
+          <p className="text-xs text-muted-foreground">
+            {frameworks.length === 0
+              ? 'No frameworks yet — create one in Competency Studio. A competency filed under none will not appear in framework reporting.'
+              : 'A competency is filed under a framework. This is its taxonomy — not the skill categories.'}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -598,7 +643,7 @@ function CompetencyForm({
           )}
         </div>
 
-        {!editing && (
+        {(
           <div className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -635,12 +680,36 @@ function CompetencyForm({
                       className="h-9 w-36 bg-background"
                       aria-label="Dimension"
                     />
-                    <Input
-                      value={it.item_label}
-                      onChange={(e) => setItem(i, 'item_label', e.target.value)}
-                      placeholder="What the person must know, do or show"
+                    {/*
+                      * Pick the real library row. This was a free-text box, so
+                      * everything it wrote landed as item_label with a NULL
+                      * item_id - unresolvable, and unratable in the employee
+                      * drawer. The text box survives below only for something
+                      * genuinely not in the library yet.
+                      */}
+                    <Select
+                      value={it.item_id}
+                      onChange={(v) => setItem(i, 'item_id', v)}
+                      options={[
+                        { label: 'Not in the library yet…', value: '' },
+                        ...(itemOptionsByType[it.kasba_type] ?? []).map((o) => ({
+                          label: o.title,
+                          value: String(o.id),
+                        })),
+                      ]}
+                      placeholder="Choose an item"
                       className="h-9 min-w-[16rem] flex-1 bg-background"
+                      aria-label="Library item"
                     />
+                    {!it.item_id && (
+                      <Input
+                        value={it.item_label}
+                        onChange={(e) => setItem(i, 'item_label', e.target.value)}
+                        placeholder="Name it as free text (cannot be rated until mapped)"
+                        className="h-9 min-w-[14rem] flex-1 bg-background"
+                        aria-label="Item label"
+                      />
+                    )}
                     <Input
                       value={it.weight}
                       onChange={(e) => setItem(i, 'weight', e.target.value)}
@@ -772,6 +841,44 @@ export function CmCompetencyLibrary() {
   // Categories come from the skill taxonomy so the form, the filters and the
   // Skill Taxonomy tree all describe the same tree.
   const taxonomy = useTaxonomy('skill')
+
+  /*
+   * The competency taxonomy (frameworks) and the canonical item lists.
+   *
+   *  above stays: the LIST FILTERS and the Skill Taxonomy tree on
+   * this screen are genuinely about skills. What changed is that the create /
+   * edit FORM no longer files a competency under a skill category - it files it
+   * under a framework, which is what the backend stores and reads back.
+   */
+  const [frameworkOptionsForForm, setFrameworkOptionsForForm] = useState<{ id: number; name: string }[]>([])
+  const [itemOptionsByType, setItemOptionsByType] = useState<Record<string, { id: number; title: string }[]>>({})
+
+  useEffect(() => {
+    const ctx = getLaravelContext(user)
+    if (!isLaravelContextReady(ctx)) return
+
+    apiClient
+      .get<{ data?: { id: number; name: string }[] }>('/competency/frameworks', {
+        sub_institute_id: ctx.subInstituteId,
+        ...(ctx.token ? { type: 'api', token: ctx.token } : {}),
+      })
+      .then((res: any) => setFrameworkOptionsForForm((res?.data ?? []).map((f: any) => ({ id: Number(f.id), name: String(f.name) }))))
+      .catch(() => setFrameworkOptionsForForm([]))
+
+    // All five dimensions, each loaded independently so one failure does not
+    // blank the others. Same approach as the composer screen this replaces.
+    for (const kind of ['skill', 'knowledge', 'ability', 'attitude', 'behaviour'] as const) {
+      competencyLibrariesService
+        .list(ctx, kind as any, { per_page: 500 })
+        .then((res: any) => {
+          const opts = ((res?.data ?? []) as Array<Record<string, unknown>>)
+            .map((r) => ({ id: Number(r.id), title: String(r.title ?? '') }))
+            .filter((o) => o.id && o.title)
+          setItemOptionsByType((prev) => ({ ...prev, [kind]: opts }))
+        })
+        .catch(() => setItemOptionsByType((prev) => ({ ...prev, [kind]: [] })))
+    }
+  }, [user])
   const { meta } = useLibraryMeta()
   const { submit: submitForApproval, submitting } = useSubmitForApproval()
   const approvalTrail = useApprovalTrail('competency', selectedItem?.id ?? null)
@@ -1582,8 +1689,8 @@ export function CmCompetencyLibrary() {
               key={formLoading ? 'loading' : (formInitial?.id ?? 'new')}
               initial={formInitial}
               saving={saving || formLoading}
-              categories={taxonomy.categories}
-              subCategoriesOf={taxonomy.subCategoriesOf}
+              frameworks={frameworkOptionsForForm}
+              itemOptionsByType={itemOptionsByType}
               departments={meta.departments}
               onSubmit={submitForm}
               onCancel={() => setFormOpen(false)}

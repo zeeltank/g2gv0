@@ -56,6 +56,16 @@ export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-recor
  */
 export const CAPABILITY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/capability-library'
 export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/competency-library'
+/**
+ * Task Management - where an employee's job-role tasks are actually worked.
+ *
+ * tblmenumaster_g2g row 211, status = 1, verified before use. The Employee
+ * Directory's Jobrole Tasks tab links here rather than to a hand-written path:
+ * an invented one renders the shell with nothing inside it, which is exactly
+ * how the department drawer's "Create in Library" button broke.
+ */
+export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
+
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'

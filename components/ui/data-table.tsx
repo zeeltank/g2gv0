@@ -49,6 +49,12 @@ export interface DataTableProps<T extends Record<string, any>>
   selectable?: boolean
   selectedIds?: string[]
   onSelectChange?: (ids: string[]) => void
+  /**
+   * Stable identity for a row, used for selection and React keys. Defaults to
+   * the row's index, which is only safe while the data never sorts or filters
+   * - pass this whenever the selection drives an action.
+   */
+  getRowId?: (row: T, index: number) => string
   onRowClick?: (row: T) => void
   emptyState?: React.ReactNode
   pagination?: {
@@ -76,18 +82,37 @@ export const DataTable = React.forwardRef<
       density,
       striped,
       pagination,
+      getRowId,
       className,
       ...props
     },
     ref,
   ) => {
+    /*
+     * Selection identity.
+     *
+     * Rows were selected by their position in `data` - String(index) - so
+     * `selectedIds` was ["0","2","5"] rather than anything belonging to the
+     * rows themselves. Sort or filter the table and those same strings point
+     * at different records, silently: a bulk action would act on whoever
+     * happened to land in those positions.
+     *
+     * `getRowId` lets a caller select by a real id. It defaults to the old
+     * index behaviour so the existing `selectable` tables are unchanged;
+     * callers that run bulk actions are expected to pass it.
+     */
+    const rowId = React.useCallback(
+      (row: any, index: number) => (getRowId ? getRowId(row, index) : String(index)),
+      [getRowId],
+    )
+
     const handleSelectAll = () => {
-      const allIds = data.map((row, i) => String(i))
+      const allIds = data.map(rowId)
       onSelectChange?.(selectedIds.length === data.length ? [] : allIds)
     }
 
-    const handleSelectRow = (index: number) => {
-      const id = String(index)
+    const handleSelectRow = (row: any, index: number) => {
+      const id = rowId(row, index)
       const newSelected = selectedIds.includes(id)
         ? selectedIds.filter((s) => s !== id)
         : [...selectedIds, id]
@@ -143,7 +168,7 @@ export const DataTable = React.forwardRef<
             ) : (
               data.map((row, index) => (
                 <TableRow
-                  key={index}
+                  key={rowId(row, index)}
                   onClick={() => onRowClick?.(row)}
                   className={cn(
                     onRowClick && 'cursor-pointer hover:bg-surface-muted',
@@ -152,8 +177,8 @@ export const DataTable = React.forwardRef<
                   {selectable && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        checked={selectedIds.includes(String(index))}
-                        onChange={() => handleSelectRow(index)}
+                        checked={selectedIds.includes(rowId(row, index))}
+                        onChange={() => handleSelectRow(row, index)}
                       />
                     </TableCell>
                   )}

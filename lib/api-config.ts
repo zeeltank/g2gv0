@@ -38,8 +38,33 @@ export function resolveWebBaseUrl() {
   return rawBase.endsWith('/api') ? rawBase.slice(0, -4) : rawBase
 }
 
+/**
+ * The host serving `/get-kaba`.
+ *
+ * This is deliberately its own variable rather than `resolveApiBaseUrl()`,
+ * because the two are NOT the same deployment - measured:
+ *
+ *     hp.triz.co.in/get-kaba   -> 200
+ *     erp.triz.co.in/get-kaba  -> 404      (NEXT_PUBLIC_API_BASE_URL_PROD)
+ *
+ * so folding this into the main base URL would fix local and break production.
+ *
+ * The previous `|| 'https://hp.triz.co.in'` fallback is gone. With the variable
+ * unset it silently sent every local Competency Rating request to a remote
+ * production host, carrying a local tenant's ids - which is why that tab 404ed
+ * on localhost. An unset value is now loud instead of quietly cross-origin.
+ */
 export function resolveHpApiBaseUrl() {
-  return normalizeApiBaseUrl(process.env.NEXT_PUBLIC_HP_API_URL) || 'https://hp.triz.co.in'
+  const configured = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_HP_API_URL)
+
+  if (!configured) {
+    throw new Error(
+      'NEXT_PUBLIC_HP_API_URL is not set. It must name the host that serves /get-kaba ' +
+        '- your own backend locally, and hp.triz.co.in in production. See lib/api-config.ts.',
+    )
+  }
+
+  return configured
 }
 
 // `resolveHpApiKey()` REMOVED 2026-08-12. It had TWO consumers, both removed
