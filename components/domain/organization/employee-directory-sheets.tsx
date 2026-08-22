@@ -1,28 +1,29 @@
 'use client'
 
 import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
-import { Briefcase, CheckCircle2, Shield, User, Loader2 } from 'lucide-react'
+import { Briefcase, User, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
-import { Select } from '@/components/ui/select'
-import { DatePicker } from '@/components/ui/date-picker'
-import { TimePicker } from '@/components/ui/time-picker'
-import { RadioGroup, Radio } from '@/components/ui/radio-group'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import type { Employee } from '@/types/employee'
 import {
   fetchEmployeeProfile,
-  updateEmployeeProfile,
   uploadEmployeeDocument,
   fetchCompetencyProfile,
   fetchJobRoleKaba,
-  updateSkillRating,
+  JobRoleNotMappedError,
   type EmployeeProfileFullResponse
 } from '@/services/organization/employee-profile-service'
 import { getLaravelContext } from '@/lib/laravel-context'
+import {
+  employeeDirectoryService,
+  type ReferenceData,
+} from '@/services/organization/employee-directory'
+import { rateKasbaItem, saveSkillConfirmations } from '@/services/competency/kasba-rating-by-item'
+import { AddEmployeeSheet } from './employee-directory-parts/add-employee-sheet'
+import { useRouter } from 'next/navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 const PersonalInfoTab = lazy(() =>
   import('@/domain/organization/edit-employee/personal-info-tab').then((m) => ({
@@ -81,6 +82,10 @@ type EmployeeDirectorySheetsProps = {
   onAddSheetOpenChange: (open: boolean) => void
   activeEmployee: Employee | null
   onCloseEmployeeSheet: () => void
+  /** Departments, job roles, profiles, LOR levels and managers, loaded once by the list. */
+  referenceData: ReferenceData | null
+  /** Called after any write, so the list behind the drawer reflects it. */
+  onEmployeeChanged: (message?: string) => void | Promise<void>
 }
 
 type CompetencyCategory = 'Skill' | 'Knowledge' | 'Ability' | 'Attitude' | 'Behaviour'
@@ -88,7 +93,10 @@ type CompetencyRatings = Record<CompetencyCategory, Array<{
   id: string
   title: string
   description: string
+  /** What this person was assessed at. Null means nobody has assessed them. */
   current_level: number | null
+  /** What the ROLE asks for. Not a rating, and never rendered as one. */
+  required_level: number | null
   max_level: number
 }>>
 
@@ -132,7 +140,17 @@ function mapKabaRatings(payload: any): CompetencyRatings {
           id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
           title: String(title),
           description: String(item.description ?? item.competency_description ?? item.details ?? title),
-          current_level: numericRating(item.current_level ?? item.rating ?? item.proficiency_level ?? item.level),
+          /*
+           * proficiency_level is NOT this person's rating.
+           *
+           * It used to be third in this chain, and /get-kaba defaults it to
+           * "5" (SkillMatrixController: `$item->proficiency_level ?? "5"`), so
+           * every unassessed competency rendered with all five dots filled and
+           * a "Lvl 5" badge. What it actually describes is what the ROLE
+           * requires. It is kept, separately, as required_level.
+           */
+          current_level: numericRating(item.current_level ?? item.rating),
+          required_level: numericRating(item.proficiency_level ?? item.required_level),
           max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
         })
       }
@@ -149,7 +167,11 @@ function mapKabaRatings(payload: any): CompetencyRatings {
       id: String(item.id ?? item.kaba_id ?? item.competency_id ?? `${category}-${title}`),
       title: String(title),
       description: String(item.description ?? item.competency_description ?? item.details ?? title),
-      current_level: numericRating(item.current_level ?? item.rating ?? item.proficiency_level ?? item.level),
+      // Same separation as the grouped branch above: proficiency_level is the
+      // role's requirement, not this person's rating, and /get-kaba defaults
+      // it to "5" when unset.
+      current_level: numericRating(item.current_level ?? item.rating),
+      required_level: numericRating(item.proficiency_level ?? item.required_level),
       max_level: numericRating(item.max_level ?? item.maximum_level) ?? 5,
     })
   }
@@ -178,204 +200,43 @@ const tabFallback = (
   </div>
 )
 
-function AddEmployeeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [addStep, setAddStep] = useState(1)
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col gap-0 overflow-hidden border-l border-border/80 bg-card/95 p-0 shadow-2xl backdrop-blur-2xl sm:max-w-xl">
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-primary/5 via-transparent to-transparent" />
-
-        <div className="relative z-10 border-b border-border/40 bg-surface/50 px-6 py-6">
-          <SheetTitle className="text-xl">Onboard New Employee</SheetTitle>
-          <SheetDescription className="mt-1">
-            Step {addStep} of 5: {
-              addStep === 1 ? 'Personal Details'
-                : addStep === 2 ? 'Employment Structure'
-                : addStep === 3 ? 'Address Information'
-                : addStep === 4 ? 'Reporting & Deposit'
-                : 'Attendance Setup'
-            }
-          </SheetDescription>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {addStep === 1 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>First Name</Label>
-                  <Input placeholder="e.g. Sarah" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Last Name</Label>
-                  <Input placeholder="e.g. Jenkins" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Corporate Email</Label>
-                <Input type="email" placeholder="sarah.j@company.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone Number</Label>
-                <Input type="tel" placeholder="+1 (555) 000-0000" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Gender</Label>
-                  <RadioGroup defaultValue="M">
-                    <Radio value="M" label="Male" />
-                    <Radio value="F" label="Female" />
-                  </RadioGroup>
-                </div>
-                <div className="space-y-2">
-                  <Label>Date of Birth</Label>
-                  <DatePicker />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {addStep === 2 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Department</Label>
-                <Select placeholder="Select Department" options={[{ label: 'Engineering', value: 'eng' }, { label: 'Product', value: 'prod' }]} />
-              </div>
-              <div className="space-y-2">
-                <Label>Job Role / Designation</Label>
-                <Select placeholder="Select Job Role" options={[{ label: 'Senior Full Stack Engineer', value: 'se' }, { label: 'Product Designer', value: 'pd' }]} />
-              </div>
-              <div className="space-y-2">
-                <Label>Level of Responsibility (LOR)</Label>
-                <Select placeholder="Select LOR Level" options={[{ label: 'Level 1 - Follow', value: 'l1' }, { label: 'Level 4 - Enable', value: 'l4' }, { label: 'Level 5 - Ensure/Advise', value: 'l5' }]} />
-              </div>
-              <div className="space-y-2">
-                <Label>User Profile / Role</Label>
-                <Select placeholder="Select User Profile" options={[{ label: 'Employee', value: 'emp' }, { label: 'Manager', value: 'mgr' }, { label: 'Admin', value: 'admin' }]} />
-              </div>
-            </div>
-          )}
-
-          {addStep === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Street Address</Label>
-                <Input placeholder="123 Corporate Blvd, Suite 400" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input placeholder="San Francisco" />
-                </div>
-                <div className="space-y-2">
-                  <Label>State / Province</Label>
-                  <Input placeholder="California" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Pincode / Postal Code</Label>
-                <Input placeholder="94105" />
-              </div>
-            </div>
-          )}
-
-          {addStep === 4 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Reporting Manager</Label>
-                <Select placeholder="Select Reporting Manager" options={[{ label: 'Alex Mercer (CTO)', value: '1' }]} />
-              </div>
-              <div className="space-y-2">
-                <Label>Bank Name</Label>
-                <Input placeholder="Silicon Valley Bank" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Account Number</Label>
-                  <Input placeholder="••••••••9842" />
-                </div>
-                <div className="space-y-2">
-                  <Label>IFSC / Routing Code</Label>
-                  <Input placeholder="SVBK0001234" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {addStep === 5 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Working Days</Label>
-                <div className="flex flex-wrap gap-3 pt-1">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                    <label key={d} className="flex items-center gap-2 text-sm">
-                      <Checkbox defaultChecked={d !== 'Sat'} />
-                      {d}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="space-y-2">
-                  <Label>Default In-Time</Label>
-                  <TimePicker value="09:00" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Default Out-Time</Label>
-                  <TimePicker value="18:00" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="relative z-10 flex items-center justify-between border-t border-border/40 bg-surface/50 px-6 py-4">
-          <Button
-            variant="ghost"
-            disabled={addStep === 1}
-            onClick={() => setAddStep(s => Math.max(1, s - 1))}
-          >
-            Previous
-          </Button>
-          <div className="flex items-center gap-2">
-            {addStep < 5 ? (
-              <Button onClick={() => setAddStep(s => Math.min(5, s + 1))}>
-                Next Step
-              </Button>
-            ) : (
-              <Button onClick={() => onOpenChange(false)} className="bg-emerald-600 hover:bg-emerald-700">
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Finish Onboarding
-              </Button>
-            )}
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
 
 function EmployeeOverviewSheet({
   employee,
   open,
   onOpenChange,
+  referenceData,
+  onEmployeeChanged,
 }: {
   employee: Employee
   open: boolean
   onOpenChange: (open: boolean) => void
+  referenceData: ReferenceData | null
+  onEmployeeChanged: (message?: string) => void | Promise<void>
 }) {
+  const context = useMemo(() => getLaravelContext(), [])
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
+
+  /** Where a job role gets its competencies attached. */
+  const openCapabilityLibrary = () => router.push(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK))
+
   const [activeTopTab, setActiveTopTab] = useState<(typeof TOP_TABS)[number]['id']>('personal-info')
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [notice, setNotice] = useState('')
   const [profileData, setProfileData] = useState<EmployeeProfileFullResponse | null>(null)
   const [competencyProfile, setCompetencyProfile] = useState<any | null>(null)
   const [kabaRatings, setKabaRatings] = useState<CompetencyRatings>(EMPTY_COMPETENCY_RATINGS)
   const [isKabaLoading, setIsKabaLoading] = useState(false)
   const [kabaError, setKabaError] = useState<string | null>(null)
   const [hasLoadedKaba, setHasLoadedKaba] = useState(false)
+  const [kabaNotMapped, setKabaNotMapped] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!employee?.id) return
     setIsLoading(true)
+    setLoadError('')
     try {
       const [resProfile, resCompetency] = await Promise.allSettled([
         fetchEmployeeProfile(employee.id),
@@ -384,12 +245,20 @@ function EmployeeOverviewSheet({
 
       if (resProfile.status === 'fulfilled') {
         setProfileData(resProfile.value)
+      } else {
+        // allSettled used to swallow this into a console line, so a failed
+        // profile load rendered an empty drawer that looked like a real
+        // employee with nothing filled in.
+        setLoadError(
+          resProfile.reason instanceof Error
+            ? resProfile.reason.message
+            : 'Could not load this employee.',
+        )
       }
+
       if (resCompetency.status === 'fulfilled') {
         setCompetencyProfile(resCompetency.value)
       }
-    } catch (err) {
-      console.error('Failed to fetch profile details:', err)
     } finally {
       setIsLoading(false)
     }
@@ -413,14 +282,21 @@ function EmployeeOverviewSheet({
 
     setIsKabaLoading(true)
     setKabaError(null)
+    setKabaNotMapped(false)
     try {
       const response = await fetchJobRoleKaba(jobRoleId, getLaravelContext())
       setKabaRatings(mapKabaRatings(response))
       setHasLoadedKaba(true)
     } catch (error) {
-      console.error('Failed to fetch competency rating data:', error)
       setKabaRatings(EMPTY_COMPETENCY_RATINGS)
-      setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
+      // "Not mapped yet" is a different answer from "the request failed", and
+      // only one of them is worth a Retry button.
+      if (error instanceof JobRoleNotMappedError) {
+        setKabaNotMapped(true)
+        setKabaError(null)
+      } else {
+        setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
+      }
       setHasLoadedKaba(true)
     } finally {
       setIsKabaLoading(false)
@@ -435,21 +311,158 @@ function EmployeeOverviewSheet({
 
   const handleSavePersonalInfo = async (formData: any) => {
     if (!employee?.id) return
-    await updateEmployeeProfile(employee.id, formData)
-    await loadData()
+
+    /*
+     * PUT /api/employees-management/{id}, not POST /user/add_user/{id}.
+     *
+     * The old target had no route at all: Route::resource binds POST only to
+     * the collection, so the {id} form is PUT/PATCH and every save came back
+     * 405. Neither this handler nor the tab had a catch, so the spinner
+     * stopped, the button went back to "Save Changes", and the edit was gone.
+     */
+    setNotice('')
+    try {
+      const response = await employeeDirectoryService.update(context, employee.id, formData)
+      await loadData()
+      await onEmployeeChanged()
+      setNotice(response?.message || 'Changes saved.')
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Could not save the changes.')
+      // Rethrown so the tab's own submit state resolves as a failure and it
+      // does not present the form as saved.
+      throw cause
+    }
   }
 
   const handleUploadDocument = async (formData: FormData) => {
     if (!employee?.id) return
-    await uploadEmployeeDocument(employee.id, formData)
+    setNotice('')
+    try {
+      await uploadEmployeeDocument(employee.id, formData)
+      await loadData()
+      setNotice('Document uploaded.')
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'The document could not be uploaded.')
+      throw cause
+    }
+  }
+
+  /**
+   * Save one KASBA rating.
+   *
+   * `category` is finally used: it is the dimension, and the dimension is half
+   * the key - an item id means nothing without knowing which of the five
+   * library tables it belongs to.
+   */
+  const handleSaveRating = async (category: string, itemId: string, level: number) => {
+    if (!employee?.id) return
+
+    const result = await rateKasbaItem(
+      {
+        userId: employee.id,
+        kasbaType: category.toLowerCase() as any,
+        itemId,
+        rating: level,
+      },
+      context,
+    )
+
+    setNotice(result.notice || `Saved "${result.title}".`)
+    return result
+  }
+
+  /**
+   * Level of responsibility, saved onto tbluser.subject_ids.
+   *
+   * The tab was read-only because there was nothing to write to - and it
+   * showed a fabricated Level 5 for anyone unassigned, so it looked settled.
+   */
+  const handleSaveLevel = async (levelId: string) => {
+    if (!employee?.id) return
+    setNotice('')
+    try {
+      await employeeDirectoryService.update(context, employee.id, { subject_ids: levelId })
+      await loadData()
+      await onEmployeeChanged()
+      setNotice('Level of responsibility updated.')
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Could not save the level.')
+      throw cause
+    }
+  }
+
+  /**
+   * What has already been confirmed per skill, to seed the Jobrole Skill ticks.
+   *
+   * Read back out of the same s_skill_matrix row the tab writes: the four
+   * columns hold JSON arrays of s_skill_knowledge_ability ids. Legacy rows
+   * hold prose, which does not parse - those are treated as "nothing
+   * confirmed" rather than being guessed at.
+   */
+  const savedSkillConfirmations = useMemo(() => {
+    const parse = (value: unknown): number[] => {
+      if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite)
+      if (typeof value !== 'string' || value.trim() === '') return []
+      try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : []
+      } catch {
+        return []
+      }
+    }
+
+    const bySkill: Record<string, { knowledge: number[]; ability: number[]; attitude: number[]; behaviour: number[] }> = {}
+
+    for (const row of (profileData?.userRatedSkills ?? []) as any[]) {
+      const skillId = String(row.skill_id ?? row.id ?? '')
+      if (!skillId) continue
+      bySkill[skillId] = {
+        knowledge: parse(row.knowledge),
+        ability: parse(row.ability),
+        attitude: parse(row.attitude),
+        behaviour: parse(row.behaviour),
+      }
+    }
+
+    return bySkill
+  }, [profileData])
+
+  const handleSaveSkillConfirmations = async (skillId: string | number, confirmed: any) => {
+    if (!employee?.id) return
+    await saveSkillConfirmations(employee.id, skillId, confirmed, context)
     await loadData()
   }
 
-  const handleSaveRating = async (category: string, matrixId: string, level: number) => {
-    if (!employee?.id) return
-    await updateSkillRating(employee.id, matrixId, level)
-    await loadData()
-  }
+  /**
+   * Expected vs actual, from data.competencies[].items[].
+   *
+   * Each item already carries `required`, `current` and `gap`, computed
+   * server-side, so nothing is inferred here - the categories are the
+   * controller's own grouping and the numbers are its own.
+   */
+  const expectedCompetency = useMemo(() => {
+    const groups = competencyProfile?.data?.competencies
+    const mapped: Record<string, Array<{ id: string; title: string; description: string; expectedLevel: number; actualLevel: number }>> = {
+      Skill: [], Knowledge: [], Ability: [], Attitude: [], Behaviour: [],
+    }
+
+    const source = Array.isArray(groups) ? groups : Object.values(groups ?? {})
+
+    for (const group of source as any[]) {
+      const bucket = competencyCategory(group?.category)
+      for (const item of group?.items ?? []) {
+        mapped[bucket].push({
+          id: String(item.skill_id ?? item.matrix_id ?? item.name),
+          title: String(item.name ?? 'Untitled'),
+          description: String(item.description || item.name || ''),
+          expectedLevel: Number(item.required ?? 0),
+          actualLevel: Number(item.current ?? 0),
+        })
+      }
+    }
+
+    return mapped
+  }, [competencyProfile])
 
   const mergedEmployee = {
     ...employee,
@@ -507,6 +520,20 @@ function EmployeeOverviewSheet({
             </div>
           </div>
 
+          {(notice || loadError) && (
+            <div className="border-b border-border bg-surface px-6 py-2">
+              {loadError && (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-destructive">{loadError}</p>
+                  <Button variant="outline" size="sm" onClick={() => void loadData()}>
+                    Retry
+                  </Button>
+                </div>
+              )}
+              {notice && !loadError && <p className="text-sm text-muted-foreground">{notice}</p>}
+            </div>
+          )}
+
           <div key={activeTopTab} className="animate-in fade-in slide-in-from-bottom-2 flex-1 overflow-hidden bg-surface p-6 duration-300">
             {activeTopTab === 'personal-info' && (
               <Suspense fallback={tabFallback}>
@@ -522,14 +549,15 @@ function EmployeeOverviewSheet({
             )}
             {activeTopTab === 'upload-docs' && (
               <Suspense fallback={tabFallback}>
+                {/*
+                  * documentTypes is the real list only. Four invented types
+                  * with ids 1-4 used to stand in when the API returned none,
+                  * and those ids would have been posted as document_type_id,
+                  * pointing at whatever happens to occupy them.
+                  */}
                 <UploadDocTab
                   employee={mergedEmployee}
-                  documentTypes={profileData?.documentTypeLists || [
-                    { id: 1, document_type: 'Resume' },
-                    { id: 2, document_type: 'Offer Letter' },
-                    { id: 3, document_type: 'ID Proof' },
-                    { id: 4, document_type: 'Address Proof' },
-                  ]}
+                  documentTypes={profileData?.documentTypeLists ?? []}
                   documentLists={profileData?.documentLists || []}
                   onUpload={handleUploadDocument}
                 />
@@ -539,6 +567,8 @@ function EmployeeOverviewSheet({
               <Suspense fallback={tabFallback}>
                 <JobroleSkillTab
                   employee={mergedEmployee}
+                  savedSelections={savedSkillConfirmations}
+                  onSave={handleSaveSkillConfirmations}
                   skills={
                     (profileData?.jobroleSkills && profileData.jobroleSkills.length > 0)
                       ? profileData.jobroleSkills
@@ -555,135 +585,92 @@ function EmployeeOverviewSheet({
             )}
             {activeTopTab === 'jobrole-tasks' && (
               <Suspense fallback={tabFallback}>
-                <JobroleTasksTab
-                  tasks={
-                    (profileData?.jobroleTasks && profileData.jobroleTasks.length > 0)
-                      ? profileData.jobroleTasks
-                      : [
-                          { id: 1, critical_work_function: 'System Architecture', task: 'Design scalable backend systems to support high concurrency.' },
-                          { id: 2, critical_work_function: 'System Architecture', task: 'Ensure high availability and fault tolerance in database clusters.' },
-                          { id: 3, critical_work_function: 'Frontend Development', task: 'Develop modern, responsive user interfaces using React and Tailwind CSS.' },
-                          { id: 4, critical_work_function: 'Frontend Development', task: 'Implement accessibility standards (WCAG) across all web applications.' },
-                          { id: 5, critical_work_function: 'Code Quality & Testing', task: 'Write comprehensive unit and integration tests for critical business logic.' },
-                        ]
-                  }
-                />
+                {/*
+                  * The real list, empty when it is empty.
+                  *
+                  * Five invented software-engineering tasks used to be
+                  * substituted whenever the API returned none, so a
+                  * receptionist was shown "Design scalable backend systems"
+                  * and the tab's own honest empty state was unreachable.
+                  */}
+                <JobroleTasksTab tasks={profileData?.jobroleTasks ?? []} />
               </Suspense>
             )}
             {activeTopTab === 'responsibility' && (
               <Suspense fallback={tabFallback}>
+                {/*
+                  * No fallback. A full SFIA Level 5 record used to be
+                  * substituted when the API had nothing, so every employee
+                  * with no level assigned was displayed as "Level 5 - Ensure,
+                  * advise": the most senior individual-contributor band in the
+                  * framework, shown as though it had been assessed.
+                  */}
                 <LorTab
-                  data={
-                    profileData?.userLevelOfResponsibility && Object.keys(profileData.userLevelOfResponsibility).length > 0
-                      ? profileData.userLevelOfResponsibility
-                      : {
-                          level: '5',
-                          guiding_phrase: 'Ensure, advise',
-                          essence_level: 'Works under broad direction. Work is often self-initiated. Is fully responsible for meeting allocated technical and/or project/supervisory objectives. Establishes milestones and has a significant role in the assignment of tasks and/or responsibilities.',
-                          guidance_note: 'Performs an extensive range and variety of complex technical and/or professional work activities. Undertakes work which requires the application of fundamental principles in a wide and often unpredictable range of contexts. Understands the relationship between own specialism and wider customer/organisational requirements.',
-                          Attributes: {
-                            Autonomy: { attribute_name: 'Autonomy', attribute_overall_description: 'Works under broad direction. Work is often self-initiated. Is fully responsible for meeting allocated technical and/or project/supervisory objectives.' },
-                            Influence: { attribute_name: 'Influence', attribute_overall_description: 'Influences organisation, customers, suppliers, partners and peers on the contribution of own specialism. Builds appropriate and effective business relationships.' },
-                            Complexity: { attribute_name: 'Complexity', attribute_overall_description: 'Performs an extensive range and variety of complex technical and/or professional work activities. Undertakes work which requires the application of fundamental principles.' },
-                          },
-                          Business_skills: {
-                            Communication: { attribute_name: 'Communication', attribute_overall_description: 'Demonstrates leadership. Facilitates collaboration between stakeholders who have diverse objectives.' },
-                            'Problem Solving': { attribute_name: 'Problem Solving', attribute_overall_description: 'Analyses requirements and advises on scope and options for continuous operational improvement. Demonstrates creativity, innovation and ethical thinking.' },
-                          },
-                        }
-                  }
+                  data={profileData?.userLevelOfResponsibility ?? null}
+                  levels={referenceData?.levels_of_responsibility ?? []}
+                  currentLevelId={(mergedEmployee as any).subject_ids ?? null}
+                  canEdit
+                  onSave={handleSaveLevel}
                 />
               </Suspense>
             )}
             {activeTopTab === 'skill-rating' && (
               <Suspense fallback={tabFallback}>
-                <CompetencyRatingTab
-                  onSave={(category, id, level) => handleSaveRating(category, id, level)}
-                  data={kabaRatings}
-                  isLoading={isKabaLoading || !hasLoadedKaba}
-                  error={kabaError}
-                  onRetry={loadKaba}
+                {kabaNotMapped ? (
                   /*
-                    competencyProfile?.currentSkills && competencyProfile.currentSkills.length > 0
-                      ? {
-                          Skill: competencyProfile.currentSkills.map((s: any) => ({
-                            id: String(s.skill_id),
-                            title: s.title,
-                            description: s.description || s.title,
-                            current_level: s.level || s.proficiency_level || 3,
-                            max_level: 5,
-                          })),
-                          Knowledge: [],
-                          Ability: [],
-                          Attitude: [],
-                          Behaviour: [],
-                        }
-                      : {
-                          Skill: [
-                            { id: 's1', title: 'React Development', description: 'Ability to build responsive and performant user interfaces using React hooks, context, and state management libraries.', current_level: null, max_level: 5 },
-                            { id: 's2', title: 'API Integration', description: 'Proficiency in consuming RESTful APIs, handling error states, and managing asynchronous data fetching.', current_level: 3, max_level: 5 },
-                            { id: 's3', title: 'System Design', description: 'Ability to design scalable architecture for front-end and back-end services.', current_level: null, max_level: 5 },
-                          ],
-                          Knowledge: [
-                            { id: 'k1', title: 'Web Accessibility (WCAG)', description: 'Understanding of ARIA roles, semantic HTML, and accessibility guidelines.', current_level: 4, max_level: 5 },
-                            { id: 'k2', title: 'Security Best Practices', description: 'Knowledge of XSS, CSRF, and how to mitigate common web vulnerabilities.', current_level: null, max_level: 5 },
-                          ],
-                          Ability: [
-                            { id: 'a1', title: 'Problem Solving', description: 'Ability to debug complex production issues and find root causes efficiently.', current_level: 5, max_level: 5 },
-                          ],
-                          Attitude: [
-                            { id: 'at1', title: 'Continuous Learning', description: 'Proactively seeks to learn new technologies and methodologies.', current_level: null, max_level: 5 },
-                          ],
-                          Behaviour: [
-                            { id: 'b1', title: 'Team Collaboration', description: 'Works effectively with cross-functional teams, product managers, and designers.', current_level: 4, max_level: 5 },
-                            { id: 'b2', title: 'Mentorship', description: 'Willingness to guide and mentor junior developers in the team.', current_level: null, max_level: 5 },
-                          ],
-                        }
-                  */
-                />
+                   * Not an error card. The role simply has no s_library_map
+                   * row, which on some tenants is true of every role - so the
+                   * screen has to name the fix rather than show a status code.
+                   */
+                  <div className="flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-6 text-center">
+                    <Briefcase className="size-8 text-muted-foreground opacity-50" aria-hidden="true" />
+                    <p className="text-sm font-medium text-foreground">
+                      This job role is not mapped to a competency library yet.
+                    </p>
+                    <p className="max-w-md text-xs text-muted-foreground">
+                      {mergedEmployee.jobRole
+                        ? `"${mergedEmployee.jobRole}" has no competencies attached, so there is nothing to rate.`
+                        : 'The role has no competencies attached, so there is nothing to rate.'}{' '}
+                      Map it in Capability Library and this tab will fill in.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={openCapabilityLibrary}>
+                        Open Capability Library
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => void loadKaba()}>
+                        Check again
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <CompetencyRatingTab
+                    onSave={(category, id, level) => handleSaveRating(category, id, level)}
+                    onSaved={loadKaba}
+                    data={kabaRatings}
+                    isLoading={isKabaLoading || !hasLoadedKaba}
+                    error={kabaError}
+                    onRetry={loadKaba}
+                  />
+                )}
               </Suspense>
             )}
             {activeTopTab === 'expected-competency' && (
               <Suspense fallback={tabFallback}>
-                <ExpectedCompetencyTab
-                  data={
-                    competencyProfile?.requiredSkills && competencyProfile.requiredSkills.length > 0
-                      ? {
-                          Skill: competencyProfile.requiredSkills.map((s: any) => ({
-                            id: String(s.skill_id || s.id),
-                            title: s.skill || s.title,
-                            description: s.description || s.skill || 'Required competency level',
-                            expectedLevel: s.proficiency_level || 4,
-                            actualLevel: s.current_level || 3,
-                          })),
-                          Knowledge: [],
-                          Ability: [],
-                          Attitude: [],
-                          Behaviour: [],
-                        }
-                      : {
-                          Skill: [
-                            { id: 's1', title: 'React Development', description: 'Build responsive and performant user interfaces.', expectedLevel: 4, actualLevel: 4 },
-                            { id: 's2', title: 'API Integration', description: 'Consume RESTful APIs and manage asynchronous data fetching.', expectedLevel: 4, actualLevel: 3 },
-                            { id: 's3', title: 'System Design', description: 'Design scalable architecture for web services.', expectedLevel: 3, actualLevel: 4 },
-                          ],
-                          Knowledge: [
-                            { id: 'k1', title: 'Web Accessibility (WCAG)', description: 'Understanding of ARIA roles and semantic HTML.', expectedLevel: 3, actualLevel: 3 },
-                            { id: 'k2', title: 'Security Best Practices', description: 'Knowledge of XSS, CSRF mitigation.', expectedLevel: 4, actualLevel: 2 },
-                          ],
-                          Ability: [
-                            { id: 'a1', title: 'Problem Solving', description: 'Debug complex production issues.', expectedLevel: 4, actualLevel: 5 },
-                          ],
-                          Attitude: [
-                            { id: 'at1', title: 'Continuous Learning', description: 'Proactively seeks to learn new technologies.', expectedLevel: 5, actualLevel: 5 },
-                          ],
-                          Behaviour: [
-                            { id: 'b1', title: 'Team Collaboration', description: 'Works effectively with cross-functional teams.', expectedLevel: 4, actualLevel: 4 },
-                            { id: 'b2', title: 'Mentorship', description: 'Willingness to guide junior developers.', expectedLevel: 3, actualLevel: 2 },
-                          ],
-                        }
-                  }
-                />
+                {/*
+                  * Built from the response the API actually returns.
+                  *
+                  * The old condition tested `competencyProfile.requiredSkills`
+                  * - a key that does not exist. $requiredSkills is a local PHP
+                  * variable in EmployeeCompetencyProfileController and is never
+                  * serialised, so the test could never be true and the
+                  * hardcoded array below it rendered for EVERY employee. Its
+                  * four KPI cards were computed from those literals, which is
+                  * why Role Match read 67% for every person in the company.
+                  *
+                  * The real shape is data.competencies[].items[], which already
+                  * carries name, required, current and gap per item.
+                  */}
+                <ExpectedCompetencyTab data={expectedCompetency} />
               </Suspense>
             )}
             {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'skill-rating' && activeTopTab !== 'expected-competency' && (
@@ -706,16 +693,29 @@ export function EmployeeDirectorySheets({
   onAddSheetOpenChange,
   activeEmployee,
   onCloseEmployeeSheet,
+  referenceData,
+  onEmployeeChanged,
 }: EmployeeDirectorySheetsProps) {
+  const context = useMemo(() => getLaravelContext(), [])
+
   return (
     <>
-      <AddEmployeeSheet key={isAddSheetOpen ? 'open' : 'closed'} open={isAddSheetOpen} onOpenChange={onAddSheetOpenChange} />
+      <AddEmployeeSheet
+        key={isAddSheetOpen ? 'open' : 'closed'}
+        open={isAddSheetOpen}
+        onOpenChange={onAddSheetOpenChange}
+        context={context}
+        referenceData={referenceData}
+        onCreated={onEmployeeChanged}
+      />
       {activeEmployee && (
         <EmployeeOverviewSheet
           key={activeEmployee.id}
           employee={activeEmployee}
           open={!!activeEmployee}
           onOpenChange={(open) => !open && onCloseEmployeeSheet()}
+          referenceData={referenceData}
+          onEmployeeChanged={onEmployeeChanged}
         />
       )}
     </>

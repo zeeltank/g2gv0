@@ -37,10 +37,28 @@ export interface CompetencyLibraryListResponse<T> extends CompetencyLibraryApiRe
 }
 
 /** A competency row as returned by the list / show endpoints. */
+/** One capability item in a competency's composition. */
+export interface CompetencyKasbaItem {
+  kasba_type: 'skill' | 'knowledge' | 'ability' | 'attitude' | 'behaviour'
+  /** The resolved library row. Null means it is still held as free text. */
+  item_id: number | null
+  item_label: string | null
+  weight: number | string | null
+}
+
 export interface CompetencyLibraryItem {
   id: number
   name: string
   description: string | null
+  /**
+   * The competency's own taxonomy: which framework it is filed under.
+   *
+   * `category` below is NOT this - the API derives it from the framework's
+   * name for display, and there is no `category` column on `competency`.
+   */
+  framework_id?: number | null
+  /** The KASBA composition, present on the single-record show() response. */
+  items?: CompetencyKasbaItem[]
   category: string | null
   sub_category: string | null
   competency_type: string | null

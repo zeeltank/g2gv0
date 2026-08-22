@@ -23,6 +23,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
+import { CAPABILITY_LIBRARY_ACCESS_LINK, TASK_MY_TASKS_ACCESS_LINK } from "@/lib/gtg-navigation";
 
 interface Task {
   id: number;
@@ -54,6 +59,15 @@ const getFunctionIcon = (name: string) => {
 };
 
 export function JobroleTasksTab({ tasks }: JobroleTasksTabProps) {
+  /*
+   * Navigation goes through the user's own menu tree, never a hand-written
+   * path. resolveAccessLink also checks the caller can actually open the
+   * target, so a link they have no rights to degrades instead of landing them
+   * on an empty shell - which is exactly how the department drawer's "Create
+   * in Library" button broke.
+   */
+  const router = useRouter();
+  const { resolveAccessLink } = useSidebarNavigation();
   // Group tasks by critical_work_function
   const groupedTasks = React.useMemo(() => {
     return tasks.reduce((acc, task) => {
@@ -68,13 +82,32 @@ export function JobroleTasksTab({ tasks }: JobroleTasksTabProps) {
 
   const groupKeys = Object.keys(groupedTasks);
 
+  /*
+   * Reachable at last.
+   *
+   * The parent used to substitute five invented software-engineering tasks
+   * whenever the API returned none, so this branch could never run and a
+   * receptionist was shown "Design scalable backend systems".
+   */
   if (!tasks || tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4 animate-in fade-in zoom-in duration-300">
-        <div className="p-4 rounded-full bg-muted/50">
+      <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground animate-in fade-in zoom-in duration-300">
+        <div className="rounded-full bg-muted/50 p-4">
           <Briefcase className="size-8 opacity-50" />
         </div>
-        <p>No jobrole tasks have been assigned to this profile.</p>
+        <p>No job role tasks have been assigned to this profile.</p>
+        <p className="max-w-md text-center text-xs">
+          Tasks belong to a job role and are authored in Capability Library. Assigning this employee a
+          job role that has tasks will populate this tab.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK))}>
+            <ExternalLink className="mr-2 size-3.5" aria-hidden="true" /> Capability Library
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push(resolveAccessLink(TASK_MY_TASKS_ACCESS_LINK))}>
+            <ExternalLink className="mr-2 size-3.5" aria-hidden="true" /> Task Management
+          </Button>
+        </div>
       </div>
     );
   }

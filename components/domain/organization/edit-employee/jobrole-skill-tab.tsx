@@ -4,6 +4,17 @@ import React, { useState, useMemo } from "react";
 import { CheckCircle2, Circle, GraduationCap, Wrench, ChevronRight, Check, AlertCircle, BookOpen, HeartHandshake, Users, Award, Briefcase, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * One classification statement - an s_skill_knowledge_ability row.
+ *
+ * The API now sends {id, item}; it used to send the prose alone, having
+ * discarded the id in a pluck(). Both shapes are accepted so an older response
+ * still renders, but only the id form can be saved - a label is not an
+ * identity, and storing prose would orphan every confirmation the moment
+ * somebody renamed a library item.
+ */
+export type ClassificationItem = string | { id: number; item: string };
+
 export interface Skill {
   jobrole_skill_id?: number | string;
   jobrole?: string;
@@ -14,19 +25,42 @@ export interface Skill {
   sub_category?: string;
   description?: string;
   proficiency_level?: string | number;
-  knowledge?: string[];
-  ability?: string[];
-  attitude?: string[];
-  behaviour?: string[];
+  knowledge?: ClassificationItem[];
+  ability?: ClassificationItem[];
+  attitude?: ClassificationItem[];
+  behaviour?: ClassificationItem[];
   validated?: boolean;
 }
+
+export type ConfirmedItems = {
+  knowledge?: number[];
+  ability?: number[];
+  attitude?: number[];
+  behaviour?: number[];
+};
 
 interface JobroleSkillTabProps {
   employee?: any;
   skills: Skill[];
+  /** What was previously confirmed, keyed by skill_id, to seed the ticks. */
+  savedSelections?: Record<string, ConfirmedItems>;
+  /** Persists the confirmations for one skill. Rejects with a readable message. */
+  onSave?: (skillId: string | number, confirmed: ConfirmedItems) => Promise<any> | void;
 }
 
-export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps) {
+const DIMENSIONS = ['knowledge', 'ability', 'attitude', 'behaviour'] as const;
+type Dimension = (typeof DIMENSIONS)[number];
+
+/** The id of a classification item, or null for a legacy prose-only entry. */
+function itemId(item: ClassificationItem): number | null {
+  return typeof item === 'object' && item !== null && typeof item.id === 'number' ? item.id : null;
+}
+
+function itemLabel(item: ClassificationItem): string {
+  return typeof item === 'object' && item !== null ? item.item : String(item ?? '');
+}
+
+export function JobroleSkillTab({ employee, skills = [], savedSelections = {}, onSave }: JobroleSkillTabProps) {
   const getSkillId = (s: Skill) => String(s.jobrole_skill_id || s.skill_id || s.title || s.skill);
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(
@@ -34,6 +68,8 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
   );
 
   const [validationState, setValidationState] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   // Fast memoized lookup to avoid re-fetching or re-searching
   const selectedSkill = useMemo(() => {
@@ -41,14 +77,76 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
     return skills.find(s => getSkillId(s) === selectedSkillId) || skills[0];
   }, [skills, selectedSkillId]);
 
-  const toggleValidation = (type: string, index: number, value: boolean) => {
+  /*
+   * Ticks are keyed on the ITEM's id, not its position in the list.
+   *
+   * The index-based key was fine while nothing was stored, because nothing
+   * outlived the tab. Now that confirmations persist, position is the wrong
+   * identity: reorder or edit the library and every stored tick would point at
+   * a different statement.
+   */
+  const toggleValidation = (type: string, itemKey: number | string, value: boolean) => {
     if (!selectedSkill) return;
     const idKey = getSkillId(selectedSkill);
+    setSaveMessage('');
     setValidationState(prev => ({
       ...prev,
-      [`${idKey}-${type}-${index}`]: value
+      [`${idKey}-${type}-${itemKey}`]: value
     }));
   };
+
+  // Seed the ticks from what was saved for this skill, so re-opening the
+  // drawer shows the assessment instead of a blank slate every time.
+  React.useEffect(() => {
+    const seeded: Record<string, boolean> = {};
+    for (const skill of skills) {
+      const key = getSkillId(skill);
+      const saved = savedSelections[String(skill.skill_id)] ?? savedSelections[key];
+      if (!saved) continue;
+      for (const dimension of DIMENSIONS) {
+        for (const id of saved[dimension] ?? []) {
+          seeded[`${key}-${dimension}-${id}`] = true;
+        }
+      }
+    }
+    setValidationState(seeded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skills, savedSelections]);
+
+  /** The confirmed ids for the selected skill, per dimension. */
+  const confirmedForSelected = (): ConfirmedItems => {
+    if (!selectedSkill) return {};
+    const key = getSkillId(selectedSkill);
+    const confirmed: ConfirmedItems = {};
+
+    for (const dimension of DIMENSIONS) {
+      const items = (selectedSkill[dimension] ?? []) as ClassificationItem[];
+      // Only id-bearing items can be stored; a legacy prose entry has no
+      // identity to record, so it is left out rather than guessed at.
+      const ids = items
+        .map((item) => itemId(item))
+        .filter((id): id is number => id !== null)
+        .filter((id) => validationState[`${key}-${dimension}-${id}`] === true);
+
+      confirmed[dimension] = ids;
+    }
+
+    return confirmed;
+  };
+
+  async function saveConfirmations() {
+    if (!onSave || !selectedSkill) return;
+    setIsSaving(true);
+    setSaveMessage('');
+    try {
+      await onSave(selectedSkill.skill_id, confirmedForSelected());
+      setSaveMessage('Saved.');
+    } catch (cause) {
+      setSaveMessage(cause instanceof Error ? cause.message : 'Could not save.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   const setOverallProficiency = (value: boolean) => {
     if (!selectedSkill) return;
@@ -226,16 +324,17 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                 {selectedSkill.knowledge && selectedSkill.knowledge.length > 0 ? (
                   <ul className="space-y-2.5 pt-1">
                     {selectedSkill.knowledge.map((item, index) => {
-                      const isYes = validationState[`${currentSkillKey}-knowledge-${index}`] === true;
-                      const isNo = validationState[`${currentSkillKey}-knowledge-${index}`] === false;
+                      const key = itemId(item) ?? index;
+                      const isYes = validationState[`${currentSkillKey}-knowledge-${key}`] === true;
+                      const isNo = validationState[`${currentSkillKey}-knowledge-${key}`] === false;
 
                       return (
                         <li key={index} className="flex items-start justify-between gap-3 text-sm p-2.5 rounded-lg bg-background border border-border/40">
-                          <span className="text-foreground/90 flex-1 leading-snug">• {item}</span>
+                          <span className="text-foreground/90 flex-1 leading-snug">• {itemLabel(item)}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => toggleValidation('knowledge', index, true)}
+                              onClick={() => toggleValidation('knowledge', key, true)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isYes ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -244,7 +343,7 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggleValidation('knowledge', index, false)}
+                              onClick={() => toggleValidation('knowledge', key, false)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isNo ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -270,16 +369,17 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                 {selectedSkill.ability && selectedSkill.ability.length > 0 ? (
                   <ul className="space-y-2.5 pt-1">
                     {selectedSkill.ability.map((item, index) => {
-                      const isYes = validationState[`${currentSkillKey}-ability-${index}`] === true;
-                      const isNo = validationState[`${currentSkillKey}-ability-${index}`] === false;
+                      const key = itemId(item) ?? index;
+                      const isYes = validationState[`${currentSkillKey}-ability-${key}`] === true;
+                      const isNo = validationState[`${currentSkillKey}-ability-${key}`] === false;
 
                       return (
                         <li key={index} className="flex items-start justify-between gap-3 text-sm p-2.5 rounded-lg bg-background border border-border/40">
-                          <span className="text-foreground/90 flex-1 leading-snug">• {item}</span>
+                          <span className="text-foreground/90 flex-1 leading-snug">• {itemLabel(item)}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => toggleValidation('ability', index, true)}
+                              onClick={() => toggleValidation('ability', key, true)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isYes ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -288,7 +388,7 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggleValidation('ability', index, false)}
+                              onClick={() => toggleValidation('ability', key, false)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isNo ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -314,16 +414,17 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                 {selectedSkill.attitude && selectedSkill.attitude.length > 0 ? (
                   <ul className="space-y-2.5 pt-1">
                     {selectedSkill.attitude.map((item, index) => {
-                      const isYes = validationState[`${currentSkillKey}-attitude-${index}`] === true;
-                      const isNo = validationState[`${currentSkillKey}-attitude-${index}`] === false;
+                      const key = itemId(item) ?? index;
+                      const isYes = validationState[`${currentSkillKey}-attitude-${key}`] === true;
+                      const isNo = validationState[`${currentSkillKey}-attitude-${key}`] === false;
 
                       return (
                         <li key={index} className="flex items-start justify-between gap-3 text-sm p-2.5 rounded-lg bg-background border border-border/40">
-                          <span className="text-foreground/90 flex-1 leading-snug">• {item}</span>
+                          <span className="text-foreground/90 flex-1 leading-snug">• {itemLabel(item)}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => toggleValidation('attitude', index, true)}
+                              onClick={() => toggleValidation('attitude', key, true)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isYes ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -332,7 +433,7 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggleValidation('attitude', index, false)}
+                              onClick={() => toggleValidation('attitude', key, false)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isNo ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -358,16 +459,17 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                 {selectedSkill.behaviour && selectedSkill.behaviour.length > 0 ? (
                   <ul className="space-y-2.5 pt-1">
                     {selectedSkill.behaviour.map((item, index) => {
-                      const isYes = validationState[`${currentSkillKey}-behaviour-${index}`] === true;
-                      const isNo = validationState[`${currentSkillKey}-behaviour-${index}`] === false;
+                      const key = itemId(item) ?? index;
+                      const isYes = validationState[`${currentSkillKey}-behaviour-${key}`] === true;
+                      const isNo = validationState[`${currentSkillKey}-behaviour-${key}`] === false;
 
                       return (
                         <li key={index} className="flex items-start justify-between gap-3 text-sm p-2.5 rounded-lg bg-background border border-border/40">
-                          <span className="text-foreground/90 flex-1 leading-snug">• {item}</span>
+                          <span className="text-foreground/90 flex-1 leading-snug">• {itemLabel(item)}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => toggleValidation('behaviour', index, true)}
+                              onClick={() => toggleValidation('behaviour', key, true)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isYes ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -376,7 +478,7 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggleValidation('behaviour', index, false)}
+                              onClick={() => toggleValidation('behaviour', key, false)}
                               className={`p-1 rounded text-xs font-semibold transition-colors ${
                                 isNo ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                               }`}
@@ -394,6 +496,25 @@ export function JobroleSkillTab({ employee, skills = [] }: JobroleSkillTabProps)
               </div>
 
             </div>
+
+            {/*
+              * The save this tab never had.
+              *
+              * Ten ✓/× buttons wrote to component state and nothing else, so
+              * every assessment recorded here was discarded the moment the tab
+              * unmounted - and the green ticks in the sidebar were pure
+              * session decoration.
+              */}
+            {onSave && (
+              <div className="sticky bottom-0 -mx-1 mt-4 flex items-center justify-between gap-3 border-t bg-background/90 px-1 py-3 backdrop-blur-md">
+                <p className="text-xs text-muted-foreground">
+                  {saveMessage || `Confirmations are recorded against ${skillTitle}.`}
+                </p>
+                <Button size="sm" onClick={() => void saveConfirmations()} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save assessment'}
+                </Button>
+              </div>
+            )}
 
           </div>
         ) : null}

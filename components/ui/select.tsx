@@ -22,7 +22,32 @@ interface SelectProps {
 }
 
 const Select = React.forwardRef<HTMLDivElement, SelectProps>(
-  ({ id, className, size = 'default', value, onChange, options = [], placeholder = 'Select...', disabled, 'aria-label': ariaLabel }, ref) => {
+  ({ id, className, size = 'default', value: valueProp, defaultValue, onChange, options = [], placeholder = 'Select...', disabled, 'aria-label': ariaLabel }, ref) => {
+    /*
+     * Controlled when `value` is passed, uncontrolled otherwise.
+     *
+     * `defaultValue` was declared on SelectProps but never destructured, so it
+     * did nothing, and a Select given neither `value` nor `onChange` had no
+     * selection state anywhere: clicking an option called an undefined
+     * onChange and the trigger kept rendering the placeholder. Every dropdown
+     * in the Add Employee wizard behaved that way - you picked "Engineering"
+     * and the box still read "Select Department".
+     *
+     * Callers that pass `value` are unaffected: isControlled short-circuits
+     * the internal state and onChange still fires exactly as before.
+     */
+    const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue)
+    const isControlled = valueProp !== undefined
+    const value = isControlled ? valueProp : internalValue
+
+    const commit = React.useCallback(
+      (next: string) => {
+        if (!isControlled) setInternalValue(next)
+        onChange?.(next)
+      },
+      [isControlled, onChange],
+    )
+
     const [open, setOpen] = React.useState(false)
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const [isMounted, setIsMounted] = React.useState(false)
@@ -118,7 +143,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         case ' ':
           e.preventDefault()
           if (open && highlightedIndex >= 0) {
-            onChange?.(options[highlightedIndex].value)
+            commit(options[highlightedIndex].value)
             setOpen(false)
           } else {
             setOpen(true)
@@ -247,10 +272,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   key={`${opt.value}-${index}`}
                   role="option"
                   aria-selected={String(value) === String(opt.value)}
-                  data-disabled={opt.value === value}
                   onPointerDown={(event) => {
                     event.preventDefault()
-                    onChange?.(opt.value)
+                    commit(opt.value)
                     setOpen(false)
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}

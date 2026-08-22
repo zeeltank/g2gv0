@@ -6,10 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from '@/components/ui/date-picker';
 import { toDateOnly, fromDateOnly } from '@/lib/date-only';
-import { TimePicker } from '@/components/ui/time-picker';
 import { Select } from '@/components/ui/select';
 import { RadioGroup, Radio } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AttendanceGrid,
+  emptySchedule,
+  scheduleFromEmployee,
+} from '@/domain/organization/employee-directory-parts/attendance-grid';
+import type { ScheduleEntry } from '@/services/organization/employee-directory';
 import { User, MapPin, Building2, Clock, Wallet, AlertCircle, Loader2 } from "lucide-react";
 
 interface PersonalInfoTabProps {
@@ -45,7 +49,6 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     state: '',
     pincode: '',
     supervisor_opt: '',
-    employee_name: '',
     reporting_method: '',
     bank_name: '',
     branch_name: '',
@@ -54,6 +57,10 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     amount: '',
     transfer_type: '',
   });
+
+  // The working week, hydrated from the employee's own columns below.
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>(emptySchedule());
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (employee) {
@@ -80,7 +87,8 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
         state: employee.state || '',
         pincode: employee.pincode || '',
         supervisor_opt: String(employee.supervisor_opt || ''),
-        employee_name: employee.employee_name || '',
+        // `employee_name` was in this object and posted on every save, but no
+        // input rendered it and tbluser has no such column - it was a dead key.
         reporting_method: employee.reporting_method || '',
         bank_name: employee.bank_name || '',
         branch_name: employee.branch_name || '',
@@ -89,6 +97,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
         amount: employee.amount || '',
         transfer_type: employee.transfer_type || '',
       });
+      setSchedule(scheduleFromEmployee(employee));
     }
   }, [employee]);
 
@@ -107,8 +116,20 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSaveError('');
     try {
-      await onSave(formData);
+      await onSave({ ...formData, schedule });
+    } catch (cause) {
+      /*
+       * A failed save has to LOOK failed.
+       *
+       * There was no catch here at all, only a finally, so when the endpoint
+       * returned 405 - which it did on every single save, because the client
+       * posted to a route that does not exist - the rejection became an
+       * unhandled promise, the spinner stopped, and the button went back to
+       * "Save Changes" exactly as if it had worked.
+       */
+      setSaveError(cause instanceof Error ? cause.message : 'Could not save the changes.');
     } finally {
       setIsSubmitting(false);
     }
@@ -218,7 +239,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
                   <RadioGroup 
                     className="flex flex-row gap-4 h-10 items-center" 
                     value={formData.gender === 'F' ? 'F' : 'M'}
-                    onChange={(val) => handleChange('gender', val)}
+                    onValueChange={(val) => handleChange('gender', val)}
                   >
                     <Radio value="M" label="Male" />
                     <Radio value="F" label="Female" />
@@ -311,33 +332,19 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
 
           {activeSection === 'attendance' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground border-b pb-2">Attendance & Schedule</h3>
-              <p className="text-sm text-muted-foreground font-medium">Standard working schedule configured for this employee.</p>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Working Days</Label>
-                  <div className="flex flex-wrap gap-4 pt-2">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <label key={day} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox defaultChecked={['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(day)} />
-                        {day}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4 mt-6">
-                  <Label className="text-sm font-semibold border-b pb-1">Shift Timings</Label>
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                    <div key={day} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                      <span className="text-sm font-medium">{day}</span>
-                      <TimePicker value="09:00" />
-                      <TimePicker value="18:00" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <h3 className="border-b pb-2 text-lg font-semibold text-foreground">Attendance &amp; Schedule</h3>
+              {/*
+                * The employee's real week, read from and written to their own
+                * monday..sunday and <day>_in_date/_out_date columns.
+                *
+                * What was here before was painted: six checkboxes with
+                * `defaultChecked` for Mon-Fri and five TimePickers hardcoded to
+                * 09:00/18:00, none of them bound to formData and none of them
+                * saved. Every employee therefore appeared to work Mon-Fri
+                * 09:00-18:00 - including the 202 people whose Saturday hours
+                * differ, and anyone whose real start time is 08:00 or 10:30.
+                */}
+              <AttendanceGrid value={schedule} onChange={setSchedule} />
             </div>
           )}
 
@@ -379,6 +386,12 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
                 </div>
               </div>
             </div>
+          )}
+
+          {saveError && (
+            <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              {saveError}
+            </p>
           )}
 
           {/* Action Footer */}

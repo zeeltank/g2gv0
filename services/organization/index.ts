@@ -590,3 +590,15 @@ export * from './employee-profile-service'
 
 export { rolePermissionsService } from './role-permissions'
 export type { RightsRow, RightsMenu, UserProfile } from './role-permissions'
+
+export { employeeDirectoryService, WORKING_DAYS } from './employee-directory'
+export type {
+  DirectoryEmployee,
+  DirectoryEmployeeDetail,
+  ReferenceData,
+  ScheduleEntry,
+  WorkingDay,
+  ListMeta,
+  EmployeeFilters,
+  CreateEmployeeResult,
+} from './employee-directory'
