@@ -26,7 +26,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
-import { competencyLibraryService } from '@/services/competency'
+import { competencyLibraryService, competencyLibrariesService } from '@/services/competency'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { RoleRequirementsPanel } from './role-requirements-panel'
 import { useAuth } from '@/hooks/use-auth'
@@ -40,7 +40,8 @@ import type {
 
 const TABS: { id: string; label: string }[] = [
   { id: 'framework', label: 'Framework Structure' },
-  { id: 'matrix', label: 'Role Mapping Matrix' },
+  // Read-only since 2026-08-24 — see MATRIX_IS_READ_ONLY below.
+  { id: 'matrix', label: 'Role Mapping Matrix (view)' },
   // Writes `jobrole_competency_map` through the existing guarded endpoint.
   // Sits beside the matrix because that is where a person looks for "what does
   // this role need" - and until now the matrix was the only thing there, and it
@@ -50,6 +51,41 @@ const TABS: { id: string; label: string }[] = [
   { id: 'proficiency', label: 'Proficiency Scale' },
   { id: 'workflow', label: 'Workflow & Review' },
 ]
+
+/**
+ * THE ROLE MAPPING MATRIX IS A VIEW, NOT AN AUTHORING SURFACE.
+ *
+ * ── WHY ─────────────────────────────────────────────────────────────────────
+ *
+ * Two panels sat on this screen writing DIFFERENT tables for the same idea —
+ * "what does this role need":
+ *
+ *   Role Mapping Matrix  ->  s_user_skill_jobrole    keyed by role NAME + skill NAME
+ *   Role Requirements    ->  jobrole_competency_map  keyed by jobrole_id + competency.id
+ *
+ * The second is the one the product actually resolves against: every gap, every
+ * 9-box position and every recommendation reads `jobrole_competency_map`, and
+ * `CompetencyGapController` reads nothing else. Under competency-as-source-of-
+ * truth the matrix is no longer the requirement surface, and leaving it writable
+ * meant two sources of truth drifting apart with no way to tell which was right.
+ *
+ * ── WHY READ-ONLY RATHER THAN DELETED ───────────────────────────────────────
+ *
+ * Existing tenants hold real data in `s_user_skill_jobrole`, and this is the
+ * only view that shows the whole role x competency grid at once. Keeping the
+ * view costs nothing once it cannot write; deleting it would throw away both.
+ *
+ * Its rows are also `s_users_skills` ids (the 5,171-row flat skill library) and
+ * its columns are role NAMES — `Matrix.roles` is `string[]`, because the studio
+ * endpoint plucks names without ids. As a read-only view that is merely
+ * inelegant. As a writer it was a second, unkeyed source of truth.
+ *
+ * ── REVERSING THIS ──────────────────────────────────────────────────────────
+ *
+ * Flip this to `false` and every write path returns. Nothing was deleted, which
+ * is deliberate: this is a product decision, and product decisions get revisited.
+ */
+const MATRIX_IS_READ_ONLY = true
 
 /** Fixed dot colour per proficiency level (1..6). */
 /**
@@ -192,18 +228,26 @@ export function CmFrameworkMapping() {
     if (effectiveCategory && effectiveRoles.length > 0) loadMatrix(effectiveCategory, effectiveRoles)
   }
 
-  /* -- Cell actions --------------------------------------------------- */
+  /* -- Cell actions ----------------------------------------------------
+   *
+   * Each guards on MATRIX_IS_READ_ONLY. The UI already hides these actions, but
+   * the guard is here too so that a stale render, a keyboard path or a future
+   * caller cannot write through a surface that is meant to be a view. The rule
+   * belongs next to the write, not only next to the button.
+   * ------------------------------------------------------------------- */
   const handleSetCell = async (role: string, skill: string, level: number) => {
+    if (MATRIX_IS_READ_ONLY) return
     const res = await saveCell(role, skill, String(level))
     if (res.ok) refreshMatrix()
   }
   const handleClearCell = async (role: string, skill: string) => {
+    if (MATRIX_IS_READ_ONLY) return
     const res = await clearCell(role, skill)
     if (res.ok) refreshMatrix()
   }
   // Clear every mapped cell in a competency row across the shown roles.
   const handleClearRow = async (skill: string) => {
-    if (!matrix) return
+    if (MATRIX_IS_READ_ONLY || !matrix) return
     for (const role of matrix.roles) {
       if (matrix.cells[role]?.[skill]) await clearCell(role, skill)
     }
@@ -218,6 +262,7 @@ export function CmFrameworkMapping() {
 
   /* -- Bulk update levels (apply one level to a whole category/role) --- */
   const handleBulkApply = async () => {
+    if (MATRIX_IS_READ_ONLY) return
     if (!bulkForm.role || !bulkForm.level || !matrix) return
     for (const comp of matrix.competencies) {
       await saveCell(bulkForm.role, comp.title, bulkForm.level)
@@ -228,6 +273,32 @@ export function CmFrameworkMapping() {
 
   /* -- Framework dialog ----------------------------------------------- */
   const [fwForm, setFwForm] = useState<FrameworkPayload>({ name: '', description: '', status: 'draft', version: 'v1.0' })
+
+  /**
+   * ROLES THAT CARRY THEIR ID — a different source from `roles` above.
+   *
+   * `roles` comes from the studio endpoint, which does `pluck('jobrole')` and
+   * returns NAMES ONLY (StudioController:204). That is fine for the matrix,
+   * which is a read-only view, but a framework's link to a role has to be an id
+   * or renaming the role silently unhooks it.
+   *
+   * So this reads `jobroles_by_department` from the libraries meta — the same
+   * source RoleRequirementsPanel uses, for the same reason.
+   */
+  const [roleOptions, setRoleOptions] = useState<{ id: number; jobrole: string; department: string }[]>([])
+
+  useEffect(() => {
+    const ctx = getLaravelContext(user)
+    competencyLibrariesService.meta(ctx).then((res) => {
+      const byDept = res?.data?.jobroles_by_department ?? {}
+      const flat: { id: number; jobrole: string; department: string }[] = []
+      for (const [department, list] of Object.entries(byDept)) {
+        for (const r of list) flat.push({ id: r.id, jobrole: r.jobrole, department })
+      }
+      flat.sort((a, b) => a.department.localeCompare(b.department) || a.jobrole.localeCompare(b.jobrole))
+      setRoleOptions(flat)
+    }).catch(() => setRoleOptions([]))
+  }, [user])
   const { submit: submitForApproval, submitting: submittingApproval } = useSubmitForApproval()
   const [publishNote, setPublishNote] = useState<string | null>(null)
 
@@ -241,8 +312,8 @@ export function CmFrameworkMapping() {
   // Seed the form at open time (no setState-in-effect).
   const openFrameworkDialog = (editing: Framework | null) => {
     setFwForm(editing
-      ? { name: editing.name, description: editing.description ?? '', status: editing.status, version: editing.version, jobrole: editing.jobrole ?? '' }
-      : { name: '', description: '', status: 'draft', version: 'v1.0' })
+      ? { name: editing.name, description: editing.description ?? '', status: editing.status, version: editing.version, jobrole: editing.jobrole ?? '', jobrole_id: editing.jobrole_id ?? null }
+      : { name: '', description: '', status: 'draft', version: 'v1.0', jobrole: '', jobrole_id: null })
     setFrameworkDialog({ open: true, editing })
   }
 
@@ -323,6 +394,9 @@ export function CmFrameworkMapping() {
   }
 
   const importMatrix = async (file: File) => {
+    // CSV import is a write path like any other. Export stays — reading the grid
+    // out is exactly what a read-only view is for.
+    if (MATRIX_IS_READ_ONLY) return
     setImporting(true)
     try {
       const rows = parseCsv(await file.text())
@@ -426,14 +500,17 @@ export function CmFrameworkMapping() {
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) importMatrix(f) }}
           />
-          <Button
-            variant="outline"
-            disabled={importing}
-            onClick={() => fileInputRef.current?.click()}
-            className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2"
-          >
-            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Import
-          </Button>
+          {/* Import writes the matrix; Export below only reads it, so Export stays. */}
+          {!MATRIX_IS_READ_ONLY && (
+            <Button
+              variant="outline"
+              disabled={importing}
+              onClick={() => fileInputRef.current?.click()}
+              className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2"
+            >
+              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Import
+            </Button>
+          )}
           <Button
             variant="outline"
             disabled={!matrix}
@@ -639,6 +716,25 @@ export function CmFrameworkMapping() {
       {/* ---- Role Mapping Matrix ---- */}
       {activeTab === 'matrix' && (
         <div className="w-full flex-1 flex flex-col bg-card/90 border border-primary/10 rounded-2xl shadow-sm overflow-hidden">
+          {/* Says plainly why the cells no longer respond, and where to go
+              instead. Without this the tab just looks broken. */}
+          {MATRIX_IS_READ_ONLY && (
+            <div className="px-4 py-3 border-b border-primary/10 bg-muted/40 flex items-start gap-2.5">
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">This grid is read-only.</span>{' '}
+                Role requirements are authored in{' '}
+                <button
+                  onClick={() => setActiveTab('requirements')}
+                  className="font-semibold text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Role Requirements
+                </button>
+                , which is what gap analysis and 9-box actually read. This view stays for seeing the
+                whole grid at once, and Export still works.
+              </p>
+            </div>
+          )}
           <div className="p-4 border-b border-primary/10 flex items-center justify-between gap-3 flex-wrap bg-card">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground font-medium">Selected Category:</span>
@@ -723,21 +819,36 @@ export function CmFrameworkMapping() {
                         return (
                           <TableCell key={role} className="px-4 py-3">
                             <div className="flex items-center justify-center">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg w-16 justify-between cursor-pointer hover:bg-muted transition-colors outline-none">
+                              {MATRIX_IS_READ_ONLY ? (
+                                /* A view, not a control. Rendered without a
+                                   trigger, a pointer cursor or a hover state,
+                                   because a cell that looks clickable and does
+                                   nothing is worse than one that plainly reads
+                                   as a value. */
+                                <div
+                                  className="flex items-center gap-2 bg-muted/40 border border-border/60 px-3 py-1.5 rounded-lg w-16 justify-between"
+                                  title={cell?.level != null ? `Required level ${cell.level}` : 'Not mapped'}
+                                >
                                   <span className="font-bold text-foreground">{cell?.level != null && showRequired ? cell.level : '—'}</span>
                                   <div className={`w-2 h-2 rounded-full ${levelColor(cell?.level ?? null)}`} />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="center">
-                                  {levels.map(lvl => (
-                                    <DropdownMenuItem key={lvl.level} onClick={() => handleSetCell(role, comp.title, lvl.level)}>
-                                      <span className={`w-2 h-2 rounded-full mr-2 ${levelColor(lvl.level)}`} /> {lvl.level} - {lvl.name ?? lvl.label}
-                                    </DropdownMenuItem>
-                                  ))}
-                                  {cell && <DropdownMenuSeparator />}
-                                  {cell && <DropdownMenuItem onClick={() => handleClearCell(role, comp.title)}>Clear mapping</DropdownMenuItem>}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                </div>
+                              ) : (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg w-16 justify-between cursor-pointer hover:bg-muted transition-colors outline-none">
+                                    <span className="font-bold text-foreground">{cell?.level != null && showRequired ? cell.level : '—'}</span>
+                                    <div className={`w-2 h-2 rounded-full ${levelColor(cell?.level ?? null)}`} />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="center">
+                                    {levels.map(lvl => (
+                                      <DropdownMenuItem key={lvl.level} onClick={() => handleSetCell(role, comp.title, lvl.level)}>
+                                        <span className={`w-2 h-2 rounded-full mr-2 ${levelColor(lvl.level)}`} /> {lvl.level} - {lvl.name ?? lvl.label}
+                                      </DropdownMenuItem>
+                                    ))}
+                                    {cell && <DropdownMenuSeparator />}
+                                    {cell && <DropdownMenuItem onClick={() => handleClearCell(role, comp.title)}>Clear mapping</DropdownMenuItem>}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
                             </div>
                           </TableCell>
                         )
@@ -749,7 +860,9 @@ export function CmFrameworkMapping() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setSelectedCompetency(comp)}>View Details</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleClearRow(comp.title)}>Clear Row Mapping</DropdownMenuItem>
+                            {!MATRIX_IS_READ_ONLY && (
+                              <DropdownMenuItem onClick={() => handleClearRow(comp.title)}>Clear Row Mapping</DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -775,9 +888,11 @@ export function CmFrameworkMapping() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" disabled={saving || !effectiveRoles.length} onClick={() => { setBulkForm({ role: effectiveRoles[0] ?? '', level: '' }); setBulkDialog(true) }} className="gap-2">
-                <Copy className="w-4 h-4" /> Bulk Update Levels
-              </Button>
+              {!MATRIX_IS_READ_ONLY && (
+                <Button variant="outline" disabled={saving || !effectiveRoles.length} onClick={() => { setBulkForm({ role: effectiveRoles[0] ?? '', level: '' }); setBulkDialog(true) }} className="gap-2">
+                  <Copy className="w-4 h-4" /> Bulk Update Levels
+                </Button>
+              )}
               <Button variant="outline" disabled={saving || !effectiveRoles.length} onClick={handleSubmitForReview} className="gap-2">
                 <ListChecks className="w-4 h-4" /> Submit for Review
               </Button>
@@ -853,8 +968,13 @@ export function CmFrameworkMapping() {
               <h3 className="text-sm font-bold text-foreground mb-4">Quick Actions</h3>
               <div className="flex flex-col gap-2">
                 <Button variant="ghost" onClick={() => setCategoryDialog(true)} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><Plus className="w-4 h-4 text-primary" /> Add Competency</Button>
-                <Button variant="ghost" onClick={() => setActiveTab('matrix')} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><MapIcon className="w-4 h-4 text-primary" /> Map to Role</Button>
-                <Button variant="ghost" onClick={() => { setActiveTab('matrix'); setBulkForm({ role: effectiveRoles[0] ?? '', level: '' }); setBulkDialog(true) }} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><Copy className="w-4 h-4 text-primary" /> Bulk Update Levels</Button>
+                {/* Points at Role Requirements, not the Matrix: that is the tab
+                    that writes `jobrole_competency_map`, which is what a gap or a
+                    9-box position is actually calculated from. */}
+                <Button variant="ghost" onClick={() => setActiveTab(MATRIX_IS_READ_ONLY ? 'requirements' : 'matrix')} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><MapIcon className="w-4 h-4 text-primary" /> Map to Role</Button>
+                {!MATRIX_IS_READ_ONLY && (
+                  <Button variant="ghost" onClick={() => { setActiveTab('matrix'); setBulkForm({ role: effectiveRoles[0] ?? '', level: '' }); setBulkDialog(true) }} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><Copy className="w-4 h-4 text-primary" /> Bulk Update Levels</Button>
+                )}
                 <Button variant="ghost" disabled={!matrix} onClick={exportMatrix} className="justify-start gap-3 p-2 text-sm font-medium text-foreground"><DownloadCloud className="w-4 h-4 text-primary" /> Download Mapping Template</Button>
               </div>
             </div>
@@ -1038,6 +1158,47 @@ export function CmFrameworkMapping() {
                   aria-label="Framework status"
                 />
               </div>
+            </div>
+
+            {/* JOB ROLE — the field this dialog never had.
+                `s_competency_frameworks.jobrole` was populated by imports and
+                legacy data but was not editable here, so a framework created in
+                the product could not be scoped to a role at all. The option
+                VALUE is the id, and the name is sent beside it only as a label. */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">
+                Job Role <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <Select
+                value={fwForm.jobrole_id != null ? String(fwForm.jobrole_id) : ''}
+                onChange={value => {
+                  const id = value === '' ? null : Number(value)
+                  setFwForm(p => ({
+                    ...p,
+                    jobrole_id: id,
+                    jobrole: id === null ? '' : (roleOptions.find(r => r.id === id)?.jobrole ?? ''),
+                  }))
+                }}
+                options={[
+                  { label: 'Not role-specific', value: '' },
+                  ...roleOptions.map(r => ({
+                    label: r.department ? `${r.department} — ${r.jobrole}` : r.jobrole,
+                    value: String(r.id),
+                  })),
+                ]}
+                placeholder={roleOptions.length ? 'Select a job role' : 'No job roles yet'}
+                className="bg-background border-border h-9"
+                aria-label="Framework job role"
+              />
+              {/* The 2 frameworks whose name matched more than one role were left
+                  unkeyed by the backfill rather than guessed. This is where that
+                  gets corrected, and it says so instead of looking like a blank. */}
+              {fwForm.jobrole_id == null && (fwForm.jobrole ?? '') !== '' && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Currently stored as the name &ldquo;{fwForm.jobrole}&rdquo;, which matches more than one role —
+                  pick the intended one above to link it properly.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -148,7 +148,20 @@ export interface Framework {
   version: string
   status: string
   department_id: number | null
+  /**
+   * The role's NAME. Kept as the human label and as the fallback for the two
+   * frameworks whose name is ambiguous — NOT the link. Read `jobrole_id`.
+   */
   jobrole: string | null
+  /**
+   * THE LINK. `s_competency_frameworks.jobrole` was a name until 2026-08-24,
+   * which meant renaming a role silently unhooked its framework and two roles
+   * sharing a name could not be told apart. 30 of the 32 frameworks carrying a
+   * name were backfilled to an id; the 2 ambiguous ones were deliberately left
+   * NULL rather than guessed, so `null` here means "not linked yet", never
+   * "no role".
+   */
+  jobrole_id: number | null
   created_at: string | null
   updated_at: string | null
   items?: FrameworkItem[]
@@ -160,7 +173,14 @@ export interface FrameworkPayload {
   version?: string
   status?: string
   department_id?: string | number
+  /** Sent alongside the id so the stored label stays readable. */
   jobrole?: string
+  /**
+   * The id the server keys on. It is validated against the caller's OWN roles —
+   * another organisation's id is dropped to NULL rather than accepted, so this
+   * cannot be used to link across tenants.
+   */
+  jobrole_id?: number | null
 }
 
 /* ------------------------------------------------------------------ *

@@ -65,6 +65,21 @@ import { ShapeGrid, SHAPE_ACTION_ICONS, type ShapeAction } from './shape-grid'
 import { LibraryDetailModal } from './library-detail-modal'
 import { LibraryForm } from './library-form'
 import { TaxonomyManager } from './taxonomy-manager'
+import { CatalogueAdoptDialog } from './catalogue-adopt-dialog'
+import type { CatalogueKind } from '@/services/competency/catalogue-adopt'
+
+/**
+ * Which tabs can adopt from the shared catalogue, and what the server calls them.
+ *
+ * ONLY THESE TWO. The catalogue is `s_jobrole` and `master_skills`; there is no
+ * shared library behind knowledge, ability, attitude, behaviour, tasks or the
+ * invisible library, so offering the action there would be a button that can
+ * only fail.
+ */
+const ADOPTABLE: Partial<Record<string, CatalogueKind>> = {
+  jobrole: 'role',
+  skill: 'skill',
+}
 
 /** Empty, null and whitespace all render as one em dash rather than a blank cell. */
 function dash(value: unknown): string {
@@ -428,6 +443,10 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     setFormOpen(true)
   }
 
+  /** Non-null only on the Job Role and Skill tabs — see ADOPTABLE. */
+  const adoptKind = ADOPTABLE[config.id]
+  const [adoptOpen, setAdoptOpen] = useState(false)
+
   const openEdit = (row: LibraryRow) => {
     clearMessages()
     setFormInitial(row)
@@ -643,6 +662,16 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               </Button>
             )}
 
+            {adoptKind && (
+              <Button
+                variant="outline"
+                onClick={() => setAdoptOpen(true)}
+                className="h-10 gap-2 rounded-xl font-semibold"
+              >
+                <Download className="h-4 w-4" /> From catalogue
+              </Button>
+            )}
+
             <Button
               onClick={openCreate}
               className="h-10 gap-2 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
@@ -826,7 +855,9 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
             description={
               hasFilters
                 ? 'Try widening the search or clearing the filters.'
-                : `Add your first entry to start building the ${config.plural.toLowerCase()} library.`
+                : adoptKind
+                  ? `Take what you need from the shared catalogue, or write your own. Adopted ${config.plural.toLowerCase()} become yours to edit.`
+                  : `Add your first entry to start building the ${config.plural.toLowerCase()} library.`
             }
             action={
               hasFilters ? (
@@ -834,9 +865,26 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                   Clear filters
                 </Button>
               ) : (
-                <Button onClick={openCreate} className="gap-2 font-bold">
-                  <Plus className="h-4 w-4" /> Add {config.singular}
-                </Button>
+                /*
+                 * TWO WAYS OUT OF AN EMPTY LIBRARY, and for a new organisation
+                 * this is the first screen they see. Signup no longer copies the
+                 * shared catalogue, so authoring one row at a time used to be the
+                 * only option against a catalogue of thousands.
+                 */
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {adoptKind && (
+                    <Button onClick={() => setAdoptOpen(true)} className="gap-2 font-bold">
+                      <Download className="h-4 w-4" /> Browse the catalogue
+                    </Button>
+                  )}
+                  <Button
+                    onClick={openCreate}
+                    variant={adoptKind ? 'outline' : 'default'}
+                    className="gap-2 font-bold"
+                  >
+                    <Plus className="h-4 w-4" /> Add {config.singular}
+                  </Button>
+                </div>
               )
             }
           />
@@ -1131,6 +1179,18 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Adopt from the shared catalogue — Job Role and Skill tabs only */}
+      {adoptKind && (
+        <CatalogueAdoptDialog
+          open={adoptOpen}
+          onOpenChange={setAdoptOpen}
+          kind={adoptKind}
+          singular={config.singular}
+          plural={config.plural}
+          onAdopted={retry}
+        />
+      )}
 
       {/* Delete confirm */}
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
