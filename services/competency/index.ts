@@ -41,3 +41,14 @@ export { aiAssessmentService } from './ai-assessment'
 export type { AiTest, AiQuestion, MyTestResult, GenerateResult, PublishResult } from './ai-assessment'
 export { taskCompetencyInlineService } from './task-competency-inline'
 export type { TaskCompetency, TaskCompetencyView } from './task-competency-inline'
+export { catalogueAdoptService } from './catalogue-adopt'
+export type {
+  CatalogueKind,
+  CatalogueBrowseItem,
+  CatalogueBrowseResponse,
+  AdoptRowState,
+  AdoptRowPlan,
+  AdoptTally,
+  AdoptResponse,
+  AdoptSelection,
+} from './catalogue-adopt'
