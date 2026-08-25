@@ -60,6 +60,16 @@ export interface LibraryFieldDef {
     | 'proficiency_levels'
     | 'task_types'
     | 'invisible_types'
+  /**
+   * Narrow this field's `source` options by the value of another field.
+   *
+   * Only meaningful for `source: 'jobroles'`, which is the one source that is
+   * genuinely hierarchical: a job role belongs to a department. Without this the
+   * task form offered EVERY role in the organisation - thousands on a large
+   * tenant - flattened out of `jobroles_by_department`, which already carries
+   * the grouping. Same shape as `sub_category` depending on `category`.
+   */
+  dependsOn?: string
   placeholder?: string
   /** Rendered under the field in the form. */
   help?: string
@@ -236,7 +246,10 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
       { key: 'department', label: 'Department', source: 'departments', column: true, width: 'w-48' },
       { key: 'sub_department', label: 'Sub Department', source: 'sub_departments', help: 'The second level below department.' },
       { key: 'jobrole_category', label: 'Role Category', taxonomy: 'category', type: 'select', column: true, width: 'w-44' },
-      { key: 'industries', label: 'Industry', source: 'industries' },
+      // INDUSTRY REMOVED. A job role belongs to a DEPARTMENT inside one
+      // organisation; the organisation already has an industry, so asking again
+      // per role invited it to disagree with itself. The column stays in the
+      // backend whitelist for the rows that already carry a value.
       { key: 'description', label: 'Description', type: 'textarea', column: true },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], column: true, width: 'w-28' },
       { key: 'performance_expectation', label: 'Performance Expectation', type: 'textarea', column: true, advanced: true },
@@ -277,6 +290,21 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
     ],
     fields: [
       { key: 'task', label: 'Task', required: true, type: 'textarea', column: true, hideInDetail: true, placeholder: 'What the role has to do' },
+      // DEPARTMENT FIRST, THEN ITS ROLES. A task belongs to a role, and a role
+      // belongs to a department - so picking the department narrows the role
+      // list from every role in the organisation to the handful that could
+      // plausibly own this task.
+      //
+      // Not stored on the task: `s_user_jobrole_task` has no department column,
+      // and it does not need one - the department is reachable through
+      // `jobrole_id`. This field exists to make the role list usable.
+      {
+        key: 'department',
+        label: 'Department',
+        type: 'select',
+        source: 'departments',
+        help: 'Narrows the job roles below. Not stored on the task — the department is read through the role.',
+      },
       // Must be a real role name, chosen not typed. This column is the only
       // link between a task and its role - Task Management matches it against
       // the role name verbatim - so a typo files the task against a role that
@@ -287,6 +315,7 @@ export const LIBRARY_TABS: LibraryTabConfig[] = [
         required: true,
         type: 'select',
         source: 'jobroles',
+        dependsOn: 'department',
         column: true,
         width: 'w-52',
         help: 'Task Management matches this name exactly. Create the role in the Job Role tab first if it is missing.',

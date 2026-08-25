@@ -151,10 +151,13 @@ export function CmFrameworkMapping() {
   const studio = useCompetencyStudio()
 
   const [activeTab, setActiveTab] = useState('matrix')
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  // Framework ids now, not skill-category names. The Structure tab lists the
+  // competency taxonomy (frameworks); it used to list s_users_skills categories.
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState<number | null>(null)
   const [selectedRoles, setSelectedRoles] = useState<string[] | null>(null)
   const [structureSearch, setStructureSearch] = useState('')
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [expandedFrameworkId, setExpandedFrameworkId] = useState<number | null>(null)
+  const [openBundleId, setOpenBundleId] = useState<number | null>(null)
   const [selectedCompetency, setSelectedCompetency] = useState<MatrixCompetency | null>(null)
   const [showRequired, setShowRequired] = useState(true)
 
@@ -173,7 +176,7 @@ export function CmFrameworkMapping() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
-    loading, error, summary, structure, proficiency, weights, frameworks, roles, retry,
+    loading, error, summary, structure, structureMeta, proficiency, weights, frameworks, roles, retry,
     matrix, matrixLoading, loadMatrix,
     reviews, reviewCounts, reviewsLoading, loadReviews,
     saving, actionMessage, actionError, clearMessages,
@@ -188,17 +191,30 @@ export function CmFrameworkMapping() {
 
   // Derive the effective selections during render (defaults follow the loaded
   // data) so there is no setState-in-effect. Explicit user picks win.
-  const effectiveCategory = selectedCategory ?? structure[0]?.category ?? null
+  const effectiveFrameworkId = selectedFrameworkId ?? structure[0]?.framework_id ?? null
+  const effectiveFramework = structure.find(n => n.framework_id === effectiveFrameworkId) ?? null
   const effectiveRoles = selectedRoles ?? roles.slice(0, 5).map(r => r.jobrole)
 
   /* -- Load matrix when its inputs change ----------------------------- */
   const rolesKey = JSON.stringify(effectiveRoles)
   useEffect(() => {
     const rolesList = JSON.parse(rolesKey) as string[]
-    if (activeTab === 'matrix' && effectiveCategory && rolesList.length > 0) {
-      loadMatrix(effectiveCategory, rolesList)
+    /*
+     * DECOUPLED FROM THE STRUCTURE TAB.
+     *
+     * This used to pass `effectiveCategory` - a SKILL category - because the
+     * Structure tab supplied one. Structure now lists frameworks, which are the
+     * competency taxonomy and mean nothing to a skill-keyed matrix, so passing
+     * it would have been a category error dressed as a filter.
+     *
+     * `category` is optional on the endpoint (RoleMappingController:118 falls
+     * back to all approved), so the matrix loads unfiltered until it is itself
+     * rebuilt on competencies.
+     */
+    if (activeTab === 'matrix' && rolesList.length > 0) {
+      loadMatrix(null, rolesList)
     }
-  }, [activeTab, effectiveCategory, rolesKey, loadMatrix])
+  }, [activeTab, rolesKey, loadMatrix])
 
   /* -- Load reviews when the workflow tab / status changes ------------ */
   useEffect(() => {
@@ -218,14 +234,16 @@ export function CmFrameworkMapping() {
   const filteredStructure = useMemo(() => {
     const q = structureSearch.trim().toLowerCase()
     if (!q) return structure
+    // A competency match keeps its framework visible - searching for a
+    // competency should show you where it lives, not hide it.
     return structure.filter(node =>
-      node.category.toLowerCase().includes(q) ||
-      node.children.some(c => c.name.toLowerCase().includes(q)),
+      node.name.toLowerCase().includes(q) ||
+      node.competencies.some(c => c.name.toLowerCase().includes(q)),
     )
   }, [structure, structureSearch])
 
   const refreshMatrix = () => {
-    if (effectiveCategory && effectiveRoles.length > 0) loadMatrix(effectiveCategory, effectiveRoles)
+    if (effectiveRoles.length > 0) loadMatrix(null, effectiveRoles)
   }
 
   /* -- Cell actions ----------------------------------------------------
@@ -388,7 +406,7 @@ export function CmFrameworkMapping() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `role-mapping-${effectiveCategory ?? 'matrix'}.csv`
+    a.download = 'role-mapping-matrix.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -641,34 +659,34 @@ export function CmFrameworkMapping() {
             <h2 className="text-base font-bold text-foreground">Framework Structure</h2>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search categories..." value={structureSearch} onChange={e => setStructureSearch(e.target.value)} className="h-9 pl-8 bg-background border-border" />
+              <Input placeholder="Search frameworks or competencies..." value={structureSearch} onChange={e => setStructureSearch(e.target.value)} className="h-9 pl-8 bg-background border-border" />
             </div>
             <div className="flex-1 overflow-y-auto g2g-scrollbar pr-2 flex flex-col gap-1 max-h-[420px]">
-              {filteredStructure.length === 0 && <p className="text-sm text-muted-foreground p-2">No categories found.</p>}
+              {filteredStructure.length === 0 && <p className="text-sm text-muted-foreground p-2">No frameworks found.</p>}
               {filteredStructure.map(node => {
-                const isOpen = expandedCategory === node.category
-                const isSelected = effectiveCategory === node.category
+                const isOpen = expandedFrameworkId === node.framework_id
+                const isSelected = effectiveFrameworkId === node.framework_id
                 return (
-                  <div key={node.category} className="flex flex-col gap-1">
+                  <div key={node.framework_id} className="flex flex-col gap-1">
                     <div
-                      onClick={() => { setSelectedCategory(node.category); setExpandedCategory(isOpen ? null : node.category) }}
+                      onClick={() => { setSelectedFrameworkId(node.framework_id); setExpandedFrameworkId(isOpen ? null : node.framework_id) }}
                       className={`flex items-center justify-between p-2 rounded-lg cursor-pointer ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground hover:text-foreground'}`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         {isOpen ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-                        <span className="text-sm font-semibold truncate">{node.index}. {node.category}</span>
+                        <span className="text-sm font-semibold truncate">{node.index}. {node.name}</span>
                       </div>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isSelected ? 'bg-background text-primary' : 'bg-muted-foreground/10'}`}>{node.count}</span>
                     </div>
-                    {isOpen && node.children.length > 0 && (
+                    {isOpen && node.competencies.length > 0 && (
                       <div className="flex flex-col pl-6 border-l border-border ml-3 gap-1 py-1">
-                        {node.children.slice(0, 40).map(child => (
-                          <div key={child.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer">
+                        {node.competencies.map(c => (
+                          <div key={c.competency_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
                             <div className="flex items-center gap-2 min-w-0">
                               <Folder className="w-3.5 h-3.5 shrink-0" />
-                              <span className="text-sm font-medium truncate">{child.name}</span>
+                              <span className="text-sm font-medium truncate">{c.name}</span>
                             </div>
-                            <span className="text-xs font-medium">{child.count}</span>
+                            <span className="text-xs font-medium">{c.items.length}</span>
                           </div>
                         ))}
                       </div>
@@ -677,30 +695,103 @@ export function CmFrameworkMapping() {
                 )
               })}
             </div>
-            <Button onClick={() => setCategoryDialog(true)} variant="outline" className="w-full border-dashed border-2 border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 gap-2 h-10 rounded-xl">
-              <Plus className="w-4 h-4" /> Add Category
+            {/* Frameworks ARE the competency taxonomy, so this creates one. It
+                used to create a skill category, which is a large part of why
+                this screen felt like a different product from the library. */}
+            <Button onClick={() => openFrameworkDialog(null)} variant="outline" className="w-full border-dashed border-2 border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 gap-2 h-10 rounded-xl">
+              <Plus className="w-4 h-4" /> Add Framework
             </Button>
           </div>
-          <div className="flex-1 bg-card/20 border border-primary/10 rounded-2xl p-6">
-            {effectiveCategory ? (
-              <div>
-                <h3 className="text-lg font-bold text-foreground">{effectiveCategory}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {structure.find(n => n.category === effectiveCategory)?.count ?? 0} competencies across{' '}
-                  {structure.find(n => n.category === effectiveCategory)?.children.length ?? 0} sub-categories.
+          <div className="flex-1 bg-card/20 border border-primary/10 rounded-2xl p-6 overflow-y-auto g2g-scrollbar">
+            {/* WHAT THE TREE DOES NOT CONTAIN, said out loud. Both are broken
+                links; a structure view that omitted them would show a tidy tree
+                while most of the library sat outside it. */}
+            {(structureMeta?.unfiled_count ?? 0) > 0 && (
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+                <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-500" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-foreground">{structureMeta?.unfiled_count} competencies are filed under no framework</span>{' '}
+                  and so appear nowhere in this tree. Open each in the Competency Library and pick its framework.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-                  {(structure.find(n => n.category === effectiveCategory)?.children ?? []).map(child => (
-                    <div key={child.name} className="flex items-center justify-between p-3 rounded-xl border border-border bg-background">
-                      <span className="text-sm font-medium text-foreground truncate">{child.name}</span>
-                      <StatusBadge variant="processing" label={`${child.count}`} size="sm" />
-                    </div>
-                  ))}
+              </div>
+            )}
+            {(structureMeta?.orphan_targets ?? 0) > 0 && (
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+                <Info className="w-4 h-4 mt-0.5 shrink-0 text-destructive" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-foreground">{structureMeta?.orphan_targets} target levels point at a framework their competency does not claim.</span>{' '}
+                  They are reported rather than applied &mdash; the competency&rsquo;s own framework is what counts.
+                </p>
+              </div>
+            )}
+
+            {effectiveFramework ? (
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-bold text-foreground">{effectiveFramework.name}</h3>
+                  <StatusBadge variant={effectiveFramework.status === 'active' ? 'success' : 'processing'} label={effectiveFramework.status} size="sm" />
+                  {effectiveFramework.version && <span className="text-xs font-medium text-muted-foreground">{effectiveFramework.version}</span>}
                 </div>
-                <Button onClick={() => setActiveTab('matrix')} className="mt-6 gap-2"><MapIcon className="w-4 h-4" /> Map this category to roles</Button>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {effectiveFramework.count} {effectiveFramework.count === 1 ? 'competency' : 'competencies'}, each bundling KASBA atoms.
+                </p>
+
+                <div className="flex flex-col gap-3 mt-6">
+                  {effectiveFramework.competencies.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No competencies filed under this framework yet.</p>
+                  )}
+                  {effectiveFramework.competencies.map(c => {
+                    const open = openBundleId === c.competency_id
+                    return (
+                      <div key={c.competency_id} className="rounded-xl border border-border bg-background">
+                        <div
+                          onClick={() => setOpenBundleId(open ? null : c.competency_id)}
+                          className="flex items-center justify-between gap-3 p-3 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {open ? <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />}
+                            <span className="text-sm font-semibold text-foreground truncate">{c.name}</span>
+                            {c.code && <span className="text-xs text-muted-foreground shrink-0">{c.code}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* The framework DEFAULT. A role may override it. */}
+                            <StatusBadge
+                              variant={c.framework_target ? 'processing' : 'default'}
+                              label={c.framework_target ? `Target L${c.framework_target}` : 'No target set'}
+                              size="sm"
+                            />
+                            <span className="text-xs font-medium text-muted-foreground">{c.items.length} KASBA</span>
+                          </div>
+                        </div>
+                        {open && (
+                          <div className="border-t border-border px-3 py-2 flex flex-col gap-1.5">
+                            {c.items.length === 0 && (
+                              <p className="text-xs text-muted-foreground py-1">Nothing bundled yet &mdash; this competency cannot be measured until it has KASBA items.</p>
+                            )}
+                            {c.items.map((it, i) => (
+                              <div key={`${c.competency_id}-${i}`} className="flex items-center justify-between gap-3 py-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-16 shrink-0">{it.kasba_type}</span>
+                                  {/* An id that resolves to nothing is a real
+                                      condition, not an empty cell to hide. */}
+                                  <span className={`text-sm truncate ${it.title_missing ? 'italic text-destructive' : 'text-foreground'}`}>
+                                    {it.title_missing ? 'Library item missing' : it.title}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-medium text-muted-foreground shrink-0" title="Weight in the proficiency roll-up">w{it.weight}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <Button onClick={() => setActiveTab('requirements')} className="mt-6 gap-2"><MapIcon className="w-4 h-4" /> Set role requirements</Button>
               </div>
             ) : (
-              <EmptyState icon={<FileText className="w-10 h-10" />} title="Select a category" description="Choose a category on the left to view its structure." />
+              <EmptyState icon={<FileText className="w-10 h-10" />} title="Select a framework" description="Choose a framework on the left to see its competencies and their KASBA bundles." />
             )}
           </div>
         </div>
@@ -737,8 +828,13 @@ export function CmFrameworkMapping() {
           )}
           <div className="p-4 border-b border-primary/10 flex items-center justify-between gap-3 flex-wrap bg-card">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground font-medium">Selected Category:</span>
-              <span className="text-sm font-bold text-primary">{effectiveCategory ?? '—'}</span>
+              {/* No category filter any more. Structure lists FRAMEWORKS — the
+                  competency taxonomy — which means nothing to a skill-keyed
+                  matrix, so this grid loads unfiltered until it is itself
+                  rebuilt on competencies. Saying "all" is honest; showing a
+                  stale category name would not be. */}
+              <span className="text-sm text-muted-foreground font-medium">Showing:</span>
+              <span className="text-sm font-bold text-primary">All competencies</span>
             </div>
             <div className="flex items-center gap-3">
               {/* All Roles quick filter */}
@@ -1249,7 +1345,7 @@ export function CmFrameworkMapping() {
             <DialogTitle className="text-xl font-bold text-foreground">Bulk Update Levels</DialogTitle>
           </DialogHeader>
           <div className="p-6 flex flex-col gap-4">
-            <p className="text-xs text-muted-foreground">Sets the required level for every competency in <span className="font-semibold text-foreground">{effectiveCategory ?? 'the current category'}</span> for the chosen role.</p>
+            <p className="text-xs text-muted-foreground">Sets the required level for every competency shown in the matrix, for the chosen role.</p>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground">Job Role</label>
               <Select

@@ -5,7 +5,7 @@
  * withLaravelParams, JSON envelope {status,message,data}) that reuses existing
  * tables plus two new studio tables:
  *   GET  /competency/studio/summary                      - 5 cards + coverage donut
- *   GET  /competency/studio/framework-structure          - category tree (s_users_skills)
+ *   GET  /competency/studio/framework-structure          - framework -> competency -> KASBA bundle
  *   GET  /competency/studio/proficiency-scale            - s_proficiency_levels (+ KASA)
  *   GET/PUT /competency/studio/weights                   - default category weighting
  *   GET  /competency/frameworks                          - list (existing)
@@ -79,16 +79,84 @@ export interface StudioSummary {
  * Framework structure / proficiency scale / weighting
  * ------------------------------------------------------------------ */
 
-export interface FrameworkStructureChild {
+/**
+ * FRAMEWORK -> COMPETENCY -> KASBA BUNDLE.
+ *
+ * This used to be a SKILL CATEGORY tree (`{ category, children: [{name, count}] }`)
+ * read from `s_users_skills`, which is why a screen called Competency Framework
+ * showed the skill taxonomy and why framework, competency and KASBA were
+ * impossible to tell apart on it. The competency table was never consulted.
+ */
+
+/** One KASBA atom inside a competency's bundle. */
+export interface FrameworkBundleItem {
+  kasba_type: string
+  /** Set when the item resolves into a library table; null when it is a held label. */
+  item_id: number | null
+  title: string | null
+  /**
+   * The id resolved to nothing — the library row was hard-deleted. A real
+   * condition worth showing, not an empty cell to hide.
+   */
+  title_missing: boolean
+  /** Drives the roll-up: level = Σ(weight × rating) ÷ Σ(weight measured). */
+  weight: number
+}
+
+export interface FrameworkCompetency {
+  competency_id: number
   name: string
-  count: number
+  code: string | null
+  /**
+   * The framework's DEFAULT target level, or null if none is set.
+   * A role may override it; effective target = role override ?? this.
+   */
+  framework_target: number | null
+  items: FrameworkBundleItem[]
 }
 
 export interface FrameworkStructureNode {
   index: number
-  category: string
+  framework_id: number
+  name: string
+  status: string
+  version: string | null
+  department_id: number | null
+  jobrole_id: number | null
+  jobrole: string | null
+  /** How many competencies are filed under this framework. */
   count: number
-  children: FrameworkStructureChild[]
+  competencies: FrameworkCompetency[]
+}
+
+/**
+ * What the tree does NOT contain, reported alongside it.
+ *
+ * Both numbers are broken links made visible rather than swallowed — a
+ * structure view that omitted them would show a tidy tree while most of a
+ * library sat outside it.
+ */
+export interface FrameworkStructureMeta {
+  frameworks: number
+  competencies: number
+  /** Competencies filed under no framework — 199 of them on tenant 1. */
+  unfiled_count: number
+  unfiled: { id: number; name: string; code: string | null }[]
+  /**
+   * Target rows describing a (framework, competency) pairing the competency
+   * itself does not claim. `competency.framework_id` and
+   * `s_competency_framework_items` have never once agreed — 0 overlap on both
+   * databases — so this is the size of that disagreement.
+   */
+  orphan_targets: number
+}
+
+/** The structure call carries `meta`, which the shared envelope does not. */
+export interface FrameworkStructureResponse {
+  status: number
+  message: string
+  data: FrameworkStructureNode[]
+  meta: FrameworkStructureMeta
 }
 
 export interface ProficiencyLevel {
@@ -269,7 +337,7 @@ export const competencyStudioService = {
     ),
 
   getFrameworkStructure: (context: LaravelContext, search?: string) =>
-    apiClient.get<StudioApiResponse<FrameworkStructureNode[]>>(
+    apiClient.get<FrameworkStructureResponse>(
       '/competency/studio/framework-structure',
       withLaravelParams(context, toStringParams({ search })),
     ),

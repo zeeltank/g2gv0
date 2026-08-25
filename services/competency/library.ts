@@ -101,7 +101,17 @@ export type CompetencySortField =
 
 export interface CompetencyLibraryListParams {
   search?: string
+  /**
+   * ⚠ THE SERVER DOES NOT FILTER ON THIS. `CompetencyLibraryCrudController`
+   * lists `category` only in its SORTABLE map (`:62`) — you may order by it,
+   * never filter on it. Sending it is silently ignored, which is exactly what
+   * the library's category dropdown did for as long as it existed.
+   *
+   * To narrow by the competency taxonomy, use `framework_id`.
+   */
   category?: string
+  /** Filters by framework — the competency taxonomy. Honoured at `:95`. */
+  framework_id?: number
   competency_type?: string
   /** filters on approve_status: Approved | Pending | Cancelled */
   status?: string
