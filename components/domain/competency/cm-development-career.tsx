@@ -87,6 +87,9 @@ import type {
   PlanActionPayload,
   PlanSortField,
 } from '@/services/competency'
+// The two arms of the gaps tab. Imported from the module rather than the
+// barrel because these were added with it.
+import type { GapItemState, GapSummary } from '@/services/competency/development-career'
 
 /* ------------------------------------------------------------------ *
  * Option maps - values are the raw ones the Laravel API filters on
@@ -935,19 +938,34 @@ function AssignLearningForm({ employees, presetEmployeeId, presetPlanId, saving,
 
 interface ActionFormProps {
   initial: PlanAction | null
+  /** Seeds a NEW action — from a competency gap. Never used for an edit. */
+  prefill?: Partial<PlanActionPayload> | null
   saving: boolean
   onSubmit: (payload: PlanActionPayload) => Promise<{ ok: boolean; message: string }>
   onCancel: () => void
   onSaved: () => void
 }
 
-function ActionForm({ initial, saving, onSubmit, onCancel, onSaved }: ActionFormProps) {
-  const [title, setTitle] = useState(initial?.title ?? '')
+function ActionForm({ initial, prefill, saving, onSubmit, onCancel, onSaved }: ActionFormProps) {
+  const [title, setTitle] = useState(initial?.title ?? prefill?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [actionType, setActionType] = useState(initial?.action_type ?? 'milestone')
-  const [status, setStatus] = useState(initial?.status ?? 'pending')
+  const [actionType, setActionType] = useState(initial?.action_type ?? prefill?.action_type ?? 'milestone')
+  const [status, setStatus] = useState(initial?.status ?? prefill?.status ?? 'pending')
   const [dueDate, setDueDate] = useState(initial?.due_date ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  /*
+   * THE COMPETENCY THIS ACTION IS FOR.
+   *
+   * Held in a ref rather than a field because nothing on this form edits it -
+   * it comes from the gap row the user clicked, or from the action being
+   * edited, and there is no picker for it.
+   *
+   * It was previously DROPPED ENTIRELY: this form never sent `competency_id`,
+   * so an action created here referenced no competency at all, and the plan's
+   * link back to the capability chain was broken at the point of authoring.
+   */
+  const competencyId = initial?.competency_id ?? prefill?.competency_id ?? null
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -962,6 +980,8 @@ function ActionForm({ initial, saving, onSubmit, onCancel, onSaved }: ActionForm
       status: status as PlanActionPayload['status'],
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(dueDate ? { due_date: dueDate } : {}),
+      // Only a real competency id travels. Never a skill id - see the gaps tab.
+      ...(competencyId ? { competency_id: competencyId } : {}),
     })
     if (result.ok) onSaved()
     else setError(result.message)
@@ -1044,7 +1064,21 @@ const NODE_LABELS: Record<string, string> = {
 function ExplorerNodeCard({ node }: { node: ExplorerNode }) {
   const isCurrent = node.is_current
   const isPast = node.step_type === 'past'
-  const match = node.match_percent
+
+  /*
+   * PREFER THE ASSESSMENT ARM, and say which one is on screen.
+   *
+   * Competency readiness is the number this product means by "ready"; the skill
+   * percent is execution guidance and stands in only where no competencies are
+   * mapped to the target role — which, on live, is almost everywhere.
+   *
+   * Whichever is shown, `coverage` comes with it: a percent drawn from one of
+   * seventeen requirements is not a readiness score, and the old screen showed
+   * exactly that as a confident "3%".
+   */
+  const shown = node.competency_match ?? node.skill_match
+  const arm = node.competency_match ? 'competency' : 'skill'
+  const match = shown?.percent ?? null
 
   return (
     <div
@@ -1077,14 +1111,26 @@ function ExplorerNodeCard({ node }: { node: ExplorerNode }) {
         </div>
       ) : isPast ? (
         <p className="text-[10px] font-semibold text-muted-foreground">Already held</p>
-      ) : match === null ? (
-        <p className="text-[10px] font-semibold text-muted-foreground">Match not available</p>
+      ) : !shown || shown.percent === null ? (
+        /* Two different absences, and only one of them is about the person:
+           nothing measured, versus no requirements to measure against. */
+        <p className="text-[10px] font-semibold text-muted-foreground">
+          {shown ? 'Not assessed for this role' : 'No requirements set'}
+        </p>
       ) : (
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${match}%` }} />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${match}%` }} />
+            </div>
+            <span className="whitespace-nowrap text-[10px] font-bold text-foreground">{match}% Match</span>
           </div>
-          <span className="text-[10px] font-bold text-foreground whitespace-nowrap">{match}% Match</span>
+          {/* WHAT THE PERCENT SPEAKS FOR. Amber below full coverage, because a
+              number drawn from part of a requirement must not read like a
+              complete assessment. */}
+          <p className={cn('text-[9px] font-semibold', shown.coverage < 1 ? 'text-amber-600' : 'text-muted-foreground')}>
+            {arm === 'competency' ? 'Competencies' : 'Skills'} · {shown.measured} of {shown.required} assessed
+          </p>
         </div>
       )}
     </div>
@@ -1180,6 +1226,171 @@ function CareerPathExplorerCard({
 }
 
 /* ------------------------------------------------------------------ *
+ * Gap section — one renderer for BOTH arms
+ *
+ * Competency gaps and skill gaps are different questions, but they are read
+ * the same way, so they share a renderer rather than drifting into two layouts
+ * that disagree about what "current" means. Whatever this component decides
+ * about rendering an unassessed row, it decides once.
+ * ------------------------------------------------------------------ */
+
+interface GapRow {
+  key: string
+  name: string
+  required: number | null
+  requiredRaw?: string
+  current: number | null
+  gap: number | null
+  state: GapItemState
+  is_focus: boolean
+  is_mandatory?: boolean
+  coverage?: number
+  onAddAction?: () => void
+}
+
+/**
+ * How each state reads.
+ *
+ * `not_assessed` and `no_target` are NEUTRAL, not red. Neither is a finding
+ * about the person: one means nobody has assessed them, the other means the
+ * requirement itself has no readable level. Colouring either as a shortfall is
+ * the mistake this whole section exists to undo.
+ */
+const GAP_STATE: Record<GapItemState, { label: string; className: string }> = {
+  gap:          { label: 'Gap',          className: 'bg-destructive/10 text-destructive border-destructive/20' },
+  met:          { label: 'Met',          className: 'bg-success/10 text-success border-success/20' },
+  not_assessed: { label: 'Not assessed', className: 'bg-muted text-muted-foreground border-border' },
+  unmeasured:   { label: 'Not assessed', className: 'bg-muted text-muted-foreground border-border' },
+  no_target:    { label: 'No target',    className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+}
+
+function GapSection({
+  title, subtitle, summary, rows, emptyTitle, emptyDescription,
+}: {
+  title: string
+  subtitle: string
+  summary: GapSummary
+  rows: GapRow[]
+  emptyTitle: string
+  emptyDescription: string
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h3 className="text-sm font-bold text-foreground">{title}</h3>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+          <p className="text-sm font-semibold text-foreground">{emptyTitle}</p>
+          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">{emptyDescription}</p>
+        </div>
+      ) : (
+        <>
+          {/* FOUR counters, not three. `Not assessed` used to be folded into
+              `Gaps`, which is how 3,274 items nobody had looked at were
+              reported on live as shortfalls. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-border bg-muted/20 p-3">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Required</p>
+              <p className="text-lg font-bold text-foreground">{summary.total}</p>
+            </div>
+            <div className="rounded-xl border border-success/30 bg-success/5 p-3">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Met</p>
+              <p className="text-lg font-bold text-success">{summary.met}</p>
+            </div>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Gaps</p>
+              <p className="text-lg font-bold text-destructive">{summary.gaps}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-3">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Not assessed</p>
+              <p className="text-lg font-bold text-muted-foreground">{summary.not_assessed}</p>
+            </div>
+          </div>
+
+          {/* Stated in words, because "Met 2 of 30" and "Met 2 of the 4 we
+              looked at" are very different claims and the counters alone do
+              not distinguish them. */}
+          <p className="text-[11px] text-muted-foreground">
+            {summary.measured === 0
+              ? `Nothing has been assessed yet, so no gap can be reported for these ${summary.total}.`
+              : `${summary.met_percent}% met of the ${summary.measured} assessed${
+                  summary.not_assessed > 0 ? ` · ${summary.not_assessed} still unassessed` : ''
+                }${summary.no_target > 0 ? ` · ${summary.no_target} with no usable target level` : ''}.`}
+          </p>
+
+          <Table className="text-sm">
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-3 py-2 font-bold text-foreground">{title.replace(' gaps', '')}</TableHead>
+                <TableHead className="px-3 py-2 text-center font-bold text-foreground">Target</TableHead>
+                <TableHead className="px-3 py-2 text-center font-bold text-foreground">Current</TableHead>
+                <TableHead className="px-3 py-2 text-center font-bold text-foreground">Status</TableHead>
+                <TableHead className="px-3 py-2 text-right font-bold text-foreground" />
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border">
+              {rows.map((row) => {
+                const style = GAP_STATE[row.state] ?? GAP_STATE.not_assessed
+                return (
+                  <TableRow key={row.key} className="hover:bg-muted/30">
+                    <TableCell className="px-3 py-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-foreground">{row.name}</span>
+                        {row.is_focus && <StatusBadge variant="primary" label="Focus" size="sm" />}
+                        {row.is_mandatory && (
+                          <span className="rounded bg-destructive/10 px-1 text-[9px] font-bold uppercase text-destructive">
+                            Mandatory
+                          </span>
+                        )}
+                        {/* A level speaking for part of a competency must not
+                            read as a complete measurement. */}
+                        {row.coverage !== undefined && row.current !== null && row.coverage > 0 && row.coverage < 1 && (
+                          <span className="text-[10px] font-semibold text-amber-600">
+                            {Math.round(row.coverage * 100)}% measured
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5 text-center text-muted-foreground">
+                      {/* Live holds "Advanced"/"Basic"/"Intermediate" in a level
+                          column. Shown as stored rather than silently read as 0,
+                          which is what used to make unrated items look "met". */}
+                      {row.required ?? (row.requiredRaw ? <span className="text-amber-600">{row.requiredRaw}</span> : '—')}
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5 text-center text-muted-foreground">
+                      {/* NEVER 0 for unassessed. That single substitution is
+                          what produced 3,274 false shortfalls. */}
+                      {row.current ?? <span className="text-xs italic">not assessed</span>}
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5 text-center">
+                      <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', style.className)}>
+                        {row.state === 'gap' && row.gap !== null ? `Short by ${row.gap}` : style.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5 text-right">
+                      {/* Offered only where there is a real competency to
+                          attach — see the skill arm's comment. */}
+                      {row.onAddAction && row.state === 'gap' && (
+                        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={row.onAddAction}>
+                          <Plus className="size-3" aria-hidden="true" /> Add action
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ *
  * Plan detail panel
  * ------------------------------------------------------------------ */
 
@@ -1199,7 +1410,49 @@ function PlanDetailPanel({
   onChanged: () => void
 }) {
   const [tab, setTab] = useState(PLAN_TAB_OVERVIEW)
-  const [actionDialog, setActionDialog] = useState<{ open: boolean; action: PlanAction | null }>({ open: false, action: null })
+  /*
+   * `prefill` is SEPARATE from `action`, and that separation is load-bearing.
+   *
+   * The submit path branches on `actionDialog.action` to choose update-vs-create.
+   * A pre-filled NEW action is not an existing one, so it must not travel in
+   * that field - doing so would send `updateAction(0, ...)` against a row id
+   * that does not exist. `prefill` seeds the form; `action` still means "this
+   * is an edit".
+   */
+  const [actionDialog, setActionDialog] = useState<{
+    open: boolean
+    action: PlanAction | null
+    prefill: Partial<PlanActionPayload> | null
+  }>({ open: false, action: null, prefill: null })
+
+  /*
+   * THE LOOP CLOSING: a gap becomes a development action.
+   *
+   * `storeAction` already accepts `competency_id` and the table already stores
+   * it, so this is an affordance rather than new machinery - the step the
+   * workspace was missing between "here is your shortfall" and "here is what
+   * you will do about it".
+   *
+   * Offered ONLY on competency rows. A skill row has no competency id, and
+   * passing one anyway is precisely how 61 rows on live came to hold a skill id
+   * in a competency column.
+   *
+   * PRE-FILLED, NEVER SAVED SILENTLY: the manager still names, owns and dates
+   * it. Writing the row on a button press would put an unowned, undated action
+   * on somebody's plan.
+   */
+  const openActionForCompetency = (competencyId: number, competencyName: string) => {
+    setActionDialog({
+      open: true,
+      action: null,
+      prefill: {
+        title: `Close gap: ${competencyName}`,
+        action_type: 'training',
+        status: 'pending',
+        competency_id: competencyId,
+      },
+    })
+  }
 
   const { detail, gaps, actions, history, loading, error, saving, retry, createAction, updateAction, deleteAction } =
     usePlanDetail(planId)
@@ -1374,61 +1627,88 @@ function PlanDetailPanel({
         )}
 
         {tab === PLAN_TAB_GAPS && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {!gaps ? (
               <EmptyState icon={<Target className="w-8 h-8" />} title="No gap data" description="Gaps are computed from the employee's job role requirements." />
-            ) : gaps.items.length === 0 ? (
-              <EmptyState
-                icon={<Target className="w-8 h-8" />}
-                title="No required competencies mapped"
-                description={`No competency requirements are mapped to ${dash(gaps.jobrole)} yet.`}
-              />
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-xl border border-border bg-muted/20">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Required</p>
-                    <p className="text-lg font-bold text-foreground">{gaps.summary.total}</p>
-                  </div>
-                  <div className="p-3 rounded-xl border border-success/30 bg-success/5">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Met</p>
-                    <p className="text-lg font-bold text-success">{gaps.summary.met}</p>
-                  </div>
-                  <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/5">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Gaps</p>
-                    <p className="text-lg font-bold text-destructive">{gaps.summary.gaps}</p>
-                  </div>
-                </div>
+                {/* ── THE ASSESSMENT ARM ───────────────────────────────────
+                    Competencies the role requires, measured by the one
+                    server-side gap engine. This is the half that feeds
+                    development actions, because only it has a competency id. */}
+                <GapSection
+                  title="Competency gaps"
+                  subtitle="Measured against this role's competency requirements."
+                  summary={gaps.competency_gaps.summary}
+                  emptyTitle={
+                    !gaps.competency_gaps.jobrole_resolved
+                      ? 'Job role could not be identified'
+                      : 'No competency requirements yet'
+                  }
+                  emptyDescription={
+                    !gaps.competency_gaps.jobrole_resolved
+                      ? `More than one job role is named "${dash(gaps.jobrole)}" in this organisation, so this plan cannot be matched to one. Rename the duplicates, or set the role on the plan.`
+                      : `No competencies are mapped to ${dash(gaps.jobrole)} yet, so there is nothing to measure against. Map them in Role Requirements.`
+                  }
+                  rows={gaps.competency_gaps.items.map((item) => ({
+                    key: `c-${item.competency_id}`,
+                    name: item.name,
+                    required: item.required,
+                    current: item.current,
+                    gap: item.gap,
+                    state: item.state,
+                    is_focus: item.is_focus,
+                    is_mandatory: item.is_mandatory,
+                    coverage: item.coverage,
+                    onAddAction: () => openActionForCompetency(item.competency_id, item.name),
+                  }))}
+                />
 
-                <Table className="text-sm">
-                  <TableHeader className="bg-muted/30">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="px-3 py-2 font-bold text-foreground">Competency</TableHead>
-                      <TableHead className="px-3 py-2 font-bold text-foreground text-center">Required</TableHead>
-                      <TableHead className="px-3 py-2 font-bold text-foreground text-center">Current</TableHead>
-                      <TableHead className="px-3 py-2 font-bold text-foreground text-center">Gap</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-border">
-                    {gaps.items.map((item) => (
-                      <TableRow key={item.name} className="hover:bg-muted/30">
-                        <TableCell className="px-3 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground">{item.name}</span>
-                            {item.is_focus && <StatusBadge variant="primary" label="Focus" size="sm" />}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-2.5 text-center text-muted-foreground">{item.required}</TableCell>
-                        <TableCell className="px-3 py-2.5 text-center text-muted-foreground">{item.current}</TableCell>
-                        <TableCell className="px-3 py-2.5 text-center">
-                          <span className={cn('font-bold', item.gap >= 0 ? 'text-success' : 'text-destructive')}>
-                            {item.gap > 0 ? `+${item.gap}` : item.gap}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {/* Mandatory ITEMS below target, kept as their own signal: an
+                    average can sit above the bar while an item inside it does
+                    not, and for a regulated role that is the whole point. */}
+                {gaps.competency_gaps.mandatory_below_required.length > 0 && (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                    <p className="text-xs font-bold uppercase text-destructive">
+                      Mandatory items below target ({gaps.competency_gaps.mandatory_below_required.length})
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Inside a competency whose average may look acceptable.
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {gaps.competency_gaps.mandatory_below_required.map((m) => (
+                        <li key={`${m.competency_id}-${m.kasba_item_id}`} className="text-xs text-foreground/80">
+                          <span className="font-medium">{m.item_label ?? `${m.kasba_type} item`}</span>
+                          <span className="text-muted-foreground"> — rated {m.rating}, needs {m.required} ({m.competency_name})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* ── THE GUIDANCE ARM ─────────────────────────────────────
+                    Skills the role needs. NOT competency gaps, and no longer
+                    labelled as such. No "add action" here: there is no
+                    competency id to attach, and inventing one is exactly how
+                    61 rows on live ended up holding a skill id in a competency
+                    column. */}
+                <GapSection
+                  title="Skills for this role"
+                  subtitle="Execution guidance — not a competency assessment."
+                  summary={gaps.skill_gaps.summary}
+                  emptyTitle="No skills mapped to this role"
+                  emptyDescription={`No skill requirements are recorded for ${dash(gaps.jobrole)}.`}
+                  rows={gaps.skill_gaps.items.map((item) => ({
+                    key: `s-${item.name}`,
+                    name: item.name,
+                    required: item.required,
+                    requiredRaw: item.required_raw,
+                    current: item.current,
+                    gap: item.gap,
+                    state: item.state,
+                    is_focus: item.is_focus,
+                  }))}
+                />
               </>
             )}
           </div>
@@ -1440,7 +1720,7 @@ function PlanDetailPanel({
               <p className="text-xs text-muted-foreground">
                 {detail.action_counts.completed} of {detail.action_counts.total} complete — progress recalculates automatically.
               </p>
-              <Button className="h-8 gap-2 text-xs" onClick={() => setActionDialog({ open: true, action: null })}>
+              <Button className="h-8 gap-2 text-xs" onClick={() => setActionDialog({ open: true, action: null, prefill: null })}>
                 <Plus className="w-3.5 h-3.5" /> Add Action
               </Button>
             </div>
@@ -1479,7 +1759,7 @@ function PlanDetailPanel({
                         <MoreVertical className="w-4 h-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setActionDialog({ open: true, action })}>Edit Action</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActionDialog({ open: true, action, prefill: null })}>Edit Action</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
@@ -1522,11 +1802,12 @@ function PlanDetailPanel({
         )}
       </CardContent>
 
-      <Dialog open={actionDialog.open} onOpenChange={(open) => setActionDialog({ open, action: open ? actionDialog.action : null })}>
+      <Dialog open={actionDialog.open} onOpenChange={(open) => setActionDialog({ open, action: open ? actionDialog.action : null, prefill: open ? actionDialog.prefill : null })}>
         <DialogContent className="max-w-xl p-0 gap-0 rounded-2xl overflow-hidden">
           <ActionForm
-            key={actionDialog.action?.id ?? 'new'}
+            key={actionDialog.action?.id ?? `new-${actionDialog.prefill?.competency_id ?? ''}`}
             initial={actionDialog.action}
+            prefill={actionDialog.prefill}
             saving={saving}
             onSubmit={async (payload) => {
               const result = actionDialog.action
@@ -1535,8 +1816,8 @@ function PlanDetailPanel({
               if (result.ok) onChanged()
               return result
             }}
-            onCancel={() => setActionDialog({ open: false, action: null })}
-            onSaved={() => setActionDialog({ open: false, action: null })}
+            onCancel={() => setActionDialog({ open: false, action: null, prefill: null })}
+            onSaved={() => setActionDialog({ open: false, action: null, prefill: null })}
           />
         </DialogContent>
       </Dialog>

@@ -10,6 +10,10 @@ import {
   type FrameworkPayload,
   type FrameworkStructureNode,
   type FrameworkStructureMeta,
+  type RequirementsMatrix,
+  type RequirementsMatrixMeta,
+  type Reconciliation,
+  type ReconciliationMeta,
   type MappingReview,
   type Matrix,
   type ProficiencyLevelPayload,
@@ -60,6 +64,20 @@ export interface UseCompetencyStudioState {
   matrixError: string | null
   loadMatrix: (category: string | null, jobroles: string[]) => Promise<void>
 
+  // Requirements grid — competencies x roles, loaded on demand like the matrix
+  requirements: RequirementsMatrix | null
+  requirementsMeta: RequirementsMatrixMeta | null
+  requirementsLoading: boolean
+  requirementsError: string | null
+  loadRequirements: (params?: { department?: string; framework_id?: number }) => Promise<void>
+
+  // Reconciliation — the broken links between frameworks and roles
+  reconciliation: Reconciliation | null
+  reconciliationMeta: ReconciliationMeta | null
+  reconciliationLoading: boolean
+  reconciliationError: string | null
+  loadReconciliation: () => Promise<void>
+
   // Reviews (loaded on demand by status)
   reviews: MappingReview[]
   reviewCounts: ReviewCounts
@@ -108,6 +126,16 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
   const [matrix, setMatrix] = useState<Matrix | null>(null)
   const [matrixLoading, setMatrixLoading] = useState(false)
   const [matrixError, setMatrixError] = useState<string | null>(null)
+
+  const [requirements, setRequirements] = useState<RequirementsMatrix | null>(null)
+  const [requirementsMeta, setRequirementsMeta] = useState<RequirementsMatrixMeta | null>(null)
+  const [requirementsLoading, setRequirementsLoading] = useState(false)
+  const [requirementsError, setRequirementsError] = useState<string | null>(null)
+
+  const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null)
+  const [reconciliationMeta, setReconciliationMeta] = useState<ReconciliationMeta | null>(null)
+  const [reconciliationLoading, setReconciliationLoading] = useState(false)
+  const [reconciliationError, setReconciliationError] = useState<string | null>(null)
 
   const [reviews, setReviews] = useState<MappingReview[]>([])
   const [reviewCounts, setReviewCounts] = useState<ReviewCounts>(EMPTY_COUNTS)
@@ -176,6 +204,43 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
     },
     [resolveContext],
   )
+
+  /* -- Requirements grid loader (on demand) --------------------------- */
+  const loadRequirements = useCallback(
+    async (params: { department?: string; framework_id?: number } = {}) => {
+      setRequirementsLoading(true)
+      setRequirementsError(null)
+      try {
+        const res = await competencyStudioService.getRequirementsMatrix(resolveContext(), params)
+        setRequirements(res.data ?? null)
+        setRequirementsMeta(res.meta ?? null)
+      } catch (err) {
+        setRequirementsError(toMessage(err, 'Failed to load the requirements grid.'))
+        setRequirements(null)
+        setRequirementsMeta(null)
+      } finally {
+        setRequirementsLoading(false)
+      }
+    },
+    [resolveContext],
+  )
+
+  /* -- Reconciliation loader (on demand) ------------------------------ */
+  const loadReconciliation = useCallback(async () => {
+    setReconciliationLoading(true)
+    setReconciliationError(null)
+    try {
+      const res = await competencyStudioService.getReconciliation(resolveContext())
+      setReconciliation(res.data ?? null)
+      setReconciliationMeta(res.meta ?? null)
+    } catch (err) {
+      setReconciliationError(toMessage(err, 'Failed to load reconciliation.'))
+      setReconciliation(null)
+      setReconciliationMeta(null)
+    } finally {
+      setReconciliationLoading(false)
+    }
+  }, [resolveContext])
 
   /* -- Reviews loader (on demand) ------------------------------------- */
   const loadReviews = useCallback(
@@ -373,6 +438,16 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
     matrixError,
     loadMatrix,
 
+    requirements,
+    requirementsMeta,
+    requirementsLoading,
+    requirementsError,
+    loadRequirements,
+    reconciliation,
+    reconciliationMeta,
+    reconciliationLoading,
+    reconciliationError,
+    loadReconciliation,
     reviews,
     reviewCounts,
     reviewsLoading,

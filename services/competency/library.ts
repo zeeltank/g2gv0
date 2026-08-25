@@ -59,6 +59,12 @@ export interface CompetencyLibraryItem {
   framework_id?: number | null
   /** The KASBA composition, present on the single-record show() response. */
   items?: CompetencyKasbaItem[]
+  /**
+   * The competency's scale, returned by `show()` only — the list payload omits
+   * it. Always five entries, authored or inherited, so the edit dialog can seed
+   * the editor without a second request.
+   */
+  levels?: CompetencyProficiencyLevel[]
   category: string | null
   sub_category: string | null
   competency_type: string | null
@@ -216,6 +222,27 @@ export interface CompetencyKasbaItemInput {
   weight?: number
 }
 
+/** One authored level on a competency's scale. Blank fields clear the override. */
+export interface CompetencyProficiencyLevelInput {
+  level: number
+  descriptor?: string | null
+  indicators?: string | null
+}
+
+/** One level as READ back — carries what it inherits as well as what it overrides. */
+export interface CompetencyProficiencyLevel {
+  level: number
+  descriptor: string | null
+  indicators: string | null
+  /**
+   * The organisation's generic descriptor for this level. Shown behind an
+   * unauthored field so an author can see what they would be replacing — an
+   * empty box on its own says nothing.
+   */
+  default_descriptor: string | null
+  is_authored: boolean
+}
+
 export interface CompetencyLibraryPayload {
   name: string
   /** The competency's own code, unique within the organisation. */
@@ -229,6 +256,19 @@ export interface CompetencyLibraryPayload {
    * so in `next_step` when the list is empty.
    */
   items?: CompetencyKasbaItemInput[]
+  /**
+   * THE COMPETENCY'S OWN L1–L5 SCALE — what "Level 3" means for this one.
+   *
+   * Rides the same payload as `items` deliberately. Levels are keyed by
+   * `competency_id`, which does not exist during create, and the mutation layer
+   * discards the response body — so sending them together is what lets create
+   * and edit behave identically without threading a new id back out.
+   *
+   * SPARSE: send a blank descriptor and the server DELETES that override, so
+   * the level returns to the organisation default. It never stores `""` — an
+   * empty override and no override look identical and mean opposite things.
+   */
+  levels?: CompetencyProficiencyLevelInput[]
   description?: string
   category?: string
   sub_category?: string

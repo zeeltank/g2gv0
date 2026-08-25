@@ -22,7 +22,23 @@ import { withLaravelParams } from '@/lib/laravel-context'
 export interface RatableItem {
   kasba_item_id: number
   kasba_type: string
+  /**
+   * The customer's own wording, set only when the item was never resolved to a
+   * library row. **Prefer `title`** — it falls back to this.
+   */
   item_label: string | null
+  /**
+   * The name to render, resolved server-side from the item's library table when
+   * `item_id` is set and falling back to `item_label` when it is not.
+   *
+   * Undeclared until now even though the API has always sent it, which is how a
+   * screen reading `item_label` showed blanks for exactly the items that were
+   * CORRECTLY resolved — 203 of them on live. The better the data, the emptier
+   * the screen.
+   */
+  title?: string | null
+  /** The id resolved to nothing: the library row was hard-deleted. Say so. */
+  title_missing?: boolean
   weight: number | null
   competency_id: number | null
   competency_name: string | null

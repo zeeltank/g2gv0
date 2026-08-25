@@ -9,9 +9,9 @@ import type { Employee } from '@/types/employee'
 import {
   fetchEmployeeProfile,
   uploadEmployeeDocument,
-  fetchCompetencyProfile,
   fetchKasbaRatings,
   type KasbaRatingResponse,
+  type KasbaRatingItem,
   type EmployeeProfileFullResponse
 } from '@/services/organization/employee-profile-service'
 import { getLaravelContext } from '@/lib/laravel-context'
@@ -19,7 +19,14 @@ import {
   employeeDirectoryService,
   type ReferenceData,
 } from '@/services/organization/employee-directory'
-import { rateKasbaItem, saveSkillConfirmations } from '@/services/competency/kasba-rating-by-item'
+import { rateKasbaItem, saveSkillConfirmations, type KasbaType } from '@/services/competency/kasba-rating-by-item'
+import { competencyGapService, type CompetencyGap } from '@/services/competency/gap'
+import {
+  taskReadinessService,
+  type TaskReadinessRow,
+  type TaskReadinessCounts,
+} from '@/services/competency/task-readiness'
+import { kasbaRatingService } from '@/services/competency/kasba-rating'
 import { AddEmployeeSheet } from './employee-directory-parts/add-employee-sheet'
 import { useRouter } from 'next/navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
@@ -55,15 +62,9 @@ const LorTab = lazy(() =>
   })),
 )
 
-const CompetencyRatingTab = lazy(() =>
-  import('@/domain/organization/edit-employee/competency-rating-tab').then((m) => ({
-    default: m.CompetencyRatingTab,
-  })),
-)
-
-const ExpectedCompetencyTab = lazy(() =>
-  import('@/domain/organization/edit-employee/expected-competency-tab').then((m) => ({
-    default: m.ExpectedCompetencyTab,
+const CompetencyAssessmentTab = lazy(() =>
+  import('@/domain/organization/edit-employee/competency-assessment-tab').then((m) => ({
+    default: m.CompetencyAssessmentTab,
   })),
 )
 
@@ -73,8 +74,15 @@ const TOP_TABS = [
   { id: 'jobrole-skill', label: 'Jobrole Skill' },
   { id: 'jobrole-tasks', label: 'Jobrole Tasks' },
   { id: 'responsibility', label: 'Level of Responsibility' },
-  { id: 'skill-rating', label: 'Competency Rating' },
-  { id: 'expected-competency', label: 'Expected Competency' },
+  /*
+   * ONE COMPETENCY TAB, NOT TWO.
+   *
+   * "Competency Rating" was built from /competency/kasba-rating and "Expected
+   * Competency" from EmployeeCompetencyProfileController - two different
+   * controllers answering the same question, side by side, neither of them the
+   * gap engine. That is why they never agreed.
+   */
+  { id: 'competency', label: 'Competency' },
 ] as const
 
 type EmployeeDirectorySheetsProps = {
@@ -219,23 +227,83 @@ function EmployeeOverviewSheet({
   const [loadError, setLoadError] = useState('')
   const [notice, setNotice] = useState('')
   const [profileData, setProfileData] = useState<EmployeeProfileFullResponse | null>(null)
-  const [competencyProfile, setCompetencyProfile] = useState<any | null>(null)
-  const [kabaRatings, setKabaRatings] = useState<CompetencyRatings>(EMPTY_COMPETENCY_RATINGS)
   const [isKabaLoading, setIsKabaLoading] = useState(false)
   const [kabaError, setKabaError] = useState<string | null>(null)
   const [hasLoadedKaba, setHasLoadedKaba] = useState(false)
+  /* The RAW items, kept alongside the dimension-grouped view. The new tab
+     groups them by competency instead, which is the direction the model runs. */
+  const [kabaItems, setKabaItems] = useState<KasbaRatingItem[]>([])
+  const [kabaRange, setKabaRange] = useState<{ min: number; max: number }>({ min: 1, max: 5 })
+  /* The rolled-up level, state and coverage per competency - computed by
+     ProficiencyService on the server and never recomputed here. */
+  const [gapData, setGapData] = useState<CompetencyGap | null>(null)
   const [kabaNotMapped, setKabaNotMapped] = useState(false)
   /** The endpoint's own words for WHICH empty this is. Not reworded here. */
   const [kabaEmptyReason, setKabaEmptyReason] = useState<string | null>(null)
+
+  /*
+   * TASK READINESS — the Jobrole Tasks tab's second dimension.
+   *
+   * Loaded ON ITS OWN TAB, like the competency data, rather than with the
+   * profile: a drawer opened to read a phone number should not pay for a
+   * readiness computation nobody asked for.
+   *
+   * Kept in its own state and NOT merged into `profileData.jobroleTasks`,
+   * because the two have different failure modes. The task list failing means
+   * the tab has nothing to show; readiness failing means the tab shows tasks
+   * without verdicts, which is still useful. Merged, one failure would look
+   * like the other.
+   */
+  const [readiness, setReadiness] = useState<Map<number, TaskReadinessRow> | undefined>(undefined)
+  const [readinessCounts, setReadinessCounts] = useState<TaskReadinessCounts | null>(null)
+  const [readinessNote, setReadinessNote] = useState<string | null>(null)
+  const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [isReadinessLoading, setIsReadinessLoading] = useState(false)
+  const [hasLoadedReadiness, setHasLoadedReadiness] = useState(false)
+
+  const loadReadiness = useCallback(async () => {
+    if (!employee?.id) return
+    setIsReadinessLoading(true)
+    setReadinessError(null)
+    try {
+      const res = await taskReadinessService.forEmployee(getLaravelContext(), Number(employee.id))
+      setReadiness(new Map((res.data?.tasks ?? []).map((t) => [t.user_jobrole_task_id, t])))
+      setReadinessCounts(res.counts ?? null)
+      setReadinessNote(res.note ?? null)
+    } catch (error) {
+      /*
+       * A REFUSAL IS NOT AN EMPTY RESULT. The endpoint returns 422 for an
+       * employee with no job role and 403 for a caller without the rights, and
+       * both are things the tab should say rather than render as "no tasks
+       * needing readiness". `readiness` stays undefined so every task renders
+       * without a verdict instead of picking one up by default.
+       */
+      setReadiness(undefined)
+      setReadinessCounts(null)
+      setReadinessError(error instanceof Error ? error.message : 'Unable to load task readiness.')
+    } finally {
+      setIsReadinessLoading(false)
+      setHasLoadedReadiness(true)
+    }
+  }, [employee?.id])
 
   const loadData = useCallback(async () => {
     if (!employee?.id) return
     setIsLoading(true)
     setLoadError('')
     try {
-      const [resProfile, resCompetency] = await Promise.allSettled([
+      /*
+       * ONE PROFILE CALL, NOT TWO.
+       *
+       * `fetchCompetencyProfile` (EmployeeCompetencyProfileController) was the
+       * second competency opinion in this drawer - a different controller
+       * answering the same question as /competency/kasba-rating, and neither of
+       * them the gap engine. The Competency tab now reads the gap engine, so
+       * this call has no consumer and is gone rather than left fetching data
+       * nothing renders.
+       */
+      const [resProfile] = await Promise.allSettled([
         fetchEmployeeProfile(employee.id),
-        fetchCompetencyProfile(employee.id),
       ])
 
       if (resProfile.status === 'fulfilled') {
@@ -251,9 +319,6 @@ function EmployeeOverviewSheet({
         )
       }
 
-      if (resCompetency.status === 'fulfilled') {
-        setCompetencyProfile(resCompetency.value)
-      }
     } finally {
       setIsLoading(false)
     }
@@ -280,7 +345,8 @@ function EmployeeOverviewSheet({
    */
   const loadKaba = useCallback(async () => {
     if (!employee?.id) {
-      setKabaRatings(EMPTY_COMPETENCY_RATINGS)
+      setKabaItems([])
+      setGapData(null)
       setHasLoadedKaba(true)
       return
     }
@@ -291,7 +357,27 @@ function EmployeeOverviewSheet({
     setKabaEmptyReason(null)
     try {
       const response = await fetchKasbaRatings(employee.id, getLaravelContext())
-      setKabaRatings(mapCompetencyChain(response))
+      setKabaItems(response?.data?.items ?? [])
+      setKabaRange(response?.rating_range ?? { min: 1, max: 5 })
+
+      /*
+       * The gap is a SEPARATE call on purpose.
+       *
+       * Averaging the item ratings here would be four lines and would be a
+       * second implementation of ProficiencyService::rollUp - the weighted
+       * average that EXCLUDES unmeasured items rather than scoring them zero.
+       * Two numbers that disagree are worse than one that is wrong, because
+       * nobody knows which to trust. So the server computes it.
+       *
+       * A failure here does not fail the tab: the items still render, the
+       * rolled-up column simply says nothing rather than guessing.
+       */
+      try {
+        const gapRes = await competencyGapService.mine(getLaravelContext(), Number(employee.id))
+        setGapData(gapRes?.data ?? null)
+      } catch {
+        setGapData(null)
+      }
 
       // AN EXPECTED EMPTY IS NOT AN ERROR. The endpoint distinguishes "no job
       // role" from "role has no competencies mapped" and says which; both are
@@ -303,7 +389,8 @@ function EmployeeOverviewSheet({
       }
       setHasLoadedKaba(true)
     } catch (error) {
-      setKabaRatings(EMPTY_COMPETENCY_RATINGS)
+      setKabaItems([])
+      setGapData(null)
       setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
       setHasLoadedKaba(true)
     } finally {
@@ -312,10 +399,33 @@ function EmployeeOverviewSheet({
   }, [employee?.id])
 
   useEffect(() => {
-    if (open && activeTopTab === 'skill-rating' && !isLoading && !hasLoadedKaba) {
+    if (open && activeTopTab === 'competency' && !isLoading && !hasLoadedKaba) {
       loadKaba()
     }
   }, [activeTopTab, hasLoadedKaba, isLoading, loadKaba, open])
+
+  useEffect(() => {
+    if (open && activeTopTab === 'jobrole-tasks' && !isLoading && !hasLoadedReadiness) {
+      loadReadiness()
+    }
+  }, [activeTopTab, hasLoadedReadiness, isLoading, loadReadiness, open])
+
+  /*
+   * A DIFFERENT EMPLOYEE MUST NOT INHERIT THE LAST ONE'S VERDICTS.
+   *
+   * The drawer is reused across rows, so without this the readiness of whoever
+   * was open before stays on screen until the new fetch lands - showing one
+   * person's "not cleared" against another person's tasks. Cleared on identity
+   * change rather than on close, because the sheet can switch employees while
+   * it is open.
+   */
+  useEffect(() => {
+    setReadiness(undefined)
+    setReadinessCounts(null)
+    setReadinessNote(null)
+    setReadinessError(null)
+    setHasLoadedReadiness(false)
+  }, [employee?.id])
 
   const handleSavePersonalInfo = async (formData: any) => {
     if (!employee?.id) return
@@ -362,6 +472,52 @@ function EmployeeOverviewSheet({
    * the key - an item id means nothing without knowing which of the five
    * library tables it belongs to.
    */
+  /**
+   * Rate one KASBA atom for this employee.
+   *
+   * TWO PATHS, AND THE ITEM DECIDES WHICH.
+   *
+   * A resolved atom (`item_id` set) is written by (kasba_type, item_id) so the
+   * rating counts in EVERY competency that bundles it - knowing "Anatomy of the
+   * airway" is one fact about a person, not three different facts. Writing by
+   * `kasba_item_id` would let the same atom hold different scores in different
+   * competencies, which cannot be true.
+   *
+   * A held label (`item_id` null) resolves to no library row, so it is only
+   * addressable by its bundle-entry id.
+   */
+  const handleSaveCompetencyRating = async (item: KasbaRatingItem, rating: number) => {
+    if (!employee?.id) return
+
+    const label = item.title ?? item.item_label ?? 'item'
+
+    if (item.item_id != null) {
+      const result = await rateKasbaItem(
+        {
+          userId: employee.id,
+          kasbaType: item.kasba_type.toLowerCase() as KasbaType,
+          itemId: item.item_id,
+          rating,
+        },
+        context,
+      )
+      setNotice(result.notice || `Saved "${result.title}".`)
+    } else {
+      await kasbaRatingService.save(
+        {
+          user_id: Number(employee.id),
+          kasba_item_id: item.kasba_item_id,
+          rating,
+        },
+        context,
+      )
+      setNotice(`Saved "${label}".`)
+    }
+
+    // Re-read so the roll-up and gap reflect the new rating.
+    await loadKaba()
+  }
+
   const handleSaveRating = async (category: string, itemId: string, level: number) => {
     if (!employee?.id) return
 
@@ -441,36 +597,6 @@ function EmployeeOverviewSheet({
     await loadData()
   }
 
-  /**
-   * Expected vs actual, from data.competencies[].items[].
-   *
-   * Each item already carries `required`, `current` and `gap`, computed
-   * server-side, so nothing is inferred here - the categories are the
-   * controller's own grouping and the numbers are its own.
-   */
-  const expectedCompetency = useMemo(() => {
-    const groups = competencyProfile?.data?.competencies
-    const mapped: Record<string, Array<{ id: string; title: string; description: string; expectedLevel: number; actualLevel: number }>> = {
-      Skill: [], Knowledge: [], Ability: [], Attitude: [], Behaviour: [],
-    }
-
-    const source = Array.isArray(groups) ? groups : Object.values(groups ?? {})
-
-    for (const group of source as any[]) {
-      const bucket = competencyCategory(group?.category)
-      for (const item of group?.items ?? []) {
-        mapped[bucket].push({
-          id: String(item.skill_id ?? item.matrix_id ?? item.name),
-          title: String(item.name ?? 'Untitled'),
-          description: String(item.description || item.name || ''),
-          expectedLevel: Number(item.required ?? 0),
-          actualLevel: Number(item.current ?? 0),
-        })
-      }
-    }
-
-    return mapped
-  }, [competencyProfile])
 
   const mergedEmployee = {
     ...employee,
@@ -601,7 +727,14 @@ function EmployeeOverviewSheet({
                   * receptionist was shown "Design scalable backend systems"
                   * and the tab's own honest empty state was unreachable.
                   */}
-                <JobroleTasksTab tasks={profileData?.jobroleTasks ?? []} />
+                <JobroleTasksTab
+                  tasks={profileData?.jobroleTasks ?? []}
+                  readiness={readiness}
+                  readinessCounts={readinessCounts}
+                  readinessLoading={isReadinessLoading || !hasLoadedReadiness}
+                  readinessError={readinessError}
+                  readinessNote={readinessNote}
+                />
               </Suspense>
             )}
             {activeTopTab === 'responsibility' && (
@@ -622,71 +755,36 @@ function EmployeeOverviewSheet({
                 />
               </Suspense>
             )}
-            {activeTopTab === 'skill-rating' && (
-              <Suspense fallback={tabFallback}>
-                {kabaNotMapped ? (
-                  /*
-                   * Not an error card, and not one message either.
-                   *
-                   * There are TWO ordinary empties here and they need different
-                   * fixes: the employee has no job role, or the role has no
-                   * competencies mapped to it. The endpoint knows which and
-                   * says so in `empty_reason`, so this prints the server's
-                   * words rather than asserting the second one every time -
-                   * which is what it used to do, sending people to map a role
-                   * the employee did not have.
-                   */
-                  <div className="flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-6 text-center">
-                    <Briefcase className="size-8 text-muted-foreground opacity-50" aria-hidden="true" />
-                    <p className="text-sm font-medium text-foreground">
-                      {kabaEmptyReason ?? 'There is nothing to rate for this employee yet.'}
-                    </p>
-                    <p className="max-w-md text-xs text-muted-foreground">
-                      {mergedEmployee.jobRole
-                        ? `Nothing has been mapped for "${mergedEmployee.jobRole}", so this tab has nothing to show.`
-                        : 'Once a role is assigned and competencies are attached to it, they appear here.'}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={openCapabilityLibrary}>
-                        Open Capability Library
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => void loadKaba()}>
-                        Check again
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <CompetencyRatingTab
-                    onSave={(category, id, level) => handleSaveRating(category, id, level)}
-                    onSaved={loadKaba}
-                    data={kabaRatings}
-                    isLoading={isKabaLoading || !hasLoadedKaba}
-                    error={kabaError}
-                    onRetry={loadKaba}
-                  />
-                )}
-              </Suspense>
-            )}
-            {activeTopTab === 'expected-competency' && (
+            {activeTopTab === 'competency' && (
               <Suspense fallback={tabFallback}>
                 {/*
-                  * Built from the response the API actually returns.
+                  * COMPETENCY FIRST, ATOMS UNDERNEATH.
                   *
-                  * The old condition tested `competencyProfile.requiredSkills`
-                  * - a key that does not exist. $requiredSkills is a local PHP
-                  * variable in EmployeeCompetencyProfileController and is never
-                  * serialised, so the test could never be true and the
-                  * hardcoded array below it rendered for EVERY employee. Its
-                  * four KPI cards were computed from those literals, which is
-                  * why Role Match read 67% for every person in the company.
+                  * This replaces two tabs that answered the same question from
+                  * different controllers - "Competency Rating" from
+                  * /competency/kasba-rating and "Expected Competency" from
+                  * EmployeeCompetencyProfileController - neither of which was
+                  * the gap engine. Both listed atoms grouped by KASBA
+                  * dimension, which is backwards: a person is assessed against
+                  * a COMPETENCY, and the atoms are how that number was reached.
                   *
-                  * The real shape is data.competencies[].items[], which already
-                  * carries name, required, current and gap per item.
+                  * `gapData` carries the server-computed roll-up; `kabaItems`
+                  * carries the atoms. The roll-up is never recomputed here.
                   */}
-                <ExpectedCompetencyTab data={expectedCompetency} />
+                <CompetencyAssessmentTab
+                  gap={gapData}
+                  items={kabaItems}
+                  isLoading={isKabaLoading || !hasLoadedKaba}
+                  error={kabaError}
+                  onRetry={loadKaba}
+                  onSave={handleSaveCompetencyRating}
+                  emptyIsExpected={kabaNotMapped}
+                  emptyReason={kabaEmptyReason}
+                  ratingRange={kabaRange}
+                />
               </Suspense>
             )}
-            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'skill-rating' && activeTopTab !== 'expected-competency' && (
+            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && (
               <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
                 <div className="rounded-full bg-muted/50 p-4">
                   <Briefcase className="size-8 opacity-50" />

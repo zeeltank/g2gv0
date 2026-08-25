@@ -88,15 +88,12 @@ import type {
 
 const TYPE_VALUES = ['Behavior', 'Skill', 'Ability', 'Attitude', 'Knowledge'] as const
 
-const TYPE_FILTER_OPTIONS = [
-  { label: 'All Types', value: 'all' },
-  ...TYPE_VALUES.map((t) => ({ label: t, value: t })),
-]
-
-const TYPE_FORM_OPTIONS = [
-  { label: 'Select type', value: '' },
-  ...TYPE_VALUES.map((t) => ({ label: t, value: t })),
-]
+/*
+ * TYPE_VALUES kept for the CSV import map only — an uploaded file may still say
+ * "Skill" in a Type column. Neither the form nor the filter offers these any
+ * more: they are KASBA dimensions, and `competency_type` holds a competency
+ * category. Options now come from the data (see `typeOptions`).
+ */
 
 // 'Rejected' is a real stored state: a rejected subject is moved there so it is
 // neither pending nor approved and can be revised and resubmitted.
@@ -432,6 +429,56 @@ function CompetencyForm({
         weight: String(it.weight ?? '1'),
       })),
   )
+  /**
+   * The dimensions this competency actually spans, read off its bundle.
+   *
+   * Replaces the "Type (KASA)" select. A competency is knowledge AND skill AND
+   * ability as often as not, so the honest answer is a list derived from what
+   * has been bundled — never a single value somebody had to pick.
+   */
+  const bundledDimensions = useMemo(() => {
+    const seen = new Set<string>()
+    for (const it of items) {
+      const t = (it.kasba_type ?? '').trim()
+      // A row with no library item and no label is a blank the author has not
+      // filled in yet; counting it would claim a dimension they never chose.
+      if (t && (it.item_id || it.item_label.trim())) seen.add(t)
+    }
+    return Array.from(seen).sort()
+  }, [items])
+
+  /**
+   * THE COMPETENCY'S OWN L1-L5 SCALE.
+   *
+   * Always five rows in the editor, whether authored or not — the scale has
+   * five levels regardless of how many somebody has bothered to describe. What
+   * varies is whether a row overrides the organisation default or inherits it,
+   * which `default_descriptor` carries so the field can show what it replaces.
+   *
+   * Seeded from `initial.levels`, which `show()` returns and `openEdit` has
+   * already fetched. On create there is nothing to seed, so all five start
+   * blank and inherit.
+   */
+  const [levels, setLevels] = useState<{ level: number; descriptor: string; indicators: string; default_descriptor: string | null }[]>(
+    () => [1, 2, 3, 4, 5].map((level) => {
+      const own = initial?.levels?.find((l) => l.level === level)
+      return {
+        level,
+        descriptor: own?.descriptor ?? '',
+        indicators: own?.indicators ?? '',
+        default_descriptor: own?.default_descriptor ?? null,
+      }
+    }),
+  )
+
+  const [levelsOpen, setLevelsOpen] = useState(false)
+
+  const setLevel = (level: number, key: 'descriptor' | 'indicators', value: string) =>
+    setLevels((rows) => rows.map((r) => (r.level === level ? { ...r, [key]: value } : r)))
+
+  /** How many levels this competency actually describes, for the section header. */
+  const authoredLevelCount = levels.filter((l) => l.descriptor.trim() || l.indicators.trim()).length
+
   const addItem = () => setItems((x) => [...x, { kasba_type: 'knowledge', item_id: '', item_label: '', weight: '1' }])
   const setItem = (i: number, k: string, v: string) =>
     setItems((x) =>
@@ -509,6 +556,18 @@ function CompetencyForm({
       // Sent on edit too, now that update() syncs the composition. Omitting the
       // key leaves it untouched; sending it replaces it.
       ...(filledItems.length || editing ? { items: filledItems } : {}),
+      /*
+       * ALL FIVE ROWS ARE SENT, INCLUDING THE BLANK ONES — that is what makes
+       * clearing work. The server deletes an override whose descriptor and
+       * indicators are both blank, returning that level to the organisation
+       * default. Sending only the filled rows would make a cleared level
+       * indistinguishable from one nobody touched, so it could never be undone.
+       */
+      levels: levels.map((l) => ({
+        level: l.level,
+        descriptor: l.descriptor.trim(),
+        indicators: l.indicators.trim(),
+      })),
       // A competency is filed under a FRAMEWORK, which is its taxonomy. The
       // form used to send `category` from the SKILL taxonomy, which the backend
       // correctly discarded - so the field the user filled in went nowhere and
@@ -573,8 +632,30 @@ function CompetencyForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Type (KASA)</label>
-            <Select value={values.competency_type} onChange={(v) => set('competency_type', v)} options={TYPE_FORM_OPTIONS} placeholder="Select type" className="bg-background border-border h-9" aria-label="Type" />
+            {/*
+              * DERIVED, NOT ASKED FOR.
+              *
+              * This was a "Type (KASA)" select offering the five KASBA
+              * dimensions. A competency BUNDLES dimensions — measured on live,
+              * 28 of 227 bundle two or three — so asking for one is a category
+              * error. The bundle below already states them, one row per atom.
+              *
+              * The `competency_type` COLUMN is not a KASBA type either: it
+              * holds a competency category (technical / clinical / functional /
+              * leadership, plus 199 rows reading "migrated"). Existing values
+              * are left untouched; the form simply stops overwriting a category
+              * with a dimension.
+              */}
+            <label className="text-sm font-semibold text-foreground">Dimensions</label>
+            <div className="flex h-9 items-center rounded-md border border-border bg-muted/30 px-3">
+              {bundledDimensions.length === 0 ? (
+                <span className="text-sm text-muted-foreground">Set by the KASBA items below</span>
+              ) : (
+                <span className="text-sm font-medium text-foreground truncate" title={bundledDimensions.join(' · ')}>
+                  {bundledDimensions.join(' · ')}
+                </span>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground">Department</label>
@@ -726,6 +807,76 @@ function CompetencyForm({
             )}
           </div>
         )}
+
+        {/* PROFICIENCY SCALE — collapsed by default.
+            Five long fields expanded would bury the four things that actually
+            create a competency: name, framework, dimensions, bundle. */}
+        <div className="rounded-xl border border-border bg-background/50 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setLevelsOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Proficiency Scale</p>
+              <p className="text-xs text-muted-foreground">
+                {authoredLevelCount === 0
+                  ? 'Using the organisation default for all five levels.'
+                  : `${authoredLevelCount} of 5 levels described for this competency.`}
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-primary shrink-0">
+              {levelsOpen ? 'Hide' : 'Edit'}
+            </span>
+          </button>
+
+          {levelsOpen && (
+            <div className="space-y-3 pt-1">
+              <p className="text-xs text-muted-foreground">
+                What each level means <span className="font-semibold text-foreground">for this competency</span>.
+                Leave a level blank to keep the organisation default — clearing a description restores it.
+              </p>
+
+              {levels.map((l) => {
+                const authored = Boolean(l.descriptor.trim() || l.indicators.trim())
+                return (
+                  <div key={l.level} className="rounded-lg border border-border bg-background p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-foreground">Level {l.level}</span>
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {authored ? 'Described here' : 'Inherited'}
+                      </span>
+                    </div>
+
+                    <Input
+                      value={l.descriptor}
+                      onChange={(e) => setLevel(l.level, 'descriptor', e.target.value)}
+                      placeholder={l.default_descriptor ?? 'What someone at this level can do'}
+                      className="bg-background border-border text-sm"
+                      aria-label={`Level ${l.level} descriptor`}
+                    />
+
+                    {/* The inherited text shown in full, not just as a
+                        placeholder that vanishes the moment you type. */}
+                    {!authored && l.default_descriptor && (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        Inherits: {l.default_descriptor}
+                      </p>
+                    )}
+
+                    <Input
+                      value={l.indicators}
+                      onChange={(e) => setLevel(l.level, 'indicators', e.target.value)}
+                      placeholder="Observable indicators (optional)"
+                      className="bg-background border-border text-sm"
+                      aria-label={`Level ${l.level} indicators`}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {error && <p className="text-sm font-medium text-destructive">{error}</p>}
       </div>
@@ -966,6 +1117,35 @@ export function CmCompetencyLibrary() {
    * no competencies yet; then whatever the loaded rows carry, so a competency
    * whose framework was deleted still has a reachable filter value.
    */
+  /**
+   * THE TYPE FILTER OFFERS WHAT THE DATA ACTUALLY HOLDS.
+   *
+   * It offered the five KASBA dimensions — `Behavior, Skill, Ability, Attitude,
+   * Knowledge` — while `competency_type` stores a competency CATEGORY. Measured
+   * on live: of 227 competencies the filter could reach **one**, and four of its
+   * five options matched nothing at all.
+   *
+   *     migrated 199 · technical 17 · clinical 5 · functional 3
+   *     behavioural 1 · leadership 1 · Behavior 1
+   *
+   * The same defect shape as the category filter fixed earlier this session:
+   * options from one vocabulary, values from another, so the control looks
+   * functional and filters nothing.
+   *
+   * `migrated` is left visible rather than hidden or renamed — 199 rows carry a
+   * provenance marker sitting in a category column, and pretending otherwise
+   * would bury a data decision that is the customer's to make.
+   */
+  const typeOptions = useMemo(() => {
+    const set = new Set<string>()
+    items.forEach((it) => { if (it.competency_type?.trim()) set.add(it.competency_type.trim()) })
+    if (type !== 'all') set.add(type)
+    return [
+      { label: 'All Types', value: 'all' },
+      ...Array.from(set).sort().map((t) => ({ label: t, value: t })),
+    ]
+  }, [items, type])
+
   const categoryOptions = useMemo(() => {
     const set = new Set<string>(
       frameworkOptionsForForm.map((f) => f.name?.trim()).filter((n): n is string => Boolean(n)),
@@ -1291,7 +1471,7 @@ export function CmCompetencyLibrary() {
               <Select value={category} onChange={changeFilter(setCategory)} options={categoryOptions} placeholder="All Frameworks" className="bg-background/50 border-border h-9 rounded-lg" aria-label="Filter by framework" />
             </div>
             <div className="w-40">
-              <Select value={type} onChange={changeFilter(setType)} options={TYPE_FILTER_OPTIONS} placeholder="All Types" className="bg-background/50 border-border h-9 rounded-lg" />
+              <Select value={type} onChange={changeFilter(setType)} options={typeOptions} placeholder="All Types" className="bg-background/50 border-border h-9 rounded-lg" />
             </div>
             {hasFilters && (
               <button onClick={clearAll} className="text-sm font-medium text-primary hover:underline ml-1">Clear All</button>

@@ -286,6 +286,138 @@ export interface Matrix {
 }
 
 /* ------------------------------------------------------------------ *
+ * Requirements matrix — the SAME idea as `Matrix` above, on a different
+ * population and keyed differently, which is exactly why it gets its own
+ * types rather than widening those.
+ *
+ * `Matrix`              rows = s_users_skills   cells[roleNAME][skillTITLE]
+ * `RequirementsMatrix`  rows = competency       cells[roleID][competencyID]
+ *
+ * Conflating them is how a name-keyed cell ends up in an id-keyed map and
+ * silently matches nothing.
+ * ------------------------------------------------------------------ */
+
+export interface RequirementsRole {
+  id: number
+  jobrole: string
+  department: string | null
+}
+
+export interface RequirementsCompetency {
+  id: number
+  name: string
+  code: string | null
+  framework_id: number | null
+  framework_name: string | null
+  /** The role this competency's framework names, if any. Drives inheritance. */
+  framework_jobrole_id: number | null
+}
+
+export interface RequirementsCell {
+  /** The `jobrole_competency_map` row id — null when the level is inherited. */
+  id: number | null
+  level: number | null
+  is_mandatory: boolean
+  /**
+   * Where the level came from.
+   *
+   *   'role'      somebody set this for this role
+   *   'framework' inherited from the framework's default
+   *
+   * These must not render identically. An inherited default shown as though it
+   * were chosen makes an author believe a decision exists that nobody made.
+   */
+  source: 'role' | 'framework'
+}
+
+export interface RequirementsMatrix {
+  department: string | null
+  framework_id: number | null
+  roles: RequirementsRole[]
+  competencies: RequirementsCompetency[]
+  /** cells[jobroleId][competencyId] */
+  cells: Record<string, Record<string, RequirementsCell>>
+}
+
+export interface RequirementsMatrixMeta {
+  role_total: number
+  roles_shown: number
+  /** Columns were dropped. Say so — never imply those roles have no requirements. */
+  roles_truncated: boolean
+  competencies: number
+  inherited_cells: number
+}
+
+export interface RequirementsMatrixResponse {
+  status: number
+  message: string
+  data: RequirementsMatrix
+  meta: RequirementsMatrixMeta
+}
+
+/* ------------------------------------------------------------------ *
+ * Reconciliation — the broken links between frameworks and roles.
+ * ------------------------------------------------------------------ */
+
+/** The framework expects it of this role; no requirement row exists. */
+export interface ReconNotApplied {
+  framework_id: number
+  framework_name: string | null
+  jobrole_id: number
+  jobrole: string | null
+  competency_id: number
+  competency_name: string | null
+  framework_target: number | null
+}
+
+/** A role requires a competency that no framework backs. */
+export interface ReconNoFramework {
+  jobrole_id: number
+  jobrole: string | null
+  competency_id: number
+  competency_name: string | null
+  role_target: number | null
+}
+
+/** Both exist and disagree — legitimate as an override, but it must be a choice. */
+export interface ReconContradicts extends ReconNotApplied {
+  role_target: number
+}
+
+/** A target row for a pairing the competency itself does not claim. */
+export interface ReconOrphanTarget {
+  framework_id: number
+  framework_name: string | null
+  competency_id: number
+  competency_name: string | null
+  competency_filed_under: number | null
+  /** The competency no longer exists at all — a different repair entirely. */
+  competency_missing: boolean
+}
+
+export interface Reconciliation {
+  not_applied: ReconNotApplied[]
+  no_framework: ReconNoFramework[]
+  contradicts: ReconContradicts[]
+  orphan_targets: ReconOrphanTarget[]
+}
+
+export interface ReconciliationMeta {
+  not_applied: number
+  no_framework: number
+  contradicts: number
+  orphan_targets: number
+  clean: boolean
+}
+
+export interface ReconciliationResponse {
+  status: number
+  message: string
+  data: Reconciliation
+  meta: ReconciliationMeta
+}
+
+/* ------------------------------------------------------------------ *
  * Mapping reviews (workflow)
  * ------------------------------------------------------------------ */
 
@@ -433,6 +565,30 @@ export const competencyStudioService = {
     apiClient.get<StudioListResponse<RoleRow[]>>(
       '/competency/role-mapping/roles',
       withLaravelParams(context, toStringParams({ ...params })),
+    ),
+
+  /**
+   * The requirements grid on COMPETENCIES. Separate from `getMatrix`, which
+   * serves the skill grid and its export — 84,380 rows still sit behind that.
+   */
+  getRequirementsMatrix: (
+    context: LaravelContext,
+    params: { department?: string; framework_id?: number; jobrole_ids?: number[] } = {},
+  ) =>
+    apiClient.get<RequirementsMatrixResponse>(
+      '/competency/studio/requirements-matrix',
+      withLaravelParams(context, toStringParams({
+        department: params.department,
+        framework_id: params.framework_id,
+        jobrole_ids: params.jobrole_ids?.join(','),
+      })),
+    ),
+
+  /** The broken links between frameworks and roles, as rows rather than counts. */
+  getReconciliation: (context: LaravelContext) =>
+    apiClient.get<ReconciliationResponse>(
+      '/competency/studio/reconciliation',
+      withLaravelParams(context),
     ),
 
   getMatrix: (context: LaravelContext, params: { category?: string; jobroles: string[] }) =>
