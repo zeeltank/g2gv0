@@ -9,6 +9,7 @@ import {
   type Framework,
   type FrameworkPayload,
   type FrameworkStructureNode,
+  type FrameworkStructureMeta,
   type MappingReview,
   type Matrix,
   type ProficiencyLevelPayload,
@@ -40,6 +41,13 @@ export interface UseCompetencyStudioState {
   error: string | null
   summary: StudioSummary | null
   structure: FrameworkStructureNode[]
+  /**
+   * What the tree does NOT contain: competencies filed under no framework, and
+   * target rows whose framework the competency does not claim. Both are broken
+   * links, and the screen is expected to show them rather than present a tidy
+   * tree with most of the library missing from it.
+   */
+  structureMeta: FrameworkStructureMeta | null
   proficiency: ProficiencyScale | null
   weights: WeightRow[]
   frameworks: Framework[]
@@ -91,6 +99,7 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
   const [error, setError] = useState<string | null>(null)
   const [summary, setSummary] = useState<StudioSummary | null>(null)
   const [structure, setStructure] = useState<FrameworkStructureNode[]>([])
+  const [structureMeta, setStructureMeta] = useState<FrameworkStructureMeta | null>(null)
   const [proficiency, setProficiency] = useState<ProficiencyScale | null>(null)
   const [weights, setWeights] = useState<WeightRow[]>([])
   const [frameworks, setFrameworks] = useState<Framework[]>([])
@@ -125,6 +134,7 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
       ])
       setSummary(summaryRes.data ?? null)
       setStructure(structureRes.data ?? [])
+      setStructureMeta(structureRes.meta ?? null)
       setProficiency(proficiencyRes.data ?? null)
       setWeights(weightsRes.data ?? [])
       setFrameworks(frameworksRes.data ?? [])
@@ -351,6 +361,7 @@ export function useCompetencyStudio(structureSearch = ''): UseCompetencyStudioSt
     error,
     summary,
     structure,
+    structureMeta,
     proficiency,
     weights,
     frameworks,

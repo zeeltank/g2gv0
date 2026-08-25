@@ -118,7 +118,11 @@ function OpenChoice({
 }
 
 /** Every distinct value a `source` field should offer, from real tenant data. */
-function sourceValues(meta: LibraryMeta, source: NonNullable<LibraryFieldDef['source']>): string[] {
+function sourceValues(
+  meta: LibraryMeta,
+  source: NonNullable<LibraryFieldDef['source']>,
+  dependsOnValue?: string,
+): string[] {
   if (source === 'departments') {
     // Two places record a department: the skills library and the role
     // catalogue. Offering the union is what stops the same department being
@@ -128,20 +132,79 @@ function sourceValues(meta: LibraryMeta, source: NonNullable<LibraryFieldDef['so
     return Array.from(set).sort()
   }
   if (source === 'jobroles') {
+    /*
+     * NARROWED TO ONE DEPARTMENT WHEN THE FORM HAS PICKED ONE.
+     *
+     * `jobroles_by_department` is already grouped - flattening it
+     * unconditionally is what made the task form's role dropdown list every
+     * role in the organisation, thousands of them on a large tenant, with no
+     * way to tell two namesakes in different departments apart.
+     */
+    const groups = dependsOnValue
+      ? { [dependsOnValue]: meta.jobroles_by_department[dependsOnValue] ?? [] }
+      : meta.jobroles_by_department
+
     const set = new Set(
-      Object.values(meta.jobroles_by_department).flat().map((role) => role.jobrole).filter(Boolean),
+      Object.values(groups).flat().map((role) => role.jobrole).filter(Boolean),
     )
     return Array.from(set).sort()
   }
   return [...(meta[source] ?? [])].filter(Boolean).sort()
 }
 
-function initialValues(config: LibraryTabConfig, initial: LibraryRow | null): Record<string, string> {
+/**
+ * The department a role sits in, found by name.
+ *
+ * Used when EDITING a task: the task itself stores no department (it does not
+ * need one - the department is reachable through `jobrole_id`), so the filter
+ * would open empty and show every role. This recovers it from the role that is
+ * already selected, so an edit opens on the right department.
+ *
+ * Returns '' when the name is ambiguous across departments, which leaves the
+ * filter open rather than guessing a department the task may not belong to.
+ */
+function departmentOfRole(meta: LibraryMeta, roleName: string): string {
+  const wanted = roleName.trim().toLowerCase()
+  if (!wanted) return ''
+
+  const owners = Object.entries(meta.jobroles_by_department)
+    .filter(([, roles]) => roles.some((r) => String(r.jobrole ?? '').trim().toLowerCase() === wanted))
+    .map(([department]) => department)
+
+  return owners.length === 1 ? owners[0] : ''
+}
+
+function initialValues(
+  config: LibraryTabConfig,
+  initial: LibraryRow | null,
+  meta: LibraryMeta,
+): Record<string, string> {
   const values: Record<string, string> = {}
   for (const field of config.fields) {
     const raw = initial?.[field.key]
     values[field.key] = raw === null || raw === undefined ? '' : String(raw)
   }
+
+  /*
+   * RECOVER A PARENT THAT THE ROW DOES NOT STORE.
+   *
+   * A task records its job role but NOT its department - and correctly so, since
+   * the department is reachable through `jobrole_id`. But that means editing a
+   * task would open with an empty Department filter and therefore every role in
+   * the organisation listed beneath it, which is the exact problem the filter
+   * exists to solve.
+   *
+   * `departmentOfRole` returns '' when the role name is ambiguous across
+   * departments, which leaves the filter open rather than asserting a
+   * department the task may not belong to.
+   */
+  for (const field of config.fields) {
+    if (!field.dependsOn || values[field.dependsOn]) continue
+    if (field.source === 'jobroles' && values[field.key]) {
+      values[field.dependsOn] = departmentOfRole(meta, values[field.key])
+    }
+  }
+
   return values
 }
 
@@ -163,7 +226,7 @@ export function LibraryForm({
   onSaved,
 }: LibraryFormProps) {
   const { user } = useAuth()
-  const [values, setValues] = useState<Record<string, string>>(() => initialValues(config, initial))
+  const [values, setValues] = useState<Record<string, string>>(() => initialValues(config, initial, meta))
   const [error, setError] = useState<string | null>(null)
   // JOB ROLE TAB ONLY. role_map keys on jobrole_id, so a role that does not
   // exist yet has nothing to map against: the picks are held here and written
@@ -234,6 +297,28 @@ export function LibraryForm({
       if (config.categoryKey && key === config.categoryKey && config.subCategoryKey) {
         next[config.subCategoryKey] = ''
       }
+      /*
+       * Changing a parent clears anything that depended on it.
+       *
+       * Without this, picking Nursing -> "Staff Nurse" and then switching to
+       * Finance leaves "Staff Nurse" selected while the list beneath it shows
+       * Finance roles - a value that is no longer in its own dropdown, and one
+       * the user did not choose for the department now displayed.
+       *
+       * Driven off the config rather than hardcoded, so a future dependent
+       * field is cleared without touching this function.
+       */
+      for (const dependent of config.fields) {
+        if (dependent.dependsOn === key) {
+          next[dependent.key] = ''
+          // The role's id is derived from its name; clearing one must clear
+          // the other or the task keeps a link to the role just abandoned.
+          if (dependent.key === 'jobrole') {
+            next.jobrole_id = ''
+          }
+        }
+      }
+
       // Capture the id alongside the name the moment a role is picked.
       if (key === 'jobrole') {
         next.jobrole_id = resolveJobroleId(value) ?? ''
@@ -259,13 +344,32 @@ export function LibraryForm({
     }
 
     if (field.source) {
-      const list = sourceValues(meta, field.source)
+      // A dependent field narrows to its parent's value - the same rule as
+      // sub_category under category, one level up the organisation tree.
+      const parentValue = field.dependsOn ? (values[field.dependsOn] ?? '').trim() : ''
+      const list = sourceValues(meta, field.source, parentValue || undefined)
+
       // A row saved before this value disappeared from the data must still be
       // editable, so whatever is already selected stays in the list.
       const current = values[field.key]
       const merged = current && !list.includes(current) ? [current, ...list] : list
+
+      /*
+       * The empty state has to say WHICH of the two reasons it is. A role list
+       * that is empty because no department is chosen looks identical to one
+       * that is empty because the department genuinely has no roles, and the
+       * first is the user's next action while the second is a dead end.
+       */
+      const placeholder = field.dependsOn && !parentValue
+        ? `Select a ${field.dependsOn} first`
+        : merged.length
+          ? `Select ${field.label.toLowerCase()}`
+          : field.dependsOn
+            ? `No ${field.label.toLowerCase()} in this ${field.dependsOn}`
+            : `No ${field.label.toLowerCase()} available`
+
       return [
-        { label: merged.length ? `Select ${field.label.toLowerCase()}` : `No ${field.label.toLowerCase()} available`, value: '' },
+        { label: placeholder, value: '' },
         ...merged.map((option) => ({ label: option, value: option })),
       ]
     }
@@ -304,7 +408,11 @@ export function LibraryForm({
             id={`lib-${field.key}`}
             label={field.label}
             value={values[field.key] ?? ''}
-            options={sourceValues(meta, field.source!)}
+            options={sourceValues(
+              meta,
+              field.source!,
+              field.dependsOn ? (values[field.dependsOn] ?? '').trim() || undefined : undefined,
+            )}
             placeholder={field.placeholder}
             onChange={(value) => set(field.key, value)}
           />

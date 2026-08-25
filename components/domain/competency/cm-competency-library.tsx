@@ -805,17 +805,45 @@ export function CmCompetencyLibrary() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  /**
+   * The tenant's frameworks — the competency taxonomy.
+   *
+   * Declared HERE rather than beside the other dialog state because `params`
+   * below needs it to turn the selected framework NAME into the `framework_id`
+   * the API filters on. Populated by the effect further down.
+   */
+  const [frameworkOptionsForForm, setFrameworkOptionsForForm] = useState<{ id: number; name: string }[]>([])
+
+  /**
+   * THE FILTER SENDS `framework_id`, NOT `category`.
+   *
+   * `category` was sent for as long as this screen has existed and **the server
+   * has never read it**: `CompetencyLibraryCrudController` filters on `search`,
+   * `competency_type` and `framework_id` only (`:94-95`), and lists `category`
+   * solely in its SORTABLE map (`:62`) — a column you may order by, not filter
+   * on. So the dropdown was inert regardless of what it offered.
+   *
+   * The state keeps the framework NAME, because saved views are persisted in
+   * localStorage and a name stays readable there; the id is resolved here.
+   */
+  const selectedFrameworkId = useMemo(() => {
+    if (category === 'all') return null
+    const wanted = category.trim().toLowerCase()
+    const match = frameworkOptionsForForm.find((f) => (f.name ?? '').trim().toLowerCase() === wanted)
+    return match ? match.id : null
+  }, [category, frameworkOptionsForForm])
+
   const params = useMemo(
     () => ({
       ...(search ? { search } : {}),
-      ...(category !== 'all' ? { category } : {}),
+      ...(selectedFrameworkId !== null ? { framework_id: selectedFrameworkId } : {}),
       ...(type !== 'all' ? { competency_type: type } : {}),
       ...(status !== 'all' ? { status } : {}),
       ...(sort ? { sort, direction } : {}),
       page,
       per_page: perPage,
     }),
-    [search, category, type, status, sort, direction, page, perPage],
+    [search, selectedFrameworkId, type, status, sort, direction, page, perPage],
   )
 
   const {
@@ -850,7 +878,8 @@ export function CmCompetencyLibrary() {
    * edit FORM no longer files a competency under a skill category - it files it
    * under a framework, which is what the backend stores and reads back.
    */
-  const [frameworkOptionsForForm, setFrameworkOptionsForForm] = useState<{ id: number; name: string }[]>([])
+  // `frameworkOptionsForForm` is declared above `params`, which needs it to
+  // resolve the selected framework name to the id the API filters on.
   const [itemOptionsByType, setItemOptionsByType] = useState<Record<string, { id: number; title: string }[]>>({})
 
   useEffect(() => {
@@ -912,20 +941,42 @@ export function CmCompetencyLibrary() {
     }
   }
 
-  // The taxonomy is the full category set; the loaded rows are a fallback for a
-  // tenant whose tree has not been built yet. The current selection is always
-  // included so an active filter never vanishes from its own dropdown.
+  /**
+   * THE FILTER LISTS FRAMEWORKS, BECAUSE THAT IS WHAT `category` HOLDS.
+   *
+   * This used to build from `taxonomy.categories` — the SKILL taxonomy — while
+   * the API returns each competency's `category` as its FRAMEWORK NAME
+   * (`CompetencyLibraryCrudController:62`, `'category' => 'f.name'`). Those two
+   * sets do not meaningfully intersect. Measured on live:
+   *
+   *     tenant 1   13 frameworks vs  9 skill categories  ->  0 in common
+   *     tenant 6    8 frameworks vs  8 skill categories  ->  0 in common
+   *     tenant 3    1 framework  vs 10 skill categories  ->  1, named "test"
+   *
+   * So every option in this dropdown filtered the library down to nothing. It
+   * is the same defect as the create form once had — a competency filed under a
+   * skill category — surviving in the surface nobody re-checked after the form
+   * was fixed.
+   *
+   * The `items` fallback below looks like it would have covered this, and did
+   * not: it only ran when the skill taxonomy was EMPTY, which never happens on a
+   * real tenant.
+   *
+   * Frameworks first, so the full set is offered including frameworks that hold
+   * no competencies yet; then whatever the loaded rows carry, so a competency
+   * whose framework was deleted still has a reachable filter value.
+   */
   const categoryOptions = useMemo(() => {
-    const set = new Set<string>(taxonomy.categories.filter(Boolean))
-    if (set.size === 0) {
-      items.forEach((it) => { if (it.category?.trim()) set.add(it.category.trim()) })
-    }
+    const set = new Set<string>(
+      frameworkOptionsForForm.map((f) => f.name?.trim()).filter((n): n is string => Boolean(n)),
+    )
+    items.forEach((it) => { if (it.category?.trim()) set.add(it.category.trim()) })
     if (category !== 'all') set.add(category)
     return [
-      { label: 'All Categories', value: 'all' },
+      { label: 'All Frameworks', value: 'all' },
       ...Array.from(set).sort().map((c) => ({ label: c, value: c })),
     ]
-  }, [taxonomy.categories, items, category])
+  }, [frameworkOptionsForForm, items, category])
 
   const changeFilter = (setter: (v: string) => void) => (value: string) => {
     setter(value)
@@ -1147,7 +1198,11 @@ export function CmCompetencyLibrary() {
             onClick={() => setTaxonomyOpen(true)}
             className="h-10 gap-2 rounded-xl font-semibold"
           >
-            <FolderTree className="w-4 h-4" /> Taxonomy
+            {/* NAMED FOR WHAT IT EDITS. It opens TaxonomyManager with
+                SKILL_LIBRARY_CONFIG, so on a screen called Competency Library a
+                button labelled just "Taxonomy" read as the competency taxonomy —
+                which is the framework, managed on Competency Framework. */}
+            <FolderTree className="w-4 h-4" /> Skill Taxonomy
           </Button>
           <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-xl h-10 px-4 shadow-md shadow-primary/20 flex items-center gap-2">
             <Plus className="w-4 h-4 stroke-[3]" /> Create Competency
@@ -1233,7 +1288,7 @@ export function CmCompetencyLibrary() {
               <Select value={status} onChange={changeFilter(setStatus)} options={STATUS_FILTER_OPTIONS} placeholder="All Statuses" className="bg-background/50 border-border h-9 rounded-lg" />
             </div>
             <div className="w-48">
-              <Select value={category} onChange={changeFilter(setCategory)} options={categoryOptions} placeholder="All Categories" className="bg-background/50 border-border h-9 rounded-lg" />
+              <Select value={category} onChange={changeFilter(setCategory)} options={categoryOptions} placeholder="All Frameworks" className="bg-background/50 border-border h-9 rounded-lg" aria-label="Filter by framework" />
             </div>
             <div className="w-40">
               <Select value={type} onChange={changeFilter(setType)} options={TYPE_FILTER_OPTIONS} placeholder="All Types" className="bg-background/50 border-border h-9 rounded-lg" />
@@ -1712,12 +1767,18 @@ export function CmCompetencyLibrary() {
             taxonomy={taxonomy}
             onClose={() => {
               setTaxonomyOpen(false)
-              // A rename can leave the category filter pointing at a name that
-              // no longer exists, which would read as an empty library.
-              if (category !== 'all' && !taxonomy.categories.includes(category)) {
-                setCategory('all')
-                setPage(1)
-              }
+              /*
+               * This used to reset the filter unless the selection appeared in
+               * `taxonomy.categories` — the SKILL taxonomy. Since the filter
+               * holds a FRAMEWORK name, that test failed for every legitimate
+               * value, so editing skill categories silently cleared a correct
+               * competency filter.
+               *
+               * Editing the skill taxonomy cannot invalidate a framework name,
+               * so there is nothing to reset here at all. Renaming a framework
+               * happens on the Competency Framework screen, and `retry()` below
+               * reloads the rows either way.
+               */
               retry()
             }}
           />
