@@ -589,7 +589,13 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
         ) : (
           <TaskCompetencyInlinePanel
             jobroleTaskId={Number(selectedTaskId)}
-            userId={assignees[0] ? Number(assignees[0]) : null}
+            /* EVERY assignee, not just the first. Capability is per-person -
+               the required level comes from each one's own job role - so
+               checking assignees[0] alone would silently clear the rest. */
+            assigneeIds={assignees.map(Number).filter(Boolean)}
+            assigneeNames={Object.fromEntries(
+              departmentEmployees.map((employee) => [Number(employee.id), employee.name]),
+            )}
           />
         )}
       </Field>
