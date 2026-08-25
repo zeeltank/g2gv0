@@ -34,6 +34,26 @@ import { withLaravelParams } from '@/lib/laravel-context'
  * That failure would be silent — the write succeeds, and mappings simply vanish.
  */
 
+/**
+ * CAN THIS PERSON PERFORM THIS TASK?
+ *
+ *   cleared      every competency the task exercises is measured at or above
+ *                the level this person's ROLE requires
+ *   not_cleared  at least one is measured below it
+ *   unknown      nothing is known to be short, but something is unassessed or
+ *                has no target set — so no claim can be made
+ *   unmapped     no competency is mapped to this task, so there is nothing to
+ *                judge against
+ *
+ * NULL is a fifth thing and not a verdict: it means no assignee was named, so
+ * nobody was asked about.
+ */
+export type TaskReadinessVerdict = 'cleared' | 'not_cleared' | 'unknown' | 'unmapped'
+
+/** `met`/`below` are measured. `unknown` is not, and carries why. */
+export type CompetencyVerdict = 'met' | 'below' | 'unknown'
+export type CompetencyVerdictReason = 'not_assessed' | 'no_target' | 'no_subject' | null
+
 export interface TaskCompetency {
   id: number
   name: string
@@ -43,6 +63,28 @@ export interface TaskCompetency {
   items_rated: number
   /** null means UNRATED. Never 0 — "scored nothing" is a different fact. */
   rating: number | null
+  /** 0–1. How much of the competency's weight the rating speaks for. */
+  coverage: number
+  /**
+   * The bar, taken from THE ASSIGNEE'S OWN ROLE — a task carries no level of
+   * its own. null means their role does not require this competency, so there
+   * is nothing to clear.
+   */
+  required: number | null
+  is_mandatory: boolean
+  state: CompetencyVerdict
+  reason: CompetencyVerdictReason
+  /** How far short, when that is a knowable number. */
+  shortfall: number | null
+}
+
+export interface TaskReadinessSummary {
+  met: number
+  below: number
+  unknown: number
+  total: number
+  /** An average can clear the bar while a mandatory competency does not. */
+  mandatory_below: number
 }
 
 export interface TaskCompetencyView {
@@ -50,6 +92,9 @@ export interface TaskCompetencyView {
   task: string
   jobrole: string | null
   user_id: number | null
+  /** null when no assignee was named — not a verdict, just nobody asked. */
+  readiness: TaskReadinessVerdict | null
+  readiness_summary: TaskReadinessSummary | null
   competencies: TaskCompetency[]
   available: { id: number; name: string; code: string | null }[]
   empty_is_expected: boolean
