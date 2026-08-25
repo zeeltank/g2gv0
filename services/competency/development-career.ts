@@ -171,21 +171,103 @@ export interface EmployeeOption {
 
 /* -- Plan detail tabs -- */
 
-export interface PlanGapItem {
-  competency_id: number | null
+/**
+ * TWO ARMS, AND THEY ARE NOT THE SAME QUESTION.
+ *
+ * This tab used to render ONE list under a heading that said "Competency",
+ * built from the SKILL library, in which an unrated item was scored 0 and
+ * therefore shown as a shortfall. Measured on live: **3,274 of the 3,643 rows
+ * it presented as shortfalls (89.9%) were items nobody had ever assessed**, and
+ * 55 of 164 plans displayed a person failing everything.
+ *
+ *   competency_gaps - the ASSESSMENT arm, from the one server-side gap engine
+ *   skill_gaps      - the GUIDANCE arm, kept because it is what 161 of 164
+ *                     plans actually have
+ *
+ * NO ARITHMETIC IN THE CLIENT. Every level and every state is decided by the
+ * server; this module shapes types.
+ */
+
+/** Measured verdicts vs the states that are NOT findings about the person. */
+export type GapItemState = 'met' | 'gap' | 'not_assessed' | 'unmeasured' | 'no_target'
+
+interface PlanGapItemBase {
   name: string
-  category: string | null
-  required: number
-  current: number
-  gap: number
+  required: number | null
+  /** NULL means NOT ASSESSED — never render this as 0. */
+  current: number | null
+  /** Only present where something was measured AND a target exists. */
+  gap: number | null
+  state: GapItemState
   is_focus: boolean
+}
+
+/** The assessment arm. `competency_id` is a real competency id. */
+export interface CompetencyGapItem extends PlanGapItemBase {
+  competency_id: number
+  code: string | null
+  is_mandatory: boolean
+  /** 0–1. How much of the competency's weight the level speaks for. */
+  coverage: number
+}
+
+/**
+ * The guidance arm. Carries `skill_id`, NOT `competency_id` — the old shape
+ * named this field for one id-space and filled it from another, and those ids
+ * were then saved onto plan actions. 61 rows on live held a skill id in a
+ * competency column because of it.
+ */
+export interface SkillGapItem extends PlanGapItemBase {
+  skill_id: number | null
+  category: string | null
+  /** The stored text, shown where it is not a number (live holds "Advanced"). */
+  required_raw: string
   last_assessed: string | null
+}
+
+export interface GapSummary {
+  total: number
+  met: number
+  gaps: number
+  /** Its own number. Neither a pass nor a shortfall. */
+  not_assessed: number
+  /** Requirements whose level is not a number on the scale. */
+  no_target: number
+  measured: number
+  /** Share of what was MEASURED, so unassessed items cannot inflate it. */
+  met_percent: number
+}
+
+export interface MandatoryItemBelow {
+  competency_id: number
+  competency_name: string
+  kasba_item_id: number
+  kasba_type: string
+  item_label: string | null
+  rating: number
+  required: number
 }
 
 export interface PlanGaps {
   jobrole: string | null
-  items: PlanGapItem[]
-  summary: { total: number; met: number; gaps: number; met_percent: number }
+  jobrole_id: number | null
+  competency_gaps: {
+    items: CompetencyGapItem[]
+    summary: GapSummary
+    mandatory_below_required: MandatoryItemBelow[]
+    /** Distinguishes "no requirements set" from "everything met". */
+    has_requirements: boolean
+    /** False when the plan's role name matches several roles, or none. */
+    jobrole_resolved: boolean
+  }
+  skill_gaps: {
+    items: SkillGapItem[]
+    summary: GapSummary
+  }
+  /** @deprecated Legacy mirror of `skill_gaps`. Use the named arms. */
+  items: SkillGapItem[]
+  /** @deprecated Legacy mirror of `skill_gaps.summary`. */
+  summary: GapSummary
 }
 
 export type PlanActionType = 'milestone' | 'training' | 'mentoring' | 'project' | 'reading' | 'other'
@@ -275,9 +357,34 @@ export interface CareerPathPayload {
   steps?: Array<{ jobrole: string; jobrole_id?: number | null; job_level?: string | null; step_type?: string }>
 }
 
+/**
+ * Readiness for a target role, on ONE arm.
+ *
+ * `percent` is the share of what was MEASURED, and `coverage` says how much of
+ * the requirement that speaks for. The two travel together because the percent
+ * alone is misleading: on live, one employee read "3% ready" under the old
+ * formula because 16 of 17 requirements were unassessed and counted as zeros —
+ * they had in fact met the only one anybody had looked at.
+ */
+export interface RoleMatch {
+  /** NULL means nothing was measured — "unknown", not "none of it". */
+  percent: number | null
+  /** 0–1. Share of the requirement that has actually been assessed. */
+  coverage: number
+  measured: number
+  required: number
+}
+
 export interface ExplorerNode extends CareerPathStep {
   is_current: boolean
-  /** Readiness: share of the role's required proficiency the employee holds. */
+  /** The ASSESSMENT arm — competencies, via the one gap engine. NULL if none set. */
+  competency_match: RoleMatch | null
+  /** The GUIDANCE arm — skills. NULL if the role has no skill requirements. */
+  skill_match: RoleMatch | null
+  /**
+   * The skill percent, kept for callers that read a single number.
+   * NULL where nothing was measured — it used to be a confident 0.
+   */
   match_percent: number | null
   required_skills: number
 }
@@ -286,6 +393,7 @@ export interface ExplorerLateralRole {
   jobrole: string
   jobrole_id: number
   job_level: string | null
+  skill_match: RoleMatch | null
   match_percent: number | null
 }
 

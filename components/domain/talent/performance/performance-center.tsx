@@ -77,6 +77,7 @@ import {
   type CyclePayload,
   type PerfKpiIcon,
   type PerfReview,
+  type PerfTab,
   type ReviewStage,
 } from '@/services/talent/performance'
 import { getLaravelContext } from '@/lib/laravel-context'
@@ -90,6 +91,7 @@ import {
   GoalsTab,
 } from './performance-tabs'
 import { PerformanceSidebar, type SidebarTabId } from './performance-sidebar'
+import { NineBoxGrid } from './nine-box-grid'
 import {
   EmployeeCell,
   PaginationBar,
@@ -114,6 +116,18 @@ const MAIN_TABS = [
   { id: 'compensation', label: 'Compensation' },
   { id: 'bonus', label: 'Bonus' },
   { id: 'calibration', label: 'Calibration' },
+  /*
+   * The capability axis, at last.
+   *
+   * `NineBoxController` has been correct, routed and guarded for some time and
+   * NOTHING CALLED IT - there was no reference to `nine-box` anywhere in this
+   * app. Mounted as a tab here rather than behind a new menu row, which would
+   * mean a schema change on both databases plus a rights grant per tenant.
+   *
+   * Distinct from Calibration: that grid is a RATING DISTRIBUTION across a
+   * review session; this one is performance against measured capability.
+   */
+  { id: 'nine-box', label: '9-Box' },
 ] as const
 
 type MainTabId = (typeof MAIN_TABS)[number]['id']
@@ -423,7 +437,15 @@ export function PerformanceCenter() {
     refreshKey,
   )
 
-  const savedViewsState = useSavedViews(activeTab, refreshKey)
+  /*
+   * The 9-box has no filters, so it has no saved views — and `PerfTab` is the
+   * SERVER's vocabulary for tabs that do. Widening that type to include
+   * 'nine-box' would have made the type compile while sending the server a tab
+   * name it does not know. The grid keeps whichever tab's views were last
+   * loaded, which nothing on that tab reads.
+   */
+  const savedViewsTab: PerfTab = activeTab === 'nine-box' ? 'reviews' : activeTab
+  const savedViewsState = useSavedViews(savedViewsTab, refreshKey)
   const mutations = usePerformanceMutations()
 
   const activeCycle = options?.cycles.find((cycle) => cycle.value === effectiveCycleId)
@@ -1113,6 +1135,14 @@ export function PerformanceCenter() {
                 saving={mutations.saving}
                 cycleId={effectiveCycleId || undefined}
               />
+            )}
+
+            {activeTab === 'nine-box' && (
+              <div className="p-1">
+                {/* Self-contained: it owns its own fetch, because it shares no
+                    filters, cycle or pagination with the review tabs. */}
+                <NineBoxGrid />
+              </div>
             )}
 
             {activeTab === 'calibration' && (

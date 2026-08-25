@@ -29,6 +29,7 @@ import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 import { competencyLibraryService, competencyLibrariesService } from '@/services/competency'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { RoleRequirementsPanel } from './role-requirements-panel'
+import { TaskCompetenciesPanel } from './task-competencies-panel'
 import { useAuth } from '@/hooks/use-auth'
 import type {
   Framework, FrameworkPayload, MatrixCompetency, ProficiencyLevel,
@@ -47,6 +48,22 @@ const TABS: { id: string; label: string }[] = [
   // this role need" - and until now the matrix was the only thing there, and it
   // writes a different table (`s_user_skill_jobrole`, keyed by text).
   { id: 'requirements', label: 'Role Requirements' },
+  /*
+   * WHICH COMPETENCY EACH TASK EXERCISES.
+   *
+   * `TaskCompetenciesPanel` and its `CmTaskCompetencies` host have existed for
+   * some time and were **never routed** — no entry in content-map-m2.ts, so no
+   * menu reached them. The only way to map a task was to be creating one at the
+   * time, through the inline panel in create-task-modal. That is why
+   * `jobrole_task_competency_map` holds 0 rows on live.
+   *
+   * Mounted here rather than given its own menu: a new menu row is a schema
+   * change on both databases plus a rights grant per tenant, and this belongs
+   * beside role requirements anyway — same question, one level down.
+   */
+  { id: 'task-competencies', label: 'Task Competencies' },
+  // The broken links between frameworks and roles, as rows you can act on.
+  { id: 'reconciliation', label: 'Reconciliation' },
   { id: 'weighting', label: 'Weighting & Configuration' },
   { id: 'proficiency', label: 'Proficiency Scale' },
   { id: 'workflow', label: 'Workflow & Review' },
@@ -154,15 +171,14 @@ export function CmFrameworkMapping() {
   // Framework ids now, not skill-category names. The Structure tab lists the
   // competency taxonomy (frameworks); it used to list s_users_skills categories.
   const [selectedFrameworkId, setSelectedFrameworkId] = useState<number | null>(null)
-  const [selectedRoles, setSelectedRoles] = useState<string[] | null>(null)
   const [structureSearch, setStructureSearch] = useState('')
   const [expandedFrameworkId, setExpandedFrameworkId] = useState<number | null>(null)
   const [openBundleId, setOpenBundleId] = useState<number | null>(null)
+  const [requirementsDepartment, setRequirementsDepartment] = useState('')
   const [selectedCompetency, setSelectedCompetency] = useState<MatrixCompetency | null>(null)
   const [showRequired, setShowRequired] = useState(true)
 
   const [reviewStatus, setReviewStatus] = useState<'pending' | 'approved' | 'rejected'>('pending')
-  const [roleFilter, setRoleFilter] = useState('all')
   const [showLegend, setShowLegend] = useState(true)
 
   // Dialog state
@@ -177,11 +193,16 @@ export function CmFrameworkMapping() {
 
   const {
     loading, error, summary, structure, structureMeta, proficiency, weights, frameworks, roles, retry,
+    reconciliation, reconciliationMeta, reconciliationLoading, reconciliationError, loadReconciliation,
+    requirements, requirementsMeta, requirementsLoading, requirementsError, loadRequirements,
     matrix, matrixLoading, loadMatrix,
     reviews, reviewCounts, reviewsLoading, loadReviews,
     saving, actionMessage, actionError, clearMessages,
-    saveCell, clearCell, saveWeights, createFramework, updateFramework,
-    cloneFramework, deleteFramework, approveReview, rejectReview, bulkApproveReviews, submitReview,
+    // `clearCell` and `submitReview` are deliberately NOT destructured: their
+    // callers went when the Matrix tab became a view. They remain on the hook
+    // for the skill matrix and the review workflow that still use them.
+    saveCell, saveWeights, createFramework, updateFramework,
+    cloneFramework, deleteFramework, approveReview, rejectReview, bulkApproveReviews,
     createLevel, updateLevel, deleteLevel,
   } = studio
 
@@ -193,7 +214,17 @@ export function CmFrameworkMapping() {
   // data) so there is no setState-in-effect. Explicit user picks win.
   const effectiveFrameworkId = selectedFrameworkId ?? structure[0]?.framework_id ?? null
   const effectiveFramework = structure.find(n => n.framework_id === effectiveFrameworkId) ?? null
-  const effectiveRoles = selectedRoles ?? roles.slice(0, 5).map(r => r.jobrole)
+  /*
+   * The SKILL matrix's columns — the first five roles, always.
+   *
+   * This was `selectedRoles ?? roles.slice(0, 5)`, but nothing has set
+   * `selectedRoles` since the column toggle went with the Matrix rebuild, so
+   * the left-hand side was permanently null. Written out as what it is, rather
+   * than left looking like a user choice that no longer exists.
+   *
+   * The COMPETENCY grid does not use this: it narrows by department, by id.
+   */
+  const effectiveRoles = roles.slice(0, 5).map(r => r.jobrole)
 
   /* -- Load matrix when its inputs change ----------------------------- */
   const rolesKey = JSON.stringify(effectiveRoles)
@@ -216,12 +247,27 @@ export function CmFrameworkMapping() {
     }
   }, [activeTab, rolesKey, loadMatrix])
 
+  /* -- The competency requirements grid, on demand -------------------- */
+  useEffect(() => {
+    if (activeTab === 'matrix') {
+      loadRequirements(requirementsDepartment ? { department: requirementsDepartment } : {})
+    }
+  }, [activeTab, requirementsDepartment, loadRequirements])
+
+
   /* -- Load reviews when the workflow tab / status changes ------------ */
   useEffect(() => {
     if (activeTab === 'workflow') {
       loadReviews(reviewStatus)
     }
   }, [activeTab, reviewStatus, loadReviews])
+
+  /* -- Reconciliation, on demand -------------------------------------- */
+  useEffect(() => {
+    if (activeTab === 'reconciliation') {
+      loadReconciliation()
+    }
+  }, [activeTab, loadReconciliation])
 
   /* -- Auto-dismiss action messages ----------------------------------- */
   useEffect(() => {
@@ -248,35 +294,17 @@ export function CmFrameworkMapping() {
 
   /* -- Cell actions ----------------------------------------------------
    *
-   * Each guards on MATRIX_IS_READ_ONLY. The UI already hides these actions, but
-   * the guard is here too so that a stale render, a keyboard path or a future
-   * caller cannot write through a surface that is meant to be a view. The rule
-   * belongs next to the write, not only next to the button.
+   * REMOVED 2026-08-24: handleSetCell, handleClearCell, handleClearRow and
+   * applyRoleFilter. When the Matrix tab was rebuilt on competencies it became
+   * a read-only view with an "Edit in Role Requirements" action, so these four
+   * lost their last caller and each was left referenced only by its own
+   * declaration - the kind of rot that makes the next reader believe this
+   * screen still writes cells.
+   *
+   * The write path they used is unchanged and still the only one: requirements
+   * are authored in Role Requirements, through the guarded POST
+   * /competency/role-map.
    * ------------------------------------------------------------------- */
-  const handleSetCell = async (role: string, skill: string, level: number) => {
-    if (MATRIX_IS_READ_ONLY) return
-    const res = await saveCell(role, skill, String(level))
-    if (res.ok) refreshMatrix()
-  }
-  const handleClearCell = async (role: string, skill: string) => {
-    if (MATRIX_IS_READ_ONLY) return
-    const res = await clearCell(role, skill)
-    if (res.ok) refreshMatrix()
-  }
-  // Clear every mapped cell in a competency row across the shown roles.
-  const handleClearRow = async (skill: string) => {
-    if (MATRIX_IS_READ_ONLY || !matrix) return
-    for (const role of matrix.roles) {
-      if (matrix.cells[role]?.[skill]) await clearCell(role, skill)
-    }
-    refreshMatrix()
-  }
-
-  // "All Roles" quick filter: 'all' resets to the top set, else a single column.
-  const applyRoleFilter = (value: string) => {
-    setRoleFilter(value)
-    setSelectedRoles(value === 'all' ? null : [value])
-  }
 
   /* -- Bulk update levels (apply one level to a whole category/role) --- */
   const handleBulkApply = async () => {
@@ -304,6 +332,14 @@ export function CmFrameworkMapping() {
    * source RoleRequirementsPanel uses, for the same reason.
    */
   const [roleOptions, setRoleOptions] = useState<{ id: number; jobrole: string; department: string }[]>([])
+
+  /* Departments come from the FULL role list (library meta), not from the
+     requirements grid's own roles - those are capped at 40, so deriving the
+     filter from them would hide the very departments you need to narrow it. */
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(roleOptions.map(r => r.department).filter(Boolean))).sort(),
+    [roleOptions],
+  )
 
   useEffect(() => {
     const ctx = getLaravelContext(user)
@@ -441,25 +477,17 @@ export function CmFrameworkMapping() {
     }
   }
 
-  /* -- Role column toggle --------------------------------------------- */
-  const toggleRole = (jobrole: string) => {
-    setSelectedRoles(prev => {
-      const base = prev ?? roles.slice(0, 5).map(r => r.jobrole)
-      return base.includes(jobrole) ? base.filter(r => r !== jobrole) : [...base, jobrole]
-    })
-  }
-
-  const handleSubmitForReview = async () => {
-    const role = effectiveRoles[0]
-    if (!role || !matrix) return
-    const changes = Object.keys(matrix.cells[role] ?? {}).length
-    await submitReview({
-      jobrole: role,
-      framework_id: summary?.active_framework?.id,
-      changes_count: changes,
-      changes: `Reviewed ${changes} competency mapping${changes === 1 ? '' : 's'} for "${role}".`,
-    })
-  }
+  /*
+   * REMOVED 2026-08-24: toggleRole and handleSubmitForReview.
+   *
+   * `toggleRole` chose which NAME-keyed role columns the old skill matrix
+   * showed; the competency grid narrows by department instead, and by id.
+   *
+   * `handleSubmitForReview` submitted the matrix's pending edits for review -
+   * a workflow that ended when the tab stopped accepting edits. It counted
+   * `matrix.cells[role]` for a role NAME, which the rebuilt grid no longer
+   * keys by, so it would have thrown had anything still called it.
+   */
 
   /* ================================================================== */
 
@@ -805,163 +833,115 @@ export function CmFrameworkMapping() {
       )}
 
       {/* ---- Role Mapping Matrix ---- */}
+      {/* ---- Role Mapping Matrix — COMPETENCIES x JOB ROLES ----
+           Rows are the `competency` table, columns are job roles BY ID and
+           scoped to a department. It used to be s_users_skills x role NAMES,
+           which is why this tab never showed a competency and why its columns
+           neither filtered by department nor survived a rename. */}
       {activeTab === 'matrix' && (
         <div className="w-full flex-1 flex flex-col bg-card/90 border border-primary/10 rounded-2xl shadow-sm overflow-hidden">
-          {/* Says plainly why the cells no longer respond, and where to go
-              instead. Without this the tab just looks broken. */}
-          {MATRIX_IS_READ_ONLY && (
-            <div className="px-4 py-3 border-b border-primary/10 bg-muted/40 flex items-start gap-2.5">
-              <Info className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                <span className="font-semibold text-foreground">This grid is read-only.</span>{' '}
-                Role requirements are authored in{' '}
-                <button
-                  onClick={() => setActiveTab('requirements')}
-                  className="font-semibold text-primary underline underline-offset-2 hover:no-underline"
-                >
-                  Role Requirements
-                </button>
-                , which is what gap analysis and 9-box actually read. This view stays for seeing the
-                whole grid at once, and Export still works.
-              </p>
-            </div>
-          )}
           <div className="p-4 border-b border-primary/10 flex items-center justify-between gap-3 flex-wrap bg-card">
             <div className="flex items-center gap-2">
-              {/* No category filter any more. Structure lists FRAMEWORKS — the
-                  competency taxonomy — which means nothing to a skill-keyed
-                  matrix, so this grid loads unfiltered until it is itself
-                  rebuilt on competencies. Saying "all" is honest; showing a
-                  stale category name would not be. */}
-              <span className="text-sm text-muted-foreground font-medium">Showing:</span>
-              <span className="text-sm font-bold text-primary">All competencies</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* All Roles quick filter */}
-              <div className="w-44">
+              <span className="text-sm text-muted-foreground font-medium">Department:</span>
+              <div className="w-56">
                 <Select
-                  value={roleFilter}
-                  onChange={applyRoleFilter}
-                  options={[{ label: 'All Roles', value: 'all' }, ...roles.map(r => ({ label: r.jobrole, value: r.jobrole }))]}
-                  placeholder="All Roles"
+                  value={requirementsDepartment}
+                  onChange={setRequirementsDepartment}
+                  options={[{ label: 'All departments', value: '' }, ...departmentOptions.map(d => ({ label: d, value: d }))]}
+                  placeholder="All departments"
                   className="h-9 bg-background"
+                  aria-label="Filter roles by department"
                 />
               </div>
-              {/* Filters: multi-select which roles are columns */}
-              <DropdownMenu>
-                <DropdownMenuTrigger className="h-9 px-3 gap-2 bg-background border border-border rounded-lg text-sm flex items-center hover:bg-muted outline-none">
-                  <Filter className="w-3.5 h-3.5" /> Filters ({effectiveRoles.length})
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 max-h-80 overflow-auto">
-                  <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Top roles by mapping count</p>
-                  <DropdownMenuSeparator />
-                  {roles.map(r => (
-                    <div key={r.jobrole} onClick={() => toggleRole(r.jobrole)} className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-muted rounded-md cursor-pointer">
-                      <span className="text-sm truncate flex-1">{r.jobrole}</span>
-                      <span className="text-xs text-muted-foreground">{r.mapped_count}</span>
-                      {effectiveRoles.includes(r.jobrole) && <Check className="w-4 h-4 text-primary" />}
-                    </div>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {/* View settings */}
-              <DropdownMenu>
-                <DropdownMenuTrigger className="h-9 px-3 gap-2 bg-background border border-border rounded-lg text-sm flex items-center hover:bg-muted outline-none">
-                  <Settings className="w-3.5 h-3.5" /> View Settings
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center justify-between px-2 py-1.5">
-                    <span className="text-sm">Show Required Level</span>
-                    <Switch size="sm" checked={showRequired} onChange={e => setShowRequired(e.target.checked)} />
-                  </div>
-                  <div className="flex items-center justify-between px-2 py-1.5">
-                    <span className="text-sm">Show Legend</span>
-                    <Switch size="sm" checked={showLegend} onChange={e => setShowLegend(e.target.checked)} />
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">
+                {requirementsMeta ? `${requirementsMeta.competencies} competencies × ${requirementsMeta.roles_shown} roles` : ''}
+              </span>
+              <Button variant="outline" disabled={requirementsLoading} onClick={() => loadRequirements(requirementsDepartment ? { department: requirementsDepartment } : {})} className="gap-2">
+                {requirementsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />} Refresh
+              </Button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto g2g-scrollbar relative min-h-[300px]">
-            {matrixLoading ? (
-              <div className="p-6 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-            ) : !matrix || matrix.competencies.length === 0 ? (
-              <EmptyState className="m-6" icon={<LayoutGrid className="w-10 h-10" />} title="No competencies" description="No competencies in this category, or no roles selected." />
+          {/* COLUMNS WERE DROPPED — say so. A grid that silently truncates reads
+              as "these roles have no requirements", which is the most dangerous
+              thing a requirements screen can claim. */}
+          {requirementsMeta?.roles_truncated && (
+            <div className="px-4 py-2.5 border-b border-primary/10 bg-amber-500/5 flex items-start gap-2.5">
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-500" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Showing <span className="font-semibold text-foreground">{requirementsMeta.roles_shown} of {requirementsMeta.role_total}</span> roles.
+                The rest are not displayed — pick a department above to narrow the grid rather than assuming those roles have no requirements.
+              </p>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-auto g2g-scrollbar">
+            {requirementsLoading ? (
+              <div className="space-y-3 p-6">
+                {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full rounded-xl" />)}
+              </div>
+            ) : requirementsError ? (
+              <ErrorState title="Couldn't load the requirements grid" description={requirementsError} retry={() => loadRequirements()} className="m-6" />
+            ) : !requirements || requirements.competencies.length === 0 ? (
+              <EmptyState
+                icon={<LayoutGrid className="w-10 h-10" />}
+                title="No competencies yet"
+                description="Create competencies in the Competency Library and file them under a framework, then set what each role needs here."
+                className="m-6"
+              />
             ) : (
-              <Table className="w-full text-sm">
-                <TableHeader className="bg-muted/30 border-b border-primary/10 sticky top-0 z-20">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-64 px-4 py-3 font-bold text-foreground">Competency</TableHead>
-                    {matrix.roles.map(role => (
-                      <TableHead key={role} className="px-4 py-3 text-center min-w-[120px]">
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold text-foreground text-xs">{role}</span>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Required Level</span>
-                        </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="px-4 py-3 sticky left-0 bg-card z-10 min-w-[240px]">Competency</TableHead>
+                    {requirements.roles.map(role => (
+                      <TableHead key={role.id} className="px-3 py-3 text-center min-w-[110px]">
+                        <span className="text-xs font-semibold text-foreground block truncate max-w-[110px]" title={role.jobrole}>{role.jobrole}</span>
+                        {role.department && <span className="text-[10px] text-muted-foreground block truncate max-w-[110px]">{role.department}</span>}
                       </TableHead>
                     ))}
-                    <TableHead className="w-16 px-4 py-3 text-center font-bold text-foreground">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-primary/5">
-                  {matrix.competencies.map(comp => (
+                  {requirements.competencies.map(comp => (
                     <TableRow key={comp.id} className="hover:bg-muted/30">
-                      <TableCell className="px-4 py-3 font-medium text-foreground">
-                        <button onClick={() => setSelectedCompetency(comp)} className="text-left hover:text-primary truncate max-w-[220px] block">{comp.title}</button>
+                      <TableCell className="px-4 py-3 sticky left-0 bg-card z-10">
+                        <span className="font-medium text-foreground block truncate max-w-[240px]" title={comp.name}>{comp.name}</span>
+                        {comp.framework_name && (
+                          <span className="text-[10px] text-muted-foreground block truncate max-w-[240px]">{comp.framework_name}</span>
+                        )}
                       </TableCell>
-                      {matrix.roles.map(role => {
-                        const cell = matrix.cells[role]?.[comp.title]
+                      {requirements.roles.map(role => {
+                        const cell = requirements.cells?.[String(role.id)]?.[String(comp.id)]
                         return (
-                          <TableCell key={role} className="px-4 py-3">
+                          <TableCell key={`${role.id}-${comp.id}`} className="px-3 py-3">
                             <div className="flex items-center justify-center">
-                              {MATRIX_IS_READ_ONLY ? (
-                                /* A view, not a control. Rendered without a
-                                   trigger, a pointer cursor or a hover state,
-                                   because a cell that looks clickable and does
-                                   nothing is worse than one that plainly reads
-                                   as a value. */
-                                <div
-                                  className="flex items-center gap-2 bg-muted/40 border border-border/60 px-3 py-1.5 rounded-lg w-16 justify-between"
-                                  title={cell?.level != null ? `Required level ${cell.level}` : 'Not mapped'}
-                                >
-                                  <span className="font-bold text-foreground">{cell?.level != null && showRequired ? cell.level : '—'}</span>
-                                  <div className={`w-2 h-2 rounded-full ${levelColor(cell?.level ?? null)}`} />
-                                </div>
+                              {!cell ? (
+                                <span className="text-muted-foreground text-sm">—</span>
                               ) : (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg w-16 justify-between cursor-pointer hover:bg-muted transition-colors outline-none">
-                                    <span className="font-bold text-foreground">{cell?.level != null && showRequired ? cell.level : '—'}</span>
-                                    <div className={`w-2 h-2 rounded-full ${levelColor(cell?.level ?? null)}`} />
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="center">
-                                    {levels.map(lvl => (
-                                      <DropdownMenuItem key={lvl.level} onClick={() => handleSetCell(role, comp.title, lvl.level)}>
-                                        <span className={`w-2 h-2 rounded-full mr-2 ${levelColor(lvl.level)}`} /> {lvl.level} - {lvl.name ?? lvl.label}
-                                      </DropdownMenuItem>
-                                    ))}
-                                    {cell && <DropdownMenuSeparator />}
-                                    {cell && <DropdownMenuItem onClick={() => handleClearCell(role, comp.title)}>Clear mapping</DropdownMenuItem>}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                /* SOURCE IS VISIBLE. A level inherited from the
+                                   framework must not look like one somebody
+                                   chose for this role - outlined vs solid. */
+                                <span
+                                  title={cell.source === 'framework'
+                                    ? 'Inherited from this role\u2019s framework — not set for the role itself'
+                                    : `Set for this role${cell.is_mandatory ? ' · mandatory' : ''}`}
+                                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-sm font-bold ${
+                                    cell.source === 'role'
+                                      ? 'bg-primary/10 text-primary border border-primary/20'
+                                      : 'border border-dashed border-border text-muted-foreground'
+                                  }`}
+                                >
+                                  L{cell.level}
+                                  {cell.is_mandatory && <span className="text-[10px] font-bold" title="Mandatory">*</span>}
+                                </span>
                               )}
                             </div>
                           </TableCell>
                         )
                       })}
-                      <TableCell className="px-4 py-3 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none mx-auto">
-                            <MoreVertical className="w-4 h-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedCompetency(comp)}>View Details</DropdownMenuItem>
-                            {!MATRIX_IS_READ_ONLY && (
-                              <DropdownMenuItem onClick={() => handleClearRow(comp.title)}>Clear Row Mapping</DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -969,74 +949,166 @@ export function CmFrameworkMapping() {
             )}
           </div>
 
-          {/* Legend + footer */}
           <div className="p-4 border-t border-primary/10 bg-card flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4 flex-wrap">
-              {showLegend && (
-                <>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">Proficiency</span>
-                  <div className="flex items-center gap-3 text-xs font-medium text-foreground flex-wrap">
-                    {levels.map(lvl => (
-                      <div key={lvl.level} className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-full ${levelColor(lvl.level)}`} /> {lvl.level}-{lvl.name ?? lvl.label}</div>
+            <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-6 h-4 rounded bg-primary/10 border border-primary/20" /> set for the role
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-6 h-4 rounded border border-dashed border-border" /> inherited from its framework
+              </span>
+              <span>* mandatory</span>
+            </div>
+            {/* ONE WRITER. Requirements are authored in Role Requirements, which
+                writes jobrole_competency_map through the guarded endpoint. This
+                grid reads the same table - it is the wide view, not a second
+                way to change it. */}
+            <Button variant="outline" onClick={() => setActiveTab('requirements')} className="gap-2">
+              <ListChecks className="w-4 h-4" /> Edit in Role Requirements
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Task Competencies — which competency each task exercises ----
+           Prop-less and self-contained, so it mounts here unchanged. The map
+           carries NO level by design: the task says which competencies it
+           exercises, the ROLE says at what level. A level here would be a third
+           place a target could disagree. */}
+      {activeTab === 'task-competencies' && (
+        <div className="w-full flex-1 bg-card/90 border border-primary/10 rounded-2xl shadow-sm p-4 overflow-y-auto g2g-scrollbar">
+          <TaskCompetenciesPanel />
+        </div>
+      )}
+
+      {/* ---- Reconciliation — the framework/role broken links, as ROWS ----
+           A count tells you something is wrong; a list tells you what to fix.
+           Each row carries enough identity to act on without a second lookup. */}
+      {activeTab === 'reconciliation' && (
+        <div className="w-full flex-1 bg-card/90 border border-primary/10 rounded-2xl shadow-sm p-4 overflow-y-auto g2g-scrollbar">
+          {reconciliationLoading ? (
+            <div className="space-y-3 p-2">
+              {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
+            </div>
+          ) : reconciliationError ? (
+            <ErrorState title="Couldn't load reconciliation" description={reconciliationError} retry={loadReconciliation} className="m-6" />
+          ) : reconciliationMeta?.clean ? (
+            <EmptyState
+              icon={<Check className="w-10 h-10" />}
+              title="Frameworks and roles agree"
+              description="Every framework competency is required by the role it applies to, every role requirement is backed by a framework, and no targets contradict each other."
+            />
+          ) : (
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {([
+                  ['Not applied', reconciliationMeta?.not_applied ?? 0, 'The framework expects it; the role does not require it'],
+                  ['No framework', reconciliationMeta?.no_framework ?? 0, 'A role target no standard backs'],
+                  ['Contradicts', reconciliationMeta?.contradicts ?? 0, 'Role target differs from the framework default'],
+                  ['Orphan targets', reconciliationMeta?.orphan_targets ?? 0, 'Target rows the competency does not claim'],
+                ] as [string, number, string][]).map(([label, count, hint]) => (
+                  <div key={label} className="rounded-xl border border-border bg-background p-3" title={hint}>
+                    <p className="text-2xl font-bold text-foreground">{count}</p>
+                    <p className="text-xs font-semibold text-muted-foreground mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {(reconciliation?.not_applied?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-foreground mb-2">Framework expects it, the role does not require it</h3>
+                  <p className="text-xs text-muted-foreground mb-3">Gap analysis will never test for these, so the role looks compliant when it is not.</p>
+                  <div className="flex flex-col gap-1.5">
+                    {reconciliation!.not_applied.slice(0, 50).map((r, i) => (
+                      <div key={`na-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                        <span className="text-sm text-foreground truncate">
+                          <span className="font-semibold">{r.jobrole ?? `Role #${r.jobrole_id}`}</span>
+                          <span className="text-muted-foreground"> needs </span>
+                          <span className="font-semibold">{r.competency_name ?? `Competency #${r.competency_id}`}</span>
+                        </span>
+                        <StatusBadge variant="warning" label={r.framework_target ? `Framework L${r.framework_target}` : 'No target'} size="sm" />
+                      </div>
                     ))}
                   </div>
-                </>
+                </div>
               )}
-            </div>
-            <div className="flex items-center gap-3">
-              {!MATRIX_IS_READ_ONLY && (
-                <Button variant="outline" disabled={saving || !effectiveRoles.length} onClick={() => { setBulkForm({ role: effectiveRoles[0] ?? '', level: '' }); setBulkDialog(true) }} className="gap-2">
-                  <Copy className="w-4 h-4" /> Bulk Update Levels
-                </Button>
-              )}
-              <Button variant="outline" disabled={saving || !effectiveRoles.length} onClick={handleSubmitForReview} className="gap-2">
-                <ListChecks className="w-4 h-4" /> Submit for Review
-              </Button>
-            </div>
-          </div>
 
-          {/* Competency Details */}
-          {selectedCompetency && (
-            <div className="p-5 border-t border-primary/10 bg-muted/20">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-foreground">Competency Details</h3>
-                <button onClick={() => setSelectedCompetency(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {(reconciliation?.contradicts?.length ?? 0) > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1">Competency Name</p>
-                  <p className="text-sm font-bold text-foreground">{selectedCompetency.title}</p>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1 mt-4">Description</p>
-                  <p className="text-xs text-foreground leading-relaxed">{selectedCompetency.description || '—'}</p>
+                  <h3 className="text-sm font-bold text-foreground mb-2">Role target contradicts its framework</h3>
+                  <p className="text-xs text-muted-foreground mb-3">Legitimate as a deliberate override — but it should be a choice somebody made, not a divergence nobody noticed.</p>
+                  <div className="flex flex-col gap-1.5">
+                    {reconciliation!.contradicts.slice(0, 50).map((r, i) => (
+                      <div key={`co-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                        <span className="text-sm text-foreground truncate">
+                          <span className="font-semibold">{r.jobrole ?? `Role #${r.jobrole_id}`}</span>
+                          <span className="text-muted-foreground"> · </span>
+                          <span className="font-semibold">{r.competency_name ?? `Competency #${r.competency_id}`}</span>
+                        </span>
+                        <span className="flex items-center gap-2 shrink-0">
+                          <StatusBadge variant="default" label={`Framework L${r.framework_target}`} size="sm" />
+                          <StatusBadge variant="processing" label={`Role L${r.role_target}`} size="sm" />
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {(reconciliation?.no_framework?.length ?? 0) > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1">Category</p>
-                  <p className="text-sm font-bold text-foreground">{selectedCompetency.category || '—'}</p>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1 mt-4">Type</p>
-                  <p className="text-sm font-bold text-foreground">{selectedCompetency.competency_type || '—'}</p>
+                  <h3 className="text-sm font-bold text-foreground mb-2">Role requirement with no framework behind it</h3>
+                  <p className="text-xs text-muted-foreground mb-3">A target nobody can trace to a standard. File the competency under a framework, or accept it as role-specific.</p>
+                  <div className="flex flex-col gap-1.5">
+                    {reconciliation!.no_framework.slice(0, 50).map((r, i) => (
+                      <div key={`nf-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                        <span className="text-sm text-foreground truncate">
+                          <span className="font-semibold">{r.jobrole ?? `Role #${r.jobrole_id}`}</span>
+                          <span className="text-muted-foreground"> needs </span>
+                          <span className="font-semibold">{r.competency_name ?? `Competency #${r.competency_id}`}</span>
+                        </span>
+                        <StatusBadge variant="processing" label={r.role_target ? `L${r.role_target}` : 'No level'} size="sm" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {(reconciliation?.orphan_targets?.length ?? 0) > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1">Sub-category</p>
-                  <p className="text-sm font-bold text-foreground">{selectedCompetency.sub_category || '—'}</p>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1 mt-4">Catalog Proficiency</p>
-                  <p className="text-sm font-bold text-foreground">{selectedCompetency.proficiency_level || '—'}</p>
+                  <h3 className="text-sm font-bold text-foreground mb-2">Target rows the competency does not claim</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    A competency belongs to exactly one framework — the one on the competency itself. These target rows name a different framework, so they are read but never applied.
+                    Rows marked <span className="font-semibold text-destructive">missing</span> point at a competency that no longer exists at all, which is a different repair.
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {reconciliation!.orphan_targets.slice(0, 50).map((r, i) => (
+                      <div key={`ot-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                        <span className="text-sm text-foreground truncate">
+                          <span className="font-semibold">{r.framework_name ?? `Framework #${r.framework_id}`}</span>
+                          <span className="text-muted-foreground"> claims </span>
+                          <span className="font-semibold">{r.competency_name ?? `Competency #${r.competency_id}`}</span>
+                        </span>
+                        {r.competency_missing ? (
+                          <StatusBadge variant="error" label="Competency missing" size="sm" />
+                        ) : (
+                          <StatusBadge variant="warning" label={r.competency_filed_under ? `Filed under #${r.competency_filed_under}` : 'Filed under nothing'} size="sm" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {reconciliation!.orphan_targets.length > 50 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Showing 50 of {reconciliation!.orphan_targets.length}. The rest are the same shape.
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1">Behavioural Indicators (Level 4)</p>
-                  <ul className="text-xs text-foreground leading-relaxed list-disc pl-4 space-y-1 mt-1">
-                    {(proficiency?.kasa.behaviour.find(k => k.level === 4)?.indicators ?? '')
-                      .split(';').map(s => s.trim()).filter(Boolean).slice(0, 4)
-                      .map((ind, i) => <li key={i}>{ind}</li>)}
-                    {!proficiency?.kasa.behaviour.find(k => k.level === 4)?.indicators && <li className="list-none text-muted-foreground">No indicators defined.</li>}
-                  </ul>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* ---- Weighting & Configuration ---- */}
       {activeTab === 'weighting' && (
         <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
           <div className="lg:w-96 shrink-0 flex flex-col gap-4">
