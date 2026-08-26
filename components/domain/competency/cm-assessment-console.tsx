@@ -5,9 +5,11 @@ import {
   AlertTriangle, CheckCircle2, ClipboardList, Eye, FileQuestion, Send, Users, XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
@@ -61,30 +63,48 @@ export function CmAssessmentConsole() {
   const [error, setError] = useState<string | null>(null)
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-6 border-b border-border">
+    <section className="rounded-2xl border border-primary/10 bg-card/90 p-5 shadow-sm backdrop-blur-2xl">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
+            Assessment console
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Read a draft before publishing it, see who has sat what, and decide what a result means.
+          </p>
+        </div>
+      </div>
+
+      {/* The house segmented control. */}
+      <div role="tablist" aria-label="Assessment console" className="mb-4 flex gap-1 rounded-lg bg-muted p-1">
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" onClick={() => { setTab(id); setNotice(null); setError(null) }}
-            className={cn('relative flex items-center gap-2 pb-3 text-sm font-semibold transition-colors',
-              tab === id ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
+          <button key={id} type="button" role="tab" aria-selected={tab === id}
+            onClick={() => { setTab(id); setNotice(null); setError(null) }}
+            className={cn('flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              tab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
             <Icon className="size-4" aria-hidden="true" />
             {label}
-            {tab === id && <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-t-full bg-primary" />}
           </button>
         ))}
       </div>
 
+      {/* An ACTION's error, not a load failure - loads report themselves
+          through LoadState, which never renders an empty state over a failure. */}
       {error && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm font-medium text-destructive">
+          {error}
+        </p>
       )}
       {notice && (
-        <p className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm">{notice}</p>
+        <p className="mb-3 rounded-xl border border-success/30 bg-success/10 px-4 py-2.5 text-sm font-medium text-success">
+          {notice}
+        </p>
       )}
 
       {tab === 'tests' && <TestsTab user={user} onNotice={setNotice} onError={setError} />}
       {tab === 'results' && <ResultsTab user={user} onNotice={setNotice} onError={setError} />}
       {tab === 'proposals' && <ProposalsTab user={user} onNotice={setNotice} onError={setError} />}
-    </div>
+    </section>
   )
 }
 
@@ -94,29 +114,27 @@ function TestsTab({ user, onNotice, onError }: TabProps) {
   const [rows, setRows] = useState<AssessmentTestRow[] | null>(null)
   const [open, setOpen] = useState<AssessmentTestRow | null>(null)
 
+  const [failure, setFailure] = useState<string | null>(null)
+
   const load = useCallback(() => {
+    setFailure(null)
     assessmentReviewService.tests(getLaravelContext(user))
       .then(setRows)
-      .catch((e) => { setRows([]); onError(e instanceof Error ? e.message : 'Assessments could not be loaded.') })
-  }, [user, onError])
+      // rows STAYS NULL. An empty array is a claim about the data, and a
+      // request that never answered has made no such claim.
+      .catch((e) => setFailure(e instanceof Error ? e.message : 'Assessments could not be loaded.'))
+  }, [user])
 
   useEffect(() => { load() }, [load])
 
-  if (rows === null) return <Skeleton className="h-40 w-full" />
-
-  if (rows.length === 0) {
-    return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        No assessments have been generated yet. Use the generator above to create one.
-      </Card>
-    )
-  }
-
   return (
-    <>
-      <div className="overflow-hidden rounded-lg border border-border">
+    <LoadState error={failure} rows={rows} onRetry={load}
+      emptyIcon={<FileQuestion className="size-10" />}
+      emptyTitle="No assessments yet"
+      emptyDescription="Use the generator above to create one. Nothing reaches an employee until you publish it.">
+      <div className="overflow-hidden rounded-xl border border-border bg-background">
         <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5">Assessment</th>
               <th className="px-4 py-2.5">Scope</th>
@@ -127,7 +145,7 @@ function TestsTab({ user, onNotice, onError }: TabProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => (
+            {(rows ?? []).map((t) => (
               <tr key={t.id} className="border-t border-border">
                 <td className="px-4 py-2.5">
                   <p className="font-medium text-foreground">{t.title}</p>
@@ -169,7 +187,7 @@ function TestsTab({ user, onNotice, onError }: TabProps) {
 
       <TestDrawer test={open} user={user} onClose={() => setOpen(null)}
         onChanged={(m) => { onNotice(m); load() }} onError={onError} />
-    </>
+    </LoadState>
   )
 }
 
@@ -235,7 +253,7 @@ function TestDrawer({ test, user, onClose, onChanged, onError }: {
           {questions === null && <Skeleton className="h-40 w-full" />}
 
           {questions?.map((q, index) => (
-            <Card key={q.id} className="p-4">
+            <div key={q.id} className="rounded-xl border border-border bg-background p-4">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 w-5 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
                 <div className="min-w-0 flex-1">
@@ -279,7 +297,7 @@ function TestDrawer({ test, user, onClose, onChanged, onError }: {
                   )}
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
 
@@ -393,24 +411,25 @@ function ResultsTab({ user, onNotice, onError }: TabProps) {
   const [rows, setRows] = useState<AttemptRow[] | null>(null)
   const [open, setOpen] = useState<AttemptRow | null>(null)
 
+  const [failure, setFailure] = useState<string | null>(null)
+
   const load = useCallback(() => {
+    setFailure(null)
     assessmentReviewService.attempts(getLaravelContext(user))
       .then(setRows)
-      .catch((e) => { setRows([]); onError(e instanceof Error ? e.message : 'Results could not be loaded.') })
-  }, [user, onError])
+      .catch((e) => setFailure(e instanceof Error ? e.message : 'Results could not be loaded.'))
+  }, [user])
 
   useEffect(() => { load() }, [load])
 
-  if (rows === null) return <Skeleton className="h-40 w-full" />
-  if (rows.length === 0) {
-    return <Card className="p-6 text-sm text-muted-foreground">Nobody has been assigned an assessment yet.</Card>
-  }
-
   return (
-    <>
-      <div className="overflow-hidden rounded-lg border border-border">
+    <LoadState error={failure} rows={rows} onRetry={load}
+      emptyIcon={<ClipboardList className="size-10" />}
+      emptyTitle="Nobody has sat an assessment yet"
+      emptyDescription="Publish an assessment and assign it to people, and their results appear here.">
+      <div className="overflow-hidden rounded-xl border border-border bg-background">
         <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5">Person</th>
               <th className="px-4 py-2.5">Assessment</th>
@@ -420,7 +439,7 @@ function ResultsTab({ user, onNotice, onError }: TabProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((a) => (
+            {(rows ?? []).map((a) => (
               <tr key={a.id} className="border-t border-border">
                 <td className="px-4 py-2.5 font-medium text-foreground">{a.employee || `User ${a.user_id}`}</td>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">{a.title}</td>
@@ -450,7 +469,7 @@ function ResultsTab({ user, onNotice, onError }: TabProps) {
 
       <AnswersDrawer attempt={open} user={user} onClose={() => setOpen(null)}
         onChanged={(m) => { onNotice(m); load() }} onError={onError} />
-    </>
+    </LoadState>
   )
 }
 
@@ -504,7 +523,7 @@ function AnswersDrawer({ attempt, user, onClose, onChanged, onError }: {
           {answers?.map((a, index) => {
             const unmarked = a.score === null
             return (
-              <Card key={a.question_id} className="p-4">
+              <div key={a.question_id} className="rounded-xl border border-border bg-background p-4">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 w-5 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
                   <div className="min-w-0 flex-1">
@@ -554,7 +573,7 @@ function AnswersDrawer({ attempt, user, onClose, onChanged, onError }: {
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             )
           })}
         </div>
@@ -575,11 +594,14 @@ function ProposalsTab({ user, onNotice, onError }: TabProps) {
   const [minQ, setMinQ] = useState(2)
   const [busy, setBusy] = useState<number | null>(null)
 
+  const [failure, setFailure] = useState<string | null>(null)
+
   const load = useCallback(() => {
+    setFailure(null)
     assessmentReviewService.proposals(getLaravelContext(user))
       .then((r) => { setRows(r.rows); setBands(r.bands); setMinQ(r.minQuestions) })
-      .catch((e) => { setRows([]); onError(e instanceof Error ? e.message : 'Proposals could not be loaded.') })
-  }, [user, onError])
+      .catch((e) => setFailure(e instanceof Error ? e.message : 'Proposals could not be loaded.'))
+  }, [user])
 
   useEffect(() => { load() }, [load])
 
@@ -594,28 +616,22 @@ function ProposalsTab({ user, onNotice, onError }: TabProps) {
     } finally { setBusy(null) }
   }
 
-  if (rows === null) return <Skeleton className="h-40 w-full" />
-
-  if (rows.length === 0) {
-    return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        No assessment result is currently proposing a rating change.
-      </Card>
-    )
-  }
-
   return (
+    <LoadState error={failure} rows={rows} onRetry={load}
+      emptyIcon={<CheckCircle2 className="size-10" />}
+      emptyTitle="Nothing waiting on you"
+      emptyDescription="When someone completes an assessment, the rating it suggests waits here for your decision.">
     <div className="flex flex-col gap-3">
-      <p className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+      <p className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
         Nothing here has changed anyone&apos;s record. Approving writes the rating with its source
         recorded as an assessment, so it stays distinguishable from one a person typed. An item scored
         on fewer than <strong>{minQ}</strong> questions proposes no rating at all —
         {' '}too little evidence is reported as such, not as a low score.
       </p>
 
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-hidden rounded-xl border border-border bg-background">
         <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5">Person</th>
               <th className="px-4 py-2.5">Capability item</th>
@@ -625,7 +641,7 @@ function ProposalsTab({ user, onNotice, onError }: TabProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {(rows ?? []).map((p) => (
               <tr key={p.id} className="border-t border-border">
                 <td className="px-4 py-2.5 font-medium text-foreground">{p.employee || `User ${p.user_id}`}</td>
                 <td className="px-4 py-2.5">
@@ -674,6 +690,7 @@ function ProposalsTab({ user, onNotice, onError }: TabProps) {
         </table>
       </div>
     </div>
+    </LoadState>
   )
 }
 
@@ -685,14 +702,86 @@ interface TabProps {
   onError: (message: string) => void
 }
 
+/**
+ * A 404 here means ONE precise thing, and it is worth saying.
+ *
+ * These endpoints are new. A server running an older build has no route for
+ * them, so it answers 404 - which as raw text ("API Error: 404 Not Found")
+ * sends people looking for a missing record. It is not missing data, it is a
+ * missing deployment, and only one of those is the reader's problem.
+ */
+function describeFailure(message: string): { title: string; description: string } {
+  if (/404|not found/i.test(message)) {
+    return {
+      title: 'This screen needs a newer backend',
+      description:
+        'The assessment endpoints are not available on the server this app is talking to. '
+        + 'Nothing is wrong with your data - the server has not been updated yet.',
+    }
+  }
+  return { title: 'Could not load this', description: message }
+}
+
+/**
+ * THE LADDER: error, then loading, then empty, then content. Never merged.
+ *
+ * The first version of this set `rows` to `[]` when a request failed and then
+ * rendered "No assessments have been generated yet." underneath the error - so
+ * a failed fetch reported itself as an empty organisation. This codebase calls
+ * that the dead-bell lie and forbids it in four other places; it earns its own
+ * helper here so the three tabs cannot drift back into it.
+ */
+function LoadState({ error, rows, onRetry, emptyIcon, emptyTitle, emptyDescription, rowHeight = 'h-14', children }: {
+  error: string | null
+  rows: unknown[] | null
+  onRetry: () => void
+  emptyIcon: React.ReactNode
+  emptyTitle: string
+  emptyDescription: string
+  rowHeight?: string
+  children: React.ReactNode
+}) {
+  if (error) {
+    const { title, description } = describeFailure(error)
+    return <ErrorState title={title} description={description} retry={onRetry} />
+  }
+  // Skeletons SHAPED LIKE THE ROWS, not a grey slab - a loading state should
+  // tell you what is arriving.
+  if (rows === null) {
+    return (
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className={cn(rowHeight, 'w-full rounded-xl')} />)}
+      </div>
+    )
+  }
+  if (rows.length === 0) {
+    return <EmptyState className="border-0" icon={emptyIcon} title={emptyTitle} description={emptyDescription} />
+  }
+  return <>{children}</>
+}
+
+/**
+ * Status, through the design system's own badge.
+ *
+ * This was a hand-rolled pill with its own tone table - a second answer to a
+ * question `StatusBadge` already answers, and one that drifted from the house
+ * `bg-x/10 text-x border-x/30` formula. The variants here are the domain
+ * mapping only; the appearance comes from the primitive, which is the pattern
+ * `component-variants.md` prescribes for domain-specific statuses.
+ */
 function StatusPill({ status, inline }: { status: string; inline?: boolean }) {
-  const tone = status === 'published' ? 'bg-success/15 text-success'
-    : status === 'superseded' ? 'bg-muted text-muted-foreground'
-    : status === 'awaiting_review' ? 'bg-warning/15 text-warning'
-    : 'bg-primary/10 text-primary'
+  const variant = status === 'published' ? 'success'
+    : status === 'superseded' ? 'inactive'
+    : status === 'awaiting_review' ? 'warning'
+    : status === 'scored' ? 'success'
+    : 'processing'
+
   return (
-    <span className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium capitalize', tone, inline && 'ml-1')}>
-      {status.replace('_', ' ')}
-    </span>
+    <StatusBadge
+      variant={variant}
+      label={status.replace(/_/g, ' ')}
+      size="sm"
+      className={cn('capitalize', inline && 'ml-1')}
+    />
   )
 }
