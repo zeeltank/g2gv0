@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Briefcase, ExternalLink, RefreshCw, Search, Users } from 'lucide-react'
+import { Briefcase, ExternalLink, Merge, RefreshCw, Search, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ import { organizationService, type DepartmentJobRole } from '@/services/organiza
 import { useRouter } from 'next/navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { JobRoleMergeDialog } from './job-role-merge-dialog'
 
 /**
  * The job roles that belong to a department.
@@ -59,6 +60,18 @@ export function DepartmentJobRolesPanel({
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  /*
+   * MERGING TWO OF THIS DEPARTMENT'S ROLES.
+   *
+   * The action lives here rather than in Capability Library because the rule is
+   * "same department only", and this panel is already scoped to exactly one
+   * department - so the list it hands the dialog IS the set of legal targets.
+   * Creating roles still belongs in the Library; consolidating them is an
+   * org-structure decision, which is what this screen is for.
+   */
+  const [mergeRole, setMergeRole] = useState<DepartmentJobRole | null>(null)
+  const [isMerging, setIsMerging] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -102,6 +115,23 @@ export function DepartmentJobRolesPanel({
     router.push(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK))
   }
 
+  async function confirmMerge(payload: { targetJobRoleId?: string; newJobRoleName?: string; sourceJobRoleIds?: string[] }) {
+    if (!mergeRole) return
+    setIsMerging(true)
+    setError('')
+    try {
+      const response = await organizationService.mergeJobRole(context, String(mergeRole.id), payload)
+      setMergeRole(null)
+      await load()
+      // The backend's own sentence - it counted what moved, so it says it.
+      setNotice(response?.message || 'Job roles merged.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to merge job roles.')
+    } finally {
+      setIsMerging(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -137,6 +167,7 @@ export function DepartmentJobRolesPanel({
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading job roles...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {notice && <p className="rounded-md border border-border bg-muted/40 p-2 text-sm text-foreground">{notice}</p>}
 
       {!isLoading && !error && roles.length === 0 && (
         <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
@@ -175,6 +206,17 @@ export function DepartmentJobRolesPanel({
                     {held}
                   </span>
                 )}
+                {/* Only offered when there is something to merge INTO. */}
+                {canManage && roles.length > 1 && (
+                  <Button
+                    type="button" variant="ghost" size="sm" className="shrink-0"
+                    onClick={() => { setNotice(''); setMergeRole(role) }}
+                    title={`Merge ${role.jobrole} into another role in this department`}
+                  >
+                    <Merge className="size-3.5" aria-hidden="true" />
+                    Merge
+                  </Button>
+                )}
               </div>
             )
           })}
@@ -184,6 +226,18 @@ export function DepartmentJobRolesPanel({
       {!isLoading && !error && roles.length > 0 && visible.length === 0 && (
         <p className="text-sm text-muted-foreground">No job roles match that search.</p>
       )}
+
+      {/* `roles`, not `visible` - a search box filtering the list on screen must
+          not silently shrink what a merge is allowed to target. */}
+      <JobRoleMergeDialog
+        role={mergeRole}
+        roles={roles}
+        departmentName={department.name}
+        context={context}
+        isSaving={isMerging}
+        onCancel={() => setMergeRole(null)}
+        onMerge={(payload) => void confirmMerge(payload)}
+      />
     </div>
   )
 }

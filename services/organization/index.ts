@@ -130,6 +130,38 @@ export type DepartmentJobRole = {
 }
 
 /**
+ * What a job role merge would do, before it does it.
+ *
+ * `level_raises` and `ambiguous` are the two the caller MUST show. The first
+ * says the merged role will demand MORE than the target does today; the second
+ * says some rows will be left behind because the retired role's name is used in
+ * more than one department and cannot be attributed. Both change what the user
+ * is agreeing to.
+ */
+export type JobRoleMergeImpact = {
+  total: number
+  breakdown: Array<{ label: string; count: number }>
+  level_raises: Array<{ kind: 'competency' | 'skill'; name: string; from: string | number | null; to: string | number | null }>
+  duplicates: { tasks: number; skills: number }
+  ambiguous: Array<{ table: string; count: number }>
+  jobrole?: string
+  department?: string
+  target?: string | null
+}
+
+export type JobRoleMergeResponse = LaravelStatusResponse & {
+  data?: {
+    moved?: Record<string, number>
+    employees?: number
+    competencies_raised?: number
+    skills_raised?: number
+    tasks_folded?: number
+    skills_folded?: number
+    new_role_id?: number
+  }
+}
+
+/**
  * What is attached to a department.
  *
  * `blocking` marks the LMS rows: they carry a real foreign key, so they are
@@ -414,6 +446,46 @@ export const organizationService = {
    * table, keyed on something that is not a department - and neither is
    * tenant-scoped.
    */
+  /**
+   * What a merge would move, and what it would decide.
+   *
+   * Deliberately NOT wrapped in ensureLaravelSuccess, for the same reason
+   * getDepartmentImpact is not: the dialog has to be able to tell "the preview
+   * failed to load" from "there is nothing attached". Rendering a failed fetch
+   * as a confident zero is how someone confirms a merge they would have
+   * refused.
+   *
+   * Takes a target, unlike the department version - for job roles the
+   * collisions decide which proficiency level the surviving role requires, so
+   * a preview without a target hides the actual decision.
+   */
+  getJobRoleMergeImpact: (context: LaravelContext, jobRoleId: string, targetJobRoleId: string) =>
+    apiClient.get<{ status?: number; message?: string; data?: JobRoleMergeImpact }>(
+      `/competency/library/jobroles/${jobRoleId}/merge-impact`,
+      { ...departmentParams(context), target_id: targetJobRoleId },
+    ),
+
+  /**
+   * Merge a job role into another, or into a new one.
+   *
+   * Pass `targetJobRoleId` to fold it into a role that already exists, or
+   * `newJobRoleName` plus the full `sourceJobRoleIds` list to create the
+   * survivor as part of the same transaction.
+   */
+  mergeJobRole: (
+    context: LaravelContext,
+    jobRoleId: string,
+    payload: { targetJobRoleId?: string; newJobRoleName?: string; sourceJobRoleIds?: string[] },
+  ) =>
+    ensureLaravelSuccess(apiClient.post<JobRoleMergeResponse>(
+      `/competency/library/jobroles/${jobRoleId}/merge?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {
+        ...(payload.targetJobRoleId ? { target_jobrole_id: Number(payload.targetJobRoleId) } : {}),
+        ...(payload.newJobRoleName ? { new_jobrole_name: payload.newJobRoleName } : {}),
+        ...(payload.sourceJobRoleIds ? { source_jobrole_ids: payload.sourceJobRoleIds.map(Number) } : {}),
+      },
+    )),
+
   getDepartmentJobRoles: (context: LaravelContext, departmentId: string) =>
     apiClient.get<{ status?: number; department_id?: number; department_name?: string; data?: DepartmentJobRole[] }>(
       '/jobroles-by-department',
