@@ -110,10 +110,22 @@ export interface KasbaRatingItem {
   /** What the ROLE requires. Never this person's score. */
   required_proficiency: number | null
   is_mandatory: number | boolean | null
+  /**
+   * The atom's share of the competency's roll-up.
+   *
+   * `k.weight` has always been selected and returned; this type simply never
+   * declared it, so the drawer could not show the one number that explains why
+   * two atoms rated 3 and 2 produce a level of 2.5 rather than a plain average.
+   */
+  weight: number | string | null
   /** null means nobody has assessed them — not zero. */
   rating: number | null
   note: string | null
   rated_at: string | null
+  /** Who made the assessment. Distinguishes a self-rating from a manager's. */
+  assessor_name: string | null
+  /** How the rating was recorded — `self`, `manual`, a seed, an import. */
+  source: string | null
 }
 
 export interface KasbaRatingResponse {

@@ -260,6 +260,11 @@ function graphNodes(tasks: DependencyNode[]): Node[] {
       assignee: task.assignee, duration: formatDate(task.due_date) ?? 'No due date', project: task.project,
       // IDS, not display names - the filters compare on these.
       assigneeId: task.assignee_id ?? '', projectId: task.project_id ?? '', direction: 'LR',
+      // Workstream travels with the node so the map can filter on it. It was
+      // already in the payload (DependencyNode.workstream_id) and already
+      // loaded in this component for the create form - it simply never
+      // reached the graph, which is why the Workstream tab filtered nothing.
+      workstreamId: task.workstream_id ?? '', workstreamName: task.workstream ?? '',
     },
   }))
 }
@@ -387,51 +392,67 @@ useEffect(() => {
   // viewport was never re-fitted - which is why switching tabs and back
   // "fixed" it. Re-fit whenever the node set changes while the map is visible.
   useEffect(() => {
-    if (activeTab !== 'map' || !nodes.length) return
+    // GUARDED ON WHAT IS VISIBLE, not on what exists. fitView ignores hidden
+    // nodes, so filtering everything out left it fitting an empty set - and a
+    // single visible node makes it zoom to maxZoom and fill the canvas, which
+    // reads as a broken layout rather than a filtered one. maxZoom caps that.
+    if (activeTab !== 'map') return
+    if (!nodes.some((n) => !n.hidden)) return
     const frame = requestAnimationFrame(() => {
-      flowRef.current?.fitView({ padding: 0.2, duration: 300 })
+      flowRef.current?.fitView({ padding: 0.2, duration: 300, maxZoom: 1.2 })
     })
     return () => cancelAnimationFrame(frame)
-  }, [activeTab, nodes.length])
+  }, [activeTab, nodes])
 
   // Filter States - these hold IDS, matched against ids on the node.
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterProject, setFilterProject] = useState<string | null>(null)
+  const [filterWorkstream, setFilterWorkstream] = useState<string | null>(null)
 
-  // Apply filters whenever state changes
+  /**
+   * ONE PREDICATE, USED BY BOTH PASSES.
+   *
+   * ── THE BUG THIS REPLACES ───────────────────────────────────────────────
+   *
+   * Node visibility ANDed every active filter, while edge visibility ORed the
+   * two endpoints **per filter, independently**:
+   *
+   *     if (filterStatus   && (src.status   !== s && tgt.status   !== s)) hide
+   *     if (filterAssignee && (src.assignee !== a && tgt.assignee !== a)) hide
+   *
+   * So with a status AND an assignee filter set, an edge survived when the
+   * SOURCE matched the status and the TARGET matched the assignee — even
+   * though neither node matched both, and therefore BOTH nodes were hidden.
+   * The result was edges drawn across an empty canvas, anchored to nothing.
+   *
+   * An edge is a relationship between two nodes. If either end is not on
+   * screen, the edge cannot be drawn truthfully — so it is visible only when
+   * BOTH endpoints pass the same predicate the nodes were judged by.
+   */
+  const nodeMatches = useCallback((data: Record<string, unknown> | undefined) => {
+    if (!data) return false
+    if (filterStatus && data.status !== filterStatus) return false
+    if (filterAssignee && data.assigneeId !== filterAssignee) return false
+    if (filterProject && data.projectId !== filterProject) return false
+    if (filterWorkstream && data.workstreamId !== filterWorkstream) return false
+    return true
+  }, [filterStatus, filterAssignee, filterProject, filterWorkstream])
+
   useEffect(() => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        let isVisible = true
-        if (filterStatus && node.data.status !== filterStatus) {
-          isVisible = false
-        }
-        if (filterAssignee && node.data.assigneeId !== filterAssignee) {
-          isVisible = false
-        }
-        if (filterProject && node.data.projectId !== filterProject) {
-          isVisible = false
-        }
-        return { ...node, hidden: !isVisible }
-      })
-    )
-    
-    // Also hide edges if either source or target is hidden
-    setEdges((eds) => 
-      eds.map((edge) => {
-        const sourceNode = baseNodes.find(n => n.id === edge.source)
-        const targetNode = baseNodes.find(n => n.id === edge.target)
-        let isVisible = true
-        
-        if (filterStatus && (sourceNode?.data.status !== filterStatus && targetNode?.data.status !== filterStatus)) isVisible = false
-        if (filterAssignee && (sourceNode?.data.assigneeId !== filterAssignee && targetNode?.data.assigneeId !== filterAssignee)) isVisible = false
-        if (filterProject && (sourceNode?.data.projectId !== filterProject && targetNode?.data.projectId !== filterProject)) isVisible = false
+    setNodes((nds) => nds.map((node) => ({ ...node, hidden: !nodeMatches(node.data) })))
 
-        return { ...edge, hidden: !isVisible }
-      })
+    // Judged against baseNodes, not the live nodes, because `nodes` is what we
+    // are in the middle of updating - reading it here would race the setState
+    // above and use last render's hidden flags.
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const source = baseNodes.find((n) => n.id === edge.source)
+        const target = baseNodes.find((n) => n.id === edge.target)
+        return { ...edge, hidden: !(nodeMatches(source?.data) && nodeMatches(target?.data)) }
+      }),
     )
-  }, [baseNodes, filterStatus, filterAssignee, filterProject, setNodes, setEdges])
+  }, [baseNodes, nodeMatches, setNodes, setEdges])
 
   const handleLayout = (next: 'TB' | 'LR' | 'reset') => {
     // "Reset" means back to the laid-out positions the graph loaded with, in
@@ -582,6 +603,31 @@ useEffect(() => {
     return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [data.tasks])
 
+  // Same rule, one level down. A task can belong to a project without being
+  // placed in a workstream, so a null workstream_id is normal and simply does
+  // not become an option - it is not "Unassigned", it is not a grouping.
+  const workstreamOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    data.tasks.forEach((task) => {
+      if (task.workstream_id) seen.set(task.workstream_id, task.workstream ?? 'Unnamed workstream')
+    })
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.tasks])
+
+  /**
+   * How much the filters are hiding.
+   *
+   * A filtered graph that shows nothing looks identical to a graph with no
+   * dependencies, and only one of those is a problem the user caused. These
+   * two numbers are what let the empty state tell them apart.
+   */
+  const visibleNodeCount = useMemo(() => nodes.filter((n) => !n.hidden).length, [nodes])
+  const filtersActive = Boolean(filterStatus || filterAssignee || filterProject || filterWorkstream)
+
+  const clearFilters = useCallback(() => {
+    setFilterStatus(null); setFilterAssignee(null); setFilterProject(null); setFilterWorkstream(null)
+  }, [])
+
   const pulseData = [
     { id: 'total', title: 'Total Dependencies', value: data.summary.total, subtitle: 'Across all active projects', icon: GitMerge },
     { id: 'blocking', title: 'Blocking', value: data.summary.blocking, subtitle: 'High priority blockers', icon: AlertTriangle },
@@ -669,11 +715,22 @@ useEffect(() => {
                   ))}
                 </div>
 
-                {(filterStatus || filterAssignee || filterProject) && (
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs font-bold text-foreground/50 tracking-wider uppercase">Filter By Workstream</div>
+                <div className="max-h-48 overflow-y-auto">
+                  {workstreamOptions.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No workstream on any task here.</div>}
+                  {workstreamOptions.map((workstream) => (
+                    <DropdownMenuItem key={workstream.id} onClick={() => setFilterWorkstream(filterWorkstream === workstream.id ? null : workstream.id)} className="cursor-pointer">
+                      <span className="w-4 inline-block">{filterWorkstream === workstream.id ? '✓' : ''}</span> {workstream.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+
+                {filtersActive && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => { setFilterStatus(null); setFilterAssignee(null); setFilterProject(null); }} 
+                    <DropdownMenuItem
+                      onClick={clearFilters}
                       className="cursor-pointer text-rose-500 font-bold justify-center"
                     >
                       Clear All Filters
@@ -834,7 +891,21 @@ useEffect(() => {
                 <div className="absolute top-4 left-4 z-10 bg-card/80 backdrop-blur-md px-3 py-2 rounded-xl border border-primary/10 shadow-sm flex items-center gap-2 text-xs font-medium text-muted-foreground animate-in fade-in">
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                   Drag between nodes to connect. Double-click any line to delete.
+                  {/* STATED, NOT INFERRED. Without this a filtered graph looks
+                      like a smaller graph, and there is nothing on screen
+                      saying tasks were removed from view rather than absent. */}
+                  {filtersActive && nodes.length > 0 && (
+                    <span className="ml-1 font-semibold text-foreground">
+                      · showing {visibleNodeCount} of {nodes.length}
+                    </span>
+                  )}
                 </div>
+                {/* TWO DIFFERENT EMPTIES, AND ONLY ONE IS A PROBLEM THE USER
+                    CAUSED. A graph with no dependencies needs somebody to
+                    create one; a graph whose filters hide everything needs
+                    them cleared. Showing "No dependencies yet" for the second
+                    sends the user off to create a duplicate of work that is
+                    already there, just hidden. */}
                 {!loading && !nodes.length && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 px-8 text-center">
                     <GitMerge className="h-10 w-10 text-muted-foreground/40" />
@@ -843,6 +914,16 @@ useEffect(() => {
                       A dependency links two tasks in the same project — the predecessor has to move before the successor can. Create one to see the graph.
                     </p>
                     <Button size="sm" onClick={() => setIsCreateModalOpen(true)} className="mt-1 gap-2"><Plus className="h-4 w-4" /> Create Dependency</Button>
+                  </div>
+                )}
+                {!loading && nodes.length > 0 && visibleNodeCount === 0 && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 px-8 text-center">
+                    <Filter className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm font-semibold text-foreground">Your filters hide every task</p>
+                    <p className="max-w-sm text-xs text-muted-foreground">
+                      {nodes.length} task{nodes.length === 1 ? '' : 's'} {nodes.length === 1 ? 'is' : 'are'} on this graph, and none of them match the filters you have set.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={clearFilters} className="mt-1">Clear filters</Button>
                   </div>
                 )}
                 <ReactFlow

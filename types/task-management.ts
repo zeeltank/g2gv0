@@ -281,6 +281,14 @@ export interface WorkspaceTask {
   /** See {@link MyTask.status_label}. */
   status_label: string | null
   priority: MyTaskPriority | null
+  /**
+   * When the work is meant to START. Optional on the type because it is
+   * genuinely absent from most rows: the column exists and is written by
+   * TaskScheduleController, but no screen set it until the calendar's drag
+   * handles, so `planned_start_date` is NULL for every task on both databases
+   * today. A task without one is a single-day chip, never a fabricated span.
+   */
+  planned_start_date?: string | null
   due_date: string | null
   remarks: string | null
   approved: boolean

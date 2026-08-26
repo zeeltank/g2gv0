@@ -49,6 +49,103 @@ export function TaskWorkspace() {
   const [createOpen, setCreateOpen] = useState(false)
   const [reload, setReload] = useState(0)
 
+  /*
+   * EDITING A TASK, ON THE SCREEN PEOPLE ACTUALLY USE.
+   *
+   * This Sheet offered Approve / Reject / Archive and nothing else, so the
+   * only way to change a task was the My Tasks drawer - which is a different
+   * screen, shows only your own work, and wrote through the legacy web route.
+   *
+   * The form covers EXACTLY the eight fields `updateWorkspaceTask` accepts.
+   * Reusing CreateTaskModal was considered and rejected: it collects projects,
+   * workstreams, dependencies, competencies, attachments and bulk rows, none
+   * of which this endpoint saves - it would show fifteen fields of which seven
+   * silently do nothing.
+   */
+  const [editing, setEditing] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [form, setForm] = useState({
+    title: '', description: '', assignee_id: '', owner_id: '',
+    status: '', priority: '', due_date: '', remarks: '',
+  })
+  const [people, setPeople] = useState<Array<{ id: string; name: string }>>([])
+  const [priorityOptions, setPriorityOptions] = useState<string[]>([])
+
+  /**
+   * People and priorities, fetched once the first time an edit is opened.
+   *
+   * Not with the list: the workspace renders fine without them, and most
+   * visits never edit anything. Failures are swallowed into an empty list -
+   * the Select then shows the task's CURRENT value as its only option, so an
+   * edit of the title still saves rather than being blocked by a lookup.
+   */
+  const loadEditOptions = useCallback(async () => {
+    if (people.length && priorityOptions.length) return
+    const context = getLaravelContext()
+    const [users, priorities] = await Promise.allSettled([
+      taskService.getAssignmentUsers(context),
+      taskService.getPriorityOptions(context),
+    ])
+    if (users.status === 'fulfilled') {
+      setPeople(users.value.map((user) => ({
+        id: String(user.id),
+        name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
+      })))
+    }
+    if (priorities.status === 'fulfilled') {
+      setPriorityOptions(priorities.value.data.priorities.map((option) => option.name))
+    }
+  }, [people.length, priorityOptions.length])
+
+  const openEdit = (task: WorkspaceTask) => {
+    setForm({
+      title: task.title,
+      description: task.description ?? '',
+      assignee_id: task.assignee_id ?? '',
+      owner_id: task.owner_id ?? '',
+      // The tenant's own label where there is one, so a custom status round-trips.
+      status: task.status_label ?? task.status,
+      priority: task.priority ?? '',
+      due_date: task.due_date ?? '',
+      remarks: task.remarks ?? '',
+    })
+    setEditing(true); setError(''); setMessage('')
+    void loadEditOptions()
+  }
+
+  const saveEdit = async () => {
+    if (!selected) return
+    if (!form.title.trim()) { setError('A task needs a title.'); return }
+    // assignee_id and owner_id are REQUIRED by the endpoint; saying so here
+    // beats a 422 that names a field the form calls something else.
+    if (!form.assignee_id) { setError('Choose who this task is assigned to.'); return }
+    if (!form.owner_id) { setError('Choose who owns this task.'); return }
+
+    setSavingEdit(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.updateWorkspaceTask(getLaravelContext(), selected.id, {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        assignee_id: form.assignee_id,
+        owner_id: form.owner_id,
+        status: form.status as WorkspaceTask['status'],
+        priority: form.priority as NonNullable<WorkspaceTask['priority']>,
+        ...(form.due_date ? { due_date: form.due_date } : {}),
+        ...(form.remarks.trim() ? { remarks: form.remarks.trim() } : {}),
+      })
+      // The server returns the saved row - show THAT, not the form state, so
+      // anything it normalised (status category, resolved priority) is visible.
+      setSelected(response.data)
+      setMessage(response.message)
+      setEditing(false)
+      setReload((current) => current + 1)
+    } catch (reason) {
+      // 403 for a task you neither own, created nor were assigned; 422 for an
+      // illegal status move. Both are the server's words, shown as they are.
+      setError(reason instanceof Error ? reason.message : 'Unable to save this task.')
+    } finally { setSavingEdit(false) }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setPage(1) }, 300)
     return () => window.clearTimeout(timer)
@@ -146,15 +243,106 @@ export function TaskWorkspace() {
       </div>
     )}
 
-    <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected && <>
+    <Sheet open={!!selected} onOpenChange={(open) => { if (!open) { setSelected(null); setEditing(false) } }}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected && <>
       <SheetHeader><SheetTitle>{selected.title}</SheetTitle><SheetDescription>{selected.project} · {selected.assignee}</SheetDescription></SheetHeader>
+
+      {editing ? (
+        <div className="space-y-4 p-5">
+          <div className="space-y-1">
+            <label htmlFor="edit-title" className="text-xs font-semibold text-muted-foreground">Title</label>
+            <input id="edit-title" value={form.title} onChange={(event) => setForm((f) => ({ ...f, title: event.target.value }))}
+              className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="edit-description" className="text-xs font-semibold text-muted-foreground">Description</label>
+            <textarea id="edit-description" value={form.description} onChange={(event) => setForm((f) => ({ ...f, description: event.target.value }))}
+              rows={3} className="w-full rounded-lg border bg-background p-3 text-sm" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground">Assignee</span>
+              {/* The task's CURRENT person is always an option, so a failed
+                  lookup cannot blank a field the endpoint requires. */}
+              <Select value={form.assignee_id} onChange={(value) => setForm((f) => ({ ...f, assignee_id: value }))}
+                options={optionsWith(people, selected.assignee_id, selected.assignee)} />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground">Owner</span>
+              <Select value={form.owner_id} onChange={(value) => setForm((f) => ({ ...f, owner_id: value }))}
+                options={optionsWith(people, selected.owner_id, selected.owner)} />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground">Status</span>
+              <Select value={form.status} onChange={(value) => setForm((f) => ({ ...f, status: value }))}
+                options={statusOptions.length
+                  ? statusOptions.map((option) => ({ value: option.is_system ? option.category : option.name, label: option.name }))
+                  : [{ value: form.status, label: form.status }]} />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground">Priority</span>
+              <Select value={form.priority} onChange={(value) => setForm((f) => ({ ...f, priority: value }))}
+                options={(priorityOptions.length ? priorityOptions : [form.priority].filter(Boolean)).map((name) => ({ value: name, label: name }))} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="edit-due" className="text-xs font-semibold text-muted-foreground">Due date</label>
+              <input id="edit-due" type="date" value={form.due_date} onChange={(event) => setForm((f) => ({ ...f, due_date: event.target.value }))}
+                className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="edit-remarks" className="text-xs font-semibold text-muted-foreground">Remarks</label>
+              <input id="edit-remarks" value={form.remarks} onChange={(event) => setForm((f) => ({ ...f, remarks: event.target.value }))}
+                className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
+            </div>
+          </div>
+
+          {/* Said before they try it, not after a 422. The server enforces the
+              same rule; this only saves them the round trip. */}
+          <p className="text-xs text-muted-foreground">
+            You can edit tasks you own, created, or are assigned to. Status moves follow the
+            workflow — a completed task reopens to In Progress, never back to Pending.
+          </p>
+
+          <div className="flex gap-2">
+            <Button onClick={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Save changes'}</Button>
+            <Button variant="outline" onClick={() => { setEditing(false); setError('') }} disabled={savingEdit}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
       <div className="space-y-5 p-5"><p className="text-sm">{selected.description || 'No description provided.'}</p>
         <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusText(selected)], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusText(selected)} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
         {selected.status === 'COMPLETED' && !selected.approved && <div className="flex gap-2"><Button onClick={() => void decide(selected, 'approve')}>Approve</Button><Button variant="outline" onClick={() => void decide(selected, 'reject')}>Reject</Button></div>}
-        <Button variant="outline" className="text-danger" onClick={() => void archive(selected)}>Archive Task</Button>
-      </div></>}</SheetContent></Sheet>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => openEdit(selected)}>Edit Task</Button>
+          {/* `danger` is not a token here either - globals.css defines
+              --color-destructive, so this button rendered with default text. */}
+          <Button variant="outline" className="text-destructive" onClick={() => void archive(selected)}>Archive Task</Button>
+        </div>
+      </div>
+      )}</>}</SheetContent></Sheet>
     <CreateTaskModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(value) => { setMessage(value); setReload((current) => current + 1) }} />
   </div>
+}
+
+/**
+ * Options that always contain the value currently selected.
+ *
+ * The assignee and owner lookups can fail or arrive late, and both fields are
+ * REQUIRED by the endpoint. Without this, a slow lookup would leave the Select
+ * showing nothing while the form held a real id - the user would see an empty
+ * required field and assume the task had no assignee.
+ */
+function optionsWith(
+  people: Array<{ id: string; name: string }>,
+  currentId: string | null,
+  currentName: string,
+): Array<{ value: string; label: string }> {
+  const options = people.map((person) => ({ value: person.id, label: person.name }))
+  if (currentId && !options.some((option) => option.value === currentId)) {
+    options.unshift({ value: currentId, label: currentName || `User #${currentId}` })
+  }
+  return options
 }
 
 function TaskTable({ tasks, onSelect, onArchive }: { tasks: WorkspaceTask[]; onSelect: (task: WorkspaceTask) => void; onArchive: (task: WorkspaceTask) => Promise<void> }) {

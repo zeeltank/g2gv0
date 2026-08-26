@@ -31,6 +31,19 @@ interface Props {
   onUpdated: () => void
 }
 
+/**
+ * Did a legacy /task write succeed?
+ *
+ * The controller sets `status_code` and `is_mobile()` renames it to `status`
+ * on the way out, so the wire carries {"message":"...","status":"1"}. Reading
+ * `status_code` alone gave `Number(undefined)` = NaN, which is never 1 - so a
+ * save that had already written the row was reported to the user as an error.
+ * Both keys are accepted; the shape is the legacy route's, not ours to pick.
+ */
+function legacyOk(response: { status?: string | number; status_code?: string | number }): boolean {
+  return Number(response.status ?? response.status_code) === 1
+}
+
 export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props) {
   const [task, setTask] = useState<MyTask | null>(null)
   const [status, setStatus] = useState<string>('PENDING')
@@ -164,7 +177,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
         title: editTitle.trim(), description: editDescription.trim(), assigneeId: editAssignee,
         observerId: task.owner_id ?? '', priority: editPriority, dueDate: editDueDate, status: task.status,
       })
-      if (Number(response.status_code) !== 1) throw new Error(response.message)
+      if (!legacyOk(response)) throw new Error(response.message)
       setMessage(response.message); setEditing(false); onUpdated()
       const refreshed = await taskService.getMyTask(getLaravelContext(), task.id)
       setTask(refreshed.data)
@@ -178,7 +191,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
     setSaving(true); setError('')
     try {
       const response = await taskService.deleteLegacyTask(getLaravelContext(), task.id)
-      if (Number(response.status_code) !== 1) throw new Error(response.message)
+      if (!legacyOk(response)) throw new Error(response.message)
       onUpdated(); onClose()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to delete the task.')
