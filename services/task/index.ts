@@ -344,6 +344,24 @@ export const taskService = {
     apiClient.delete<{ status: 1; message: string }>(`/task-management/dependencies/${id}`, {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
+  /**
+   * Replace a saved task's attachment.
+   *
+   * Versioned, not overwriting: the endpoint keeps the previous file as an
+   * earlier version, so an edit that swaps the attachment never destroys what
+   * was there before.
+   */
+  replaceTaskAttachment: (context: LaravelContext, taskId: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('syear', String(context.syear))
+    body.append('user_id', String(context.userId))
+    body.append('file', file)
+    return apiClient.postForm<{ status: 1; message: string }>(
+      `/task-management/workspace/${taskId}/attachments`, body,
+    )
+  },
   getWorkstreams: (context: LaravelContext, projectId: string) =>
     taskService.getProjectRecord(context, projectId).then((response) => ({
       ...response,
@@ -426,6 +444,25 @@ export const taskService = {
         token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
         task_id: taskId, ...(workstreamId ? { workstream_id: workstreamId } : {}),
       },
+    ),
+  /**
+   * Unlink ONE task from a project.
+   *
+   * `attachTaskToProject` only moves a task WITHIN a project — its server-side
+   * lookup is scoped to that project, and the link table is many-to-many. So
+   * attaching to a second project leaves the first link and the task belongs to
+   * both, which the workspace list then hides by taking MIN(project_id).
+   *
+   * Detaching the old link is what turns "attach" into "move". `syncTasks`
+   * could do it, but it replaces a project's ENTIRE task list, so it would
+   * unlink whatever a concurrent editor just added.
+   *
+   * Idempotent: unlinking a task that is not linked returns 200 with removed 0.
+   */
+  detachTaskFromProject: (context: LaravelContext, projectId: string, taskId: string) =>
+    apiClient.delete<{ status: 1; message: string; data: { project_id: string; task_id: string; removed: number } }>(
+      `/task-management/projects/${projectId}/tasks/${taskId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
     ),
   createWorkstream: (context: LaravelContext, projectId: string, payload: Omit<Workstream, 'id' | 'project_id'>) =>
     apiClient.post<{ status: 1; message: string; data: Workstream }>(`/task-management/projects/${projectId}/workstreams`, {
@@ -530,38 +567,61 @@ export const taskService = {
       data?: { task_id?: string | number; taskId?: string | number; id?: string | number }
     }>(`/task?${query}`, body)
   },
+  /**
+   * Edit a task — the full assign-form field set.
+   *
+   * ── WHY THIS MOVED OFF THE WEB ROUTE ───────────────────────────────────
+   *
+   * It used to PUT the legacy web route `/task/{id}`. That path has two faults
+   * an edit form cannot live with:
+   *
+   *   THE OBSERVER IS NEVER SAVED. `manageby` is stripped from the request and
+   *   `task_allocated` is never assigned, so changing the observer did nothing.
+   *
+   *   EVERY EDIT STAMPS APPROVAL. It sets `approved_by` and `approved_on` on
+   *   each update, so fixing a typo silently marked the task approved by
+   *   whoever typed it.
+   *
+   * `PUT /task-management/legacy-tasks/{id}` does neither, writes the observer
+   * as `task_allocated`, is tenant-scoped, permission-gated (`task.update`) and
+   * audited.
+   *
+   * ⚠ IT IS A FULL REPLACE. Every nullable field omitted is written as NULL,
+   * and an absent `owner_id` silently reassigns ownership to the caller. That
+   * is safe here ONLY because the edit form renders and sends all of these —
+   * do not call this with a partial payload.
+   */
   updateLegacyTask: (context: LaravelContext, id: string, payload: {
     title: string
-    description: string
+    description?: string
     assigneeId: string
-    observerId: string
-    priority: string
-    dueDate: string
-    status: string
-  }) => {
-    const body = new FormData()
-    body.append('task_title', payload.title)
-    body.append('task_description', payload.description)
-    body.append('TASK_ALLOCATED_TO', payload.assigneeId)
-    body.append('manageby', payload.observerId)
-    body.append('selType', payload.priority)
-    body.append('TASK_DATE', payload.dueDate)
-    body.append('status', payload.status)
-    const query = new URLSearchParams({
-      type: 'API', token: context.token, sub_institute_id: context.subInstituteId,
-      syear: context.syear, user_id: context.userId,
-    }).toString()
-    /*
-     * THE ENVELOPE KEY IS `status`, NOT `status_code`.
-     *
-     * The controller sets $res['status_code'] = "1" and then returns through
-     * is_mobile(), which renames it: the wire actually carries
-     * {"message":"Updated successfully","status":"1"}. Declaring status_code
-     * here made every SUCCESSFUL save read as a failure at the call site.
-     * Both are declared so an older shape, if it ever returns, still resolves.
-     */
-    return webClient.putForm<{ status?: string | number; status_code?: string | number; message: string }>(`/task/${id}?${query}`, body)
-  },
+    /** The observer. Stored as `task_allocated`. */
+    observerId?: string
+    priority?: string
+    dueDate?: string
+    kra?: string
+    kpa?: string
+    skillNames?: string
+    skillIds?: string
+    observationPoint?: string
+  }) =>
+    apiClient.put<{ status?: number | string; message: string; data?: { id: string } }>(
+      `/task-management/legacy-tasks/${id}`,
+      {
+        token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+        title: payload.title,
+        description: payload.description ?? '',
+        assignee_id: payload.assigneeId,
+        ...(payload.observerId ? { owner_id: payload.observerId } : {}),
+        ...(payload.priority ? { priority: payload.priority } : {}),
+        ...(payload.dueDate ? { due_date: payload.dueDate } : {}),
+        kra: payload.kra ?? '',
+        kpa: payload.kpa ?? '',
+        required_skills: payload.skillNames ?? '',
+        skill_id: payload.skillIds ?? '',
+        observation_point: payload.observationPoint ?? '',
+      },
+    ),
   deleteLegacyTask: (context: LaravelContext, id: string) =>
     webClient.delete<{ status?: string | number; status_code?: string | number; message: string }>(`/task/${id}`, {
       type: 'API', token: context.token, sub_institute_id: context.subInstituteId,

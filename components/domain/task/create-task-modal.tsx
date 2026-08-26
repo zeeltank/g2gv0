@@ -12,9 +12,24 @@ import { taskService } from '@/services/task'
 import { TaskCompetencyInlinePanel } from '@/domain/competency/task-competency-inline-panel'
 import { competencyLibrariesService } from '@/services/competency/libraries'
 import type { JobRoleTask } from '@/services/task'
-import type { DependencyType, ProjectRecord, Workstream } from '@/types/task-management'
+import type { DependencyType, ProjectRecord, Workstream, WorkspaceTask } from '@/types/task-management'
 
-interface Props { isOpen: boolean; onClose: () => void; onCreated?: (message: string) => void }
+interface Props {
+  isOpen: boolean
+  onClose: () => void
+  onCreated?: (message: string) => void
+  /**
+   * EDIT MODE. Pass the id of a saved task and this becomes its edit form —
+   * the same fields, in the same places, writing an update instead of a create.
+   *
+   * One component, two modes, deliberately. The fields, their order, their
+   * labels and their validation are the thing people learned; a second form
+   * would be a second answer to "what does a task consist of", and the two
+   * would drift.
+   */
+  editTaskId?: string
+  onUpdated?: (message: string) => void
+}
 interface Employee { id: string; name: string; departmentId?: string }
 interface JobRole { id: string; name: string; departmentId?: string; employees: Employee[] }
 interface Skill { id: string; name: string }
@@ -38,7 +53,15 @@ const DEPENDENCY_TYPES: Array<{ value: DependencyType; label: string }> = [
   { value: 'SF', label: 'Start → Finish (this finishes after it starts)' },
 ]
 
-export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
+export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpdated }: Props) {
+  const isEdit = Boolean(editTaskId)
+  // What the task looked like when the form opened. Kept so save can tell an
+  // actual change from an untouched field: the project move and the dependency
+  // diff are both computed against this, not against defaults.
+  const [original, setOriginal] = useState<WorkspaceTask | null>(null)
+  const [originalDependencies, setOriginalDependencies] = useState<Array<{ id: string; predecessorId: string }>>([])
+  /** The task id the form has already been filled from. See the effect below. */
+  const prefilledFor = useRef('')
   const [directory, setDirectory] = useState<Record<string, JobRole[]>>({})
   const [department, setDepartment] = useState('')
   const [jobRole, setJobRole] = useState('')
@@ -134,6 +157,110 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     return () => { cancelled = true }
   }, [isOpen])
 
+  /**
+   * Load the task being edited and put it into the form.
+   *
+   * Ordering matters. This waits for `observers` — the people list — because
+   * the department is not stored on the task: it is derived from the assignee's
+   * own department, which is the only place it exists. Running before the list
+   * arrives would leave the department blank and, with it, the assignee choices.
+   *
+   * Title mode lands on `custom`. The task row keeps a title string and no
+   * reference to the catalogue entry it may have come from, so claiming a
+   * catalogue selection here would be a guess. The toggle is still there for
+   * anyone who wants to re-pick from the role library.
+   */
+  useEffect(() => {
+    if (!isOpen || !editTaskId || !observers.length) return
+    /*
+     * ONCE PER TASK, NOT ONCE PER RENDER.
+     *
+     * This effect adds the task's observer to `observers` when they are not
+     * already in it — which changes `observers.length`, which is one of its own
+     * dependencies. Without this guard the second run would re-fetch the task
+     * and overwrite whatever had been typed in between.
+     */
+    if (prefilledFor.current === editTaskId) return
+    prefilledFor.current = editTaskId
+    let cancelled = false
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+    setLoading(true)
+    taskService.getWorkspaceTask(context, editTaskId).then(async (response) => {
+      if (cancelled) return
+      const task = response.data
+      setOriginal(task)
+      setTitleSource('custom')
+      setTitle(task.title ?? '')
+      setDescription(task.description ?? '')
+      setPriority((['High', 'Medium', 'Low'] as const).find((value) => value === task.priority) ?? 'Medium')
+      setDueDate(task.due_date ?? '')
+      setKra(task.kra ?? ''); setKpa(task.kpa ?? ''); setObservation(task.observation_point ?? '')
+
+      // The assignee, and the department that follows from them.
+      const assigneeId = task.assignee_id ? String(task.assignee_id) : ''
+      if (assigneeId) setAssignees([assigneeId])
+      const assigneeRecord = observers.find((person) => person.id === assigneeId)
+      if (assigneeRecord?.departmentId) {
+        const match = Object.entries(directory).find(([, roles]) => roles[0]?.departmentId === assigneeRecord.departmentId)
+        if (match) setDepartment(match[0])
+      }
+
+      // The observer is `task_allocated`. It may be someone outside the people
+      // list (a former colleague, another department), so it is added to the
+      // options rather than being dropped for not already being there.
+      if (task.owner_id) {
+        const ownerId = String(task.owner_id)
+        setObserverId(ownerId); setObserverName(task.owner ?? '')
+        setObservers((current) => current.some((item) => item.id === ownerId)
+          ? current
+          : [...current, { id: ownerId, name: task.owner || `User ${ownerId}` }])
+      }
+
+      // Skills: the row stores names and ids as two parallel comma-joined
+      // strings. Rebuild the option list from them so the current selection is
+      // visible even before the assignee's full skill list arrives.
+      const skillIdList = splitList(task.skill_id)
+      const skillNameList = splitList(task.required_skills)
+      if (skillIdList.length) {
+        setSkills(skillIdList.map((id, index) => ({ id, name: skillNameList[index] ?? id })))
+        setSkillIds(skillIdList)
+      }
+
+      // Project, workstream and dependencies.
+      if (task.project_id) {
+        const projectId = String(task.project_id)
+        await chooseProject(projectId)
+        if (cancelled) return
+        // chooseProject clears the workstream (it belongs to whichever project
+        // was just chosen), so the saved one is restored after it, not before.
+        if (task.workstream_id) setWorkstreamId(String(task.workstream_id))
+        try {
+          const dependencies = await taskService.getDependencies(context, { projectId })
+          if (cancelled) return
+          // Edges WHERE THIS TASK IS THE SUCCESSOR — the things it waits for.
+          // Edges where it is the predecessor belong to the tasks waiting on
+          // it, and are not this form's to change.
+          const mine = (dependencies.data.dependencies ?? [])
+            .filter((edge) => String(edge.successor.id) === String(editTaskId))
+            .map((edge) => ({ id: String(edge.id), predecessorId: String(edge.predecessor.id), type: edge.type, lag: edge.lag_days }))
+          setOriginalDependencies(mine.map(({ id, predecessorId }) => ({ id, predecessorId })))
+          setDependsOn(mine.map((edge) => edge.predecessorId))
+          // The form carries ONE type and lag for the whole set, so it shows
+          // the first edge's. Editing them then applies that pair to every new
+          // edge; existing edges keep whatever they were given.
+          if (mine[0]) { setDependencyType(mine[0].type); setLagDays(String(mine[0].lag ?? 0)) }
+        } catch { /* the task is still editable without its dependency list */ }
+      }
+    }).catch((reason: unknown) => {
+      if (!cancelled) setError(reason instanceof Error ? reason.message : 'Unable to load this task.')
+    }).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+    // `directory` and `observers` are the data this depends on; re-running when
+    // they change is the point, not an oversight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editTaskId, observers.length, directory])
+
   // Workstreams and candidate predecessors both belong to the chosen project,
   // so they load together whenever it changes.
   async function chooseProject(nextProjectId: string) {
@@ -204,7 +331,17 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     const taskRequestId = ++employeeTasksRequestRef.current
     const newlySelected = next.find((id) => !assignees.includes(id))
     setAssignees(next); setSkills([]); setSkillIds([]); setObserverId(''); setObserverName('')
-    setSelectedTaskId(''); setTitle(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
+    setTaskDropdownOpen(false); setEmployeeTasksError('')
+    /*
+     * ON CREATE, picking a person restarts the task choice: the catalogue and
+     * the typed title belong to the selection being built.
+     *
+     * ON EDIT, they belong to a saved task. Clearing them here would mean that
+     * reassigning a task silently erased the title and description its author
+     * wrote - so the edit keeps them, and only the person-specific parts
+     * (skills, suggested observer) are re-fetched.
+     */
+    if (!isEdit) { setSelectedTaskId(''); setTitle(''); setTaskSearch('') }
     // THE CATALOGUE BELONGS TO THE ROLE, NOT THE ASSIGNEE.
     // Clearing it here is why picking a person emptied the task list and left
     // the form unsubmittable: the role's 33 tasks were fetched, then discarded
@@ -260,6 +397,8 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     setProjectId(''); setWorkstreams([]); setWorkstreamId(''); setProjectTasks([])
     setDependsOn([]); setDependencyType('FS'); setLagDays('0')
     submissionKey.current = ''
+    setOriginal(null); setOriginalDependencies([])
+    prefilledFor.current = ''
     if (attachmentRef.current) attachmentRef.current.value = ''
   }
   function close() { reset(); onClose() }
@@ -355,6 +494,103 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       onCreated?.(followUp ? `${response.message} ${followUp}` : response.message); close()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create task.') }
     finally { setSaving(false) }
+  }
+
+  /**
+   * Save an edit.
+   *
+   * Five writes, ordered by what depends on what and by what is recoverable:
+   *
+   *   1. THE TASK ITSELF. If this fails nothing else is attempted — there is
+   *      no sense moving a task between projects when its own fields did not
+   *      save.
+   *   2. PROJECT MOVE. Attach to the new project first, then detach from the
+   *      old. That order means a failure between the two leaves the task in
+   *      BOTH projects — visible and fixable — rather than in neither.
+   *   3. DEPENDENCY DIFF. Only what actually changed: added edges created,
+   *      removed edges deleted, untouched edges left alone so their notes and
+   *      history survive an unrelated edit.
+   *   4. ATTACHMENT. Versioned, so the previous file stays reachable.
+   *
+   * Everything after step 1 is reported as a partial success rather than
+   * thrown. The task IS saved by then, and telling someone their edit failed
+   * when it did not is worse than telling them one part of it did.
+   */
+  async function saveEdit() {
+    if (!editTaskId || !original) return
+    if (!title.trim()) { setError('A task needs a title.'); return }
+    if (!assignees[0]) { setError('Choose who this task is assigned to.'); return }
+    if (!observerId) { setError('Choose an observer.'); return }
+    if (attachment && attachment.size > 5 * 1024 * 1024) { setError('Attachment must be 5 MB or smaller.'); return }
+
+    setSaving(true); setError('')
+    const context = getLaravelContext()
+    try {
+      const response = await taskService.updateLegacyTask(context, editTaskId, {
+        title: title.trim(), description: description.trim(),
+        assigneeId: assignees[0], observerId,
+        priority, dueDate,
+        kra, kpa,
+        skillNames: selectedSkillNames.join(','),
+        skillIds: skillIds.join(','),
+        observationPoint: observation,
+      })
+
+      const notes: string[] = []
+
+      // 2. Project move.
+      const wasProject = original.project_id ? String(original.project_id) : ''
+      const wasWorkstream = original.workstream_id ? String(original.workstream_id) : ''
+      if (projectId !== wasProject || workstreamId !== wasWorkstream) {
+        try {
+          if (projectId) {
+            await taskService.attachTaskToProject(context, projectId, editTaskId, workstreamId || undefined)
+          }
+          if (wasProject && wasProject !== projectId) {
+            await taskService.detachTaskFromProject(context, wasProject, editTaskId)
+          }
+          notes.push(projectId ? (wasProject && wasProject !== projectId ? 'Moved to the new project.' : 'Project link updated.') : 'Removed from its project.')
+        } catch (reason) {
+          notes.push(`the project move failed (${reason instanceof Error ? reason.message : 'unknown error'})`)
+        }
+      }
+
+      // 3. Dependency diff.
+      const before = new Set(originalDependencies.map((edge) => edge.predecessorId))
+      const after = new Set(dependsOn)
+      const added = dependsOn.filter((id) => !before.has(id))
+      const removed = originalDependencies.filter((edge) => !after.has(edge.predecessorId))
+      if (added.length || removed.length) {
+        try {
+          for (const predecessorId of added) {
+            await taskService.createDependency(context, {
+              predecessor_task_id: predecessorId, successor_task_id: editTaskId,
+              dependency_type: dependencyType, lag_days: Number(lagDays) || 0,
+              project_id: projectId || undefined,
+            })
+          }
+          for (const edge of removed) await taskService.deleteDependency(context, edge.id)
+          notes.push(`${added.length} dependency added, ${removed.length} removed.`)
+        } catch (reason) {
+          notes.push(`the dependency change failed (${reason instanceof Error ? reason.message : 'unknown error'})`)
+        }
+      }
+
+      // 4. Attachment.
+      if (attachment) {
+        try {
+          await taskService.replaceTaskAttachment(context, editTaskId, attachment)
+          notes.push('Attachment replaced; the previous file is kept as an earlier version.')
+        } catch (reason) {
+          notes.push(`the attachment upload failed (${reason instanceof Error ? reason.message : 'unknown error'})`)
+        }
+      }
+
+      onUpdated?.([response.message || 'Task updated.', ...notes].join(' '))
+      close()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to save this task.')
+    } finally { setSaving(false) }
   }
 
   async function uploadBulk(file: File | null) {
@@ -477,7 +713,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
   }
 
   return <Sheet open={isOpen} onOpenChange={(open) => !open && close()}><SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-[1100px]">
-    <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{showRoleBulk ? 'Bulk Task Assignment' : 'New Assignment'}</SheetTitle><SheetDescription>{showRoleBulk ? 'Select and configure tasks for the chosen employee' : 'Track and monitor task assignment progress'}</SheetDescription></div>{!showRoleBulk && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => { setShowBulkUpload(true); setShowRoleBulk(false) }}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
+    <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{showRoleBulk ? 'Bulk Task Assignment' : isEdit ? 'Edit Task' : 'New Assignment'}</SheetTitle><SheetDescription>{showRoleBulk ? 'Select and configure tasks for the chosen employee' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</SheetDescription></div>{!showRoleBulk && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => { setShowBulkUpload(true); setShowRoleBulk(false) }}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
     <div className="flex-1 space-y-4 overflow-y-auto p-6">
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
     {showRoleBulk ? <div className="rounded-xl border bg-muted/20 p-4">
@@ -506,7 +742,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       </div>}
       <p className="mt-3 text-xs text-muted-foreground">Each row = one task record</p>
     </div>}
-    {loading ? <div className="p-12 text-center">Loading assignment options…</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
+    {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
       {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
@@ -518,14 +754,23 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
           missing was a way to pick more than one. Add one at a time; remove with
           the chip. No new primitive: the same Select, plus chips. */}
       <Field label="Assign To *">
+        {/* ONE ROW, ONE PERSON — in edit mode only.
+            Create makes a SEPARATE task row per assignee (taskController@store
+            explodes the list), so "assigned to" is not a list on a saved task:
+            it is one person on this row, and the others have rows of their own.
+            Adding someone here would mean creating a new task no dependency or
+            project link points at; removing someone would mean DELETING their
+            row along with its comments and history. Neither is an edit of this
+            task, so neither hides behind Save. */}
+        {isEdit && <p className="mb-1.5 text-[11px] text-muted-foreground">Each assignee has their own copy of this task. This changes who <strong>this copy</strong> belongs to — to involve more people, assign the task again.</p>}
         <Select
-          value=""
-          onChange={(userId) => { if (userId && !assignees.includes(userId)) void chooseAssignees([...assignees, userId]) }}
-          options={departmentEmployees.filter((employee) => !assignees.includes(employee.id)).map((employee) => ({ value: employee.id, label: employee.name }))}
+          value={isEdit ? (assignees[0] ?? '') : ''}
+          onChange={(userId) => { if (!userId) return; if (isEdit) { void chooseAssignees([userId]) } else if (!assignees.includes(userId)) { void chooseAssignees([...assignees, userId]) } }}
+          options={(isEdit ? departmentEmployees : departmentEmployees.filter((employee) => !assignees.includes(employee.id))).map((employee) => ({ value: employee.id, label: employee.name }))}
           disabled={!department || !departmentEmployees.length}
           placeholder={!department ? 'Select a department first' : !departmentEmployees.length ? 'No employees in this department' : assignees.length ? 'Add another employee' : 'Select an employee'}
         />
-        {assignees.length > 0 && (
+        {!isEdit && assignees.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {assignees.map((id) => (
               <span key={id} className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs">
@@ -550,10 +795,10 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
              <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Describe the task to be done" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
              {/* Promotes a one-off title into the role's library so the next
                  person assigning this role can pick it from the list. */}
-             <label className="flex items-center gap-2 text-xs text-muted-foreground">
+             {!isEdit && <label className="flex items-center gap-2 text-xs text-muted-foreground">
                <input type="checkbox" checked={saveToLibrary} disabled={!jobRole} onChange={(event) => setSaveToLibrary(event.target.checked)} />
                Also save to the Job Role Task library{!jobRole && ' (select a job role first)'}
-             </label>
+             </label>}
            </div>
          : <div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No catalogue tasks — use Custom task'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
          {!taskTitlesLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} task(s)</div>}
@@ -562,8 +807,17 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
          {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
        </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
-      <Field label="Repeat Once in every *" span={4}><Select value={repeatDays} onChange={setRepeatDays} options={Array.from({ length: 14 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} day${index ? 's' : ''}` }))} /></Field>
-      <Field label="Repeat until *" span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={new Date().toISOString().slice(0, 10)} /></Field>
+      {/* RECURRENCE IS A CREATE-TIME INSTRUCTION, NOT A FIELD ON A TASK.
+          "Repeat once in every N days" is how many rows to write, and the rows
+          are already written. Showing it on an edit form would imply a saved
+          task could be re-spread over the calendar; it cannot, and the update
+          endpoint has nowhere to put it. */}
+      {!isEdit && <Field label="Repeat Once in every *" span={4}><Select value={repeatDays} onChange={setRepeatDays} options={Array.from({ length: 14 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} day${index ? 's' : ''}` }))} /></Field>}
+      {/* Same column, two honest names: on create it is the last date to repeat
+          until; on a saved row it is simply that row's due date. No `min` in
+          edit mode - an existing task's due date is often already in the past,
+          and a browser that refuses to show it makes the field unusable. */}
+      <Field label={isEdit ? 'Due date *' : 'Repeat until *'} span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? undefined : new Date().toISOString().slice(0, 10)} /></Field>
       <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>
       {/* WHAT THIS TASK BUILDS — the competency mapping, at the moment of
           judgement rather than on a matrix screen nobody opens.
@@ -603,7 +857,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
       <Field label="Key Result Areas (KRAs)" span={4}><Input value={kra} onChange={setKra} /></Field>
       <Field label="Performance Indicators (KPIs)" span={4}><Input value={kpa} onChange={setKpa} /></Field>
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
-      <Field label="Attachment" span={4}><div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
+      <Field label="Attachment" span={4}>{isEdit && original?.attachment?.name && !attachment && <p className="mb-1.5 text-[11px] text-muted-foreground">Currently: <span className="font-medium text-foreground">{original.attachment.name}</span> — choosing a file replaces it, keeping this one as an earlier version.</p>}<div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
       <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
 
       {/* Project delivery. Optional: routine role work belongs to nobody's
@@ -643,8 +897,18 @@ export function CreateTaskModal({ isOpen, onClose, onCreated }: Props) {
     </div>}
     </>}
     </div>
-    {!showRoleBulk && <div className="flex shrink-0 justify-center gap-2 border-t bg-background p-4"><Button variant="outline" onClick={close}>Cancel</Button><Button className="rounded-full px-8" onClick={submit} disabled={loading || saving}>{saving ? 'Submitting…' : 'Submit'}</Button></div>}
+    {!showRoleBulk && <div className="flex shrink-0 justify-center gap-2 border-t bg-background p-4"><Button variant="outline" onClick={close}>Cancel</Button><Button className="rounded-full px-8" onClick={() => void (isEdit ? saveEdit() : submit())} disabled={loading || saving}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Submit'}</Button></div>}
   </SheetContent></Sheet>
+}
+
+/**
+ * Split one of the task row's comma-joined lists.
+ *
+ * The legacy writer joins with `' , '`, older rows with a bare `','`, and some
+ * carry a trailing separator. All three have to read back as the same list.
+ */
+function splitList(value: string | null | undefined): string[] {
+  return String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean)
 }
 
 function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 8 ? 'md:col-span-8' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }

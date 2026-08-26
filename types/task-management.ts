@@ -289,6 +289,21 @@ export interface WorkspaceTask {
    * today. A task without one is a single-day chip, never a fabricated span.
    */
   planned_start_date?: string | null
+  /*
+   * EDIT-ONLY FIELDS. Returned by `GET /workspace/{id}` and never by the list,
+   * so they are optional on the type. The edit form needs them because the
+   * task update is a FULL REPLACE - a field it cannot read is a field it would
+   * blank on save.
+   */
+  kra?: string | null
+  kpa?: string | null
+  /** Skill names, comma-joined. Display text. */
+  required_skills?: string | null
+  /** The ids behind those names, comma-joined. What the capability chain uses. */
+  skill_id?: string | null
+  observation_point?: string | null
+  /** The workstream inside `project_id`. Single-task read only. */
+  workstream_id?: string | null
   due_date: string | null
   remarks: string | null
   approved: boolean
