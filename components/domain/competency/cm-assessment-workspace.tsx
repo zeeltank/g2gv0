@@ -50,6 +50,7 @@ import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
 // is where an HR user already comes to create an assessment — a separate menu
 // would need its own rights row to say the same thing twice.
 import { CmAssessmentGenerator } from './cm-assessment-generator'
+import { CmAssessmentConsole } from './cm-assessment-console'
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
 
 export function CmAssessmentWorkspace() {
@@ -266,8 +267,13 @@ export function CmAssessmentWorkspace() {
 
       {/* Main Studio Area */}
       {activeTab === 'campaigns' && (
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col gap-6">
           <CmAssessmentGenerator />
+          {/* The generator only ever showed a four-row summary of what it wrote.
+              This is where the questions themselves become readable, where a
+              test gets assigned, where a written answer gets marked, and where
+              a result becomes a rating. */}
+          <CmAssessmentConsole />
         </div>
       )}
 

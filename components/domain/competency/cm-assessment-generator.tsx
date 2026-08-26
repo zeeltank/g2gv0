@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
-import { aiAssessmentService, type GenerateResult } from '@/services/competency/ai-assessment'
+import { aiAssessmentService, type GenerateResult, type ScopeOptions } from '@/services/competency/ai-assessment'
 
 /**
  * HR / ADMIN — GENERATE, REVIEW, PUBLISH an AI capability assessment.
@@ -43,6 +44,24 @@ export function CmAssessmentGenerator() {
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [published, setPublished] = useState<string | null>(null)
 
+  /*
+   * WHAT THE TEST IS ABOUT.
+   *
+   * The API has accepted three scopes for a while; this form only ever sent a
+   * job role, so "every KASBA item of every competency this role requires" was
+   * the only test anybody could build. That is the right default and a poor
+   * only option: it is also the most expensive generation and the longest sitting.
+   */
+  const [scopeType, setScopeType] = useState<'jobrole' | 'competency' | 'kasba_item'>('jobrole')
+  const [competencyId, setCompetencyId] = useState('')
+  const [kasbaItemId, setKasbaItemId] = useState('')
+  const [scope, setScope] = useState<ScopeOptions | null>(null)
+  const [scopeLoading, setScopeLoading] = useState(false)
+  // Blank on purpose, all three. See the notes beside each control.
+  const [timeLimit, setTimeLimit] = useState('')
+  const [passPercent, setPassPercent] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+
   const loadRoles = useCallback(async () => {
     try {
       const res = await aiAssessmentService.jobroles(getLaravelContext(user))
@@ -60,6 +79,39 @@ export function CmAssessmentGenerator() {
     void loadRoles()
   }, [loadRoles])
 
+  // One request per role, holding everything the pickers need. The largest role
+  // on either database has 5 competencies and 20 items, so there is nothing to
+  // paginate and nothing to search.
+  useEffect(() => {
+    if (!roleId) { setScope(null); return }
+    let active = true
+    setScopeLoading(true)
+    setCompetencyId('')
+    setKasbaItemId('')
+    aiAssessmentService.scopeOptions(Number(roleId), getLaravelContext(user))
+      .then((r) => { if (active) setScope(r.data) })
+      .catch(() => { if (active) setScope(null) })
+      .finally(() => { if (active) setScopeLoading(false) })
+    return () => { active = false }
+  }, [roleId, user])
+
+  const competencies = scope?.competencies ?? []
+  const chosenCompetency = competencies.find((c) => String(c.id) === competencyId)
+
+  /*
+   * HOW MANY QUESTIONS THIS WILL ASK FOR, BEFORE IT ASKS.
+   *
+   * Generation calls a paid model. A whole role at 3 questions per item is 60
+   * questions; one KASBA item at 1 is one. Those are very different requests
+   * and the difference was invisible until the bill arrived.
+   */
+  const itemCount = scopeType === 'kasba_item'
+    ? (kasbaItemId ? 1 : 0)
+    : scopeType === 'competency'
+      ? (chosenCompetency?.items.length ?? 0)
+      : (scope?.total_items ?? 0)
+  const questionCount = itemCount * (Number(perItem) || 1)
+
   async function generate() {
     if (!roleId) return
     setBusy(true)
@@ -72,6 +124,13 @@ export function CmAssessmentGenerator() {
           jobrole_id: Number(roleId),
           formats: format === 'both' ? ['mcq', 'short_answer'] : [format as 'mcq' | 'short_answer'],
           questions_per_item: Number(perItem) || 1,
+          scope_type: scopeType,
+          competency_id: scopeType === 'competency' ? Number(competencyId) : null,
+          kasba_item_id: scopeType === 'kasba_item' ? Number(kasbaItemId) : null,
+          // Empty string means "not set", which is not the same as zero.
+          time_limit_minutes: timeLimit ? Number(timeLimit) : null,
+          pass_percent: passPercent === '' ? null : Number(passPercent),
+          is_open: isOpen,
         },
         getLaravelContext(user),
       )
@@ -145,8 +204,118 @@ export function CmAssessmentGenerator() {
               placeholder="Per item"
               className="h-9 w-44 bg-background"
             />
-            <Button onClick={() => void generate()} disabled={!roleId || busy}>
-              {busy ? 'Working…' : 'Generate'}
+          </div>
+
+          {/* ── WHAT THE TEST IS ABOUT ──────────────────────────────────── */}
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold text-foreground">What should this assessment cover?</p>
+
+            <div className="flex w-fit items-center rounded-lg border bg-background p-0.5 text-xs font-medium">
+              {([
+                ['jobrole', 'The whole job role'],
+                ['competency', 'One competency'],
+                ['kasba_item', 'One KASBA item'],
+              ] as const).map(([value, label]) => (
+                <button key={value} type="button" disabled={!roleId}
+                  onClick={() => { setScopeType(value); setCompetencyId(''); setKasbaItemId('') }}
+                  className={cn('rounded-md px-3 py-1.5 transition disabled:opacity-40',
+                    scopeType === value ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {scopeType !== 'jobrole' && (
+              <div className="flex flex-wrap items-end gap-2">
+                <Select
+                  options={[
+                    { label: scopeLoading ? 'Loading…' : 'Select a competency', value: '' },
+                    ...competencies.map((c) => ({
+                      label: `${c.name} (${c.items.length} item${c.items.length === 1 ? '' : 's'})`,
+                      value: String(c.id),
+                    })),
+                  ]}
+                  value={competencyId}
+                  onChange={(v) => { setCompetencyId(v); setKasbaItemId('') }}
+                  /* Disabled until a role is chosen: an enabled empty select
+                     reads as "there is nothing" rather than "choose the thing
+                     above first". */
+                  disabled={!roleId || scopeLoading}
+                  placeholder="Competency"
+                  className="h-9 w-72 bg-background"
+                />
+
+                {scopeType === 'kasba_item' && (
+                  <Select
+                    options={[
+                      { label: 'Select a KASBA item', value: '' },
+                      ...(chosenCompetency?.items ?? []).map((it) => ({
+                        label: `[${it.kasba_type}] ${it.label}`,
+                        value: String(it.id),
+                      })),
+                    ]}
+                    value={kasbaItemId}
+                    onChange={setKasbaItemId}
+                    disabled={!competencyId}
+                    placeholder="KASBA item"
+                    className="h-9 w-96 bg-background"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* The size of what is about to be asked for, before it is asked. */}
+            {roleId && (
+              <p className="text-xs text-muted-foreground">
+                {itemCount > 0
+                  ? <>This will ask for <strong className="text-foreground">{itemCount} item(s) × {Number(perItem) || 1} = {questionCount} question(s)</strong>. Generation calls a paid model.</>
+                  : scopeLoading ? 'Reading what this role covers…'
+                    : scopeType === 'jobrole' ? 'This role has nothing mapped to assess.'
+                      : 'Choose the part of the role to assess.'}
+              </p>
+            )}
+          </div>
+
+          {/* ── HOW IT IS SAT ───────────────────────────────────────────── */}
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/20 p-3">
+            <label className="text-xs font-medium text-muted-foreground">
+              Time limit (minutes)
+              <input type="number" min={1} max={480} value={timeLimit}
+                onChange={(e) => setTimeLimit(e.target.value)} placeholder="untimed"
+                className="mt-1 block h-9 w-32 rounded-md border bg-background px-2 text-sm" />
+              <span className="mt-0.5 block text-[11px]">Blank = no limit.</span>
+            </label>
+
+            <label className="text-xs font-medium text-muted-foreground">
+              Pass mark (%)
+              <input type="number" min={0} max={100} value={passPercent}
+                onChange={(e) => setPassPercent(e.target.value)} placeholder="none"
+                className="mt-1 block h-9 w-32 rounded-md border bg-background px-2 text-sm" />
+              {/* Blank and zero are different tests, and a placeholder cannot
+                  carry that on its own. */}
+              <span className="mt-0.5 block text-[11px]">Blank = reports a score, claims no pass or fail.</span>
+            </label>
+
+            <label className="flex items-center gap-2 pb-1 text-xs font-medium text-muted-foreground">
+              <input type="checkbox" checked={isOpen} onChange={(e) => setIsOpen(e.target.checked)} />
+              <span>
+                Open to everyone
+                <span className="block text-[11px] font-normal">
+                  Off = the target job role, plus anyone assigned.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <Button
+              onClick={() => void generate()}
+              /* Cannot be pressed into a request the server would refuse. */
+              disabled={busy || !roleId
+                || (scopeType === 'competency' && !competencyId)
+                || (scopeType === 'kasba_item' && !kasbaItemId)}
+            >
+              {busy ? 'Working…' : questionCount > 0 ? `Generate ${questionCount} question(s)` : 'Generate'}
             </Button>
           </div>
         </div>
