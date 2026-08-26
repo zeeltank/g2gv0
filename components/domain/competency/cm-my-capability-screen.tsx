@@ -128,6 +128,22 @@ export function CmMyCapabilityScreen() {
     }
   }, [])
 
+  /*
+   * THE ASSESSMENT IS NOT PART OF THE GAP, AND MUST NOT SHARE ITS FATE.
+   *
+   * <CmMyAssessment /> used to sit at the bottom of this component, AFTER four
+   * early returns for the capability-gap fetch: loading, no-role, gated and
+   * error. So if the gap call 422'd (no job role), 409'd (readiness gate) or
+   * simply failed, the employee never saw a published assessment they were
+   * perfectly entitled to take - two features with completely independent
+   * preconditions, coupled by nothing but render order.
+   *
+   * It is rendered FIRST now and outside every one of those branches, because
+   * `/competency/ai-assessment/mine` answers for itself: it returns its own
+   * empty state with its own reason, and needs nothing this screen fetched.
+   */
+  const assessment = <CmMyAssessment />
+
   if (state === 'loading') {
     // SKELETON, NOT A SENTENCE. The design system ships one; a hand-written
     // "Loading…" line is a second loading language in the same product, and it
@@ -140,6 +156,10 @@ export function CmMyCapabilityScreen() {
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
+        {/* THE ASSESSMENT SURVIVES THIS BRANCH.
+            Whatever the capability gap could not answer, a published assessment
+            is still takeable - it depends on none of it. */}
+        {assessment}
       </div>
     )
   }
@@ -160,6 +180,10 @@ export function CmMyCapabilityScreen() {
             'This page then shows where you stand.',
           ]}
         />
+        {/* THE ASSESSMENT SURVIVES THIS BRANCH.
+            Whatever the capability gap could not answer, a published assessment
+            is still takeable - it depends on none of it. */}
+        {assessment}
       </div>
     )
   }
@@ -193,6 +217,10 @@ export function CmMyCapabilityScreen() {
             Technical detail for your IT team: {gate.message}
           </p>
         )}
+        {/* THE ASSESSMENT SURVIVES THIS BRANCH.
+            Whatever the capability gap could not answer, a published assessment
+            is still takeable - it depends on none of it. */}
+        {assessment}
       </div>
     )
   }
@@ -213,6 +241,11 @@ export function CmMyCapabilityScreen() {
             </Button>
           }
         />
+        {/* THE BRANCH THAT MOST NEEDED THIS. A failure fetching the capability
+            gap says nothing about whether an assessment is takeable, and
+            hiding one because an unrelated call failed is how a published
+            test becomes invisible. */}
+        {assessment}
       </div>
     )
   }
@@ -222,7 +255,7 @@ export function CmMyCapabilityScreen() {
       <CmMyCapability gap={gap} />
       {/* Takes no props. It cannot be pointed at another person because it
           accepts no subject — the endpoints behind it have no user_id. */}
-      <CmMyAssessment />
+      {assessment}
     </div>
   )
 }

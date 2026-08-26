@@ -9,6 +9,9 @@ const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
 const LmsGovernance = createLazyComponent(() => import('@/domain/lms/governance').then((m) => ({ default: m.LmsGovernance })))
 const CmAssessmentWorkspace = createLazyComponent(() => import('@/domain/competency/cm-assessment-workspace').then((m) => ({ default: m.CmAssessmentWorkspace })))
+// The EMPLOYEE's own assessment. Deliberately a different component from the
+// workspace above: that one is admin/hr and renders correct answers.
+const CmMyAssessment = createLazyComponent(() => import('@/domain/competency/cm-my-assessment').then((m) => ({ default: m.CmMyAssessment })))
 
 // accessLink is the stable tblmenumaster_g2g column (LMS, module id 4);
 // submenuId is kept as a fallback.
@@ -17,6 +20,7 @@ export const M4_CONTENT: ContentRoute[] = [
   { accessLink: '/module/lms/learning/learning-dashboard', submenuId: '80', component: LmsDashboard }, // Learning Dashboard
   { accessLink: '/module/lms/learning/learning-catalog', submenuId: '182', component: LearningCatalog }, // Learning Catalog
   { accessLink: '/module/lms/learning/my-learning', submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
+  { accessLink: '/module/lms/learning/my-assessment', submenuId: '301', component: CmMyAssessment }, // My Assessment — beside My Learning, added 2026-08-26
   { accessLink: '/module/lms/administration/course-builder', submenuId: '84', component: CreateCoursePage }, // Course Builder
   { accessLink: '/module/lms/training-and-records/assignments', submenuId: '81', component: LearningAssignments }, // Assignments
   { accessLink: '/module/lms/training-and-records/sessions-and-calendar', submenuId: '82', component: SessionsCalendar }, // Sessions & Calendar

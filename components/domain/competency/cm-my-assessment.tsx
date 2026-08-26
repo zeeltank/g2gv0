@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck, Clock3 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -12,6 +13,7 @@ import { RadioGroup, Radio } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { aiAssessmentService, type AiQuestion, type MyTestResult } from '@/services/competency/ai-assessment'
+import { CmAssessmentResult } from './cm-assessment-result'
 
 /**
  * THE EMPLOYEE'S ASSESSMENT — the screen the whole AI assessment backend was
@@ -37,6 +39,17 @@ export function CmMyAssessment() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [draft, setDraft] = useState<Record<number, { selected_option?: string; answer_text?: string }>>({})
+  /*
+   * THE CLOCK IS THE SERVER'S, NOT THIS COMPONENT'S.
+   *
+   * `secondsLeft` is seeded from what start() returned and then counted down
+   * locally so the number moves. It is never the authority: a refresh re-asks
+   * the server, and the server measures from `started_at`, so closing the tab
+   * does not hand anybody more time.
+   */
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
+  const [attemptId, setAttemptId] = useState<number | null>(null)
+  const [showResult, setShowResult] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,6 +80,46 @@ export function CmMyAssessment() {
     void load()
   }, [load])
 
+  // Opening the test starts the sitting. Doing it here rather than behind a
+  // "Begin" button means the clock starts when the questions become readable,
+  // which is the honest moment - not when somebody notices a button.
+  useEffect(() => {
+    const testId = state?.test?.id
+    if (!testId || state?.submitted) return
+    let active = true
+    aiAssessmentService
+      .start(Number(testId), getLaravelContext(user))
+      .then((res) => {
+        if (!active) return
+        setAttemptId(res.attempt_id)
+        setSecondsLeft(res.seconds_remaining)
+      })
+      .catch(() => { /* a test with no limit still works; the clock is optional */ })
+    return () => { active = false }
+  }, [state?.test?.id, state?.submitted, user])
+
+  // One tick a second, and only while there is time to count.
+  useEffect(() => {
+    if (secondsLeft === null || secondsLeft <= 0) return
+    const timer = window.setInterval(() => {
+      setSecondsLeft((current) => (current === null ? null : Math.max(0, current - 1)))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [secondsLeft === null])
+
+  /*
+   * TIME UP SUBMITS WHAT IS THERE.
+   *
+   * The alternative - locking the form and making them press a button - loses
+   * the answers of anybody who walked away, which punishes them twice.
+   */
+  useEffect(() => {
+    if (secondsLeft === 0 && !saving && state?.questions?.length && !state?.submitted) {
+      void submit(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft])
+
   const answeredNow = useMemo(
     () =>
       Object.values(draft).filter(
@@ -75,7 +128,7 @@ export function CmMyAssessment() {
     [draft],
   )
 
-  async function submit() {
+  async function submit(final = false) {
     if (!state?.questions?.length) return
     setSaving(true)
     setError(null)
@@ -93,7 +146,7 @@ export function CmMyAssessment() {
           answer_text: d.answer_text ?? null,
         }))
 
-      const res = await aiAssessmentService.submitAnswers(answers, getLaravelContext(user))
+      const res = await aiAssessmentService.submitAnswers(answers, getLaravelContext(user), final)
 
       // The server's own counts, shown rather than summarised away. `dropped`
       // is never silent: it means a question id was not part of this person's
@@ -108,6 +161,27 @@ export function CmMyAssessment() {
           .filter(Boolean)
           .join(' · '),
       )
+
+      if (final && res.result) {
+        /*
+         * Marking is asked for SEPARATELY, and only once the answers are
+         * already safe. It is an HTTP call to a model with a two-minute
+         * timeout; if it is slow, or the account is out of credit, the person
+         * still has a submitted assessment and a score for everything that
+         * could be marked automatically.
+         */
+        if (res.result.marking_pending && res.result.attempt_id) {
+          setNotice('Submitted. Marking your written answers…')
+          try {
+            await aiAssessmentService.markMine(res.result.attempt_id, getLaravelContext(user))
+          } catch {
+            // Left for a person to mark. Never scored zero.
+          }
+        }
+        setShowResult(true)
+        return
+      }
+
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Your answers were not saved.')
@@ -128,6 +202,13 @@ export function CmMyAssessment() {
         </div>
       </div>
     )
+  }
+
+  // Straight to the result after submitting, and whenever the server says this
+  // sitting is already finished. Re-rendering the paper for a test that has
+  // been handed in invites somebody to answer it again into a void.
+  if (showResult || state?.submitted) {
+    return <CmAssessmentResult onRetake={showResult ? () => { setShowResult(false); void load() } : undefined} />
   }
 
   // The server distinguishes "no job role" from "nothing published for your
@@ -158,7 +239,23 @@ export function CmMyAssessment() {
           <span className="text-xs tabular-nums text-muted-foreground">
             {answeredNow} of {total} answered · {total - answeredNow} outstanding
           </span>
+          {/* Only shown when the test actually has a limit. A clock on an
+              untimed test would invent pressure nobody asked for. */}
+          {secondsLeft !== null && (
+            <span className={cn('ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium tabular-nums',
+              secondsLeft <= 60 ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                : secondsLeft <= 300 ? 'border-warning/40 bg-warning/10 text-warning'
+                : 'border-border text-muted-foreground')}>
+              <Clock3 className="size-3.5" aria-hidden="true" />
+              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')} left
+            </span>
+          )}
         </div>
+        {secondsLeft !== null && secondsLeft <= 60 && (
+          <p className="text-xs text-destructive">
+            When the time runs out this submits whatever you have answered. Nothing is lost.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -208,12 +305,21 @@ export function CmMyAssessment() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => void submit()} disabled={saving || answeredNow === 0}>
-          {saving ? 'Saving…' : 'Submit answers'}
+        {/* TWO ACTIONS, BECAUSE THEY ARE TWO DIFFERENT DECISIONS.
+            Save keeps your place. Submit ends the sitting and produces a
+            result. Collapsing them into one button means someone saving their
+            progress accidentally hands in a half-finished test. */}
+        <Button variant="outline" onClick={() => void submit(false)} disabled={saving || answeredNow === 0}>
+          {saving ? 'Saving…' : 'Save and continue later'}
+        </Button>
+        <Button onClick={() => void submit(true)} disabled={saving || answeredNow === 0}>
+          {saving ? 'Submitting…' : 'Submit assessment'}
         </Button>
         <p className="text-xs text-muted-foreground">
-          Written answers are reviewed by your HR team. Submitting does not change your proficiency
-          level.
+          {answeredNow < total
+            ? `${total - answeredNow} question(s) unanswered — those score nothing, and are not marked wrong.`
+            : 'All questions answered.'}{' '}
+          Submitting does not change your proficiency level; any rating it suggests is reviewed first.
         </p>
       </div>
     </div>
