@@ -56,13 +56,23 @@ export function TaskWorkspace() {
    * only way to change a task was the My Tasks drawer - which is a different
    * screen, shows only your own work, and wrote through the legacy web route.
    *
-   * The form covers EXACTLY the eight fields `updateWorkspaceTask` accepts.
-   * Reusing CreateTaskModal was considered and rejected: it collects projects,
-   * workstreams, dependencies, competencies, attachments and bulk rows, none
-   * of which this endpoint saves - it would show fifteen fields of which seven
-   * silently do nothing.
+   * There are now TWO writes here, and the split is deliberate:
+   *
+   *   EDIT TASK opens CreateTaskModal in edit mode - the assign form, prefilled
+   *   - because that is the form people learned and the one that covers KRA,
+   *   KPA, skills, monitoring points, the project link and dependencies.
+   *
+   *   UPDATE STATUS stays inline, because a status move is not a field edit:
+   *   it follows the workflow's transition rules and carries a remark.
+   *
+   * An earlier revision put eight fields inline here on the grounds that
+   * `updateWorkspaceTask` saves exactly eight. That was true of the endpoint
+   * and wrong for the people using it - it was a second, unfamiliar answer to
+   * "what does a task consist of".
    */
   const [editing, setEditing] = useState(false)
+  /** The task whose full edit form is open, or null. */
+  const [editTaskId, setEditTaskId] = useState<string | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
   const [form, setForm] = useState({
     title: '', description: '', assignee_id: '', owner_id: '',
@@ -248,64 +258,35 @@ export function TaskWorkspace() {
 
       {editing ? (
         <div className="space-y-4 p-5">
+          {/* MOVING A TASK ALONG, NOT REWRITING IT.
+              Editing the task's own fields is the assign form's job now (the
+              Edit Task button below opens it). What is left here is the pair
+              that form has no place for: a task's status is a workflow move
+              with its own rules, and remarks are the note attached to making
+              it. Keeping them here means the drawer still does everything it
+              did before, without two forms both claiming to edit a task. */}
           <div className="space-y-1">
-            <label htmlFor="edit-title" className="text-xs font-semibold text-muted-foreground">Title</label>
-            <input id="edit-title" value={form.title} onChange={(event) => setForm((f) => ({ ...f, title: event.target.value }))}
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
+            <span className="text-xs font-semibold text-muted-foreground">Status</span>
+            <Select value={form.status} onChange={(value) => setForm((f) => ({ ...f, status: value }))}
+              options={statusOptions.length
+                ? statusOptions.map((option) => ({ value: option.is_system ? option.category : option.name, label: option.name }))
+                : [{ value: form.status, label: form.status }]} />
           </div>
-
           <div className="space-y-1">
-            <label htmlFor="edit-description" className="text-xs font-semibold text-muted-foreground">Description</label>
-            <textarea id="edit-description" value={form.description} onChange={(event) => setForm((f) => ({ ...f, description: event.target.value }))}
-              rows={3} className="w-full rounded-lg border bg-background p-3 text-sm" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-muted-foreground">Assignee</span>
-              {/* The task's CURRENT person is always an option, so a failed
-                  lookup cannot blank a field the endpoint requires. */}
-              <Select value={form.assignee_id} onChange={(value) => setForm((f) => ({ ...f, assignee_id: value }))}
-                options={optionsWith(people, selected.assignee_id, selected.assignee)} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-muted-foreground">Owner</span>
-              <Select value={form.owner_id} onChange={(value) => setForm((f) => ({ ...f, owner_id: value }))}
-                options={optionsWith(people, selected.owner_id, selected.owner)} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-muted-foreground">Status</span>
-              <Select value={form.status} onChange={(value) => setForm((f) => ({ ...f, status: value }))}
-                options={statusOptions.length
-                  ? statusOptions.map((option) => ({ value: option.is_system ? option.category : option.name, label: option.name }))
-                  : [{ value: form.status, label: form.status }]} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-muted-foreground">Priority</span>
-              <Select value={form.priority} onChange={(value) => setForm((f) => ({ ...f, priority: value }))}
-                options={(priorityOptions.length ? priorityOptions : [form.priority].filter(Boolean)).map((name) => ({ value: name, label: name }))} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="edit-due" className="text-xs font-semibold text-muted-foreground">Due date</label>
-              <input id="edit-due" type="date" value={form.due_date} onChange={(event) => setForm((f) => ({ ...f, due_date: event.target.value }))}
-                className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="edit-remarks" className="text-xs font-semibold text-muted-foreground">Remarks</label>
-              <input id="edit-remarks" value={form.remarks} onChange={(event) => setForm((f) => ({ ...f, remarks: event.target.value }))}
-                className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
-            </div>
+            <label htmlFor="edit-remarks" className="text-xs font-semibold text-muted-foreground">Remarks</label>
+            <input id="edit-remarks" value={form.remarks} onChange={(event) => setForm((f) => ({ ...f, remarks: event.target.value }))}
+              placeholder="Why it moved" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
           </div>
 
           {/* Said before they try it, not after a 422. The server enforces the
               same rule; this only saves them the round trip. */}
           <p className="text-xs text-muted-foreground">
-            You can edit tasks you own, created, or are assigned to. Status moves follow the
+            You can update tasks you own, created, or are assigned to. Status moves follow the
             workflow — a completed task reopens to In Progress, never back to Pending.
           </p>
 
           <div className="flex gap-2">
-            <Button onClick={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Save changes'}</Button>
+            <Button onClick={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Update status'}</Button>
             <Button variant="outline" onClick={() => { setEditing(false); setError('') }} disabled={savingEdit}>Cancel</Button>
           </div>
         </div>
@@ -314,7 +295,10 @@ export function TaskWorkspace() {
         <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusText(selected)], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusText(selected)} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
         {selected.status === 'COMPLETED' && !selected.approved && <div className="flex gap-2"><Button onClick={() => void decide(selected, 'approve')}>Approve</Button><Button variant="outline" onClick={() => void decide(selected, 'reject')}>Reject</Button></div>}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => openEdit(selected)}>Edit Task</Button>
+          {/* THE SAME FORM THE TASK WAS CREATED WITH. Same fields, same order,
+              same labels - prefilled and saving an update. */}
+          <Button onClick={() => setEditTaskId(selected.id)}>Edit Task</Button>
+          <Button variant="outline" onClick={() => openEdit(selected)}>Update status</Button>
           {/* `danger` is not a token here either - globals.css defines
               --color-destructive, so this button rendered with default text. */}
           <Button variant="outline" className="text-destructive" onClick={() => void archive(selected)}>Archive Task</Button>
@@ -322,6 +306,11 @@ export function TaskWorkspace() {
       </div>
       )}</>}</SheetContent></Sheet>
     <CreateTaskModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(value) => { setMessage(value); setReload((current) => current + 1) }} />
+    {/* Keyed on the task id so opening a different task remounts the form
+        rather than showing the previous one's values while the new task loads. */}
+    {editTaskId && <CreateTaskModal key={editTaskId} isOpen editTaskId={editTaskId}
+      onClose={() => setEditTaskId(null)}
+      onUpdated={(value) => { setEditTaskId(null); setSelected(null); setMessage(value); setReload((current) => current + 1) }} />}
   </div>
 }
 

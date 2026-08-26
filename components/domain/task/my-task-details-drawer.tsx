@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { PriorityBadge } from './priority-badge'
 import { Spinner } from '@/components/ui/spinner'
 import { taskService } from '@/services/task'
+import { CreateTaskModal } from './create-task-modal'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import type { DeadlineExtension, MyTask, TaskStatus, TaskStatusOption } from '@/types/task-management'
 
@@ -53,13 +54,8 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  /** Whether the shared assign/edit form is open over this drawer. */
   const [editing, setEditing] = useState(false)
-  const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
-  const [editTitle, setEditTitle] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editAssignee, setEditAssignee] = useState('')
-  const [editPriority, setEditPriority] = useState('Medium')
-  const [editDueDate, setEditDueDate] = useState('')
   // Deadline extensions: the executor asks for more time from this drawer,
   // the owner decides here too. Approval moves the due date server-side.
   const [extensions, setExtensions] = useState<DeadlineExtension[]>([])
@@ -111,11 +107,6 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
         setTask(response.data)
         setStatus(response.data.status_label || response.data.status)
         setRemarks(response.data.remarks ?? '')
-        setEditTitle(response.data.title)
-        setEditDescription(response.data.description)
-        setEditAssignee(response.data.assignee_id ?? '')
-        setEditPriority(response.data.priority ?? response.data.task_type ?? 'Medium')
-        setEditDueDate(response.data.due_date ?? '')
       })
       .catch((reason: unknown) => {
         if (active) setError(reason instanceof Error ? reason.message : 'Unable to load this task.')
@@ -151,40 +142,6 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
     }
   }
 
-  async function startEditing() {
-    const context = getLaravelContext()
-    setError('')
-    try {
-      const users = await taskService.getAssignmentUsers(context)
-      setEmployees(users.map((user) => ({
-        id: String(user.id),
-        name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
-      })))
-      setEditing(true)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load employees.')
-    }
-  }
-
-  async function saveTask() {
-    if (!task || !editTitle.trim() || !editAssignee || !editDueDate) {
-      setError('Title, assignee, and due date are required.')
-      return
-    }
-    setSaving(true); setError(''); setMessage('')
-    try {
-      const response = await taskService.updateLegacyTask(getLaravelContext(), task.id, {
-        title: editTitle.trim(), description: editDescription.trim(), assigneeId: editAssignee,
-        observerId: task.owner_id ?? '', priority: editPriority, dueDate: editDueDate, status: task.status,
-      })
-      if (!legacyOk(response)) throw new Error(response.message)
-      setMessage(response.message); setEditing(false); onUpdated()
-      const refreshed = await taskService.getMyTask(getLaravelContext(), task.id)
-      setTask(refreshed.data)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to update the task.')
-    } finally { setSaving(false) }
-  }
 
   async function deleteTask() {
     if (!task || !window.confirm(`Delete "${task.title}"?`)) return
@@ -257,19 +214,15 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
             <div className="space-y-6">
               {task.owner_id === getLaravelContext().userId && (
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => editing ? setEditing(false) : void startEditing()}><Edit2 className="mr-2 size-4" />{editing ? 'Cancel Edit' : 'Edit / Reassign'}</Button>
+                  {/* ONE EDIT EXPERIENCE. This used to be five fields inline -
+                      title, description, assignee, priority, due date - written
+                      through a full-replace update, which meant editing a task
+                      here silently blanked its KRA, KPA, skills and monitoring
+                      points. It now opens the same form the task was assigned
+                      with, which can see and save all of them. */}
+                  <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="mr-2 size-4" />Edit / Reassign</Button>
                   <Button variant="outline" className="text-danger" onClick={() => void deleteTask()} disabled={saving}><Trash2 className="mr-2 size-4" />Delete</Button>
                 </div>
-              )}
-              {editing && (
-                <section className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2">
-                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-semibold">Task Title</span><input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm" /></label>
-                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-semibold">Description</span><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-24 w-full rounded-lg border p-3 text-sm" /></label>
-                  <label><span className="mb-1 block text-xs font-semibold">Assignee</span><Select value={editAssignee} onChange={setEditAssignee} options={employees.map((employee) => ({ value: employee.id, label: employee.name }))} /></label>
-                  <label><span className="mb-1 block text-xs font-semibold">Priority</span><Select value={editPriority} onChange={setEditPriority} options={['High','Medium','Low'].map((value) => ({ value, label: value }))} /></label>
-                  <label><span className="mb-1 block text-xs font-semibold">Due Date</span><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm" /></label>
-                  <div className="flex items-end"><Button onClick={() => void saveTask()} disabled={saving}>{saving ? 'Saving…' : 'Save Task'}</Button></div>
-                </section>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Info icon={UserCircle2} label="Assigned to" value={task.assignee} />
@@ -383,6 +336,17 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
           )}
         </div>
       </SheetContent>
+    {/* The assign form, in edit mode, over the drawer. Keyed on the task so it
+        remounts per task rather than showing the last one while this loads. */}
+    {editing && task && <CreateTaskModal key={task.id} isOpen editTaskId={task.id}
+      onClose={() => setEditing(false)}
+      onUpdated={(value) => {
+        setEditing(false); setMessage(value); onUpdated()
+        // Re-read rather than patching local state: the update normalises
+        // things (priority casing, the observer's display name) and the drawer
+        // should show what was saved, not what was typed.
+        void taskService.getMyTask(getLaravelContext(), task.id).then((refreshed) => setTask(refreshed.data)).catch(() => { /* the list behind is already refreshed */ })
+      }} />}
     </Sheet>
   )
 }

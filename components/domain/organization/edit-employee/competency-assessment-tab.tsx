@@ -385,7 +385,15 @@ export function CompetencyAssessmentTab({
   const unmeasured = gap?.coverage?.competencies_unmeasured ?? 0
 
   return (
-    <div className="flex flex-col gap-4">
+    /* SCROLLS ITSELF, like every other tab in this drawer.
+       The drawer body is `flex-1 overflow-hidden` (employee-directory-sheets
+       :694), which is right ONLY because each tab owns its scrolling —
+       personal-info, upload-doc, jobrole-skill, jobrole-tasks and lor all do.
+       This one did not, so anything past the fold was CLIPPED with no way to
+       reach it: expanding the last competency put its atoms, notes and level
+       text under the bottom edge. Fixed here rather than on the parent, which
+       would give the other five a second scrollbar inside the first. */
+    <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
       <div className="flex items-center justify-between gap-3 flex-wrap rounded-xl border border-border bg-background px-4 py-3">
         <p className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{rows.length}</span> competencies required by this role
