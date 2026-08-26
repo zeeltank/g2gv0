@@ -12,6 +12,7 @@ import {
   FolderTree,
   Hexagon,
   LayoutGrid,
+  Merge,
   Plus,
   Search,
   Table as TableIcon,
@@ -19,6 +20,11 @@ import {
 } from 'lucide-react'
 
 import { apiClient } from '@/services/core'
+import { organizationService } from '@/services/organization'
+import {
+  JobRoleMergeDialog,
+  type MergeableRole,
+} from '@/components/domain/organization/department-management/job-role-merge-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -269,6 +275,23 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
   }, [deleteTarget, config.id])
   const [taxonomyOpen, setTaxonomyOpen] = useState(false)
   const [cloning, setCloning] = useState(false)
+  /*
+   * MERGING TWO JOB ROLES.
+   *
+   * Job Role is the only tab that offers this - the other libraries hold items
+   * that are referenced, not held, so folding two of them is a different
+   * operation with different consequences.
+   *
+   * `mergeCandidates` is fetched rather than taken from `items`: this list is
+   * paginated at 25, so the role somebody wants to merge into is very often on
+   * another page. Fetching the source role's own department also means the
+   * candidate list is already the legal set.
+   */
+  const [mergeRole, setMergeRole] = useState<MergeableRole | null>(null)
+  const [mergeCandidates, setMergeCandidates] = useState<MergeableRole[]>([])
+  const [merging, setMerging] = useState(false)
+  const [mergeNote, setMergeNote] = useState<string | null>(null)
+
   const [cloneError, setCloneError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportNote, setExportNote] = useState<string | null>(null)
@@ -499,6 +522,58 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
    * Usage insights and Link to task open the detail popup on the section that
    * answers them, rather than being dead icons that look available.
    */
+  async function openMerge(row: LibraryRow) {
+    setMergeNote(null)
+    const role: MergeableRole = {
+      id: String(row.id),
+      jobrole: String(row.jobrole ?? ''),
+      department: row.department ? String(row.department) : null,
+      department_id: row.department_id ? String(row.department_id) : null,
+      jobrole_category: row.jobrole_category ? String(row.jobrole_category) : null,
+    }
+    setMergeRole(role)
+    setMergeCandidates([])
+
+    // Without a department there is nothing to scope the targets to, and the
+    // server would refuse the merge anyway. The dialog says so rather than
+    // offering a list it cannot honour.
+    if (!role.department_id) return
+
+    try {
+      const response = await organizationService.getDepartmentJobRoles(
+        getLaravelContext(), String(role.department_id),
+      )
+      setMergeCandidates((response?.data ?? []).map((item) => ({
+        id: String(item.id),
+        jobrole: item.jobrole,
+        department: item.department_name ?? role.department,
+        department_id: item.department_id ? String(item.department_id) : role.department_id,
+        jobrole_category: item.jobrole_category ?? null,
+      })))
+    } catch {
+      // An empty list reads as "nothing to merge into", which is the safe
+      // outcome: the button cannot then be confirmed.
+      setMergeCandidates([])
+    }
+  }
+
+  async function confirmMerge(payload: { targetJobRoleId?: string; newJobRoleName?: string; sourceJobRoleIds?: string[] }) {
+    if (!mergeRole) return
+    setMerging(true)
+    try {
+      const response = await organizationService.mergeJobRole(
+        getLaravelContext(), String(mergeRole.id), payload,
+      )
+      setMergeRole(null)
+      setMergeNote(response?.message || 'Job roles merged.')
+      retry()
+    } catch (cause) {
+      setMergeNote(cause instanceof Error ? cause.message : 'Failed to merge job roles.')
+    } finally {
+      setMerging(false)
+    }
+  }
+
   const tileActions: ShapeAction[] = [
     {
       id: 'edit',
@@ -524,6 +599,12 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
         setRichDetail(row)
       },
     },
+    ...(config.id === 'jobrole' ? [{
+      id: 'merge',
+      label: 'Merge into another role',
+      icon: Merge,
+      onSelect: (row: LibraryRow) => void openMerge(row),
+    }] : []),
     {
       id: 'delete',
       label: 'Delete',
@@ -814,7 +895,7 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
       </div>
 
       {/* Action feedback */}
-      {(actionMessage || actionError || cloneError || exportNote) && (
+      {(actionMessage || actionError || cloneError || exportNote || mergeNote) && (
         <div
           className={cn(
             'flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium',
@@ -823,7 +904,7 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
               : 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
           )}
         >
-          <span>{cloneError || actionError || actionMessage || exportNote}</span>
+          <span>{cloneError || actionError || actionMessage || exportNote || mergeNote}</span>
           <button
             onClick={() => {
               clearMessages()
@@ -953,6 +1034,20 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
+                            {config.id === 'jobrole' && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  void openMerge(row)
+                                }}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                aria-label={`Merge ${String(row[config.titleKey] ?? '')} into another role`}
+                                title="Merge into another role in the same department"
+                              >
+                                <Merge className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={(event) => {
@@ -1248,6 +1343,18 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Job Role only. The dialog filters candidates to the source role's own
+          department itself, so it stays correct here even though this list
+          spans every department in the tenant. */}
+      <JobRoleMergeDialog
+        role={mergeRole}
+        roles={mergeCandidates}
+        context={getLaravelContext()}
+        isSaving={merging}
+        onCancel={() => setMergeRole(null)}
+        onMerge={(payload) => void confirmMerge(payload)}
+      />
     </div>
   )
 }

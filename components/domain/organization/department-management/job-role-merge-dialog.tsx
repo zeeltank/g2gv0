@@ -14,17 +14,36 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { organizationService, type DepartmentJobRole, type JobRoleMergeImpact } from '@/services/organization'
+import { organizationService, type JobRoleMergeImpact } from '@/services/organization'
+
+/**
+ * The minimum a role must expose to take part in a merge.
+ *
+ * Deliberately not DepartmentJobRole: this dialog is opened from two screens
+ * whose row shapes differ - Department Management sends `department_name`,
+ * Capability Library sends `department`. Both map into this.
+ */
+export type MergeableRole = {
+  id: number | string
+  jobrole: string
+  department?: string | null
+  department_id?: number | string | null
+  jobrole_category?: string | null
+}
 
 /**
  * Merging one job role into another.
  *
- * ONE DEPARTMENT AT A TIME, ALWAYS. `roles` is the list this department already
- * shows, so a cross-department merge is not something the user can express
- * here. That is not the safeguard though - the server enforces it too, because
- * a role's name is not unique to a department (90 role names on live exist in
- * more than one) and merging across one would rewrite rows that afterwards no
- * department could claim.
+ * ONE DEPARTMENT AT A TIME, ALWAYS - and this dialog enforces that itself
+ * rather than trusting whoever opened it. Department Management hands it one
+ * department's roles; Capability Library hands it EVERY role in the tenant. If
+ * the filtering lived in the caller, the Library would happily offer a
+ * cross-department target and the user would only find out from a 422.
+ *
+ * The rule is not cosmetic: a role's name is not unique to a department (90
+ * role names on live exist in more than one), so merging across one would
+ * rewrite rows that afterwards no department could claim. The server enforces
+ * it a third time.
  *
  * WHY THIS SHOWS MORE THAN A ROW COUNT. A department merge preview only has to
  * answer "how much moves". A job role merge also DECIDES things: when both
@@ -47,10 +66,11 @@ export function JobRoleMergeDialog({
   onMerge,
 }: {
   /** The role being retired, or null when the dialog is closed. */
-  role: DepartmentJobRole | null
-  /** Every role in THIS department - the only legal targets. */
-  roles: DepartmentJobRole[]
-  departmentName: string
+  role: MergeableRole | null
+  /** Candidate roles. May span departments - this filters them. */
+  roles: MergeableRole[]
+  /** Shown when the caller already knows it; otherwise taken from the role. */
+  departmentName?: string
   context: LaravelContext
   isSaving: boolean
   onCancel: () => void
@@ -93,16 +113,38 @@ export function JobRoleMergeDialog({
     return () => { active = false }
   }, [role, target, context])
 
+  /**
+   * Same department, by id where both have one and by name otherwise.
+   *
+   * The same comparison the server makes, for the same reason: department_id is
+   * authoritative, but a handful of live rows carry only the name. A role with
+   * neither is not offered at all - there is nothing to compare it against, and
+   * the server would refuse it.
+   */
+  const sameDepartment = useMemo(() => {
+    if (!role) return () => false
+    const sourceId = role.department_id ? String(role.department_id) : ''
+    const sourceName = String(role.department ?? '').trim().toLowerCase()
+    return (item: MergeableRole) => {
+      const itemId = item.department_id ? String(item.department_id) : ''
+      if (sourceId && itemId) return sourceId === itemId
+      const itemName = String(item.department ?? '').trim().toLowerCase()
+      return Boolean(sourceName) && sourceName === itemName
+    }
+  }, [role])
+
   const candidates = useMemo(() => {
     if (!role) return []
     const query = search.trim().toLowerCase()
     return roles
-      .filter((item) => item.id !== role.id)
+      .filter((item) => String(item.id) !== String(role.id))
+      .filter(sameDepartment)
       .filter((item) => !query || item.jobrole?.toLowerCase().includes(query))
       .sort((a, b) => (a.jobrole ?? '').localeCompare(b.jobrole ?? ''))
-  }, [roles, role, search])
+  }, [roles, role, search, sameDepartment])
 
   const targetRole = roles.find((item) => String(item.id) === target)
+  const department = departmentName || role?.department || 'this department'
 
   const canConfirm = mode === 'existing'
     ? Boolean(target) && impactState !== 'loading'
@@ -126,8 +168,8 @@ export function JobRoleMergeDialog({
           </DialogTitle>
           <DialogDescription>
             Everything on this role — its employees, tasks, skills, competency requirements and
-            plans — moves to the role you choose. Only roles in <strong>{departmentName}</strong> can
-            be chosen; job roles never merge across departments.
+            plans — moves to the role you choose. Only roles in <strong>{department}</strong> can be
+            chosen; job roles never merge across departments.
           </DialogDescription>
         </DialogHeader>
 
@@ -184,12 +226,12 @@ export function JobRoleMergeDialog({
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input value={search} onChange={(event) => setSearch(event.target.value)}
-                  placeholder={`Search roles in ${departmentName}...`} className="h-9 pl-9" />
+                  placeholder={`Search roles in ${department}...`} className="h-9 pl-9" />
               </div>
               <div className="max-h-48 overflow-y-auto rounded-md border border-border">
                 {candidates.length === 0 && (
                   <p className="p-3 text-sm text-muted-foreground">
-                    {departmentName} has no other job role to merge into.
+                    {department} has no other job role to merge into.
                   </p>
                 )}
                 {candidates.map((item) => (
