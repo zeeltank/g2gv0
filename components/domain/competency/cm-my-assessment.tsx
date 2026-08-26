@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, Radio } from '@/components/ui/radio-group'
@@ -269,7 +268,7 @@ export function CmMyAssessment() {
 
       <div className="flex flex-col gap-3">
         {state.questions.map((q: AiQuestion, index) => (
-          <Card key={q.id} className="p-4">
+          <div key={q.id} className="rounded-xl border border-border bg-background p-4">
             <div className="flex flex-col gap-3">
               <p className="text-sm font-medium">
                 <span className="mr-2 text-xs tabular-nums text-muted-foreground">{index + 1}.</span>
@@ -300,7 +299,7 @@ export function CmMyAssessment() {
                 </p>
               )}
             </div>
-          </Card>
+          </div>
         ))}
       </div>
 

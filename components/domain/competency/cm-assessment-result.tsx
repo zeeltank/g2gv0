@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Award, CheckCircle2, Clock3, MinusCircle, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -50,32 +51,33 @@ export function CmAssessmentResult({ onRetake }: { onRetake?: () => void }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 p-6">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-4 w-72" />
-        <Skeleton className="h-20 w-full" />
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
       </div>
     )
   }
 
+  // Error, then empty - never merged. A result that could not be fetched is not
+  // a score of zero, and saying so is the difference between a glitch and a
+  // person believing they failed.
   if (error) {
     return (
-      <Card className="p-5">
-        <p className="text-sm text-destructive">{error}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          This is a problem loading the result, not a score of zero.
-        </p>
-      </Card>
+      <ErrorState
+        title="Your result could not be loaded"
+        description={`${error} This is a problem loading the result, not a score of zero.`}
+        retry={() => window.location.reload()}
+      />
     )
   }
 
   if (!result) {
     return (
-      <Card className="p-5">
-        <p className="text-sm text-muted-foreground">
-          You have not submitted an assessment yet. Your result appears here once you do.
-        </p>
-      </Card>
+      <EmptyState
+        icon={<Award className="size-10" />}
+        title="No result yet"
+        description="You have not submitted an assessment yet. Your score, and what it suggests about your capability, appear here once you do."
+      />
     )
   }
 
@@ -85,7 +87,7 @@ export function CmAssessmentResult({ onRetake }: { onRetake?: () => void }) {
   return (
     <div className="flex flex-col gap-5">
       {/* ── the headline ─────────────────────────────────────────────── */}
-      <Card className="p-5">
+      <div className="rounded-2xl border border-primary/10 bg-card/90 p-5 shadow-sm backdrop-blur-2xl">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your result</p>
@@ -122,11 +124,11 @@ export function CmAssessmentResult({ onRetake }: { onRetake?: () => void }) {
             </span>
           </p>
         )}
-      </Card>
+      </div>
 
       {/* ── what it proposes about you ───────────────────────────────── */}
       {proposals.length > 0 && (
-        <Card className="p-5">
+        <div className="rounded-2xl border border-primary/10 bg-card/90 p-5 shadow-sm backdrop-blur-2xl">
           <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Award className="size-4" aria-hidden="true" />
             What this suggests about your capability
@@ -179,11 +181,11 @@ export function CmAssessmentResult({ onRetake }: { onRetake?: () => void }) {
               )
             })}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* ── question by question ─────────────────────────────────────── */}
-      <Card className="p-5">
+      <div className="rounded-2xl border border-primary/10 bg-card/90 p-5 shadow-sm backdrop-blur-2xl">
         <h4 className="text-sm font-semibold text-foreground">Question by question</h4>
         <p className="mt-1 text-xs text-muted-foreground">
           Your marks. Correct answers are not shown — the assessment is still in use.
@@ -215,7 +217,7 @@ export function CmAssessmentResult({ onRetake }: { onRetake?: () => void }) {
             )
           })}
         </ol>
-      </Card>
+      </div>
 
       {onRetake && (
         <div>
