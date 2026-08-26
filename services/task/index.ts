@@ -551,10 +551,19 @@ export const taskService = {
       type: 'API', token: context.token, sub_institute_id: context.subInstituteId,
       syear: context.syear, user_id: context.userId,
     }).toString()
-    return webClient.putForm<{ status_code: string | number; message: string }>(`/task/${id}?${query}`, body)
+    /*
+     * THE ENVELOPE KEY IS `status`, NOT `status_code`.
+     *
+     * The controller sets $res['status_code'] = "1" and then returns through
+     * is_mobile(), which renames it: the wire actually carries
+     * {"message":"Updated successfully","status":"1"}. Declaring status_code
+     * here made every SUCCESSFUL save read as a failure at the call site.
+     * Both are declared so an older shape, if it ever returns, still resolves.
+     */
+    return webClient.putForm<{ status?: string | number; status_code?: string | number; message: string }>(`/task/${id}?${query}`, body)
   },
   deleteLegacyTask: (context: LaravelContext, id: string) =>
-    webClient.delete<{ status_code: string | number; message: string }>(`/task/${id}`, {
+    webClient.delete<{ status?: string | number; status_code?: string | number; message: string }>(`/task/${id}`, {
       type: 'API', token: context.token, sub_institute_id: context.subInstituteId,
       syear: context.syear, user_id: context.userId,
     }),

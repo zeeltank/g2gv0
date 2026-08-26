@@ -65,6 +65,15 @@ export interface CompetencyLibraryItem {
    * the editor without a second request.
    */
   levels?: CompetencyProficiencyLevel[]
+  /**
+   * Who a change here would reach. Returned by `show()` only.
+   *
+   * A competency's bundle and weights are shared by everyone assessed against
+   * it, so re-weighting an item re-scores employees the editor is not looking
+   * at. `employees_rated` is the number whose LEVEL actually moves;
+   * `roles_requiring` is what matters for a rename.
+   */
+  usage?: { roles_requiring: number; employees_rated: number }
   category: string | null
   sub_category: string | null
   competency_type: string | null
@@ -324,6 +333,24 @@ export const competencyLibraryService = {
     apiClient.get<CompetencyLibraryListResponse<CompetencyLibraryItem[]>>(
       `${BASE}/competency-list`,
       withLaravelParams(context, toStringParams({ ...params })),
+    ),
+
+  /**
+   * One competency's L1–L5 scale — what each level actually means.
+   *
+   * Always five rows, authored or not: the scale has five levels regardless of
+   * how many anyone has described. `is_authored` says whether this competency
+   * overrides the organisation default, and `default_descriptor` carries what
+   * it inherits.
+   *
+   * Read-only here, and read on demand: the employee drawer fetches it when a
+   * competency is expanded, so "L2 versus L3" reads as a difference in
+   * behaviour rather than two numbers.
+   */
+  getLevels: (context: LaravelContext, competencyId: number) =>
+    apiClient.get<{ status: number; data: { levels: CompetencyProficiencyLevel[] } }>(
+      `${BASE}/competency/${competencyId}/levels`,
+      withLaravelParams(context),
     ),
 
   get: (context: LaravelContext, id: number) =>

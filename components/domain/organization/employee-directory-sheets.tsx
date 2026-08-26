@@ -30,7 +30,8 @@ import { kasbaRatingService } from '@/services/competency/kasba-rating'
 import { AddEmployeeSheet } from './employee-directory-parts/add-employee-sheet'
 import { useRouter } from 'next/navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { useAuth } from '@/hooks/use-auth'
+import { CAPABILITY_LIBRARY_ACCESS_LINK, COMPETENCY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 const PersonalInfoTab = lazy(() =>
   import('@/domain/organization/edit-employee/personal-info-tab').then((m) => ({
@@ -218,6 +219,8 @@ function EmployeeOverviewSheet({
   const context = useMemo(() => getLaravelContext(), [])
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
+  // Role only gates what is RENDERED; the server gates what is allowed.
+  const { user } = useAuth()
 
   /** Where a job role gets its competencies attached. */
   const openCapabilityLibrary = () => router.push(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK))
@@ -486,10 +489,28 @@ function EmployeeOverviewSheet({
    * A held label (`item_id` null) resolves to no library row, so it is only
    * addressable by its bundle-entry id.
    */
-  const handleSaveCompetencyRating = async (item: KasbaRatingItem, rating: number) => {
+  const handleSaveCompetencyRating = async (item: KasbaRatingItem, rating: number, note?: string) => {
     if (!employee?.id) return
 
     const label = item.title ?? item.item_label ?? 'item'
+
+    /*
+     * THE NOTE MUST BE RE-SENT, NOT OMITTED.
+     *
+     * My first version omitted `note` when none was passed, on the assumption
+     * that the server would leave the stored one alone. It does the opposite:
+     * both write paths put `note` inside the `updateOrInsert` VALUES, so a
+     * request without it writes NULL. Proved by running it — save a note, then
+     * click a rating number, and the note is gone.
+     *
+     * So the three cases are made explicit:
+     *   note === undefined  -> a rating click: carry the existing note through
+     *   note is non-empty   -> the user wrote one: send it
+     *   note is ''          -> the user cleared it: send nothing, server NULLs
+     */
+    const withNote = note === undefined
+      ? (item.note ? { note: item.note } : {})
+      : (note.length > 0 ? { note } : {})
 
     if (item.item_id != null) {
       const result = await rateKasbaItem(
@@ -498,6 +519,7 @@ function EmployeeOverviewSheet({
           kasbaType: item.kasba_type.toLowerCase() as KasbaType,
           itemId: item.item_id,
           rating,
+          ...withNote,
         },
         context,
       )
@@ -508,6 +530,7 @@ function EmployeeOverviewSheet({
           user_id: Number(employee.id),
           kasba_item_id: item.kasba_item_id,
           rating,
+          ...withNote,
         },
         context,
       )
@@ -778,6 +801,27 @@ function EmployeeOverviewSheet({
                   error={kabaError}
                   onRetry={loadKaba}
                   onSave={handleSaveCompetencyRating}
+                  /* ⚠ HIDES UI ONLY. The route is `profile:admin,hr` matched on
+                     exact role_key server-side; this value is derived by
+                     substring from a profile display name, which is the very
+                     matching the server stopped doing. Good enough to decide
+                     whether to render a button, never good enough to authorise. */
+                  canEditDefinition={user?.role === 'admin' || user?.role === 'hr'}
+                  /* A weight change re-scores the roll-up, so the gap and the
+                     atoms are both re-read - otherwise the tab shows the old
+                     level beside the new weights. */
+                  onDefinitionSaved={() => { void loadKaba() }}
+                  /* Out to the screen that OWNS the definition. A competency's
+                     bundle and scale are shared by everyone assessed against
+                     it, so it is edited in one place, not from inside one
+                     person's drawer. resolveAccessLink also checks the caller
+                     can open the target, so someone without rights degrades
+                     instead of landing on an empty shell. */
+                  onEditDefinition={(competencyId) =>
+                    router.push(
+                      `${resolveAccessLink(COMPETENCY_LIBRARY_ACCESS_LINK)}?competency_id=${competencyId}`,
+                    )
+                  }
                   emptyIsExpected={kabaNotMapped}
                   emptyReason={kabaEmptyReason}
                   ratingRange={kabaRange}
