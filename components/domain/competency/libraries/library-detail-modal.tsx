@@ -22,6 +22,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Workflow,
+  Shield,
+  FileText,
+  Gauge,
   Activity,
   BookOpen,
   Briefcase,
@@ -58,6 +62,8 @@ import type {
 import type { LibraryRow } from '@/services/competency/libraries'
 import type { LibraryTabConfig } from './library-config'
 import { CourseBuilderPanel } from './course-builder-panel'
+import { TaskExecutionPanel } from './task-execution-panel'
+import { EsoPanel } from './eso-panel'
 
 interface LibraryDetailModalProps {
   config: LibraryTabConfig
@@ -102,6 +108,19 @@ function cardsFor(config: LibraryTabConfig): CardDef[] {
       { id: 'skills', label: `${noun} Skills`, icon: Zap, hint: 'Skills that reference it' },
       { id: 'jobroles', label: `${noun} Job Role`, icon: Briefcase, hint: 'Roles that inherit it' },
       { id: 'levels', label: `${noun} Level`, icon: Layers, hint: 'Levels it appears at' },
+    ]
+  }
+
+  // ESO. A job role task had exactly one card - the fields it was typed with -
+  // and nothing about HOW the work is actually done. This is where that lives.
+  if (config.id === 'jobrole-task') {
+    // §6.3 of the ESO document: Overview · Execution · Governance · Evidence.
+    // "Details" is this codebase's name for Overview.
+    return [
+      { id: 'details', label: `${noun} Details`, icon: Info, hint: 'Every recorded field' },
+      { id: 'execution', label: 'Execution Model', icon: Gauge, hint: 'Human, hybrid or automatable' },
+      { id: 'governance', label: 'Governance', icon: Shield, hint: 'Controls, and what must never happen' },
+      { id: 'evidence', label: 'Evidence', icon: FileText, hint: 'What doing this proves' },
     ]
   }
 
@@ -163,7 +182,20 @@ export function LibraryDetailModal({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+
+      /*
+       * ESCAPE BELONGS TO THE INNERMOST THING THAT IS OPEN.
+       *
+       * The house Select portals its listbox to document.body and preventDefaults
+       * Escape without stopping propagation, so this window listener also fired —
+       * dismissing the dropdown AND closing the whole modal, discarding whatever
+       * the user had typed. `components/ui/*` is not ours to edit, so the check
+       * lives here: if any listbox is open, Escape is meant for it.
+       */
+      if (document.querySelector('[role="listbox"]')) return
+
+      onClose()
     }
 
     window.addEventListener('keydown', onKey)
@@ -245,6 +277,25 @@ export function LibraryDetailModal({
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* §6.3: "Generate ESO with AI action next to Build Course".
+                  It opens Governance rather than firing straight away — that
+                  panel owns the generate action and, more importantly, shows
+                  whether this task already has an execution model. A button
+                  that spends money on the first click, with no view of what is
+                  already there, is how duplicates and surprise bills happen. */}
+              {config.id === 'jobrole-task' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setActive('governance')}
+                  className={cn(
+                    'h-9 gap-2 rounded-lg font-bold',
+                    active === 'governance' && 'ring-2 ring-primary ring-offset-2 ring-offset-card',
+                  )}
+                >
+                  <Workflow className="h-4 w-4" /> Generate ESO
+                </Button>
+              )}
+
               <Button
                 onClick={() => setActive('course')}
                 className={cn(
@@ -308,6 +359,16 @@ export function LibraryDetailModal({
               <CourseBuilderPanel data={skill} title={title} record={record} />
             ) : active === 'details' ? (
               <DetailsPanel config={config} record={record} />
+            ) : active === 'governance' || active === 'evidence' ? (
+              <EsoPanel taskId={rowId} section={active as 'governance' | 'evidence'} />
+            ) : active === 'execution' ? (
+              /* Above the loading branch on purpose: this panel loads its own
+                 data, and the modal's `loading` flag only tracks the skill and
+                 KASA fetches, which never run for a job role task. */
+              <TaskExecutionPanel
+                taskId={rowId}
+                jobrole={String(record.jobrole ?? '').trim() || null}
+              />
             ) : loading ? (
               <div className="space-y-3">
                 <Skeleton className="h-24 w-full rounded-xl" />

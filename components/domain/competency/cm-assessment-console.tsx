@@ -5,8 +5,6 @@ import {
   AlertTriangle, CheckCircle2, ClipboardList, Eye, FileQuestion, Send, Users, XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
-import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -25,6 +23,7 @@ import {
 // The people list already exists and is already used by the task assign form.
 // A second one would be a second answer to "who works here".
 import { taskService } from '@/services/task'
+import { LoadState } from './load-state'
 
 /**
  * THE ADMINISTRATOR'S CONSOLE for AI assessments.
@@ -700,64 +699,6 @@ interface TabProps {
   user: ReturnType<typeof useAuth>['user']
   onNotice: (message: string) => void
   onError: (message: string) => void
-}
-
-/**
- * A 404 here means ONE precise thing, and it is worth saying.
- *
- * These endpoints are new. A server running an older build has no route for
- * them, so it answers 404 - which as raw text ("API Error: 404 Not Found")
- * sends people looking for a missing record. It is not missing data, it is a
- * missing deployment, and only one of those is the reader's problem.
- */
-function describeFailure(message: string): { title: string; description: string } {
-  if (/404|not found/i.test(message)) {
-    return {
-      title: 'This screen needs a newer backend',
-      description:
-        'The assessment endpoints are not available on the server this app is talking to. '
-        + 'Nothing is wrong with your data - the server has not been updated yet.',
-    }
-  }
-  return { title: 'Could not load this', description: message }
-}
-
-/**
- * THE LADDER: error, then loading, then empty, then content. Never merged.
- *
- * The first version of this set `rows` to `[]` when a request failed and then
- * rendered "No assessments have been generated yet." underneath the error - so
- * a failed fetch reported itself as an empty organisation. This codebase calls
- * that the dead-bell lie and forbids it in four other places; it earns its own
- * helper here so the three tabs cannot drift back into it.
- */
-function LoadState({ error, rows, onRetry, emptyIcon, emptyTitle, emptyDescription, rowHeight = 'h-14', children }: {
-  error: string | null
-  rows: unknown[] | null
-  onRetry: () => void
-  emptyIcon: React.ReactNode
-  emptyTitle: string
-  emptyDescription: string
-  rowHeight?: string
-  children: React.ReactNode
-}) {
-  if (error) {
-    const { title, description } = describeFailure(error)
-    return <ErrorState title={title} description={description} retry={onRetry} />
-  }
-  // Skeletons SHAPED LIKE THE ROWS, not a grey slab - a loading state should
-  // tell you what is arriving.
-  if (rows === null) {
-    return (
-      <div className="flex flex-col gap-2">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className={cn(rowHeight, 'w-full rounded-xl')} />)}
-      </div>
-    )
-  }
-  if (rows.length === 0) {
-    return <EmptyState className="border-0" icon={emptyIcon} title={emptyTitle} description={emptyDescription} />
-  }
-  return <>{children}</>
 }
 
 /**
