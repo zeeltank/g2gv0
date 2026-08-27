@@ -16,7 +16,7 @@
  * a machine's description of how to do a person's job is a proposal.
  */
 
-import { apiClient } from '@/services/core'
+import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLaravelParams } from '@/lib/laravel-context'
 import type { ExecutionMode } from './task-execution'
@@ -126,6 +126,24 @@ export const esoService = {
 
   remove: (context: LaravelContext, id: number) =>
     apiClient.delete<Envelope<null>>(`/competency/eso/${id}`, withLaravelParams(context)),
+
+  /**
+   * A download URL for one of the two formats.
+   *
+   * Built as a URL rather than fetched, because the browser has to perform the
+   * download — token and tenant travel as query params, the same way the other
+   * export endpoints in this app work.
+   *
+   *   md   for an agent — YAML front matter it can parse, then the body
+   *   pdf  for a person — a printable SOP
+   */
+  exportUrl: (context: LaravelContext, id: number, format: 'md' | 'pdf') =>
+    // `buildApiUrl` already exists for exactly this — a URL the browser
+    // navigates to rather than a request the client fetches.
+    buildApiUrl(`/competency/eso/${id}/export`, {
+      ...(withLaravelParams(context) as Record<string, string>),
+      format,
+    }),
 
   /**
    * The §6.3 "Generate ESO with AI" action. Always lands as Draft /

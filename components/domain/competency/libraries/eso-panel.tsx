@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  AlertTriangle, Ban, Check, FileText, Shield, Sparkles, Workflow,
+  AlertTriangle, Ban, Bot, Check, FileDown, FileText, Shield, Sparkles, Workflow,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -138,6 +138,13 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
 
   const unreviewed = eso.source === 'ai-generated' && eso.status === 'Draft'
 
+  // Resolved at click time rather than on render: the session may have been
+  // refreshed since this panel mounted, and a stale token in an href would 401.
+  const downloadUrl = (format: 'md' | 'pdf') => {
+    const context = getLaravelContext()
+    return isLaravelContextReady(context) ? esoService.exportUrl(context, eso.id, format) : '#'
+  }
+
   return (
     <div className="space-y-4">
       {error && <InlineError message={error} />}
@@ -169,6 +176,38 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
               {eso.fields_filled}/{eso.fields_total} fields
             </span>
           </div>
+        </div>
+
+        {/* ── THE TWO FORMATS ──────────────────────────────────────────────
+            Ordinary links, not fetch-and-blob: the viewer's browser performs
+            the download, which is what makes it land in Downloads with the
+            right filename.
+
+            Two readers, two documents. `.md` is what an agent loads as its
+            operating instructions; the PDF is what goes in a binder or in
+            front of an auditor. Both carry the status inside the file. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Download
+          </span>
+          <a
+            href={downloadUrl('md')}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background/60 px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-accent"
+          >
+            <Bot className="h-3.5 w-3.5" /> Markdown · for an agent
+          </a>
+          <a
+            href={downloadUrl('pdf')}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background/60 px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-accent"
+          >
+            <FileDown className="h-3.5 w-3.5" /> PDF · for a person
+          </a>
+          {eso.status !== 'Published' && (
+            /* Said before they click, not only inside the file. */
+            <span className="text-[11px] text-muted-foreground">
+              Both files will say this is <strong>{eso.status}</strong> and must not be acted on.
+            </span>
+          )}
         </div>
 
         {unreviewed && (
