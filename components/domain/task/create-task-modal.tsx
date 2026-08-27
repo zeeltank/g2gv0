@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, FileText, Paperclip, Sparkles, Upload, X } from 'lucide-react'
+import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -10,6 +10,8 @@ import { readLaravelSession } from '@/lib/laravel-session'
 import { cn } from '@/lib/utils'
 import { taskService } from '@/services/task'
 import { TaskCompetencyInlinePanel } from '@/domain/competency/task-competency-inline-panel'
+import { TaskDocumentsPanel } from './task-documents-panel'
+import { TaskDutyContext } from './task-duty-context'
 import { competencyLibrariesService } from '@/services/competency/libraries'
 import type { JobRoleTask } from '@/services/task'
 import type { DependencyType, ProjectRecord, Workstream, WorkspaceTask } from '@/types/task-management'
@@ -742,7 +744,14 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       </div>}
       <p className="mt-3 text-xs text-muted-foreground">Each row = one task record</p>
     </div>}
-    {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-12">
+    {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="flex flex-col gap-5">
+      {/* WHAT YOU ARE ACTUALLY ASSIGNING. Above the form because it is
+          context for every decision below it, not a field. Edit mode only:
+          on create the task does not exist yet, so there is nothing to resolve. */}
+      {isEdit && editTaskId && <TaskDutyContext taskId={Number(editTaskId)} />}
+
+      <Section number={1} title="Who it is for" icon={Users} hint="Department narrows the people; the role narrows the work.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
       {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
@@ -781,6 +790,10 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           </div>
         )}
       </Field>
+        </div>
+      </Section>
+      <Section number={2} title="What the task is" icon={ClipboardList} hint="A standard duty of the role, or one-off work no catalogue entry covers.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
        <Field label="Task Title *">
        {/* Catalogue work is a standard duty of the role; custom work comes from
            a requirement no catalogue entry covers. Both end up as the same task
@@ -807,6 +820,10 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
          {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
        </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
+        </div>
+      </Section>
+      <Section number={3} title="When and how urgent" icon={CalendarClock} hint="How often it repeats, when it is due, and how it ranks against other work.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       {/* RECURRENCE IS A CREATE-TIME INSTRUCTION, NOT A FIELD ON A TASK.
           "Repeat once in every N days" is how many rows to write, and the rows
           are already written. Showing it on an edit form would imply a saved
@@ -818,6 +835,11 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           edit mode - an existing task's due date is often already in the past,
           and a browser that refuses to show it makes the field unusable. */}
       <Field label={isEdit ? 'Due date *' : 'Repeat until *'} span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? undefined : new Date().toISOString().slice(0, 10)} /></Field>
+      <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
+        </div>
+      </Section>
+      <Section number={4} title="What it builds" icon={Sparkles} hint="The skills it needs and the capability it develops.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>
       {/* WHAT THIS TASK BUILDS — the competency mapping, at the moment of
           judgement rather than on a matrix screen nobody opens.
@@ -853,13 +875,32 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           />
         )}
       </Field>
+        </div>
+      </Section>
+      <Section number={5} title="How it is measured" icon={Target} hint="Who checks it, and what good looks like.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Observer *" span={4}><Select value={observerId} onChange={(value) => { setObserverId(value); setObserverName(observers.find((item) => item.id === value)?.name ?? '') }} options={observers.map((item) => ({ value: item.id, label: item.name }))} disabled={!assignees.length || observerLoading} placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'} /></Field>
       <Field label="Key Result Areas (KRAs)" span={4}><Input value={kra} onChange={setKra} /></Field>
       <Field label="Performance Indicators (KPIs)" span={4}><Input value={kpa} onChange={setKpa} /></Field>
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
+        </div>
+      </Section>
+      <Section number={6} title="Reference material" icon={Paperclip} hint="The file for the task, plus anything the person needs to do it.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Attachment" span={4}>{isEdit && original?.attachment?.name && !attachment && <p className="mb-1.5 text-[11px] text-muted-foreground">Currently: <span className="font-medium text-foreground">{original.attachment.name}</span> — choosing a file replaces it, keeping this one as an earlier version.</p>}<div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
-      <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
+          {/* DOCUMENTS ARE NOT THE ATTACHMENT.
+              The attachment above is the work — a spec, a deliverable, the
+              thing being handed over. These are the material needed to DO
+              the work: a checklist, a policy extract, a form. They are
+              stored separately and every assignee can open them. */}
+          <Field label="Documents" span={8}>
+            <TaskDocumentsPanel taskId={editTaskId ? Number(editTaskId) : null} />
+          </Field>
+        </div>
+      </Section>
 
+      {/* Project delivery keeps the card it already had — it is optional,
+          self-contained, and its fields gate on each other. */}
       {/* Project delivery. Optional: routine role work belongs to nobody's
           project. A dependency is only legal between two tasks in the same
           project, so the predecessor list stays empty until one is chosen. */}
@@ -909,6 +950,44 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
  */
 function splitList(value: string | null | undefined): string[] {
   return String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean)
+}
+
+/**
+ * A numbered section of the form.
+ *
+ * The form was 20 fields in one flat 12-column grid — every control equally
+ * prominent, and no signal that Department must be answered before Job Role can
+ * be. Numbering earns its place here because the sections ARE a sequence: each
+ * one gates the next, and the cascade resets downstream fields when you change
+ * an upstream one.
+ *
+ * Shape copied from the assessment generator's `Step` so the two screens read
+ * as one product.
+ */
+function Section({ number, title, icon: Icon, hint, children }: {
+  number: number
+  title: string
+  icon: typeof Users
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <div className="mb-3 flex items-start gap-2.5">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold tabular-nums text-primary">
+          {number}
+        </span>
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+            {title}
+          </p>
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  )
 }
 
 function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 8 ? 'md:col-span-8' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }
