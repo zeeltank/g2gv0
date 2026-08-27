@@ -90,8 +90,16 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     React.useEffect(() => {
       if (open) {
         setIsMounted(true)
-        const currentIndex = options.findIndex(o => String(o.value) === String(value))
-        setHighlightedIndex(currentIndex >= 0 ? currentIndex : 0)
+        /*
+         * Only while UNFILTERED. `options.findIndex` is an index into the full
+         * list, and once a search has narrowed things down that index points at
+         * a different row — or past the end of what is rendered. The query
+         * effect below owns the highlight from then on.
+         */
+        if (!query) {
+          const currentIndex = options.findIndex(o => String(o.value) === String(value))
+          setHighlightedIndex(currentIndex >= 0 ? currentIndex : 0)
+        }
       } else {
         // The query is cleared on close so reopening never shows a filtered
         // list with no visible reason for the missing options.
@@ -99,7 +107,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         const timer = setTimeout(() => setIsMounted(false), 150)
         return () => clearTimeout(timer)
       }
-    }, [open, value, options])
+    }, [open, value, options, query])
 
     /*
      * ── THE DROPDOWN WOULD NOT SCROLL INSIDE A SHEET OR DIALOG ──────────────
@@ -119,18 +127,41 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
      * Native listeners rather than React's onWheel: this subtree is portalled
      * outside the React root, and a native handler on the element itself is
      * unambiguous about firing before document's.
+     *
+     * ── AND THE SAME THING HAPPENS TO FOCUS ─────────────────────────────────
+     *
+     * Radix's `FocusScope` does the mirror image with keyboard focus:
+     *
+     *     document.addEventListener('focusin', handleFocusIn)
+     *     …
+     *     if (container.contains(target)) { remember it }
+     *     else { focus(lastFocusedElementRef.current) }   // ← yanks it back
+     *
+     * Our search box lives in that same body-level portal, so `contains` is
+     * false and focus was pulled back into the dialog the instant you clicked
+     * it — the box could be seen and clicked but never typed into.
+     *
+     * `focusin` and `focusout` bubble (unlike `focus`/`blur`), and Radix
+     * registers them on `document` in the bubble phase too, so stopping them
+     * here means the dialog never learns about focus moving inside our popover
+     * and leaves it alone. It still remembers the trigger as its own last
+     * focused element, which is what should happen when the popover closes.
      */
     React.useEffect(() => {
       const node = listRef.current
       if (!open || !node) return
 
-      const keepScrollHere = (event: Event) => event.stopPropagation()
+      const keepItHere = (event: Event) => event.stopPropagation()
 
-      node.addEventListener('wheel', keepScrollHere, { passive: false })
-      node.addEventListener('touchmove', keepScrollHere, { passive: false })
+      node.addEventListener('wheel', keepItHere, { passive: false })
+      node.addEventListener('touchmove', keepItHere, { passive: false })
+      node.addEventListener('focusin', keepItHere)
+      node.addEventListener('focusout', keepItHere)
       return () => {
-        node.removeEventListener('wheel', keepScrollHere)
-        node.removeEventListener('touchmove', keepScrollHere)
+        node.removeEventListener('wheel', keepItHere)
+        node.removeEventListener('touchmove', keepItHere)
+        node.removeEventListener('focusin', keepItHere)
+        node.removeEventListener('focusout', keepItHere)
       }
     }, [open, isMounted])
 
