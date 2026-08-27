@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  Gauge,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
@@ -25,6 +26,7 @@ import {
   JobRoleMergeDialog,
   type MergeableRole,
 } from '@/components/domain/organization/department-management/job-role-merge-dialog'
+import { WorkCompositionDialog } from './work-composition-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -522,6 +524,23 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
    * Usage insights and Link to task open the detail popup on the section that
    * answers them, rather than being dead icons that look available.
    */
+  /* ESO. Which role's work composition is open, by name — the composition
+     endpoint is keyed on the role NAME because `s_user_jobrole_task.jobrole`
+     is, and resolving to an id here would answer a different question from
+     the one the tasks are stored under. */
+  const [compositionRole, setCompositionRole] = useState<string | null>(null)
+
+  /*
+   * ONE STABLE CONTEXT OBJECT FOR THE DIALOGS.
+   *
+   * `getLaravelContext()` passed inline as a prop is a fresh object literal on
+   * every render. WorkCompositionDialog keeps it in a useCallback dependency,
+   * so every unrelated re-render of this tab refetched the dialog and reset the
+   * user's checkbox selection — losing a half-made bulk approval. AuthProvider
+   * pushes an unmemoized value, so those re-renders are routine.
+   */
+  const dialogContext = useMemo(() => getLaravelContext(user), [user])
+
   async function openMerge(row: LibraryRow) {
     setMergeNote(null)
     const role: MergeableRole = {
@@ -600,6 +619,12 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
       },
     },
     ...(config.id === 'jobrole' ? [{
+      id: 'composition',
+      label: 'Work composition',
+      icon: Gauge,
+      onSelect: (row: LibraryRow) =>
+        setCompositionRole(String(row.jobrole ?? '').trim() || null),
+    }, {
       id: 'merge',
       label: 'Merge into another role',
       icon: Merge,
@@ -1034,6 +1059,26 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
+                            {/* The table has its own action list rather than
+                                sharing `tileActions`, so anything added there
+                                has to be added here too or it silently exists
+                                in one view only — which is how Work Composition
+                                came to be reachable from the shape grid and
+                                nowhere else. */}
+                            {config.id === 'jobrole' && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setCompositionRole(String(row.jobrole ?? '').trim() || null)
+                                }}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                aria-label={`Work composition for ${String(row[config.titleKey] ?? '')}`}
+                                title="Work composition — human, hybrid or automatable"
+                              >
+                                <Gauge className="h-4 w-4" />
+                              </button>
+                            )}
                             {config.id === 'jobrole' && (
                               <button
                                 type="button"
@@ -1350,11 +1395,21 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
       <JobRoleMergeDialog
         role={mergeRole}
         roles={mergeCandidates}
-        context={getLaravelContext()}
+        context={dialogContext}
         isSaving={merging}
         onCancel={() => setMergeRole(null)}
         onMerge={(payload) => void confirmMerge(payload)}
       />
+
+      {/* ESO — the work composition map for one role. Mounted only while it is
+          open so it fetches on open rather than on every tab render. */}
+      {compositionRole && (
+        <WorkCompositionDialog
+          jobrole={compositionRole}
+          context={dialogContext}
+          onClose={() => setCompositionRole(null)}
+        />
+      )}
     </div>
   )
 }
