@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target} from 'lucide-react'
+import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -47,6 +47,61 @@ type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
  * can be promoted into the library so the next person can pick it.
  */
 type TitleSource = 'catalogue' | 'custom'
+
+/**
+ * The seven steps, in the order the decision is actually made.
+ *
+ * They are a real sequence, not a filing system: department narrows the people,
+ * the role narrows the work, and choosing a task changes what capability
+ * mapping is even possible. That is why this is a wizard rather than a long
+ * scroll — each answer changes the next question.
+ */
+const STEPS: Array<{ id: number; name: string; description: string; icon: typeof Users }> = [
+  { id: 1, name: 'Who it is for', description: 'Department, role, people', icon: Users },
+  { id: 2, name: 'The task', description: 'Title and description', icon: ClipboardList },
+  { id: 3, name: 'When', description: 'Repeat, due date, priority', icon: CalendarClock },
+  { id: 4, name: 'What it builds', description: 'Skills and capability', icon: Sparkles },
+  { id: 5, name: 'Measurement', description: 'Observer, KRA, KPI', icon: Target },
+  { id: 6, name: 'Material', description: 'Attachment and documents', icon: Paperclip },
+  { id: 7, name: 'Project', description: 'Optional delivery links', icon: GitBranch },
+]
+
+/**
+ * What is missing on a given step, if anything.
+ *
+ * A pure function of the values, so it can be reasoned about without the form
+ * on screen — and so `submit()` can find the FIRST step with a problem and send
+ * you there rather than showing an error about a field five steps back.
+ *
+ * These mirror the submit gate exactly and add nothing to it: a task that
+ * passed validation before this wizard existed still passes now.
+ */
+function whatIsMissing(step: number, v: {
+  assignees: string[]
+  departmentId: string
+  title: string
+  dueDate: string
+  priority: string
+  observerId: string
+}): string | null {
+  switch (step) {
+    case 1:
+      return (!v.assignees.length && !v.departmentId)
+        ? 'Choose the people to assign this to, or a department.'
+        : null
+    case 2:
+      return !v.title.trim() ? 'Give the task a title.' : null
+    case 3:
+      if (!v.dueDate) return 'Set the date this runs until.'
+      return !v.priority ? 'Choose a priority.' : null
+    case 5:
+      return !v.observerId ? 'Choose who observes this task.' : null
+    default:
+      // Steps 4, 6 and 7 are entirely optional — capability mapping, reference
+      // material and project links are all things a valid task can do without.
+      return null
+  }
+}
 
 const DEPENDENCY_TYPES: Array<{ value: DependencyType; label: string }> = [
   { value: 'FS', label: 'Finish → Start (this starts after it finishes)' },
@@ -102,6 +157,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
   const [observerLoading, setObserverLoading] = useState(false)
   const [kra, setKra] = useState(''); const [kpa, setKpa] = useState(''); const [observation, setObservation] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
+  const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
   const [jobRoleSuggestions, setJobRoleSuggestions] = useState<string[]>([])
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -299,6 +355,24 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
     ? observers.filter((emp) => emp.departmentId === departmentId)
     : []
   const employees = departmentEmployees
+  /*
+   * A step is reachable once every step before it is satisfied.
+   *
+   * EDIT MODE MAKES ALL SEVEN REACHABLE. You open an existing task to change
+   * one field, and walking a sequence to reach it would be worse than the flat
+   * form this replaced. There the stepper is navigation, not a gate.
+   */
+  const reachableStep = useMemo(() => {
+    if (isEdit) return STEPS.length
+    const values = { assignees, departmentId, title, dueDate, priority, observerId }
+    for (const entry of STEPS) {
+      if (whatIsMissing(entry.id, values)) return entry.id
+    }
+    return STEPS.length
+  }, [isEdit, assignees, departmentId, title, dueDate, priority, observerId])
+
+  const missingHere = whatIsMissing(step, { assignees, departmentId, title, dueDate, priority, observerId })
+
   const selectedSkillNames = useMemo(() => skillIds.map((id) => skills.find((skill) => skill.id === id)?.name).filter((name): name is string => Boolean(name)), [skillIds, skills])
 
   async function chooseJobRole(roleId: string) {
@@ -395,6 +469,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
+    setStep(1)
     setTitleSource('catalogue'); setSaveToLibrary(false)
     setProjectId(''); setWorkstreams([]); setWorkstreamId(''); setProjectTasks([])
     setDependsOn([]); setDependencyType('FS'); setLagDays('0')
@@ -465,7 +540,21 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
   }
 
   async function submit() {
-    if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !observerId) { setError('Select employees or a department, then enter task title, observer, priority, and repeat-until date.'); return }
+    if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !observerId) {
+      /*
+       * THE SAME GATE AS BEFORE — then take the person to the problem.
+       *
+       * The condition is unchanged, so nothing that used to save still saves.
+       * What is new is that a wizard can hide the offending field several steps
+       * back, and an error message about a field you cannot see is not an
+       * error message. The first failing step becomes the visible one.
+       */
+      const values = { assignees, departmentId, title, dueDate, priority, observerId }
+      const firstBad = STEPS.find((entry) => whatIsMissing(entry.id, values))
+      if (firstBad) setStep(firstBad.id)
+      setError('Select employees or a department, then enter task title, observer, priority, and repeat-until date.')
+      return
+    }
     if (attachment && attachment.size > 5 * 1024 * 1024) { setError('Attachment must be 5 MB or smaller.'); return }
     setSaving(true); setError('')
     if (!submissionKey.current) submissionKey.current = crypto.randomUUID()
@@ -744,12 +833,15 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       </div>}
       <p className="mt-3 text-xs text-muted-foreground">Each row = one task record</p>
     </div>}
-    {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="flex flex-col gap-5">
-      {/* WHAT YOU ARE ACTUALLY ASSIGNING. Above the form because it is
-          context for every decision below it, not a field. Edit mode only:
-          on create the task does not exist yet, so there is nothing to resolve. */}
-      {isEdit && editTaskId && <TaskDutyContext taskId={Number(editTaskId)} />}
+    {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="flex flex-col gap-4">
 
+      {/* THE STEPPER. A completed step is a link back to it; in edit mode
+          every step counts as complete, so this becomes a navigation bar
+          rather than a sequence — you open an existing task to change one
+          field, not to walk seven screens. */}
+      <Stepper step={step} reachable={reachableStep} onGo={setStep} isEdit={isEdit} />
+
+      {step === 1 && (
       <Section number={1} title="Who it is for" icon={Users} hint="Department narrows the people; the role narrows the work.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
@@ -792,6 +884,9 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       </Field>
         </div>
       </Section>
+      )}
+
+      {step === 2 && (
       <Section number={2} title="What the task is" icon={ClipboardList} hint="A standard duty of the role, or one-off work no catalogue entry covers.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
        <Field label="Task Title *">
@@ -822,6 +917,9 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
         </div>
       </Section>
+      )}
+
+      {step === 3 && (
       <Section number={3} title="When and how urgent" icon={CalendarClock} hint="How often it repeats, when it is due, and how it ranks against other work.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       {/* RECURRENCE IS A CREATE-TIME INSTRUCTION, NOT A FIELD ON A TASK.
@@ -838,6 +936,9 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
         </div>
       </Section>
+      )}
+
+      {step === 4 && (
       <Section number={4} title="What it builds" icon={Sparkles} hint="The skills it needs and the capability it develops.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>
@@ -877,6 +978,9 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       </Field>
         </div>
       </Section>
+      )}
+
+      {step === 5 && (
       <Section number={5} title="How it is measured" icon={Target} hint="Who checks it, and what good looks like.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Observer *" span={4}><Select value={observerId} onChange={(value) => { setObserverId(value); setObserverName(observers.find((item) => item.id === value)?.name ?? '') }} options={observers.map((item) => ({ value: item.id, label: item.name }))} disabled={!assignees.length || observerLoading} placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'} /></Field>
@@ -885,6 +989,9 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
         </div>
       </Section>
+      )}
+
+      {step === 6 && (
       <Section number={6} title="Reference material" icon={Paperclip} hint="The file for the task, plus anything the person needs to do it.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
       <Field label="Attachment" span={4}>{isEdit && original?.attachment?.name && !attachment && <p className="mb-1.5 text-[11px] text-muted-foreground">Currently: <span className="font-medium text-foreground">{original.attachment.name}</span> — choosing a file replaces it, keeping this one as an earlier version.</p>}<div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
@@ -898,9 +1005,10 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           </Field>
         </div>
       </Section>
+      )}
 
-      {/* Project delivery keeps the card it already had — it is optional,
-          self-contained, and its fields gate on each other. */}
+      {step === 7 && (
+      <Section number={7} title="Project delivery" icon={GitBranch} hint="Optional. Routine role work belongs to nobody's project.">
       {/* Project delivery. Optional: routine role work belongs to nobody's
           project. A dependency is only legal between two tasks in the same
           project, so the predecessor list stays empty until one is chosen. */}
@@ -935,10 +1043,59 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           </Field>
         </div>
       </div>
+      </Section>
+      )}
     </div>}
     </>}
     </div>
-    {!showRoleBulk && <div className="flex shrink-0 justify-center gap-2 border-t bg-background p-4"><Button variant="outline" onClick={close}>Cancel</Button><Button className="rounded-full px-8" onClick={() => void (isEdit ? saveEdit() : submit())} disabled={loading || saving}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Submit'}</Button></div>}
+    {!showRoleBulk && (
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-background p-4">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={close}>Cancel</Button>
+          {step > 1 && (
+            <Button variant="outline" onClick={() => setStep(step - 1)} disabled={saving}>
+              <ChevronLeft className="mr-1 size-4" /> Back
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* WHAT IS MISSING, NEXT TO THE BUTTON THAT IS DISABLED BY IT.
+              An error at the top of a scrolling panel is an error nobody reads. */}
+          {missingHere && !isEdit && (
+            <span className="text-xs text-muted-foreground">{missingHere}</span>
+          )}
+
+          {step < STEPS.length ? (
+            <>
+              {/* SAVING IS ALWAYS AVAILABLE ONCE THE TASK IS VALID — the last
+                  three steps are optional, and forcing someone through them to
+                  save a complete task would be the wizard getting in the way. */}
+              {isEdit && (
+                <Button variant="outline" onClick={() => void saveEdit()} disabled={loading || saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </Button>
+              )}
+              <Button
+                className="rounded-full px-6"
+                onClick={() => setStep(step + 1)}
+                disabled={Boolean(missingHere) && !isEdit}
+              >
+                Next <ChevronRight className="ml-1 size-4" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              className="rounded-full px-8"
+              onClick={() => void (isEdit ? saveEdit() : submit())}
+              disabled={loading || saving}
+            >
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Submit'}
+            </Button>
+          )}
+        </div>
+      </div>
+    )}
   </SheetContent></Sheet>
 }
 
@@ -953,6 +1110,72 @@ function splitList(value: string | null | undefined): string[] {
 }
 
 /**
+ * The step rail.
+ *
+ * A completed step is a link back to it — people revise, and a wizard that only
+ * goes forwards makes them cancel and start again. A step that is not yet
+ * reachable is dimmed and inert rather than hidden, so the whole shape of the
+ * task is visible from the first screen.
+ *
+ * Shape follows `ag-create-agent`'s stepper so the two wizards in this product
+ * behave identically.
+ */
+function Stepper({ step, reachable, onGo, isEdit }: {
+  step: number
+  reachable: number
+  onGo: (step: number) => void
+  isEdit: boolean
+}) {
+  return (
+    <ol className="flex flex-wrap gap-1.5" aria-label="Assignment steps">
+      {STEPS.map((entry) => {
+        const active = step === entry.id
+        // In edit mode every step is open, so "done" means reachable, not passed.
+        const done = !active && entry.id <= reachable
+        const locked = entry.id > reachable
+
+        return (
+          <li key={entry.id} className="min-w-[7.5rem] flex-1">
+            <button
+              type="button"
+              onClick={() => !locked && onGo(entry.id)}
+              disabled={locked}
+              aria-current={active ? 'step' : undefined}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                active && 'border-primary bg-primary/5',
+                done && 'cursor-pointer border-border hover:bg-accent',
+                locked && 'cursor-not-allowed border-border opacity-50',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums',
+                  active && 'bg-primary text-primary-foreground',
+                  done && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                  locked && 'bg-muted text-muted-foreground',
+                )}
+              >
+                {/* Only a genuinely PASSED step gets a tick. In edit mode nothing
+                    has been passed, so the number stays — a tick would claim the
+                    person had reviewed a step they have not opened. */}
+                {done && !isEdit ? <Check className="size-3" aria-hidden="true" /> : entry.id}
+              </span>
+              <span className="min-w-0">
+                <span className={cn('block truncate text-xs font-semibold', active ? 'text-primary' : 'text-foreground')}>
+                  {entry.name}
+                </span>
+                <span className="block truncate text-[10px] text-muted-foreground">{entry.description}</span>
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/**
  * A numbered section of the form.
  *
  * The form was 20 fields in one flat 12-column grid — every control equally
@@ -964,8 +1187,9 @@ function splitList(value: string | null | undefined): string[] {
  * Shape copied from the assessment generator's `Step` so the two screens read
  * as one product.
  */
-function Section({ number, title, icon: Icon, hint, children }: {
-  number: number
+function Section({ title, icon: Icon, hint, children }: {
+  /** Accepted and unused: the stepper renders the number now. */
+  number?: number
   title: string
   icon: typeof Users
   hint: string
@@ -973,10 +1197,10 @@ function Section({ number, title, icon: Icon, hint, children }: {
 }) {
   return (
     <div className="rounded-xl border border-border p-4">
+      {/* NO NUMBER BADGE HERE ANY MORE. The stepper above already says which
+          step this is, and repeating it two inches lower is noise. `number` is
+          kept on the props because it is what the step guard matches on. */}
       <div className="mb-3 flex items-start gap-2.5">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold tabular-nums text-primary">
-          {number}
-        </span>
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -992,4 +1216,78 @@ function Section({ number, title, icon: Icon, hint, children }: {
 
 function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 8 ? 'md:col-span-8' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }
 function Input({ value, onChange, type = 'text', min, disabled }: { value: string; onChange: (value: string) => void; type?: string; min?: string; disabled?: boolean }) { return <input type={type} min={min} disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm disabled:bg-muted" /> }
-function Multi({ items, selected, onChange, disabled = false, emptyText = 'No options available' }: { items: Array<{ id: string; name: string }>; selected: string[]; onChange: (ids: string[]) => void; disabled?: boolean; emptyText?: string }) { return <div className={cn('max-h-32 overflow-y-auto rounded-lg border p-2', disabled && 'cursor-not-allowed bg-muted opacity-60')}>{items.length ? items.map((item) => <label key={item.id} className="flex gap-2 py-1 text-sm"><input type="checkbox" disabled={disabled} checked={selected.includes(item.id)} onChange={(event) => onChange(event.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} />{item.name}</label>) : <span className="text-xs text-muted-foreground">{emptyText}</span>}</div> }
+/**
+ * A checkbox list with a filter once it is long enough to need one.
+ *
+ * Used for Skills Required and Waits for, both of which can run to dozens of
+ * entries. It was a bare scrolling list, so picking three skills out of forty
+ * meant scrolling past thirty-seven — the search is the same eight-item
+ * threshold the Select uses, so the two controls behave alike.
+ *
+ * SELECTED ITEMS ARE NEVER FILTERED OUT. Hiding a ticked box because it does
+ * not match the current search would make it look unticked, and the count
+ * underneath would then disagree with what is on screen.
+ */
+function Multi({ items, selected, onChange, disabled = false, emptyText = 'No options available' }: {
+  items: Array<{ id: string; name: string }>
+  selected: string[]
+  onChange: (ids: string[]) => void
+  disabled?: boolean
+  emptyText?: string
+}) {
+  const [query, setQuery] = useState('')
+  const showSearch = items.length >= 8
+
+  const visible = query.trim()
+    ? items.filter((item) =>
+        item.name.toLowerCase().includes(query.trim().toLowerCase()) || selected.includes(item.id))
+    : items
+
+  return (
+    <div className={cn('rounded-lg border', disabled && 'cursor-not-allowed bg-muted opacity-60')}>
+      {showSearch && (
+        <div className="border-b p-1.5">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            disabled={disabled}
+            placeholder={`Search ${items.length} options…`}
+            aria-label="Filter options"
+            className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary/50"
+          />
+        </div>
+      )}
+
+      <div className="max-h-32 overflow-y-auto p-2">
+        {items.length === 0 ? (
+          <span className="text-xs text-muted-foreground">{emptyText}</span>
+        ) : visible.length === 0 ? (
+          <span className="text-xs text-muted-foreground">Nothing matches “{query}”</span>
+        ) : (
+          visible.map((item) => (
+            <label key={item.id} className="flex gap-2 py-1 text-sm">
+              <input
+                type="checkbox"
+                disabled={disabled}
+                checked={selected.includes(item.id)}
+                onChange={(event) =>
+                  onChange(event.target.checked
+                    ? [...selected, item.id]
+                    : selected.filter((id) => id !== item.id))}
+              />
+              {item.name}
+            </label>
+          ))
+        )}
+      </div>
+
+      {/* What is chosen, when the list is long enough that it may be scrolled
+          out of view. */}
+      {showSearch && selected.length > 0 && (
+        <p className="border-t px-2 py-1 text-[11px] tabular-nums text-muted-foreground">
+          {selected.length} selected
+        </p>
+      )}
+    </div>
+  )
+}
