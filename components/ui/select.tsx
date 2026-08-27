@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface SelectOption {
@@ -60,6 +60,31 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const listboxId = React.useId()
     const MAX_POPOVER_HEIGHT = 240
 
+    /*
+     * A SEARCH BOX APPEARS ONCE THE LIST IS LONG ENOUGH TO BE ANNOYING.
+     *
+     * Below this many options, scrolling is faster than typing and a search box
+     * is just another thing to look at. Above it, finding one department among
+     * ninety by eye is the wrong way to spend somebody's afternoon.
+     */
+    const SEARCH_THRESHOLD = 8
+    const [query, setQuery] = React.useState('')
+    const searchRef = React.useRef<HTMLInputElement>(null)
+    const showSearch = options.length >= SEARCH_THRESHOLD
+
+    /**
+     * What is actually on screen, and therefore what the keyboard navigates.
+     *
+     * Everything below indexes into THIS, never the full `options` — otherwise
+     * pressing Enter on the second visible row would commit the second option
+     * of the unfiltered list, which is a different one entirely.
+     */
+    const visibleOptions = React.useMemo(() => {
+      const q = query.trim().toLowerCase()
+      if (!q) return options
+      return options.filter((option) => option.label.toLowerCase().includes(q))
+    }, [options, query])
+
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     React.useEffect(() => {
@@ -68,10 +93,61 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         const currentIndex = options.findIndex(o => String(o.value) === String(value))
         setHighlightedIndex(currentIndex >= 0 ? currentIndex : 0)
       } else {
+        // The query is cleared on close so reopening never shows a filtered
+        // list with no visible reason for the missing options.
+        setQuery('')
         const timer = setTimeout(() => setIsMounted(false), 150)
         return () => clearTimeout(timer)
       }
     }, [open, value, options])
+
+    /*
+     * ── THE DROPDOWN WOULD NOT SCROLL INSIDE A SHEET OR DIALOG ──────────────
+     *
+     * This popover portals to document.body, which puts it OUTSIDE the
+     * `RemoveScroll` wrapper Radix puts around dialog content. That library
+     * listens for `wheel` and `touchmove` on `document` and calls
+     * preventDefault() on anything it does not recognise as inside the lock —
+     * so the mouse wheel and two-finger trackpad scrolling did nothing here,
+     * while the keyboard still worked.
+     *
+     * Its listener is registered `{ passive: false }` — bubble phase, not
+     * capture — so stopping propagation on the popover means the event never
+     * reaches document and native scrolling behaves normally. No manual
+     * scrollTop arithmetic, and nothing else on the page is affected.
+     *
+     * Native listeners rather than React's onWheel: this subtree is portalled
+     * outside the React root, and a native handler on the element itself is
+     * unambiguous about firing before document's.
+     */
+    React.useEffect(() => {
+      const node = listRef.current
+      if (!open || !node) return
+
+      const keepScrollHere = (event: Event) => event.stopPropagation()
+
+      node.addEventListener('wheel', keepScrollHere, { passive: false })
+      node.addEventListener('touchmove', keepScrollHere, { passive: false })
+      return () => {
+        node.removeEventListener('wheel', keepScrollHere)
+        node.removeEventListener('touchmove', keepScrollHere)
+      }
+    }, [open, isMounted])
+
+    // Typing filters, so the highlight has to come back to the top of what is
+    // now on screen rather than pointing at a row that scrolled out of the set.
+    React.useEffect(() => {
+      if (query) setHighlightedIndex(0)
+    }, [query])
+
+    // Focus the search when there is one, so a long list can be narrowed by
+    // typing immediately rather than clicking twice.
+    React.useEffect(() => {
+      if (open && showSearch) {
+        const timer = setTimeout(() => searchRef.current?.focus(), 20)
+        return () => clearTimeout(timer)
+      }
+    }, [open, showSearch])
 
     React.useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
@@ -115,12 +191,24 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         })
       }
 
+      /*
+       * Reposition when the PAGE moves under the popover — not when the popover
+       * scrolls itself. This is a capture listener on window, so before the
+       * scroll fix above it never fired for the list; now that the list does
+       * scroll, an unguarded handler would recompute the position on every
+       * wheel tick and re-render the whole popover for no change.
+       */
+      const repositionUnlessSelfScroll = (event: Event) => {
+        if (event.target instanceof Node && listRef.current?.contains(event.target)) return
+        positionPopover()
+      }
+
       positionPopover()
       window.addEventListener('resize', positionPopover)
-      window.addEventListener('scroll', positionPopover, true)
+      window.addEventListener('scroll', repositionUnlessSelfScroll, true)
       return () => {
         window.removeEventListener('resize', positionPopover)
-        window.removeEventListener('scroll', positionPopover, true)
+        window.removeEventListener('scroll', repositionUnlessSelfScroll, true)
       }
     }, [open])
 
@@ -139,11 +227,23 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       if (disabled) return
 
       switch (e.key) {
-        case 'Enter':
         case ' ':
+          /* SPACE IS A CHARACTER WHEN THE SEARCH HAS FOCUS.
+             Treating it as "open/commit" everywhere made the space bar
+             unusable for typing a two-word option name. */
+          if (showSearch && open) return
           e.preventDefault()
-          if (open && highlightedIndex >= 0) {
-            commit(options[highlightedIndex].value)
+          if (open && highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+            commit(visibleOptions[highlightedIndex].value)
+            setOpen(false)
+          } else {
+            setOpen(true)
+          }
+          break
+        case 'Enter':
+          e.preventDefault()
+          if (open && highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+            commit(visibleOptions[highlightedIndex].value)
             setOpen(false)
           } else {
             setOpen(true)
@@ -154,8 +254,8 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           if (!open) {
             setOpen(true)
           } else {
-            setHighlightedIndex(prev => 
-              prev < options.length - 1 ? prev + 1 : 0
+            setHighlightedIndex(prev =>
+              prev < visibleOptions.length - 1 ? prev + 1 : 0
             )
           }
           break
@@ -164,8 +264,8 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           if (!open) {
             setOpen(true)
           } else {
-            setHighlightedIndex(prev => 
-              prev > 0 ? prev - 1 : options.length - 1
+            setHighlightedIndex(prev =>
+              prev > 0 ? prev - 1 : visibleOptions.length - 1
             )
           }
           break
@@ -178,7 +278,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         case 'End':
           e.preventDefault()
           if (open) {
-            setHighlightedIndex(options.length - 1)
+            setHighlightedIndex(visibleOptions.length - 1)
           }
           break
         case 'Escape':
@@ -189,7 +289,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           setOpen(false)
           break
         default:
-          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          // Typeahead is the SHORT-LIST equivalent of the search box. With a
+          // search box on screen it would compete for the same keystrokes.
+          if (!showSearch && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault()
             typeaheadBufferRef.current += e.key.toLowerCase()
             
@@ -201,7 +303,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
               typeaheadBufferRef.current = ''
             }, 500)
             
-            const matchIndex = options.findIndex(opt => 
+            const matchIndex = visibleOptions.findIndex(opt =>
               opt.label.toLowerCase().startsWith(typeaheadBufferRef.current)
             )
             
@@ -256,7 +358,9 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             role="listbox"
             aria-label={ariaLabel || 'Select options'}
             className={cn(
-              'pointer-events-auto fixed z-[100] max-h-60 min-w-[8rem] overflow-auto rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
+              // flex column so the search stays pinned while the LIST scrolls;
+              // overflow moves off this element onto the list below it.
+              'pointer-events-auto fixed z-[100] flex max-h-60 min-w-[8rem] flex-col overflow-hidden rounded-xl border border-border/50 bg-card/98 backdrop-blur-xl p-1 shadow-xl ring-1 ring-black/5',
               'transition-all duration-150 ease-out',
               openAbove ? 'origin-bottom' : 'origin-top',
               open
@@ -266,8 +370,40 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
             )}
           >
-            <div className="flex flex-col gap-0.5">
-              {options.map((opt, index) => (
+            {showSearch && (
+              <div className="shrink-0 border-b border-border/50 p-1 pb-1.5">
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <input
+                    ref={searchRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    /* Arrow keys and Enter belong to the LIST even while the
+                       search has focus — otherwise typing narrows the options
+                       and then the keyboard cannot reach them. */
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search…"
+                    aria-label="Search options"
+                    aria-controls={listboxId}
+                    autoComplete="off"
+                    className="h-7 w-full rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+              {/* A search that matches nothing is its own answer. Rendering an
+                  empty box would read as a broken dropdown. */}
+              {visibleOptions.length === 0 && (
+                <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  Nothing matches “{query}”
+                </p>
+              )}
+              {visibleOptions.map((opt, index) => (
                 <div
                   key={`${opt.value}-${index}`}
                   role="option"
