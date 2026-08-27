@@ -247,12 +247,23 @@ export function CmAssessmentWorkspace() {
 
       {/* Tabs */}
       <div className="flex items-center gap-8 border-b border-border px-2 mt-2">
-        {['Campaigns', 'Participant Ratings', 'Calibration', 'Approvals', 'Closed Campaigns'].map(tab => {
-          const id = tab.toLowerCase().split(' ')[0]
+        {/* THE ID IS EXPLICIT, NOT DERIVED FROM THE LABEL.
+            It used to be `tab.toLowerCase().split(' ')[0]`, so renaming
+            "Campaigns" to "Review Cycles" silently changed the id from
+            `campaigns` to `review` and every `activeTab === 'campaigns'` check
+            stopped matching - the tab would render and show nothing. A display
+            string is not a key. */}
+        {([
+          ['campaigns', 'Review Cycles'],
+          ['participant', 'Participant Ratings'],
+          ['calibration', 'Calibration'],
+          ['approvals', 'Approvals'],
+          ['closed', 'Closed Cycles'],
+        ] as const).map(([id, tab]) => {
           const isActive = id === activeTab
           return (
             <button
-              key={tab}
+              key={id}
               onClick={() => { setActiveTab(id); clearSelectedCycle(); }}
               className={`pb-3 text-sm font-semibold transition-colors relative ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
             >
@@ -287,7 +298,7 @@ export function CmAssessmentWorkspace() {
                 <div className="flex items-center gap-2 w-64">
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Search campaigns..." className="h-9 pl-8 bg-background border-border" />
+                    <Input placeholder="Search review cycles..." className="h-9 pl-8 bg-background border-border" />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -370,8 +381,17 @@ export function CmAssessmentWorkspace() {
                     ))}
                     {campaigns.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                          No campaigns found. Create one to get started.
+                        {/* NOT "no campaigns found". Two instruments on this
+                            screen measure capability and they are easily
+                            confused, so the empty state says which one this is
+                            and how it differs from the other. */}
+                        <TableCell colSpan={7} className="py-12 text-center">
+                          <p className="text-sm font-semibold text-foreground">No review cycles yet</p>
+                          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+                            A review cycle asks managers to rate their team against a framework over a
+                            set period. That is different from an <strong>assessment</strong>, which
+                            people sit and answer themselves — a cycle can use one as its evidence.
+                          </p>
                         </TableCell>
                       </TableRow>
                     )}
@@ -379,7 +399,7 @@ export function CmAssessmentWorkspace() {
                 </Table>
               </div>
               <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-card">
-                <span>Showing {campaigns.length} campaigns</span>
+                <span className="tabular-nums">Showing {campaigns.length} review cycle{campaigns.length === 1 ? '' : 's'}</span>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="h-7 w-7 p-0"><ChevronLeft className="w-4 h-4" /></Button>
                   <Button variant="outline" size="sm" className="h-7 w-7 p-0 bg-primary text-primary-foreground border-primary">1</Button>
@@ -557,7 +577,7 @@ export function CmAssessmentWorkspace() {
                 : 'Closed Campaigns'}
             </h2>
             <span className="text-xs text-muted-foreground">
-              {activeTab === 'closed' ? `${closedCampaigns.length} campaign(s)` : `${tabRows.length} record(s)`}
+              {activeTab === 'closed' ? `${closedCampaigns.length} cycle(s)` : `${tabRows.length} record(s)`}
             </span>
           </div>
 
