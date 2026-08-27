@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarClock, CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2 } from 'lucide-react'
+import { CalendarClock, CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2, Paperclip, Download} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { PriorityBadge } from './priority-badge'
+import { TaskInstructionsPanel } from './task-instructions-panel'
+import { TaskDocumentsPanel } from './task-documents-panel'
 import { Spinner } from '@/components/ui/spinner'
 import { taskService } from '@/services/task'
 import { CreateTaskModal } from './create-task-modal'
@@ -247,12 +249,56 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                 </section>
               )}
 
+              {/* THE PROCEDURE, HIGH UP. Somebody opening their own task wants
+                  to know what to do — that belongs above deadline extensions
+                  and approval history, which are administration. */}
+              <TaskInstructionsPanel taskId={Number(taskId)} />
+
               {task.attachment && (
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">Attachment</h3>
-                  <div className="rounded-xl border p-4 text-sm">{task.attachment.name}</div>
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border p-4 text-sm">
+                    <Paperclip className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{task.attachment.name}</span>
+                      {(task.attachment.type || task.attachment.size) && (
+                        <span className="block text-xs tabular-nums text-muted-foreground">
+                          {[task.attachment.type, task.attachment.size ? `${task.attachment.size} bytes` : null]
+                            .filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </span>
+
+                    {/* DOWNLOAD ONLY WHEN THE FILE IS ACTUALLY REACHABLE.
+                        `task.task_attachment` holds a bare filename, and the
+                        bytes sit in one of two stores depending on which path
+                        uploaded them — so the server tells us whether a version
+                        record with a real path exists. Without that flag this
+                        would be a link that 404s, which is worse than plain
+                        text. */}
+                    {task.attachment.download_version !== null ? (
+                      <a
+                        href={taskService.taskAttachmentDownloadUrl(getLaravelContext(), String(taskId), task.attachment.download_version)}
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-label={`Download ${task.attachment.name}`}
+                      >
+                        <Download className="size-4" />
+                      </a>
+                    ) : (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        Ask your manager for a copy
+                      </span>
+                    )}
+                  </div>
                 </section>
               )}
+
+              {/* Reference material, beside the procedure — the two things an
+                  employee opens this drawer to find. */}
+              <section>
+                <h3 className="mb-2 text-sm font-semibold">Documents</h3>
+                <TaskDocumentsPanel taskId={Number(taskId)} compact />
+              </section>
 
               <section className="space-y-3 rounded-xl border p-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">

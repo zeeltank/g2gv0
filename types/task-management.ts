@@ -38,6 +38,14 @@ export interface MyTaskAttachment {
   name: string
   type: string | null
   size: string | null
+  /**
+   * The attachment version the file can be served from, or null when it cannot.
+   *
+   * `task.task_attachment` holds only a bare filename, and the bytes live in
+   * one of two stores depending on which path uploaded them — so a name alone
+   * does not mean a downloadable file. Null renders as text, not a dead link.
+   */
+  download_version: number | null
 }
 
 export interface MyTask {

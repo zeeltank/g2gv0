@@ -351,6 +351,20 @@ export const taskService = {
    * earlier version, so an edit that swaps the attachment never destroys what
    * was there before.
    */
+  /**
+   * A URL for the task's attachment, at a specific version.
+   *
+   * The version comes from `attachment.download_version` on the task payload —
+   * the download route is keyed by version, and there is no "latest" alias.
+   */
+  taskAttachmentDownloadUrl: (context: LaravelContext, taskId: string, version: number) =>
+    buildApiUrl(`/task-management/workspace/${taskId}/attachments/${version}`, {
+      token: context.token,
+      sub_institute_id: String(context.subInstituteId),
+      syear: String(context.syear),
+      user_id: String(context.userId),
+    }),
+
   replaceTaskAttachment: (context: LaravelContext, taskId: string, file: File) => {
     const body = new FormData()
     body.append('token', context.token)
