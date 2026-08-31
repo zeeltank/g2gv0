@@ -316,6 +316,15 @@ export interface WorkspaceTask {
   remarks: string | null
   approved: boolean
   approved_on: string | null
+  /**
+   * The decision itself. `approved` is a boolean derived from this and cannot
+   * express "rejected" — which is why the Rejected tab used to guess from
+   * `status === 'ON HOLD'`, a proxy that matched nothing on either database.
+   */
+  approve_status: 'approved' | 'rejected' | 'pending' | null
+  /** Why it was sent back. Null on approval, and null on rejections recorded
+   *  before the reason was captured. */
+  approve_remarks: string | null
   created_at: string | null
   updated_at: string | null
   attachment: MyTaskAttachment | null
