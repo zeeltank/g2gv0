@@ -26,6 +26,11 @@ import {
   Legend,
   Pie,
   PieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -221,22 +226,19 @@ function Go({
 }
 
 /* ══════════════════════════════════════════════════════════════════════
- * CAPABILITY: ONE DUMBBELL ROW PER COMPETENCY
+ * CAPABILITY DETAIL: ONE ROW PER COMPETENCY, BENEATH THE RADAR
  * ══════════════════════════════════════════════════════════════════════
  *
- * ── WHY NOT THE RADAR THIS REPLACED ────────────────────────────────────
+ * These rows do NOT replace the radar — they answer the questions it cannot.
+ * The radar shows the SHAPE of a profile across the role, which is what people
+ * read it for and why it is still the top half of this widget. But a polygon
+ * cannot tell you which competency is short, by how much, or on how much
+ * evidence, and it cannot plot an unrated competency at all — a polygon needs a
+ * point on every axis, and "not assessed" has none.
  *
- * The reader's question is "where am I short, and by how much" — a delta to a
- * target, per item. A radar answers neither well: its area scales with the
- * SQUARE of the values so a small shortfall looks trivial, its axis order is
- * arbitrary so the shape carries meaning it does not have, and two overlapping
- * polygons make a two-point comparison per axis into a visual puzzle. It also
- * could not plot an unrated competency at all, so the most actionable rows
- * silently disappeared.
- *
- * A dumbbell is the standard form for two values per item: position gives both
- * absolute numbers, the connector's LENGTH is the gap, and its colour is the
- * polarity. Nothing is squared and nothing is hidden.
+ * So the shape is above and the specifics are here, including the unrated
+ * competencies the radar has to leave out. Those are the most actionable rows
+ * on the screen, and before this they were invisible.
  *
  * ── THE COLOURS WERE VALIDATED, NOT CHOSEN ─────────────────────────────
  *
@@ -393,6 +395,18 @@ export function MeDashboard() {
    * "nobody has assessed you on this yet" is the most actionable row on the
    * list, and it was the one row the reader never saw.
    */
+  /*
+   * The radar can only plot a competency that HAS a rating — a polygon needs a
+   * point on every axis, and an unrated competency has none. It is not a zero,
+   * so it is left off the shape and listed in the detail rows below instead.
+   */
+  const radarData = measuredAxes.map((a) => ({
+    competency: a.competency.length > 22 ? `${a.competency.slice(0, 21)}…` : a.competency,
+    full: a.competency,
+    Required: a.required,
+    Me: a.current,
+  }))
+
   const capabilityRows = [...(capability?.axes ?? [])].sort((a, b) => {
     const gap = (x: MeCapabilityAxis) =>
       x.current === null || x.required === null ? Infinity : x.current - x.required
@@ -665,12 +679,60 @@ export function MeDashboard() {
             />
           ) : (
             <>
-              {/* LEGEND ALWAYS PRESENT for two marks, so identity is never
-                  carried by position alone. */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/40 pb-2 text-[11px] text-muted-foreground">
+              {/* ── THE SHAPE OF THE ROLE ───────────────────────────────────
+                  Restored deliberately. The radar shows at a glance whether the
+                  profile is even across the role or spiky, which a list cannot,
+                  and that overall shape is what people read it for.
+
+                  WHAT ACTUALLY NEEDED FIXING WAS THE COLOUR. Required was
+                  indigo #6467f2 and You was blue #2463eb — measured against
+                  this surface at ΔE 6.9 for NORMAL vision, against a floor of
+                  15, and 2.2 under protanopia. Effectively one colour, which is
+                  why the two polygons read as mixed.
+
+                  They are now separated three ways at once, so no single
+                  channel has to carry it: Required is NEUTRAL rather than a
+                  hue, DASHED rather than solid, and unfilled. You keeps the
+                  blue and the fill. That is the emphasis pattern — the subject
+                  gets the hue, the reference recedes to context. */}
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData} outerRadius="72%">
+                    <PolarGrid stroke={colors.grid} />
+                    <PolarAngleAxis dataKey="competency" tick={{ fontSize: 10, fill: colors.axis }} />
+                    <PolarRadiusAxis angle={90} domain={[0, scaleMax]} tick={{ fontSize: 9, fill: colors.axis }} />
+                    <Radar
+                      name="Target for my role"
+                      dataKey="Required"
+                      stroke={colors.axis}
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      fill="none"
+                      fillOpacity={0}
+                    />
+                    <Radar
+                      name="Me"
+                      dataKey="Me"
+                      stroke={colors.blue}
+                      strokeWidth={2}
+                      fill={colors.blue}
+                      fillOpacity={0.32}
+                    />
+                    <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                    <Tooltip cursor={{ fill: colors.cursor }} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* ── THE DETAIL, per competency ───────────────────────────────
+                  The radar answers "what shape am I"; it cannot answer "which
+                  one, by how much, and on what evidence". These rows do, and
+                  they include the competencies the radar CANNOT plot at all —
+                  the unrated ones, which are the most actionable of the lot. */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <span className="size-2.5 rounded-full border-2" style={{ borderColor: colors.axis }} />
-                  Target for my role
+                  Target
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-3 rounded-full" style={{ background: colors.blue }} />
@@ -681,8 +743,10 @@ export function MeDashboard() {
                   Me, below target
                 </span>
               </div>
-
-              <ul className="divide-y divide-border/40">
+              {/* Capped and scrollable: a role with twenty mapped competencies
+                  would otherwise stretch this card far past the one beside it
+                  and push the rest of the dashboard down. */}
+              <ul className="max-h-64 divide-y divide-border/40 overflow-y-auto pr-1">
                 {capabilityRows.map((axis) => (
                   <CapabilityRow key={axis.competency_id} axis={axis} scaleMax={scaleMax} />
                 ))}

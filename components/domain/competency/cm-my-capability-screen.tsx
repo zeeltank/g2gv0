@@ -28,6 +28,12 @@ import { CmMyCapability } from './cm-my-capability'
 // already carries the employee's identity from their token — a separate menu
 // would need its own rights row to say the same thing twice.
 import { CmMyAssessment } from './cm-my-assessment'
+// The rating control. It lives here because this screen already means 'my
+// own capability' and already carries the employee's identity from their
+// token. The only other rating UI sits in the Employee Directory, which
+// employees do not have — so self-rating was unreachable by the people
+// it is for.
+import { CmSelfRatingPanel } from './cm-self-rating-panel'
 import { competencyGapService, type CompetencyGap } from '@/services/competency/gap'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 
@@ -144,6 +150,18 @@ export function CmMyCapabilityScreen() {
    */
   const assessment = <CmMyAssessment />
 
+  /*
+   * SELF-RATING SURVIVES EVERY BRANCH BELOW, for the same reason the
+   * assessment does — it answers for itself.
+   *
+   * The gap fetch can 422 (no job role), 409 (a readiness gate) or simply
+   * fail. None of those stop an employee recording their own view:
+   * /my-capability is a different endpoint with different preconditions and
+   * its own empty state. Rendering this only in the happy branch would
+   * repeat exactly the coupling the assessment was moved out of.
+   */
+  const selfRating = <CmSelfRatingPanel />
+
   if (state === 'loading') {
     // SKELETON, NOT A SENTENCE. The design system ships one; a hand-written
     // "Loading…" line is a second loading language in the same product, and it
@@ -159,6 +177,7 @@ export function CmMyCapabilityScreen() {
         {/* THE ASSESSMENT SURVIVES THIS BRANCH.
             Whatever the capability gap could not answer, a published assessment
             is still takeable - it depends on none of it. */}
+        {selfRating}
         {assessment}
       </div>
     )
@@ -183,6 +202,7 @@ export function CmMyCapabilityScreen() {
         {/* THE ASSESSMENT SURVIVES THIS BRANCH.
             Whatever the capability gap could not answer, a published assessment
             is still takeable - it depends on none of it. */}
+        {selfRating}
         {assessment}
       </div>
     )
@@ -220,6 +240,7 @@ export function CmMyCapabilityScreen() {
         {/* THE ASSESSMENT SURVIVES THIS BRANCH.
             Whatever the capability gap could not answer, a published assessment
             is still takeable - it depends on none of it. */}
+        {selfRating}
         {assessment}
       </div>
     )
@@ -245,6 +266,7 @@ export function CmMyCapabilityScreen() {
             gap says nothing about whether an assessment is takeable, and
             hiding one because an unrelated call failed is how a published
             test becomes invisible. */}
+        {selfRating}
         {assessment}
       </div>
     )
@@ -255,6 +277,7 @@ export function CmMyCapabilityScreen() {
       <CmMyCapability gap={gap} />
       {/* Takes no props. It cannot be pointed at another person because it
           accepts no subject — the endpoints behind it have no user_id. */}
+      {selfRating}
       {assessment}
     </div>
   )
