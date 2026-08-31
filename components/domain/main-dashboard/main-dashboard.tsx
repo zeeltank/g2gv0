@@ -1,12 +1,8 @@
 'use client'
 
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/gtg-auth'
-import { getGreeting } from '@/lib/greeting'
 import { HrDashboard } from './hr/hr-dashboard'
+import { MeDashboard } from './me/me-dashboard'
 
 /**
  * THE HOME DASHBOARD — a role switch, and nothing else.
@@ -46,41 +42,14 @@ export function MainDashboard() {
     return <HrDashboard />
   }
 
-  // EVERY OTHER ROLE. The employee dashboard is batch 3; until it exists this
-  // says so and points at the pages that DO hold their data. Showing them the
-  // HR dashboard would only produce a 403, and showing the old static screen
-  // would show them numbers that were never true.
-  return (
-    <div className="flex flex-col gap-6 pb-10">
-      <div className="border-b border-border/60 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">{getGreeting(user?.name ?? '')}</h1>
-        <p className="text-sm text-muted-foreground">Here is where to find your own work and capability.</p>
-      </div>
-
-      <Card className="border-border/60">
-        <CardContent className="flex flex-col gap-4 p-6">
-          <div>
-            <h2 className="text-base font-semibold">Your personal dashboard is coming</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Organisation-wide figures are for HR and administrators. In the meantime, everything
-              recorded about you lives on your profile.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="h-9 gap-2 px-3 text-xs font-semibold">
-              <Link href="/profile">
-                My Capability &amp; Profile <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-9 gap-2 px-3 text-xs font-semibold">
-              <Link href="/module/task-management">
-                My Tasks <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  // EVERY OTHER ROLE gets their own dashboard: their tasks, their capability
+  // against their job role, how their role's work is classified, their learning
+  // and their HR record. It replaces the placeholder that used to stand here.
+  //
+  // NOTHING ON IT IS ORGANISATION-WIDE, and that is not a restriction imposed on
+  // this component — /api/dashboard/me/* accepts no subject at all, so there is
+  // no id on this screen that could ask for anybody else's figures. An admin
+  // landing here by a misread of `user.role` sees their OWN data, which is a
+  // correct answer rather than a 403.
+  return <MeDashboard />
 }
