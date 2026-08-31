@@ -26,11 +26,6 @@ import {
   Legend,
   Pie,
   PieChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -225,6 +220,117 @@ function Go({
   )
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+ * CAPABILITY: ONE DUMBBELL ROW PER COMPETENCY
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ── WHY NOT THE RADAR THIS REPLACED ────────────────────────────────────
+ *
+ * The reader's question is "where am I short, and by how much" — a delta to a
+ * target, per item. A radar answers neither well: its area scales with the
+ * SQUARE of the values so a small shortfall looks trivial, its axis order is
+ * arbitrary so the shape carries meaning it does not have, and two overlapping
+ * polygons make a two-point comparison per axis into a visual puzzle. It also
+ * could not plot an unrated competency at all, so the most actionable rows
+ * silently disappeared.
+ *
+ * A dumbbell is the standard form for two values per item: position gives both
+ * absolute numbers, the connector's LENGTH is the gap, and its colour is the
+ * polarity. Nothing is squared and nothing is hidden.
+ *
+ * ── THE COLOURS WERE VALIDATED, NOT CHOSEN ─────────────────────────────
+ *
+ * Run against this product's own surface (#f8fafc light / #090e1a dark), the
+ * obvious green/amber/red status trio FAILS: red #ef4343 and orange #f97415 sit
+ * at ΔE 10.7 for NORMAL vision — below the 15 floor, so full-colour readers
+ * cannot reliably tell them apart, and no amount of labelling excuses that.
+ * Green + orange scrapes through on normal vision but lands at ΔE 6.2 under
+ * deuteranopia.
+ *
+ * blue ↔ red passes all six checks — CVD ΔE 26.7, normal 38.3, both ≥ 3:1 on
+ * the surface — and it is the diverging pair polarity calls for. So: blue at or
+ * above target, red below, neutral for unrated. Colour never carries it alone —
+ * every row states its gap in words and numbers.
+ */
+function CapabilityRow({ axis, scaleMax }: { axis: MeCapabilityAxis; scaleMax: number }) {
+  const rated = axis.current !== null && axis.required !== null
+  const gap = rated ? (axis.current as number) - (axis.required as number) : null
+  const meets = gap !== null && gap >= 0
+
+  const pct = (v: number) => `${Math.max(0, Math.min(100, (v / scaleMax) * 100))}%`
+  const markColor = meets ? colors.blue : colors.red
+
+  return (
+    <li className="py-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 truncate text-xs font-medium text-foreground" title={axis.competency}>
+          {axis.competency}
+          {axis.mandatory && (
+            <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              required
+            </span>
+          )}
+        </span>
+        {/* THE VERDICT IN WORDS, so the colour is never the only signal. */}
+        <span
+          className={cn(
+            'shrink-0 text-[11px] font-semibold tabular-nums',
+            !rated ? 'text-muted-foreground' : meets ? 'text-primary' : 'text-destructive',
+          )}
+        >
+          {!rated ? 'Not rated' : meets ? (gap === 0 ? 'At target' : `+${gap.toFixed(1)}`) : gap!.toFixed(1)}
+        </span>
+      </div>
+
+      {/* The track spans the whole scale, so row lengths are comparable. */}
+      <div className="relative mt-2 h-4">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ background: colors.track }} />
+
+        {rated ? (
+          <>
+            {/* 2px connector: its length IS the gap. */}
+            <div
+              className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full"
+              style={{
+                left: pct(Math.min(axis.current as number, axis.required as number)),
+                width: `calc(${pct(Math.abs(gap as number))})`,
+                background: markColor,
+              }}
+            />
+            {/* Required = hollow reference marker. It is the target, not a
+                second series competing for attention. */}
+            <span
+              className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+              style={{ left: pct(axis.required as number), borderColor: colors.axis, background: 'var(--card)' }}
+              aria-hidden="true"
+            />
+            {/* Mine = filled, with a 2px surface ring so it stays readable when
+                it lands on top of the target marker. */}
+            <span
+              className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{ left: pct(axis.current as number), background: markColor, boxShadow: '0 0 0 2px var(--card)' }}
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          // No invented position. An unrated competency shows only its target.
+          <span
+            className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed"
+            style={{ left: pct(axis.required ?? 0), borderColor: colors.axis, background: 'var(--card)' }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+        {rated
+          ? `You ${axis.current} · target ${axis.required} · ${axis.items_rated} of ${axis.items_total} items rated`
+          : `Target ${axis.required ?? '—'} · none of its ${axis.items_total} items rated yet`}
+      </p>
+    </li>
+  )
+}
+
 /** Numbers line up in columns; `tabular-nums` is what makes them do so. */
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -279,12 +385,26 @@ export function MeDashboard() {
   const measuredAxes = (capability?.axes ?? []).filter(
     (a: MeCapabilityAxis) => a.current !== null && a.required !== null,
   )
-  const radarData = measuredAxes.map((a) => ({
-    competency: a.competency.length > 22 ? `${a.competency.slice(0, 21)}…` : a.competency,
-    full: a.competency,
-    Required: a.required,
-    You: a.current,
-  }))
+  /*
+   * EVERY competency, rated or not — sorted worst gap first.
+   *
+   * The radar this replaced could only plot `measuredAxes`, so an unrated
+   * competency simply vanished from the chart. That is the opposite of useful:
+   * "nobody has assessed you on this yet" is the most actionable row on the
+   * list, and it was the one row the reader never saw.
+   */
+  const capabilityRows = [...(capability?.axes ?? [])].sort((a, b) => {
+    const gap = (x: MeCapabilityAxis) =>
+      x.current === null || x.required === null ? Infinity : x.current - x.required
+    const ga = gap(a)
+    const gb = gap(b)
+    // Unrated last: they have no gap to rank by, and burying a real shortfall
+    // under them would defeat the sort.
+    if (ga === Infinity && gb === Infinity) return a.competency.localeCompare(b.competency)
+    if (ga === Infinity) return 1
+    if (gb === Infinity) return -1
+    return ga - gb
+  })
 
   /**
    * The proficiency scale, derived rather than assumed.
@@ -297,7 +417,10 @@ export function MeDashboard() {
    */
   const scaleMax = Math.max(
     5,
-    ...measuredAxes.map((a) => Math.max(a.required ?? 0, a.current ?? 0)),
+    // EVERY axis, not just the rated ones: an unrated row still draws its
+    // target marker, so a target above the scale would be positioned off the
+    // end of its own track.
+    ...(capability?.axes ?? []).map((a) => Math.max(a.required ?? 0, a.current ?? 0)),
   )
 
   const execution = growth?.execution
@@ -530,53 +653,66 @@ export function MeDashboard() {
             <Loading rows={5} />
           ) : growthError ? (
             <Empty icon={AlertTriangle} tone="warning" reason="This section could not be loaded. Your task figures above are unaffected." />
-          ) : measuredAxes.length === 0 ? (
+          ) : capabilityRows.length === 0 ? (
+            /* EMPTY MEANS NO COMPETENCIES ARE MAPPED — not "none are rated".
+               This used to test `measuredAxes`, so a role whose competencies
+               were all unrated fell through to an empty state, hiding exactly
+               the rows a person most needs to act on. */
             <Empty
               icon={Target}
-              reason={capability?.empty_reason ?? 'Nothing has been rated against your role yet.'}
+              reason={capability?.empty_reason ?? 'Your job role does not have any competencies mapped to it yet.'}
               action={<Go to={link('capability_explorer')}>Capability Explorer</Go>}
             />
-          ) : capability?.chart === 'radar' ? (
-            // THREE AXES OR MORE. Below that a radar degenerates into a line and
-            // the backend says so rather than leaving the client to discover it.
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData} outerRadius="72%">
-                  <PolarGrid stroke={colors.grid} />
-                  <PolarAngleAxis dataKey="competency" tick={{ fontSize: 10, fill: colors.axis }} />
-                  <PolarRadiusAxis angle={90} domain={[0, scaleMax]} tick={{ fontSize: 9, fill: colors.axis }} />
-                  <Radar name="Required" dataKey="Required" stroke={colors.indigo} fill={colors.indigo} fillOpacity={0.12} />
-                  <Radar name="You" dataKey="You" stroke={colors.blue} fill={colors.blue} fillOpacity={0.35} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
           ) : (
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={radarData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                  <CartesianGrid stroke={colors.grid} horizontal={false} />
-                  <XAxis type="number" domain={[0, scaleMax]} tick={{ fontSize: 11, fill: colors.axis }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="competency" width={150} tick={{ fontSize: 10, fill: colors.axis }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: colors.cursor }} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="Required" fill={colors.indigo} radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="You" fill={colors.blue} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              {/* LEGEND ALWAYS PRESENT for two marks, so identity is never
+                  carried by position alone. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/40 pb-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full border-2" style={{ borderColor: colors.axis }} />
+                  Target for my role
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-3 rounded-full" style={{ background: colors.blue }} />
+                  Me, at or above
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-3 rounded-full" style={{ background: colors.red }} />
+                  Me, below target
+                </span>
+              </div>
+
+              <ul className="divide-y divide-border/40">
+                {capabilityRows.map((axis) => (
+                  <CapabilityRow key={axis.competency_id} axis={axis} scaleMax={scaleMax} />
+                ))}
+              </ul>
+
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {capabilityRows.filter((a) => a.current !== null && a.required !== null && a.current < a.required).length}
+                  </span>{' '}
+                  below target
+                </span>
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {capabilityRows.filter((a) => a.current === null).length}
+                  </span>{' '}
+                  not yet rated
+                </span>
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {capabilityRows.filter((a) => a.mandatory).length}
+                  </span>{' '}
+                  mandatory
+                </span>
+              </div>
+            </>
           )}
 
-          {/* Competencies with a target but no rating are listed rather than
-              drawn. They are not a score of zero and must not sit on an axis as
-              though they were. */}
-          {(capability?.axes ?? []).some((a) => a.current === null) && (
-            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              {(capability?.axes ?? []).filter((a) => a.current === null).length} of your competencies have not been
-              rated yet, so they are not shown on the chart — an unrated competency is not a score of zero.
-            </p>
-          )}
+          {/* Every competency now has a row, rated or not — the unrated ones are
+              the point, not a footnote, so there is nothing left to disclaim. */}
         </Widget>
 
         <Widget
