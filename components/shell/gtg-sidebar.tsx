@@ -3,11 +3,25 @@
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronRight, ChevronDown, X } from 'lucide-react'
-import { HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
+import { type ActiveNav } from '@/hooks/use-navigation'
 import { findNodePath, type NavModule, type NavNode } from '@/lib/gtg-navigation'
 import { IconButton } from '@/components/ui/icon-button'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { IconGlyph } from '@/components/shell/icon-glyph'
+
+/**
+ * The ActiveNav for a module that has no children.
+ *
+ * A module with no menus beneath it IS the destination, so all three ids are its
+ * own — which is precisely the key useSidebarNavigation's `record()` writes for a
+ * module (`${mod.id}:${mod.id}:${mod.id}`). Deriving it here, in one place, is
+ * what stops the three call sites drifting apart again: two of them used to emit
+ * the hardcoded HOME_NAV and the third built a half-hardcoded variant that
+ * matched nothing.
+ */
+function standaloneNav(module: NavModule): ActiveNav {
+  return { moduleId: module.id, menuId: module.id, submenuId: module.id }
+}
 
 interface GtgSidebarProps {
   active: ActiveNav
@@ -181,7 +195,12 @@ export function GtgSidebar({
   const handleModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
       clearFlyout()
-      onSelect(HOME_NAV)
+      // A MODULE NAVIGATES TO ITSELF. This used to emit the hardcoded HOME_NAV,
+      // so EVERY childless top-level module went to /dashboard whatever its own
+      // access_link said — the Main Dashboard row only appeared to work because
+      // HOME_NAV happened to point at its destination. The key below is exactly
+      // what useSidebarNavigation's record() writes for a module.
+      onSelect(standaloneNav(module))
       return
     }
     if (!collapsed) {
@@ -196,7 +215,12 @@ export function GtgSidebar({
   const handleModuleActivate = useCallback((module: NavModule) => {
     if (module.standalone) {
       clearFlyout()
-      onSelect(HOME_NAV)
+      // A MODULE NAVIGATES TO ITSELF. This used to emit the hardcoded HOME_NAV,
+      // so EVERY childless top-level module went to /dashboard whatever its own
+      // access_link said — the Main Dashboard row only appeared to work because
+      // HOME_NAV happened to point at its destination. The key below is exactly
+      // what useSidebarNavigation's record() writes for a module.
+      onSelect(standaloneNav(module))
       return
     }
     expandDesktopSidebar(module)
@@ -361,7 +385,11 @@ export function GtgSidebar({
 
   const handleMobileModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
-      handleMobileLeafSelect({ moduleId: module.id, menuId: HOME_NAV.menuId, submenuId: HOME_NAV.submenuId })
+      // Same key as desktop. This previously built
+      // `{moduleId: module.id, menuId: 'main-dashboard', submenuId: 'main-dashboard'}`,
+      // which matched nothing in pathByKey and fell through getRoutePath's
+      // silent `?? '/dashboard'` — a different route to the same wrong screen.
+      handleMobileLeafSelect(standaloneNav(module))
       return
     }
     if (isDirectLeafModule(module)) {

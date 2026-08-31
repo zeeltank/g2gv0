@@ -100,10 +100,10 @@ export function findNodePath(nodes: NavNode[], id: string): NavNode[] | null {
 export function resolveBreadcrumb(active: ActiveNav, modules: NavModule[]): BreadcrumbItem[] {
   const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }]
 
-  if (active.moduleId === 'm0') {
-    return [{ label: 'Home', href: '/dashboard' }, { label: 'Main Dashboard' }]
-  }
-
+  // The 'm0' branch that used to sit here belonged to the hardcoded HOME_MODULE,
+  // which no longer exists. The dashboard is an ordinary menu row and resolves
+  // through the lookup below like every other screen; an id that matches nothing
+  // now correctly yields just "Home" rather than claiming to be the dashboard.
   const navModule = modules.find((m) => m.id === active.moduleId)
   if (!navModule) return items
 

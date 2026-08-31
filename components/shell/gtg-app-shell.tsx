@@ -3,7 +3,7 @@
 import { Component, useState, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
-import { resolveBreadcrumb, HOME_NAV, type ActiveNav } from '@/hooks/use-navigation'
+import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { cn } from '@/lib/utils'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
@@ -17,7 +17,6 @@ import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { useAuth } from '@/components/auth/gtg-auth'
 
-const DEFAULT_ACTIVE: ActiveNav = HOME_NAV
 
 function ComingSoonScreen({ title, description }: { title: string; description: string }) {
   return (
@@ -132,29 +131,75 @@ export function GtgAppShell({
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
-  const { modules, getRoutePath, parseRoutePath } = useSidebarNavigation()
-  const [active, setActive] = useState<ActiveNav>(() => {
-    if (initialActive) return initialActive
-    return DEFAULT_ACTIVE
-  })
+  const { modules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * THE URL IS THE SOURCE OF TRUTH — NOT A DEFAULT SCREEN
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * This used to seed `active` to DEFAULT_ACTIVE (the dashboard) and only
+   * correct it in the effect below, which cannot run until the sidebar tree has
+   * arrived over the network. So a hard refresh on ANY module page painted the
+   * DASHBOARD first and the real screen a moment later — the blink users
+   * reported when moving between modules.
+   *
+   * `null` means "not resolved yet", and the shell renders a skeleton for it.
+   * A loading state is honest; a different screen is not.
+   */
+  const [active, setActive] = useState<ActiveNav | null>(() => initialActive ?? null)
 
   /* eslint-disable react-hooks/set-state-in-effect -- Intentional: sync navigation state with URL once the menu tree is loaded */
   useEffect(() => {
-    if (children || modules.length <= 1) return
+    /*
+     * `modules.length <= 1` was the old "tree not loaded yet" test, and it was
+     * wrong twice: it pinned a tenant that legitimately has ONE module to the
+     * default forever, and it fired before the fetch resolved. `loading` is the
+     * question actually being asked.
+     *
+     * THE `children` GUARD IS ALSO GONE. A page that supplies its own content
+     * still has a sidebar, and `active` is what highlights it. Bailing here left
+     * /dashboard pinned to whatever initialActive said and highlighted nothing,
+     * because that value ('m0') belonged to a module that no longer exists.
+     * Syncing regardless costs nothing — when `children` are present the content
+     * does not come from `active` anyway — and it makes the highlight and the
+     * breadcrumb follow the URL, which is the only thing that knows the truth.
+     */
+    if (loading || modules.length === 0) return
+
     const parsed = parseRoutePath(pathname)
     if (parsed) {
       setActive((prev) => {
-        if (prev.moduleId === parsed.moduleId && prev.menuId === parsed.menuId && prev.submenuId === parsed.submenuId) {
+        if (prev
+          && prev.moduleId === parsed.moduleId
+          && prev.menuId === parsed.menuId
+          && prev.submenuId === parsed.submenuId) {
           return prev
         }
         return parsed
       })
+      return
     }
-  }, [pathname, children, modules, parseRoutePath])
+
+    // The path is not in this profile's menu. Fall back to their FIRST module
+    // rather than to a hardcoded dashboard they may not even have rights to.
+    setActive((prev) => prev ?? {
+      moduleId: modules[0].id,
+      menuId: modules[0].id,
+      submenuId: modules[0].id,
+    })
+  }, [pathname, children, modules, loading, parseRoutePath])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleNavSelect = (next: ActiveNav) => {
     const path = getRoutePath(next)
+
+    // A SELECTION THAT MAPS NOWHERE GOES NOWHERE. getRoutePath used to answer
+    // '/dashboard' for an unresolvable key, so a bad selection silently opened
+    // the dashboard and looked like it had worked.
+    if (!path) {
+      return
+    }
+
     if (path.startsWith('http')) {
       window.open(path, '_blank', 'noopener,noreferrer')
       return
@@ -285,7 +330,16 @@ export function GtgAppShell({
     }
   }, [setAgentOpen, user])
 
-  const breadcrumbItems = resolveBreadcrumb(active, modules)
+  /*
+   * A sentinel for "the URL has not resolved to a menu row yet".
+   *
+   * It matches no module id, so the sidebar highlights nothing and the
+   * breadcrumb stays at Home — both correct for a screen still resolving.
+   * Passing a real ActiveNav here is what used to make the shell assert it was
+   * on the dashboard before it knew where it was.
+   */
+  const resolvedActive: ActiveNav = active ?? { moduleId: '', menuId: '', submenuId: '' }
+  const breadcrumbItems = resolveBreadcrumb(resolvedActive, modules)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -303,7 +357,7 @@ export function GtgAppShell({
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
       <GtgSidebar
-        active={active}
+        active={resolvedActive}
         onSelect={handleNavSelect}
         modules={modules}
         mobileOpen={mobileNavOpen}
@@ -334,7 +388,10 @@ export function GtgAppShell({
                   {children ?? (
                     <>
                       <GtgBreadcrumbFromContext />
-                      <ContentRenderer active={active} />
+                      {/* A SKELETON, NEVER A DIFFERENT SCREEN. Until the URL
+                          resolves to a menu row, there is nothing truthful to
+                          render — this is where the dashboard used to flash. */}
+                      {active ? <ContentRenderer active={active} /> : <ContentSkeleton />}
                     </>
                   )}
                 </div>

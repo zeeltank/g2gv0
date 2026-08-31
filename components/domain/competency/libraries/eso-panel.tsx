@@ -43,6 +43,20 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  /**
+   * The HTTP status behind `error`, and which action produced it.
+   *
+   * The status is what lets describeFailure tell a truncation (422) from a dead
+   * server (502) — the two used to share a status and were separated only by
+   * matching the server's prose.
+   *
+   * `failedAction` is what makes Retry mean something. It used to call `load`
+   * unconditionally, so retrying a failed GENERATION silently ran a cheap list
+   * fetch instead, found nothing, and dropped the reader back to the empty state
+   * as though they had never pressed it.
+   */
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined)
+  const [failedAction, setFailedAction] = useState<'load' | 'generate'>('load')
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -61,6 +75,8 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
       setEso(response.data?.[0] ?? null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load the execution model.')
+      setErrorStatus((loadError as { status?: number })?.status)
+      setFailedAction('load')
     } finally {
       setLoading(false)
     }
@@ -70,12 +86,13 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
     queueMicrotask(() => { load() })
   }, [load])
 
-  const generate = async () => {
+  const generate = useCallback(async () => {
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
     setBusy(true)
     setError(null)
+    setErrorStatus(undefined)
     setNotice(null)
     try {
       const response = await esoService.generate(context, taskId)
@@ -83,10 +100,12 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
       await load()
     } catch (genError) {
       setError(genError instanceof Error ? genError.message : 'The draft could not be generated.')
+      setErrorStatus((genError as { status?: number })?.status)
+      setFailedAction('generate')
     } finally {
       setBusy(false)
     }
-  }
+  }, [taskId, load])
 
   if (loading) {
     return (
@@ -98,8 +117,17 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
   }
 
   if (error && !eso) {
-    const { title, description } = describeFailure(error)
-    return <ErrorState title={title} description={description} retry={load} />
+    const { title, description } = describeFailure(error, errorStatus)
+    // RETRY THE THING THAT FAILED. A failed generation retried with `load` runs
+    // a list fetch that finds nothing and returns the reader to the empty state,
+    // which looks exactly like the button doing nothing.
+    return (
+      <ErrorState
+        title={title}
+        description={description}
+        retry={failedAction === 'generate' ? generate : load}
+      />
+    )
   }
 
   /* ── NO ESO AT ALL ─────────────────────────────────────────────────────
@@ -109,7 +137,9 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
   if (!eso) {
     return (
       <div className="space-y-4">
-        {error && <InlineError message={error} />}
+        {/* No InlineError here: the `error && !eso` branch above already returned,
+            so `error` is necessarily falsy by this point. The render that used to
+            sit here could never fire. */}
         <EmptyState
           className="border-0"
           icon={<Workflow className="h-8 w-8" />}
