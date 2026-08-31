@@ -111,13 +111,34 @@ const STATUS_VALUES = ['Approved', 'Pending', 'Rejected', 'Cancelled'] as const
  */
 const STATUS_DISPLAY: Record<string, string> = { Cancelled: 'Archived' }
 
+/**
+ * NEVER SUBMITTED IS NOT PENDING.
+ *
+ * `approve_status` is null until somebody puts the competency into the review
+ * queue, and this defaulted that null to 'Pending' — so all 231 competencies
+ * claimed to be awaiting a review nobody had asked for. Worse, the "Submit for
+ * Approval" button hides when the label reads 'Pending', so the one control that
+ * could have made the claim true was permanently invisible.
+ */
+const NOT_SUBMITTED = 'Not submitted'
+
 function statusDisplay(value: string | null | undefined): string {
-  const raw = (value ?? '').trim() || 'Pending'
+  const raw = (value ?? '').trim() || NOT_SUBMITTED
   return STATUS_DISPLAY[raw] ?? raw
 }
 
+/**
+ * The competency's own lifecycle, which is a different question from its review
+ * state: `status` holds active/draft/published, `approve_status` holds
+ * Pending/Approved/Rejected/Cancelled. The filter offers both because the API
+ * matches either column — asking a user to know which of two columns their word
+ * lives in would be a schema detail leaking into a dropdown.
+ */
+const LIFECYCLE_VALUES = ['active', 'draft', 'published'] as const
+
 const STATUS_FILTER_OPTIONS = [
   { label: 'All Statuses', value: 'all' },
+  ...LIFECYCLE_VALUES.map((s) => ({ label: s.charAt(0).toUpperCase() + s.slice(1), value: s })),
   ...STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s })),
 ]
 
@@ -144,8 +165,9 @@ function dash(value: string | null | undefined): string {
   return trimmed === '' ? '—' : trimmed
 }
 
+/** The REVIEW state. See NOT_SUBMITTED — null is its own answer, not 'Pending'. */
 function statusLabel(item: CompetencyLibraryItem): string {
-  return item.approve_status?.trim() || 'Pending'
+  return item.approve_status?.trim() || NOT_SUBMITTED
 }
 
 /**
@@ -1126,15 +1148,20 @@ export function CmCompetencyLibrary() {
                   >
                     <Download className="w-3.5 h-3.5" /> Export
                   </Button>
-                  {/* Approved competencies can be sent back through review;
-                      Pending ones are already in the queue. */}
+                  {/* Shown for never-submitted, Approved (re-review) and
+                      Rejected (revise and resubmit) competencies. Hidden only for
+                      ones already in the queue, and for archived ones.
+
+                      This was dead until 2026-08-31: every competency reported
+                      'Pending', so this condition was false for all of them and
+                      the button never rendered once. */}
                   {statusLabel(selectedItem) !== 'Pending' && !isArchived(selectedItem) && (
                     <Button
                       variant="outline"
                       onClick={() => handleSubmitForApproval(selectedItem)}
                       disabled={submitting}
                       className="h-9 px-4 gap-2 border-border font-semibold rounded-lg bg-background hover:bg-muted"
-                      title="Move this skill into the approval queue"
+                      title="Move this competency into the approval queue"
                     >
                       <Send className="w-3.5 h-3.5" /> {submitting ? 'Submitting…' : 'Submit for Approval'}
                     </Button>
