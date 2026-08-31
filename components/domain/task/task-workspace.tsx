@@ -14,6 +14,7 @@ import { taskService } from '@/services/task'
 import type { TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
 import { CreateTaskModal } from './create-task-modal'
 import { PriorityBadge } from './priority-badge'
+import { TaskDutyContext } from './task-duty-context'
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pending', 'IN-PROGRESS': 'In Progress', 'ON HOLD': 'On Hold', COMPLETED: 'Completed',
@@ -293,6 +294,15 @@ export function TaskWorkspace() {
       ) : (
       <div className="space-y-5 p-5"><p className="text-sm">{selected.description || 'No description provided.'}</p>
         <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusText(selected)], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusText(selected)} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
+
+        {/* WHETHER THIS TASK REACHES A PROCEDURE, AND WHETHER IT DOES NOT.
+            This drawer showed neither. So an administrator who generated an ESO,
+            assigned the task, and then opened it here saw no hint that the two
+            were never connected — the panel the EMPLOYEE sees would be empty and
+            nothing on the admin side said why. It now states the link either way,
+            which is the only place the failure is visible before a person
+            complains. */}
+        <TaskDutyContext taskId={Number(selected.id)} />
         {selected.status === 'COMPLETED' && !selected.approved && <div className="flex gap-2"><Button onClick={() => void decide(selected, 'approve')}>Approve</Button><Button variant="outline" onClick={() => void decide(selected, 'reject')}>Reject</Button></div>}
         <div className="flex flex-wrap gap-2">
           {/* THE SAME FORM THE TASK WAS CREATED WITH. Same fields, same order,

@@ -87,6 +87,23 @@ export interface LegacyTaskCreatePayload {
   observationPoint: string
   attachment?: File | null
   departmentId?: string
+  /**
+   * The `s_user_jobrole_task.id` this task was assigned FROM, when it came from
+   * the job-role catalogue rather than being typed by hand.
+   *
+   * THIS IS WHAT CONNECTS AN ASSIGNED TASK TO ITS WRITTEN PROCEDURE. `eso` is
+   * keyed on the same id, so without it the employee's task detail can never
+   * find the ESO.
+   *
+   * The server can also derive it by matching the title text, but that only
+   * works when the title is unique across job roles — measured on live, exactly
+   * one match resolved 6 of 612 tenant-6 tasks, and titles shared by four roles
+   * (a shared catalogue is the norm) resolve to nothing at all. The wizard knows
+   * which row the user actually clicked; sending it removes the guess.
+   *
+   * Omitted for a hand-typed title, which legitimately has no job-role task.
+   */
+  jobRoleTaskId?: string
   /** Stable per submission attempt; a repeat replays instead of duplicating. */
   idempotencyKey?: string
 }
@@ -558,6 +575,10 @@ export const taskService = {
     body.append('repeat_days', payload.repeatDays)
     body.append('repeat_until', payload.dueDate)
     if (payload.attachment) body.append('TASK_ATTACHMENT', payload.attachment)
+    // The catalogue row this task came from. Sent only when there is one, because
+    // insertTaskWithReference falls back to resolving it from the title when the
+    // key is ABSENT - and an empty string is not absent.
+    if (payload.jobRoleTaskId) body.append('jobrole_task_id', payload.jobRoleTaskId)
     // Retrying this create - a second click, a browser retry after a slow
     // response - replays the first attempt rather than duplicating the task.
     if (payload.idempotencyKey) body.append('idempotency_key', payload.idempotencyKey)
