@@ -43,6 +43,14 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
 
   const handleNavSelect = useCallback((next: ActiveNav) => {
     const path = getRoutePath(next)
+
+    // Nothing mapped means nothing to open. getRoutePath used to answer
+    // '/dashboard' here, so an unresolvable selection quietly opened the
+    // dashboard instead of revealing that the lookup had missed.
+    if (!path) {
+      return
+    }
+
     if (path.startsWith('http')) {
       window.open(path, '_blank', 'noopener,noreferrer')
       return

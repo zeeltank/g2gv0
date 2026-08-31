@@ -7,22 +7,11 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { sidebarService } from '@/services/navigation/sidebar'
 import type { SidebarMenuNode } from '@/services/navigation/sidebar'
 import {
-  HOME_NAV,
   getRouteByAccessLink,
   type NavNode,
   type NavModule,
   type ActiveNav,
 } from '@/lib/gtg-navigation'
-
-const HOME_MODULE: NavModule = {
-  id: HOME_NAV.moduleId,
-  label: 'Main Dashboard',
-  short: 'Home',
-  icon: 'mdi mdi-view-dashboard-outline',
-  accessLink: '/dashboard',
-  standalone: true,
-  children: [],
-}
 
 type FlatNode = {
   id: number
@@ -96,7 +85,8 @@ export interface SidebarNavigationResult {
   modules: NavModule[]
   loading: boolean
   error: string | null
-  getRoutePath: (active: ActiveNav) => string
+  /** null when nothing is mapped — the caller must decline to navigate, not guess. */
+  getRoutePath: (active: ActiveNav) => string | null
   parseRoutePath: (pathname: string) => ActiveNav | null
   /** Resolves a known tblmenumaster_g2g access_link against the caller's live, rights-filtered tree; falls back to '/dashboard' if the profile can't see it. */
   resolveAccessLink: (accessLink: string) => string
@@ -120,18 +110,39 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     staleTime: 5 * 60 * 1000,
   })
 
-  const modules = useMemo(() => {
-    const fromDb = buildModuleTree(query.data?.data ?? [])
-
-    // THE HOME ENTRY COMES FROM THE DATABASE when a row for it exists, so it
-    // behaves like every other module: rights-filtered, renameable, and
-    // orderable by sort_order. HOME_MODULE remains only as a fallback for a
-    // tenant whose menu tree predates that row - without it those users would
-    // have no way back to the dashboard at all.
-    const hasDbHome = fromDb.some((m) => m.accessLink === '/dashboard')
-
-    return hasDbHome ? fromDb : [HOME_MODULE, ...fromDb]
-  }, [query.data])
+  /*
+   * THE SIDEBAR IS WHAT THE SERVER SENT. NOTHING IS ADDED TO IT.
+   *
+   * This used to inject a hardcoded HOME_MODULE whenever no module in the
+   * response carried '/dashboard':
+   *
+   *     const hasDbHome = fromDb.some((m) => m.accessLink === '/dashboard')
+   *     return hasDbHome ? fromDb : [HOME_MODULE, ...fromDb]
+   *
+   * It was meant for tenants whose menu tree predated the dashboard row. It
+   * could not do that job, because REVOCATION IN THIS SYSTEM IS ROW ABSENCE —
+   * there is not one can_view = 0 row in either database; saving rights deletes
+   * the profile's set and re-inserts only what was ticked. So "this tenant is
+   * old" and "an administrator revoked this" arrive as byte-identical payloads,
+   * and the fallback restored the menu in both cases.
+   *
+   * The result was a menu that no permission could hide. An admin would untick
+   * Main Dashboard, the server would correctly drop it, and this line put an
+   * identical-looking copy back — same label, same icon, same destination.
+   *
+   * It also concealed outright failure: a 401 or a network error leaves
+   * `query.data` undefined, so `fromDb` is empty, so the sidebar rendered as
+   * though the user simply had one menu. A broken fetch displayed as a working
+   * sidebar is the worst of the three.
+   *
+   * A profile with no dashboard right now has no dashboard link — which is what
+   * revoking it is supposed to mean. /dashboard itself stays reachable by URL,
+   * so this removes the link, not the page.
+   */
+  const modules = useMemo(
+    () => buildModuleTree(query.data?.data ?? []),
+    [query.data],
+  )
 
   // `${moduleId}:${menuId}:${submenuId}` -> access_link, and the reverse lookup.
   // ActiveNav only carries 3 ids, so for a node deeper than module->menu->submenu,
@@ -165,13 +176,26 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return { pathByKey, keyByPath }
   }, [modules])
 
-  const getRoutePath = (active: ActiveNav): string => {
-    if (active.moduleId === 'm0') return '/dashboard'
-    return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? '/dashboard'
+  /**
+   * Where a nav selection goes, or NULL when nothing is mapped to it.
+   *
+   * It used to answer '/dashboard' for anything it could not resolve, and that
+   * default is what hid every bug in this file: a sidebar click built from the
+   * wrong key did not fail, it quietly opened the dashboard — which looks enough
+   * like working software that nobody investigates. Returning null makes a miss
+   * something the caller has to handle.
+   *
+   * The `if (active.moduleId === 'm0') return '/dashboard'` short-circuit is gone
+   * with it. 'm0' was the hardcoded HOME_MODULE's id; that module no longer
+   * exists, so the id matched no row in the sidebar and nothing highlighted —
+   * including on /dashboard itself. The dashboard is an ordinary menu row now
+   * and resolves through the same lookup as everything else.
+   */
+  const getRoutePath = (active: ActiveNav): string | null => {
+    return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
   }
 
   const parseRoutePath = (pathname: string): ActiveNav | null => {
-    if (pathname === '/dashboard') return HOME_NAV
     return keyByPath.get(pathname) ?? null
   }
 

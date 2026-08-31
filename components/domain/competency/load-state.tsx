@@ -21,23 +21,58 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 /**
- * A 404 here means ONE precise thing, and it is worth saying.
+ * Turn a failure into something a person can act on.
  *
- * These endpoints are new. A server running an older build has no route for
- * them, so it answers 404 - which as raw text ("API Error: 404 Not Found")
- * sends people looking for a missing record. It is not missing data, it is a
- * missing deployment, and only one of those is the reader's problem.
+ * ═══════════════════════════════════════════════════════════════════════
+ * THE STATUS CODE DECIDES. THE PROSE ONLY REFINES.
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * This used to branch on the MESSAGE TEXT alone, and that made the wording of a
+ * backend sentence load-bearing: rewording one string on the server silently
+ * reclassified the error here, with nothing to catch it.
+ *
+ * It also could not tell two opposite failures apart. The ESO endpoint returned
+ * 502 for "the model's answer did not fit" — the same status nginx returns when
+ * PHP never answered at all. One is retryable with a bigger budget; the other
+ * means the server is down. The backend now separates them (truncation is 422,
+ * a genuinely failed upstream is 502), and this reads the status first so the
+ * two can never be confused again.
+ *
+ * `status` is optional so existing callers that only have a string still work —
+ * they simply fall back to the prose tests, as before.
  */
-export function describeFailure(message: string): { title: string; description: string } {
-  if (/404|not found/i.test(message)) {
+export function describeFailure(
+  message: string,
+  status?: number,
+): { title: string; description: string } {
+  // A genuine gateway failure. The server did not answer at all, so there is no
+  // application message to read and nothing about the user's data is at fault.
+  if (status === 502 || status === 504) {
     return {
-      title: 'This screen needs a newer backend',
+      title: 'The server did not respond',
       description:
-        'These endpoints are not available on the server this app is talking to. '
-        + 'Nothing is wrong with your data - the server has not been updated yet.',
+        'The request reached the gateway but the application never answered. '
+        + 'Nothing was written. This is a server problem, not a problem with your data.',
     }
   }
-  if (/503|not configured/i.test(message)) {
+
+  // Billed and unusable — the one failure that costs money. Say so.
+  // 422 is the backend's "the answer would not fit"; the prose test keeps older
+  // servers that still send 502 for this working.
+  if (status === 422 || /ran out of room before finishing|too large for a single pass/i.test(message)) {
+    return {
+      title: 'The draft did not fit in one pass',
+      description: message,
+    }
+  }
+
+  if (status === 402 || /balance is too low|Refusing to call DeepSeek/i.test(message)) {
+    // Refused BEFORE sending, so nothing was charged. Not a fault to retry —
+    // an account that needs topping up.
+    return { title: 'AI credit is too low to run this', description: message }
+  }
+
+  if (status === 503 || /503|not configured/i.test(message)) {
     return {
       title: 'AI is not configured on this server',
       description:
@@ -45,15 +80,27 @@ export function describeFailure(message: string): { title: string; description: 
         + 'written, and no task was guessed at.',
     }
   }
-  // The server refused BEFORE sending, so nothing was charged. Worth its own
-  // title: this is not a fault to retry, it is an account that needs topping up.
-  if (/balance is too low|Refusing to call DeepSeek/i.test(message)) {
-    return { title: 'AI credit is too low to run this', description: message }
+
+  /*
+   * 404 IS ONLY A MISSING DEPLOYMENT WHEN THE SERVER SAYS NOTHING ELSE.
+   *
+   * The old version matched /404|not found/ against the message, which caught
+   * any server sentence containing the words "not found" — including a real
+   * missing record — and told the reader their backend was out of date.
+   * The status is checked instead, and a server that sent its own explanation
+   * gets to keep it.
+   */
+  if (status === 404 || (status === undefined && /API Error: 404/i.test(message))) {
+    const routeMissing = /API Error: 404/i.test(message)
+    return {
+      title: routeMissing ? 'This screen needs a newer backend' : 'Not found',
+      description: routeMissing
+        ? 'These endpoints are not available on the server this app is talking to. '
+          + 'Nothing is wrong with your data - the server has not been updated yet.'
+        : message,
+    }
   }
-  // Billed and unusable — the one failure that costs money. Say so.
-  if (/ran out of room before finishing|too large for a single pass/i.test(message)) {
-    return { title: 'That role is too large for one pass', description: message }
-  }
+
   return { title: 'Could not load this', description: message }
 }
 
