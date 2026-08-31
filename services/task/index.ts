@@ -108,6 +108,23 @@ export interface LegacyTaskCreatePayload {
   idempotencyKey?: string
 }
 
+/** The audit filter set, shared so the screen and its CSV cannot drift apart. */
+function auditLogParams(
+  context: LaravelContext,
+  params: { taskId?: string; actorId?: string; departmentId?: string; projectId?: string; event?: string; from?: string; to?: string },
+): Record<string, string> {
+  return {
+    token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    ...(params.taskId ? { task_id: params.taskId } : {}),
+    ...(params.actorId ? { actor_id: params.actorId } : {}),
+    ...(params.departmentId ? { department_id: params.departmentId } : {}),
+    ...(params.projectId ? { project_id: params.projectId } : {}),
+    ...(params.event ? { event: params.event } : {}),
+    ...(params.from ? { from: params.from } : {}),
+    ...(params.to ? { to: params.to } : {}),
+  }
+}
+
 export const taskService = {
   // Projects
   getProjects: () => apiClient.get<Project[]>('/projects'),
@@ -174,23 +191,32 @@ export const taskService = {
       remarks,
     }),
   /** The audit trail, for Administration > Audit Logs. */
-  getAuditLogs: (context: LaravelContext, params: { taskId?: string; event?: string; from?: string; to?: string; page?: number } = {}) =>
+  /**
+   * The audit trail, for Administration > Audit Logs.
+   *
+   * `actorId` was validated and applied server-side all along and simply never
+   * offered here; `departmentId` and `projectId` are new. All four are sent only
+   * when set, so an unfiltered call is byte-identical to what it was.
+   */
+  getAuditLogs: (
+    context: LaravelContext,
+    params: { taskId?: string; actorId?: string; departmentId?: string; projectId?: string; event?: string; from?: string; to?: string; page?: number } = {},
+  ) =>
     apiClient.get<{ status: 1; message: string; data: { logs: TaskAuditLog[]; pagination: TaskPagination } }>(
       '/task-management/audit-logs',
-      {
-        token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
-        ...(params.taskId ? { task_id: params.taskId } : {}),
-        ...(params.event ? { event: params.event } : {}),
-        ...(params.from ? { from: params.from } : {}),
-        ...(params.to ? { to: params.to } : {}),
-        page: String(params.page ?? 1),
-      },
+      { ...auditLogParams(context, params), page: String(params.page ?? 1) },
     ),
-  /** CSV export href - a download, so it has to be a URL, not a fetch. */
-  auditLogsExportUrl: (context: LaravelContext) =>
-    buildApiUrl('/task-management/audit-logs/export', {
-      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
-    }),
+  /**
+   * CSV export href - a download, so it has to be a URL, not a fetch.
+   *
+   * IT TAKES THE SAME FILTERS AS THE SCREEN. It used to send only the tenant, so
+   * "Export CSV" dumped the entire trail no matter what was filtered on screen —
+   * a file that silently disagrees with the page that produced it.
+   */
+  auditLogsExportUrl: (
+    context: LaravelContext,
+    params: { taskId?: string; actorId?: string; departmentId?: string; projectId?: string; event?: string; from?: string; to?: string } = {},
+  ) => buildApiUrl('/task-management/audit-logs/export', auditLogParams(context, params)),
   /** The permission matrix exactly as the middleware enforces it. */
   getPermissionsMatrix: (context: LaravelContext) =>
     apiClient.get<{ status: 1; message: string; data: { profiles: string[]; abilities: PermissionAbility[]; note: string } }>(
@@ -340,11 +366,15 @@ export const taskService = {
       '/task-management/workspace/workload',
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
     ),
-  getDependencies: (context: LaravelContext, params: { projectId?: string; assigneeId?: string; status?: TaskStatus } = {}) =>
+  getDependencies: (
+    context: LaravelContext,
+    params: { projectId?: string; assigneeId?: string; departmentId?: string; status?: TaskStatus } = {},
+  ) =>
     apiClient.get<DependenciesResponse>('/task-management/dependencies', {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
       ...(params.projectId ? { project_id: params.projectId } : {}),
       ...(params.assigneeId ? { assignee_id: params.assigneeId } : {}),
+      ...(params.departmentId ? { department_id: params.departmentId } : {}),
       ...(params.status ? { status: params.status } : {}),
     }),
   createDependency: (context: LaravelContext, payload: {

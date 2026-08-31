@@ -52,7 +52,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from '@dagrejs/dagre'
-import { taskChartColors } from '@/lib/chart-colors'
+import { taskChartColors, categoricalColor, categoricalColors } from '@/lib/chart-colors'
 import { fromDateOnly } from '@/lib/date-only'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
@@ -99,10 +99,26 @@ const TaskNode = ({ data }: { id: string; data: Record<string, any> }) => {
 
   return (
     <div className={cn(
-      "group relative w-[280px] rounded-2xl border bg-card/90 backdrop-blur-2xl p-4 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-50 ring-0",
+      "group relative w-[280px] overflow-hidden rounded-2xl border bg-card/90 backdrop-blur-2xl p-4 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-50 ring-0",
       getStatusColor(data.status),
       data.status === 'blocked' ? 'animate-pulse shadow-rose-500/20' : ''
     )}>
+      {/* ── WHICH PROJECT THIS BELONGS TO ──────────────────────────────────
+          A rail, not a fill. The card's own colour already encodes STATUS, and
+          overwriting it with project identity would trade one useful signal for
+          another. Two encodings answering two different questions: the body
+          says how the task is doing, the rail says whose work it is.
+
+          Colour is never the only cue — the project name is printed on the card
+          and repeated in the legend, which is also what satisfies the contrast
+          floor for the lighter hues in this palette. */}
+      {data.projectColor && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1.5"
+          style={{ background: data.projectColor }}
+        />
+      )}
       {/* Handles with custom styling to ensure connection points are visible */}
       <Handle
         type="target"
@@ -250,7 +266,7 @@ function normalizeStatus(status: string, atRisk = false) {
   return 'not_started'
 }
 
-function graphNodes(tasks: DependencyNode[]): Node[] {
+function graphNodes(tasks: DependencyNode[], projectOrder: readonly string[] = []): Node[] {
   return Array.from(new Map(tasks.map((task) => [task.id, task])).values()).map((task, index) => ({
     id: task.id, type: 'taskNode',
     // A holding grid only. layoutGraph() replaces these the moment data lands.
@@ -260,6 +276,10 @@ function graphNodes(tasks: DependencyNode[]): Node[] {
       assignee: task.assignee, duration: formatDate(task.due_date) ?? 'No due date', project: task.project,
       // IDS, not display names - the filters compare on these.
       assigneeId: task.assignee_id ?? '', projectId: task.project_id ?? '', direction: 'LR',
+      // Null past the palette's five slots, and the rail simply does not render.
+      // Cycling would give two projects the same colour, which reads as a claim
+      // that they are the same one.
+      projectColor: task.project_id ? categoricalColor(task.project_id, projectOrder) : null,
       // Workstream travels with the node so the map can filter on it. It was
       // already in the payload (DependencyNode.workstream_id) and already
       // loaded in this component for the create form - it simply never
@@ -348,7 +368,20 @@ export function DependenciesView() {
       const nextData = { ...response.data, tasks: uniqueTasks, dependencies: uniqueDependencies }
       const nextEdges = graphEdges(uniqueDependencies)
       // Laid out by the dependency edges, not by insert order.
-      const nextNodes = layoutGraph(graphNodes(uniqueTasks), nextEdges, direction)
+      /*
+       * The project colour order, derived HERE from the freshly loaded set
+       * rather than from the projectOrder memo — that memo is computed from
+       * `data`, which this call is about to set, so reading it would colour the
+       * graph from the PREVIOUS load.
+       *
+       * Sorted by name so the mapping is stable across reloads: the same project
+       * keeps the same colour whether or not other projects came back this time.
+       */
+      const projectIdsByName = Array.from(
+        new Map(uniqueTasks.filter((task) => task.project_id).map((task) => [task.project_id as string, task.project])).entries(),
+      ).sort((a, b) => String(a[1]).localeCompare(String(b[1]))).map(([id]) => id)
+
+      const nextNodes = layoutGraph(graphNodes(uniqueTasks, projectIdsByName), nextEdges, direction)
       setData(nextData); setBaseNodes(nextNodes); setNodes(nextNodes); setEdges(nextEdges)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load dependencies.')
@@ -603,6 +636,16 @@ useEffect(() => {
     return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [data.tasks])
 
+  /*
+   * The order the project palette is keyed on.
+   *
+   * Sorted by NAME and derived from the whole loaded set, never from the
+   * filtered view — so filtering to one project leaves every other project's
+   * colour exactly where it was. Colour follows the entity, not its rank in
+   * whatever is currently on screen.
+   */
+  const projectOrder = useMemo(() => projectOptions.map((option) => option.id), [projectOptions])
+
   // Same rule, one level down. A task can belong to a project without being
   // placed in a workstream, so a null workstream_id is normal and simply does
   // not become an option - it is not "Unassigned", it is not a grouping.
@@ -795,6 +838,43 @@ useEffect(() => {
             <div className="flex w-full h-full relative">
               {/* Static Left Sidebar for Legend */}
               <div className="w-[260px] h-full border-r border-border/50 bg-card/40 backdrop-blur-3xl p-5 overflow-y-auto shrink-0 z-10 flex flex-col gap-6">
+                {/* ── WHICH RAIL IS WHICH PROJECT ──────────────────────────
+                    Not decoration: orange and teal in this palette sit below 3:1
+                    against the surface, and the rule for that is that the colour
+                    must be accompanied by a visible label. This legend IS that
+                    label — without it the rail would be a colour nobody can name.
+
+                    Projects past the palette's five slots get no rail rather than
+                    a repeated colour, and the legend says so instead of leaving
+                    someone hunting for a sixth hue that does not exist. */}
+                {projectOrder.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Project</h4>
+                    <div className="flex flex-col gap-3">
+                      {projectOptions.map((option) => {
+                        const colour = categoricalColor(option.id, projectOrder)
+                        return (
+                          <div key={option.id} className="flex items-center gap-3">
+                            <span
+                              className="h-3 w-1.5 shrink-0 rounded-full"
+                              style={{ background: colour ?? 'var(--muted-foreground)' }}
+                            />
+                            <span className="min-w-0 truncate text-sm font-semibold" title={option.name}>
+                              {option.name}
+                            </span>
+                          </div>
+                        )
+                      })}
+                      {projectOptions.length > categoricalColors.length && (
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          Only the first {categoricalColors.length} projects carry a colour — the rest
+                          share a neutral rail rather than repeating a hue.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Node Status</h4>
                   <div className="flex flex-col gap-4">

@@ -20,9 +20,24 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import type { TaskAuditLog, TaskPagination } from '@/types/task-management'
 
 /** Human labels for the event slugs the audit service records. */
+/**
+ * Event slug -> what a person calls it.
+ *
+ * MEASURED AGAINST THE REAL TRAIL, not guessed. Once the event store was drained
+ * into its projection the screen went from 6 frozen rows to 43 on live, and the
+ * commonest event by far — `created`, 28 of those 43 — had no entry here at all,
+ * so the majority of the log rendered as a raw slug. `updated` and
+ * `schedule_updated` were missing for the same reason.
+ *
+ * An unmapped slug still falls back to itself rather than to a blank, so a new
+ * event type is unlovely rather than invisible.
+ */
 const EVENT_LABELS: Record<string, string> = {
+  created: 'Task created',
+  updated: 'Task edited',
   status_changed: 'Status changed',
   workspace_updated: 'Task edited',
+  schedule_updated: 'Schedule changed',
   legacy_updated: 'Task edited',
   legacy_deleted: 'Task deleted',
   archived: 'Task archived',

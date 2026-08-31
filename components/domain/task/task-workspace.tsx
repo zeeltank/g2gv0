@@ -190,8 +190,41 @@ export function TaskWorkspace() {
   ], [summary])
 
   const decide = async (task: WorkspaceTask, decision: 'approve' | 'reject') => {
+    /*
+     * A REJECTION MUST CARRY ITS REASON.
+     *
+     * The endpoint and the service both accept `remarks`, and this never sent
+     * any — so `approve_remarks` was NULL on every rejection ever recorded. Three
+     * things depend on it: the employee is told why their work came back, the
+     * notification template reads {payload.approve_remarks}, and the capability
+     * evidence a rejection now raises cites it. Sending a task back with no
+     * stated reason produces a mark on someone's record that nobody can contest.
+     *
+     * Approval needs no reason, so it is not asked for one.
+     */
+    let remarks = ''
+
+    if (decision === 'reject') {
+      const given = window.prompt(
+        `Why is “${task.title}” being sent back?
+
+The assignee sees this, and it is recorded as the reason.`,
+        '',
+      )
+
+      // Cancelled — not a rejection with an empty reason. Nothing is sent.
+      if (given === null) return
+
+      remarks = given.trim()
+
+      if (remarks === '') {
+        setError('A rejection needs a reason. The assignee is shown it, and it is kept on the record.')
+        return
+      }
+    }
+
     try {
-      const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision)
+      const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
       setMessage(response.message); setSelected(null); setReload((value) => value + 1)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
   }
@@ -386,10 +419,21 @@ function TaskApprovals({ tasks, onSelect, onDecision }: {
   onDecision: (task: WorkspaceTask, decision: 'approve' | 'reject') => Promise<void>
 }) {
   const [tab, setTab] = useState<'pending' | 'approved' | 'rejected'>('pending')
+  /*
+   * FILTERED ON THE DECISION, NOT ON A PROXY FOR IT.
+   *
+   * `rejected` was `status === 'ON HOLD'`. That was wrong in two directions:
+   * both databases hold ZERO tasks in ON HOLD so the tab was permanently empty,
+   * and ON HOLD is separately counted as "Blocked / Overdue" in the summary, so
+   * a rejected task would have double-counted against itself.
+   *
+   * approve_status says what was actually decided, so each tab now asks its own
+   * question instead of inferring one from the workflow state.
+   */
   const groups = {
-    pending: tasks.filter((task) => task.status === 'COMPLETED' && !task.approved),
-    approved: tasks.filter((task) => task.status === 'COMPLETED' && task.approved),
-    rejected: tasks.filter((task) => task.status === 'ON HOLD'),
+    pending: tasks.filter((task) => task.status === 'COMPLETED' && task.approve_status !== 'approved' && task.approve_status !== 'rejected'),
+    approved: tasks.filter((task) => task.approve_status === 'approved'),
+    rejected: tasks.filter((task) => task.approve_status === 'rejected'),
   }
   const visible = groups[tab]
   return <section className="rounded-2xl border border-primary/10 bg-card p-6 shadow-sm">
@@ -400,11 +444,22 @@ function TaskApprovals({ tasks, onSelect, onDecision }: {
       ] as const).map(([value, Icon, label]) => <button key={value} onClick={() => setTab(value)} className={`flex h-9 items-center gap-2 rounded-xl px-5 text-sm font-semibold transition ${tab === value ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}><Icon className="size-4" />{label}<span className={`rounded-full px-2 py-0.5 text-[10px] ${tab === value ? 'bg-white/20' : 'bg-muted'}`}>{groups[value].length}</span></button>)}
     </div>
     <div className="space-y-4">{visible.length ? visible.map((task) => <article key={task.id} className="relative overflow-hidden rounded-3xl border bg-background p-5 pl-8 shadow-sm">
-      <span className="absolute inset-y-0 left-0 w-1.5 bg-primary/35" />
+      <span className={`absolute inset-y-0 left-0 w-1.5 ${task.approve_status === 'rejected' ? 'bg-destructive/50' : 'bg-primary/35'}`} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <button onClick={() => onSelect(task)} className="flex min-w-0 items-center gap-4 text-left">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/5 text-xs font-bold text-primary">{task.assignee.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
-          <span className="min-w-0"><span className="flex flex-wrap items-center gap-3"><strong className="truncate text-base">{task.title}</strong><span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">TSK-{task.id}</span></span><span className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"><span className="text-primary">●</span><span>{task.project}</span><span className="flex items-center gap-1"><CalendarDays className="size-3.5" />Submitted {formatShortDate(task.updated_at?.slice(0, 10) ?? task.due_date)}</span></span></span>
+          <span className="min-w-0"><span className="flex flex-wrap items-center gap-3"><strong className="truncate text-base">{task.title}</strong><span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">TSK-{task.id}</span></span><span className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"><span className="text-primary">●</span><span>{task.project}</span><span className="flex items-center gap-1"><CalendarDays className="size-3.5" />Submitted {formatShortDate(task.updated_at?.slice(0, 10) ?? task.due_date)}</span></span>{task.approve_status === 'rejected' && (
+            /* THE REASON, ON THE CARD. Capturing it at rejection is only half
+               the job — an approver reviewing the rework queue needs to see why
+               it was sent back without opening each one. Rejections recorded
+               before the reason was captured have none, and say so rather than
+               showing an empty quote. */
+            <span className="mt-2 block rounded-lg border-l-2 border-destructive/40 bg-destructive/5 px-3 py-1.5 text-xs text-muted-foreground">
+              {task.approve_remarks
+                ? <><span className="font-semibold text-destructive">Sent back:</span> {task.approve_remarks}</>
+                : <span className="italic">Sent back before a reason was recorded.</span>}
+            </span>
+          )}</span>
         </button>
         {tab === 'pending' && <div className="flex shrink-0 gap-3"><Button variant="outline" className="min-w-28 rounded-xl" onClick={() => void onDecision(task, 'reject')}><XCircle className="mr-2 size-4" />Reject</Button><Button className="min-w-32 rounded-xl shadow-md" onClick={() => void onDecision(task, 'approve')}><CheckCircle2 className="mr-2 size-4" />Approve</Button></div>}
         {tab !== 'pending' && <StatusBadge status={tab === 'approved' ? 'Completed' : 'On Hold'} label={tab === 'approved' ? 'Approved' : 'Rework'} />}
