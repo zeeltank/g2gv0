@@ -563,6 +563,23 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
         title: title.trim(), description: description.trim(), assigneeIds: assignees, observerId,
         priority, repeatDays, dueDate, skillIds, skillNames: selectedSkillNames, kra, kpa,
         observationPoint: observation, attachment, departmentId,
+        /*
+         * THE CATALOGUE ROW THIS TASK CAME FROM — the link that lets the
+         * employee's task detail find the written procedure.
+         *
+         * `selectedTaskId` is an `s_user_jobrole_task.id`, the same key `eso` is
+         * filed under. It was already in this component (line 973 hands it to
+         * the competency panel) and simply never reached the server, which then
+         * tried to rediscover it by matching the title text. That works only for
+         * a title unique across job roles: measured on live, 6 of 612 tasks. A
+         * title shared by four roles — the norm, because roles draw from one
+         * catalogue — resolves to nothing, and the ESO stays invisible.
+         *
+         * Every path that invalidates the choice already clears it: switching to
+         * a custom title (line 903) and typing in the search (line 916). So a
+         * non-empty value here always means a row the user actually clicked.
+         */
+        jobRoleTaskId: titleSource === 'catalogue' ? selectedTaskId : '',
         idempotencyKey: submissionKey.current,
       })
       if (response.status_code !== undefined && Number(response.status_code) !== 1) throw new Error(response.message || 'Task creation failed.')

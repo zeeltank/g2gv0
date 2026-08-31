@@ -64,9 +64,55 @@ export function TaskDutyContext({ taskId }: { taskId: number | null }) {
     queueMicrotask(() => { load() })
   }, [load])
 
-  if (!taskId || failed) return null
+  if (!taskId) return null
   if (loading) return <Skeleton className="h-16 w-full rounded-xl" />
-  if (!data || !data.has_duty) return null
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * "NOT LINKED" IS A FACT, NOT A REASON TO RENDER NOTHING
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * This used to `return null` for both `failed` and `!has_duty`, so three
+   * different situations looked identical to whoever opened the task: the duty
+   * loaded fine, the task has no duty, and the request errored. The one that
+   * matters most — the link is missing, so this task can never show its
+   * procedure — was the most invisible of the three.
+   *
+   * That silence is why a missing link went unnoticed: an ESO was generated, the
+   * task was assigned, and nothing anywhere said the two were not connected.
+   */
+  if (failed) {
+    return (
+      <div className="rounded-xl border border-border bg-card/60 p-4">
+        <p className="text-xs text-muted-foreground">
+          The job-role duty for this task could not be checked. This is a loading problem, not a
+          statement that the task has none.
+        </p>
+      </div>
+    )
+  }
+
+  if (!data || !data.has_duty) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card/40 p-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Info className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Not linked to a job-role task
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              This task was written manually rather than picked from the job-role catalogue, so it
+              has no execution model and no written procedure — and the person doing it will not see
+              one. Assigning it from the catalogue instead is what connects the two.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const mode = data.execution?.mode ?? null
   const machine = mode !== null && MACHINE_MODES.includes(mode)
