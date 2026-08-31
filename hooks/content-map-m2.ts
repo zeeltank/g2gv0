@@ -18,16 +18,31 @@ const CmAudit = createLazyComponent(() => import('@/domain/competency/cm-audit')
 
 // accessLink is the stable tblmenumaster_g2g column (Competency Library menu,
 // id 34, of module 2); submenuId is kept as a fallback.
-// NOTE: ids 38 ("Competency Library"), 39 ("Libraries & Taxonomy") and 208
-// ("Audit & Activity Center") don't currently exist as tblmenumaster_g2g
-// rows — confirmed via a live DB query — so they have no access_link and
-// keep matching on submenuId only (already broken pre-migration; unchanged).
+//
+// THE THREE "MISSING MENUS" ARE RESOLVED (2026-08-31), and only one of them was
+// real:
+//
+//   208  Audit & Activity Center — a genuine gap. CmAudit had no other route, so
+//        a complete subsystem (the approval queue, six tabs, seven endpoints and
+//        ~2,000 rows of activity log) was unreachable, while two reachable
+//        screens could still SUBMIT into the queue nobody could open. Menu row
+//        created on both databases at that exact id, gated to admin/hr to match
+//        the API. It now resolves by accessLink like every other M2 screen.
+//
+//   39   NOT created, and removed from this map. It pointed at
+//        CmLibrariesTaxonomy — the same component menu 223 already opens with a
+//        working accessLink — so creating it would have put two sidebar entries
+//        on one screen. This module has removed exactly that twice before (Skill
+//        Taxonomy 41, Competency Definitions).
+//
+//   38   Was never a route at all; only this comment referred to it.
+//
+// Every M2 screen now has exactly one door.
 export const M2_CONTENT: ContentRoute[] = [
   { accessLink: '/module/capability-intelligence/dashboard', component: CmCommandCenter }, // Command Center
   { accessLink: '/module/capability-intelligence/competency-library', submenuId: '34', component: CmCompetencyLibrary }, // Competency Library
   { accessLink: '/module/capability-intelligence/competency-framework', submenuId: '154', component: CmFrameworkMapping }, // Framework & Role Mapping
   { accessLink: '/module/capability-intelligence/capability-library', submenuId: '223', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
-  { submenuId: '39', component: CmLibrariesTaxonomy }, // Libraries & Taxonomy
   { accessLink: '/module/capability-intelligence/capability-explorer', submenuId: '43', component: CmTaxonomyOntology }, // Taxonomy Ontology
   // ASSESSMENTS MOVED TO LMS on 2026-08-19 - see content-map-m4.ts. It is a
   // learning activity, not a competency-authoring screen, so it belongs with
@@ -64,5 +79,5 @@ export const M2_CONTENT: ContentRoute[] = [
   // ROLE -> COMPETENCY LIVES IN THE JOB ROLE FORM NOW, not on its own screen.
   // Menu removed 2026-08-19 (local 231 / live 227 - the ids differ). Set by the
   // person defining the role, on the Capability screen's Job Role tab.
-  { submenuId: '208', component: CmAudit }, // Audit & Activity Center
+  { accessLink: '/module/capability-intelligence/audit', submenuId: '208', component: CmAudit }, // Audit & Activity Center
 ]
