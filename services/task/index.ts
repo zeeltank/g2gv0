@@ -31,7 +31,44 @@ import type {
   DelayReport,
   DependenciesResponse,
   DependencyType, MilestonesResponse,
+  LinkableTask,
+  WorkstreamDetail,
+  WorkstreamKind,
+  WorkstreamLinkType,
+  WorkstreamListResponse,
+  WorkstreamOptions,
 } from '@/types/task-management'
+
+/**
+ * The five per-record child types, as they appear in the URL.
+ *
+ * A union rather than a free string so a typo becomes a compile error instead of
+ * a 404 at runtime — these all share one create/update/delete shape, which is
+ * only safe if the segment cannot be mistyped.
+ */
+export type WorkstreamRecordKind = 'deliverables' | 'checkpoints' | 'kpis' | 'risks' | 'dependencies'
+
+/**
+ * What a workstream write sends.
+ *
+ * `kind` and `status` are REQUIRED, not optional. The server used to default
+ * `kind` on update, which silently rewrote a GOVERNANCE workstream to DELIVERY
+ * whenever a form omitted it; the server no longer does, and this type makes
+ * sure a caller cannot reintroduce the same hole from the client side.
+ */
+export interface WorkstreamPayload {
+  name: string
+  kind: WorkstreamKind
+  status: ProjectStatus
+  code?: string | null
+  purpose?: string | null
+  core_question?: string | null
+  owner_id?: string | null
+  parent_id?: string | null
+  start_date?: string | null
+  due_date?: string | null
+  sort_order?: number
+}
 
 export interface Project {
   id: string
@@ -423,11 +460,141 @@ export const taskService = {
       `/task-management/workspace/${taskId}/attachments`, body,
     )
   },
+  /**
+   * KEPT AS A DERIVED WRAPPER, deliberately.
+   *
+   * This pulls the whole project record to obtain a list of names, which is
+   * wasteful — but `dependencies-view.tsx` calls it in two places and the
+   * project detail still embeds workstreams, so it keeps working untouched.
+   * New screens use `getProjectWorkstreams` below, which is one request and
+   * carries health, links and the roll-up with it.
+   */
   getWorkstreams: (context: LaravelContext, projectId: string) =>
     taskService.getProjectRecord(context, projectId).then((response) => ({
       ...response,
       data: response.data.workstreams ?? [],
     })),
+
+  /* ---------------------------------------------------------------- *
+   * WORKSTREAM 360
+   *
+   * Context is inlined as the same three keys the rest of this file uses.
+   * NOT `withLaravelParams` — that sends nine keys the task-management
+   * controllers do not expect, and only services/task/documents.ts wants it.
+   * ---------------------------------------------------------------- */
+
+  /** The whole graph in one request: workstreams + health + links + summary. */
+  getProjectWorkstreams: (context: LaravelContext, projectId: string) =>
+    apiClient.get<WorkstreamListResponse>(`/task-management/projects/${projectId}/workstreams`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /** All nine fields of one workstream — the 360 view is not nine round trips. */
+  getWorkstream: (context: LaravelContext, workstreamId: string) =>
+    apiClient.get<{ status: 1; message: string; data: WorkstreamDetail }>(
+      `/task-management/workstreams/${workstreamId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  /**
+   * Candidates for the Link task picker.
+   *
+   * Each says whether it is already on another project, so the dialog can show
+   * "already in PRJ-00003" instead of silently creating a second link.
+   */
+  getLinkableTasks: (context: LaravelContext, projectId: string, search?: string) =>
+    apiClient.get<{ status: 1; message: string; data: { tasks: LinkableTask[]; capped: boolean } }>(
+      `/task-management/projects/${projectId}/linkable-tasks`,
+      {
+        token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+        ...(search ? { search } : {}),
+      },
+    ),
+
+  /** Server-owned vocabularies. A client that hardcodes these drifts silently. */
+  getWorkstreamOptions: (context: LaravelContext) =>
+    apiClient.get<{ status: 1; message: string; data: WorkstreamOptions }>(
+      '/task-management/workstreams/options',
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  createProjectWorkstream: (context: LaravelContext, projectId: string, payload: WorkstreamPayload) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>(
+      `/task-management/projects/${projectId}/workstreams`,
+      { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  /**
+   * ⚠ ALWAYS SEND `kind`. The server no longer defaults it on update — it used
+   * to, and an update that omitted it rewrote GOVERNANCE to DELIVERY silently.
+   * The type makes it required for exactly that reason.
+   */
+  updateProjectWorkstream: (context: LaravelContext, projectId: string, workstreamId: string, payload: WorkstreamPayload) =>
+    apiClient.put<{ status: 1; message: string; data: { id: string } }>(
+      `/task-management/projects/${projectId}/workstreams/${workstreamId}`,
+      { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  deleteProjectWorkstream: (context: LaravelContext, projectId: string, workstreamId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(
+      `/task-management/projects/${projectId}/workstreams/${workstreamId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  // ── the graph ──────────────────────────────────────────────────────
+  createWorkstreamLink: (context: LaravelContext, projectId: string, payload: {
+    predecessor_workstream_id: string; successor_workstream_id: string
+    link_type: WorkstreamLinkType; label?: string; note?: string
+  }) => apiClient.post<{ status: 1; message: string; data: { id: string } }>(
+    `/task-management/projects/${projectId}/workstream-links`,
+    { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+  ),
+
+  deleteWorkstreamLink: (context: LaravelContext, linkId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/workstream-links/${linkId}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  // ── list-replace records: authored as a list, saved as a list ──────
+  saveWorkstreamMembers: (context: LaravelContext, workstreamId: string, members: Array<{ user_id: string; role?: string; lane?: string | null }>) =>
+    apiClient.put<{ status: 1; message: string }>(`/task-management/workstreams/${workstreamId}/members`, {
+      members, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /** Scoped to ONE kind, so saving responsibilities cannot wipe the scope lists. */
+  saveWorkstreamStatements: (context: LaravelContext, workstreamId: string, kind: string, statements: string[]) =>
+    apiClient.put<{ status: 1; message: string }>(`/task-management/workstreams/${workstreamId}/statements`, {
+      kind, statements, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  // ── per-record: each carries its own status, owner and dates ───────
+  createWorkstreamRecord: (context: LaravelContext, workstreamId: string, kind: WorkstreamRecordKind, payload: Record<string, unknown>) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>(
+      `/task-management/workstreams/${workstreamId}/${kind}`,
+      { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  updateWorkstreamRecord: (context: LaravelContext, workstreamId: string, kind: WorkstreamRecordKind, recordId: string, payload: Record<string, unknown>) =>
+    apiClient.put<{ status: 1; message: string; data: { id: string } }>(
+      `/task-management/workstreams/${workstreamId}/${kind}/${recordId}`,
+      { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  deleteWorkstreamRecord: (context: LaravelContext, workstreamId: string, kind: WorkstreamRecordKind, recordId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(
+      `/task-management/workstreams/${workstreamId}/${kind}/${recordId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+
+  /**
+   * Recording a reading is a different act from redefining what is measured, so
+   * it is its own call. Clearing the value returns the KPI to UNMEASURED.
+   */
+  recordKpiMeasurement: (context: LaravelContext, workstreamId: string, kpiId: string, payload: { current_value: string | null; measured_at?: string; status?: string }) =>
+    apiClient.patch<{ status: 1; message: string }>(
+      `/task-management/workstreams/${workstreamId}/kpis/${kpiId}/measurement`,
+      { ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
   /**
    * Milestones on their own. They used to arrive only inside getDependencies,
    * so the milestone tab could not refresh without refetching the whole graph.
