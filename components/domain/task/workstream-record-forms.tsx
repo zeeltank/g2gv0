@@ -18,13 +18,14 @@
  */
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type {
   WorkstreamCheckpoint, WorkstreamDeliverable, WorkstreamDependency,
@@ -38,9 +39,19 @@ import type {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        {label}
+        {/* The hint is a definition, not a sentence the form has to say out loud. */}
+        {hint && (
+          <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">{hint}</span>}>
+            {/* The hint used to be visible text under the field. lucide stamps
+                aria-hidden on a childless icon, so without a name the hint would
+                now exist for a mouse and for nothing else. */}
+            <Info role="img" aria-label={hint} className="size-3.5 text-muted-foreground" />
+          </Tooltip>
+        )}
+      </span>
       {children}
-      {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
     </label>
   )
 }
@@ -55,7 +66,7 @@ function RecordDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[560px]">
         <DialogHeader className="shrink-0">
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
@@ -101,15 +112,27 @@ const opts = (values: string[], blank?: string) => [
  * of proportion to the problem.
  */
 export function StatementListEditor({
-  title, description, statements, canManage, saving, onSave,
+  title, description, level = 3, statements, canManage, saving, onSave,
 }: {
   title: string
   description?: string
+  /**
+   * 2 when this editor heads its own card, 3 when it is a group inside one.
+   *
+   * Responsibilities is a card of its own; In scope and Out of scope are two
+   * columns under the "Scope boundaries" heading. Rendering all three as h3
+   * made the document jump h1 -> h3 and told a screen reader that the scope
+   * columns are peers of the card above them.
+   */
+  level?: 2 | 3
   statements: WorkstreamStatement[]
   canManage: boolean
   saving: boolean
   onSave: (bodies: string[]) => Promise<{ ok: boolean; message: string }>
 }) {
+  // A capitalised binding so JSX reads it as a component rather than the
+  // literal tag <Heading>.
+  const Heading = level === 2 ? 'h2' : 'h3'
   const [draft, setDraft] = useState<string[] | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [rowDraft, setRowDraft] = useState('')
@@ -133,8 +156,17 @@ export function StatementListEditor({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold">{title}</h3>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+          <Heading className={cn(
+            'flex items-center gap-1.5 font-semibold text-foreground',
+            level === 2 ? 'text-base tracking-tight' : 'text-sm',
+          )}>
+            {title}
+            {description && (
+              <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">{description}</span>}>
+                <Info role="img" aria-label={description} className="size-3.5 text-muted-foreground" />
+              </Tooltip>
+            )}
+          </Heading>
         </div>
         {dirty && canManage && (
           <div className="flex gap-2">
@@ -181,7 +213,7 @@ export function StatementListEditor({
               </>
             ) : (
               <>
-                <span className="flex-1 text-sm">{body}</span>
+                <span className="flex-1 text-sm text-foreground">{body}</span>
                 {canManage && (
                   <span className="flex shrink-0 gap-0.5">
                     <Button size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Move up" disabled={index === 0}
@@ -278,7 +310,20 @@ export function ContributorsEditor({
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">Contributors</h3>
+        <h2 className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+          Contributors
+          <Tooltip
+            content={(
+              <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+                Technical lanes — frontend, backend, AI — belong here as a contributor&apos;s lane, not as separate workstreams.
+              </span>
+            )}
+          >
+            <Info role="img"
+              aria-label="Technical lanes — frontend, backend, AI — belong here as a contributor’s lane, not as separate workstreams."
+              className="size-3.5 text-muted-foreground" />
+          </Tooltip>
+        </h2>
         {dirty && canManage && (
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => { setDraft(null); setError('') }} disabled={saving}>Discard</Button>
@@ -293,8 +338,8 @@ export function ContributorsEditor({
           singular and belongs to the workstream, not to this list. */}
       <div className="rounded-lg border bg-muted/30 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">{ownerName ?? 'No owner set'}</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Accountable</span>
+          <span className="text-sm font-medium text-foreground">{ownerName ?? 'No owner set'}</span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Accountable</span>
         </div>
       </div>
 
@@ -304,7 +349,7 @@ export function ContributorsEditor({
         {rows.map((row, index) => (
           <li key={row.user_id} className="rounded-lg border px-3 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium">{row.user_name}</span>
+              <span className="text-sm font-medium text-foreground">{row.user_name}</span>
               {canManage && (
                 <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger" aria-label={`Remove ${row.user_name}`}
                   onClick={() => { setDraft(rows.filter((_, i) => i !== index)); setError('') }}>
@@ -382,7 +427,7 @@ export function DeliverableDialog({
   return (
     <RecordDialog
       open={open} title={initial ? 'Edit deliverable' : 'Add deliverable'}
-      description="Something this workstream produces, with the state it is in."
+      description="Something this workstream produces."
       error={error} saving={saving} onClose={onClose}
       saveLabel={initial ? 'Save changes' : 'Add deliverable'}
       onSave={() => onSave({ ...form, owner_id: form.owner_id || null, checkpoint_id: form.checkpoint_id || null })}
@@ -400,11 +445,11 @@ export function DeliverableDialog({
           <Input type="date" value={form.due_date} onChange={(e) => set('due_date', e.target.value)} />
         </Field>
       </div>
-      <Field label="Gated by checkpoint" hint="Optional — the critical checkpoint this deliverable must clear.">
+      <Field label="Gated by checkpoint" hint="Optional.">
         <Select value={form.checkpoint_id} onChange={(v) => set('checkpoint_id', v)} placeholder="None"
           options={opts([], 'None').concat(checkpoints.map((c) => ({ value: c.id, label: c.name })))} />
       </Field>
-      <Field label="Acceptance criteria" hint="What has to be true for this to count as delivered.">
+      <Field label="Acceptance criteria">
         <Textarea rows={3} value={form.acceptance_criteria} onChange={(e) => set('acceptance_criteria', e.target.value)} />
       </Field>
       <Field label="Description">
@@ -447,7 +492,7 @@ export function CheckpointDialog({
   return (
     <RecordDialog
       open={open} title={initial ? 'Edit checkpoint' : 'Add checkpoint'}
-      description="A dated gate inside this workstream — distinct from a project milestone."
+      description="A dated gate inside this workstream."
       error={error} saving={saving} onClose={onClose}
       saveLabel={initial ? 'Save changes' : 'Add checkpoint'}
       onSave={() => onSave(form)}
@@ -461,7 +506,7 @@ export function CheckpointDialog({
           <Select value={form.status} onChange={(v) => setForm((c) => ({ ...c, status: v }))} options={opts(options.checkpoint_statuses)} />
         </Field>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <input type="checkbox" checked={form.is_critical}
           onChange={(e) => setForm((c) => ({ ...c, is_critical: e.target.checked }))} />
         Critical checkpoint
@@ -507,7 +552,7 @@ export function KpiDialog({
   return (
     <RecordDialog
       open={open} title={initial ? 'Edit success metric' : 'Add success metric'}
-      description="An objective, quantifiable target that proves this workstream's purpose has been met."
+      description="A quantifiable target for this workstream."
       error={error} saving={saving} onClose={onClose}
       saveLabel={initial ? 'Save changes' : 'Add metric'}
       onSave={() => onSave({ ...form, owner_id: form.owner_id || null })}
@@ -530,12 +575,12 @@ export function KpiDialog({
         <Field label="Unit" hint="ms, %, incidents…">
           <Input value={form.unit} onChange={(e) => set('unit', e.target.value)} />
         </Field>
-        <Field label="Better when" hint="Latency is better going down.">
+        <Field label="Better when">
           <Select value={form.direction} onChange={(v) => set('direction', v)}
             options={options.kpi_directions.map((d) => ({ value: d, label: d === 'UP' ? 'Higher' : 'Lower' }))} />
         </Field>
       </div>
-      <Field label="Current reading" hint="Leave blank until it has actually been measured — blank means unmeasured, not zero.">
+      <Field label="Current reading" hint="Blank means unmeasured, not zero.">
         <Input value={form.current_value} onChange={(e) => set('current_value', e.target.value)} />
       </Field>
       <Field label="Where the number comes from">
@@ -586,7 +631,7 @@ export function RiskDialog({
   return (
     <RecordDialog
       open={open} title={initial ? 'Edit risk' : 'Add risk'}
-      description="A roadblock specific to this workstream, and how it will be avoided or resolved."
+      description="A roadblock specific to this workstream."
       error={error} saving={saving} onClose={onClose}
       saveLabel={initial ? 'Save changes' : 'Add risk'}
       onSave={() => onSave({ ...form, owner_id: form.owner_id || null })}
@@ -603,10 +648,10 @@ export function RiskDialog({
           <Select value={form.impact} onChange={(v) => set('impact', v)} options={opts(options.risk_levels)} />
         </Field>
       </div>
-      <Field label="Mitigation" hint="The planned strategy to avoid or resolve it.">
+      <Field label="Mitigation">
         <Textarea rows={3} value={form.mitigation} onChange={(e) => set('mitigation', e.target.value)} />
       </Field>
-      <Field label="Contingency" hint="What happens if it lands anyway.">
+      <Field label="Contingency">
         <Textarea rows={2} value={form.contingency} onChange={(e) => set('contingency', e.target.value)} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -662,8 +707,8 @@ export function DependencyDialog({
       open={open}
       title={initial ? 'Edit dependency' : upstream ? 'Add something this needs' : 'Add someone waiting on this'}
       description={upstream
-        ? 'A requirement this workstream needs before it can start — often not another workstream.'
-        : 'A team, customer or system waiting on this workstream\'s output.'}
+        ? 'What this workstream needs before it can start.'
+        : 'Who is waiting on this workstream\'s output.'}
       error={error} saving={saving} onClose={onClose}
       saveLabel={initial ? 'Save changes' : 'Add'}
       onSave={() => onSave(form)}
@@ -682,7 +727,7 @@ export function DependencyDialog({
           <Select value={form.status} onChange={(v) => setForm((c) => ({ ...c, status: v }))} options={opts(options.dependency_statuses)} />
         </Field>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <input type="checkbox" checked={form.is_blocking}
           onChange={(e) => setForm((c) => ({ ...c, is_blocking: e.target.checked }))} />
         Currently blocking work
@@ -734,7 +779,7 @@ export function MeasurementDialog({
       <Field label="Current reading" hint="Clear it to return this metric to unmeasured.">
         <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={kpi?.unit ? `e.g. 340${kpi.unit}` : ''} />
       </Field>
-      <Field label="Judgement" hint="How this reading stands against the target.">
+      <Field label="Judgement">
         <Select value={status} onChange={setStatus} placeholder="Decide from the reading"
           options={opts([], 'Decide from the reading').concat(
             options.kpi_statuses.filter((s) => s !== 'UNMEASURED').map((s) => ({ value: s, label: s.replace(/_/g, ' ') })),

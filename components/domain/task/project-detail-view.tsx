@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, Briefcase, Layers, Pencil, Plus, Target, Trash2, Users, X,
+  AlertTriangle, ArrowLeft, Briefcase, Info, Layers, Pencil, Plus, Target, Trash2, Users, X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Tooltip } from '@/components/ui/tooltip'
 import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
@@ -288,7 +289,7 @@ export function ProjectDetailView({
               <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 h-7 px-2 text-muted-foreground">
                 <ArrowLeft className="mr-1.5 size-3.5" /> Back to projects
               </Button>
-              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight">
+              <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
                 <Briefcase className="size-5 text-primary" />
                 {project.name}
                 <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
@@ -324,7 +325,7 @@ export function ProjectDetailView({
               drawer; the API has always returned the whole list. */}
           {(project.departments?.length ?? 0) > 0 && (
             <div className="border-t pt-3">
-              <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">Departments</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Departments</p>
               <div className="flex flex-wrap gap-1.5">
                 {project.departments!.map((d) => (
                   <span key={d.id} className={cn(
@@ -364,7 +365,12 @@ export function ProjectDetailView({
         {TABS.map((t) => (
           <Button key={t.id} variant="ghost" role="tab" aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={cn('rounded-none border-b-2', tab === t.id ? 'border-primary text-primary' : 'border-transparent')}>
+            className={cn(
+              'rounded-none border-b-2 text-sm',
+              tab === t.id
+                ? 'border-primary font-semibold text-primary'
+                : 'border-transparent font-medium text-muted-foreground',
+            )}>
             {t.label}
           </Button>
         ))}
@@ -375,10 +381,24 @@ export function ProjectDetailView({
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="font-semibold">Delivery lifecycle</h3>
-              <p className="text-xs text-muted-foreground">
-                Create the workstreams for this project, then connect them to describe how work flows.
-              </p>
+              <h2 className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+                Delivery lifecycle
+                <Tooltip
+                  side="bottom"
+                  content={(
+                    <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+                      Create the workstreams for this project, then connect them to describe how work flows.
+                    </span>
+                  )}
+                >
+                  {/* lucide stamps aria-hidden on a childless icon, so the bare
+                      <Info /> left this trigger — and the guidance it replaced —
+                      with no accessible name at all. */}
+                  <Info role="img"
+                    aria-label="Create the workstreams for this project, then connect them to describe how work flows."
+                    className="size-3.5 text-muted-foreground" />
+                </Tooltip>
+              </h2>
             </div>
             <Button size="sm" onClick={() => { setWsError(''); setWsDialog({ open: true, initial: null }) }}>
               <Plus className="mr-1 size-3.5" /> New workstream
@@ -396,9 +416,7 @@ export function ProjectDetailView({
 
           {workstreams.length === 0 ? (
             <div className="rounded-xl border border-dashed p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No workstreams yet. Create the first one to start building this project&apos;s delivery model.
-              </p>
+              <p className="text-sm text-muted-foreground">No workstreams yet.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -408,7 +426,7 @@ export function ProjectDetailView({
                   <div className="flex items-start justify-between gap-2">
                     <button type="button" onClick={() => setSelectedWorkstream(w.id)} className="min-w-0 text-left">
                       {/* Name first. The code is a reference, in muted text beneath. */}
-                      <p className="font-semibold leading-tight hover:text-primary">{w.name}</p>
+                      <p className="text-sm font-semibold leading-tight text-foreground hover:text-primary">{w.name}</p>
                       <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
                         {w.code && <span className="font-mono">{w.code}</span>}
                         {w.kind === 'GOVERNANCE' && <span className="font-medium">Governance layer</span>}
@@ -447,7 +465,7 @@ export function ProjectDetailView({
 
       {tab === 'team' && (
         <Card><CardContent className="p-5">
-          <h3 className="mb-3 font-semibold">Project team</h3>
+          <h2 className="mb-3 text-base font-semibold tracking-tight text-foreground">Project team</h2>
           {projectMembers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No members yet.</p>
           ) : (
@@ -458,7 +476,7 @@ export function ProjectDetailView({
                 const owns = workstreams.filter((w) => w.owner_id === m.id)
                 return (
                   <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                    <span className="text-sm font-medium">{m.name}</span>
+                    <span className="text-sm font-medium text-foreground">{m.name}</span>
                     <span className="flex flex-wrap gap-1.5">
                       {owns.map((w) => (
                         <span key={w.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
@@ -485,7 +503,7 @@ export function ProjectDetailView({
             open on purpose.
           */}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold">Linked tasks</h3>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Linked tasks</h2>
             <Button size="sm" variant="outline" onClick={() => setLinkOpen(true)}>
               <Plus className="mr-1 size-3.5" /> Link a task
             </Button>
@@ -499,12 +517,12 @@ export function ProjectDetailView({
             <div className="space-y-4">
               {groupByWorkstream(project.tasks ?? []).map((group) => (
                 <div key={group.id}>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.name}</p>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.name}</p>
                   <ul className="divide-y rounded-lg border">
                     {group.tasks.map((t) => (
                       <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <span className="min-w-0 truncate">{t.title}</span>
-                        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                        <span className="min-w-0 truncate text-foreground">{t.title}</span>
+                        <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
                           {t.assignee && <span>{t.assignee}</span>}
                           {t.due_date && <span>{t.due_date}</span>}
                           <StatusBadge status={t.status ?? 'Pending'} size="sm">{t.status ?? 'Pending'}</StatusBadge>
@@ -551,10 +569,20 @@ export function ProjectDetailView({
 
       {tab === 'timeline' && (
         <Card><CardContent className="p-5">
-          <h3 className="mb-1 font-semibold">Workstream timeline</h3>
-          <p className="mb-4 text-xs text-muted-foreground">
-            Each workstream against the project window.
-          </p>
+          <h2 className="mb-4 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+            Workstream timeline
+            <Tooltip
+              side="bottom"
+              content={(
+                <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+                  Each workstream against the project window.
+                </span>
+              )}
+            >
+              <Info role="img" aria-label="Each workstream against the project window."
+                className="size-3.5 text-muted-foreground" />
+            </Tooltip>
+          </h2>
           <WorkstreamTimeline workstreams={workstreams} project={project} onOpen={(id) => setSelectedWorkstream(id)} />
         </CardContent></Card>
       )}
@@ -696,9 +724,9 @@ function LinkTaskDialog({
 function Meta({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
       {/* An em dash, not a blank: absent and empty read differently. */}
-      <dd className="mt-0.5 text-sm font-medium">{value && value !== '' ? value : '—'}</dd>
+      <dd className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value && value !== '' ? value : '—'}</dd>
     </div>
   )
 }
@@ -709,7 +737,7 @@ function Stat({ icon: Icon, label, value, tone }: { icon: React.ElementType; lab
       <span className="rounded-lg bg-primary/10 p-2 text-primary"><Icon className="size-4" /></span>
       <span className="min-w-0">
         <span className="block text-xs text-muted-foreground">{label}</span>
-        <span className={cn('block text-lg font-bold tabular-nums', tone)}>{value}</span>
+        <span className={cn('block text-lg font-bold tabular-nums text-foreground', tone)}>{value}</span>
       </span>
     </CardContent></Card>
   )

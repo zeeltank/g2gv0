@@ -32,8 +32,9 @@
  */
 
 import { useMemo } from 'react'
-import { ArrowDown, RotateCcw, Shield } from 'lucide-react'
+import { ArrowDown, Info, RotateCcw, Shield } from 'lucide-react'
 
+import { Tooltip } from '@/components/ui/tooltip'
 import { categoricalColor } from '@/lib/chart-colors'
 import { cn } from '@/lib/utils'
 import { WorkstreamHealthBadge } from './workstream-health'
@@ -47,7 +48,7 @@ interface Props {
 }
 
 export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: Props) {
-  const { stages, governance, flow, feedback, governs, orderedIds, unconnected } = useMemo(() => {
+  const { stages, governance, feedback, governs, orderedIds, unconnected } = useMemo(() => {
     const delivery = workstreams.filter((w) => w.kind === 'DELIVERY' && !w.parent_id)
     const governance = workstreams.filter((w) => w.kind === 'GOVERNANCE' && !w.parent_id)
 
@@ -124,8 +125,11 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
                 <StageCard ws={ws} colour={colour} onOpen={onOpen} compact={compact} />
 
                 {index < stages.length - 1 && (
-                  <div className="flex items-center justify-center gap-2 py-2" aria-hidden="true">
-                    <ArrowDown className="size-4 text-muted-foreground" />
+                  // aria-hidden sits on the arrow alone. Hiding the whole row
+                  // took the caption with it, and the caption is the tenant's
+                  // own words rather than decoration.
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <ArrowDown className="size-4 text-muted-foreground" aria-hidden="true" />
                     {/* The caption is the model's own words, from the link row. */}
                     {edgeLabel && (
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -164,13 +168,16 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
             >
               <div className="flex items-center gap-2">
                 <Shield className="size-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Governance
                 </span>
               </div>
               <div>
                 {ws.code && <p className="text-xs font-mono text-muted-foreground">{ws.code}</p>}
-                <p className="font-semibold leading-tight">{ws.name}</p>
+                {/* Group-level heading in the type scale. Kept as a <p> rather than an
+                    <h3> because this card is a <button>, whose content model is phrasing
+                    content — a heading inside it is invalid and has its role stripped. */}
+                <p className="text-sm font-semibold leading-tight text-foreground">{ws.name}</p>
               </div>
               {ws.core_question && <p className="text-xs italic text-muted-foreground">{ws.core_question}</p>}
               <WorkstreamHealthBadge state={ws.health.state} className="self-start" />
@@ -209,7 +216,6 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
             {workstreams.find((w) => w.id === feedbackEdge.from_id)?.name ?? 'a later workstream'}
             {' feeds back into '}
             {workstreams.find((w) => w.id === feedbackEdge.to_id)?.name ?? 'the first'}
-            {', closing the loop.'}
           </p>
         </div>
       )}
@@ -218,9 +224,25 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
           absent card reads as an absent workstream. */}
       {unconnected.length > 0 && (
         <div className="rounded-lg border border-dashed p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {/* A <div>, not a <p>: Tooltip renders a block-level wrapper, and the
+              HTML parser closes an open <p> the moment it meets one — which SSRs
+              one tree and hydrates another. */}
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Not in the delivery flow
-          </p>
+            <Tooltip
+              side="bottom"
+              content={
+                <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+                  Link these to a stage to place them in the flow.
+                </span>
+              }
+            >
+              {/* lucide marks a childless icon aria-hidden, which would leave the
+                  trigger — and therefore the hint — with no accessible name. */}
+              <Info role="img" aria-label="Link these to a stage to place them in the flow."
+                className="size-3.5 text-muted-foreground" />
+            </Tooltip>
+          </div>
           <div className="flex flex-wrap gap-2">
             {unconnected.map((ws) => (
               <button
@@ -233,9 +255,6 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Link these to a stage to place them in the flow.
-          </p>
         </div>
       )}
 
@@ -288,14 +307,17 @@ function StageCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           {ws.code && <p className="font-mono text-xs text-muted-foreground">{ws.code}</p>}
-          <p className="font-semibold leading-tight">{ws.name}</p>
+          {/* Group-level heading in the type scale. Kept as a <p> rather than an
+              <h3> because this card is a <button>, whose content model is phrasing
+              content — a heading inside it is invalid and has its role stripped. */}
+          <p className="text-sm font-semibold leading-tight text-foreground">{ws.name}</p>
           {ws.core_question && <p className="mt-0.5 text-xs italic text-muted-foreground">{ws.core_question}</p>}
         </div>
         <WorkstreamHealthBadge state={ws.health.state} />
       </div>
 
       {!compact && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-muted-foreground">
           <span>{ws.owner_name ?? 'No owner'}</span>
           {ws.health.deliverables.total > 0 && (
             <span>{ws.health.deliverables.done} of {ws.health.deliverables.total} deliverables</span>

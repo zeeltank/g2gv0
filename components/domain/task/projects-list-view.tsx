@@ -83,7 +83,7 @@ export function ProjectsListView() {
   return (
     <div className="flex h-full flex-col gap-6">
       <div className="flex items-start justify-between">
-        <div><h1 className="text-3xl font-bold tracking-tight">Projects & Workstreams</h1><p className="mt-1 text-sm text-muted-foreground">Plan initiatives, teams, linked tasks, and delivery workstreams.</p></div>
+        <div><h1 className="text-3xl font-bold tracking-tight text-foreground">Projects & Workstreams</h1><p className="mt-1 text-sm text-muted-foreground">Plan initiatives, teams, linked tasks, and delivery workstreams.</p></div>
         <Button onClick={() => { setEditing(null); setFormOpen(true) }}><Plus className="mr-2 size-4" />New Project</Button>
       </div>
       {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
@@ -99,7 +99,7 @@ export function ProjectsListView() {
           {!projects.length && <div className="col-span-full flex h-64 flex-col items-center justify-center text-muted-foreground"><Briefcase className="mb-3 size-10 opacity-40" />No projects match the selected filters.</div>}
         </div>
       )}
-      {!loading && pagination.total > 0 && <div className="flex items-center justify-between border-t pt-3 text-sm"><span>{pagination.total} projects</span><div className="flex items-center gap-3"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((v) => v - 1)}>Previous</Button><span>Page {pagination.current_page} of {pagination.last_page}</span><Button variant="outline" size="sm" disabled={page >= pagination.last_page} onClick={() => setPage((v) => v + 1)}>Next</Button></div></div>}
+      {!loading && pagination.total > 0 && <div className="flex items-center justify-between border-t pt-3 text-sm"><span className="text-muted-foreground"><span className="tabular-nums font-medium text-foreground">{pagination.total}</span> projects</span><div className="flex items-center gap-3"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((v) => v - 1)}>Previous</Button><span className="tabular-nums text-muted-foreground">Page {pagination.current_page} of {pagination.last_page}</span><Button variant="outline" size="sm" disabled={page >= pagination.last_page} onClick={() => setPage((v) => v + 1)}>Next</Button></div></div>}
       {/* `editing` is cleared on close so a re-edit cannot reseed the form from
           a stale record, and the list refresh is deferred to the next frame so
           it does not unmount every card - and every DropdownMenu inside them -
@@ -118,7 +118,7 @@ export function ProjectsListView() {
 
 function ProjectCard({ project, onOpen, onEdit, onArchive }: { project: ProjectRecord; onOpen: () => void; onEdit: () => void; onArchive: () => void }) {
   return <Card className="cursor-pointer transition hover:border-primary/40 hover:shadow-md" onClick={onOpen}><CardContent className="p-5">
-    <div className="flex items-start justify-between"><div className="flex gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><Briefcase className="size-5" /></div><div><h3 className="font-semibold">{project.name}</h3><p className="text-xs text-muted-foreground">{project.code}</p></div></div>
+    <div className="flex items-start justify-between"><div className="flex gap-3"><div className="rounded-xl bg-primary/10 p-3 text-primary"><Briefcase className="size-5" /></div><div><h3 className="truncate text-base font-semibold tracking-tight text-foreground">{project.name}</h3><p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{project.code}</p></div></div>
       {/* modal={false} IS THE FIX FOR THE FROZEN SCREEN, and it is not cosmetic.
           A modal Radix menu and a modal Radix dialog both register into
           dismissable-layer's MODULE-LEVEL `originalBodyPointerEvents`. Opening
@@ -133,8 +133,8 @@ function ProjectCard({ project, onOpen, onEdit, onArchive }: { project: ProjectR
       <DropdownMenu modal={false}><DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="rounded-lg p-2 hover:bg-muted"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit Project</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen() }}>Manage Team & Workstreams</DropdownMenuItem><DropdownMenuItem className="text-danger" onClick={(e) => { e.stopPropagation(); onArchive() }}>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
     </div>
     <p className="my-4 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
-    <div className="grid grid-cols-2 gap-3 text-sm"><span className="flex items-center gap-2"><Calendar className="size-4 text-muted-foreground" />{date(project.due_date)}</span><span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-muted-foreground" />{project.tasks_completed}/{project.tasks_total} tasks</span><span className="flex items-center gap-2"><Users className="size-4 text-muted-foreground" />{project.members_count} members</span><Status status={project.status} /></div>
-    <div className="mt-4"><div className="mb-1 flex justify-between text-xs"><span>Progress</span><b>{project.progress}%</b></div><div className="h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${project.progress}%` }} /></div></div>
+    <div className="grid grid-cols-2 gap-3 text-sm"><span className="flex items-center gap-2"><Calendar className="size-4 text-muted-foreground" />{date(project.due_date)}</span><span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-muted-foreground" /><span className="tabular-nums">{project.tasks_completed}/{project.tasks_total}</span>&nbsp;tasks</span><span className="flex items-center gap-2"><Users className="size-4 text-muted-foreground" /><span className="tabular-nums">{project.members_count}</span>&nbsp;members</span><Status status={project.status} /></div>
+    <div className="mt-4"><div className="mb-1 flex justify-between text-xs"><span className="font-medium text-muted-foreground">Progress</span><b className="tabular-nums text-foreground">{project.progress}%</b></div><div className="h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${project.progress}%` }} /></div></div>
   </CardContent></Card>
 }
 

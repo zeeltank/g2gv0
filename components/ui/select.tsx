@@ -59,6 +59,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const typeaheadBufferRef = React.useRef('')
     const listboxId = React.useId()
     const MAX_POPOVER_HEIGHT = 240
+    const MIN_POPOVER_HEIGHT = 120
 
     /*
      * A SEARCH BOX APPEARS ONCE THE LIST IS LONG ENOUGH TO BE ANNOYING.
@@ -203,19 +204,44 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         const viewportHeight = window.innerHeight
         const spaceBelow = viewportHeight - trigger.bottom - 12
         const spaceAbove = trigger.top - 12
+
+        /*
+         * ── AN UPWARD POPOVER FLOATED AWAY FROM THE FIELD IT BELONGS TO ─────
+         *
+         * `top` used to be `trigger.top - nextMaxHeight - 4` — where the box
+         * would start IF it were the MAXIMUM height. A three- or four-option
+         * list is nowhere near 240px tall, so it rendered its real height
+         * downward from that point and left a gap of a hundred-odd pixels
+         * between itself and its own trigger. The shorter the list, the wider
+         * the gap, which is why it looked like the menu belonged to whatever
+         * happened to sit above it.
+         *
+         * Anchoring the BOTTOM edge removes the guess entirely: it sits 4px
+         * above the trigger whatever the content turns out to measure, exactly
+         * mirroring the downward case. No measurement pass, no second render.
+         *
+         * ── AND FLIPPING UP NOW REQUIRES THE ROOM TO EXIST ──────────────────
+         *
+         * `Math.max(120, …)` guarantees a usable minimum height, which the old
+         * `Math.max(8, top)` clamp quietly absorbed by letting a too-tall
+         * popover cover its own trigger. Bottom-anchoring cannot absorb it —
+         * the overflow would clip off the top of the screen instead. So a flip
+         * that would not fit no longer happens, and the popover opens downward
+         * where there is at least something to scroll.
+         */
         const shouldOpenAbove =
-          spaceBelow < 180 && spaceAbove > spaceBelow
+          spaceBelow < 180 && spaceAbove > spaceBelow && spaceAbove >= MIN_POPOVER_HEIGHT
         const availableHeight = shouldOpenAbove ? spaceAbove : spaceBelow
         const nextMaxHeight = Math.max(
-          120,
+          MIN_POPOVER_HEIGHT,
           Math.min(MAX_POPOVER_HEIGHT, availableHeight)
         )
 
         setOpenAbove(shouldOpenAbove)
         setPopoverStyle({
-          top: shouldOpenAbove
-            ? Math.max(8, trigger.top - nextMaxHeight - 4)
-            : trigger.bottom + 4,
+          ...(shouldOpenAbove
+            ? { bottom: viewportHeight - trigger.top + 4 }
+            : { top: trigger.bottom + 4 }),
           left: trigger.left,
           width: Math.max(trigger.width, 128),
           maxHeight: nextMaxHeight,
