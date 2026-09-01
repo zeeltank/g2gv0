@@ -184,7 +184,7 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
                     return (
                       <p key={l.id} className="text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{l.label ?? 'Governs'}</span>
-                        {target ? ` · ${target.code ?? target.name}` : ''}
+                        {target ? ` · ${target.name}` : ''}
                       </p>
                     )
                   })}
@@ -229,7 +229,7 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
                 onClick={onOpen ? () => onOpen(ws.id) : undefined}
                 className="rounded-full border bg-background px-3 py-1 text-xs hover:border-primary/40"
               >
-                {ws.code ? `${ws.code} · ` : ''}{ws.name}
+                {ws.name}
               </button>
             ))}
           </div>

@@ -16,7 +16,6 @@ import type {
   ProjectRecord,
   ProjectStatus,
   TaskPagination,
-  Workstream,
   TaskStatus,
   WorkspaceResponse,
   WorkspaceScope,
@@ -692,18 +691,18 @@ export const taskService = {
       `/task-management/projects/${projectId}/tasks/${taskId}`,
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
     ),
-  createWorkstream: (context: LaravelContext, projectId: string, payload: Omit<Workstream, 'id' | 'project_id'>) =>
-    apiClient.post<{ status: 1; message: string; data: Workstream }>(`/task-management/projects/${projectId}/workstreams`, {
-      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
-    }),
-  updateWorkstream: (context: LaravelContext, projectId: string, workstreamId: string, payload: Omit<Workstream, 'id' | 'project_id'>) =>
-    apiClient.put<{ status: 1; message: string; data: Workstream }>(`/task-management/projects/${projectId}/workstreams/${workstreamId}`, {
-      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
-    }),
-  deleteWorkstream: (context: LaravelContext, projectId: string, workstreamId: string) =>
-    apiClient.delete<{ status: 1; message: string }>(`/task-management/projects/${projectId}/workstreams/${workstreamId}`, {
-      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
-    }),
+  /*
+   * `createWorkstream` / `updateWorkstream` / `deleteWorkstream` lived here —
+   * the old drawer's three-field writers, hitting the SAME three endpoints as
+   * `createProjectWorkstream` / `updateProjectWorkstream` /
+   * `deleteProjectWorkstream` above but with a payload that could not carry
+   * kind, code, parent or the core question.
+   *
+   * Two callable writers for one endpoint is two answers to the question "what
+   * does saving a workstream send?", and the thinner one silently demotes a
+   * GOVERNANCE workstream by omitting `kind`. They had zero callers, so they
+   * are gone rather than deprecated.
+   */
   getAssignmentDirectory: (context: LaravelContext) =>
     webClient.get<{ data?: Record<string, Array<{
       id: number | string

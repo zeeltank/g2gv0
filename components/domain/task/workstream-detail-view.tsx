@@ -143,7 +143,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
       <GtgBreadcrumb items={[
         { label: 'Projects & Workstreams' },
         { label: detail.project.name },
-        { label: detail.code ? `${detail.code} · ${detail.name}` : detail.name },
+        { label: detail.name },
       ]} />
 
       {/* ── header ─────────────────────────────────────────────────── */}
