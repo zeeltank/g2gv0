@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -203,6 +204,24 @@ const DEPENDENCY_TYPE_HELP: Record<string, string> = {
   SF: 'The successor is due once the predecessor starts.',
 }
 /** The server's own list, mirrored for the create form's dropdown. */
+/**
+ * A project as two lines: its name, and a hint carrying the code and manager.
+ *
+ * SearchableSelect matches on BOTH, so typing "PRJ-00007" finds G2G — which the
+ * old single-line Select could not do. The transport now carries these fields;
+ * it used to be `{ id, name }` and there was nothing else to show.
+ *
+ * `String(project.id)` is gone: the API casts ids server-side now, and the
+ * wrapper was masking an integer arriving where the type promised a string.
+ */
+function projectPickerOptions(projects: DependenciesResponse['data']['options']['projects']) {
+  return projects.map((project) => ({
+    value: project.id,
+    label: project.name,
+    hint: [project.code, project.manager ?? 'No manager'].filter(Boolean).join(' · '),
+  }))
+}
+
 const MILESTONE_STATUSES: Array<TaskMilestone['status']> = ['UPCOMING', 'AT RISK', 'COMPLETED']
 
 /** The node card is w-[280px]; the height is measured from a rendered card. */
@@ -1397,7 +1416,7 @@ useEffect(() => {
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block space-y-1.5 text-sm font-medium"><span>Project</span><Select value={selectedProject} onChange={setSelectedProject} placeholder="Select project" options={data.options.projects.map((project) => ({ value: String(project.id), label: project.name }))} /></label>
+              <label className="block space-y-1.5 text-sm font-medium"><span>Project</span><SearchableSelect value={selectedProject} onChange={setSelectedProject} placeholder="Select project" searchPlaceholder="Search by name, code or manager…" options={projectPickerOptions(data.options.projects)} /></label>
               <label className="block space-y-1.5 text-sm font-medium"><span>Workstream</span><Select value={selectedWorkstream} onChange={setSelectedWorkstream} placeholder={workstreamsLoading ? 'Loading...' : selectedProject ? 'Select workstream' : 'Select project first'} options={workstreams.map((ws) => ({ value: String(ws.id), label: ws.name }))} disabled={!selectedProject || workstreamsLoading} /></label>
             </div>
             {workstreamsError && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{workstreamsError}</div>}
@@ -1445,11 +1464,12 @@ useEffect(() => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Project</span>
-                <Select
+                <SearchableSelect
                   value={milestoneForm.project_id}
                   onChange={(value) => setMilestoneForm((form) => ({ ...form, project_id: value, workstream_id: '' }))}
                   placeholder="Select project"
-                  options={data.options.projects.map((project) => ({ value: String(project.id), label: project.name }))}
+                  searchPlaceholder="Search by name, code or manager…"
+                  options={projectPickerOptions(data.options.projects)}
                 />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">

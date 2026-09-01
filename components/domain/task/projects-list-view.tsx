@@ -6,15 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { cn } from '@/lib/utils'
 import { taskService } from '@/services/task'
-import type { ProjectOptions, ProjectRecord, ProjectStatus, Workstream } from '@/types/task-management'
+import type { ProjectOptions, ProjectRecord, ProjectStatus } from '@/types/task-management'
 import { CreateProjectModal } from './create-project-modal'
-import { PriorityBadge } from './priority-badge'
+import { ProjectDetailView } from './project-detail-view'
+import { projectStatusVariant } from './workstream-health'
 
 const EMPTY_OPTIONS: ProjectOptions = { users: [], departments: [], tasks: [], categories: [], statuses: [], priorities: [] }
 
@@ -60,6 +59,27 @@ export function ProjectsListView() {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive project.') }
   }
 
+  /*
+   * A PAGE, NOT A DRAWER.
+   *
+   * `ProjectDrawer` used to render here as a 672px Sheet over a dimmed backdrop,
+   * which is a poor home for tabs, tables, a lifecycle diagram and a Gantt — and
+   * it discarded most of the 26 fields the API returns per project.
+   *
+   * Swapping the whole view is the pattern `TalentProfileView` already uses
+   * (recruitment-center.tsx does the same early return). It needs no menu row
+   * and no new permissions. The cost is that selection lives in memory, so a
+   * refresh returns to the list — the same limitation that screen has.
+   */
+  if (selectedId) {
+    return (
+      <ProjectDetailView
+        projectId={selectedId}
+        onBack={() => { setSelectedId(null); setReload((v) => v + 1) }}
+      />
+    )
+  }
+
   return (
     <div className="flex h-full flex-col gap-6">
       <div className="flex items-start justify-between">
@@ -92,7 +112,6 @@ export function ProjectsListView() {
         project={editing}
         onSaved={(text) => { setMessage(text); requestAnimationFrame(() => setReload((v) => v + 1)) }}
       />
-      <ProjectDrawer projectId={selectedId} open={selectedId !== null} options={options} onClose={() => setSelectedId(null)} onChanged={() => setReload((v) => v + 1)} />
     </div>
   )
 }
@@ -119,86 +138,21 @@ function ProjectCard({ project, onOpen, onEdit, onArchive }: { project: ProjectR
   </CardContent></Card>
 }
 
-function ProjectDrawer({ projectId, open, options, onClose, onChanged }: { projectId: string | null; open: boolean; options: ProjectOptions; onClose: () => void; onChanged: () => void }) {
-  const [project, setProject] = useState<ProjectRecord | null>(null)
-  const [tab, setTab] = useState<'overview' | 'team' | 'workstreams' | 'tasks'>('overview')
-  const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
-  const [members, setMembers] = useState<string[]>([]); const [taskIds, setTaskIds] = useState<string[]>([])
-  const [wsName, setWsName] = useState(''); const [wsOwner, setWsOwner] = useState(''); const [wsStatus, setWsStatus] = useState<ProjectStatus>('PLANNING')
-  const [editingWorkstream, setEditingWorkstream] = useState<Workstream | null>(null)
-  const load = useCallback(async () => { if (!open || !projectId) return; setLoading(true); setError(''); try { const response = await taskService.getProjectRecord(getLaravelContext(), projectId); setProject(response.data); setMembers(response.data.members?.map((m) => String(m.id)) ?? []); setTaskIds(response.data.task_ids ?? []) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load project.') } finally { setLoading(false) } }, [open, projectId])
-  useEffect(() => {
-    // Deferred so the load's first setState lands after this render.
-    queueMicrotask(() => { void load() })
-  }, [load])
-  // A selected owner who is no longer a member is invalid the moment the
-  // member list changes - cleared during render rather than one frame later.
-  if (wsOwner && !project?.members?.some((member) => String(member.id) === wsOwner)) {
-    setWsOwner('')
-  }
-  async function saveMembers() { if (!project) return; try { const r = await taskService.syncProjectMembers(getLaravelContext(), project.id, members); setMessage(r.message); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to update team.') } }
-  async function saveTasks() { if (!project) return; try { const r = await taskService.syncProjectTasks(getLaravelContext(), project.id, taskIds); setMessage(r.message); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to link tasks.') } }
-  async function saveWorkstream() { if (!project || !wsName.trim()) return; try { const payload = { name: wsName.trim(), description: editingWorkstream?.description ?? null, owner_id: wsOwner || null, owner_name: null, status: wsStatus, start_date: editingWorkstream?.start_date ?? project.start_date, due_date: editingWorkstream?.due_date ?? project.due_date, sort_order: editingWorkstream?.sort_order ?? project.workstreams?.length ?? 0 }; const r = editingWorkstream ? await taskService.updateWorkstream(getLaravelContext(), project.id, String(editingWorkstream.id), payload) : await taskService.createWorkstream(getLaravelContext(), project.id, payload); setMessage(r.message); setWsName(''); setWsOwner(''); setWsStatus('PLANNING'); setEditingWorkstream(null); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save workstream.') } }
-  async function removeWorkstream(item: Workstream) { if (!project || !confirm(`Delete workstream ${item.name}?`)) return; try { const r = await taskService.deleteWorkstream(getLaravelContext(), project.id, String(item.id)); setMessage(r.message); await load(); onChanged() } catch (e) { setError(e instanceof Error ? e.message : 'Unable to delete workstream.') } }
-  return <Sheet open={open} onOpenChange={(next) => !next && onClose()}><SheetContent className="w-full overflow-y-auto sm:max-w-2xl"><SheetHeader><SheetTitle>{project?.name ?? 'Project'}</SheetTitle><SheetDescription>{project?.code ?? 'Loading project details…'}</SheetDescription></SheetHeader>
-    {loading ? <div className="flex h-48 items-center justify-center"><Spinner /></div> : <div className="mt-5 space-y-5">{error && <Notice danger>{error}</Notice>}{message && <Notice>{message}</Notice>}
-      <div className="flex gap-1 overflow-x-auto border-b">{(['overview','team','workstreams','tasks'] as const).map((value) => <Button key={value} variant="ghost" onClick={() => setTab(value)} className={cn('rounded-none border-b-2 capitalize', tab === value ? 'border-primary text-primary' : 'border-transparent')}>{value}</Button>)}</div>
-      {project && tab === 'overview' && <div className="space-y-4"><p className="rounded-xl bg-muted/30 p-4 text-sm">{project.description}</p><div className="grid grid-cols-2 gap-3 text-sm"><Info label="Manager" value={project.manager ?? '—'} /><Info label="Sponsor" value={project.sponsor ?? '—'} /><Info label="Department" value={project.department ?? '—'} /><Info label="Timeline" value={`${date(project.start_date)} – ${date(project.due_date)}`} /><Info label="Priority" value={<PriorityBadge priority={project.priority} />} /><Info label="Status" value={<StatusBadge status={project.status} />} /><Info label="Client" value={project.client_name ?? '—'} /><Info label="Budget" value={project.budget_estimate ? Number(project.budget_estimate).toLocaleString() : '—'} /></div></div>}
-      {project && tab === 'team' && <div><h3 className="mb-3 font-semibold">Project members</h3><Checklist items={options.users.map((u) => ({ id: String(u.id), label: u.name }))} selected={members} setSelected={setMembers} /><Button className="mt-4" onClick={saveMembers}>Save Team</Button></div>}
-      {/* THE TASKS TAB READS THE PROJECT'S OWN LINK, not a department.
-          It used to filter the global 200-task option list by the project's
-          department — and that list carries the ASSIGNEE's department, not the
-          task's. So it showed "No tasks available for the selected department"
-          even for projects that already had tasks linked, and any linked task
-          outside that department was invisible.
-
-          `project.tasks` now comes hydrated from task_management_project_tasks,
-          and carries workstream_id — which was written in four places and never
-          read back anywhere, so workstream placement was invisible product-wide. */}
-      {project && tab === 'tasks' && (() => {
-        const linked = project.tasks ?? []
-        const groups = new Map<string, { name: string; tasks: typeof linked }>()
-        for (const task of linked) {
-          const key = task.workstream_id ?? 'none'
-          if (!groups.has(key)) groups.set(key, { name: task.workstream_name ?? 'Not in a workstream', tasks: [] })
-          groups.get(key)!.tasks.push(task)
-        }
-
-        return <div className="space-y-5">
-          <div>
-            <h3 className="mb-1 font-semibold">Linked tasks</h3>
-            <p className="mb-3 text-xs text-muted-foreground">{linked.length ? `${linked.length} task(s) linked to this project, grouped by workstream.` : 'No tasks are linked to this project yet.'}</p>
-            {linked.length ? <div className="space-y-4">{[...groups.entries()].map(([key, group]) => (
-              <div key={key}>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.name}</p>
-                <div className="space-y-1.5">{group.tasks.map((task) => (
-                  <div key={task.id} className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{task.status ?? 'Pending'}</span>
-                    {task.assignee && <span className="shrink-0 text-xs text-muted-foreground">· {task.assignee}</span>}
-                    {task.due_date && <span className="shrink-0 text-xs text-muted-foreground">· {date(task.due_date)}</span>}
-                  </div>
-                ))}</div>
-              </div>
-            ))}</div> : <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Link tasks below to track them under this project.</div>}
-          </div>
-
-          <div>
-            <h3 className="mb-1 font-semibold">Link more tasks</h3>
-            {/* The option list is the tenant's most recent 200 tasks; say so
-                rather than letting an absent task look like a missing record. */}
-            <p className="mb-3 text-xs text-muted-foreground">Choosing from this organisation&apos;s {options.tasks.length} most recent tasks.</p>
-            <Checklist items={options.tasks.map((task) => ({ id: String(task.id), label: `${task.title} (${task.status ?? 'Pending'})` }))} selected={taskIds} setSelected={setTaskIds} />
-            <Button className="mt-4" onClick={saveTasks}>Save Linked Tasks</Button>
-          </div>
-        </div>
-      })()}
-      {project && tab === 'workstreams' && <div className="space-y-4"><div className="grid gap-2 sm:grid-cols-3"><input value={wsName} onChange={(e) => setWsName(e.target.value)} placeholder="Workstream name" className="h-10 rounded-lg border px-3 text-sm" /><Select value={wsOwner} onChange={setWsOwner} options={(project.members ?? []).map((member) => ({ value: String(member.id), label: member.name }))} placeholder={project.members?.length ? 'Owner' : 'No team members available'} disabled={!project.members?.length} /><Select value={wsStatus} onChange={(v) => setWsStatus(v as ProjectStatus)} options={options.statuses.filter((s) => s !== 'ARCHIVED').map((s) => ({ value: s, label: s }))} /></div>{!project.members?.length && <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">No team members available. Please add team members first.</p>}<div className="flex gap-2"><Button onClick={saveWorkstream} disabled={!wsName.trim()}>{editingWorkstream ? 'Save Workstream' : 'Add Workstream'}</Button>{editingWorkstream && <Button variant="outline" onClick={() => { setEditingWorkstream(null); setWsName(''); setWsOwner(''); setWsStatus('PLANNING') }}>Cancel</Button>}</div><div className="space-y-2">{project.workstreams?.map((item) => <div key={item.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.owner_name || 'No owner'} · {item.status}</p></div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => { setEditingWorkstream(item); setWsName(item.name); setWsOwner(item.owner_id && project.members?.some((member) => String(member.id) === String(item.owner_id)) ? String(item.owner_id) : ''); setWsStatus(item.status) }}>Edit</Button><Button variant="outline" size="sm" onClick={() => removeWorkstream(item)}>Delete</Button></div></div>)}{!project.workstreams?.length && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No workstreams yet.</p>}</div></div>}
-    </div>}</SheetContent></Sheet>
-}
-
-function Checklist({ items, selected, setSelected }: { items: Array<{ id: string; label: string }>; selected: string[]; setSelected: (ids: string[]) => void }) { return <div className="grid max-h-72 gap-2 overflow-y-auto rounded-xl border p-3 sm:grid-cols-2">{items.map((item) => <label key={item.id} className="flex gap-2 text-sm"><input type="checkbox" checked={selected.includes(item.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} />{item.label}</label>)}</div> }
-function Info({ label, value }: { label: string; value: React.ReactNode }) { return <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{value}</div></div> }
-function Notice({ danger, children }: { danger?: boolean; children: React.ReactNode }) { return <div className={cn('rounded-lg border p-3 text-sm', danger ? 'border-danger/30 bg-danger/5 text-danger' : 'border-success/30 bg-success/5 text-success')}>{children}</div> }
-function Status({ status }: { status: ProjectStatus }) { return <StatusBadge status={status} /> }
+/*
+ * ProjectDrawer REMOVED 2026-09-01 — replaced by ProjectDetailView.
+ *
+ * It was a 672px Sheet whose entire header was the project name and code, and
+ * whose four tabs showed a fraction of the 26 fields the API returns. Its Tasks
+ * tab also stapled a 200-row list of EVERY recent task in the organisation under
+ * the project's own tasks, and saved through an endpoint that replaced the
+ * project's whole task list with whatever the browser happened to be holding.
+ *
+ * Checklist/Info/Notice/date went with it — they existed only to serve it.
+ * `Status` survives below because ProjectCard still uses it.
+ */
+// `variant` is passed explicitly: statusVariantMap has 'In Progress' and
+// 'IN-PROGRESS' but NOT the space-and-caps 'IN PROGRESS' that ProjectStatus
+// actually uses, so that one status rendered neutral while the other four
+// coloured. components/ui is shared and not edited from here.
+function Status({ status }: { status: ProjectStatus }) { return <StatusBadge status={status} variant={projectStatusVariant(status)}>{status}</StatusBadge> }
 function date(value: string | null) { return value ? new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }

@@ -225,6 +225,262 @@ export interface Workstream {
   due_date: string | null
   sort_order: number
 }
+
+/* ------------------------------------------------------------------ *
+ * WORKSTREAM 360 — the lifecycle model
+ *
+ * A workstream used to be a name, an owner and a status. These types carry
+ * the nine fields the customer's operating model actually asks for: purpose,
+ * contributors, responsibilities, deliverables, timeline and checkpoints,
+ * dependencies, success metrics, scope boundaries, and risks.
+ * ------------------------------------------------------------------ */
+
+/**
+ * DELIVERY is a stage in the flow; GOVERNANCE spans it.
+ *
+ * This is not cosmetic. The customer's model states that its governance
+ * workstream "is deliberately horizontal ... instead of becoming another
+ * sequential stage", so the lifecycle diagram draws a GOVERNANCE workstream as
+ * a band ACROSS the delivery flow rather than as a step inside it.
+ */
+export type WorkstreamKind = 'DELIVERY' | 'GOVERNANCE'
+
+/** FLOW is the chain, FEEDBACK closes the loop, GOVERNS is the horizontal layer. */
+export type WorkstreamLinkType = 'FLOW' | 'FEEDBACK' | 'GOVERNS'
+
+/**
+ * NOT STARTED and UNMEASURED are distinct from ON TRACK, deliberately.
+ * An empty workstream satisfies every "nothing is overdue" test trivially, and
+ * a KPI with no reading is unread rather than failing.
+ */
+export type WorkstreamHealthState = 'NOT STARTED' | 'UNMEASURED' | 'ON TRACK' | 'AT RISK' | 'OFF TRACK'
+
+export interface WorkstreamHealth {
+  state: WorkstreamHealthState
+  /** A sentence naming what actually triggered it, never a restated label. */
+  state_reason: string
+  deliverables: { total: number; done: number; in_flight: number; open: number; overdue: number }
+  kpis: { total: number; met: number; on_track: number; at_risk: number; off_track: number; unmeasured: number }
+  /** `regulated_open` is failure; `severe_open` (High) is drift. */
+  risks: { open: number; closed: number; regulated_open: number; severe_open: number; moderate_open: number }
+  tasks: { total: number; completed: number; overdue: number; blocked: number }
+  milestones: { total: number; completed: number; overdue: number }
+}
+
+export interface WorkstreamSummary {
+  id: string
+  project_id: string
+  parent_id: string | null
+  /** WS01, WS02.1 — unique per project, null until somebody sets one. */
+  code: string | null
+  kind: WorkstreamKind
+  name: string
+  /** Field 1 of the model. Replaces `description`, which is retired. */
+  purpose: string | null
+  core_question: string | null
+  owner_id: string | null
+  owner_name: string | null
+  status: ProjectStatus
+  start_date: string | null
+  due_date: string | null
+  sort_order: number
+  children_count: number
+  /** NULL with no deliverables — not 0, which would assert work exists and none is done. */
+  progress: number | null
+  health: WorkstreamHealth
+}
+
+export interface WorkstreamLink {
+  id: string
+  project_id: string
+  from_id: string
+  to_id: string
+  link_type: WorkstreamLinkType
+  /** The model's own edge captions — "WHAT + WHY", "USER FEEDBACK", "Scope". */
+  label: string | null
+  note: string | null
+}
+
+export interface WorkstreamMember {
+  id: string
+  user_id: string
+  user_name: string | null
+  role: string
+  /** "Backend, APIs, database, integrations" — what stops one workstream becoming three. */
+  lane: string | null
+}
+
+export interface WorkstreamStatement { id: string; body: string }
+
+export interface WorkstreamDeliverable {
+  id: string
+  name: string
+  description: string | null
+  acceptance_criteria: string | null
+  status: string
+  due_date: string | null
+  delivered_at: string | null
+  owner_id: string | null
+  owner_name: string | null
+  checkpoint_id: string | null
+  checkpoint_name: string | null
+}
+
+export interface WorkstreamCheckpoint {
+  id: string
+  name: string
+  description: string | null
+  target_date: string | null
+  status: string
+  is_critical: boolean
+  completed_at: string | null
+}
+
+export interface WorkstreamKpi {
+  id: string
+  name: string
+  metric: string | null
+  unit: string | null
+  direction: 'UP' | 'DOWN'
+  baseline_value: string | null
+  /**
+   * STRINGS, not numbers, and that is deliberate: the model's own examples are
+   * "15% reduction in latency" and "100 units produced", and "Zero P1 incidents"
+   * is a legitimate target that is not a number at all.
+   */
+  target_value: string | null
+  /** NULL means NEVER MEASURED. Render it as such — never as 0. */
+  current_value: string | null
+  measured_at: string | null
+  status: 'UNMEASURED' | 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'MET'
+  weightage: number
+  source: string | null
+  owner_id: string | null
+}
+
+export interface WorkstreamRisk {
+  id: string
+  title: string
+  description: string | null
+  category: string | null
+  probability: 'Low' | 'Medium' | 'High'
+  impact: 'Low' | 'Medium' | 'High' | 'Regulated'
+  /** Stored, computed from probability x impact — so the register can sort on it. */
+  severity: 'Low' | 'Medium' | 'High' | 'Regulated'
+  mitigation: string | null
+  contingency: string | null
+  status: string
+  due_date: string | null
+  closed_at: string | null
+  owner_id: string | null
+  owner_name: string | null
+}
+
+/** An upstream requirement or downstream impact that is NOT another workstream. */
+export interface WorkstreamDependency {
+  id: string
+  description: string
+  /** Free text — a vendor or a committee is not a row in this database. */
+  source: string | null
+  needed_by: string | null
+  status: string
+  is_blocking: boolean
+}
+
+export interface WorkstreamDetail extends WorkstreamSummary {
+  members: WorkstreamMember[]
+  statements: {
+    responsibilities: WorkstreamStatement[]
+    in_scope: WorkstreamStatement[]
+    out_of_scope: WorkstreamStatement[]
+  }
+  deliverables: WorkstreamDeliverable[]
+  checkpoints: WorkstreamCheckpoint[]
+  kpis: WorkstreamKpi[]
+  risks: WorkstreamRisk[]
+  dependencies: { upstream: WorkstreamDependency[]; downstream: WorkstreamDependency[] }
+  /** The graph half of field 6, split by the direction the reader cares about. */
+  upstream: WorkstreamLink[]
+  downstream: WorkstreamLink[]
+  governs: WorkstreamLink[]
+  governed_by: WorkstreamLink[]
+  children: Array<{ id: string; code: string | null; name: string; kind: WorkstreamKind }>
+  tasks: Array<{ id: string; title: string; status: string | null; due_date: string | null; assignee: string | null }>
+  project: { id: string; code: string; name: string }
+  can_manage: boolean
+}
+
+export interface WorkstreamListResponse {
+  status: 1
+  message: string
+  data: {
+    workstreams: WorkstreamSummary[]
+    links: WorkstreamLink[]
+    summary: {
+      workstreams: number
+      by_state: Partial<Record<WorkstreamHealthState, number>>
+      open_risks: number
+      deliverables_total: number
+      deliverables_done: number
+      kpis_needing_attention: number
+    }
+    project: { id: string; code: string; name: string; start_date: string | null; due_date: string | null }
+  }
+}
+
+/**
+ * A task offered by the Link task picker.
+ *
+ * `already_linked_project` is populated when the task belongs to a DIFFERENT
+ * project. Such tasks are still offered — hiding them makes a task somebody is
+ * searching for simply absent — but the picker says where it currently sits.
+ */
+export interface LinkableTask {
+  id: string
+  title: string
+  status: string | null
+  due_date: string | null
+  assignee: string | null
+  already_linked_project_id: string | null
+  already_linked_project: string | null
+}
+
+/**
+ * A project as a picker option.
+ *
+ * The dependency and milestone responses used to carry `{ id, name }` — two
+ * fields — so a picker had nothing richer to show even if it wanted to, while
+ * the project endpoint was returning 26. Widening the TRANSPORT is the fix; a
+ * display-only change could not have helped.
+ */
+export interface ProjectOption {
+  id: string
+  code: string
+  name: string
+  status: ProjectStatus
+  manager: string | null
+  department: string | null
+  start_date: string | null
+  due_date: string | null
+}
+
+/** Every vocabulary the editors need, owned by the server. */
+export interface WorkstreamOptions {
+  kinds: WorkstreamKind[]
+  statuses: ProjectStatus[]
+  link_types: WorkstreamLinkType[]
+  member_roles: string[]
+  statement_kinds: string[]
+  deliverable_statuses: string[]
+  checkpoint_statuses: string[]
+  kpi_statuses: string[]
+  kpi_directions: string[]
+  risk_levels: string[]
+  risk_probabilities: string[]
+  risk_statuses: string[]
+  dependency_directions: string[]
+  dependency_statuses: string[]
+}
 /** One task linked to a project, as returned inside the project detail. */
 export interface ProjectLinkedTask {
   id: string
@@ -418,7 +674,7 @@ export interface MilestonesResponse {
   data: {
     milestones: TaskMilestone[]
     options: {
-      projects: Array<{ id: string; name: string }>
+      projects: ProjectOption[]
       workstreams: Array<{ id: string; name: string; project_id: string }>
       statuses: Array<'UPCOMING' | 'AT RISK' | 'COMPLETED'>
     }
@@ -434,7 +690,7 @@ export interface DependenciesResponse {
     summary: { total: number; blocking: number; at_risk: number; on_track: number; milestones: number; critical_path: number }
     options: {
       types: DependencyType[]
-      projects: Array<{ id: string; name: string }>
+      projects: ProjectOption[]
       /** project_id has always been returned by taskOptions(); it was never typed, so nothing used it. */
       tasks: Array<{ id: string; title: string; status: string; due_date: string | null; project_id: string | null }>
       users: Array<{ id: string; name: string }>

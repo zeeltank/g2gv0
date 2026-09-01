@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
@@ -1041,8 +1042,17 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
         </div>
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
           <Field label="Project" span={4}>
-            <Select value={projectId} onChange={(value) => void chooseProject(value)}
-              options={projects.map((project) => ({ value: project.id, label: `${project.code} · ${project.name}` }))}
+            {/* Two lines, and searchable on both. The code and the manager were
+                already loaded — they were being squashed into one label, so a
+                long project name pushed the code out of sight and nothing here
+                could be found by typing it. */}
+            <SearchableSelect value={projectId} onChange={(value) => void chooseProject(value)}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+                hint: [project.code, project.manager ?? 'No manager'].filter(Boolean).join(' · '),
+              }))}
+              searchPlaceholder="Search by name, code or manager…"
               placeholder={projects.length ? 'No project' : 'No projects available'} disabled={!projects.length} />
           </Field>
           <Field label="Workstream" span={4}>
