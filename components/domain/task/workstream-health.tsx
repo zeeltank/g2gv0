@@ -140,8 +140,8 @@ export function WorkstreamHealthCounts({ health }: { health: WorkstreamHealth })
     <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
       {groups.map((group) => (
         <div key={group.label}>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">{group.label}</dt>
-          <dd className={cn('mt-0.5 text-sm font-semibold tabular-nums', group.tone ?? 'text-foreground')}>{group.value}</dd>
+          <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</dt>
+          <dd className={cn('mt-0.5 text-lg font-bold tabular-nums', group.tone ?? 'text-foreground')}>{group.value}</dd>
         </div>
       ))}
     </dl>
@@ -163,8 +163,8 @@ export function WorkstreamProgress({ progress, className }: { progress: number |
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Deliverables complete</span>
-        <span className="font-semibold tabular-nums">{progress}%</span>
+        <span className="text-xs font-medium text-muted-foreground">Deliverables complete</span>
+        <span className="text-xs font-semibold tabular-nums text-foreground">{progress}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div

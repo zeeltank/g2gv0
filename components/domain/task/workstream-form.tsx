@@ -22,13 +22,15 @@
  */
 
 import { useState } from 'react'
-import { ArrowRight, Link2, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, Info, Link2, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import type {
   ProjectStatus, WorkstreamKind, WorkstreamLink, WorkstreamLinkType,
   WorkstreamOptions, WorkstreamSummary,
@@ -52,6 +54,25 @@ const LINK_HELP: Record<WorkstreamLinkType, string> = {
   FEEDBACK: 'Closes the loop — what comes out of a later stage returns to an earlier one.',
   GOVERNS: 'A governance layer spanning the delivery flow rather than sitting inside it.',
 }
+
+/**
+ * The three definitions as one tooltip, built from the two records above so a
+ * new relationship type or a reworded definition cannot drift out of sync.
+ */
+const RELATIONSHIP_HELP = (
+  <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+    {(Object.keys(LINK_LABELS) as WorkstreamLinkType[]).map((k) => (
+      <span key={k} className="block">
+        <b>{LINK_LABELS[k]}</b> — {LINK_HELP[k]}
+      </span>
+    ))}
+  </span>
+)
+
+/** The same three definitions as one string, for the trigger's accessible name. */
+const RELATIONSHIP_HELP_TEXT = (Object.keys(LINK_LABELS) as WorkstreamLinkType[])
+  .map((k) => `${LINK_LABELS[k]} — ${LINK_HELP[k]}`)
+  .join(' ')
 
 const KIND_LABELS: Record<WorkstreamKind, string> = {
   DELIVERY: 'Delivery stage',
@@ -94,9 +115,19 @@ export function suggestCode(workstreams: WorkstreamSummary[], parentId: string |
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        {label}
+        {/* The hint is a definition, not a sentence the form has to say out loud. */}
+        {hint && (
+          <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">{hint}</span>}>
+            {/* The hint used to be visible text under the field. lucide stamps
+                aria-hidden on a childless icon, so without a name the hint would
+                now exist for a mouse and for nothing else. */}
+            <Info role="img" aria-label={hint} className="size-3.5 text-muted-foreground" />
+          </Tooltip>
+        )}
+      </span>
       {children}
-      {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
     </label>
   )
 }
@@ -279,6 +310,37 @@ const empty = (workstreams: WorkstreamSummary[]) => ({
  * ------------------------------------------------------------------ */
 
 /**
+ * The relationship chip on a connection row.
+ *
+ * A caption ("WHAT + WHY", "WORKING PRODUCT") is the tenant's own words, so it is
+ * never dropped — it moves onto the chip as a tooltip. The dotted underline and
+ * cursor are the affordance: a chip WITHOUT a caption gets neither, so nothing
+ * invites a hover that would show nothing.
+ */
+function LinkBadge({ link }: { link: WorkstreamLink }) {
+  const badge = (
+    <span className={cn(
+      'inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground',
+      link.label && 'cursor-help underline decoration-dotted underline-offset-2',
+    )}>
+      <ArrowRight className="size-3" /> {LINK_LABELS[link.link_type] ?? link.link_type}
+      {/* The caption is the tenant's own words. Moving it onto a hover-only
+          tooltip removed it from the document altogether for a keyboard, a
+          screen reader and a touch device — so it stays in the tree here. */}
+      {link.label && <span className="sr-only"> — {link.label}</span>}
+    </span>
+  )
+
+  if (!link.label) return badge
+
+  return (
+    <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">{link.label}</span>}>
+      {badge}
+    </Tooltip>
+  )
+}
+
+/**
  * The connections panel — this is what "decide the delivery lifecycle" means.
  *
  * Every edge the diagram draws comes from here. Nothing about the shape is
@@ -316,14 +378,21 @@ export function LifecycleConnections({
 
   return (
     <section className="space-y-4">
-      <div>
-        <h3 className="flex items-center gap-2 font-semibold">
-          <Link2 className="size-4 text-muted-foreground" /> Connections
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          How work moves between these workstreams. The diagram above is drawn from this list.
-        </p>
-      </div>
+      <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
+        <Link2 className="size-4 text-muted-foreground" /> Connections
+        <Tooltip
+          side="bottom"
+          content={(
+            <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
+              How work moves between these workstreams. The diagram above is drawn from this list.
+            </span>
+          )}
+        >
+          <Info role="img"
+            aria-label="How work moves between these workstreams. The diagram above is drawn from this list."
+            className="size-3.5 text-muted-foreground" />
+        </Tooltip>
+      </h2>
 
       {error && (
         <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">
@@ -341,12 +410,10 @@ export function LifecycleConnections({
             <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
               <span className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {/* Names, never codes — the reader is thinking about the work. */}
-                <span className="font-medium">{nameOf(l.from_id)}</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  <ArrowRight className="size-3" /> {LINK_LABELS[l.link_type] ?? l.link_type}
-                </span>
-                <span className="font-medium">{nameOf(l.to_id)}</span>
-                {l.label && <span className="text-xs text-muted-foreground">· {l.label}</span>}
+                <span className="text-sm font-medium text-foreground">{nameOf(l.from_id)}</span>
+                {/* The caption, when there is one, lives on this chip. */}
+                <LinkBadge link={l} />
+                <span className="text-sm font-medium text-foreground">{nameOf(l.to_id)}</span>
               </span>
               {canManage && (
                 <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger"
@@ -368,7 +435,12 @@ export function LifecycleConnections({
                 options={workstreams.map((w) => ({ value: w.id, label: w.name }))} />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Relationship</span>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                Relationship
+                <Tooltip content={RELATIONSHIP_HELP}>
+                  <Info role="img" aria-label={RELATIONSHIP_HELP_TEXT} className="size-3.5 text-muted-foreground" />
+                </Tooltip>
+              </span>
               <Select value={type} onChange={(v) => setType(v as WorkstreamLinkType)}
                 options={(Object.keys(LINK_LABELS) as WorkstreamLinkType[]).map((k) => ({ value: k, label: LINK_LABELS[k] }))} />
             </label>
@@ -378,8 +450,6 @@ export function LifecycleConnections({
                 options={workstreams.filter((w) => w.id !== from).map((w) => ({ value: w.id, label: w.name }))} />
             </label>
           </div>
-
-          <p className="text-xs text-muted-foreground">{LINK_HELP[type]}</p>
 
           <div className="flex flex-wrap items-end gap-3">
             <label className="block flex-1 space-y-1.5">

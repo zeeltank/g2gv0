@@ -17,13 +17,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, CalendarDays, CircleDot, Flag, Pencil, Plus, Shield, Target, Trash2,
+  AlertTriangle, ArrowLeft, CalendarDays, CircleDot, Flag, Info, Pencil, Plus, Shield, Target, Trash2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Tooltip } from '@/components/ui/tooltip'
 import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService, type WorkstreamRecordKind } from '@/services/task'
@@ -154,8 +155,8 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
               <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 h-7 px-2 text-muted-foreground">
                 <ArrowLeft className="mr-1.5 size-3.5" /> Back to {detail.project.name}
               </Button>
-              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight">
-                {detail.code && <span className="font-mono text-lg text-muted-foreground">{detail.code}</span>}
+              <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
+                {detail.code && <span className="font-mono text-sm text-muted-foreground">{detail.code}</span>}
                 {detail.name}
                 {detail.kind === 'GOVERNANCE' && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -176,7 +177,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 
           <div className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-3 text-sm">
             <span><span className="text-muted-foreground">Accountable:</span> {detail.owner_name ?? '—'}</span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
               <CalendarDays className="size-3.5 text-muted-foreground" />
               {detail.start_date ?? '—'} → {detail.due_date ?? '—'}
             </span>
@@ -189,16 +190,16 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
         <div className="space-y-5">
           {/* ① Purpose */}
           <Card><CardContent className="p-5">
-            <h3 className="mb-2 font-semibold">Purpose</h3>
+            <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">Purpose</h2>
             {detail.purpose
-              ? <p className="text-sm leading-relaxed">{detail.purpose}</p>
+              ? <p className="text-sm leading-relaxed text-foreground">{detail.purpose}</p>
               : <p className="text-sm text-muted-foreground">No purpose recorded yet.</p>}
           </CardContent></Card>
 
           {/* ③ Responsibilities */}
           <Card><CardContent className="p-5">
             <StatementListEditor
-              title="Responsibilities" statements={detail.statements.responsibilities}
+              title="Responsibilities" level={2} statements={detail.statements.responsibilities}
               canManage={can} saving={saving}
               onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
                 getLaravelContext(), workstreamId, 'RESPONSIBILITY', bodies))}
@@ -207,10 +208,16 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 
           {/* ⑧ Scope — two EQUAL columns, on purpose */}
           <Card><CardContent className="p-5">
-            <h3 className="mb-1 font-semibold">Scope boundaries</h3>
-            <p className="mb-4 text-xs text-muted-foreground">
-              What is out of scope is what prevents scope creep — it carries the same weight as what is in.
-            </p>
+            <h2 className="mb-3 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+              Scope boundaries
+              <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">What is out of scope is what prevents scope creep — it carries the same weight as what is in.</span>}>
+                {/* lucide marks a childless icon aria-hidden; without a name here
+                    the sentence this tooltip replaced reaches nobody. */}
+                <Info role="img"
+                  aria-label="What is out of scope is what prevents scope creep — it carries the same weight as what is in."
+                  className="size-3.5 text-muted-foreground" />
+              </Tooltip>
+            </h2>
             <div className="grid gap-6 md:grid-cols-2">
               <StatementListEditor
                 title="In scope" statements={detail.statements.in_scope} canManage={can} saving={saving}
@@ -238,8 +245,8 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                 {detail.deliverables.map((d) => (
                   <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">{d.name}</p>
-                      <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                      <p className="text-sm font-medium text-foreground">{d.name}</p>
+                      <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
                         <span>{d.owner_name ?? 'Unassigned'}</span>
                         {d.due_date && <span>due {d.due_date}</span>}
                         {/* The checkpoint this deliverable is gated by — field ⑤
@@ -275,22 +282,22 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                 {detail.kpis.map((k) => (
                   <div key={k.id} className="rounded-lg border p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{k.name}</p>
+                      <p className="text-sm font-medium text-foreground">{k.name}</p>
                       {can && <RowActions
                         onEdit={() => { setDialogError(''); setDialog({ kind: 'kpi', record: k }) }}
                         onDelete={() => void removeRecord('kpis', k.id, 'metric')} />}
                     </div>
                     {k.metric && <p className="text-xs text-muted-foreground">{k.metric}</p>}
                     <dl className="mt-2 space-y-1 text-xs">
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Target</dt>
-                        <dd className="text-right font-medium">{k.target_value ?? 'Not set'}</dd>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Target</dt>
+                        <dd className="text-right text-sm font-medium tabular-nums text-foreground">{k.target_value ?? 'Not set'}</dd>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Current</dt>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current</dt>
                         {/* NULL is "not yet measured", never 0 — a zero here
                             would assert a reading nobody took. */}
-                        <dd className={cn('text-right font-medium', k.current_value === null && 'text-muted-foreground')}>
+                        <dd className={cn('text-right text-sm font-medium tabular-nums text-foreground', k.current_value === null && 'text-muted-foreground')}>
                           {k.current_value ?? 'Not yet measured'}
                         </dd>
                       </div>
@@ -327,7 +334,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                 {detail.risks.map((r) => (
                   <li key={r.id} className="rounded-lg border p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{r.title}</p>
+                      <p className="text-sm font-medium text-foreground">{r.title}</p>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <RiskSeverityBadge severity={r.severity} />
                         <StatusBadge status={r.status} size="sm">{r.status}</StatusBadge>
@@ -339,9 +346,9 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                     <p className="mt-1 text-xs text-muted-foreground">
                       {r.probability} probability · {r.impact} impact{r.owner_name ? ` · ${r.owner_name}` : ''}
                     </p>
-                    {r.description && <p className="mt-1.5 text-xs">{r.description}</p>}
+                    {r.description && <p className="mt-1.5 text-xs text-foreground">{r.description}</p>}
                     {r.mitigation && (
-                      <p className="mt-1.5 rounded bg-muted/50 px-2 py-1.5 text-xs">
+                      <p className="mt-1.5 rounded bg-muted/50 px-2 py-1.5 text-xs text-foreground">
                         <span className="font-medium">Mitigation: </span>{r.mitigation}
                       </p>
                     )}
@@ -355,7 +362,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
         {/* ── right rail ───────────────────────────────────────────── */}
         <div className="space-y-5 lg:sticky lg:top-4 lg:self-start">
           <Card><CardContent className="space-y-4 p-5">
-            <h3 className="font-semibold">At a glance</h3>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">At a glance</h2>
             <WorkstreamProgress progress={detail.progress} />
             <WorkstreamHealthCounts health={detail.health} />
           </CardContent></Card>
@@ -377,7 +384,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                 onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }}>
                 <Plus className="size-3.5" />
               </Button>} />
-            <p className="mb-3 text-xs text-muted-foreground">
+            <p className="mb-3 text-xs tabular-nums text-muted-foreground">
               {detail.start_date ?? 'No start date'} → {detail.due_date ?? 'No target date'}
             </p>
             {detail.checkpoints.length === 0 ? (
@@ -393,15 +400,15 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                     </div>
                     <div className="flex-1 pb-4">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium text-foreground">
                           {c.name}
-                          {c.is_critical && <span className="ml-1.5 text-[10px] font-bold uppercase text-danger">Critical</span>}
+                          {c.is_critical && <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wider text-danger">Critical</span>}
                         </p>
                         {can && <RowActions
                           onEdit={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: c }) }}
                           onDelete={() => void removeRecord('checkpoints', c.id, 'checkpoint')} />}
                       </div>
-                      <p className="text-xs text-muted-foreground">{c.target_date ?? 'No date'} · {c.status}</p>
+                      <p className="text-xs tabular-nums text-muted-foreground">{c.target_date ?? 'No date'} · {c.status}</p>
                     </div>
                   </li>
                 ))}
@@ -411,7 +418,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 
           {/* ⑥ Dependencies — graph links and external, together */}
           <Card><CardContent className="space-y-4 p-5">
-            <h3 className="font-semibold">Dependencies</h3>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Dependencies</h2>
 
             <DependencyGroup
               heading="What this needs" empty="Nothing recorded."
@@ -435,7 +442,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 
             {(detail.governed_by.length > 0 || detail.governs.length > 0) && (
               <div className="border-t pt-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Governance</p>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Governance</p>
                 {detail.governed_by.map((l) => (
                   <p key={l.id} className="text-xs text-muted-foreground">
                     Governed for <span className="text-foreground">{l.label ?? 'delivery'}</span>
@@ -452,7 +459,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 
           {detail.tasks.length > 0 && (
             <Card><CardContent className="p-5">
-              <h3 className="mb-2 font-semibold">Linked tasks</h3>
+              <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">Linked tasks</h2>
               <p className="text-sm text-muted-foreground">{detail.tasks.length} task{detail.tasks.length === 1 ? '' : 's'} placed in this workstream.</p>
             </CardContent></Card>
           )}
@@ -505,9 +512,9 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
 function SectionHeader({ title, icon: Icon, action }: { title: string; icon: React.ElementType; action?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h3 className="flex items-center gap-2 font-semibold">
+      <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
         <Icon className="size-4 text-muted-foreground" /> {title}
-      </h3>
+      </h2>
       {action}
     </div>
   )
@@ -556,7 +563,7 @@ function DependencyGroup({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{heading}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{heading}</p>
         {onAdd && (
           <Button size="sm" variant="ghost" className="h-6 px-1.5" aria-label={`Add to ${heading}`} onClick={onAdd}>
             <Plus className="size-3.5" />
@@ -564,28 +571,28 @@ function DependencyGroup({
         )}
       </div>
 
-      {total === 0 && <p className="text-xs text-muted-foreground">{empty}</p>}
+      {total === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
 
       <ul className="space-y-1.5">
         {links.map((l) => {
           const otherId = linkLabel(l)
           return (
-            <li key={l.id} className="text-xs">
+            <li key={l.id} className="text-sm">
               <button type="button" onClick={onOpen ? () => onOpen(otherId) : undefined}
                 className={cn('text-left', onOpen && 'hover:text-primary hover:underline')}>
-                <span className="font-medium">{l.label ?? 'Linked workstream'}</span>
-                <span className="text-muted-foreground"> · from the delivery flow</span>
+                <span className="font-medium text-foreground">{l.label ?? 'Linked workstream'}</span>
+                <span className="text-xs text-muted-foreground"> · from the delivery flow</span>
               </button>
             </li>
           )
         })}
 
         {external.map((d) => (
-          <li key={d.id} className="flex items-start justify-between gap-2 text-xs">
+          <li key={d.id} className="flex items-start justify-between gap-2 text-sm">
             <span className="min-w-0">
-              <span className={cn(d.is_blocking && 'font-medium text-danger')}>{d.description}</span>
-              {d.source && <span className="text-muted-foreground"> · {d.source}</span>}
-              {d.is_blocking && <span className="ml-1 text-[10px] font-bold uppercase text-danger">Blocking</span>}
+              <span className={cn(d.is_blocking ? 'font-medium text-danger' : 'text-foreground')}>{d.description}</span>
+              {d.source && <span className="text-xs text-muted-foreground"> · {d.source}</span>}
+              {d.is_blocking && <span className="ml-1 text-[11px] font-semibold uppercase tracking-wider text-danger">Blocking</span>}
             </span>
             {(onEdit || onDelete) && (
               <span className="flex shrink-0 gap-0.5">
