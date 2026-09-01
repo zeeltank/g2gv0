@@ -285,6 +285,10 @@ function graphNodes(tasks: DependencyNode[], projectOrder: readonly string[] = [
       // loaded in this component for the create form - it simply never
       // reached the graph, which is why the Workstream tab filtered nothing.
       workstreamId: task.workstream_id ?? '', workstreamName: task.workstream ?? '',
+      // Department travels with the node for the same reason workstream does:
+      // the map filters on the id and the menu is built from what is actually
+      // on the canvas. It was already in the payload and never reached here.
+      departmentId: task.department_id ?? '', departmentName: task.department ?? '',
     },
   }))
 }
@@ -442,6 +446,11 @@ useEffect(() => {
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterProject, setFilterProject] = useState<string | null>(null)
   const [filterWorkstream, setFilterWorkstream] = useState<string | null>(null)
+  // The filter you asked for and the map did not have. Client-side like the
+  // other four: the graph must stay whole for a chain to be readable, and every
+  // node already carries its department, so this is instant and cannot drop an
+  // intermediate task and silently break a dependency line.
+  const [filterDepartment, setFilterDepartment] = useState<string | null>(null)
 
   /**
    * ONE PREDICATE, USED BY BOTH PASSES.
@@ -469,8 +478,9 @@ useEffect(() => {
     if (filterAssignee && data.assigneeId !== filterAssignee) return false
     if (filterProject && data.projectId !== filterProject) return false
     if (filterWorkstream && data.workstreamId !== filterWorkstream) return false
+    if (filterDepartment && data.departmentId !== filterDepartment) return false
     return true
-  }, [filterStatus, filterAssignee, filterProject, filterWorkstream])
+  }, [filterStatus, filterAssignee, filterProject, filterWorkstream, filterDepartment])
 
   useEffect(() => {
     setNodes((nds) => nds.map((node) => ({ ...node, hidden: !nodeMatches(node.data) })))
@@ -657,6 +667,41 @@ useEffect(() => {
     return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [data.tasks])
 
+  /*
+   * Same rule as the other three: only departments actually present on the
+   * canvas. A person with no department set contributes nothing rather than an
+   * "Unassigned" bucket, which would be a grouping nobody created.
+   *
+   * DUPLICATE NAMES ARE DISAMBIGUATED, NOT MERGED. 373 department names on dev
+   * and 368 on live are used by more than one record — tenant 6 alone has two
+   * called "Development" — so a plain name list would show one word twice with
+   * no way to tell which is which, and merging them would filter to only one of
+   * the two and quietly hide the other's tasks.
+   *
+   * The task count is the disambiguator because it is the one thing that is both
+   * visible on the canvas and meaningful to a person; a record id would not be.
+   * It is appended ONLY where a name actually collides, so the common case stays
+   * a clean list.
+   */
+  const departmentOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    const names = new Map<string, string>()
+
+    data.tasks.forEach((task) => {
+      if (!task.department_id) return
+      names.set(task.department_id, task.department ?? 'Unnamed department')
+      counts.set(task.department_id, (counts.get(task.department_id) ?? 0) + 1)
+    })
+
+    const nameUses = new Map<string, number>()
+    names.forEach((name) => nameUses.set(name, (nameUses.get(name) ?? 0) + 1))
+
+    return Array.from(names, ([id, name]) => ({
+      id,
+      name: (nameUses.get(name) ?? 0) > 1 ? `${name} (${counts.get(id) ?? 0} tasks)` : name,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.tasks])
+
   /**
    * How much the filters are hiding.
    *
@@ -665,10 +710,11 @@ useEffect(() => {
    * two numbers are what let the empty state tell them apart.
    */
   const visibleNodeCount = useMemo(() => nodes.filter((n) => !n.hidden).length, [nodes])
-  const filtersActive = Boolean(filterStatus || filterAssignee || filterProject || filterWorkstream)
+  const filtersActive = Boolean(filterStatus || filterAssignee || filterProject || filterWorkstream || filterDepartment)
 
   const clearFilters = useCallback(() => {
     setFilterStatus(null); setFilterAssignee(null); setFilterProject(null); setFilterWorkstream(null)
+    setFilterDepartment(null)
   }, [])
 
   const pulseData = [
@@ -754,6 +800,17 @@ useEffect(() => {
                   {projectOptions.map((project) => (
                     <DropdownMenuItem key={project.id} onClick={() => setFilterProject(filterProject === project.id ? null : project.id)} className="cursor-pointer">
                       <span className="w-4 inline-block">{filterProject === project.id ? '✓' : ''}</span> {project.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs font-bold text-foreground/50 tracking-wider uppercase">Filter By Department</div>
+                <div className="max-h-48 overflow-y-auto">
+                  {departmentOptions.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No department on any task here.</div>}
+                  {departmentOptions.map((department) => (
+                    <DropdownMenuItem key={department.id} onClick={() => setFilterDepartment(filterDepartment === department.id ? null : department.id)} className="cursor-pointer">
+                      <span className="w-4 inline-block">{filterDepartment === department.id ? '✓' : ''}</span> {department.name}
                     </DropdownMenuItem>
                   ))}
                 </div>
