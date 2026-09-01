@@ -147,32 +147,34 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
         { label: detail.name },
       ]} />
 
-      {/* ── header ─────────────────────────────────────────────────── */}
+      {/* ── page header, on the page rather than inside the first card ── */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-bold tracking-tight text-foreground">
+            {detail.name}
+            {detail.code && <span className="font-mono text-sm font-medium text-muted-foreground">{detail.code}</span>}
+            {detail.kind === 'GOVERNANCE' && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Shield className="size-3" /> Governance
+              </span>
+            )}
+          </h1>
+          {/* The core question, which is what makes the workstream legible
+              at a glance — the model gives one per workstream. */}
+          {detail.core_question && (
+            <p className="mt-1 text-sm italic text-muted-foreground">{detail.core_question}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <StatusBadge status={detail.status} variant={projectStatusVariant(detail.status)}>{detail.status}</StatusBadge>
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1.5 size-3.5" /> Back to {detail.project.name}
+          </Button>
+        </div>
+      </div>
+
       <Card>
         <CardContent className="space-y-3 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 h-7 px-2 text-muted-foreground">
-                <ArrowLeft className="mr-1.5 size-3.5" /> Back to {detail.project.name}
-              </Button>
-              <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
-                {detail.code && <span className="font-mono text-sm text-muted-foreground">{detail.code}</span>}
-                {detail.name}
-                {detail.kind === 'GOVERNANCE' && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Shield className="size-3" /> Governance
-                  </span>
-                )}
-              </h1>
-              {/* The core question, which is what makes the workstream legible
-                  at a glance — the model gives one per workstream. */}
-              {detail.core_question && (
-                <p className="mt-1 text-sm italic text-muted-foreground">{detail.core_question}</p>
-              )}
-            </div>
-            <StatusBadge status={detail.status} variant={projectStatusVariant(detail.status)}>{detail.status}</StatusBadge>
-          </div>
-
           <WorkstreamHealthLine health={detail.health} />
 
           <div className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-3 text-sm">

@@ -281,36 +281,36 @@ export function ProjectDetailView({
         { label: project.name },
       ]} />
 
-      {/* ── header ─────────────────────────────────────────────────── */}
+      {/* ── page header ────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-bold tracking-tight text-foreground">
+            <Briefcase className="size-7 shrink-0 text-primary" />
+            {project.name}
+            <span className="font-mono text-sm font-medium text-muted-foreground">{project.code}</span>
+          </h1>
+          {project.description && (
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{project.description}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <PriorityBadge priority={project.priority} />
+          {/* variant passed explicitly — 'IN PROGRESS' is missing from the
+              shared status map, so four statuses colour and one does not. */}
+          <StatusBadge status={project.status} variant={projectStatusVariant(project.status)}>
+            {project.status}
+          </StatusBadge>
+          {project.archived_at && <StatusBadge status="Archived" size="sm">Archived</StatusBadge>}
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1.5 size-3.5" /> Back to projects
+          </Button>
+        </div>
+      </div>
+
       <Card>
         <CardContent className="space-y-4 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 h-7 px-2 text-muted-foreground">
-                <ArrowLeft className="mr-1.5 size-3.5" /> Back to projects
-              </Button>
-              <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
-                <Briefcase className="size-5 text-primary" />
-                {project.name}
-                <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
-              </h1>
-              {project.description && (
-                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{project.description}</p>
-              )}
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <PriorityBadge priority={project.priority} />
-              {/* variant passed explicitly — 'IN PROGRESS' is missing from the
-                  shared status map, so four statuses colour and one does not. */}
-              <StatusBadge status={project.status} variant={projectStatusVariant(project.status)}>
-                {project.status}
-              </StatusBadge>
-              {project.archived_at && <StatusBadge status="Archived" size="sm">Archived</StatusBadge>}
-            </div>
-          </div>
-
           {/* Everything the API already returned and the drawer discarded. */}
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-4 md:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
             <Meta label="Manager" value={project.manager} />
             <Meta label="Sponsor" value={project.sponsor} />
             <Meta label="Timeline" value={`${project.start_date ?? '—'} → ${project.due_date ?? '—'}`} />
@@ -421,12 +421,32 @@ export function ProjectDetailView({
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {workstreams.map((w) => (
+                /*
+                 * The WHOLE card opens the workstream, not just its title.
+                 *
+                 * It already carried `hover:shadow-md`, so it announced itself
+                 * as clickable while only the small name/code button inside it
+                 * actually was — the badge, the owner, the reason line, the
+                 * progress bar and every bit of padding did nothing.
+                 *
+                 * A plain div takes the click rather than `role="button"`,
+                 * because the card contains real Edit and Delete buttons and a
+                 * button inside a button is invalid. The name stays a genuine
+                 * <button> so the card is still reachable by keyboard, and the
+                 * two actions stopPropagation so they do not also navigate.
+                 * This is the pattern ProjectCard already uses on the list.
+                 */
                 <div key={w.id}
-                  className={cn('rounded-xl border-l-4 border bg-card p-4 transition hover:shadow-md', healthTone(w.health.state))}>
+                  onClick={() => setSelectedWorkstream(w.id)}
+                  className={cn(
+                    'group cursor-pointer rounded-xl border-l-4 border bg-card p-4 text-left transition hover:shadow-md',
+                    healthTone(w.health.state),
+                  )}>
                   <div className="flex items-start justify-between gap-2">
-                    <button type="button" onClick={() => setSelectedWorkstream(w.id)} className="min-w-0 text-left">
+                    <button type="button" className="min-w-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      onClick={(e) => { e.stopPropagation(); setSelectedWorkstream(w.id) }}>
                       {/* Name first. The code is a reference, in muted text beneath. */}
-                      <p className="text-sm font-semibold leading-tight text-foreground hover:text-primary">{w.name}</p>
+                      <p className="text-sm font-semibold leading-tight text-foreground group-hover:text-primary">{w.name}</p>
                       <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
                         {w.code && <span className="font-mono">{w.code}</span>}
                         {w.kind === 'GOVERNANCE' && <span className="font-medium">Governance layer</span>}
@@ -439,11 +459,11 @@ export function ProjectDetailView({
                   <div className="mt-3"><WorkstreamProgress progress={w.progress} /></div>
                   <div className="mt-3 flex justify-end gap-1 border-t pt-2">
                     <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
-                      onClick={() => { setWsError(''); setWsDialog({ open: true, initial: w }) }}>
+                      onClick={(e) => { e.stopPropagation(); setWsError(''); setWsDialog({ open: true, initial: w }) }}>
                       <Pencil className="mr-1 size-3" /> Edit
                     </Button>
                     <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-danger"
-                      onClick={() => void removeWorkstream(w)}>
+                      onClick={(e) => { e.stopPropagation(); void removeWorkstream(w) }}>
                       <Trash2 className="mr-1 size-3" /> Delete
                     </Button>
                   </div>
