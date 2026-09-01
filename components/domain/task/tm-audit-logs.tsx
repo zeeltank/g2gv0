@@ -9,7 +9,7 @@
  * the same trail as CSV, server-streamed.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, History, ScrollText, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -54,6 +54,66 @@ export function TmAuditLogs() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  /*
+   * THE FILTERS THE SERVER HAS ALWAYS ACCEPTED AND THIS SCREEN NEVER SENT.
+   *
+   * The endpoint validated event, from, to, task_id, actor_id, department_id and
+   * project_id, and the service layer passes all of them - but the screen called
+   * it with nothing but a page number, so the whole trail was the only view
+   * available and "Export CSV" dumped every row regardless of what was on
+   * screen. Held in one object so the load and the export URL are built from the
+   * same value and cannot drift apart.
+   */
+  const [filters, setFilters] = useState<{
+    event: string; departmentId: string; projectId: string; from: string; to: string
+  }>({ event: '', departmentId: '', projectId: '', from: '', to: '' })
+
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([])
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([])
+
+  /** Only the keys that are set, so an unfiltered call is what it always was. */
+  const activeParams = useMemo(() => ({
+    ...(filters.event ? { event: filters.event } : {}),
+    ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+    ...(filters.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters.from ? { from: filters.from } : {}),
+    ...(filters.to ? { to: filters.to } : {}),
+  }), [filters])
+
+  const filtersActive = Object.keys(activeParams).length > 0
+
+  const setFilter = (key: keyof typeof filters, value: string) => {
+    // Any filter change returns to page 1. Staying on page 4 of a narrower
+    // result set is how a filtered screen shows "no entries" and looks broken.
+    setPage(1)
+    setFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  const clearFilters = () => {
+    setPage(1)
+    setFilters({ event: '', departmentId: '', projectId: '', from: '', to: '' })
+  }
+
+  // Option lists for the two id-based filters. Failure is deliberately silent:
+  // a menu that cannot be populated should leave the screen usable rather than
+  // replace the audit trail with an error about a dropdown.
+  useEffect(() => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    void (async () => {
+      try {
+        const options = await taskService.getProjectOptions(context)
+        setDepartments(options.data.departments ?? [])
+      } catch { /* leave the department menu empty */ }
+
+      try {
+        const records = await taskService.getProjectRecords(context, { perPage: 200 })
+        setProjects(records.data.projects.map((project) => ({ id: String(project.id), name: project.name })))
+      } catch { /* leave the project menu empty */ }
+    })()
+  }, [])
+
   const load = useCallback(async () => {
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) {
@@ -65,7 +125,7 @@ export function TmAuditLogs() {
     setLoading(true)
     setError('')
     try {
-      const response = await taskService.getAuditLogs(context, { page })
+      const response = await taskService.getAuditLogs(context, { ...activeParams, page })
       setLogs(response.data.logs)
       setPagination(response.data.pagination)
     } catch (reason) {
@@ -73,15 +133,16 @@ export function TmAuditLogs() {
     } finally {
       setLoading(false)
     }
-  }, [page])
+  }, [page, activeParams])
 
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
     queueMicrotask(() => { void load() })
   }, [load])
 
-  // The API filters by task/event/date; free-text narrowing over the loaded
-  // page happens here, which is what an admin scanning a screen expects.
+  // The API filters by event, date, department and project; free-text narrowing
+  // over the loaded page happens here, which is what an admin scanning a screen
+  // expects.
   const visible = search
     ? logs.filter((log) =>
         [log.task_title, log.actor, log.event]
@@ -92,7 +153,9 @@ export function TmAuditLogs() {
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
     const link = document.createElement('a')
-    link.href = taskService.auditLogsExportUrl(context)
+    // THE SAME FILTERS THE SCREEN IS SHOWING. The export used to ignore them,
+    // so the file silently disagreed with the page that produced it.
+    link.href = taskService.auditLogsExportUrl(context, activeParams)
     link.rel = 'noopener'
     link.click()
   }
@@ -116,12 +179,90 @@ export function TmAuditLogs() {
         </Button>
       </div>
 
+      {/* THE SERVER FILTERS, IN ONE ROW ABOVE THE TRAIL. These narrow the whole
+          trail and the CSV; the text box below them narrows only the page on
+          screen, which is a different job and is labelled as such. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+          Event
+          <select
+            value={filters.event}
+            onChange={(e) => setFilter('event', e.target.value)}
+            className="h-10 min-w-44 rounded-lg border bg-background px-3 text-sm text-foreground"
+          >
+            <option value="">All events</option>
+            {Object.entries(EVENT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+          Department
+          <select
+            value={filters.departmentId}
+            onChange={(e) => setFilter('departmentId', e.target.value)}
+            disabled={departments.length === 0}
+            className="h-10 min-w-44 rounded-lg border bg-background px-3 text-sm text-foreground disabled:opacity-50"
+          >
+            <option value="">All departments</option>
+            {departments.map((department) => (
+              <option key={department.id} value={String(department.id)}>{department.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+          Project
+          <select
+            value={filters.projectId}
+            onChange={(e) => setFilter('projectId', e.target.value)}
+            disabled={projects.length === 0}
+            className="h-10 min-w-44 rounded-lg border bg-background px-3 text-sm text-foreground disabled:opacity-50"
+          >
+            <option value="">All projects</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>{project.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+          From
+          <input
+            type="date"
+            value={filters.from}
+            onChange={(e) => setFilter('from', e.target.value)}
+            className="h-10 rounded-lg border bg-background px-3 text-sm text-foreground"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+          To
+          <input
+            type="date"
+            value={filters.to}
+            // The server refuses a `to` earlier than `from` with a 422; setting
+            // the minimum here means the user never reaches that error.
+            min={filters.from || undefined}
+            onChange={(e) => setFilter('to', e.target.value)}
+            className="h-10 rounded-lg border bg-background px-3 text-sm text-foreground"
+          />
+        </label>
+
+        {filtersActive && (
+          <Button variant="ghost" onClick={clearFilters} className="h-10 text-danger">
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Filter by task, person, or event…"
+          placeholder="Narrow this page by task, person, or event…"
           className="h-10 w-full rounded-lg border pl-9 pr-3 text-sm"
         />
       </div>
@@ -133,8 +274,10 @@ export function TmAuditLogs() {
         <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground">
           <ScrollText className="size-6" />
           {logs.length === 0
-            ? 'No audit entries yet. They accumulate as tasks are changed.'
-            : 'Nothing on this page matches the filter.'}
+            ? (filtersActive
+                ? 'No audit entries match these filters. Clear them to see the whole trail.'
+                : 'No audit entries yet. They accumulate as tasks are changed.')
+            : 'Nothing on this page matches the text above.'}
         </div>
       )}
 

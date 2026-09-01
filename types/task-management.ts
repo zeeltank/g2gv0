@@ -396,6 +396,11 @@ export interface DependencyNode {
   /** The board is grouped by WORKSTREAM, not by project. Both are nullable:
       a task can be linked to a project without belonging to a workstream. */
   project_id: string | null; workstream_id: string | null; workstream: string | null
+  /** The ASSIGNEE's department - the same meaning WorkspaceController and
+      MyTasksController give the word, not the project's own department. The map
+      filters on the id and labels the menu with the name; both are null for a
+      person with no department set. */
+  department_id: string | null; department: string | null
 }
 export interface MilestoneCounts {
   total: number; completed: number; open: number; blocked: number; overdue: number
