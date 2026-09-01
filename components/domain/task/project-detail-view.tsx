@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, Briefcase, Layers, Plus, Target, Users, X,
+  AlertTriangle, ArrowLeft, Briefcase, Layers, Pencil, Plus, Target, Trash2, Users, X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -40,18 +40,22 @@ import { taskService } from '@/services/task'
 import { cn } from '@/lib/utils'
 import { PriorityBadge } from './priority-badge'
 import { WorkstreamLifecycleMap } from './workstream-lifecycle-map'
+import { LifecycleConnections, WorkstreamDialog } from './workstream-form'
 import { WorkstreamDetailView } from './workstream-detail-view'
 import {
   WorkstreamHealthBadge, WorkstreamProgress, healthTone, projectStatusVariant,
 } from './workstream-health'
 import type {
-  LinkableTask, ProjectRecord, WorkstreamLink, WorkstreamSummary,
+  LinkableTask, ProjectRecord, WorkstreamLink, WorkstreamOptions, WorkstreamSummary,
 } from '@/types/task-management'
+import type { WorkstreamPayload } from '@/services/task'
 
-type Tab = 'overview' | 'workstreams' | 'team' | 'tasks' | 'timeline'
+// Overview removed 2026-09-01 at the customer's request: it duplicated the
+// Workstreams tab, which already carries the lifecycle diagram at full size and
+// the same health cards. Workstreams is the default.
+type Tab = 'workstreams' | 'team' | 'tasks' | 'timeline'
 
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'overview', label: 'Overview' },
   { id: 'workstreams', label: 'Workstreams' },
   { id: 'team', label: 'Team' },
   { id: 'tasks', label: 'Tasks' },
@@ -67,12 +71,18 @@ export function ProjectDetailView({
   const [project, setProject] = useState<ProjectRecord | null>(null)
   const [workstreams, setWorkstreams] = useState<WorkstreamSummary[]>([])
   const [links, setLinks] = useState<WorkstreamLink[]>([])
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('workstreams')
   const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [linkOpen, setLinkOpen] = useState(false)
   const [taskMessage, setTaskMessage] = useState('')
+  const [wsDialog, setWsDialog] = useState<{ open: boolean; initial: WorkstreamSummary | null }>({ open: false, initial: null })
+  const [wsSaving, setWsSaving] = useState(false)
+  const [wsError, setWsError] = useState('')
+  const [wsMessage, setWsMessage] = useState('')
+  const [linkError, setLinkError] = useState('')
+  const [options, setOptions] = useState<WorkstreamOptions | null>(null)
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -88,13 +98,15 @@ export function ProjectDetailView({
       // Two requests, not more: the workstream call already carries health,
       // links and the roll-up, so the diagram, the cards and the stat strip
       // cannot disagree with each other.
-      const [record, ws] = await Promise.all([
+      const [record, ws, opts] = await Promise.all([
         taskService.getProjectRecord(context, projectId),
         taskService.getProjectWorkstreams(context, projectId),
+        taskService.getWorkstreamOptions(context),
       ])
       setProject(record.data)
       setWorkstreams(ws.data.workstreams)
       setLinks(ws.data.links)
+      setOptions(opts.data)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load this project.')
     } finally {
@@ -138,6 +150,95 @@ export function ProjectDetailView({
     }
   }
 
+  /* ── authoring the lifecycle ──────────────────────────────────────
+     Create, edit and delete workstreams, and connect them. Every one of
+     these service methods had zero callers until now: the old drawer held
+     the only workstream form and it was removed with the drawer. */
+
+  const saveWorkstream = async (payload: WorkstreamPayload) => {
+    const context = getLaravelContext()
+    const editing = wsDialog.initial
+    setWsSaving(true)
+    setWsError('')
+    try {
+      const response = editing
+        ? await taskService.updateProjectWorkstream(context, projectId, editing.id, payload)
+        : await taskService.createProjectWorkstream(context, projectId, payload)
+      setWsMessage(response.message)
+      setWsDialog({ open: false, initial: null })
+      await load()
+    } catch (reason) {
+      // Inside the dialog — the server's message is the useful one here
+      // ("Another workstream in this project already uses the code…").
+      setWsError(reason instanceof Error ? reason.message : 'Unable to save that workstream.')
+    } finally {
+      setWsSaving(false)
+    }
+  }
+
+  /**
+   * Delete, naming what goes with it.
+   *
+   * A sub-workstream blocks the delete outright (the API refuses with 422 and
+   * says why). Everything else — deliverables, KPIs, risks, checkpoints,
+   * contributors — cascades, so the confirm counts them rather than asking a
+   * bare "are you sure?" about work somebody planned.
+   */
+  const removeWorkstream = async (ws: WorkstreamSummary) => {
+    const carries = [
+      [ws.health.deliverables.total, 'deliverable'],
+      [ws.health.kpis.total, 'success metric'],
+      [ws.health.risks.open + ws.health.risks.closed, 'risk'],
+      [ws.health.milestones.total, 'checkpoint'],
+    ] as Array<[number, string]>
+
+    const losing = carries.filter(([n]) => n > 0)
+      .map(([n, word]) => `${n} ${word}${n === 1 ? '' : 's'}`)
+      .join(', ')
+
+    const warning = losing
+      ? `Delete "${ws.name}"? This also deletes ${losing}. Linked tasks stay, but lose their workstream.`
+      : `Delete "${ws.name}"?`
+
+    if (!window.confirm(warning)) return
+
+    try {
+      const response = await taskService.deleteProjectWorkstream(getLaravelContext(), projectId, ws.id)
+      setWsMessage(response.message)
+      await load()
+    } catch (reason) {
+      setWsError(reason instanceof Error ? reason.message : 'Unable to delete that workstream.')
+    }
+  }
+
+  const addLink = async (payload: Parameters<typeof taskService.createWorkstreamLink>[2]) => {
+    setWsSaving(true)
+    setLinkError('')
+    try {
+      await taskService.createWorkstreamLink(getLaravelContext(), projectId, payload)
+      await load()
+    } catch (reason) {
+      // The API's cycle message tells the user what to do instead — show it
+      // verbatim rather than replacing it with a generic failure.
+      setLinkError(reason instanceof Error ? reason.message : 'Unable to add that connection.')
+    } finally {
+      setWsSaving(false)
+    }
+  }
+
+  const removeLink = async (linkId: string) => {
+    setWsSaving(true)
+    setLinkError('')
+    try {
+      await taskService.deleteWorkstreamLink(getLaravelContext(), linkId)
+      await load()
+    } catch (reason) {
+      setLinkError(reason instanceof Error ? reason.message : 'Unable to remove that connection.')
+    } finally {
+      setWsSaving(false)
+    }
+  }
+
   /** Every open risk across the project's workstreams, worst first. */
   const riskLoad = useMemo(() => {
     const regulated = workstreams.reduce((n, w) => n + w.health.risks.regulated_open, 0)
@@ -176,7 +277,7 @@ export function ProjectDetailView({
     <div className="g2g-scrollbar flex h-full flex-col gap-5 overflow-y-auto pb-8">
       <GtgBreadcrumb items={[
         { label: 'Projects & Workstreams' },
-        { label: `${project.code} · ${project.name}` },
+        { label: project.name },
       ]} />
 
       {/* ── header ─────────────────────────────────────────────────── */}
@@ -269,37 +370,23 @@ export function ProjectDetailView({
         ))}
       </div>
 
-      {tab === 'overview' && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <Card><CardContent className="p-5">
-            <h3 className="mb-3 font-semibold">Delivery lifecycle</h3>
-            <WorkstreamLifecycleMap
-              workstreams={workstreams} links={links} compact
-              onOpen={(id) => setSelectedWorkstream(id)}
-            />
-          </CardContent></Card>
-
-          <div className="space-y-5">
-            <Card><CardContent className="space-y-3 p-5">
-              <h3 className="font-semibold">Workstream health</h3>
-              {workstreams.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No workstreams yet.</p>
-              ) : (
-                workstreams.map((w) => (
-                  <button key={w.id} type="button" onClick={() => setSelectedWorkstream(w.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:border-primary/40">
-                    <span className="min-w-0 truncate">{w.code ? `${w.code} · ` : ''}{w.name}</span>
-                    <WorkstreamHealthBadge state={w.health.state} />
-                  </button>
-                ))
-              )}
-            </CardContent></Card>
-          </div>
-        </div>
-      )}
 
       {tab === 'workstreams' && (
         <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-semibold">Delivery lifecycle</h3>
+              <p className="text-xs text-muted-foreground">
+                Create the workstreams for this project, then connect them to describe how work flows.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => { setWsError(''); setWsDialog({ open: true, initial: null }) }}>
+              <Plus className="mr-1 size-3.5" /> New workstream
+            </Button>
+          </div>
+
+          {wsMessage && <p className="text-sm text-success">{wsMessage}</p>}
+
           <Card><CardContent className="p-5">
             <WorkstreamLifecycleMap
               workstreams={workstreams} links={links}
@@ -307,26 +394,54 @@ export function ProjectDetailView({
             />
           </CardContent></Card>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {workstreams.map((w) => (
-              <button key={w.id} type="button" onClick={() => setSelectedWorkstream(w.id)}
-                className={cn('rounded-xl border-l-4 border bg-card p-4 text-left transition hover:shadow-md', healthTone(w.health.state))}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    {w.code && <p className="font-mono text-xs text-muted-foreground">{w.code}</p>}
-                    <p className="font-semibold leading-tight">{w.name}</p>
+          {workstreams.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No workstreams yet. Create the first one to start building this project&apos;s delivery model.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {workstreams.map((w) => (
+                <div key={w.id}
+                  className={cn('rounded-xl border-l-4 border bg-card p-4 transition hover:shadow-md', healthTone(w.health.state))}>
+                  <div className="flex items-start justify-between gap-2">
+                    <button type="button" onClick={() => setSelectedWorkstream(w.id)} className="min-w-0 text-left">
+                      {/* Name first. The code is a reference, in muted text beneath. */}
+                      <p className="font-semibold leading-tight hover:text-primary">{w.name}</p>
+                      <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                        {w.code && <span className="font-mono">{w.code}</span>}
+                        {w.kind === 'GOVERNANCE' && <span className="font-medium">Governance layer</span>}
+                      </p>
+                    </button>
+                    <WorkstreamHealthBadge state={w.health.state} />
                   </div>
-                  <WorkstreamHealthBadge state={w.health.state} />
+                  <p className="mt-1 text-xs text-muted-foreground">{w.owner_name ?? 'No owner'}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{w.health.state_reason}</p>
+                  <div className="mt-3"><WorkstreamProgress progress={w.progress} /></div>
+                  <div className="mt-3 flex justify-end gap-1 border-t pt-2">
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                      onClick={() => { setWsError(''); setWsDialog({ open: true, initial: w }) }}>
+                      <Pencil className="mr-1 size-3" /> Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-danger"
+                      onClick={() => void removeWorkstream(w)}>
+                      <Trash2 className="mr-1 size-3" /> Delete
+                    </Button>
+                  </div>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{w.owner_name ?? 'No owner'}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{w.health.state_reason}</p>
-                <div className="mt-3"><WorkstreamProgress progress={w.progress} /></div>
-              </button>
-            ))}
-            {workstreams.length === 0 && (
-              <p className="text-sm text-muted-foreground">No workstreams yet.</p>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
+
+          <Card><CardContent className="p-5">
+            <LifecycleConnections
+              workstreams={workstreams} links={links}
+              canManage saving={wsSaving} error={linkError}
+              onAdd={(payload) => void addLink(payload)}
+              onRemove={(id) => void removeLink(id)}
+            />
+          </CardContent></Card>
         </div>
       )}
 
@@ -347,7 +462,7 @@ export function ProjectDetailView({
                     <span className="flex flex-wrap gap-1.5">
                       {owns.map((w) => (
                         <span key={w.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                          Owns {w.code ?? w.name}
+                          Owns {w.name}
                         </span>
                       ))}
                       {owns.length === 0 && <span className="text-xs text-muted-foreground">Contributor</span>}
@@ -402,7 +517,7 @@ export function ProjectDetailView({
                               onChange={(id) => void placeTask(t.id, id)}
                               size="sm"
                               options={[{ value: '', label: 'No workstream' },
-                                ...workstreams.map((w) => ({ value: w.id, label: w.code ?? w.name }))]}
+                                ...workstreams.map((w) => ({ value: w.id, label: w.name }))]}
                             />
                           )}
                           <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger"
@@ -419,6 +534,14 @@ export function ProjectDetailView({
           )}
         </CardContent></Card>
       )}
+
+      <WorkstreamDialog
+        open={wsDialog.open} initial={wsDialog.initial}
+        workstreams={workstreams} projectMembers={projectMembers} options={options}
+        saving={wsSaving} error={wsError}
+        onClose={() => { setWsDialog({ open: false, initial: null }); setWsError('') }}
+        onSave={(payload) => void saveWorkstream(payload)}
+      />
 
       <LinkTaskDialog
         open={linkOpen} projectId={projectId} workstreams={workstreams}
@@ -519,7 +642,7 @@ function LinkTaskDialog({
             <Select
               value={workstreamId} onChange={setWorkstreamId}
               options={[{ value: '', label: 'No workstream' },
-                ...workstreams.map((w) => ({ value: w.id, label: w.code ? `${w.code} · ${w.name}` : w.name }))]}
+                ...workstreams.map((w) => ({ value: w.id, label: w.name }))]}
             />
           )}
 
@@ -541,7 +664,9 @@ function LinkTaskDialog({
                     {t.already_linked_project && (
                       // Reported, not hidden — and not blocked, because a task
                       // legitimately can sit on two projects.
-                      <span className="text-xs text-warning">already in {t.already_linked_project}</span>
+                      <span className="text-xs text-warning" title={t.already_linked_project_code ?? undefined}>
+                        already in {t.already_linked_project}
+                      </span>
                     )}
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -650,7 +775,7 @@ function WorkstreamTimeline({
           <div key={w.id} className="flex items-center gap-3">
             <button type="button" onClick={() => onOpen(w.id)}
               className="w-40 shrink-0 truncate text-left text-sm hover:text-primary hover:underline">
-              {w.code ? `${w.code} · ` : ''}{w.name}
+              {w.name}
             </button>
             <div className="relative h-6 flex-1 rounded bg-muted/40">
               {start !== null && end !== null ? (

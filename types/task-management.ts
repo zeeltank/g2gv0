@@ -442,7 +442,9 @@ export interface LinkableTask {
   due_date: string | null
   assignee: string | null
   already_linked_project_id: string | null
+  /** The project NAME. The code travels separately — a name is the identity. */
   already_linked_project: string | null
+  already_linked_project_code: string | null
 }
 
 /**
