@@ -32,10 +32,10 @@
  */
 
 import { useMemo } from 'react'
-import { ArrowDown, Info, RotateCcw, Shield } from 'lucide-react'
+import { ArrowDown, RotateCcw, Shield } from 'lucide-react'
 
-import { Tooltip } from '@/components/ui/tooltip'
 import { categoricalColor } from '@/lib/chart-colors'
+import { orderWorkstreams } from './workstream-order'
 import { cn } from '@/lib/utils'
 import { WorkstreamHealthBadge } from './workstream-health'
 import type { WorkstreamLink, WorkstreamSummary } from '@/types/task-management'
@@ -48,50 +48,19 @@ interface Props {
 }
 
 export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: Props) {
-  const { stages, governance, feedback, governs, orderedIds, unconnected } = useMemo(() => {
-    const delivery = workstreams.filter((w) => w.kind === 'DELIVERY' && !w.parent_id)
-    const governance = workstreams.filter((w) => w.kind === 'GOVERNANCE' && !w.parent_id)
+  /*
+   * The walk that used to live here now lives in `workstream-order.ts`,
+   * because the list pane beside this diagram shows the same workstreams and
+   * two independent orderings is two answers to "what order are these in?".
+   * The one a user would trust is whichever they happened to read first.
+   */
+  const { stages, governance, unconnected, colorOrder } = useMemo(
+    () => orderWorkstreams(workstreams, links),
+    [workstreams, links],
+  )
 
-    const flow = links.filter((l) => l.link_type === 'FLOW')
-    const feedback = links.filter((l) => l.link_type === 'FEEDBACK')
-    const governs = links.filter((l) => l.link_type === 'GOVERNS')
-
-    /*
-     * Stage order comes from the FLOW edges, not from sort_order — the graph is
-     * the authority. A topological walk from whatever has no predecessor;
-     * anything the walk does not reach keeps its sort_order position at the end,
-     * so a project with no links at all still renders a sensible list.
-     */
-    const byId = new Map(delivery.map((w) => [w.id, w]))
-    const hasPredecessor = new Set(flow.map((l) => l.to_id))
-    const next = new Map<string, string>(flow.map((l) => [l.from_id, l.to_id]))
-
-    const ordered: WorkstreamSummary[] = []
-    const seen = new Set<string>()
-
-    for (const start of delivery.filter((w) => !hasPredecessor.has(w.id))) {
-      let cursor: string | undefined = start.id
-      while (cursor && byId.has(cursor) && !seen.has(cursor)) {
-        seen.add(cursor)
-        ordered.push(byId.get(cursor)!)
-        cursor = next.get(cursor)
-      }
-    }
-
-    const unconnected = delivery.filter((w) => !seen.has(w.id))
-
-    return {
-      stages: ordered,
-      governance,
-      flow,
-      feedback,
-      governs,
-      // Colour is keyed on a NAME-SORTED list so filtering or reordering never
-      // repaints a workstream — colour follows the entity, not its position.
-      orderedIds: [...workstreams].sort((a, b) => a.name.localeCompare(b.name)).map((w) => w.id),
-      unconnected,
-    }
-  }, [workstreams, links])
+  const feedback = useMemo(() => links.filter((l) => l.link_type === 'FEEDBACK'), [links])
+  const governs = useMemo(() => links.filter((l) => l.link_type === 'GOVERNS'), [links])
 
   if (workstreams.length === 0) {
     return (
@@ -117,7 +86,7 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
         {/* ── the delivery spine ───────────────────────────────────── */}
         <div className="grid gap-0" style={{ gridTemplateRows: `repeat(${Math.max(stages.length, 1)}, auto)` }}>
           {stages.map((ws, index) => {
-            const colour = categoricalColor(ws.id, orderedIds)
+            const colour = categoricalColor(ws.id, colorOrder)
             const edgeLabel = index < stages.length - 1 ? label(ws.id, stages[index + 1]?.id ?? '', 'FLOW') : null
 
             return (
@@ -220,50 +189,18 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
         </div>
       )}
 
-      {/* Workstreams the flow does not reach. Named rather than hidden — an
-          absent card reads as an absent workstream. */}
-      {unconnected.length > 0 && (
-        <div className="rounded-lg border border-dashed p-3">
-          {/* A <div>, not a <p>: Tooltip renders a block-level wrapper, and the
-              HTML parser closes an open <p> the moment it meets one — which SSRs
-              one tree and hydrates another. */}
-          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Not in the delivery flow
-            <Tooltip
-              side="bottom"
-              content={
-                <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
-                  Link these to a stage to place them in the flow.
-                </span>
-              }
-            >
-              {/* lucide marks a childless icon aria-hidden, which would leave the
-                  trigger — and therefore the hint — with no accessible name. */}
-              <Info role="img" aria-label="Link these to a stage to place them in the flow."
-                className="size-3.5 text-muted-foreground" />
-            </Tooltip>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {unconnected.map((ws) => (
-              <button
-                key={ws.id}
-                type="button"
-                onClick={onOpen ? () => onOpen(ws.id) : undefined}
-                className="rounded-full border bg-background px-3 py-1 text-xs hover:border-primary/40"
-              >
-                {ws.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* A textual reading of the same graph. The diagram is layout; this is the
-          part a screen reader and a printout can both use. */}
+      {/* A textual reading of the same graph. The diagram is layout; this is
+          the part a screen reader and a printout can both use — so it stays.
+          What changed is that it is no longer a third VISIBLE copy of the link
+          list (the arrows carry it, and the Connections sheet edits it), so it
+          is visually hidden rather than a disclosure nobody opened. Deleting
+          it would have quietly dropped the only non-visual reading of the
+          graph. `sr-only` is not `hidden`: it is still in the accessibility
+          tree and still prints. */}
       {links.length > 0 && (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium">How these connect</summary>
-          <ul className="mt-2 space-y-1 pl-4">
+        <div className="sr-only">
+          <h3>How these connect</h3>
+          <ul>
             {links.map((l) => {
               const from = workstreams.find((w) => w.id === l.from_id)
               const to = workstreams.find((w) => w.id === l.to_id)
@@ -276,7 +213,7 @@ export function WorkstreamLifecycleMap({ workstreams, links, onOpen, compact }: 
               )
             })}
           </ul>
-        </details>
+        </div>
       )}
     </div>
   )
@@ -323,7 +260,7 @@ function StageCard({
             <span>{ws.health.deliverables.done} of {ws.health.deliverables.total} deliverables</span>
           )}
           {ws.health.risks.open > 0 && (
-            <span className={ws.health.risks.regulated_open > 0 ? 'text-danger' : undefined}>
+            <span className={ws.health.risks.regulated_open > 0 ? 'text-destructive' : undefined}>
               {ws.health.risks.open} open {ws.health.risks.open === 1 ? 'risk' : 'risks'}
             </span>
           )}

@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, CalendarDays, CircleDot, Flag, Info, Pencil, Plus, Shield, Target, Trash2,
+  AlertTriangle, CalendarDays, CircleDot, Flag, Info, Pencil, Shield, Target, Trash2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -25,12 +25,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Tooltip } from '@/components/ui/tooltip'
-import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService, type WorkstreamRecordKind } from '@/services/task'
 import { cn } from '@/lib/utils'
+import { SectionAddButton } from './section'
 import {
-  WorkstreamHealthCounts, WorkstreamHealthLine, WorkstreamProgress, projectStatusVariant,
+  WorkstreamHealthLine, WorkstreamProgress, projectStatusVariant,
 } from './workstream-health'
 import {
   CheckpointDialog, ContributorsEditor, DeliverableDialog, DependencyDialog,
@@ -41,10 +41,19 @@ import type {
   WorkstreamDetail, WorkstreamKpi, WorkstreamOptions, WorkstreamRisk,
 } from '@/types/task-management'
 
+/**
+ * ── THIS IS A PANE NOW, NOT A PAGE ──────────────────────────────────────────
+ *
+ * It used to replace the whole project screen: its own breadcrumb, its own
+ * 3xl h1, its own "Back to {project}" button, its own full-page spinner. It
+ * had exactly one caller, and that caller now renders it inside the stage
+ * beside the workstream list — so the breadcrumb belonged to the project, the
+ * h1 is the stage's segment label, and "Back" pointed at a page that is
+ * already on screen. All three are gone rather than switched off by a flag.
+ */
 interface Props {
   workstreamId: string
   projectMembers: Array<{ id: string; name: string }>
-  onBack: () => void
   onOpenWorkstream?: (id: string) => void
   onChanged?: () => void
 }
@@ -58,7 +67,7 @@ type DialogState =
   | { kind: 'dependency'; record: WorkstreamDependency | null; direction: 'UPSTREAM' | 'DOWNSTREAM' }
   | null
 
-export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onOpenWorkstream, onChanged }: Props) {
+export function WorkstreamDetailView({ workstreamId, projectMembers, onOpenWorkstream, onChanged }: Props) {
   const [detail, setDetail] = useState<WorkstreamDetail | null>(null)
   const [options, setOptions] = useState<WorkstreamOptions | null>(null)
   const [loading, setLoading] = useState(true)
@@ -123,15 +132,14 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
     if (!result.ok) setError(result.message)
   }
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><Spinner /></div>
+  // Pane-sized, not page-sized: a centred h-64 spinner inside a 700px stage
+  // sits in the wrong place entirely.
+  if (loading) return <div className="flex h-40 items-center justify-center"><Spinner /></div>
 
   if (error || !detail || !options) {
     return (
-      <div className="space-y-4">
-        <Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" /> Back</Button>
-        <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          {error || 'This workstream could not be loaded.'}
-        </div>
+      <div className="m-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
+        {error || 'This workstream could not be loaded.'}
       </div>
     )
   }
@@ -140,64 +148,54 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
   const people = projectMembers
 
   return (
-    <div className="g2g-scrollbar flex h-full flex-col gap-5 overflow-y-auto pb-8">
-      <GtgBreadcrumb items={[
-        { label: 'Projects & Workstreams' },
-        { label: detail.project.name },
-        { label: detail.name },
-      ]} />
-
-      {/* ── page header, on the page rather than inside the first card ── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-bold tracking-tight text-foreground">
+    <div className="flex flex-col gap-5 p-4">
+      {/* ── the context strip ────────────────────────────────────────
+          Every fact about this workstream that is not one of the nine
+          fields, stated ONCE. It used to be split between a full-width
+          health card at the top and an "At a glance" card in a 320px rail —
+          which also meant the owner and the dates were rendered twice, and
+          the rail was ~1150px tall while being `sticky` in a ~750px viewport,
+          so its lower cards could never be scrolled to. No rail, no bug. */}
+      <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 px-3.5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex min-w-0 flex-wrap items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
             {detail.name}
-            {detail.code && <span className="font-mono text-sm font-medium text-muted-foreground">{detail.code}</span>}
+            {detail.code && <span className="font-mono text-xs font-medium text-muted-foreground">{detail.code}</span>}
             {detail.kind === 'GOVERNANCE' && (
               <span className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <Shield className="size-3" /> Governance
               </span>
             )}
-          </h1>
-          {/* The core question, which is what makes the workstream legible
-              at a glance — the model gives one per workstream. */}
-          {detail.core_question && (
-            <p className="mt-1 text-sm italic text-muted-foreground">{detail.core_question}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          </h2>
           <StatusBadge status={detail.status} variant={projectStatusVariant(detail.status)}>{detail.status}</StatusBadge>
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" /> Back to {detail.project.name}
-          </Button>
         </div>
-      </div>
 
-      <Card>
-        <CardContent className="space-y-3 p-5">
-          <WorkstreamHealthLine health={detail.health} />
+        {/* The core question, which is what makes the workstream legible
+            at a glance — the model gives one per workstream. */}
+        {detail.core_question && (
+          <p className="text-sm italic text-muted-foreground">{detail.core_question}</p>
+        )}
 
-          <div className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-3 text-sm">
+        {/* ① Purpose — read first, and no longer inside a frame of its own. */}
+        {detail.purpose
+          ? <p className="max-w-[68ch] text-sm leading-relaxed text-foreground">{detail.purpose}</p>
+          : <p className="text-sm text-muted-foreground">No purpose recorded yet.</p>}
+
+        <WorkstreamHealthLine health={detail.health} />
+        <WorkstreamProgress progress={detail.progress} className="max-w-xs" />
+
+        <div className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-2 text-sm">
             <span><span className="text-muted-foreground">Accountable:</span> {detail.owner_name ?? '—'}</span>
             <span className="inline-flex items-center gap-1.5 tabular-nums">
               <CalendarDays className="size-3.5 text-muted-foreground" />
               {detail.start_date ?? '—'} → {detail.due_date ?? '—'}
             </span>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid gap-5 @4xl/stage:grid-cols-[minmax(0,1fr)_18rem]">
         {/* ── left: the substance ──────────────────────────────────── */}
         <div className="space-y-5">
-          {/* ① Purpose */}
-          <Card><CardContent className="p-5">
-            <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">Purpose</h2>
-            {detail.purpose
-              ? <p className="text-sm leading-relaxed text-foreground">{detail.purpose}</p>
-              : <p className="text-sm text-muted-foreground">No purpose recorded yet.</p>}
-          </CardContent></Card>
-
           {/* ③ Responsibilities */}
           <Card><CardContent className="p-5">
             <StatementListEditor
@@ -237,9 +235,7 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
           {/* ④ Deliverables */}
           <Card><CardContent className="p-5">
             <SectionHeader title="Deliverables" icon={Flag}
-              action={can && <Button size="sm" variant="outline" onClick={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: null }) }}>
-                <Plus className="mr-1 size-3.5" /> Add
-              </Button>} />
+              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: null }) }} />} />
             {detail.deliverables.length === 0 ? (
               <Empty>No deliverables defined.</Empty>
             ) : (
@@ -274,15 +270,13 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
           {/* ⑦ Success metrics */}
           <Card><CardContent className="p-5">
             <SectionHeader title="Success metrics" icon={Target}
-              action={can && <Button size="sm" variant="outline" onClick={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }}>
-                <Plus className="mr-1 size-3.5" /> Add
-              </Button>} />
+              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }} />} />
             {detail.kpis.length === 0 ? (
               <Empty>No success metrics defined yet.</Empty>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {detail.kpis.map((k) => (
-                  <div key={k.id} className="rounded-lg border p-3">
+                  <div key={k.id} className="rounded-lg bg-muted/30 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-foreground">{k.name}</p>
                       {can && <RowActions
@@ -326,15 +320,13 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
           {/* ⑨ Risks */}
           <Card><CardContent className="p-5">
             <SectionHeader title="Risks & mitigations" icon={AlertTriangle}
-              action={can && <Button size="sm" variant="outline" onClick={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }}>
-                <Plus className="mr-1 size-3.5" /> Add
-              </Button>} />
+              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }} />} />
             {detail.risks.length === 0 ? (
               <Empty>No risks recorded.</Empty>
             ) : (
               <ul className="space-y-3">
                 {detail.risks.map((r) => (
-                  <li key={r.id} className="rounded-lg border p-3">
+                  <li key={r.id} className="rounded-lg bg-muted/30 p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="text-sm font-medium text-foreground">{r.title}</p>
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -361,14 +353,18 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
           </CardContent></Card>
         </div>
 
-        {/* ── right rail ───────────────────────────────────────────── */}
-        <div className="space-y-5 lg:sticky lg:top-4 lg:self-start">
-          <Card><CardContent className="space-y-4 p-5">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">At a glance</h2>
-            <WorkstreamProgress progress={detail.progress} />
-            <WorkstreamHealthCounts health={detail.health} />
-          </CardContent></Card>
+        {/* ── right rail ───────────────────────────────────────────────
+            NOT sticky. It used to be `lg:sticky lg:top-4` on a ~1150px column
+            in a ~750px viewport — taller than the screen, so it pinned at the
+            top and the cards at its bottom could never be scrolled into view.
+            The pane scrolls as one thing now.
 
+            "At a glance" is gone with it. It was a grid of counters that
+            restated four cards visible on the same screen — deliverables,
+            KPIs, risks and checkpoints — so it summarised nothing the reader
+            could not already see. Progress moved up into the context strip;
+            the counts belong to the sections that own them. */}
+        <div className="space-y-5">
           {/* ② Contributors */}
           <Card><CardContent className="p-5">
             <ContributorsEditor
@@ -382,13 +378,8 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
           {/* ⑤ Timeline & checkpoints */}
           <Card><CardContent className="p-5">
             <SectionHeader title="Timeline" icon={CircleDot}
-              action={can && <Button size="sm" variant="outline" className="h-7 px-2"
-                onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }}>
-                <Plus className="size-3.5" />
-              </Button>} />
-            <p className="mb-3 text-xs tabular-nums text-muted-foreground">
-              {detail.start_date ?? 'No start date'} → {detail.due_date ?? 'No target date'}
-            </p>
+              action={can && <SectionAddButton label="Add"
+                onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }} />} />
             {detail.checkpoints.length === 0 ? (
               <Empty>No checkpoints yet.</Empty>
             ) : (
@@ -397,14 +388,14 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
                   <li key={c.id} className="flex gap-3">
                     <div className="flex flex-col items-center">
                       <span className={cn('mt-1 size-2.5 shrink-0 rounded-full',
-                        c.is_critical ? 'bg-danger ring-2 ring-danger/25' : 'bg-muted-foreground/40')} />
+                        c.is_critical ? 'bg-destructive ring-2 ring-destructive/25' : 'bg-muted-foreground/40')} />
                       {i < detail.checkpoints.length - 1 && <span className="w-px flex-1 bg-border" />}
                     </div>
                     <div className="flex-1 pb-4">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">
                           {c.name}
-                          {c.is_critical && <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wider text-danger">Critical</span>}
+                          {c.is_critical && <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wider text-destructive">Critical</span>}
                         </p>
                         {can && <RowActions
                           onEdit={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: c }) }}
@@ -459,10 +450,28 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onBack, onO
             )}
           </CardContent></Card>
 
+          {/* The API returns title, status, due date and assignee per task.
+              This card used to spend a whole bordered surface saying only
+              "N tasks placed in this workstream." — throwing four fields per
+              task away and giving the reader nothing to act on. */}
           {detail.tasks.length > 0 && (
             <Card><CardContent className="p-5">
-              <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">Linked tasks</h2>
-              <p className="text-sm text-muted-foreground">{detail.tasks.length} task{detail.tasks.length === 1 ? '' : 's'} placed in this workstream.</p>
+              <SectionHeader title="Linked tasks" icon={CircleDot} />
+              <ul className="divide-y divide-border">
+                {detail.tasks.map((t) => (
+                  <li key={t.id} className="flex items-start justify-between gap-2 py-2">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm text-foreground">{t.title}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {[t.assignee, t.due_date].filter(Boolean).join(' · ') || 'Unassigned'}
+                      </span>
+                    </span>
+                    {t.status && (
+                      <StatusBadge status={t.status} size="sm" className="shrink-0">{t.status}</StatusBadge>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </CardContent></Card>
           )}
         </div>
@@ -532,7 +541,7 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => 
       <Button size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Edit" onClick={onEdit}>
         <Pencil className="size-3.5" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger" aria-label="Remove" onClick={onDelete}>
+      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive" aria-label="Remove" onClick={onDelete}>
         <Trash2 className="size-3.5" />
       </Button>
     </span>
@@ -566,11 +575,7 @@ function DependencyGroup({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{heading}</p>
-        {onAdd && (
-          <Button size="sm" variant="ghost" className="h-6 px-1.5" aria-label={`Add to ${heading}`} onClick={onAdd}>
-            <Plus className="size-3.5" />
-          </Button>
-        )}
+        {onAdd && <SectionAddButton label="Add" onClick={onAdd} />}
       </div>
 
       {total === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
@@ -592,9 +597,9 @@ function DependencyGroup({
         {external.map((d) => (
           <li key={d.id} className="flex items-start justify-between gap-2 text-sm">
             <span className="min-w-0">
-              <span className={cn(d.is_blocking ? 'font-medium text-danger' : 'text-foreground')}>{d.description}</span>
+              <span className={cn(d.is_blocking ? 'font-medium text-destructive' : 'text-foreground')}>{d.description}</span>
               {d.source && <span className="text-xs text-muted-foreground"> · {d.source}</span>}
-              {d.is_blocking && <span className="ml-1 text-[11px] font-semibold uppercase tracking-wider text-danger">Blocking</span>}
+              {d.is_blocking && <span className="ml-1 text-[11px] font-semibold uppercase tracking-wider text-destructive">Blocking</span>}
             </span>
             {(onEdit || onDelete) && (
               <span className="flex shrink-0 gap-0.5">
@@ -604,7 +609,7 @@ function DependencyGroup({
                   </Button>
                 )}
                 {onDelete && (
-                  <Button size="sm" variant="ghost" className="h-6 px-1 text-danger" aria-label="Remove" onClick={() => onDelete(d)}>
+                  <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" aria-label="Remove" onClick={() => onDelete(d)}>
                     <Trash2 className="size-3" />
                   </Button>
                 )}

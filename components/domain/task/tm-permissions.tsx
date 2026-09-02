@@ -65,7 +65,7 @@ export function TmPermissions() {
         {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </div>
 
-      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {loading && <div className="flex h-40 items-center justify-center"><Spinner /></div>}
 
       {!loading && !error && (

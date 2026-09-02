@@ -44,9 +44,9 @@ export function TaskWorkloadView({ tasks }: TaskWorkloadViewProps) {
           let statusLabel = "Available"
           
           if (percentage > 80) {
-            statusColor = "bg-danger"
-            statusText = "text-danger"
-            statusBg = "bg-danger/10"
+            statusColor = "bg-destructive"
+            statusText = "text-destructive"
+            statusBg = "bg-destructive/10"
             statusLabel = "Overloaded"
           } else if (percentage > 50) {
             statusColor = "bg-warning"
@@ -109,7 +109,7 @@ export function TaskWorkloadView({ tasks }: TaskWorkloadViewProps) {
                     <span className="text-[10px] text-muted-foreground font-medium uppercase">Review</span>
                   </div>
                   <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-primary/[0.02] border border-primary/5">
-                    <AlertTriangle className="w-4 h-4 text-danger mb-1" />
+                    <AlertTriangle className="w-4 h-4 text-destructive mb-1" />
                     <span className="text-lg font-bold">{blockedCount}</span>
                     <span className="text-[10px] text-muted-foreground font-medium uppercase">Blocked</span>
                   </div>

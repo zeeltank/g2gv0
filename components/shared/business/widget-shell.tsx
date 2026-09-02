@@ -29,7 +29,7 @@ export function KpiCard({
 }) {
   const trendColor =
     trend === 'warning'
-      ? 'text-danger'
+      ? 'text-destructive'
       : trend === 'success'
         ? 'text-success'
         : trend === 'primary'

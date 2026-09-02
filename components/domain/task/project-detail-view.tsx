@@ -23,9 +23,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  AlertTriangle, ArrowLeft, Briefcase, Info, Layers, Pencil, Plus, Target, Trash2, Users, X,
-} from 'lucide-react'
+import { ArrowLeft, Info, Plus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -39,13 +37,10 @@ import { GtgBreadcrumb } from '@/components/shell/gtg-breadcrumb'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import { cn } from '@/lib/utils'
-import { PriorityBadge } from './priority-badge'
-import { WorkstreamLifecycleMap } from './workstream-lifecycle-map'
-import { LifecycleConnections, WorkstreamDialog } from './workstream-form'
-import { WorkstreamDetailView } from './workstream-detail-view'
-import {
-  WorkstreamHealthBadge, WorkstreamProgress, healthTone, projectStatusVariant,
-} from './workstream-health'
+import { WorkstreamDialog } from './workstream-form'
+import { ProjectCommandBar, ProjectFacts } from './project-command-bar'
+import { WorkstreamListPane } from './workstream-list-pane'
+import { WorkstreamStage } from './workstream-stage'
 import type {
   LinkableTask, ProjectRecord, WorkstreamLink, WorkstreamOptions, WorkstreamSummary,
 } from '@/types/task-management'
@@ -206,6 +201,9 @@ export function ProjectDetailView({
     try {
       const response = await taskService.deleteProjectWorkstream(getLaravelContext(), projectId, ws.id)
       setWsMessage(response.message)
+      // Back to the map BEFORE reloading — otherwise the stage refetches the
+      // id we just deleted and shows a 404 where the workstream used to be.
+      if (selectedWorkstream === ws.id) setSelectedWorkstream(null)
       await load()
     } catch (reason) {
       setWsError(reason instanceof Error ? reason.message : 'Unable to delete that workstream.')
@@ -248,18 +246,20 @@ export function ProjectDetailView({
     return { regulated, high, open }
   }, [workstreams])
 
-  // A workstream is opened in place, keeping the project's data loaded behind it.
-  if (selectedWorkstream) {
-    return (
-      <WorkstreamDetailView
-        workstreamId={selectedWorkstream}
-        projectMembers={projectMembers}
-        onBack={() => setSelectedWorkstream(null)}
-        onOpenWorkstream={(id) => setSelectedWorkstream(id)}
-        onChanged={() => void load()}
-      />
-    )
-  }
+  /**
+   * The number on each tab.
+   *
+   * These are the same figures the stat strip used to spend four bordered
+   * Cards on. On the tab they cost nothing and answer the question where it
+   * is actually asked — "is there anything in Tasks?" — instead of at the top
+   * of a page you have already scrolled past. Timeline has no count because a
+   * date range is not a quantity.
+   */
+  const tabCounts = useMemo<Partial<Record<Tab, number>>>(() => ({
+    workstreams: workstreams.length,
+    team: project?.members?.length ?? 0,
+    tasks: project?.tasks?.length ?? 0,
+  }), [workstreams.length, project?.members, project?.tasks])
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Spinner /></div>
 
@@ -267,7 +267,7 @@ export function ProjectDetailView({
     return (
       <div className="space-y-4">
         <Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" /> Back to projects</Button>
-        <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error || 'This project could not be loaded.'}
         </div>
       </div>
@@ -275,216 +275,138 @@ export function ProjectDetailView({
   }
 
   return (
-    <div className="g2g-scrollbar flex h-full flex-col gap-5 overflow-y-auto pb-8">
+    /*
+     * ── BOUNDED HEIGHT, AND WHY IT IS A PREREQUISITE ─────────────────────
+     *
+     * This root used to be `flex h-full flex-col overflow-y-auto`. It sits
+     * inside the shell's `<div className="w-full min-h-full p-6">`, which is
+     * an AUTO-height block — and `height:100%` against an auto-height parent
+     * computes to `auto`. So that `overflow-y-auto` never scrolled anything;
+     * `<main>` did. Which also means a `sticky` tab bar in here would have
+     * stuck to the wrong scroller and silently done nothing.
+     *
+     * The height is derivable, not magic: the shell is `h-screen`, its header
+     * is `h-12` (gtg-header-base.tsx:127) and the page box is `p-6`
+     * (48px of vertical padding) — so 100vh - 3rem - 3rem = 6rem.
+     * `min-h-[34rem]` lets a short window fall back to page scrolling rather
+     * than crushing the panes.
+     *
+     * ── AND WHY CONTAINER QUERIES, NOT BREAKPOINTS ───────────────────────
+     *
+     * Viewport breakpoints lie in this shell. The nav is 260px when expanded
+     * (gtg-app-shell.tsx:368-372) and the agent panel is a FLEX SIBLING of
+     * <main> taking `var(--agent-panel-width)` = 30rem (gtg-app-shell.tsx:401).
+     * At 1440 with both open there are 652px of content while `xl:` still
+     * matches — a viewport-keyed three-column layout would render 3 columns
+     * into 652px. Every width decision below is therefore keyed to
+     * `@container/page`. Precedent: department-list.tsx:889.
+     */
+    <div className="@container/page flex h-[calc(100vh-6rem)] min-h-[34rem] flex-col gap-4">
       <GtgBreadcrumb items={[
         { label: 'Projects & Workstreams' },
         { label: project.name },
       ]} />
 
-      {/* ── page header ────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-bold tracking-tight text-foreground">
-            <Briefcase className="size-7 shrink-0 text-primary" />
-            {project.name}
-            <span className="font-mono text-sm font-medium text-muted-foreground">{project.code}</span>
-          </h1>
-          {project.description && (
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{project.description}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <PriorityBadge priority={project.priority} />
-          {/* variant passed explicitly — 'IN PROGRESS' is missing from the
-              shared status map, so four statuses colour and one does not. */}
-          <StatusBadge status={project.status} variant={projectStatusVariant(project.status)}>
-            {project.status}
-          </StatusBadge>
-          {project.archived_at && <StatusBadge status="Archived" size="sm">Archived</StatusBadge>}
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" /> Back to projects
-          </Button>
-        </div>
-      </div>
+      {/* Identity, status and vitals in one band. This replaced a metadata
+          slab and four stat Cards — five bordered surfaces and ~450px that
+          held not one interactive control. Every field the slab showed is in
+          the Details disclosure, reachable from every tab. */}
+      <ProjectCommandBar
+        project={project}
+        workstreamCount={workstreams.length}
+        riskLoad={riskLoad}
+        onBack={onBack}
+      />
 
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          {/* Everything the API already returned and the drawer discarded. */}
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
-            <Meta label="Manager" value={project.manager} />
-            <Meta label="Sponsor" value={project.sponsor} />
-            <Meta label="Timeline" value={`${project.start_date ?? '—'} → ${project.due_date ?? '—'}`} />
-            <Meta label="Category" value={project.category} />
-            <Meta label="Client" value={project.client_name} />
-            <Meta label="Budget" value={project.budget_estimate ? Number(project.budget_estimate).toLocaleString() : null} />
-            <Meta label="Team size" value={project.team_size} />
-            <Meta label="Members" value={String(project.members_count)} />
-          </dl>
+      {/* ── tabs ────────────────────────────────────────────────────
+          NOT sticky — the root is now a bounded flex column, so the bar is
+          simply always on screen and the PANES scroll beneath it. Sticky
+          would have been the wrong tool anyway: it would have anchored to
+          <main>, which is the scroller this component never owned.
 
-          {/* Multi-department projects rendered as single-department in the
-              drawer; the API has always returned the whole list. */}
-          {(project.departments?.length ?? 0) > 0 && (
-            <div className="border-t pt-3">
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Departments</p>
-              <div className="flex flex-wrap gap-1.5">
-                {project.departments!.map((d) => (
-                  <span key={d.id} className={cn(
-                    'rounded-full border px-2.5 py-0.5 text-xs',
-                    d.is_primary ? 'border-primary/30 bg-primary/10 font-medium text-primary' : 'bg-muted/40',
-                  )}>
-                    {d.name ?? 'Unnamed'}{d.is_primary && ' · primary'}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          Counts live here so the page no longer needs four stat tiles to say
+          how many workstreams there are — the number is on the thing you
+          click to go and see them.
 
-          {project.regulatory_flags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-t pt-3">
-              {project.regulatory_flags.map((flag) => (
-                <span key={flag} className="rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs text-warning">
-                  {flag}
+          `aria-controls` + `role="tabpanel"` are wired; neither this module's
+          old bar nor the shared `Tabs` in components/shared has them, so
+          screen readers were announcing tabs that control nothing. */}
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b" role="tablist">
+        {TABS.map((t) => {
+          const count = tabCounts[t.id]
+          const active = tab === t.id
+          return (
+            <Button key={t.id} variant="ghost" role="tab" id={`tab-${t.id}`}
+              aria-selected={active} aria-controls={`panel-${t.id}`}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'shrink-0 rounded-none border-b-2 text-sm',
+                active
+                  ? 'border-primary font-semibold text-primary'
+                  : 'border-transparent font-medium text-muted-foreground',
+              )}>
+              {t.label}
+              {count !== undefined && (
+                <span className={cn(
+                  'ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                  active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                )}>
+                  {count}
                 </span>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── stat strip ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat icon={Target} label="Progress" value={`${project.progress}%`} />
-        <Stat icon={Layers} label="Tasks" value={`${project.tasks_completed} of ${project.tasks_total}`} />
-        <Stat icon={Users} label="Workstreams" value={String(workstreams.length)} />
-        <Stat icon={AlertTriangle} label="Open risks" value={String(riskLoad.open)}
-          tone={riskLoad.regulated > 0 ? 'text-danger' : riskLoad.high > 0 ? 'text-warning' : undefined} />
-      </div>
-
-      {/* ── tabs: ghost buttons with an underline, the house pattern ── */}
-      <div className="flex gap-1 overflow-x-auto border-b" role="tablist">
-        {TABS.map((t) => (
-          <Button key={t.id} variant="ghost" role="tab" aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'rounded-none border-b-2 text-sm',
-              tab === t.id
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent font-medium text-muted-foreground',
-            )}>
-            {t.label}
-          </Button>
-        ))}
-      </div>
-
-
-      {tab === 'workstreams' && (
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
-                Delivery lifecycle
-                <Tooltip
-                  side="bottom"
-                  content={(
-                    <span className="block max-w-[15rem] text-left text-xs leading-relaxed">
-                      Create the workstreams for this project, then connect them to describe how work flows.
-                    </span>
-                  )}
-                >
-                  {/* lucide stamps aria-hidden on a childless icon, so the bare
-                      <Info /> left this trigger — and the guidance it replaced —
-                      with no accessible name at all. */}
-                  <Info role="img"
-                    aria-label="Create the workstreams for this project, then connect them to describe how work flows."
-                    className="size-3.5 text-muted-foreground" />
-                </Tooltip>
-              </h2>
-            </div>
-            <Button size="sm" onClick={() => { setWsError(''); setWsDialog({ open: true, initial: null }) }}>
-              <Plus className="mr-1 size-3.5" /> New workstream
+              )}
             </Button>
-          </div>
+          )
+        })}
+      </div>
 
-          {wsMessage && <p className="text-sm text-success">{wsMessage}</p>}
 
-          <Card><CardContent className="p-5">
-            <WorkstreamLifecycleMap
-              workstreams={workstreams} links={links}
-              onOpen={(id) => setSelectedWorkstream(id)}
-            />
-          </CardContent></Card>
+      {/* ── Workstreams: two panes, never three ──────────────────────
+          The list on the left is the only list of workstreams; the stage on
+          the right shows EITHER the lifecycle map or the selected workstream.
+          That is what replaced four stacked blocks — a heading row, a
+          ~550px diagram card, a grid of tiles repeating the diagram, and a
+          connections card ~1,800px down the page.
 
-          {workstreams.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <p className="text-sm text-muted-foreground">No workstreams yet.</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {workstreams.map((w) => (
-                /*
-                 * The WHOLE card opens the workstream, not just its title.
-                 *
-                 * It already carried `hover:shadow-md`, so it announced itself
-                 * as clickable while only the small name/code button inside it
-                 * actually was — the badge, the owner, the reason line, the
-                 * progress bar and every bit of padding did nothing.
-                 *
-                 * A plain div takes the click rather than `role="button"`,
-                 * because the card contains real Edit and Delete buttons and a
-                 * button inside a button is invalid. The name stays a genuine
-                 * <button> so the card is still reachable by keyboard, and the
-                 * two actions stopPropagation so they do not also navigate.
-                 * This is the pattern ProjectCard already uses on the list.
-                 */
-                <div key={w.id}
-                  onClick={() => setSelectedWorkstream(w.id)}
-                  className={cn(
-                    'group cursor-pointer rounded-xl border-l-4 border bg-card p-4 text-left transition hover:shadow-md',
-                    healthTone(w.health.state),
-                  )}>
-                  <div className="flex items-start justify-between gap-2">
-                    <button type="button" className="min-w-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                      onClick={(e) => { e.stopPropagation(); setSelectedWorkstream(w.id) }}>
-                      {/* Name first. The code is a reference, in muted text beneath. */}
-                      <p className="text-sm font-semibold leading-tight text-foreground group-hover:text-primary">{w.name}</p>
-                      <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                        {w.code && <span className="font-mono">{w.code}</span>}
-                        {w.kind === 'GOVERNANCE' && <span className="font-medium">Governance layer</span>}
-                      </p>
-                    </button>
-                    <WorkstreamHealthBadge state={w.health.state} />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{w.owner_name ?? 'No owner'}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{w.health.state_reason}</p>
-                  <div className="mt-3"><WorkstreamProgress progress={w.progress} /></div>
-                  <div className="mt-3 flex justify-end gap-1 border-t pt-2">
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
-                      onClick={(e) => { e.stopPropagation(); setWsError(''); setWsDialog({ open: true, initial: w }) }}>
-                      <Pencil className="mr-1 size-3" /> Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-danger"
-                      onClick={(e) => { e.stopPropagation(); void removeWorkstream(w) }}>
-                      <Trash2 className="mr-1 size-3" /> Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          There is no project rail here: with the list and the stage this tab
+          already has its two columns, and a third leaves 352px of stage at
+          1280px with the nav expanded. The project's facts are in the command
+          bar's Details button instead, which costs no width. */}
+      {tab === 'workstreams' && (
+        <div id="panel-workstreams" role="tabpanel" aria-labelledby="tab-workstreams"
+          className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 @3xl/page:grid-cols-[15rem_minmax(0,1fr)] @3xl/page:grid-rows-1 @6xl/page:grid-cols-[17rem_minmax(0,1fr)]">
+          <WorkstreamListPane
+            workstreams={workstreams}
+            links={links}
+            selectedId={selectedWorkstream}
+            onSelect={(id) => setSelectedWorkstream(id)}
+            onShowMap={() => setSelectedWorkstream(null)}
+            onNew={() => { setWsError(''); setWsDialog({ open: true, initial: null }) }}
+          />
 
-          <Card><CardContent className="p-5">
-            <LifecycleConnections
-              workstreams={workstreams} links={links}
-              canManage saving={wsSaving} error={linkError}
-              onAdd={(payload) => void addLink(payload)}
-              onRemove={(id) => void removeLink(id)}
-            />
-          </CardContent></Card>
+          <WorkstreamStage
+            workstreams={workstreams}
+            links={links}
+            selectedId={selectedWorkstream}
+            projectMembers={projectMembers}
+            message={wsMessage}
+            saving={wsSaving}
+            linkError={linkError}
+            onSelect={(id) => setSelectedWorkstream(id)}
+            onShowMap={() => setSelectedWorkstream(null)}
+            onEdit={(ws) => { setWsError(''); setWsDialog({ open: true, initial: ws }) }}
+            onDelete={(ws) => void removeWorkstream(ws)}
+            onAddLink={(payload) => void addLink(payload)}
+            onRemoveLink={(id) => void removeLink(id)}
+            onChanged={() => void load()}
+          />
         </div>
       )}
 
       {tab === 'team' && (
-        <Card><CardContent className="p-5">
+        <div id="panel-team" role="tabpanel" aria-labelledby="tab-team" className="contents">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+          <Card><CardContent className="p-5">
           <h2 className="mb-3 text-base font-semibold tracking-tight text-foreground">Project team</h2>
           {projectMembers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No members yet.</p>
@@ -511,10 +433,19 @@ export function ProjectDetailView({
             </ul>
           )}
         </CardContent></Card>
+          </div>
+          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
+            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
+          </aside>
+        </div>
+        </div>
       )}
 
       {tab === 'tasks' && (
-        <Card><CardContent className="p-5">
+        <div id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="contents">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+          <Card><CardContent className="p-5">
           {/*
             THE PROJECT'S OWN TASKS, AND NOTHING ELSE.
             The drawer stapled a 200-row list of every recent task in the
@@ -558,7 +489,7 @@ export function ProjectDetailView({
                                 ...workstreams.map((w) => ({ value: w.id, label: w.name }))]}
                             />
                           )}
-                          <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger"
+                          <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive"
                             aria-label={`Unlink ${t.title}`} onClick={() => void unlinkTask(t.id, t.title)}>
                             <X className="size-3.5" />
                           </Button>
@@ -571,6 +502,12 @@ export function ProjectDetailView({
             </div>
           )}
         </CardContent></Card>
+          </div>
+          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
+            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
+          </aside>
+        </div>
+        </div>
       )}
 
       <WorkstreamDialog
@@ -588,7 +525,10 @@ export function ProjectDetailView({
       />
 
       {tab === 'timeline' && (
-        <Card><CardContent className="p-5">
+        <div id="panel-timeline" role="tabpanel" aria-labelledby="tab-timeline" className="contents">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+          <Card><CardContent className="p-5">
           <h2 className="mb-4 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
             Workstream timeline
             <Tooltip
@@ -605,6 +545,12 @@ export function ProjectDetailView({
           </h2>
           <WorkstreamTimeline workstreams={workstreams} project={project} onOpen={(id) => setSelectedWorkstream(id)} />
         </CardContent></Card>
+          </div>
+          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
+            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
+          </aside>
+        </div>
+        </div>
       )}
     </div>
   )
@@ -679,7 +625,7 @@ function LinkTaskDialog({
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
           {error && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
               {error}
             </div>
           )}
@@ -741,27 +687,7 @@ function LinkTaskDialog({
   )
 }
 
-function Meta({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      {/* An em dash, not a blank: absent and empty read differently. */}
-      <dd className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value && value !== '' ? value : '—'}</dd>
-    </div>
-  )
-}
 
-function Stat({ icon: Icon, label, value, tone }: { icon: React.ElementType; label: string; value: string; tone?: string }) {
-  return (
-    <Card><CardContent className="flex items-center gap-3 p-4">
-      <span className="rounded-lg bg-primary/10 p-2 text-primary"><Icon className="size-4" /></span>
-      <span className="min-w-0">
-        <span className="block text-xs text-muted-foreground">{label}</span>
-        <span className={cn('block text-lg font-bold tabular-nums text-foreground', tone)}>{value}</span>
-      </span>
-    </CardContent></Card>
-  )
-}
 
 function groupByWorkstream(tasks: NonNullable<ProjectRecord['tasks']>) {
   const map = new Map<string, { id: string; name: string; tasks: typeof tasks }>()
