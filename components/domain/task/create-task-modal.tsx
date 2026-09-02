@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
+import { Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { BulkRoleTaskPanel, type RoleBulkRow } from './bulk-role-task-panel'
+import { BulkCsvPanel } from './bulk-csv-panel'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -59,6 +61,7 @@ interface Employee { id: string; name: string; departmentId?: string }
 interface JobRole { id: string; name: string; departmentId?: string; employees: Employee[] }
 interface EmployeeTaskOption { value: string; label: string }
 type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
+type FormMode = 'form' | 'roleBulk' | 'csv'
 
 /**
  * Where a task's title comes from.
@@ -238,10 +241,16 @@ export function CreateTaskModal({
   const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
   const [jobRoleSuggestions, setJobRoleSuggestions] = useState<string[]>([])
   const [bulkLoading, setBulkLoading] = useState(false)
-  const [showBulkUpload, setShowBulkUpload] = useState(false)
-  const [showRoleBulk, setShowRoleBulk] = useState(false)
+  /*
+   * WHICH BODY THE SHEET IS SHOWING.
+   *
+   * Two independent booleans could describe states that cannot exist — both
+   * bulk panels at once — and every read had to spell out the combination.
+   * One value cannot contradict itself.
+   */
+  const [mode, setMode] = useState<FormMode>('form')
   const [roleBulkSelected, setRoleBulkSelected] = useState<string[]>([])
-  const [roleBulkRows, setRoleBulkRows] = useState<Record<string, { description: string; repeatDays: string; dueDate: string; observerId: string; priority: 'High' | 'Medium' | 'Low' }>>({})
+  const [roleBulkRows, setRoleBulkRows] = useState<Record<string, RoleBulkRow>>({})
   const [roleBulkSaving, setRoleBulkSaving] = useState(false)
   const [bulkFile, setBulkFile] = useState<File | null>(null)
   const [bulkSampleDownloaded, setBulkSampleDownloaded] = useState(false)
@@ -628,8 +637,8 @@ export function CreateTaskModal({
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
     setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false);    setJobRoleTasks([]); setTaskTitlesLoading(false)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
-    setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
+    setPreviewUrl(null); setMode('form'); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
+    setRoleBulkSelected([]); setRoleBulkRows({})
     setStep(1)
     setTitleSource('catalogue'); setSaveToLibrary(false)
     setProjectId(''); setWorkstreams([]); setWorkstreamId(''); setProjectTasks([])
@@ -884,7 +893,7 @@ export function CreateTaskModal({
       setBulkResult(response)
       if (!response.skipped_count) {
         onCreated?.(response.message)
-        setShowBulkUpload(false); setBulkFile(null)
+        setMode('form'); setBulkFile(null)
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Bulk task upload failed.') }
     finally { setBulkLoading(false) }
@@ -942,7 +951,7 @@ export function CreateTaskModal({
       description: '', repeatDays: '1', dueDate: '', observerId,
       priority: 'Medium' as const,
     }])))
-    setRoleBulkSelected([]); setShowRoleBulk(true); setShowBulkUpload(false); setError('')
+    setRoleBulkSelected([]); setMode('roleBulk'); setError('')
   }
 
   async function submitRoleBulk() {
@@ -993,35 +1002,32 @@ export function CreateTaskModal({
   }
 
   return <Sheet open={isOpen} onOpenChange={(open) => !open && close()}><SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-[1100px]">
-    <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{showRoleBulk ? 'Bulk Task Assignment' : isEdit ? 'Edit Task' : 'New Assignment'}</SheetTitle><SheetDescription>{showRoleBulk ? 'Select and configure tasks for the chosen employee' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</SheetDescription></div>{!showRoleBulk && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => { setShowBulkUpload(true); setShowRoleBulk(false) }}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
+    <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{mode === 'roleBulk' ? 'Bulk Task Assignment' : mode === 'csv' ? 'Import Tasks' : isEdit ? 'Edit Task' : 'New Assignment'}</SheetTitle><SheetDescription>{mode === 'roleBulk' ? 'Select and configure tasks for the chosen employee' : mode === 'csv' ? 'Create many tasks at once from a spreadsheet' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</SheetDescription></div>{mode === 'form' && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => setMode('csv')}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
     <div className="flex-1 space-y-4 overflow-y-auto p-6">
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
-    {showRoleBulk ? <div className="rounded-xl border bg-muted/20 p-4">
-      <div className="mb-3 flex items-center justify-between"><div><h3 className="font-semibold">Bulk Job-role Task Assignment</h3><p className="text-xs text-muted-foreground">Select and configure tasks for the chosen employees.</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setShowRoleBulk(false)}><X className="size-4" /></Button></div>
-      {jobRoleSuggestions.length ? <div className="max-h-[420px] overflow-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="sticky top-0 bg-muted"><tr><th className="p-2"><input type="checkbox" checked={roleBulkSelected.length === jobRoleSuggestions.length} onChange={(event) => setRoleBulkSelected(event.target.checked ? jobRoleSuggestions : [])} /></th><th className="p-2">Task</th><th className="p-2">Description</th><th className="p-2">Repeat</th><th className="p-2">Repeat until</th><th className="p-2">Observer</th><th className="p-2">Priority</th></tr></thead><tbody>{jobRoleSuggestions.map((task) => {
-        const row = roleBulkRows[task] ?? { description: '', repeatDays: '1', dueDate: '', observerId, priority: 'Medium' as const }
-        const update = (patch: Partial<typeof row>) => setRoleBulkRows((current) => ({ ...current, [task]: { ...row, ...patch } }))
-        return <tr key={task} className="border-b align-top"><td className="p-2"><input type="checkbox" checked={roleBulkSelected.includes(task)} onChange={(event) => setRoleBulkSelected(event.target.checked ? [...roleBulkSelected, task] : roleBulkSelected.filter((item) => item !== task))} /></td><td className="max-w-56 p-2 font-medium">{task}</td><td className="p-2"><textarea disabled={!roleBulkSelected.includes(task)} value={row.description} onChange={(event) => update({ description: event.target.value })} className="min-h-16 w-48 rounded border p-2 disabled:bg-muted" /></td><td className="p-2"><select disabled={!roleBulkSelected.includes(task)} value={row.repeatDays} onChange={(event) => update({ repeatDays: event.target.value })} className="h-9 rounded border px-2 disabled:bg-muted">{Array.from({ length: 14 }, (_, index) => <option key={index} value={index + 1}>{index + 1} day{index ? 's' : ''}</option>)}</select></td><td className="p-2"><input disabled={!roleBulkSelected.includes(task)} type="date" min={new Date().toISOString().slice(0, 10)} value={row.dueDate} onChange={(event) => update({ dueDate: event.target.value })} className="h-9 rounded border px-2 disabled:bg-muted" /></td><td className="p-2"><select disabled={!roleBulkSelected.includes(task)} value={row.observerId} onChange={(event) => update({ observerId: event.target.value })} className="h-9 max-w-40 rounded border px-2 disabled:bg-muted"><option value="">Select</option>{observers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></td><td className="p-2"><select disabled={!roleBulkSelected.includes(task)} value={row.priority} onChange={(event) => update({ priority: event.target.value as typeof row.priority })} className="h-9 rounded border px-2 disabled:bg-muted"><option>High</option><option>Medium</option><option>Low</option></select></td></tr>
-      })}</tbody></table></div> : <p className="py-8 text-center text-sm text-muted-foreground">No job-role tasks found for the selected employee.</p>}
-      <div className="mt-4 flex justify-center gap-2"><Button type="button" variant="outline" disabled={roleBulkSaving} onClick={() => setShowRoleBulk(false)}>Cancel</Button><Button type="button" disabled={!roleBulkSelected.length || roleBulkSaving} onClick={() => void submitRoleBulk()}>{roleBulkSaving ? 'Saving…' : `Save ${roleBulkSelected.length} Task${roleBulkSelected.length === 1 ? '' : 's'}`}</Button></div>
-    </div> : <>
-    {showBulkUpload && <div className="rounded-xl border bg-muted/20 p-5">
-      <div className="mb-4 flex items-start justify-between"><div><h3 className="font-semibold">Bulk Task Upload</h3><p className="text-xs text-muted-foreground">Download the format first, then upload the completed CSV.</p></div><Button type="button" variant="ghost" size="icon" onClick={() => { setShowBulkUpload(false); setBulkFile(null); setBulkResult(null) }}><X className="size-4" /></Button></div>
-      <div className="flex flex-wrap items-center gap-3">
-        <a href="/task-assignment-sample.csv" download onClick={() => setBulkSampleDownloaded(true)}><Button type="button" variant="outline"><Download className="mr-2 size-4" />Download Sample CSV</Button></a>
-        <label className={cn('inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium', bulkSampleDownloaded ? 'cursor-pointer bg-background' : 'cursor-not-allowed opacity-50')}>
-          <FileText className="mr-2 size-4" />{bulkFile?.name ?? 'Choose CSV'}
-          <input type="file" accept=".csv" className="hidden" disabled={!bulkSampleDownloaded || bulkLoading} onChange={(event) => setBulkFile(event.target.files?.[0] ?? null)} />
-        </label>
-        <Button type="button" disabled={!bulkFile || bulkLoading} onClick={() => void uploadBulk(bulkFile)}>{bulkLoading ? 'Uploading…' : 'Import Tasks'}</Button>
-      </div>
-      {!bulkSampleDownloaded && <p className="mt-2 text-xs text-warning">Please download the sample CSV before choosing a file.</p>}
-      {bulkResult && <div className="mt-4 rounded-lg border bg-background p-3 text-sm">
-        <p className="font-medium">{bulkResult.imported ?? 0} task(s) imported{bulkResult.skipped_count ? `, ${bulkResult.skipped_count} row(s) skipped` : ''}.</p>
-        {!!bulkResult.skipped_details?.length && <div className="mt-3 max-h-48 overflow-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="border-b"><th className="p-2">Row</th><th className="p-2">Task</th><th className="p-2">Assigned To</th><th className="p-2">Department</th><th className="p-2">Job Role</th><th className="p-2">Reason</th></tr></thead><tbody>{bulkResult.skipped_details.map((item, index) => <tr key={`${item.row ?? index}-${index}`} className="border-b last:border-0"><td className="p-2">{item.row}</td><td className="p-2">{item.task_title}</td><td className="p-2">{item.assigned_to}</td><td className="p-2">{item.department}</td><td className="p-2">{item.job_role}</td><td className="p-2 text-destructive">{item.reason}</td></tr>)}</tbody></table></div>}
-      </div>}
-      <p className="mt-3 text-xs text-muted-foreground">Each row = one task record</p>
-    </div>}
+    {mode === 'roleBulk' ? (
+      <BulkRoleTaskPanel
+        suggestions={jobRoleSuggestions}
+        rows={roleBulkRows}
+        onRowsChange={setRoleBulkRows}
+        selected={roleBulkSelected}
+        onSelectedChange={setRoleBulkSelected}
+        observers={observers}
+        defaultObserverId={observerId}
+        onCancel={() => setMode('form')}
+      />
+    ) : mode === 'csv' ? (
+      <BulkCsvPanel
+        file={bulkFile}
+        onFile={setBulkFile}
+        sampleDownloaded={bulkSampleDownloaded}
+        onSampleDownloaded={() => setBulkSampleDownloaded(true)}
+        result={bulkResult}
+        loading={bulkLoading}
+        onUpload={() => void uploadBulk(bulkFile)}
+        onCancel={() => { setMode('form'); setBulkFile(null); setBulkResult(null) }}
+      />
+    ) : (<>
     {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="flex flex-col gap-4">
 
       {/* THE STEPPER. A completed step is a link back to it; in edit mode
@@ -1284,9 +1290,41 @@ export function CreateTaskModal({
       </Section>
       )}
     </div>}
-    </>}
+    </>)}
     </div>
-    {!showRoleBulk && (
+
+    {/* EVERY MODE'S ACTION IN THE SAME PLACE.
+        The role-bulk save used to float in the middle of the scroll body while
+        the sheet's own footer was hidden, so the button you press moved
+        depending on what you were doing. */}
+    {mode === 'roleBulk' && (
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t bg-background p-4">
+        <Button variant="ghost" onClick={() => setMode('form')} disabled={roleBulkSaving}>
+          ← Back to the single task
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={close} disabled={roleBulkSaving}>Cancel</Button>
+          <Button
+            className="rounded-full px-6"
+            disabled={!roleBulkSelected.length || roleBulkSaving}
+            onClick={() => void submitRoleBulk()}
+          >
+            {roleBulkSaving ? 'Saving…' : `Save ${roleBulkSelected.length} Task${roleBulkSelected.length === 1 ? '' : 's'}`}
+          </Button>
+        </div>
+      </div>
+    )}
+
+    {mode === 'csv' && (
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t bg-background p-4">
+        <Button variant="ghost" onClick={() => { setMode('form'); setBulkFile(null); setBulkResult(null) }} disabled={bulkLoading}>
+          ← Back to the single task
+        </Button>
+        <Button variant="outline" onClick={close} disabled={bulkLoading}>Close</Button>
+      </div>
+    )}
+
+    {mode === 'form' && (
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-background p-4">
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={close}>Cancel</Button>
