@@ -216,7 +216,7 @@ export function WorkstreamDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
           {/* Inside the dialog: a banner behind the overlay reads as nothing happening. */}
           {error && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
               {error}
             </div>
           )}
@@ -395,7 +395,7 @@ export function LifecycleConnections({
       </h2>
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
           {error}
         </div>
       )}
@@ -416,7 +416,7 @@ export function LifecycleConnections({
                 <span className="text-sm font-medium text-foreground">{nameOf(l.to_id)}</span>
               </span>
               {canManage && (
-                <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger"
+                <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive"
                   aria-label="Remove connection" disabled={saving} onClick={() => onRemove(l.id)}>
                   <Trash2 className="size-3.5" />
                 </Button>

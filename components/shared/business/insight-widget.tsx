@@ -25,7 +25,7 @@ interface InsightWidgetProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const priorityColors = {
-  high: 'bg-danger/10 text-danger',
+  high: 'bg-destructive/10 text-destructive',
   medium: 'bg-warning/10 text-warning',
   low: 'bg-info/10 text-info',
 }

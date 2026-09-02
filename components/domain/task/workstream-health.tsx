@@ -61,8 +61,26 @@ export function healthTone(state: WorkstreamHealthState): string {
   switch (state) {
     case 'ON TRACK':    return 'border-success/40'
     case 'AT RISK':     return 'border-warning/50'
-    case 'OFF TRACK':   return 'border-danger/50'
+    case 'OFF TRACK':   return 'border-destructive/50'
     default:            return 'border-border'
+  }
+}
+
+/**
+ * A filled dot, for rows too narrow to carry the badge.
+ *
+ * Lives here rather than in the list pane so the state → colour decision is
+ * made in exactly one place; a second mapping is a second answer, and this one
+ * would drift the first time a state is added. Callers must still render the
+ * state as text for a screen reader — nothing here is encoded in colour alone.
+ */
+export function healthDot(state: WorkstreamHealthState): string {
+  switch (state) {
+    case 'ON TRACK':    return 'bg-success'
+    case 'AT RISK':     return 'bg-warning'
+    case 'OFF TRACK':   return 'bg-destructive'
+    case 'UNMEASURED':  return 'bg-muted-foreground/50'
+    default:            return 'bg-muted-foreground/30'
   }
 }
 
@@ -100,35 +118,35 @@ export function WorkstreamHealthCounts({ health }: { health: WorkstreamHealth })
     groups.push({
       label: 'Deliverables',
       value: `${health.deliverables.done} of ${health.deliverables.total}`,
-      tone: health.deliverables.overdue > 0 ? 'text-danger' : undefined,
+      tone: health.deliverables.overdue > 0 ? 'text-destructive' : undefined,
     })
   }
   if (health.kpis.total > 0) {
     groups.push({
       label: 'KPIs measured',
       value: `${health.kpis.total - health.kpis.unmeasured} of ${health.kpis.total}`,
-      tone: health.kpis.off_track > 0 ? 'text-danger' : health.kpis.at_risk > 0 ? 'text-warning' : undefined,
+      tone: health.kpis.off_track > 0 ? 'text-destructive' : health.kpis.at_risk > 0 ? 'text-warning' : undefined,
     })
   }
   if (health.risks.open + health.risks.closed > 0) {
     groups.push({
       label: 'Open risks',
       value: String(health.risks.open),
-      tone: health.risks.regulated_open > 0 ? 'text-danger' : health.risks.severe_open > 0 ? 'text-warning' : undefined,
+      tone: health.risks.regulated_open > 0 ? 'text-destructive' : health.risks.severe_open > 0 ? 'text-warning' : undefined,
     })
   }
   if (health.tasks.total > 0) {
     groups.push({
       label: 'Tasks done',
       value: `${health.tasks.completed} of ${health.tasks.total}`,
-      tone: health.tasks.overdue > 0 ? 'text-danger' : undefined,
+      tone: health.tasks.overdue > 0 ? 'text-destructive' : undefined,
     })
   }
   if (health.milestones.total > 0) {
     groups.push({
       label: 'Checkpoints',
       value: `${health.milestones.completed} of ${health.milestones.total}`,
-      tone: health.milestones.overdue > 0 ? 'text-danger' : undefined,
+      tone: health.milestones.overdue > 0 ? 'text-destructive' : undefined,
     })
   }
 

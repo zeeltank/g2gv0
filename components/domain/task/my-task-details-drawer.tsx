@@ -209,7 +209,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
 
         <div className="h-[calc(100vh-98px)] overflow-y-auto p-6">
           {loading && <div className="flex h-48 items-center justify-center"><Spinner /></div>}
-          {error && <div className="mb-4 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+          {error && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
           {message && <div className="mb-4 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
 
           {task && !loading && (
@@ -223,7 +223,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                       points. It now opens the same form the task was assigned
                       with, which can see and save all of them. */}
                   <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="mr-2 size-4" />Edit / Reassign</Button>
-                  <Button variant="outline" className="text-danger" onClick={() => void deleteTask()} disabled={saving}><Trash2 className="mr-2 size-4" />Delete</Button>
+                  <Button variant="outline" className="text-destructive" onClick={() => void deleteTask()} disabled={saving}><Trash2 className="mr-2 size-4" />Delete</Button>
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
@@ -327,7 +327,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                             <Button size="sm" onClick={() => void decideExtension(extension.id, 'approve')} disabled={extBusy}>
                               Approve
                             </Button>
-                            <Button size="sm" variant="outline" className="text-danger" onClick={() => void decideExtension(extension.id, 'reject')} disabled={extBusy}>
+                            <Button size="sm" variant="outline" className="text-destructive" onClick={() => void decideExtension(extension.id, 'reject')} disabled={extBusy}>
                               Reject
                             </Button>
                           </div>

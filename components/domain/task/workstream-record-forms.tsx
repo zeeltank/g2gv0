@@ -73,7 +73,7 @@ function RecordDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
           {/* INSIDE the dialog, deliberately — see the file header. */}
           {error && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
               {error}
             </div>
           )}
@@ -180,7 +180,7 @@ export function StatementListEditor({
         )}
       </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {rows.length === 0 && !canManage && (
         <p className="text-sm text-muted-foreground">None recorded.</p>
@@ -188,7 +188,7 @@ export function StatementListEditor({
 
       <ol className="space-y-1.5">
         {rows.map((body, index) => (
-          <li key={index} className="flex items-start gap-2 rounded-lg border bg-card px-3 py-2">
+          <li key={index} className="flex items-start gap-2 border-b border-border/70 px-1 py-2 last:border-b-0">
             <span className="mt-0.5 w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}.</span>
 
             {editingIndex === index ? (
@@ -228,7 +228,7 @@ export function StatementListEditor({
                       onClick={() => { setEditingIndex(index); setRowDraft(body) }}>
                       <Pencil className="size-3.5" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger" aria-label="Remove"
+                    <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive" aria-label="Remove"
                       onClick={() => mutate(rows.filter((_, i) => i !== index))}>
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -332,11 +332,11 @@ export function ContributorsEditor({
         )}
       </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {/* The owner is shown first and cannot be removed here — accountability is
           singular and belongs to the workstream, not to this list. */}
-      <div className="rounded-lg border bg-muted/30 px-3 py-2">
+      <div className="rounded-lg bg-muted/30 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-foreground">{ownerName ?? 'No owner set'}</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Accountable</span>
@@ -347,11 +347,11 @@ export function ContributorsEditor({
 
       <ul className="space-y-2">
         {rows.map((row, index) => (
-          <li key={row.user_id} className="rounded-lg border px-3 py-2">
+          <li key={row.user_id} className="border-b border-border/70 px-1 py-2 last:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">{row.user_name}</span>
               {canManage && (
-                <Button size="sm" variant="ghost" className="h-7 px-1.5 text-danger" aria-label={`Remove ${row.user_name}`}
+                <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive" aria-label={`Remove ${row.user_name}`}
                   onClick={() => { setDraft(rows.filter((_, i) => i !== index)); setError('') }}>
                   <X className="size-3.5" />
                 </Button>

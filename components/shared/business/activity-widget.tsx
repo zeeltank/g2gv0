@@ -25,7 +25,7 @@ interface ActivityWidgetProps extends React.HTMLAttributes<HTMLDivElement> {
 const statusColors = {
   completed: 'bg-success/10 text-success',
   pending: 'bg-warning/10 text-warning',
-  failed: 'bg-danger/10 text-danger',
+  failed: 'bg-destructive/10 text-destructive',
 }
 
 const ActivityWidget = React.forwardRef<HTMLDivElement, ActivityWidgetProps>(

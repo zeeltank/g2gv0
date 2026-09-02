@@ -103,7 +103,7 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-        {error && <div className="mb-4 rounded-xl border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+        {error && <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
         <div className="min-h-[310px] animate-in fade-in slide-in-from-right-4">
           {step === 1 && <div className="space-y-5">
             <Field label="Project Name *"><Input autoFocus value={form.name} onChange={(value) => set('name', value)} placeholder="e.g., Q3 Enterprise Deployment" /></Field>

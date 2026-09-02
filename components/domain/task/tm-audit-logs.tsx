@@ -251,7 +251,7 @@ export function TmAuditLogs() {
         </label>
 
         {filtersActive && (
-          <Button variant="ghost" onClick={clearFilters} className="h-10 text-danger">
+          <Button variant="ghost" onClick={clearFilters} className="h-10 text-destructive">
             Clear filters
           </Button>
         )}
@@ -267,7 +267,7 @@ export function TmAuditLogs() {
         />
       </div>
 
-      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {loading && <div className="flex h-40 items-center justify-center"><Spinner /></div>}
 
       {!loading && !error && visible.length === 0 && (

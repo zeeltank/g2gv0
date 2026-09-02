@@ -262,8 +262,8 @@ export function MyTasksView() {
         {loading ? (
           <div className="flex h-64 items-center justify-center rounded-xl border"><Spinner /></div>
         ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-xl border border-danger/20 bg-danger/5 p-6 text-center">
-            <AlertCircle className="size-9 text-danger" />
+          <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center">
+            <AlertCircle className="size-9 text-destructive" />
             <div><p className="font-semibold">Unable to load tasks</p><p className="text-sm text-muted-foreground">{error}</p></div>
             <Button variant="outline" onClick={() => setReloadKey((value) => value + 1)}>Try again</Button>
           </div>

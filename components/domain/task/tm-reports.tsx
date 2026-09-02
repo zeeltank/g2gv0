@@ -131,7 +131,7 @@ export function TmReports() {
         ))}
       </div>
 
-      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {loading && <div className="flex h-40 items-center justify-center"><Spinner /></div>}
 
       {!loading && !error && tab === 'productivity' && (
@@ -154,7 +154,7 @@ export function TmReports() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-success" />Completed</span>
                     <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-primary" />Open</span>
-                    <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-danger" />Overdue</span>
+                    <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-destructive" />Overdue</span>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -165,7 +165,7 @@ export function TmReports() {
                         {([
                           ['completed', row.completed, 'bg-success'],
                           ['open', row.open, 'bg-primary'],
-                          ['overdue', row.overdue, 'bg-danger'],
+                          ['overdue', row.overdue, 'bg-destructive'],
                         ] as const).map(([key, value, tone], index, all) => value > 0 && (
                           <div
                             key={key}
@@ -215,13 +215,13 @@ export function TmReports() {
                 {/* `open` was fetched on every request and never rendered, even
                     though this file's docblock listed it. */}
                 <div className="text-center tabular-nums">{row.open}</div>
-                <div className={cn('text-center tabular-nums', row.overdue > 0 && 'font-bold text-danger')}>{row.overdue}</div>
+                <div className={cn('text-center tabular-nums', row.overdue > 0 && 'font-bold text-destructive')}>{row.overdue}</div>
                 <div className="text-center">
                   <span className={cn(
                     'rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
                     row.completion_rate >= 70 ? 'bg-success/10 text-success'
                       : row.completion_rate >= 30 ? 'bg-warning/10 text-warning'
-                      : 'bg-danger/10 text-danger',
+                      : 'bg-destructive/10 text-destructive',
                   )}>
                     {row.completion_rate}%
                   </span>
@@ -272,7 +272,7 @@ export function TmReports() {
                         {[task.assignee, task.due_date ? `due ${task.due_date}` : null, task.status, task.delay_category].filter(Boolean).join(' · ')}
                       </p>
                     </div>
-                    <span className="rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-bold text-danger">
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-bold text-destructive">
                       {task.days_overdue}d overdue
                     </span>
                   </div>

@@ -14,7 +14,7 @@ const kpiCardVariants = cva(
         primary: 'bg-primary/5',
         success: 'bg-success/5',
         warning: 'bg-warning/5',
-        danger: 'bg-danger/5',
+        danger: 'bg-destructive/5',
       },
       size: {
         sm: 'p-3',
@@ -83,7 +83,7 @@ const KPICard = React.forwardRef<HTMLDivElement, KPICardProps>(
             <span
               className={cn(
                 'font-semibold',
-                trend.direction === 'up' ? 'text-success' : 'text-danger',
+                trend.direction === 'up' ? 'text-success' : 'text-destructive',
               )}
             >
               {trend.direction === 'up' ? '↑' : '↓'} {Math.abs(trend.value)}%

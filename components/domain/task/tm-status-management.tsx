@@ -135,7 +135,7 @@ export function TmStatusManagement() {
         </p>
       </div>
 
-      {error && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
+      {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
 
       {/* Add / edit */}
@@ -209,7 +209,7 @@ export function TmStatusManagement() {
                     <Pencil className="mr-1.5 size-3.5" /> Edit
                   </Button>
                   {option.active && (
-                    <Button variant="outline" size="sm" className="text-danger" onClick={() => void deactivate(option)} disabled={busy}>
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => void deactivate(option)} disabled={busy}>
                       <Trash2 className="mr-1.5 size-3.5" /> Deactivate
                     </Button>
                   )}

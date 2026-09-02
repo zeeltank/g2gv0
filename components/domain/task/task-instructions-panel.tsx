@@ -73,8 +73,8 @@ export function TaskInstructionsPanel({ taskId }: { taskId: number }) {
 
   if (error) {
     return (
-      <section className="rounded-xl border border-danger/30 bg-danger/5 p-4">
-        <h3 className="text-sm font-semibold text-danger">Instructions could not be loaded</h3>
+      <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+        <h3 className="text-sm font-semibold text-destructive">Instructions could not be loaded</h3>
         <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => void load()}>Try again</Button>
       </section>
@@ -230,13 +230,13 @@ export function TaskInstructionsPanel({ taskId }: { taskId: number }) {
           {/* PROHIBITED IS ITS OWN BLOCK, IN RED. This is the part people skim
               and the part that matters when something has gone wrong. */}
           {eso.prohibited_actions.length > 0 && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 p-3">
-              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-danger">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-destructive">
                 <Ban className="size-3.5" /> Never do this
               </p>
               <ul className="space-y-1">
                 {eso.prohibited_actions.map((item, i) => (
-                  <li key={i} className="text-sm leading-snug text-danger">{item}</li>
+                  <li key={i} className="text-sm leading-snug text-destructive">{item}</li>
                 ))}
               </ul>
             </div>

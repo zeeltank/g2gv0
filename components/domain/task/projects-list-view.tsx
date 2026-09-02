@@ -92,7 +92,7 @@ export function ProjectsListView() {
         <div className="w-full"><Select value={status} onChange={(value) => { setStatus(value as ProjectStatus | 'all'); setPage(1) }} options={[{ value: 'all', label: 'All Projects' }, ...options.statuses.filter((v) => v !== 'ARCHIVED').map((value) => ({ value, label: value }))]} className="h-11 rounded-xl" /></div>
       </div>
       {loading ? <div className="flex h-64 items-center justify-center"><Spinner /></div> : error ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-danger/20"><AlertCircle className="size-8 text-danger" /><p>{error}</p><Button variant="outline" onClick={() => setReload((v) => v + 1)}>Try again</Button></div>
+        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-destructive/20"><AlertCircle className="size-8 text-destructive" /><p>{error}</p><Button variant="outline" onClick={() => setReload((v) => v + 1)}>Try again</Button></div>
       ) : (
         <div className="grid grid-cols-1 gap-5 overflow-y-auto pb-4 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => <ProjectCard key={project.id} project={project} onOpen={() => setSelectedId(project.id)} onEdit={() => { setEditing(project); setFormOpen(true) }} onArchive={() => void archive(project)} />)}
@@ -130,7 +130,7 @@ function ProjectCard({ project, onOpen, onEdit, onArchive }: { project: ProjectR
           button with no second layer. recruitment-center.tsx and
           talent-dashboard.tsx already carry this same fix; this file was the
           outlier. */}
-      <DropdownMenu modal={false}><DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="rounded-lg p-2 hover:bg-muted"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit Project</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen() }}>Manage Team & Workstreams</DropdownMenuItem><DropdownMenuItem className="text-danger" onClick={(e) => { e.stopPropagation(); onArchive() }}>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      <DropdownMenu modal={false}><DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="rounded-lg p-2 hover:bg-muted"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit Project</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen() }}>Manage Team & Workstreams</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onArchive() }}>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
     </div>
     <p className="my-4 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
     <div className="grid grid-cols-2 gap-3 text-sm"><span className="flex items-center gap-2"><Calendar className="size-4 text-muted-foreground" />{date(project.due_date)}</span><span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-muted-foreground" /><span className="tabular-nums">{project.tasks_completed}/{project.tasks_total}</span>&nbsp;tasks</span><span className="flex items-center gap-2"><Users className="size-4 text-muted-foreground" /><span className="tabular-nums">{project.members_count}</span>&nbsp;members</span><Status status={project.status} /></div>

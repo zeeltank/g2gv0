@@ -20,7 +20,7 @@ export function TaskBoardView({ tasks, onSelectTask }: TaskBoardViewProps) {
           { id: 'draft', label: 'To Do', dot: 'bg-muted-foreground' },
           { id: 'in_progress', label: 'In Progress', dot: 'bg-primary' },
           { id: 'review', label: 'Review', dot: 'bg-warning' },
-          { id: 'blocked', label: 'Blocked', dot: 'bg-danger' },
+          { id: 'blocked', label: 'Blocked', dot: 'bg-destructive' },
           { id: 'completed', label: 'Done', dot: 'bg-success' },
         ].map(col => {
           const colTasks = tasks.filter(t => t.status === col.id)
@@ -44,7 +44,7 @@ export function TaskBoardView({ tasks, onSelectTask }: TaskBoardViewProps) {
                      {/* subtle top highlight based on priority */}
                      <div className={cn(
                        "absolute top-0 left-0 w-full h-[2px] opacity-50",
-                       task.priority === 'urgent' ? 'bg-danger' : 
+                       task.priority === 'urgent' ? 'bg-destructive' : 
                        task.priority === 'high' ? 'bg-warning' : 'bg-primary/20'
                      )} />
                      
