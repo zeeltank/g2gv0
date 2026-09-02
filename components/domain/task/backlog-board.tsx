@@ -109,7 +109,23 @@ export function BacklogBoard({
       const response = await taskService.getBacklog(context, projectId ?? undefined)
       setItems(response.data.items)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load the backlog.')
+      /*
+       * A 404 on the COLLECTION is not "not found" in the way a 404 on an item
+       * is — the list endpoint always exists and always answers, even when the
+       * backlog is empty. It can only mean the route is absent, i.e. this
+       * server is running a build from before the backlog shipped. That is a
+       * deployment fact, and "API Error: 404 Not Found" sends the reader to
+       * look for a missing record that was never missing.
+       *
+       * Only this one case is translated. Every other failure keeps the
+       * server's own sentence, which is usually the more useful half.
+       */
+      const status = (reason as { status?: number } | null)?.status
+      setError(
+        status === 404
+          ? 'The backlog service is not available on this server yet. It arrives with the next backend deployment.'
+          : reason instanceof Error ? reason.message : 'Unable to load the backlog.',
+      )
     } finally {
       setLoading(false)
     }
@@ -229,7 +245,14 @@ export function BacklogBoard({
       )}
       {message && <p role="status" className="text-sm text-success">{message}</p>}
 
-      {items.length === 0 ? (
+      {/*
+        * The empty state is an assertion — "there is nothing here" — so it may
+        * only be shown when the list actually came back. After a failed load
+        * `items` is empty because nothing arrived, not because the backlog is
+        * empty, and saying so next to an error banner tells the reader two
+        * different things at once.
+        */}
+      {error ? null : items.length === 0 ? (
         <div className="rounded-lg border border-dashed p-6 text-center">
           <Inbox className="mx-auto mb-2 size-6 text-muted-foreground" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
