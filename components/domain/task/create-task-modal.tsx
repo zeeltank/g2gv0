@@ -941,9 +941,14 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
         <Select
           value={isEdit ? (assignees[0] ?? '') : ''}
           onChange={(userId) => { if (!userId) return; if (isEdit) { void chooseAssignees([userId]) } else if (!assignees.includes(userId)) { void chooseAssignees([...assignees, userId]) } }}
-          options={(isEdit ? departmentEmployees : departmentEmployees.filter((employee) => !assignees.includes(employee.id))).map((employee) => ({ value: employee.id, label: employee.name }))}
-          disabled={!department || !departmentEmployees.length}
-          placeholder={!department ? 'Select a department first' : !departmentEmployees.length ? 'No employees in this department' : assignees.length ? 'Add another employee' : 'Select an employee'}
+          /* `employees`, NOT `departmentEmployees`. The narrowed list was
+             computed and then never used, so the caption above claimed
+             "Showing the 4 people in this job role" while this dropdown
+             still offered the entire department — the form contradicting
+             itself, which is worse than never having narrowed at all. */
+          options={(isEdit ? employees : employees.filter((employee) => !assignees.includes(employee.id))).map((employee) => ({ value: employee.id, label: employee.name }))}
+          disabled={!department || !employees.length}
+          placeholder={!department ? 'Select a department first' : !employees.length ? 'No employees in this department' : assignees.length ? 'Add another employee' : 'Select an employee'}
         />
         {!isEdit && assignees.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
