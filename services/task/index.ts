@@ -6,6 +6,8 @@
 import { apiClient, webClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type {
+  BacklogPayload,
+  BacklogResponse,
   MyTask,
   MyTaskDetailResponse,
   MyTaskPriority,
@@ -509,6 +511,48 @@ export const taskService = {
         ...(search ? { search } : {}),
       },
     ),
+
+  // ── backlog ────────────────────────────────────────────────────────
+  /**
+   * `projectId` has three meanings, deliberately kept distinct:
+   *   undefined  everything, including unfiled — the dashboard's view
+   *   'none'     only items not filed under any project
+   *   an id      only that project's items — the project tab's view
+   */
+  getBacklog: (context: LaravelContext, projectId?: string, filters: { status?: string; type?: string } = {}) =>
+    apiClient.get<BacklogResponse>('/task-management/backlog', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      ...(projectId ? { project_id: projectId } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.type ? { type: filters.type } : {}),
+    }),
+
+  createBacklogItem: (context: LaravelContext, payload: BacklogPayload) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/backlog', {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  updateBacklogItem: (context: LaravelContext, id: string, payload: BacklogPayload) =>
+    apiClient.put<{ status: 1; message: string }>(`/task-management/backlog/${id}`, {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  deleteBacklogItem: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/backlog/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /** Move one item. The server writes ONE row — see the rank docblock. */
+  rankBacklogItem: (context: LaravelContext, id: string, between: { before_id?: string | null; after_id?: string | null }) =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/backlog/${id}/rank`, {
+      ...between, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /** Record which task this item became, after the assign drawer creates it. */
+  assignBacklogItem: (context: LaravelContext, id: string, taskId: string) =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/backlog/${id}/assign`, {
+      task_id: taskId, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
 
   /** Server-owned vocabularies. A client that hardcodes these drifts silently. */
   getWorkstreamOptions: (context: LaravelContext) =>

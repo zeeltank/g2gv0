@@ -39,25 +39,28 @@ import { taskService } from '@/services/task'
 import { cn } from '@/lib/utils'
 import { WorkstreamDialog } from './workstream-form'
 import { ProjectCommandBar } from './project-command-bar'
+import { BacklogBoard } from './backlog-board'
+import { CreateTaskModal } from './create-task-modal'
 import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { WorkstreamSchedule } from './workstream-schedule'
 import { WorkstreamListPane } from './workstream-list-pane'
 import { WorkstreamStage } from './workstream-stage'
 import type {
-  LinkableTask, ProjectRecord, ScheduleItem, WorkstreamLink, WorkstreamOptions, WorkstreamSummary,
+  BacklogItem, LinkableTask, ProjectRecord, ScheduleItem, WorkstreamLink, WorkstreamOptions, WorkstreamSummary,
 } from '@/types/task-management'
 import type { WorkstreamPayload } from '@/services/task'
 
 // Overview removed 2026-09-01 at the customer's request: it duplicated the
 // Workstreams tab, which already carries the lifecycle diagram at full size and
 // the same health cards. Workstreams is the default.
-type Tab = 'workstreams' | 'team' | 'tasks' | 'timeline'
+type Tab = 'workstreams' | 'team' | 'tasks' | 'timeline' | 'backlog'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'workstreams', label: 'Workstreams' },
   { id: 'team', label: 'Team' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'timeline', label: 'Timeline' },
+  { id: 'backlog', label: 'Backlog' },
 ]
 
 export function ProjectDetailView({
@@ -86,6 +89,8 @@ export function ProjectDetailView({
   const [taskSearch, setTaskSearch] = useState('')
   const [taskStatus, setTaskStatus] = useState('')
   const [taskAssignee, setTaskAssignee] = useState('')
+  const [backlogOpen, setBacklogOpen] = useState(0)
+  const [assignSeed, setAssignSeed] = useState<BacklogItem | null>(null)
 
   /*
    * The list is the other way out of a workstream with unsaved edits, so it
@@ -301,7 +306,8 @@ export function ProjectDetailView({
     workstreams: workstreams.length,
     team: project?.members?.length ?? 0,
     tasks: project?.tasks?.length ?? 0,
-  }), [workstreams.length, project?.members, project?.tasks])
+    backlog: backlogOpen,
+  }), [workstreams.length, project?.members, project?.tasks, backlogOpen])
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Spinner /></div>
 
@@ -606,6 +612,50 @@ export function ProjectDetailView({
         </CardContent></Card>
         </div>
         </div>
+      )}
+
+      {tab === 'backlog' && (
+        <div id="panel-backlog" role="tabpanel" aria-labelledby="tab-backlog" className="contents">
+        <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <Card><CardContent className="p-5">
+            {/* Work written down before it has an owner. It loads itself
+                rather than joining load()'s Promise.all — a fourth blocking
+                request would make every other tab wait for the backlog. */}
+            <BacklogBoard
+              projectId={projectId}
+              workstreams={workstreams}
+              onCountChange={setBacklogOpen}
+              onAssign={(item) => setAssignSeed(item)}
+            />
+          </CardContent></Card>
+        </div>
+        </div>
+      )}
+
+      {/* Assigning a backlog item opens the SAME drawer that creates every
+          other task, pre-filled. One task-creation path in the product. */}
+      {assignSeed && (
+        <CreateTaskModal
+          key={assignSeed.id}
+          isOpen
+          initialTitle={assignSeed.title}
+          initialDescription={assignSeed.notes ?? ''}
+          initialProjectId={projectId}
+          initialWorkstreamId={assignSeed.workstream_id ?? undefined}
+          onClose={() => setAssignSeed(null)}
+          onCreated={(text) => {
+            setTaskMessage(text)
+            setAssignSeed(null)
+            void load()
+          }}
+          onCreatedTaskId={(taskId) => {
+            void taskService.assignBacklogItem(getLaravelContext(), assignSeed.id, taskId).catch(() => {
+              // The task exists either way; only the backlog link is lost, and
+              // the item stays OPEN rather than claiming an assignment it has no
+              // id for.
+            })
+          }}
+        />
       )}
 
       <WorkstreamDialog

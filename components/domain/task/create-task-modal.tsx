@@ -32,6 +32,28 @@ interface Props {
    */
   editTaskId?: string
   onUpdated?: (message: string) => void
+
+  /**
+   * ── SEEDING FROM A BACKLOG ITEM ────────────────────────────────────────
+   *
+   * A backlog item is a note with no owner; assigning it opens THIS drawer
+   * rather than a second, lighter form, so there stays exactly one answer to
+   * "what does a task consist of".
+   *
+   * These are seeded once on open, on a key, and are deliberately separate
+   * from the edit-mode path below — that one loads from a PERSISTED task and
+   * guards on `prefilledFor`, which a backlog item has no id for.
+   */
+  initialTitle?: string
+  initialDescription?: string
+  initialProjectId?: string | null
+  initialWorkstreamId?: string
+  /**
+   * The id of the task that was just created, so a caller can record what its
+   * note became. The legacy endpoint returns `task_id` precisely because the
+   * caller otherwise has no handle on it.
+   */
+  onCreatedTaskId?: (taskId: string) => void
 }
 interface Employee { id: string; name: string; departmentId?: string }
 interface JobRole { id: string; name: string; departmentId?: string; employees: Employee[] }
@@ -111,7 +133,10 @@ const DEPENDENCY_TYPES: Array<{ value: DependencyType; label: string }> = [
   { value: 'SF', label: 'Start → Finish (this finishes after it starts)' },
 ]
 
-export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpdated }: Props) {
+export function CreateTaskModal({
+  isOpen, onClose, onCreated, editTaskId, onUpdated,
+  initialTitle, initialDescription, initialProjectId, initialWorkstreamId, onCreatedTaskId,
+}: Props) {
   const isEdit = Boolean(editTaskId)
   // What the task looked like when the form opened. Kept so save can tell an
   // actual change from an untouched field: the project move and the dependency
@@ -144,6 +169,34 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
   const [dependencyType, setDependencyType] = useState<DependencyType>('FS')
   const [lagDays, setLagDays] = useState('0')
   const [projectLoading, setProjectLoading] = useState(false)
+
+  /*
+   * ── SEEDED FROM A BACKLOG ITEM ────────────────────────────────────────
+   *
+   * Render-phase seeding on a key, the module's idiom — not a useEffect, so
+   * the fields are correct on the FIRST paint rather than flickering empty.
+   * `initialTitle` is the key: the caller mounts this with `key={item.id}`,
+   * so a different item is a different component instance.
+   *
+   * Deliberately independent of the edit-mode effect below: that one loads a
+   * PERSISTED task by id and guards on `prefilledFor`, which a backlog item
+   * has no id for. Neither path can trigger the other.
+   */
+  const [seededFrom, setSeededFrom] = useState<string | null>(null)
+  const seed = isOpen && !editTaskId && initialTitle !== undefined ? initialTitle : null
+  if (seed !== null && seed !== seededFrom) {
+    setSeededFrom(seed)
+    setTitle(initialTitle ?? '')
+    // The note becomes the DESCRIPTION — the title stays the one-line summary
+    // somebody wrote, and the detail travels with it rather than being lost.
+    setDescription(initialDescription ?? '')
+    // A free-typed backlog title is not in any job role's catalogue, and 119
+    // of this tenant's 266 roles have no catalogue at all — so custom is the
+    // only mode that can carry it.
+    setTitleSource('custom')
+    if (initialProjectId) setProjectId(initialProjectId)
+    if (initialWorkstreamId) setWorkstreamId(initialWorkstreamId)
+  }
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTaskOption[]>([])
   const [employeeTasksLoading, setEmployeeTasksLoading] = useState(false)
@@ -637,6 +690,14 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
       if (titleSource === 'custom' && saveToLibrary && jobRole) {
         await saveTitleToLibrary()
       }
+
+      /*
+       * The new task's id, so a caller can record what its backlog note became.
+       * A multi-assignee submission explodes into one row per person, so the
+       * FIRST id is the representative one.
+       */
+      const createdId = (response as { task_id?: string | number | null }).task_id
+      if (createdId) onCreatedTaskId?.(String(createdId))
 
       onCreated?.(followUp ? `${response.message} ${followUp}` : response.message); close()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create task.') }
