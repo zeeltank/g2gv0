@@ -17,7 +17,7 @@
  * simply doing nothing.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -112,7 +112,7 @@ const opts = (values: string[], blank?: string) => [
  * of proportion to the problem.
  */
 export function StatementListEditor({
-  title, description, level = 3, statements, canManage, saving, onSave,
+  title, description, level = 3, statements, canManage, saving, onSave, onDirtyChange,
 }: {
   title: string
   description?: string
@@ -129,6 +129,8 @@ export function StatementListEditor({
   canManage: boolean
   saving: boolean
   onSave: (bodies: string[]) => Promise<{ ok: boolean; message: string }>
+  /** Reports unsaved edits upward so a navigation away can be guarded. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   // A capitalised binding so JSX reads it as a component rather than the
   // literal tag <Heading>.
@@ -141,6 +143,11 @@ export function StatementListEditor({
 
   const rows = draft ?? statements.map((s) => s.body)
   const dirty = draft !== null
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    return () => onDirtyChange?.(false)
+  }, [dirty, onDirtyChange])
 
   const mutate = (next: string[]) => { setDraft(next); setError('') }
 
@@ -278,7 +285,7 @@ export function StatementListEditor({
  * the old drawer's raw-checkbox list.
  */
 export function ContributorsEditor({
-  members, projectMembers, ownerId, ownerName, canManage, saving, onSave,
+  members, projectMembers, ownerId, ownerName, canManage, saving, onSave, onDirtyChange,
 }: {
   members: WorkstreamMember[]
   projectMembers: Array<{ id: string; name: string }>
@@ -287,6 +294,8 @@ export function ContributorsEditor({
   canManage: boolean
   saving: boolean
   onSave: (members: Array<{ user_id: string; role?: string; lane?: string | null }>) => Promise<{ ok: boolean; message: string }>
+  /** Reports unsaved edits upward so a navigation away can be guarded. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [draft, setDraft] = useState<Array<{ user_id: string; user_name: string; lane: string }> | null>(null)
   const [error, setError] = useState('')
@@ -295,6 +304,11 @@ export function ContributorsEditor({
     user_id: m.user_id, user_name: m.user_name ?? m.user_id, lane: m.lane ?? '',
   }))
   const dirty = draft !== null
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    return () => onDirtyChange?.(false)
+  }, [dirty, onDirtyChange])
 
   const available = projectMembers.filter(
     (p) => p.id !== ownerId && !rows.some((r) => r.user_id === p.id),

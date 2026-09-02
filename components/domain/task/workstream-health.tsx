@@ -173,15 +173,37 @@ export function WorkstreamHealthCounts({ health }: { health: WorkstreamHealth })
  * zero percent asserts that work exists and none of it is done. A bar sitting
  * empty at 0% makes exactly that claim, so the null case renders as words.
  */
-export function WorkstreamProgress({ progress, className }: { progress: number | null; className?: string }) {
+export function WorkstreamProgress({
+  progress, basis, className,
+}: {
+  progress: number | null
+  /** Deliverable and task counts, so the bar can say what it is measuring. */
+  basis?: { deliverables: { done: number; total: number }; tasks: { done: number; total: number } }
+  className?: string
+}) {
   if (progress === null) {
-    return <p className={cn('text-sm text-muted-foreground', className)}>No deliverables defined</p>
+    return <p className={cn('text-sm text-muted-foreground', className)}>Nothing to measure yet</p>
   }
+
+  /*
+   * The label used to always read "Deliverables complete", which stopped being
+   * true when tasks joined the fraction. It now names whatever is actually in
+   * the denominator, and a group with nothing in it is left out entirely
+   * rather than printed as a zero.
+   */
+  const parts = [
+    basis && basis.deliverables.total > 0
+      ? `${basis.deliverables.done} of ${basis.deliverables.total} deliverables` : null,
+    basis && basis.tasks.total > 0
+      ? `${basis.tasks.done} of ${basis.tasks.total} tasks` : null,
+  ].filter(Boolean) as string[]
+
+  const label = !basis || basis.tasks.total === 0 ? 'Deliverables complete' : 'Progress'
 
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-xs font-medium text-muted-foreground">Deliverables complete</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <span className="text-xs font-semibold tabular-nums text-foreground">{progress}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -194,6 +216,9 @@ export function WorkstreamProgress({ progress, className }: { progress: number |
           aria-valuemax={100}
         />
       </div>
+      {parts.length > 0 && (
+        <p className="text-[11px] tabular-nums text-muted-foreground">{parts.join(' · ')}</p>
+      )}
     </div>
   )
 }

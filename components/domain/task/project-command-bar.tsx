@@ -59,6 +59,14 @@ export function ProjectCommandBar({
 }) {
   const [factsOpen, setFactsOpen] = useState(false)
 
+  const basis = project.progress_basis
+  const breakdown = [
+    basis && basis.deliverables.total > 0
+      ? `${basis.deliverables.done} of ${basis.deliverables.total} deliverables` : null,
+    basis && basis.tasks.total > 0
+      ? `${basis.tasks.done} of ${basis.tasks.total} tasks` : null,
+  ].filter(Boolean) as string[]
+
   const riskTone = riskLoad.regulated > 0
     ? 'text-destructive'
     : riskLoad.high > 0 ? 'text-warning' : 'text-foreground'
@@ -132,12 +140,30 @@ export function ProjectCommandBar({
 
       {/* ── vitals: one row of figures, not four bordered tiles ──── */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-muted/30 px-3.5 py-2.5">
-        <div className="flex min-w-[10rem] flex-1 items-center gap-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Progress
-          </span>
-          <ProgressBar value={project.progress} size="sm" className="min-w-[6rem] flex-1" />
-          <span className="text-sm font-semibold tabular-nums text-foreground">{project.progress}%</span>
+        <div className="flex min-w-[14rem] flex-1 flex-col gap-1">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Progress
+            </span>
+            {basis?.source === 'NONE' ? (
+              <span className="text-sm text-muted-foreground">Nothing to measure yet</span>
+            ) : (
+              <>
+                <ProgressBar value={project.progress} size="sm" className="min-w-[6rem] flex-1" />
+                <span className="text-sm font-semibold tabular-nums text-foreground">{project.progress}%</span>
+              </>
+            )}
+          </div>
+
+          {/* The arithmetic, in words. A percentage nobody can check is a
+              claim; naming the items behind it makes it a statement. A group
+              with nothing in it is omitted rather than printed as a zero —
+              a row of zeroes reads as "we measured and found nothing". */}
+          {breakdown.length > 0 && (
+            <p className="text-[11px] tabular-nums text-muted-foreground">
+              {basis!.done} of {basis!.total} · {breakdown.join(' · ')}
+            </p>
+          )}
         </div>
 
         <Vital icon={Layers} label="Tasks">

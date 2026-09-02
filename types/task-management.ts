@@ -435,6 +435,18 @@ export interface WorkstreamListResponse {
  * project. Such tasks are still offered — hiding them makes a task somebody is
  * searching for simply absent — but the picker says where it currently sits.
  */
+export interface ProgressBasis {
+  done: number
+  total: number
+  deliverables: { done: number; total: number }
+  tasks: { done: number; total: number }
+  /** Linked to the project but not filed under any workstream. Still counted. */
+  unplaced_tasks: { done: number; total: number }
+  /** How many workstreams fed the number — governance layers are excluded. */
+  delivery_workstreams: number
+  source: 'WORKSTREAMS' | 'TASKS' | 'NONE'
+}
+
 export interface LinkableTask {
   id: string
   title: string
@@ -501,7 +513,17 @@ export interface ProjectRecord {
   manager_id: string | null; manager: string | null; team_size: string | null; priority: ProjectPriority
   status: ProjectStatus; start_date: string | null; due_date: string | null; budget_estimate: string | null
   client_name: string | null; regulatory_flags: string[]; members_count: number; tasks_total: number
-  tasks_completed: number; progress: number; archived_at: string | null
+  tasks_completed: number; progress: number
+  /**
+   * The arithmetic behind `progress`, so the number is answerable.
+   *
+   * A bare 6% is a claim; "1 of 18 — 0 of 13 deliverables, 1 of 5 tasks" is a
+   * statement somebody can check. `source` separates "0% because nothing is
+   * done" from "0% because there is nothing to measure yet", which is the
+   * project-level equivalent of a workstream's null progress.
+   */
+  progress_basis: ProgressBasis
+  archived_at: string | null
   members?: ProjectMember[]; workstreams?: Workstream[]; task_ids?: string[]
   /**
    * The tasks actually linked to this project, hydrated from

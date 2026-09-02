@@ -28,7 +28,7 @@ import { Tooltip } from '@/components/ui/tooltip'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService, type WorkstreamRecordKind } from '@/services/task'
 import { cn } from '@/lib/utils'
-import { SectionAddButton } from './section'
+import { SectionAddButton, SectionGroup } from './section'
 import {
   WorkstreamHealthLine, WorkstreamProgress, projectStatusVariant,
 } from './workstream-health'
@@ -56,6 +56,15 @@ interface Props {
   projectMembers: Array<{ id: string; name: string }>
   onOpenWorkstream?: (id: string) => void
   onChanged?: () => void
+  /**
+   * Raised while ANY inline editor on this pane holds unsaved edits.
+   *
+   * Four of them can be dirty at once — Responsibilities, In scope, Out of
+   * scope and Contributors — each with its own Save. The pane is remounted on
+   * `key={selectedId}`, so before this existed, clicking another workstream
+   * threw all of that away without a word.
+   */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 type DialogState =
@@ -67,7 +76,18 @@ type DialogState =
   | { kind: 'dependency'; record: WorkstreamDependency | null; direction: 'UPSTREAM' | 'DOWNSTREAM' }
   | null
 
-export function WorkstreamDetailView({ workstreamId, projectMembers, onOpenWorkstream, onChanged }: Props) {
+export function WorkstreamDetailView({
+  workstreamId, projectMembers, onOpenWorkstream, onChanged, onDirtyChange,
+}: Props) {
+  // Which editors are dirty, by key — one boolean would be overwritten by
+  // whichever editor reported last.
+  const [dirtyKeys, setDirtyKeys] = useState<Record<string, boolean>>({})
+  const markDirty = useCallback((key: string) => (dirty: boolean) => {
+    setDirtyKeys((current) => (current[key] === dirty ? current : { ...current, [key]: dirty }))
+  }, [])
+
+  const anyDirty = Object.values(dirtyKeys).some(Boolean)
+  useEffect(() => { onDirtyChange?.(anyDirty) }, [anyDirty, onDirtyChange])
   const [detail, setDetail] = useState<WorkstreamDetail | null>(null)
   const [options, setOptions] = useState<WorkstreamOptions | null>(null)
   const [loading, setLoading] = useState(true)
@@ -182,7 +202,16 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onOpenWorks
           : <p className="text-sm text-muted-foreground">No purpose recorded yet.</p>}
 
         <WorkstreamHealthLine health={detail.health} />
-        <WorkstreamProgress progress={detail.progress} className="max-w-xs" />
+        {/* The counts come from `health`, which already carries both — so the
+            bar can name what it is measuring without a second request. */}
+        <WorkstreamProgress
+          progress={detail.progress}
+          basis={{
+            deliverables: detail.health.deliverables,
+            tasks: { done: detail.health.tasks.completed, total: detail.health.tasks.total },
+          }}
+          className="max-w-sm"
+        />
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-2 text-sm">
             <span><span className="text-muted-foreground">Accountable:</span> {detail.owner_name ?? '—'}</span>
@@ -193,288 +222,294 @@ export function WorkstreamDetailView({ workstreamId, projectMembers, onOpenWorks
         </div>
       </div>
 
-      <div className="grid gap-5 @4xl/stage:grid-cols-[minmax(0,1fr)_18rem]">
-        {/* ── left: the substance ──────────────────────────────────── */}
-        <div className="space-y-5">
-          {/* ③ Responsibilities */}
-          <Card><CardContent className="p-5">
+      {/* ── THE NINE, IN THREE GROUPS ───────────────────────────────
+          They used to render as nine identical Cards — same surface, same
+          padding, same heading — split across two columns in an order that
+          matched neither the model's numbering nor any reading of the work.
+          Nine equal siblings is not a hierarchy.
+
+          Three questions instead: what is this work, what does it produce,
+          and what could go wrong with it. Purpose (①) is not here — it is
+          the first thing read, so it sits in the strip above. */}
+      <div className="space-y-6">
+        <SectionGroup label="Plan" hint="What this workstream is for, and where its edges are">
+          <div className="grid gap-5 @3xl/stage:grid-cols-2">
+        {/* ③ Responsibilities */}
+        <Card><CardContent className="p-5">
+          <StatementListEditor
+            title="Responsibilities" level={2} onDirtyChange={markDirty('responsibilities')} statements={detail.statements.responsibilities}
+            canManage={can} saving={saving}
+            onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
+              getLaravelContext(), workstreamId, 'RESPONSIBILITY', bodies))}
+          />
+        </CardContent></Card>
+
+        {/* ⑧ Scope — two EQUAL columns, on purpose */}
+        <Card><CardContent className="p-5">
+          <h2 className="mb-3 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+            Scope boundaries
+            <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">What is out of scope is what prevents scope creep — it carries the same weight as what is in.</span>}>
+              {/* lucide marks a childless icon aria-hidden; without a name here
+                  the sentence this tooltip replaced reaches nobody. */}
+              <Info role="img"
+                aria-label="What is out of scope is what prevents scope creep — it carries the same weight as what is in."
+                className="size-3.5 text-muted-foreground" />
+            </Tooltip>
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2">
             <StatementListEditor
-              title="Responsibilities" level={2} statements={detail.statements.responsibilities}
-              canManage={can} saving={saving}
+              title="In scope" onDirtyChange={markDirty('in_scope')} statements={detail.statements.in_scope} canManage={can} saving={saving}
               onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
-                getLaravelContext(), workstreamId, 'RESPONSIBILITY', bodies))}
+                getLaravelContext(), workstreamId, 'IN_SCOPE', bodies))}
             />
-          </CardContent></Card>
+            <StatementListEditor
+              title="Out of scope" onDirtyChange={markDirty('out_of_scope')} statements={detail.statements.out_of_scope} canManage={can} saving={saving}
+              onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
+                getLaravelContext(), workstreamId, 'OUT_OF_SCOPE', bodies))}
+            />
+          </div>
+        </CardContent></Card>
+          </div>
+        </SectionGroup>
 
-          {/* ⑧ Scope — two EQUAL columns, on purpose */}
-          <Card><CardContent className="p-5">
-            <h2 className="mb-3 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
-              Scope boundaries
-              <Tooltip side="bottom" content={<span className="block max-w-[15rem] text-left text-xs leading-relaxed">What is out of scope is what prevents scope creep — it carries the same weight as what is in.</span>}>
-                {/* lucide marks a childless icon aria-hidden; without a name here
-                    the sentence this tooltip replaced reaches nobody. */}
-                <Info role="img"
-                  aria-label="What is out of scope is what prevents scope creep — it carries the same weight as what is in."
-                  className="size-3.5 text-muted-foreground" />
-              </Tooltip>
-            </h2>
-            <div className="grid gap-6 md:grid-cols-2">
-              <StatementListEditor
-                title="In scope" statements={detail.statements.in_scope} canManage={can} saving={saving}
-                onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
-                  getLaravelContext(), workstreamId, 'IN_SCOPE', bodies))}
-              />
-              <StatementListEditor
-                title="Out of scope" statements={detail.statements.out_of_scope} canManage={can} saving={saving}
-                onSave={(bodies) => run(() => taskService.saveWorkstreamStatements(
-                  getLaravelContext(), workstreamId, 'OUT_OF_SCOPE', bodies))}
-              />
-            </div>
-          </CardContent></Card>
+        <SectionGroup label="Deliver" hint="What it produces, by when, and how success is judged">
+          <div className="grid gap-5 @3xl/stage:grid-cols-2">
+        {/* ④ Deliverables */}
+        <Card><CardContent className="p-5">
+          <SectionHeader title="Deliverables" icon={Flag}
+            action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: null }) }} />} />
+          {detail.deliverables.length === 0 ? (
+            <Empty>No deliverables defined.</Empty>
+          ) : (
+            <ul className="divide-y">
+              {detail.deliverables.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{d.name}</p>
+                    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
+                      <span>{d.owner_name ?? 'Unassigned'}</span>
+                      {d.due_date && <span>due {d.due_date}</span>}
+                      {/* The checkpoint this deliverable is gated by — field ⑤
+                          meeting field ④, which is the point of linking them. */}
+                      {d.checkpoint_name && <span className="text-primary">gate: {d.checkpoint_name}</span>}
+                    </p>
+                    {d.acceptance_criteria && (
+                      <p className="mt-1 text-xs italic text-muted-foreground">{d.acceptance_criteria}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <StatusBadge status={d.status} size="sm">{d.status}</StatusBadge>
+                    {can && <RowActions
+                      onEdit={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: d }) }}
+                      onDelete={() => void removeRecord('deliverables', d.id, 'deliverable')} />}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent></Card>
 
-          {/* ④ Deliverables */}
-          <Card><CardContent className="p-5">
-            <SectionHeader title="Deliverables" icon={Flag}
-              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: null }) }} />} />
-            {detail.deliverables.length === 0 ? (
-              <Empty>No deliverables defined.</Empty>
-            ) : (
-              <ul className="divide-y">
-                {detail.deliverables.map((d) => (
-                  <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{d.name}</p>
-                      <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
-                        <span>{d.owner_name ?? 'Unassigned'}</span>
-                        {d.due_date && <span>due {d.due_date}</span>}
-                        {/* The checkpoint this deliverable is gated by — field ⑤
-                            meeting field ④, which is the point of linking them. */}
-                        {d.checkpoint_name && <span className="text-primary">gate: {d.checkpoint_name}</span>}
-                      </p>
-                      {d.acceptance_criteria && (
-                        <p className="mt-1 text-xs italic text-muted-foreground">{d.acceptance_criteria}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <StatusBadge status={d.status} size="sm">{d.status}</StatusBadge>
-                      {can && <RowActions
-                        onEdit={() => { setDialogError(''); setDialog({ kind: 'deliverable', record: d }) }}
-                        onDelete={() => void removeRecord('deliverables', d.id, 'deliverable')} />}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent></Card>
-
-          {/* ⑦ Success metrics */}
-          <Card><CardContent className="p-5">
-            <SectionHeader title="Success metrics" icon={Target}
-              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }} />} />
-            {detail.kpis.length === 0 ? (
-              <Empty>No success metrics defined yet.</Empty>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {detail.kpis.map((k) => (
-                  <div key={k.id} className="rounded-lg bg-muted/30 p-3">
+        {/* ⑤ Timeline & checkpoints */}
+        <Card><CardContent className="p-5">
+          <SectionHeader title="Timeline" icon={CircleDot}
+            action={can && <SectionAddButton label="Add"
+              onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }} />} />
+          {detail.checkpoints.length === 0 ? (
+            <Empty>No checkpoints yet.</Empty>
+          ) : (
+            <ol className="space-y-0">
+              {detail.checkpoints.map((c, i) => (
+                <li key={c.id} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className={cn('mt-1 size-2.5 shrink-0 rounded-full',
+                      c.is_critical ? 'bg-destructive ring-2 ring-destructive/25' : 'bg-muted-foreground/40')} />
+                    {i < detail.checkpoints.length - 1 && <span className="w-px flex-1 bg-border" />}
+                  </div>
+                  <div className="flex-1 pb-4">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">{k.name}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {c.name}
+                        {c.is_critical && <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wider text-destructive">Critical</span>}
+                      </p>
                       {can && <RowActions
-                        onEdit={() => { setDialogError(''); setDialog({ kind: 'kpi', record: k }) }}
-                        onDelete={() => void removeRecord('kpis', k.id, 'metric')} />}
+                        onEdit={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: c }) }}
+                        onDelete={() => void removeRecord('checkpoints', c.id, 'checkpoint')} />}
                     </div>
-                    {k.metric && <p className="text-xs text-muted-foreground">{k.metric}</p>}
-                    <dl className="mt-2 space-y-1 text-xs">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Target</dt>
-                        <dd className="text-right text-sm font-medium tabular-nums text-foreground">{k.target_value ?? 'Not set'}</dd>
-                      </div>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current</dt>
-                        {/* NULL is "not yet measured", never 0 — a zero here
-                            would assert a reading nobody took. */}
-                        <dd className={cn('text-right text-sm font-medium tabular-nums text-foreground', k.current_value === null && 'text-muted-foreground')}>
-                          {k.current_value ?? 'Not yet measured'}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <StatusBadge status={k.status} size="sm"
-                        variant={k.status === 'MET' || k.status === 'ON_TRACK' ? 'active'
-                          : k.status === 'AT_RISK' ? 'warning' : k.status === 'OFF_TRACK' ? 'error' : 'default'}>
-                        {k.status.replace(/_/g, ' ')}
-                      </StatusBadge>
-                      {can && (
-                        <Button size="sm" variant="ghost" className="h-7 text-xs"
-                          onClick={() => { setDialogError(''); setDialog({ kind: 'measurement', record: k }) }}>
-                          Record
-                        </Button>
-                      )}
+                    <p className="text-xs tabular-nums text-muted-foreground">{c.target_date ?? 'No date'} · {c.status}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent></Card>
+
+        {/* ⑦ Success metrics */}
+        <Card><CardContent className="p-5">
+          <SectionHeader title="Success metrics" icon={Target}
+            action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }} />} />
+          {detail.kpis.length === 0 ? (
+            <Empty>No success metrics defined yet.</Empty>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {detail.kpis.map((k) => (
+                <div key={k.id} className="rounded-lg bg-muted/30 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">{k.name}</p>
+                    {can && <RowActions
+                      onEdit={() => { setDialogError(''); setDialog({ kind: 'kpi', record: k }) }}
+                      onDelete={() => void removeRecord('kpis', k.id, 'metric')} />}
+                  </div>
+                  {k.metric && <p className="text-xs text-muted-foreground">{k.metric}</p>}
+                  <dl className="mt-2 space-y-1 text-xs">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Target</dt>
+                      <dd className="text-right text-sm font-medium tabular-nums text-foreground">{k.target_value ?? 'Not set'}</dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current</dt>
+                      {/* NULL is "not yet measured", never 0 — a zero here
+                          would assert a reading nobody took. */}
+                      <dd className={cn('text-right text-sm font-medium tabular-nums text-foreground', k.current_value === null && 'text-muted-foreground')}>
+                        {k.current_value ?? 'Not yet measured'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <StatusBadge status={k.status} size="sm"
+                      variant={k.status === 'MET' || k.status === 'ON_TRACK' ? 'active'
+                        : k.status === 'AT_RISK' ? 'warning' : k.status === 'OFF_TRACK' ? 'error' : 'default'}>
+                      {k.status.replace(/_/g, ' ')}
+                    </StatusBadge>
+                    {can && (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => { setDialogError(''); setDialog({ kind: 'measurement', record: k }) }}>
+                        Record
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent></Card>
+          </div>
+        </SectionGroup>
+
+        <SectionGroup label="Watch" hint="What could go wrong, what it waits on, and who is on it">
+          <div className="grid gap-5 @3xl/stage:grid-cols-2">
+        {/* ⑨ Risks */}
+        <Card><CardContent className="p-5">
+          <SectionHeader title="Risks & mitigations" icon={AlertTriangle}
+            action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }} />} />
+          {detail.risks.length === 0 ? (
+            <Empty>No risks recorded.</Empty>
+          ) : (
+            <ul className="space-y-3">
+              {detail.risks.map((r) => (
+                <li key={r.id} className="rounded-lg bg-muted/30 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">{r.title}</p>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <RiskSeverityBadge severity={r.severity} />
+                      <StatusBadge status={r.status} size="sm">{r.status}</StatusBadge>
+                      {can && <RowActions
+                        onEdit={() => { setDialogError(''); setDialog({ kind: 'risk', record: r }) }}
+                        onDelete={() => void removeRecord('risks', r.id, 'risk')} />}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent></Card>
-
-          {/* ⑨ Risks */}
-          <Card><CardContent className="p-5">
-            <SectionHeader title="Risks & mitigations" icon={AlertTriangle}
-              action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }} />} />
-            {detail.risks.length === 0 ? (
-              <Empty>No risks recorded.</Empty>
-            ) : (
-              <ul className="space-y-3">
-                {detail.risks.map((r) => (
-                  <li key={r.id} className="rounded-lg bg-muted/30 p-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">{r.title}</p>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <RiskSeverityBadge severity={r.severity} />
-                        <StatusBadge status={r.status} size="sm">{r.status}</StatusBadge>
-                        {can && <RowActions
-                          onEdit={() => { setDialogError(''); setDialog({ kind: 'risk', record: r }) }}
-                          onDelete={() => void removeRecord('risks', r.id, 'risk')} />}
-                      </div>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {r.probability} probability · {r.impact} impact{r.owner_name ? ` · ${r.owner_name}` : ''}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {r.probability} probability · {r.impact} impact{r.owner_name ? ` · ${r.owner_name}` : ''}
+                  </p>
+                  {r.description && <p className="mt-1.5 text-xs text-foreground">{r.description}</p>}
+                  {r.mitigation && (
+                    <p className="mt-1.5 rounded bg-muted/50 px-2 py-1.5 text-xs text-foreground">
+                      <span className="font-medium">Mitigation: </span>{r.mitigation}
                     </p>
-                    {r.description && <p className="mt-1.5 text-xs text-foreground">{r.description}</p>}
-                    {r.mitigation && (
-                      <p className="mt-1.5 rounded bg-muted/50 px-2 py-1.5 text-xs text-foreground">
-                        <span className="font-medium">Mitigation: </span>{r.mitigation}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent></Card>
-        </div>
-
-        {/* ── right rail ───────────────────────────────────────────────
-            NOT sticky. It used to be `lg:sticky lg:top-4` on a ~1150px column
-            in a ~750px viewport — taller than the screen, so it pinned at the
-            top and the cards at its bottom could never be scrolled into view.
-            The pane scrolls as one thing now.
-
-            "At a glance" is gone with it. It was a grid of counters that
-            restated four cards visible on the same screen — deliverables,
-            KPIs, risks and checkpoints — so it summarised nothing the reader
-            could not already see. Progress moved up into the context strip;
-            the counts belong to the sections that own them. */}
-        <div className="space-y-5">
-          {/* ② Contributors */}
-          <Card><CardContent className="p-5">
-            <ContributorsEditor
-              members={detail.members} projectMembers={people}
-              ownerId={detail.owner_id} ownerName={detail.owner_name}
-              canManage={can} saving={saving}
-              onSave={(members) => run(() => taskService.saveWorkstreamMembers(getLaravelContext(), workstreamId, members))}
-            />
-          </CardContent></Card>
-
-          {/* ⑤ Timeline & checkpoints */}
-          <Card><CardContent className="p-5">
-            <SectionHeader title="Timeline" icon={CircleDot}
-              action={can && <SectionAddButton label="Add"
-                onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }} />} />
-            {detail.checkpoints.length === 0 ? (
-              <Empty>No checkpoints yet.</Empty>
-            ) : (
-              <ol className="space-y-0">
-                {detail.checkpoints.map((c, i) => (
-                  <li key={c.id} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <span className={cn('mt-1 size-2.5 shrink-0 rounded-full',
-                        c.is_critical ? 'bg-destructive ring-2 ring-destructive/25' : 'bg-muted-foreground/40')} />
-                      {i < detail.checkpoints.length - 1 && <span className="w-px flex-1 bg-border" />}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {c.name}
-                          {c.is_critical && <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-wider text-destructive">Critical</span>}
-                        </p>
-                        {can && <RowActions
-                          onEdit={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: c }) }}
-                          onDelete={() => void removeRecord('checkpoints', c.id, 'checkpoint')} />}
-                      </div>
-                      <p className="text-xs tabular-nums text-muted-foreground">{c.target_date ?? 'No date'} · {c.status}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </CardContent></Card>
-
-          {/* ⑥ Dependencies — graph links and external, together */}
-          <Card><CardContent className="space-y-4 p-5">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">Dependencies</h2>
-
-            <DependencyGroup
-              heading="What this needs" empty="Nothing recorded."
-              links={detail.upstream} linkLabel={(l) => l.from_id}
-              external={detail.dependencies.upstream}
-              detail={detail} onOpen={onOpenWorkstream}
-              onAdd={can ? () => { setDialogError(''); setDialog({ kind: 'dependency', record: null, direction: 'UPSTREAM' }) } : undefined}
-              onEdit={can ? (d) => { setDialogError(''); setDialog({ kind: 'dependency', record: d, direction: 'UPSTREAM' }) } : undefined}
-              onDelete={can ? (d) => void removeRecord('dependencies', d.id, 'dependency') : undefined}
-            />
-
-            <DependencyGroup
-              heading="Who is waiting on this" empty="Nothing recorded."
-              links={detail.downstream} linkLabel={(l) => l.to_id}
-              external={detail.dependencies.downstream}
-              detail={detail} onOpen={onOpenWorkstream}
-              onAdd={can ? () => { setDialogError(''); setDialog({ kind: 'dependency', record: null, direction: 'DOWNSTREAM' }) } : undefined}
-              onEdit={can ? (d) => { setDialogError(''); setDialog({ kind: 'dependency', record: d, direction: 'DOWNSTREAM' }) } : undefined}
-              onDelete={can ? (d) => void removeRecord('dependencies', d.id, 'dependency') : undefined}
-            />
-
-            {(detail.governed_by.length > 0 || detail.governs.length > 0) && (
-              <div className="border-t pt-3">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Governance</p>
-                {detail.governed_by.map((l) => (
-                  <p key={l.id} className="text-xs text-muted-foreground">
-                    Governed for <span className="text-foreground">{l.label ?? 'delivery'}</span>
-                  </p>
-                ))}
-                {detail.governs.map((l) => (
-                  <p key={l.id} className="text-xs text-muted-foreground">
-                    Governs <span className="text-foreground">{l.label ?? 'a workstream'}</span>
-                  </p>
-                ))}
-              </div>
-            )}
-          </CardContent></Card>
-
-          {/* The API returns title, status, due date and assignee per task.
-              This card used to spend a whole bordered surface saying only
-              "N tasks placed in this workstream." — throwing four fields per
-              task away and giving the reader nothing to act on. */}
-          {detail.tasks.length > 0 && (
-            <Card><CardContent className="p-5">
-              <SectionHeader title="Linked tasks" icon={CircleDot} />
-              <ul className="divide-y divide-border">
-                {detail.tasks.map((t) => (
-                  <li key={t.id} className="flex items-start justify-between gap-2 py-2">
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm text-foreground">{t.title}</span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {[t.assignee, t.due_date].filter(Boolean).join(' · ') || 'Unassigned'}
-                      </span>
-                    </span>
-                    {t.status && (
-                      <StatusBadge status={t.status} size="sm" className="shrink-0">{t.status}</StatusBadge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </CardContent></Card>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </CardContent></Card>
+
+        {/* ⑥ Dependencies — graph links and external, together */}
+        <Card><CardContent className="space-y-4 p-5">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Dependencies</h2>
+
+          <DependencyGroup
+            heading="What this needs" empty="Nothing recorded."
+            links={detail.upstream} linkLabel={(l) => l.from_id}
+            external={detail.dependencies.upstream}
+            detail={detail} onOpen={onOpenWorkstream}
+            onAdd={can ? () => { setDialogError(''); setDialog({ kind: 'dependency', record: null, direction: 'UPSTREAM' }) } : undefined}
+            onEdit={can ? (d) => { setDialogError(''); setDialog({ kind: 'dependency', record: d, direction: 'UPSTREAM' }) } : undefined}
+            onDelete={can ? (d) => void removeRecord('dependencies', d.id, 'dependency') : undefined}
+          />
+
+          <DependencyGroup
+            heading="Who is waiting on this" empty="Nothing recorded."
+            links={detail.downstream} linkLabel={(l) => l.to_id}
+            external={detail.dependencies.downstream}
+            detail={detail} onOpen={onOpenWorkstream}
+            onAdd={can ? () => { setDialogError(''); setDialog({ kind: 'dependency', record: null, direction: 'DOWNSTREAM' }) } : undefined}
+            onEdit={can ? (d) => { setDialogError(''); setDialog({ kind: 'dependency', record: d, direction: 'DOWNSTREAM' }) } : undefined}
+            onDelete={can ? (d) => void removeRecord('dependencies', d.id, 'dependency') : undefined}
+          />
+
+          {(detail.governed_by.length > 0 || detail.governs.length > 0) && (
+            <div className="border-t pt-3">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Governance</p>
+              {detail.governed_by.map((l) => (
+                <p key={l.id} className="text-xs text-muted-foreground">
+                  Governed for <span className="text-foreground">{l.label ?? 'delivery'}</span>
+                </p>
+              ))}
+              {detail.governs.map((l) => (
+                <p key={l.id} className="text-xs text-muted-foreground">
+                  Governs <span className="text-foreground">{l.label ?? 'a workstream'}</span>
+                </p>
+              ))}
+            </div>
+          )}
+        </CardContent></Card>
+
+        {/* ② Contributors */}
+        <Card><CardContent className="p-5">
+          <ContributorsEditor
+            onDirtyChange={markDirty('contributors')}
+            members={detail.members} projectMembers={people}
+            ownerId={detail.owner_id} ownerName={detail.owner_name}
+            canManage={can} saving={saving}
+            onSave={(members) => run(() => taskService.saveWorkstreamMembers(getLaravelContext(), workstreamId, members))}
+          />
+        </CardContent></Card>
+
+        {/* The API returns title, status, due date and assignee per task.
+            This card used to spend a whole bordered surface saying only
+            "N tasks placed in this workstream." — throwing four fields per
+            task away and giving the reader nothing to act on. */}
+        {detail.tasks.length > 0 && (
+          <Card><CardContent className="p-5">
+            <SectionHeader title="Linked tasks" icon={CircleDot} />
+            <ul className="divide-y divide-border">
+              {detail.tasks.map((t) => (
+                <li key={t.id} className="flex items-start justify-between gap-2 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-foreground">{t.title}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {[t.assignee, t.due_date].filter(Boolean).join(' · ') || 'Unassigned'}
+                    </span>
+                  </span>
+                  {t.status && (
+                    <StatusBadge status={t.status} size="sm" className="shrink-0">{t.status}</StatusBadge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent></Card>
+        )}
+          </div>
+        </SectionGroup>
       </div>
 
       {/* ── dialogs ──────────────────────────────────────────────── */}
