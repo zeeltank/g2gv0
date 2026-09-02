@@ -10,7 +10,7 @@
  * moment anyone clicks a workstream the diagram is gone and the way back is to
  * *deselect* — an affordance nobody discovers. It also demotes the diagram to
  * a placeholder, the thing you see before the real thing, which contradicts
- * what `workstream-lifecycle-map.tsx` is for: the structural claim that
+ * what the lifecycle map is for: the structural claim that
  * governance spans the flow is the most load-bearing statement on the page.
  * And anyone arriving with a selection already made — the Timeline tab calls
  * `onOpen(id)` directly — would never see it at all.
@@ -27,7 +27,7 @@
  * the picture of the graph, so it opens from the Flow header.
  */
 
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link2, MoreVertical, Pencil, Trash2, Workflow } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { LifecycleConnections } from './workstream-form'
-import { WorkstreamLifecycleMap } from './workstream-lifecycle-map'
+import { WorkstreamFlowMap } from './workstream-flow-map'
 import { WorkstreamDetailView } from './workstream-detail-view'
 import type { WorkstreamLink, WorkstreamLinkType, WorkstreamSummary } from '@/types/task-management'
 
@@ -59,14 +59,41 @@ interface Props {
   }) => void
   onRemoveLink: (id: string) => void
   onChanged: () => void
+  /** Mirrors the pane's unsaved state up, so the workstream LIST — which is a
+   *  sibling, not a child — can ask the same question before switching. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 export function WorkstreamStage({
   workstreams, links, selectedId, projectMembers, message, saving, linkError,
-  onSelect, onShowMap, onEdit, onDelete, onAddLink, onRemoveLink, onChanged,
+  onSelect, onShowMap, onEdit, onDelete, onAddLink, onRemoveLink, onChanged, onDirtyChange,
 }: Props) {
   const [connectionsOpen, setConnectionsOpen] = useState(false)
   const selected = workstreams.find((w) => w.id === selectedId) ?? null
+
+  /*
+   * ── UNSAVED EDITS SURVIVE A MISCLICK ────────────────────────────────────
+   *
+   * The pane is keyed on `selectedId`, so selecting another workstream
+   * REMOUNTS it — and four of its editors (Responsibilities, In scope, Out of
+   * scope, Contributors) hold their edits in local draft state behind their
+   * own Save button. Before this guard, one click on the list threw all of it
+   * away with no warning and no undo.
+   *
+   * A ref, not state: this is read inside an event handler and must never
+   * cause a render of its own.
+   */
+  const paneDirty = useRef(false)
+  const leaveGuard = useCallback((go: () => void) => {
+    if (paneDirty.current && !window.confirm(
+      'This workstream has unsaved changes. Leave without saving them?'
+    )) return
+    paneDirty.current = false
+    go()
+  }, [])
+
+  const selectGuarded = useCallback((id: string) => leaveGuard(() => onSelect(id)), [leaveGuard, onSelect])
+  const showMapGuarded = useCallback(() => leaveGuard(onShowMap), [leaveGuard, onShowMap])
 
   return (
     <section className="@container/stage flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
@@ -76,7 +103,7 @@ export function WorkstreamStage({
           aria-label="Stage view"
           className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5"
         >
-          <Segment active={selectedId === null} onClick={onShowMap}>
+          <Segment active={selectedId === null} onClick={showMapGuarded}>
             <Workflow className="mr-1.5 size-3.5" /> Flow
           </Segment>
           {/* Disabled rather than hidden: a control that appears and vanishes
@@ -84,7 +111,7 @@ export function WorkstreamStage({
           <Segment
             active={selectedId !== null}
             disabled={selected === null}
-            onClick={() => selected && onSelect(selected.id)}
+            onClick={() => selected && selectGuarded(selected.id)}
           >
             {selected ? selected.name : 'Workstream'}
           </Segment>
@@ -124,25 +151,26 @@ export function WorkstreamStage({
         </div>
       </header>
 
-      <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
-        {selectedId === null ? (
-          <div className="p-4">
-            <WorkstreamLifecycleMap
-              workstreams={workstreams}
-              links={links}
-              onOpen={onSelect}
-            />
-          </div>
-        ) : (
+      {/* The canvas needs a definite height and must NOT scroll; the
+          workstream pane must. One shared wrapper cannot do both — `h-full`
+          inside an auto-height scroller computes to `auto` and collapses. */}
+      {selectedId === null ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <WorkstreamFlowMap workstreams={workstreams} links={links} onOpen={selectGuarded} />
+          <LinkReading workstreams={workstreams} links={links} />
+        </div>
+      ) : (
+        <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
           <WorkstreamDetailView
             key={selectedId}
             workstreamId={selectedId}
             projectMembers={projectMembers}
-            onOpenWorkstream={onSelect}
+            onOpenWorkstream={selectGuarded}
             onChanged={onChanged}
+            onDirtyChange={(dirty) => { paneDirty.current = dirty; onDirtyChange?.(dirty) }}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       <Sheet open={connectionsOpen} onOpenChange={setConnectionsOpen}>
         {/* The default sheet caps at sm:max-w-sm (384px) and the add row is a
@@ -165,6 +193,37 @@ export function WorkstreamStage({
         </SheetContent>
       </Sheet>
     </section>
+  )
+}
+
+/**
+ * A textual reading of the same graph.
+ *
+ * Carried over from the map this replaced, and kept for the same reason its
+ * own comment gave: the diagram is layout, and this is the part a screen
+ * reader and a printout can both use. React Flow renders to a canvas-like
+ * absolutely-positioned tree with no meaningful reading order, so without this
+ * the graph has no non-visual form at all.
+ */
+function LinkReading({ workstreams, links }: { workstreams: WorkstreamSummary[]; links: WorkstreamLink[] }) {
+  if (links.length === 0) return null
+
+  const name = (id: string) => workstreams.find((w) => w.id === id)?.name ?? 'Unknown'
+  const verb = (t: WorkstreamLinkType) =>
+    t === 'GOVERNS' ? 'governs' : t === 'FEEDBACK' ? 'feeds back into' : 'feeds into'
+
+  return (
+    <div className="sr-only">
+      <h3>How these connect</h3>
+      <ul>
+        {links.map((l) => (
+          <li key={l.id}>
+            {name(l.from_id)} {verb(l.link_type)} {name(l.to_id)}
+            {l.label ? ` (${l.label})` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

@@ -355,7 +355,20 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
   const departmentEmployees = departmentId
     ? observers.filter((emp) => emp.departmentId === departmentId)
     : []
-  const employees = departmentEmployees
+  /*
+   * ── PICKING A JOB ROLE NOW NARROWS THE PEOPLE, NOT JUST THE TASKS ───────
+   *
+   * The three fields read Department -> Job Role -> Assign To, and the middle
+   * one did nothing to the third: choosing "Backend Engineer" still offered
+   * every person in the department. `roleEmployees` was declared, set to `[]`
+   * twice, and never read; `taskService.getJobRoleEmployees` was written and
+   * never called. Both are wired up now.
+   *
+   * The department list stays as the fallback. A role with nobody mapped to it
+   * yet must not empty the picker — that would make the form unusable for a
+   * new role rather than merely unfiltered.
+   */
+  const employees = jobRole && roleEmployees.length > 0 ? roleEmployees : departmentEmployees
   /*
    * A step is reachable once every step before it is satisfied.
    *
@@ -381,6 +394,31 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
   setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription('')
   setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
   if (!roleId) return
+
+  /*
+   * The people who hold this role. Deliberately NOT awaited alongside the
+   * task catalogue below: a failure here must narrow nothing rather than
+   * block the form, because the department list is a perfectly usable
+   * fallback and an unfiltered picker beats a broken step.
+   */
+  void (async () => {
+    setEmployeesLoading(true)
+    try {
+      const context = getLaravelContext()
+      const response = await taskService.getJobRoleEmployees(context, roleId, context.orgType)
+      const raw = response.searchData
+      const rows = Array.isArray(raw) ? raw : Object.values(raw ?? {})
+      setRoleEmployees(rows.map((row) => ({
+        id: String(row.id),
+        name: [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(' '),
+        departmentId: row.department_id !== undefined ? String(row.department_id) : undefined,
+      })))
+    } catch {
+      setRoleEmployees([])
+    } finally {
+      setEmployeesLoading(false)
+    }
+  })()
   // The task catalogue is keyed by role name, not by the id the Select carries.
   const roleName = roles.find((role) => role.id === roleId)?.name
   if (!roleName) return
@@ -878,6 +916,19 @@ export function CreateTaskModal({ isOpen, onClose, onCreated, editTaskId, onUpda
           missing was a way to pick more than one. Add one at a time; remove with
           the chip. No new primitive: the same Select, plus chips. */}
       <Field label="Assign To *">
+        {/* Say which list this is. A picker that silently changes what it
+            contains when you touch the field above it is a picker people stop
+            trusting — and the fallback case has to be visible too, or "we
+            could not narrow this" looks identical to "nobody holds this role". */}
+        {jobRole && (
+          <p className="mb-1 text-xs text-muted-foreground">
+            {employeesLoading
+              ? 'Finding people in this role…'
+              : roleEmployees.length > 0
+                ? `Showing the ${roleEmployees.length} ${roleEmployees.length === 1 ? 'person' : 'people'} in this job role.`
+                : 'Nobody is mapped to this job role yet — showing the whole department.'}
+          </p>
+        )}
         {/* ONE ROW, ONE PERSON — in edit mode only.
             Create makes a SEPARATE task row per assignee (taskController@store
             explodes the list), so "assigned to" is not a list on a saved task:

@@ -99,3 +99,65 @@ export function SectionList({ children, className }: { children: ReactNode; clas
 export function SectionEmpty({ children }: { children: ReactNode }) {
   return <p className="py-1 text-sm text-muted-foreground">{children}</p>
 }
+
+/**
+ * A labelled band of related sections.
+ *
+ * The workstream pane rendered its nine fields as nine identical Cards —
+ * same surface, same padding, same heading size, in an order that did not
+ * match the model's own. Nine equal siblings is not a hierarchy; the reader
+ * has no way to tell which of them answers the question they arrived with.
+ *
+ * Three groups give the page a spine: what the work IS, what it PRODUCES,
+ * and what could go WRONG.
+ */
+export function SectionGroup({
+  label, hint, children,
+}: {
+  label: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-2 border-b pb-1.5">
+        <h2 className="text-[11px] font-bold uppercase tracking-wider text-foreground">{label}</h2>
+        {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * A section with nothing in it yet, at one line instead of one card.
+ *
+ * An empty section used to cost a full bordered Card, a `p-5`, an icon, a
+ * heading and an Add button — roughly 100px of chrome to say "No success
+ * metrics defined yet." Three of the nine are empty for a real workstream, so
+ * that was ~300px of the pane spent saying nothing. The section is still
+ * present and still addable; it just stops shouting.
+ */
+export function EmptySection({
+  title, icon: Icon, onAdd, canManage,
+}: {
+  title: string
+  icon?: React.ElementType
+  onAdd?: () => void
+  canManage?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2">
+      <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+        {Icon && <Icon className="size-3.5 shrink-0" />}
+        <span className="truncate">{title}</span>
+        <span className="text-xs">— none yet</span>
+      </span>
+      {canManage && onAdd && (
+        <Button size="sm" variant="ghost" className="shrink-0" onClick={onAdd}>
+          <Plus className="mr-1 size-3.5" /> Add
+        </Button>
+      )}
+    </div>
+  )
+}

@@ -22,7 +22,7 @@
  * rather than discovered later.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Info, Plus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,8 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import { cn } from '@/lib/utils'
 import { WorkstreamDialog } from './workstream-form'
-import { ProjectCommandBar, ProjectFacts } from './project-command-bar'
+import { ProjectCommandBar } from './project-command-bar'
+import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { WorkstreamListPane } from './workstream-list-pane'
 import { WorkstreamStage } from './workstream-stage'
 import type {
@@ -79,6 +80,25 @@ export function ProjectDetailView({
   const [wsMessage, setWsMessage] = useState('')
   const [linkError, setLinkError] = useState('')
   const [options, setOptions] = useState<WorkstreamOptions | null>(null)
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
+  const [taskSearch, setTaskSearch] = useState('')
+  const [taskStatus, setTaskStatus] = useState('')
+  const [taskAssignee, setTaskAssignee] = useState('')
+
+  /*
+   * The list is the other way out of a workstream with unsaved edits, so it
+   * asks the same question the stage does. `paneDirty` is owned by the stage
+   * (it is what renders the editors); this ref mirrors it so the list can
+   * consult it without the two components having to share state.
+   */
+  const paneDirty = useRef(false)
+  const selectWorkstream = (id: string | null) => {
+    if (paneDirty.current && !window.confirm(
+      'This workstream has unsaved changes. Leave without saving them?'
+    )) return
+    paneDirty.current = false
+    setSelectedWorkstream(id)
+  }
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -239,6 +259,25 @@ export function ProjectDetailView({
   }
 
   /** Every open risk across the project's workstreams, worst first. */
+  /** The vocabularies actually present on this project — not a global list,
+   *  so a filter can never offer a value that matches nothing here. */
+  const taskStatuses = useMemo(
+    () => [...new Set((project?.tasks ?? []).map((t) => t.status).filter(Boolean))].sort() as string[],
+    [project?.tasks],
+  )
+  const taskAssignees = useMemo(
+    () => [...new Set((project?.tasks ?? []).map((t) => t.assignee).filter(Boolean))].sort() as string[],
+    [project?.tasks],
+  )
+
+  const visibleTasks = useMemo(() => {
+    const needle = taskSearch.trim().toLowerCase()
+    return (project?.tasks ?? []).filter((t) =>
+      (!needle || t.title.toLowerCase().includes(needle) || (t.assignee ?? '').toLowerCase().includes(needle))
+      && (!taskStatus || t.status === taskStatus)
+      && (!taskAssignee || t.assignee === taskAssignee))
+  }, [project?.tasks, taskSearch, taskStatus, taskAssignee])
+
   const riskLoad = useMemo(() => {
     const regulated = workstreams.reduce((n, w) => n + w.health.risks.regulated_open, 0)
     const high = workstreams.reduce((n, w) => n + w.health.risks.severe_open, 0)
@@ -378,8 +417,8 @@ export function ProjectDetailView({
             workstreams={workstreams}
             links={links}
             selectedId={selectedWorkstream}
-            onSelect={(id) => setSelectedWorkstream(id)}
-            onShowMap={() => setSelectedWorkstream(null)}
+            onSelect={(id) => selectWorkstream(id)}
+            onShowMap={() => selectWorkstream(null)}
             onNew={() => { setWsError(''); setWsDialog({ open: true, initial: null }) }}
           />
 
@@ -393,6 +432,7 @@ export function ProjectDetailView({
             linkError={linkError}
             onSelect={(id) => setSelectedWorkstream(id)}
             onShowMap={() => setSelectedWorkstream(null)}
+            onDirtyChange={(dirty) => { paneDirty.current = dirty }}
             onEdit={(ws) => { setWsError(''); setWsDialog({ open: true, initial: ws }) }}
             onDelete={(ws) => void removeWorkstream(ws)}
             onAddLink={(payload) => void addLink(payload)}
@@ -404,8 +444,7 @@ export function ProjectDetailView({
 
       {tab === 'team' && (
         <div id="panel-team" role="tabpanel" aria-labelledby="tab-team" className="contents">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
-          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+        <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Card><CardContent className="p-5">
           <h2 className="mb-3 text-base font-semibold tracking-tight text-foreground">Project team</h2>
           {projectMembers.length === 0 ? (
@@ -433,18 +472,13 @@ export function ProjectDetailView({
             </ul>
           )}
         </CardContent></Card>
-          </div>
-          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
-            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
-          </aside>
         </div>
         </div>
       )}
 
       {tab === 'tasks' && (
         <div id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="contents">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
-          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+        <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Card><CardContent className="p-5">
           {/*
             THE PROJECT'S OWN TASKS, AND NOTHING ELSE.
@@ -462,17 +496,59 @@ export function ProjectDetailView({
 
           {taskMessage && <p className="mb-3 text-sm text-success">{taskMessage}</p>}
 
+          {/* The tab had NO filters — every linked task, always, in one list.
+              `project.tasks` is already hydrated client-side, so narrowing it
+              costs no request. */}
+          {(project.tasks?.length ?? 0) > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Input
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
+                placeholder="Search task or assignee…"
+                className="h-8 w-full sm:w-64"
+                aria-label="Search linked tasks"
+              />
+              <Select value={taskStatus} onChange={setTaskStatus} size="sm" className="w-40"
+                options={[{ value: '', label: 'Any status' },
+                  ...taskStatuses.map((v) => ({ value: v, label: v }))]} />
+              <Select value={taskAssignee} onChange={setTaskAssignee} size="sm" className="w-44"
+                options={[{ value: '', label: 'Anyone' },
+                  ...taskAssignees.map((v) => ({ value: v, label: v }))]} />
+              {(taskSearch || taskStatus || taskAssignee) && (
+                <>
+                  <Button size="sm" variant="ghost"
+                    onClick={() => { setTaskSearch(''); setTaskStatus(''); setTaskAssignee('') }}>
+                    Clear
+                  </Button>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {visibleTasks.length} of {project.tasks?.length ?? 0}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
           {(project.tasks?.length ?? 0) === 0 ? (
             <p className="text-sm text-muted-foreground">No tasks linked to this project yet.</p>
+          ) : visibleTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No linked task matches those filters.</p>
           ) : (
             <div className="space-y-4">
-              {groupByWorkstream(project.tasks ?? []).map((group) => (
+              {groupByWorkstream(visibleTasks).map((group) => (
                 <div key={group.id}>
                   <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.name}</p>
                   <ul className="divide-y rounded-lg border">
                     {group.tasks.map((t) => (
                       <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <span className="min-w-0 truncate text-foreground">{t.title}</span>
+                        {/* The row had NO click target — you could see a task
+                            and never open it. The drawer this opens already
+                            existed, carrying the description, the procedure,
+                            attachments, documents and the extension history;
+                            nothing here reached it. */}
+                        <button type="button" onClick={() => setOpenTaskId(t.id)}
+                          className="min-w-0 truncate text-left text-foreground outline-none hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40">
+                          {t.title}
+                        </button>
                         <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
                           {t.assignee && <span>{t.assignee}</span>}
                           {t.due_date && <span>{t.due_date}</span>}
@@ -502,10 +578,6 @@ export function ProjectDetailView({
             </div>
           )}
         </CardContent></Card>
-          </div>
-          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
-            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
-          </aside>
         </div>
         </div>
       )}
@@ -518,6 +590,15 @@ export function ProjectDetailView({
         onSave={(payload) => void saveWorkstream(payload)}
       />
 
+      {/* Reused verbatim from My Tasks — one task-detail surface in the
+          product, not a second one written for this tab. */}
+      <MyTaskDetailsDrawer
+        taskId={openTaskId}
+        open={openTaskId !== null}
+        onClose={() => setOpenTaskId(null)}
+        onUpdated={() => void load()}
+      />
+
       <LinkTaskDialog
         open={linkOpen} projectId={projectId} workstreams={workstreams}
         onClose={() => setLinkOpen(false)}
@@ -526,8 +607,7 @@ export function ProjectDetailView({
 
       {tab === 'timeline' && (
         <div id="panel-timeline" role="tabpanel" aria-labelledby="tab-timeline" className="contents">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @7xl/page:grid-cols-[minmax(0,1fr)_19rem]">
-          <div className="g2g-scrollbar min-h-0 overflow-y-auto">
+        <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Card><CardContent className="p-5">
           <h2 className="mb-4 flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
             Workstream timeline
@@ -545,10 +625,6 @@ export function ProjectDetailView({
           </h2>
           <WorkstreamTimeline workstreams={workstreams} project={project} onOpen={(id) => setSelectedWorkstream(id)} />
         </CardContent></Card>
-          </div>
-          <aside className="g2g-scrollbar hidden min-h-0 overflow-y-auto @7xl/page:block">
-            <Card><CardContent className="p-5"><ProjectFacts project={project} /></CardContent></Card>
-          </aside>
         </div>
         </div>
       )}

@@ -71,18 +71,44 @@ export function orderWorkstreams(
    */
   const flow = links.filter((l) => l.link_type === 'FLOW')
   const hasPredecessor = new Set(flow.map((l) => l.to_id))
-  const next = new Map<string, string>(flow.map((l) => [l.from_id, l.to_id]))
   const deliveryById = new Map(delivery.map((w) => [w.id, w]))
+
+  /*
+   * ── PARALLEL BRANCHES WERE BEING SILENTLY DROPPED ────────────────────────
+   *
+   * This was `new Map<string, string>(flow.map(l => [l.from_id, l.to_id]))`.
+   * A Map keyed on the source keeps only the LAST entry for that key — so a
+   * workstream feeding two others lost one of them, with no error and nothing
+   * on screen to suggest anything was missing. Real projects run stages in
+   * parallel; the walk could only ever follow a single file.
+   *
+   * Now every successor is kept, and the walk is a depth-first traversal over
+   * the `seen` set that already existed. Each bucket is sorted by `sort_order`
+   * so a branching graph still produces a stable, repeatable order.
+   */
+  const next = new Map<string, string[]>()
+  for (const l of flow) {
+    const bucket = next.get(l.from_id)
+    if (bucket) bucket.push(l.to_id)
+    else next.set(l.from_id, [l.to_id])
+  }
+  for (const bucket of next.values()) {
+    bucket.sort((a, b) => (deliveryById.get(a)?.sort_order ?? 0) - (deliveryById.get(b)?.sort_order ?? 0))
+  }
 
   const stages: WorkstreamSummary[] = []
   const seen = new Set<string>()
 
   for (const start of delivery.filter((w) => !hasPredecessor.has(w.id)).sort(bySort)) {
-    let cursor: string | undefined = start.id
-    while (cursor && deliveryById.has(cursor) && !seen.has(cursor)) {
+    const stack = [start.id]
+    while (stack.length > 0) {
+      const cursor = stack.pop()!
+      if (seen.has(cursor) || !deliveryById.has(cursor)) continue
       seen.add(cursor)
       stages.push(deliveryById.get(cursor)!)
-      cursor = next.get(cursor)
+      // Reversed so the lowest sort_order is visited first out of the stack.
+      const successors = next.get(cursor) ?? []
+      for (let i = successors.length - 1; i >= 0; i--) stack.push(successors[i])
     }
   }
 
