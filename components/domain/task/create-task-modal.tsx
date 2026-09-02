@@ -1227,18 +1227,67 @@ export function CreateTaskModal({
             row along with its comments and history. Neither is an edit of this
             task, so neither hides behind Save. */}
         {isEdit && <p className="mb-1.5 text-[11px] text-muted-foreground">Each assignee has their own copy of this task. This changes who <strong>this copy</strong> belongs to — to involve more people, assign the task again.</p>}
-        <Select
-          value={isEdit ? (assignees[0] ?? '') : ''}
-          onChange={(userId) => { if (!userId) return; if (isEdit) { void chooseAssignees([userId]) } else if (!assignees.includes(userId)) { void chooseAssignees([...assignees, userId]) } }}
-          /* `employees`, NOT `departmentEmployees`. The narrowed list was
-             computed and then never used, so the caption above claimed
-             "Showing the 4 people in this job role" while this dropdown
-             still offered the entire department — the form contradicting
-             itself, which is worse than never having narrowed at all. */
-          options={(isEdit ? employees : employees.filter((employee) => !assignees.includes(employee.id))).map((employee) => ({ value: employee.id, label: employee.name }))}
-          disabled={!department || !employees.length}
-          placeholder={!department ? 'Select a department first' : !employees.length ? 'No employees in this department' : assignees.length ? 'Add another employee' : 'Select an employee'}
-        />
+        {/*
+          * EDIT KEEPS THE DROPDOWN. One row belongs to one person, so a
+          * checkbox list that permits exactly one tick would be a worse lie
+          * than a dropdown. Create gets the roster, because there the list
+          * genuinely is a list.
+          *
+          * `employees`, NOT `departmentEmployees` — the narrowed list was
+          * computed and never used, so the caption said "Showing the 4 people
+          * in this job role" while the control still offered the whole
+          * department: the form contradicting itself.
+          */}
+        {isEdit ? (
+          <Select
+            value={assignees[0] ?? ''}
+            onChange={(userId) => { if (userId) void chooseAssignees([userId]) }}
+            options={employees.map((employee) => ({ value: employee.id, label: employee.name }))}
+            disabled={!department || !employees.length}
+            placeholder={!department ? 'Select a department first' : !employees.length ? 'No employees in this department' : 'Select an employee'}
+          />
+        ) : !department ? (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">Choose a department to see its people.</p>
+        ) : !employees.length ? (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">No employees in this department.</p>
+        ) : (
+          <Multi
+            items={employees}
+            selected={assignees}
+            onChange={(ids) => void chooseAssignees(ids)}
+            listHeightClass="max-h-48"
+            header={(
+              /*
+               * SELECT ALL IS THE LARGEST SAVING IN THIS FORM. Assigning a
+               * whole twelve-person role was twelve trips through a dropdown
+               * that closed after every pick — two clicks each. It is one now.
+               */
+              <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5">
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {assignees.length} of {employees.length} selected
+                </span>
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void chooseAssignees(employees.map((employee) => employee.id))}
+                    disabled={assignees.length === employees.length}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-40"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void chooseAssignees([])}
+                    disabled={!assignees.length}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
+                  >
+                    Clear
+                  </button>
+                </span>
+              </div>
+            )}
+          />
+        )}
         {!isEdit && assignees.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {assignees.map((id) => (
@@ -1663,12 +1712,16 @@ function Input({ value, onChange, type = 'text', min, disabled }: { value: strin
  * not match the current search would make it look unticked, and the count
  * underneath would then disagree with what is on screen.
  */
-function Multi({ items, selected, onChange, disabled = false, emptyText = 'No options available' }: {
+function Multi({ items, selected, onChange, disabled = false, emptyText = 'No options available', header, listHeightClass = 'max-h-32' }: {
   items: Array<{ id: string; name: string }>
   selected: string[]
   onChange: (ids: string[]) => void
   disabled?: boolean
   emptyText?: string
+  /** A row above the filter — used for the count and select-all/clear. */
+  header?: React.ReactNode
+  /** 128px suits a handful of options and is cruel for thirty people. */
+  listHeightClass?: string
 }) {
   const [query, setQuery] = useState('')
   const showSearch = items.length >= 8
@@ -1680,6 +1733,7 @@ function Multi({ items, selected, onChange, disabled = false, emptyText = 'No op
 
   return (
     <div className={cn('rounded-lg border', disabled && 'cursor-not-allowed bg-muted opacity-60')}>
+      {header}
       {showSearch && (
         <div className="border-b p-1.5">
           <input
@@ -1693,7 +1747,7 @@ function Multi({ items, selected, onChange, disabled = false, emptyText = 'No op
         </div>
       )}
 
-      <div className="max-h-32 overflow-y-auto p-2">
+      <div className={cn('overflow-y-auto p-2', listHeightClass)}>
         {items.length === 0 ? (
           <span className="text-xs text-muted-foreground">{emptyText}</span>
         ) : visible.length === 0 ? (
