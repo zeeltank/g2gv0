@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, FileText, Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -388,10 +388,12 @@ export function CreateTaskModal({
 
   // Workstreams and candidate predecessors both belong to the chosen project,
   // so they load together whenever it changes.
-  async function chooseProject(nextProjectId: string) {
-    setProjectId(nextProjectId); setWorkstreamId(''); setWorkstreams([])
-    setDependsOn([]); setProjectTasks([])
-    if (!nextProjectId) return
+  //
+  // Split in two ON PURPOSE. Picking a project must CLEAR the workstream —
+  // it belongs to whichever project was chosen before. But a SEEDED project
+  // arrives with a workstream already chosen, and clearing it is exactly
+  // wrong. So the fetch half stands alone and the clearing half wraps it.
+  const loadProjectOptions = useCallback(async (nextProjectId: string) => {
     setProjectLoading(true)
     try {
       const context = getLaravelContext()
@@ -408,7 +410,37 @@ export function CreateTaskModal({
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load this project.')
     } finally { setProjectLoading(false) }
+    // Every value it closes over is a stable setter or a module import, so it
+    // never changes identity — which is what lets the effect below list it.
+  }, [])
+
+  async function chooseProject(nextProjectId: string) {
+    setProjectId(nextProjectId); setWorkstreamId(''); setWorkstreams([])
+    setDependsOn([]); setProjectTasks([])
+    if (!nextProjectId) return
+    await loadProjectOptions(nextProjectId)
   }
+
+  /*
+   * A SEEDED PROJECT HAS TO LOAD ITS OWN OPTIONS.
+   *
+   * Seeding happens during render (above), so it can set `projectId` and
+   * `workstreamId` but cannot fetch. Without this the workstream list stayed
+   * empty, and the Workstream select is disabled on `!workstreams.length` —
+   * so promoting a backlog item that already named a workstream showed that
+   * field greyed out and blank, with the value set underneath. The link still
+   * saved; it simply could not be seen or changed.
+   *
+   * `loadProjectOptions`, not `chooseProject`: the latter would clear the very
+   * workstream the seed just set.
+   */
+  useEffect(() => {
+    if (!isOpen || editTaskId || !initialProjectId) return
+    // Deferred, like the open-effect above: the loader sets a loading flag on
+    // its first line, and doing that synchronously inside an effect cascades
+    // a render.
+    queueMicrotask(() => { void loadProjectOptions(initialProjectId) })
+  }, [isOpen, editTaskId, initialProjectId, loadProjectOptions])
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
