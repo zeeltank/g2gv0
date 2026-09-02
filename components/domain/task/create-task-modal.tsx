@@ -226,6 +226,10 @@ export function CreateTaskModal({
    */
   const carriedSkillNames = useRef(''); const carriedSkillIds = useRef('')
   const [observerId, setObserverId] = useState(''); const [observerName, setObserverName] = useState('')
+  // Set the moment the assigner picks an observer themselves; cleared only
+  // when the selection empties or the form resets.
+  const observerTouched = useRef(false)
+  const [supervisorGap, setSupervisorGap] = useState('')
   const [observers, setObservers] = useState<Employee[]>([])
   const [observerLoading, setObserverLoading] = useState(false)
   const [kra, setKra] = useState(''); const [kpa, setKpa] = useState(''); const [observation, setObservation] = useState('')
@@ -541,7 +545,16 @@ export function CreateTaskModal({
   async function chooseAssignees(next: string[]) {
     const taskRequestId = ++employeeTasksRequestRef.current
     const newlySelected = next.find((id) => !assignees.includes(id))
-    setAssignees(next); setObserverId(''); setObserverName('')
+    setAssignees(next)
+    /*
+     * Clear the observer only when the SELECTION EMPTIES, not on every change.
+     *
+     * Picking people one at a time means this runs once per person. Clearing
+     * unconditionally meant the observer you chose by hand was wiped by
+     * ticking the next person, and then refilled from that person's
+     * supervisor — so the answer depended on who you happened to add last.
+     */
+    if (!next.length) { setObserverId(''); setObserverName(''); observerTouched.current = false }
     setTaskDropdownOpen(false);    /*
      * ON CREATE, picking a person restarts the task choice: the catalogue and
      * the typed title belong to the selection being built.
@@ -568,14 +581,34 @@ export function CreateTaskModal({
         Promise.resolve(taskService.getSupervisor(context, selectedEmployee)).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
         Promise.resolve(taskService.getJobRoleTaskSuggestions(context, selectedEmployee, session?.org_type ?? '')).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
       ])
+      /*
+       * EVERY write below is guarded, not just the loading flag.
+       *
+       * Ticking five people fires five rounds of this. Only the newest one
+       * describes the current selection, so an older round landing late must
+       * write nothing at all — previously it still set the observer and the
+       * suggestions, and the slowest response won.
+       */
+      if (taskRequestId !== employeeTasksRequestRef.current) return
       const supervisorResponse = supervisorResult.status === 'fulfilled' ? supervisorResult.value : null
       const jobRoleTaskResponse = jobRoleTaskResult.status === 'fulfilled' ? jobRoleTaskResult.value : { jobroleTasks: [] }
       if (supervisorResponse?.data) {
         const supervisor = { id: String(supervisorResponse.data.id), name: supervisorResponse.data.name }
-        setObserverId(supervisor.id); setObserverName(supervisor.name)
         setObservers((current) => current.some((item) => item.id === supervisor.id) ? current : [...current, supervisor])
+        // Suggest, never overrule. If the assigner has already named an
+        // observer, that answer stands.
+        if (!observerTouched.current) { setObserverId(supervisor.id); setObserverName(supervisor.name) }
+        setSupervisorGap('')
       } else {
-        setError('No supervisor is mapped to the selected employee.')
+        /*
+         * 3 · A FIELD HINT, NOT THE TOP BANNER.
+         *
+         * This fires once per person with no mapped supervisor, so with five
+         * assignees it could paint the page-level error five times — and land
+         * AFTER an observer had already been filled in successfully from
+         * somebody else, contradicting what the form now showed.
+         */
+        setSupervisorGap('No supervisor is mapped to this person — choose an observer.')
       }
       const roleBased = (jobRoleTaskResponse.jobroleTasks ?? []).map((task) => task.task_title ?? task.task ?? '').filter(Boolean)
       setJobRoleSuggestions(Array.from(new Set(roleBased)))
@@ -591,7 +624,7 @@ export function CreateTaskModal({
 
   function reset() {
     setDepartment(''); setJobRole(''); setRoleEmployees([]); setAssignees([]); setTitle(''); setDescription(''); setPriority('Medium')
-    setRepeatDays('1'); setDueDate(''); setObserverId(''); setObserverName('')
+    setRepeatDays('1'); setDueDate(''); setObserverId(''); setObserverName(''); setSupervisorGap('')
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
     setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false);    setJobRoleTasks([]); setTaskTitlesLoading(false)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -607,6 +640,7 @@ export function CreateTaskModal({
     // Or the next task edited in this session would inherit the last one's
     // skills — and, being a full replace, would write them onto its row.
     carriedSkillNames.current = ''; carriedSkillIds.current = ''
+    observerTouched.current = false
     if (attachmentRef.current) attachmentRef.current.value = ''
   }
   function close() { reset(); onClose() }
@@ -1159,7 +1193,26 @@ export function CreateTaskModal({
       {step === 5 && (
       <Section number={5} title="How it is measured" icon={Target} hint="Who checks it, and what good looks like.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
-      <Field label="Observer *" span={4}><Select value={observerId} onChange={(value) => { setObserverId(value); setObserverName(observers.find((item) => item.id === value)?.name ?? '') }} options={observers.map((item) => ({ value: item.id, label: item.name }))} disabled={!assignees.length || observerLoading} placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'} /></Field>
+      <Field label="Observer *" span={4}>
+        <Select
+          value={observerId}
+          onChange={(value) => {
+            // A deliberate choice. From here the supervisor lookup suggests
+            // but no longer overwrites.
+            observerTouched.current = true
+            setObserverId(value)
+            setObserverName(observers.find((item) => item.id === value)?.name ?? '')
+          }}
+          options={observers.map((item) => ({ value: item.id, label: item.name }))}
+          /* `observers` is loaded when the drawer opens, not per assignee, so
+             gating this on having an assignee only hid a list that was already
+             there — and made department-only assignment, which the submit gate
+             allows, impossible to complete. */
+          disabled={observerLoading}
+          placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'}
+        />
+        {supervisorGap && <p className="mt-1.5 text-xs text-muted-foreground">{supervisorGap}</p>}
+      </Field>
       <Field label="Key Result Areas (KRAs)" span={4}><Input value={kra} onChange={setKra} /></Field>
       <Field label="Performance Indicators (KPIs)" span={4}><Input value={kpa} onChange={setKpa} /></Field>
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
