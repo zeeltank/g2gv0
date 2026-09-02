@@ -52,11 +52,30 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const [isMounted, setIsMounted] = React.useState(false)
     const containerRef = React.useRef<HTMLDivElement>(null)
+    const triggerRef = React.useRef<HTMLButtonElement>(null)
     const listRef = React.useRef<HTMLDivElement>(null)
     const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>()
     const [openAbove, setOpenAbove] = React.useState(false)
     const typeaheadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
     const typeaheadBufferRef = React.useRef('')
+
+    /*
+     * Closing has to hand focus back explicitly, now that the search box can
+     * actually hold it. The input lives in a portal that unmounts 150ms later,
+     * taking the focused element with it, and nothing upstream rescues that:
+     * Radix's MutationObserver watches only the dialog, and removing a focused
+     * node reports `relatedTarget === null`, which its focusout handler
+     * returns on. Focus would land on <body> — inside an open dialog, with no
+     * focus ring anywhere — until the next Tab happened to restore it.
+     *
+     * Only for closes that FOLLOW A CHOICE. An outside click or a Tab has
+     * already put focus where the user asked for it, and yanking it back to
+     * the trigger would be the same rudeness this whole comment is about.
+     */
+    const closeAndReturnFocus = React.useCallback(() => {
+      setOpen(false)
+      triggerRef.current?.focus()
+    }, [])
     const listboxId = React.useId()
     const MAX_POPOVER_HEIGHT = 240
     const MIN_POPOVER_HEIGHT = 120
@@ -154,15 +173,63 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
 
       const keepItHere = (event: Event) => event.stopPropagation()
 
+      /*
+       * ── AND THE OTHER HALF OF IT, WHICH IS WHY THE SEARCH BOX WAS DEAD ─────
+       *
+       * Stopping `focusin` above only covers focus ARRIVING here. Radix traps
+       * focus with TWO document listeners, and the one that actually killed
+       * the search box is the other one:
+       *
+       *     handleFocusOut(event) {
+       *       const relatedTarget = event.relatedTarget
+       *       if (relatedTarget === null) return
+       *       if (!container.contains(relatedTarget)) {
+       *         focus(lastFocusedElementRef.current)   // ← back to the trigger
+       *       }
+       *     }
+       *
+       * `focusout` fires on the element LOSING focus — the trigger button,
+       * which sits INSIDE the dialog. Its bubble path is button → container →
+       * SheetContent → body → document and never passes through this popover,
+       * so a listener on this node is structurally incapable of seeing it. No
+       * amount of guarding here could ever have caught it.
+       *
+       * The result looked exactly like a broken search box: the input renders,
+       * takes a click, and is blurred in the same tick it is focused, so every
+       * keystroke lands on the button — where the typeahead is deliberately
+       * gated off precisely BECAUSE a search box is showing. Nothing typed
+       * anywhere. Selecting still worked, which is what made it look cosmetic.
+       *
+       * Radix's own popovers escape this by mounting a FocusScope, which pushes
+       * onto a stack and pauses the dialog's scope; both handlers then bail on
+       * `focusScope.paused`. A hand-rolled portal has no such escape hatch.
+       *
+       * Radix listens on `document` in the BUBBLE phase, so a CAPTURE listener
+       * on `document` runs first and can cut the event off. The gate keeps the
+       * blast radius at exactly one transition: focus moving INTO this popover,
+       * while this popover is open. Every other blur on the page is untouched.
+       *
+       * It does also skip React's delegated synthetic `onBlur` for that one
+       * transition — Next's App Router hydrates into `document`, so React's
+       * listener is on the same node. The whole app has two `onBlur` handlers
+       * and neither is on a Select, so nothing observable rides on it.
+       */
+      const letFocusReachTheSearch = (event: FocusEvent) => {
+        const arriving = event.relatedTarget
+        if (arriving instanceof Node && node.contains(arriving)) event.stopPropagation()
+      }
+
       node.addEventListener('wheel', keepItHere, { passive: false })
       node.addEventListener('touchmove', keepItHere, { passive: false })
       node.addEventListener('focusin', keepItHere)
       node.addEventListener('focusout', keepItHere)
+      document.addEventListener('focusout', letFocusReachTheSearch, true)
       return () => {
         node.removeEventListener('wheel', keepItHere)
         node.removeEventListener('touchmove', keepItHere)
         node.removeEventListener('focusin', keepItHere)
         node.removeEventListener('focusout', keepItHere)
+        document.removeEventListener('focusout', letFocusReachTheSearch, true)
       }
     }, [open, isMounted])
 
@@ -292,7 +359,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           e.preventDefault()
           if (open && highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
             commit(visibleOptions[highlightedIndex].value)
-            setOpen(false)
+            closeAndReturnFocus()
           } else {
             setOpen(true)
           }
@@ -301,7 +368,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           e.preventDefault()
           if (open && highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
             commit(visibleOptions[highlightedIndex].value)
-            setOpen(false)
+            closeAndReturnFocus()
           } else {
             setOpen(true)
           }
@@ -340,7 +407,10 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           break
         case 'Escape':
           e.preventDefault()
-          setOpen(false)
+          // Escape is a dismissal, not a departure: focus belongs back on the
+          // trigger. Without this it would be left on the search input, which
+          // is unmounted moments later, dropping focus onto <body>.
+          closeAndReturnFocus()
           break
         case 'Tab':
           setOpen(false)
@@ -389,6 +459,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         onKeyDown={handleKeyDown}
       >
         <button
+          ref={triggerRef}
           type="button"
           role="combobox"
           aria-expanded={open}
@@ -468,7 +539,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   onPointerDown={(event) => {
                     event.preventDefault()
                     commit(opt.value)
-                    setOpen(false)
+                    closeAndReturnFocus()
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={cn(
