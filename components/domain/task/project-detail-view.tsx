@@ -500,27 +500,50 @@ export function ProjectDetailView({
               `project.tasks` is already hydrated client-side, so narrowing it
               costs no request. */}
           {(project.tasks?.length ?? 0) > 0 && (
+            /*
+             * ── EACH CONTROL NEEDS ITS OWN SIZED WRAPPER ─────────────────
+             *
+             * `Select`'s root element is hardcoded `relative inline-block
+             * w-full` and its `className` prop reaches only the inner
+             * <button>. So `className="w-40"` sized the button while the
+             * wrapper still claimed 100% of the flex row — which is what
+             * stacked these filters vertically, one per line.
+             *
+             * The fix is a sized wrapper per control, not an edit to the
+             * primitive: components/ui is shared and every other Select in
+             * the product depends on that w-full behaviour inside a form
+             * field. `min-w-0` lets them shrink instead of overflowing when
+             * the pane is narrow.
+             */
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Input
-                value={taskSearch}
-                onChange={(e) => setTaskSearch(e.target.value)}
-                placeholder="Search task or assignee…"
-                className="h-8 w-full sm:w-64"
-                aria-label="Search linked tasks"
-              />
-              <Select value={taskStatus} onChange={setTaskStatus} size="sm" className="w-40"
-                options={[{ value: '', label: 'Any status' },
-                  ...taskStatuses.map((v) => ({ value: v, label: v }))]} />
-              <Select value={taskAssignee} onChange={setTaskAssignee} size="sm" className="w-44"
-                options={[{ value: '', label: 'Anyone' },
-                  ...taskAssignees.map((v) => ({ value: v, label: v }))]} />
+              <div className="w-full min-w-0 sm:w-56">
+                <Input
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  placeholder="Search task or assignee…"
+                  className="h-8"
+                  aria-label="Search linked tasks"
+                />
+              </div>
+              <div className="w-36 min-w-0">
+                <Select value={taskStatus} onChange={setTaskStatus} size="sm"
+                  aria-label="Filter by status"
+                  options={[{ value: '', label: 'Any status' },
+                    ...taskStatuses.map((v) => ({ value: v, label: v }))]} />
+              </div>
+              <div className="w-40 min-w-0">
+                <Select value={taskAssignee} onChange={setTaskAssignee} size="sm"
+                  aria-label="Filter by assignee"
+                  options={[{ value: '', label: 'Anyone' },
+                    ...taskAssignees.map((v) => ({ value: v, label: v }))]} />
+              </div>
               {(taskSearch || taskStatus || taskAssignee) && (
                 <>
-                  <Button size="sm" variant="ghost"
+                  <Button size="sm" variant="ghost" className="shrink-0"
                     onClick={() => { setTaskSearch(''); setTaskStatus(''); setTaskAssignee('') }}>
                     Clear
                   </Button>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {visibleTasks.length} of {project.tasks?.length ?? 0}
                   </span>
                 </>
