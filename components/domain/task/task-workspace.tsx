@@ -11,7 +11,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
+import type { BacklogItem, TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
+import { BacklogBoard } from './backlog-board'
 import { CreateTaskModal } from './create-task-modal'
 import { PriorityBadge } from './priority-badge'
 import { TaskDutyContext } from './task-duty-context'
@@ -30,7 +31,14 @@ function statusText(task: Pick<WorkspaceTask, 'status' | 'status_label'>) {
 }
 
 const EMPTY_PAGINATION = { current_page: 1, last_page: 1, per_page: 25, total: 0 }
-type WorkspaceView = 'list' | 'grid' | 'board' | 'analytics'
+/**
+ * `backlog` is a fifth VIEW rather than a section stacked under the task list.
+ *
+ * The toggle already answers "what is this dashboard showing" rather than "how
+ * do I draw tasks" — `analytics` broke that reading first. Stacking an
+ * 800px panel beneath an already-long table would bury it.
+ */
+type WorkspaceView = 'list' | 'grid' | 'board' | 'analytics' | 'backlog'
 
 export function TaskWorkspace() {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
@@ -43,6 +51,8 @@ export function TaskWorkspace() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [view, setView] = useState<WorkspaceView>('list')
+  const [backlogAdd, setBacklogAdd] = useState(0)
+  const [promoting, setPromoting] = useState<BacklogItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -239,7 +249,14 @@ The assignee sees this, and it is recorded as the reason.`,
   return <div className="space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-3xl font-bold tracking-tight">Task Management Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Track assignments, reviews, deadlines, and ownership.</p></div>
-      <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 size-4" />Assign Task</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Visible in every view: a notepad you have to navigate to is a
+            notepad people stop using. */}
+        <Button variant="outline" onClick={() => { setView('backlog'); setBacklogAdd((n) => n + 1) }}>
+          <ListChecks className="mr-2 size-4" />Add to Backlog
+        </Button>
+        <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 size-4" />Assign Task</Button>
+      </div>
     </div>
     {message && <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
     {error && <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
@@ -265,14 +282,22 @@ The assignee sees this, and it is recorded as the reason.`,
           <DropdownMenu><DropdownMenuTrigger className="flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"><Filter className="size-4" />More</DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => setScope('mine')}>Assigned to me</DropdownMenuItem><DropdownMenuItem onClick={() => setScope('created')}>Created by me</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => { setScope('all'); setStatus('all'); setSearchInput(''); setPage(1) }}>Clear all filters</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           <div className="hidden h-6 w-px bg-border lg:block" />
           <div className="col-span-full flex h-10 items-center justify-center rounded-xl border bg-muted/20 p-1 sm:col-span-2 lg:col-span-1">
-            {([['list', List, 'List'], ['grid', LayoutGrid, 'Grid'], ['board', CheckSquare, 'Board'], ['analytics', BarChart3, 'Analytics']] as const).map(([value, Icon, label]) =>
+            {([['list', List, 'List'], ['grid', LayoutGrid, 'Grid'], ['board', CheckSquare, 'Board'], ['analytics', BarChart3, 'Analytics'], ['backlog', ListChecks, 'Backlog']] as const).map(([value, Icon, label]) =>
               <button key={value} type="button" title={label} aria-label={`${label} view`} onClick={() => setView(value)} className={`flex size-8 items-center justify-center rounded-lg transition ${view === value ? 'bg-background text-primary shadow-sm ring-1 ring-primary/10' : 'text-muted-foreground hover:text-foreground'}`}><Icon className="size-4" /></button>)}
           </div>
         </div>
       </div>
     </div>
 
-    {loading ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card"><Spinner /></div> : !tasks.length ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">No tasks match the selected filters.</div> : view === 'list' ? <TaskTable tasks={tasks} onSelect={setSelected} onArchive={archive} /> : view === 'grid' ? <TaskGrid tasks={tasks} onSelect={setSelected} /> : view === 'board' ? <TaskApprovals tasks={tasks} onSelect={setSelected} onDecision={decide} /> : <TaskAnalytics tasks={tasks} />}
+    {/* Outside the task gate: the backlog has its own data and must not be
+        hidden by "no tasks match the selected filters". */}
+    {view === 'backlog' && (
+      <div className="rounded-2xl border bg-card p-4">
+        <BacklogBoard key={backlogAdd} projectId={null} onAssign={(item) => setPromoting(item)} />
+      </div>
+    )}
+
+    {view !== 'backlog' && (loading ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card"><Spinner /></div> : !tasks.length ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">No tasks match the selected filters.</div> : view === 'list' ? <TaskTable tasks={tasks} onSelect={setSelected} onArchive={archive} /> : view === 'grid' ? <TaskGrid tasks={tasks} onSelect={setSelected} /> : view === 'board' ? <TaskApprovals tasks={tasks} onSelect={setSelected} onDecision={decide} /> : <TaskAnalytics tasks={tasks} />)}
 
     {/* The Dashboard is org-wide, so the list is almost always longer than one
         page. Same pager the My Tasks list uses. */}
@@ -348,6 +373,27 @@ The assignee sees this, and it is recorded as the reason.`,
         </div>
       </div>
       )}</>}</SheetContent></Sheet>
+    {/* Assigning a backlog item opens the same drawer that creates every other
+        task, pre-filled — one task-creation path in the product. */}
+    {promoting && (
+      <CreateTaskModal
+        key={`promote-${promoting.id}`}
+        isOpen
+        initialTitle={promoting.title}
+        initialDescription={promoting.notes ?? ''}
+        initialProjectId={promoting.project_id}
+        initialWorkstreamId={promoting.workstream_id ?? undefined}
+        onClose={() => setPromoting(null)}
+        onCreated={(text) => { setMessage(text); setPromoting(null); setBacklogAdd((n) => n + 1) }}
+        onCreatedTaskId={(taskId) => {
+          void taskService.assignBacklogItem(getLaravelContext(), promoting.id, taskId).catch(() => {
+            // The task exists regardless; only the link is lost, and the item
+            // stays OPEN rather than claiming an assignment it cannot show.
+          })
+        }}
+      />
+    )}
+
     <CreateTaskModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(value) => { setMessage(value); setReload((current) => current + 1) }} />
     {/* Keyed on the task id so opening a different task remounts the form
         rather than showing the previous one's values while the new task loads. */}

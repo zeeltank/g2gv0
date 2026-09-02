@@ -456,6 +456,57 @@ export interface ScheduleItem {
   workstream_name: string
 }
 
+/**
+ * A backlog item — work written down before it has an owner.
+ *
+ * `title` is the only thing the server requires. Everything else is optional
+ * and can arrive later, which is the whole point: somebody has to be able to
+ * write "post on social media" without first answering who, when, under which
+ * project, or against which job role.
+ */
+export type BacklogType = 'NEW' | 'FIX' | 'IMPROVE' | 'SETUP' | 'ROUTINE' | 'REQUEST'
+export type BacklogStatus = 'OPEN' | 'ASSIGNED' | 'DONE' | 'DROPPED'
+
+export interface BacklogItem {
+  id: string
+  title: string
+  notes: string | null
+  type: BacklogType
+  priority: string
+  status: BacklogStatus
+  rank: number
+  /** Null means it has not been filed under a project yet. */
+  project_id: string | null
+  project_name: string | null
+  project_code: string | null
+  workstream_id: string | null
+  workstream_name: string | null
+  /** The task it became, once it has been assigned. */
+  task_id: string | null
+  task_title: string | null
+  task_status: string | null
+  created_at: string | null
+}
+
+export interface BacklogResponse {
+  status: 1
+  message: string
+  data: {
+    items: BacklogItem[]
+    options: { types: BacklogType[]; priorities: string[]; statuses: BacklogStatus[] }
+  }
+}
+
+export interface BacklogPayload {
+  title: string
+  notes?: string | null
+  type?: BacklogType
+  priority?: string
+  status?: BacklogStatus
+  project_id?: string | null
+  workstream_id?: string | null
+}
+
 export interface ProgressBasis {
   done: number
   total: number
