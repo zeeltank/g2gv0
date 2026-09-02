@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Paperclip, Sparkles, Upload, X, Users, ClipboardList, CalendarClock, Target, Check, ChevronLeft, ChevronRight, GitBranch} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronDown, History, Paperclip, Sparkles, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BulkRoleTaskPanel, type RoleBulkRow } from './bulk-role-task-panel'
 import { BulkCsvPanel } from './bulk-csv-panel'
@@ -15,6 +15,7 @@ import { taskService } from '@/services/task'
 import { TaskCompetencyInlinePanel } from '@/domain/competency/task-competency-inline-panel'
 import { TaskDocumentsPanel } from './task-documents-panel'
 import { TaskDutyContext } from './task-duty-context'
+import { SectionGroup } from './section'
 import { competencyLibrariesService } from '@/services/competency/libraries'
 import type { JobRoleTask } from '@/services/task'
 import type { DependencyType, ProjectRecord, Workstream, WorkspaceTask } from '@/types/task-management'
@@ -64,6 +65,48 @@ type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
 type FormMode = 'form' | 'roleBulk' | 'csv'
 
 /**
+ * The last department and job role this browser assigned to.
+ *
+ * Most assigners work the same team repeatedly, so the two dropdowns that
+ * start every assignment have the same answer most days.
+ */
+const LAST_USED_KEY = 'task-assign:last-used'
+type LastUsed = { department: string; jobRoleId: string; jobRoleName: string }
+
+/**
+ * Shortcuts for the one field with no sensible default.
+ *
+ * Priority, repeat interval and observer all arrive pre-filled; the due date
+ * cannot, because there is no date that is right for every task. These make
+ * the common answers one click without inventing one.
+ */
+const DUE_DATE_PRESETS: Array<{ label: string; resolve: () => string }> = [
+  { label: '+1 week', resolve: () => shiftDays(7) },
+  { label: '+2 weeks', resolve: () => shiftDays(14) },
+  {
+    label: 'Month end',
+    resolve: () => {
+      const now = new Date()
+      // Day 0 of next month is the last day of this one.
+      return toDateInput(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+    },
+  },
+]
+
+/** `YYYY-MM-DD` in LOCAL time — toISOString would shift the day west of UTC. */
+function toDateInput(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function shiftDays(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return toDateInput(date)
+}
+
+/**
  * Where a task's title comes from.
  *
  * `catalogue` picks a standard duty from the job role's task library - the
@@ -73,59 +116,68 @@ type FormMode = 'form' | 'roleBulk' | 'csv'
  */
 type TitleSource = 'catalogue' | 'custom'
 
-/**
- * The seven steps, in the order the decision is actually made.
+/*
+ * THIS USED TO BE SEVEN STEPS. Here is why it is not any more.
  *
- * They are a real sequence, not a filing system: department narrows the people,
- * the role narrows the work, and choosing a task changes what capability
- * mapping is even possible. That is why this is a wizard rather than a long
- * scroll — each answer changes the next question.
+ * The sequence was real — department narrows the people, the role narrows the
+ * work, and the chosen task decides what capability mapping is even possible —
+ * and that was taken as the argument for a wizard. It is not. Cascading fields
+ * need to be ORDERED, which a single page does perfectly well; a wizard adds
+ * something else on top, which is a gate between each pair of them.
+ *
+ * What that gate cost, measured on the shortest real path: sixteen clicks, six
+ * of them "Next", four of those crossing screens where an ordinary task needs
+ * nothing at all. And because Submit only ever rendered on the last step, a
+ * task that had been valid since step three still had to be walked to step
+ * seven to be saved.
+ *
+ * So the order stayed and the gates went. The five fields a task cannot be
+ * saved without are always on screen; the rest sit in three groups that open
+ * in one click.
  */
-const STEPS: Array<{ id: number; name: string; description: string; icon: typeof Users }> = [
-  { id: 1, name: 'Who it is for', description: 'Department, role, people', icon: Users },
-  { id: 2, name: 'The task', description: 'Title and description', icon: ClipboardList },
-  { id: 3, name: 'When', description: 'Repeat, due date, priority', icon: CalendarClock },
-  { id: 4, name: 'What it builds', description: 'The capability it develops', icon: Sparkles },
-  { id: 5, name: 'Measurement', description: 'Observer, KRA, KPI', icon: Target },
-  { id: 6, name: 'Material', description: 'Attachment and documents', icon: Paperclip },
-  { id: 7, name: 'Project', description: 'Optional delivery links', icon: GitBranch },
-]
+
+type FieldKey = 'people' | 'title' | 'dueDate' | 'priority' | 'observerId'
 
 /**
- * What is missing on a given step, if anything.
+ * The order the form asks for these, which is also the order it reports them.
+ *
+ * INVARIANT: every key here is rendered in an ALWAYS-VISIBLE band, never
+ * inside a collapsed group. A failed submit scrolls to the first offender, and
+ * a required field hidden behind a chevron would be a form complaining about a
+ * control that is not on screen — which is exactly what the seven-step wizard
+ * did, and the reason this is one page now.
+ */
+const FIELD_ORDER: FieldKey[] = ['people', 'title', 'dueDate', 'priority', 'observerId']
+
+/**
+ * What is missing, keyed by the field it belongs to.
  *
  * A pure function of the values, so it can be reasoned about without the form
- * on screen — and so `submit()` can find the FIRST step with a problem and send
- * you there rather than showing an error about a field five steps back.
+ * on screen. It MIRRORS THE SUBMIT GATE EXACTLY and adds nothing to it: a task
+ * that saved before this form was flattened still saves now.
  *
- * These mirror the submit gate exactly and add nothing to it: a task that
- * passed validation before this wizard existed still passes now.
+ * Note what is NOT here. `priority` and the repeat interval are pre-defaulted,
+ * so their rules can never fire — they are kept because the gate they mirror
+ * keeps them. And Job Role, though it wore an asterisk for years, was never
+ * validated anywhere; adding a rule for it now would reject assignments the
+ * server accepts. The asterisk was the thing that was wrong, so the asterisk
+ * is what went.
  */
-function whatIsMissing(step: number, v: {
+function whatIsMissing(v: {
   assignees: string[]
   departmentId: string
   title: string
   dueDate: string
   priority: string
   observerId: string
-}): string | null {
-  switch (step) {
-    case 1:
-      return (!v.assignees.length && !v.departmentId)
-        ? 'Choose the people to assign this to, or a department.'
-        : null
-    case 2:
-      return !v.title.trim() ? 'Give the task a title.' : null
-    case 3:
-      if (!v.dueDate) return 'Set the date this runs until.'
-      return !v.priority ? 'Choose a priority.' : null
-    case 5:
-      return !v.observerId ? 'Choose who observes this task.' : null
-    default:
-      // Steps 4, 6 and 7 are entirely optional — capability mapping, reference
-      // material and project links are all things a valid task can do without.
-      return null
-  }
+}): Partial<Record<FieldKey, string>> {
+  const missing: Partial<Record<FieldKey, string>> = {}
+  if (!v.assignees.length && !v.departmentId) missing.people = 'Choose the people to assign this to, or a department.'
+  if (!v.title.trim()) missing.title = 'Give the task a title.'
+  if (!v.dueDate) missing.dueDate = 'Set the date this runs until.'
+  if (!v.priority) missing.priority = 'Choose a priority.'
+  if (!v.observerId) missing.observerId = 'Choose who observes this task.'
+  return missing
 }
 
 const DEPENDENCY_TYPES: Array<{ value: DependencyType; label: string }> = [
@@ -233,11 +285,18 @@ export function CreateTaskModal({
   // when the selection empties or the form resets.
   const observerTouched = useRef(false)
   const [supervisorGap, setSupervisorGap] = useState('')
+  const [lastUsed, setLastUsed] = useState<LastUsed | null>(null)
   const [observers, setObservers] = useState<Employee[]>([])
   const [observerLoading, setObserverLoading] = useState(false)
   const [kra, setKra] = useState(''); const [kpa, setKpa] = useState(''); const [observation, setObservation] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
-  const [step, setStep] = useState(1)
+  /*
+   * Nothing is marked red until Submit has been pressed once. A form that
+   * greets you in red is telling you off for not having filled in a form you
+   * have not filled in yet.
+   */
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const fieldRefs = useRef<Partial<Record<FieldKey, HTMLElement | null>>>({})
   const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
   const [jobRoleSuggestions, setJobRoleSuggestions] = useState<string[]>([])
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -455,6 +514,52 @@ export function CreateTaskModal({
     queueMicrotask(() => { void loadProjectOptions(initialProjectId) })
   }, [isOpen, editTaskId, initialProjectId, loadProjectOptions])
 
+  /*
+   * SUBMIT FROM THE KEYBOARD.
+   *
+   * Assigned during render rather than captured in the effect: `submit` closes
+   * over some twenty values, so a correct dependency array would tear down and
+   * re-register the listener on every keystroke. The ref is always current and
+   * the listener is registered once per open — the same idiom the seeding
+   * above uses, for the same reason.
+   *
+   * And the body stays divs rather than a <form>: a real form element would
+   * make a plain Enter in the catalogue search box submit the task.
+   */
+  const submitRef = useRef<() => void>(() => {})
+  submitRef.current = () => {
+    if (mode !== 'form' || loading || saving) return
+    void (isEdit ? saveEdit() : submit())
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return
+      event.preventDefault()
+      submitRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen])
+
+  /*
+   * Read once on mount, never during render, so server and client markup agree
+   * before hydration — and deferred so the read lands after this render rather
+   * than cascading out of the effect body. Same shape as cm-audit.
+   */
+  useEffect(() => {
+    if (!isOpen || editTaskId) return
+    queueMicrotask(() => {
+      try {
+        const raw = window.localStorage.getItem(LAST_USED_KEY)
+        if (raw) setLastUsed(JSON.parse(raw) as LastUsed)
+      } catch {
+        // A blocked or full localStorage must not break the form.
+      }
+    })
+  }, [isOpen, editTaskId])
+
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   const roles = directory[department] ?? []
@@ -481,22 +586,38 @@ export function CreateTaskModal({
    */
   const employees = jobRole && roleEmployees.length > 0 ? roleEmployees : departmentEmployees
   /*
-   * A step is reachable once every step before it is satisfied.
-   *
-   * EDIT MODE MAKES ALL SEVEN REACHABLE. You open an existing task to change
-   * one field, and walking a sequence to reach it would be worse than the flat
-   * form this replaced. There the stepper is navigation, not a gate.
+   * Every person we might have to name, from every list they could be in.
+   * The chips read `departmentEmployees` alone, so once a job role narrowed
+   * the list the selected person was no longer in it and the chip fell back
+   * to rendering a raw numeric id.
    */
-  const reachableStep = useMemo(() => {
-    if (isEdit) return STEPS.length
-    const values = { assignees, departmentId, title, dueDate, priority, observerId }
-    for (const entry of STEPS) {
-      if (whatIsMissing(entry.id, values)) return entry.id
-    }
-    return STEPS.length
-  }, [isEdit, assignees, departmentId, title, dueDate, priority, observerId])
+  const nameById = new Map<string, string>(
+    [...observers, ...departmentEmployees, ...roleEmployees].map((person) => [person.id, person.name]),
+  )
+  /*
+   * What the collapsed capability group says about itself. The mapping is
+   * keyed to a catalogue task, so a custom title has nothing to map yet — and
+   * saying so is more use than a chevron with no hint of what is behind it.
+   */
+  const competencySummary = titleSource === 'catalogue' && selectedTaskId
+    ? 'Competency mapping'
+    : ''
 
-  const missingHere = whatIsMissing(step, { assignees, departmentId, title, dueDate, priority, observerId })
+  const missing = whatIsMissing({ assignees, departmentId, title, dueDate, priority, observerId })
+  /*
+   * Derived, not stored — so fixing a field clears its red as you type and the
+   * footer's count ticks down, without an effect watching for it.
+   */
+  const errors: Partial<Record<FieldKey, string>> = submitAttempted ? missing : {}
+  const missingCount = Object.keys(missing).length
+
+  /** Send the assigner to the first thing that is missing. */
+  function goToFirstProblem() {
+    const first = FIELD_ORDER.find((key) => missing[key])
+    const node = first ? fieldRefs.current[first] : null
+    node?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    node?.focus?.()
+  }
 
 
   async function chooseJobRole(roleId: string) {
@@ -639,7 +760,7 @@ export function CreateTaskModal({
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setMode('form'); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setRoleBulkSelected([]); setRoleBulkRows({})
-    setStep(1)
+    setSubmitAttempted(false)
     setTitleSource('catalogue'); setSaveToLibrary(false)
     setProjectId(''); setWorkstreams([]); setWorkstreamId(''); setProjectTasks([])
     setDependsOn([]); setDependencyType('FS'); setLagDays('0')
@@ -719,14 +840,16 @@ export function CreateTaskModal({
        * THE SAME GATE AS BEFORE — then take the person to the problem.
        *
        * The condition is unchanged, so nothing that used to save still saves.
-       * What is new is that a wizard can hide the offending field several steps
-       * back, and an error message about a field you cannot see is not an
-       * error message. The first failing step becomes the visible one.
+       * What is new is where the complaint goes. Every one of these fields is
+       * on screen already, so the form marks them and scrolls to the first —
+       * there is no longer anywhere for a required field to hide.
        */
-      const values = { assignees, departmentId, title, dueDate, priority, observerId }
-      const firstBad = STEPS.find((entry) => whatIsMissing(entry.id, values))
-      if (firstBad) setStep(firstBad.id)
-      setError('Select employees or a department, then enter task title, observer, priority, and repeat-until date.')
+      /* There are no steps to send anyone to any more, so the form marks the
+         offending fields and scrolls to the first of them. The banner counts;
+         the fields themselves say what is wrong. */
+      setSubmitAttempted(true)
+      setError('')
+      goToFirstProblem()
       return
     }
     if (attachment && attachment.size > 5 * 1024 * 1024) { setError('Attachment must be 5 MB or smaller.'); return }
@@ -759,6 +882,15 @@ export function CreateTaskModal({
       if (response.status_code !== undefined && Number(response.status_code) !== 1) throw new Error(response.message || 'Task creation failed.')
       // A replay means the first attempt already notified and fired the
       // webhook, so doing it again would double-notify the assignee.
+      // Remember the team, now that we know the assignment took.
+      try {
+        const roleName = roles.find((role) => role.id === jobRole)?.name
+        if (department && jobRole && roleName) {
+          window.localStorage.setItem(LAST_USED_KEY, JSON.stringify({ department, jobRoleId: jobRole, jobRoleName: roleName }))
+        }
+      } catch {
+        // Remembering is a convenience; failing to remember is not an error.
+      }
       if (!response.replayed) {
         await notifyAssignedUsers(assignees)
         void sendAssignmentWebhook(response.task_id ?? response.taskId ?? response.id ?? response.data?.task_id ?? response.data?.taskId ?? response.data?.id)
@@ -778,7 +910,11 @@ export function CreateTaskModal({
        * A multi-assignee submission explodes into one row per person, so the
        * FIRST id is the representative one.
        */
-      const createdId = (response as { task_id?: string | number | null }).task_id
+      // `task_ids[0]` is the fallback because it is what the project linking a
+      // few lines above already trusts. Reading only `task_id` meant that when
+      // the server returned the list and not the scalar, a promoted backlog
+      // item stayed OPEN even though its task existed.
+      const createdId = (response as { task_id?: string | number | null }).task_id ?? createdIds[0]
       if (createdId) onCreatedTaskId?.(String(createdId))
 
       onCreated?.(followUp ? `${response.message} ${followUp}` : response.message); close()
@@ -1003,7 +1139,7 @@ export function CreateTaskModal({
 
   return <Sheet open={isOpen} onOpenChange={(open) => !open && close()}><SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-[1100px]">
     <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{mode === 'roleBulk' ? 'Bulk Task Assignment' : mode === 'csv' ? 'Import Tasks' : isEdit ? 'Edit Task' : 'New Assignment'}</SheetTitle><SheetDescription>{mode === 'roleBulk' ? 'Select and configure tasks for the chosen employee' : mode === 'csv' ? 'Create many tasks at once from a spreadsheet' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</SheetDescription></div>{mode === 'form' && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => setMode('csv')}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
-    <div className="flex-1 space-y-4 overflow-y-auto p-6">
+    <div className="@container/form g2g-scrollbar flex-1 space-y-4 overflow-y-auto p-6">
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
     {mode === 'roleBulk' ? (
       <BulkRoleTaskPanel
@@ -1030,22 +1166,14 @@ export function CreateTaskModal({
     ) : (<>
     {loading ? <div className="p-12 text-center">{isEdit ? 'Loading this task…' : 'Loading assignment options…'}</div> : <div className="flex flex-col gap-4">
 
-      {/* THE STEPPER. A completed step is a link back to it; in edit mode
-          every step counts as complete, so this becomes a navigation bar
-          rather than a sequence — you open an existing task to change one
-          field, not to walk seven screens. */}
-      {/* WHAT YOU ARE ACTUALLY ASSIGNING. Above the stepper because it is
-          context for the whole wizard, not for one step of it. Edit mode only:
-          on create the task does not exist yet, so there is nothing to resolve. */}
+      {/* WHAT YOU ARE ACTUALLY ASSIGNING. Edit mode only: on create the task
+          does not exist yet, so there is nothing to resolve. */}
       {isEdit && editTaskId && <TaskDutyContext taskId={Number(editTaskId)} />}
 
-      <Stepper step={step} reachable={reachableStep} onGo={setStep} isEdit={isEdit} />
-
-      {step === 1 && (
-      <Section number={1} title="Who it is for" icon={Users} hint="Department narrows the people; the role narrows the work.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+      <SectionGroup label="Assign to" hint="Department narrows the people; the role narrows the work.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
       <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
-      <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
+      <Field label="Job Role"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
       {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
           the role narrows the work, and the person is settled before the task so
           the catalogue list on screen is the one actually being assigned.
@@ -1054,7 +1182,29 @@ export function CreateTaskModal({
           TASK_ALLOCATED_TO and the backend already accepted it - the only thing
           missing was a way to pick more than one. Add one at a time; remove with
           the chip. No new primitive: the same Select, plus chips. */}
-      <Field label="Assign To *">
+      {/*
+        * A CHIP, NOT A SILENT PREFILL — and the condition is the whole reason.
+        *
+        * It only appears while the form is empty, so there is nothing for the
+        * department cascade to wipe, and clicking it runs exactly what a real
+        * click runs. A silent prefill would have to fire an async role lookup
+        * at open time, racing the directory load, the backlog seed and the
+        * edit prefill; and when it guessed wrong you would change it and watch
+        * the cascade blank the title and people you had already filled in.
+        */}
+      {!isEdit && !department && lastUsed && directory[lastUsed.department]?.some((role) => role.id === lastUsed.jobRoleId) && (
+        <div className="@2xl/form:col-span-12">
+          <button
+            type="button"
+            onClick={() => { setDepartment(lastUsed.department); void chooseJobRole(lastUsed.jobRoleId) }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <History className="size-3.5" />
+            Last used: {lastUsed.department} · {lastUsed.jobRoleName}
+          </button>
+        </div>
+      )}
+      <Field label="Assign To *" error={errors.people} fieldRef={(node) => { fieldRefs.current.people = node }}>
         {/* Say which list this is. A picker that silently changes what it
             contains when you touch the field above it is a picker people stop
             trusting — and the fallback case has to be visible too, or "we
@@ -1093,21 +1243,68 @@ export function CreateTaskModal({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {assignees.map((id) => (
               <span key={id} className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs">
-                {departmentEmployees.find((employee) => employee.id === id)?.name ?? id}
+                {nameById.get(id) ?? id}
                 <button type="button" aria-label="Remove assignee" onClick={() => void chooseAssignees(assignees.filter((other) => other !== id))} className="text-muted-foreground transition hover:text-destructive">&times;</button>
               </span>
             ))}
           </div>
         )}
       </Field>
+      {/* THE OBSERVER BELONGS BESIDE THE PEOPLE, not two groups away.
+          It is one of the five fields a task cannot be saved without, so it
+          has to be visible without expanding anything — and it is filled in
+          automatically from the assignee's supervisor, which is worth seeing
+          happen. Off-screen, that help looked like nothing happening. */}
+      <Field label="Observer *" span={4} error={errors.observerId} fieldRef={(node) => { fieldRefs.current.observerId = node }}>
+        <Select
+          value={observerId}
+          onChange={(value) => {
+            // A deliberate choice. From here the supervisor lookup suggests
+            // but no longer overwrites.
+            observerTouched.current = true
+            setObserverId(value)
+            setObserverName(observers.find((item) => item.id === value)?.name ?? '')
+          }}
+          options={observers.map((item) => ({ value: item.id, label: item.name }))}
+          /* `observers` is loaded when the drawer opens, not per assignee, so
+             gating this on having an assignee only hid a list that was already
+             there — and made department-only assignment, which the submit gate
+             allows, impossible to complete. */
+          disabled={observerLoading}
+          placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'}
+        />
+        {supervisorGap && <p className="mt-1.5 text-xs text-muted-foreground">{supervisorGap}</p>}
+      </Field>
         </div>
-      </Section>
-      )}
+      </SectionGroup>
 
-      {step === 2 && (
-      <Section number={2} title="What the task is" icon={ClipboardList} hint="A standard duty of the role, or one-off work no catalogue entry covers.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
-       <Field label="Task Title *">
+      {/*
+        * AUTOFILL IS FOR ANY TITLE, NOT ONLY A CATALOGUE ONE.
+        *
+        * It used to be a small icon inside the catalogue picker, disabled
+        * until a catalogue task was chosen — so the branch that needs it most
+        * could never reach it. `generateDetails()` only ever required a title:
+        * it fills the description, the repeat interval, the due date, the
+        * monitoring points, the KRA, the KPI and the priority, which is the
+        * largest single saving available in this form.
+        */}
+      <SectionGroup
+        label="The task"
+        hint="A standard duty of the role, or one-off work no catalogue entry covers."
+      >
+        <div className="-mt-9 mb-2 flex justify-end">
+          <Button
+            type="button" variant="outline" size="sm"
+            onClick={() => void generateDetails()}
+            disabled={generating || !title.trim()}
+            title={title.trim() ? 'Fill the rest in from the title' : 'Enter a title first'}
+          >
+            <Sparkles className={cn('mr-1.5 size-3.5 text-warning', generating && 'animate-pulse')} />
+            {generating ? 'Filling in…' : 'Autofill details'}
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
+       <Field label="Task Title *" span={12} error={errors.title} fieldRef={(node) => { fieldRefs.current.title = node }}>
        {/* Catalogue work is a standard duty of the role; custom work comes from
            a requirement no catalogue entry covers. Both end up as the same task
            - only where the title comes from differs. */}
@@ -1126,19 +1323,17 @@ export function CreateTaskModal({
                Also save to the Job Role Task library{!jobRole && ' (select a job role first)'}
              </label>}
            </div>
-         : <div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No catalogue tasks — use Custom task'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
+         : <div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No catalogue tasks — use Custom task'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div></div>
          {!taskTitlesLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} task(s)</div>}
          {taskDropdownOpen && employeeTasks.length > 0 && <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-[460px] max-w-[calc(100vw-3rem)] overflow-y-auto rounded-xl border bg-popover p-2 shadow-xl">{employeeTasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase())).map((task) => <button key={task.value} type="button" onClick={() => { const jobRoleTask = jobRoleTasks.find((t) => t.id === task.value); setSelectedTaskId(task.value); setTitle(task.label); setTaskSearch(task.label); setDescription(jobRoleTask?.task_description ?? ''); setTaskDropdownOpen(false) }} className={cn('block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted', selectedTaskId === task.value && 'bg-primary/10 text-primary')}>{task.label}</button>)}</div>}
          {!taskTitlesLoading && jobRole && !employeeTasks.length && <p className="mt-1.5 text-xs text-muted-foreground">This job role has no catalogue tasks yet — switch to “Custom task”.</p>}
        </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
         </div>
-      </Section>
-      )}
+      </SectionGroup>
 
-      {step === 3 && (
-      <Section number={3} title="When and how urgent" icon={CalendarClock} hint="How often it repeats, when it is due, and how it ranks against other work.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+      <SectionGroup label="Schedule" hint="How often it repeats, when it is due, and how it ranks against other work.">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
       {/* RECURRENCE IS A CREATE-TIME INSTRUCTION, NOT A FIELD ON A TASK.
           "Repeat once in every N days" is how many rows to write, and the rows
           are already written. Showing it on an edit form would imply a saved
@@ -1149,15 +1344,39 @@ export function CreateTaskModal({
           until; on a saved row it is simply that row's due date. No `min` in
           edit mode - an existing task's due date is often already in the past,
           and a browser that refuses to show it makes the field unusable. */}
-      <Field label={isEdit ? 'Due date *' : 'Repeat until *'} span={4}><Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? undefined : new Date().toISOString().slice(0, 10)} /></Field>
-      <Field label="Task priority *" span={12}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
+      <Field label={isEdit ? 'Due date *' : 'Repeat until *'} span={4} error={errors.dueDate} fieldRef={(node) => { fieldRefs.current.dueDate = node }}>
+        <Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? undefined : new Date().toISOString().slice(0, 10)} />
+        {/* One click instead of the three or four a native date picker costs.
+            A silent default would be faster still, but then the date on the
+            saved task is one nobody chose. */}
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {DUE_DATE_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => setDueDate(preset.resolve())}
+              className="rounded-lg border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-      </Section>
-      )}
+      </Field>
+      <Field label="Task priority *" span={12} error={errors.priority} fieldRef={(node) => { fieldRefs.current.priority = node }}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
+        </div>
+      </SectionGroup>
 
-      {step === 4 && (
-      <Section number={4} title="What it builds" icon={Sparkles} hint="The capability this task develops in whoever does it.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+      <OptionalGroup
+        label="Capability & measurement"
+        summary={[
+          competencySummary,
+          kra.trim() ? 'KRA set' : '',
+          kpa.trim() ? 'KPI set' : '',
+          observation.trim() ? 'monitoring points' : '',
+        ].filter(Boolean).join(' · ') || 'What it builds, and what good looks like'}
+        defaultOpen={isEdit && Boolean(kra.trim() || kpa.trim() || observation.trim())}
+      >
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
       {/* WHAT THIS TASK BUILDS — the competency mapping, at the moment of
           judgement rather than on a matrix screen nobody opens.
           Editable because the mapping is PER-TENANT: jobrole_task_competency_map
@@ -1192,43 +1411,18 @@ export function CreateTaskModal({
           />
         )}
       </Field>
-        </div>
-      </Section>
-      )}
-
-      {step === 5 && (
-      <Section number={5} title="How it is measured" icon={Target} hint="Who checks it, and what good looks like.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
-      <Field label="Observer *" span={4}>
-        <Select
-          value={observerId}
-          onChange={(value) => {
-            // A deliberate choice. From here the supervisor lookup suggests
-            // but no longer overwrites.
-            observerTouched.current = true
-            setObserverId(value)
-            setObserverName(observers.find((item) => item.id === value)?.name ?? '')
-          }}
-          options={observers.map((item) => ({ value: item.id, label: item.name }))}
-          /* `observers` is loaded when the drawer opens, not per assignee, so
-             gating this on having an assignee only hid a list that was already
-             there — and made department-only assignment, which the submit gate
-             allows, impossible to complete. */
-          disabled={observerLoading}
-          placeholder={observerLoading ? 'Loading supervisor…' : 'Select Observer'}
-        />
-        {supervisorGap && <p className="mt-1.5 text-xs text-muted-foreground">{supervisorGap}</p>}
-      </Field>
       <Field label="Key Result Areas (KRAs)" span={4}><Input value={kra} onChange={setKra} /></Field>
       <Field label="Performance Indicators (KPIs)" span={4}><Input value={kpa} onChange={setKpa} /></Field>
       <Field label="Monitoring Points" span={4}><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Add monitoring points.." className="min-h-[46px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
         </div>
-      </Section>
-      )}
+      </OptionalGroup>
 
-      {step === 6 && (
-      <Section number={6} title="Reference material" icon={Paperclip} hint="The file for the task, plus anything the person needs to do it.">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+      <OptionalGroup
+        label="Reference material"
+        summary={attachment?.name ?? original?.attachment?.name ?? 'No file attached'}
+        defaultOpen={isEdit && Boolean(original?.attachment?.name)}
+      >
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
       <Field label="Attachment" span={4}>{isEdit && original?.attachment?.name && !attachment && <p className="mb-1.5 text-[11px] text-muted-foreground">Currently: <span className="font-medium text-foreground">{original.attachment.name}</span> — choosing a file replaces it, keeping this one as an earlier version.</p>}<div className="flex items-center gap-2"><label className="flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm"><Paperclip className="size-4" />{attachment?.name ?? 'Select File'}<input ref={attachmentRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" onChange={(event) => selectAttachment(event.target.files?.[0] ?? null)} /></label>{attachment && <><a href={previewUrl ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a><button type="button" aria-label="Remove attachment" onClick={() => { selectAttachment(null); if (attachmentRef.current) attachmentRef.current.value = '' }}><X className="size-4 text-destructive" /></button></>}</div><p className="mt-1 text-[10px] text-muted-foreground">Supports: JPG, PNG, PDF, DOCX (Max 5MB)</p></Field>
           {/* DOCUMENTS ARE NOT THE ATTACHMENT.
               The attachment above is the work — a spec, a deliverable, the
@@ -1239,11 +1433,16 @@ export function CreateTaskModal({
             <TaskDocumentsPanel taskId={editTaskId ? Number(editTaskId) : null} />
           </Field>
         </div>
-      </Section>
-      )}
+      </OptionalGroup>
 
-      {step === 7 && (
-      <Section number={7} title="Project delivery" icon={GitBranch} hint="Optional. Routine role work belongs to nobody's project.">
+      <OptionalGroup
+        label="Project delivery"
+        summary={projects.find((item) => String(item.id) === String(projectId))?.name ?? 'Not part of a project'}
+        /* A promoted backlog item arrives with its project already chosen.
+           Leaving that collapsed would hide the one thing the promotion
+           carried across. */
+        defaultOpen={Boolean(projectId)}
+      >
       {/* Project delivery. Optional: routine role work belongs to nobody's
           project. A dependency is only legal between two tasks in the same
           project, so the predecessor list stays empty until one is chosen. */}
@@ -1252,7 +1451,7 @@ export function CreateTaskModal({
           <h3 className="text-sm font-semibold">Project delivery <span className="font-normal text-muted-foreground">(optional)</span></h3>
           <p className="text-xs text-muted-foreground">Link this task to a project so it appears on the project board and can wait on other tasks.</p>
         </div>
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
           <Field label="Project" span={4}>
             {/* Two lines, and searchable on both. The code and the manager were
                 already loaded — they were being squashed into one label, so a
@@ -1287,8 +1486,7 @@ export function CreateTaskModal({
           </Field>
         </div>
       </div>
-      </Section>
-      )}
+      </OptionalGroup>
     </div>}
     </>)}
     </div>
@@ -1326,52 +1524,43 @@ export function CreateTaskModal({
 
     {mode === 'form' && (
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-background p-4">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={close}>Cancel</Button>
-          {step > 1 && (
-            <Button variant="outline" onClick={() => setStep(step - 1)} disabled={saving}>
-              <ChevronLeft className="mr-1 size-4" /> Back
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" onClick={close}>Cancel</Button>
 
         <div className="flex items-center gap-3">
-          {/* WHAT IS MISSING, NEXT TO THE BUTTON THAT IS DISABLED BY IT.
-              An error at the top of a scrolling panel is an error nobody reads. */}
-          {missingHere && !isEdit && (
-            <span className="text-xs text-muted-foreground">{missingHere}</span>
+          {/* A COUNT, NOT A LECTURE. What each field needs is written under
+              that field; repeating all five here would just be the banner
+              again, further from the controls it talks about. */}
+          {submitAttempted && missingCount > 0 && (
+            <button
+              type="button"
+              onClick={goToFirstProblem}
+              className="text-xs text-destructive underline-offset-2 hover:underline"
+            >
+              <span className="tabular-nums">{missingCount}</span> field{missingCount === 1 ? '' : 's'} still needed
+            </button>
           )}
 
-          {step < STEPS.length ? (
-            <>
-              {/* SAVING IS ALWAYS AVAILABLE ONCE THE TASK IS VALID — the last
-                  three steps are optional, and forcing someone through them to
-                  save a complete task would be the wizard getting in the way. */}
-              {isEdit && (
-                <Button variant="outline" onClick={() => void saveEdit()} disabled={loading || saving}>
-                  {saving ? 'Saving…' : 'Save changes'}
-                </Button>
-              )}
-              <Button
-                className="rounded-full px-6"
-                onClick={() => setStep(step + 1)}
-                disabled={Boolean(missingHere) && !isEdit}
-              >
-                Next <ChevronRight className="ml-1 size-4" />
-              </Button>
-            </>
-          ) : (
-            <Button
-              className="rounded-full px-8"
-              onClick={() => void (isEdit ? saveEdit() : submit())}
-              disabled={loading || saving}
-            >
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Submit'}
-            </Button>
-          )}
+          {/*
+            NEVER DISABLED BY VALIDATION — only while it is busy.
+            The wizard's Next was disabled by whatever was missing and would
+            not say what, which is what made it feel like a wall. A button you
+            can always press, which then tells you what is wrong and takes you
+            to it, is strictly kinder. It also removes the old trap where a
+            task valid since step three still had to be walked to step seven
+            before a Submit button existed at all.
+          */}
+          <Button
+            className="rounded-full px-8"
+            onClick={() => void (isEdit ? saveEdit() : submit())}
+            disabled={loading || saving}
+          >
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Assign task'}
+            <span className="ml-2 text-[10px] opacity-70 tabular-nums" aria-hidden="true">Ctrl+&crarr;</span>
+          </Button>
         </div>
       </div>
     )}
+  
   </SheetContent></Sheet>
 }
 
@@ -1382,112 +1571,85 @@ export function CreateTaskModal({
  * carry a trailing separator. All three have to read back as the same list.
  */
 
-/**
- * The step rail.
- *
- * A completed step is a link back to it — people revise, and a wizard that only
- * goes forwards makes them cancel and start again. A step that is not yet
- * reachable is dimmed and inert rather than hidden, so the whole shape of the
- * task is visible from the first screen.
- *
- * Shape follows `ag-create-agent`'s stepper so the two wizards in this product
- * behave identically.
- */
-function Stepper({ step, reachable, onGo, isEdit }: {
-  step: number
-  reachable: number
-  onGo: (step: number) => void
-  isEdit: boolean
-}) {
-  return (
-    <ol className="flex flex-wrap gap-1.5" aria-label="Assignment steps">
-      {STEPS.map((entry) => {
-        const active = step === entry.id
-        // In edit mode every step is open, so "done" means reachable, not passed.
-        const done = !active && entry.id <= reachable
-        const locked = entry.id > reachable
 
-        return (
-          <li key={entry.id} className="min-w-[7.5rem] flex-1">
-            <button
-              type="button"
-              onClick={() => !locked && onGo(entry.id)}
-              disabled={locked}
-              aria-current={active ? 'step' : undefined}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
-                active && 'border-primary bg-primary/5',
-                done && 'cursor-pointer border-border hover:bg-accent',
-                locked && 'cursor-not-allowed border-border opacity-50',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums',
-                  active && 'bg-primary text-primary-foreground',
-                  done && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-                  locked && 'bg-muted text-muted-foreground',
-                )}
-              >
-                {/* Only a genuinely PASSED step gets a tick. In edit mode nothing
-                    has been passed, so the number stays — a tick would claim the
-                    person had reviewed a step they have not opened. */}
-                {done && !isEdit ? <Check className="size-3" aria-hidden="true" /> : entry.id}
-              </span>
-              <span className="min-w-0">
-                <span className={cn('block truncate text-xs font-semibold', active ? 'text-primary' : 'text-foreground')}>
-                  {entry.name}
-                </span>
-                <span className="block truncate text-[10px] text-muted-foreground">{entry.description}</span>
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
+
+/*
+ * Spans are keyed to @2xl/form, NOT to `md:`. The viewport is the wrong ruler
+ * in this shell: the nav is 260px and the agent panel another 30rem, so at
+ * 1440px with both open there are ~650px of form while `md:` still matches
+ * and lays out four columns in the space of two. Same rationale, same fix as
+ * project-detail-view.tsx:342-350.
+ */
+/**
+ * AN OPTIONAL GROUP, COLLAPSED UNTIL IT IS WANTED.
+ *
+ * Everything a task can carry is on one page now, which is only an improvement
+ * if the page does not open as a wall. The five fields every task needs are
+ * always visible; these hold the ones most tasks leave alone.
+ *
+ * THE SUMMARY LINE IS THE POINT. A collapsed group that only says "Project
+ * delivery" makes you open it to find out whether anything is in there. One
+ * that says "Not part of a project" has already answered the question.
+ *
+ * MOUNTED ONCE, THEN HIDDEN — never unmounted. The competency and documents
+ * panels fetch when they mount; under the wizard they mounted once, on
+ * reaching their step. Unmounting on collapse would turn every toggle into
+ * another round of requests.
+ */
+function OptionalGroup({ label, summary, defaultOpen = false, children }: {
+  label: string
+  summary: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const [everOpened, setEverOpened] = useState(defaultOpen)
+  return (
+    <section className="rounded-xl border border-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => { setOpen((value) => !value); setEverOpened(true) }}
+        className="flex w-full items-center justify-between gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">{label}</span>
+          <span className="block truncate text-xs text-muted-foreground">{summary}</span>
+        </span>
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+      {everOpened && (
+        <div className={cn('border-t border-border p-4', !open && 'hidden')}>{children}</div>
+      )}
+    </section>
   )
 }
 
-/**
- * A numbered section of the form.
- *
- * The form was 20 fields in one flat 12-column grid — every control equally
- * prominent, and no signal that Department must be answered before Job Role can
- * be. Numbering earns its place here because the sections ARE a sequence: each
- * one gates the next, and the cascade resets downstream fields when you change
- * an upstream one.
- *
- * Shape copied from the assessment generator's `Step` so the two screens read
- * as one product.
- */
-function Section({ title, icon: Icon, hint, children }: {
-  /** Accepted and unused: the stepper renders the number now. */
-  number?: number
-  title: string
-  icon: typeof Users
-  hint: string
+function Field({ label, span = 3, error, fieldRef, children }: {
+  label: string
+  span?: number
+  /** Shown under the control, and only after a submit has been attempted. */
+  error?: string
+  /** How `submit()` reaches this field to scroll to it. */
+  fieldRef?: (node: HTMLElement | null) => void
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-border p-4">
-      {/* NO NUMBER BADGE HERE ANY MORE. The stepper above already says which
-          step this is, and repeating it two inches lower is noise. `number` is
-          kept on the props because it is what the step guard matches on. */}
-      <div className="mb-3 flex items-start gap-2.5">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-            {title}
-          </p>
-          <p className="text-xs text-muted-foreground">{hint}</p>
-        </div>
-      </div>
+    <label
+      ref={fieldRef}
+      /* -scroll-mt keeps the sticky header from covering the field we just
+         scrolled to. */
+      className={cn(
+        'scroll-mt-24',
+        span === 12 ? '@2xl/form:col-span-12' : span === 8 ? '@2xl/form:col-span-8' : span === 4 ? '@2xl/form:col-span-4' : '@2xl/form:col-span-3',
+      )}
+    >
+      <span className="mb-1.5 block text-xs font-medium">{label}</span>
       {children}
-    </div>
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+    </label>
   )
 }
-
-function Field({ label, span = 3, children }: { label: string; span?: number; children: React.ReactNode }) { return <label className={span === 12 ? 'md:col-span-12' : span === 8 ? 'md:col-span-8' : span === 4 ? 'md:col-span-4' : 'md:col-span-3'}><span className="mb-1.5 block text-xs font-medium">{label}</span>{children}</label> }
 function Input({ value, onChange, type = 'text', min, disabled }: { value: string; onChange: (value: string) => void; type?: string; min?: string; disabled?: boolean }) { return <input type={type} min={min} disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm disabled:bg-muted" /> }
 /**
  * A checkbox list with a filter once it is long enough to need one.
