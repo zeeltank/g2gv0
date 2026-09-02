@@ -811,6 +811,22 @@ function groupByWorkstream(tasks: NonNullable<ProjectRecord['tasks']>) {
  * due at a negative offset. Same guard the dependency timeline uses, including
  * the minimum span so a single-day project does not divide by zero.
  */
+/**
+ * The workstreams against the calendar.
+ *
+ * ── WHY IT LOOKED BROKEN ────────────────────────────────────────────────────
+ *
+ * It drew bars and nothing else — no axis, no dates, no today marker. So even
+ * when the dates differ there is no way to tell what a bar means; and on the
+ * customer's own project all four workstreams carry the project's window
+ * verbatim (2026-07-13 → 2026-09-05, copied on create), which made every bar
+ * span the full width. Four identical rectangles is not a chart.
+ *
+ * Two changes: the chart now says what it is measuring (month ticks, a today
+ * line, each row's own dates), and when every workstream really does share the
+ * project window it SAYS so rather than drawing four identical bars and
+ * leaving the reader to wonder what they are looking at.
+ */
 function WorkstreamTimeline({
   workstreams, project, onOpen,
 }: {
@@ -819,30 +835,84 @@ function WorkstreamTimeline({
   onOpen: (id: string) => void
 }) {
   const dated = workstreams.filter((w) => w.start_date || w.due_date)
+  const undated = workstreams.length - dated.length
 
   if (dated.length === 0) {
     return <p className="text-sm text-muted-foreground">No workstream has dates set yet.</p>
   }
 
+  const at = (d: string | null | undefined) => {
+    if (!d) return NaN
+    return new Date(`${d}T00:00:00`).getTime()
+  }
+
   const stamps = [
     ...dated.flatMap((w) => [w.start_date, w.due_date]),
     project.start_date, project.due_date,
-  ].filter(Boolean).map((d) => new Date(`${d}T00:00:00`).getTime()).filter((n) => !Number.isNaN(n))
+  ].map(at).filter((n) => !Number.isNaN(n))
 
   const min = Math.min(...stamps)
   const span = Math.max(Math.max(...stamps) - min, 6 * 86400000)
   const pct = (value: string | null) => {
-    if (!value) return null
-    const time = new Date(`${value}T00:00:00`).getTime()
+    const time = at(value)
     if (Number.isNaN(time)) return null
     return Math.min(100, Math.max(0, ((time - min) / span) * 100))
   }
 
+  /* Every workstream sharing the project's exact window means nobody has set
+     its own dates — the create form copies the project's. Saying that is more
+     use than four bars of identical length. */
+  const allShareProjectWindow = dated.length > 1
+    && dated.every((w) => w.start_date === project.start_date && w.due_date === project.due_date)
+
+  // Month boundaries inside the window, so the bars sit against something.
+  const ticks: Array<{ at: number; label: string }> = []
+  const cursor = new Date(min)
+  cursor.setDate(1)
+  cursor.setMonth(cursor.getMonth() + 1)
+  while (cursor.getTime() < min + span) {
+    ticks.push({
+      at: ((cursor.getTime() - min) / span) * 100,
+      label: cursor.toLocaleDateString(undefined, { month: 'short' }),
+    })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+
+  const todayPct = pct(new Date().toISOString().slice(0, 10))
+  const short = (d: string | null) =>
+    d ? new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—'
+
   return (
     <div className="space-y-2">
+      {allShareProjectWindow && (
+        <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          Every workstream is still using the project&apos;s dates
+          ({short(project.start_date)} – {short(project.due_date)}), so the bars below are identical.
+          Give a workstream its own start and target date to see it separately.
+        </p>
+      )}
+
+      {/* the axis — month ticks the bars can be read against */}
+      <div className="flex items-center gap-3">
+        <span className="w-40 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {short(project.start_date)}
+        </span>
+        <div className="relative h-4 flex-1">
+          {ticks.map((t) => (
+            <span key={t.label + t.at} className="absolute top-0 text-[10px] text-muted-foreground"
+              style={{ left: `${t.at}%`, transform: 'translateX(-50%)' }}>
+              {t.label}
+            </span>
+          ))}
+        </div>
+        <span className="w-20 shrink-0 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {short(project.due_date)}
+        </span>
+      </div>
+
       {dated.map((w) => {
-        const start = pct(w.start_date)
-        const end = pct(w.due_date)
+        const s = pct(w.start_date)
+        const e = pct(w.due_date)
 
         return (
           <div key={w.id} className="flex items-center gap-3">
@@ -851,26 +921,39 @@ function WorkstreamTimeline({
               {w.name}
             </button>
             <div className="relative h-6 flex-1 rounded bg-muted/40">
-              {start !== null && end !== null ? (
+              {/* month gridlines, behind the bar */}
+              {ticks.map((t) => (
+                <span key={`g${t.at}`} className="absolute inset-y-0 w-px bg-border" style={{ left: `${t.at}%` }} aria-hidden="true" />
+              ))}
+              {todayPct !== null && (
+                <span className="absolute inset-y-0 z-10 w-0.5 bg-destructive/70" style={{ left: `${todayPct}%` }}
+                  title="Today" aria-hidden="true" />
+              )}
+              {s !== null && e !== null ? (
                 <span className="absolute inset-y-1 rounded bg-primary/70"
-                  style={{ left: `${start}%`, width: `${Math.max(end - start, 1)}%` }}
+                  style={{ left: `${s}%`, width: `${Math.max(e - s, 1)}%` }}
                   title={`${w.start_date} → ${w.due_date}`} />
               ) : (
                 // No span to draw: a point marker on whichever date exists,
                 // rather than inventing a start or an end.
                 <span className="absolute top-1/2 size-2.5 -translate-y-1/2 rotate-45 bg-primary"
-                  style={{ left: `${start ?? end ?? 0}%` }}
+                  style={{ left: `${s ?? e ?? 0}%` }}
                   title={w.start_date ?? w.due_date ?? ''} />
               )}
             </div>
+            {/* the dates, in words — the chart had none anywhere */}
+            <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+              {short(w.start_date)} – {short(w.due_date)}
+            </span>
           </div>
         )
       })}
-      <p className="pt-1 text-xs text-muted-foreground">
-        {workstreams.length - dated.length > 0
-          ? `${workstreams.length - dated.length} workstream(s) have no dates set and are not shown.`
-          : 'All workstreams have dates.'}
-      </p>
+
+      {undated > 0 && (
+        <p className="pt-1 text-xs text-muted-foreground">
+          {undated} workstream{undated === 1 ? '' : 's'} ha{undated === 1 ? 's' : 've'} no dates set and {undated === 1 ? 'is' : 'are'} not shown.
+        </p>
+      )}
     </div>
   )
 }
