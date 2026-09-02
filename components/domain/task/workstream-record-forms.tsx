@@ -17,7 +17,7 @@
  * simply doing nothing.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -144,10 +144,32 @@ export function StatementListEditor({
   const rows = draft ?? statements.map((s) => s.body)
   const dirty = draft !== null
 
+  /*
+   * ── THIS EFFECT MUST NOT DEPEND ON THE CALLBACK ────────────────────────
+   *
+   * It used to list `onDirtyChange` in its deps, which produced an infinite
+   * render loop and crashed the pane on the first keystroke:
+   *
+   *   parent renders -> passes a NEW callback identity
+   *     -> deps changed -> cleanup fires onDirtyChange(false)
+   *     -> setup fires onDirtyChange(true)
+   *     -> parent state object is replaced twice, so it re-renders
+   *     -> new callback identity again -> repeat, until React throws
+   *        "Maximum update depth exceeded".
+   *
+   * A ref holding the latest callback breaks the cycle at this end, so the
+   * effect runs only when `dirty` actually changes. Fixing it here rather
+   * than by memoising in the parent is deliberate: this component cannot
+   * police how four different call sites pass their props, and the next
+   * caller to forget would reintroduce the same crash.
+   */
+  const dirtyReporter = useRef(onDirtyChange)
+  dirtyReporter.current = onDirtyChange
+
   useEffect(() => {
-    onDirtyChange?.(dirty)
-    return () => onDirtyChange?.(false)
-  }, [dirty, onDirtyChange])
+    dirtyReporter.current?.(dirty)
+    return () => dirtyReporter.current?.(false)
+  }, [dirty])
 
   const mutate = (next: string[]) => { setDraft(next); setError('') }
 
@@ -305,10 +327,32 @@ export function ContributorsEditor({
   }))
   const dirty = draft !== null
 
+  /*
+   * ── THIS EFFECT MUST NOT DEPEND ON THE CALLBACK ────────────────────────
+   *
+   * It used to list `onDirtyChange` in its deps, which produced an infinite
+   * render loop and crashed the pane on the first keystroke:
+   *
+   *   parent renders -> passes a NEW callback identity
+   *     -> deps changed -> cleanup fires onDirtyChange(false)
+   *     -> setup fires onDirtyChange(true)
+   *     -> parent state object is replaced twice, so it re-renders
+   *     -> new callback identity again -> repeat, until React throws
+   *        "Maximum update depth exceeded".
+   *
+   * A ref holding the latest callback breaks the cycle at this end, so the
+   * effect runs only when `dirty` actually changes. Fixing it here rather
+   * than by memoising in the parent is deliberate: this component cannot
+   * police how four different call sites pass their props, and the next
+   * caller to forget would reintroduce the same crash.
+   */
+  const dirtyReporter = useRef(onDirtyChange)
+  dirtyReporter.current = onDirtyChange
+
   useEffect(() => {
-    onDirtyChange?.(dirty)
-    return () => onDirtyChange?.(false)
-  }, [dirty, onDirtyChange])
+    dirtyReporter.current?.(dirty)
+    return () => dirtyReporter.current?.(false)
+  }, [dirty])
 
   const available = projectMembers.filter(
     (p) => p.id !== ownerId && !rows.some((r) => r.user_id === p.id),

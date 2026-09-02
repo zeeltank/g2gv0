@@ -28,7 +28,7 @@ import { Tooltip } from '@/components/ui/tooltip'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService, type WorkstreamRecordKind } from '@/services/task'
 import { cn } from '@/lib/utils'
-import { SectionAddButton, SectionGroup } from './section'
+import { EmptySection, SectionAddButton, SectionGroup } from './section'
 import {
   WorkstreamHealthLine, WorkstreamProgress, projectStatusVariant,
 } from './workstream-health'
@@ -310,13 +310,15 @@ export function WorkstreamDetailView({
         </CardContent></Card>
 
         {/* ⑤ Timeline & checkpoints */}
+        {detail.checkpoints.length === 0 ? (
+          <EmptySection title="Timeline" icon={CircleDot} canManage={can}
+            onAdd={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }} />
+        ) : (
         <Card><CardContent className="p-5">
           <SectionHeader title="Timeline" icon={CircleDot}
             action={can && <SectionAddButton label="Add"
               onClick={() => { setDialogError(''); setDialog({ kind: 'checkpoint', record: null }) }} />} />
-          {detail.checkpoints.length === 0 ? (
-            <Empty>No checkpoints yet.</Empty>
-          ) : (
+          {detail.checkpoints.length > 0 && (
             <ol className="space-y-0">
               {detail.checkpoints.map((c, i) => (
                 <li key={c.id} className="flex gap-3">
@@ -342,14 +344,17 @@ export function WorkstreamDetailView({
             </ol>
           )}
         </CardContent></Card>
+        )}
 
         {/* ⑦ Success metrics */}
+        {detail.kpis.length === 0 ? (
+          <EmptySection title="Success metrics" icon={Target} canManage={can}
+            onAdd={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }} />
+        ) : (
         <Card><CardContent className="p-5">
           <SectionHeader title="Success metrics" icon={Target}
             action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'kpi', record: null }) }} />} />
-          {detail.kpis.length === 0 ? (
-            <Empty>No success metrics defined yet.</Empty>
-          ) : (
+          {detail.kpis.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
               {detail.kpis.map((k) => (
                 <div key={k.id} className="rounded-lg bg-muted/30 p-3">
@@ -392,18 +397,21 @@ export function WorkstreamDetailView({
             </div>
           )}
         </CardContent></Card>
+        )}
           </div>
         </SectionGroup>
 
         <SectionGroup label="Watch" hint="What could go wrong, what it waits on, and who is on it">
           <div className="grid gap-5 @3xl/stage:grid-cols-2">
         {/* ⑨ Risks */}
+        {detail.risks.length === 0 ? (
+          <EmptySection title="Risks & mitigations" icon={AlertTriangle} canManage={can}
+            onAdd={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }} />
+        ) : (
         <Card><CardContent className="p-5">
           <SectionHeader title="Risks & mitigations" icon={AlertTriangle}
             action={can && <SectionAddButton label="Add" onClick={() => { setDialogError(''); setDialog({ kind: 'risk', record: null }) }} />} />
-          {detail.risks.length === 0 ? (
-            <Empty>No risks recorded.</Empty>
-          ) : (
+          {detail.risks.length > 0 && (
             <ul className="space-y-3">
               {detail.risks.map((r) => (
                 <li key={r.id} className="rounded-lg bg-muted/30 p-3">
@@ -431,6 +439,7 @@ export function WorkstreamDetailView({
             </ul>
           )}
         </CardContent></Card>
+        )}
 
         {/* ⑥ Dependencies — graph links and external, together */}
         <Card><CardContent className="space-y-4 p-5">
