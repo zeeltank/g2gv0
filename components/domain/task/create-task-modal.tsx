@@ -57,7 +57,6 @@ interface Props {
 }
 interface Employee { id: string; name: string; departmentId?: string }
 interface JobRole { id: string; name: string; departmentId?: string; employees: Employee[] }
-interface Skill { id: string; name: string }
 interface EmployeeTaskOption { value: string; label: string }
 type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
 
@@ -83,7 +82,7 @@ const STEPS: Array<{ id: number; name: string; description: string; icon: typeof
   { id: 1, name: 'Who it is for', description: 'Department, role, people', icon: Users },
   { id: 2, name: 'The task', description: 'Title and description', icon: ClipboardList },
   { id: 3, name: 'When', description: 'Repeat, due date, priority', icon: CalendarClock },
-  { id: 4, name: 'What it builds', description: 'Skills and capability', icon: Sparkles },
+  { id: 4, name: 'What it builds', description: 'The capability it develops', icon: Sparkles },
   { id: 5, name: 'Measurement', description: 'Observer, KRA, KPI', icon: Target },
   { id: 6, name: 'Material', description: 'Attachment and documents', icon: Paperclip },
   { id: 7, name: 'Project', description: 'Optional delivery links', icon: GitBranch },
@@ -200,12 +199,32 @@ export function CreateTaskModal({
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTaskOption[]>([])
   const [employeeTasksLoading, setEmployeeTasksLoading] = useState(false)
-  const [employeeTasksError, setEmployeeTasksError] = useState('')
   const [jobRoleTasks, setJobRoleTasks] = useState<JobRoleTask[]>([])
   const [taskTitlesLoading, setTaskTitlesLoading] = useState(false)
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium')
   const [repeatDays, setRepeatDays] = useState('1'); const [dueDate, setDueDate] = useState('')
-  const [skills, setSkills] = useState<Skill[]>([]); const [skillIds, setSkillIds] = useState<string[]>([])
+  /*
+   * ── THE SAVED TASK'S SKILLS, CARRIED THROUGH AN EDIT UNTOUCHED ────────────
+   *
+   * This form no longer collects skills. Competency replaced them, and the
+   * competency panel below says so itself: task-competency-inline-panel.tsx:52
+   * calls itself «"SKILLS REQUIRED", MADE REAL», and task-competencies-panel
+   * names task.skill_id as the interim hack the competency map was built to
+   * replace. They were never the same vocabulary — skills came from the flat
+   * s_users_skills library, competencies from competency + competency_kasba_item.
+   *
+   * But `updateLegacyTask` is a FULL REPLACE (services/task/index.ts:864-867):
+   * every field it does not receive is written NULL. Sending '' here would
+   * blank required_skills and skill_id on the ~67% of live rows that carry
+   * them — the rows the LMS course-recommendation bridge reads.
+   *
+   * These are REFS, not state: nothing renders them, so nothing should re-render
+   * for them. And they hold the RAW strings, never a split-and-rejoin. The
+   * legacy writer joins with ' , ', older rows with ',', and some carry a
+   * trailing separator; normalising would silently rewrite historical rows on
+   * every unrelated edit. An untouched edit must write these back byte-identical.
+   */
+  const carriedSkillNames = useRef(''); const carriedSkillIds = useRef('')
   const [observerId, setObserverId] = useState(''); const [observerName, setObserverName] = useState('')
   const [observers, setObservers] = useState<Employee[]>([])
   const [observerLoading, setObserverLoading] = useState(false)
@@ -329,15 +348,9 @@ export function CreateTaskModal({
           : [...current, { id: ownerId, name: task.owner || `User ${ownerId}` }])
       }
 
-      // Skills: the row stores names and ids as two parallel comma-joined
-      // strings. Rebuild the option list from them so the current selection is
-      // visible even before the assignee's full skill list arrives.
-      const skillIdList = splitList(task.skill_id)
-      const skillNameList = splitList(task.required_skills)
-      if (skillIdList.length) {
-        setSkills(skillIdList.map((id, index) => ({ id, name: skillNameList[index] ?? id })))
-        setSkillIds(skillIdList)
-      }
+      // The saved skills, carried through an edit untouched. See the refs.
+      carriedSkillNames.current = task.required_skills ?? ''
+      carriedSkillIds.current = task.skill_id ?? ''
 
       // Project, workstream and dependencies.
       if (task.project_id) {
@@ -440,13 +453,11 @@ export function CreateTaskModal({
 
   const missingHere = whatIsMissing(step, { assignees, departmentId, title, dueDate, priority, observerId })
 
-  const selectedSkillNames = useMemo(() => skillIds.map((id) => skills.find((skill) => skill.id === id)?.name).filter((name): name is string => Boolean(name)), [skillIds, skills])
 
   async function chooseJobRole(roleId: string) {
   setJobRole(roleId); setRoleEmployees([]); await chooseAssignees([])
   setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription('')
-  setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError('')
-  if (!roleId) return
+  setTaskSearch(''); setTaskDropdownOpen(false);  if (!roleId) return
 
   /*
    * The people who hold this role. Deliberately NOT awaited alongside the
@@ -498,16 +509,15 @@ export function CreateTaskModal({
   async function chooseAssignees(next: string[]) {
     const taskRequestId = ++employeeTasksRequestRef.current
     const newlySelected = next.find((id) => !assignees.includes(id))
-    setAssignees(next); setSkills([]); setSkillIds([]); setObserverId(''); setObserverName('')
-    setTaskDropdownOpen(false); setEmployeeTasksError('')
-    /*
+    setAssignees(next); setObserverId(''); setObserverName('')
+    setTaskDropdownOpen(false);    /*
      * ON CREATE, picking a person restarts the task choice: the catalogue and
      * the typed title belong to the selection being built.
      *
      * ON EDIT, they belong to a saved task. Clearing them here would mean that
      * reassigning a task silently erased the title and description its author
      * wrote - so the edit keeps them, and only the person-specific parts
-     * (skills, suggested observer) are re-fetched.
+     * (the suggested observer) are re-fetched.
      */
     if (!isEdit) { setSelectedTaskId(''); setTitle(''); setTaskSearch('') }
     // THE CATALOGUE BELONGS TO THE ROLE, NOT THE ASSIGNEE.
@@ -522,17 +532,12 @@ export function CreateTaskModal({
     setObserverLoading(true)
     try {
       const session = readLaravelSession()
-      const [skillResult, supervisorResult, jobRoleTaskResult] = await Promise.all([
-        Promise.resolve(taskService.getUserSkills(context, selectedEmployee)).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
+      const [supervisorResult, jobRoleTaskResult] = await Promise.all([
         Promise.resolve(taskService.getSupervisor(context, selectedEmployee)).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
         Promise.resolve(taskService.getJobRoleTaskSuggestions(context, selectedEmployee, session?.org_type ?? '')).then((value) => ({ status: 'fulfilled' as const, value }), (reason: unknown) => ({ status: 'rejected' as const, reason })),
       ])
-      const skillResponse = skillResult.status === 'fulfilled' ? skillResult.value : { data: [] }
       const supervisorResponse = supervisorResult.status === 'fulfilled' ? supervisorResult.value : null
       const jobRoleTaskResponse = jobRoleTaskResult.status === 'fulfilled' ? jobRoleTaskResult.value : { jobroleTasks: [] }
-      setSkills((skillResponse.data ?? []).map((item) => ({
-        id: String(item.skill_id ?? item.id ?? ''), name: item.skill ?? item.skill_name ?? item.name ?? '',
-      })).filter((item) => item.id && item.name))
       if (supervisorResponse?.data) {
         const supervisor = { id: String(supervisorResponse.data.id), name: supervisorResponse.data.name }
         setObserverId(supervisor.id); setObserverName(supervisor.name)
@@ -554,10 +559,9 @@ export function CreateTaskModal({
 
   function reset() {
     setDepartment(''); setJobRole(''); setRoleEmployees([]); setAssignees([]); setTitle(''); setDescription(''); setPriority('Medium')
-    setRepeatDays('1'); setDueDate(''); setSkills([]); setSkillIds([]); setObserverId(''); setObserverName('')
+    setRepeatDays('1'); setDueDate(''); setObserverId(''); setObserverName('')
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
-    setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false); setEmployeeTasksError('')
-    setJobRoleTasks([]); setTaskTitlesLoading(false)
+    setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false);    setJobRoleTasks([]); setTaskTitlesLoading(false)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null); setShowBulkUpload(false); setBulkFile(null); setBulkSampleDownloaded(false); setBulkResult(null)
     setShowRoleBulk(false); setRoleBulkSelected([]); setRoleBulkRows({})
@@ -568,6 +572,9 @@ export function CreateTaskModal({
     submissionKey.current = ''
     setOriginal(null); setOriginalDependencies([])
     prefilledFor.current = ''
+    // Or the next task edited in this session would inherit the last one's
+    // skills — and, being a full replace, would write them onto its row.
+    carriedSkillNames.current = ''; carriedSkillIds.current = ''
     if (attachmentRef.current) attachmentRef.current.value = ''
   }
   function close() { reset(); onClose() }
@@ -653,7 +660,7 @@ export function CreateTaskModal({
     try {
       const response = await taskService.createLegacyTask(getLaravelContext(), {
         title: title.trim(), description: description.trim(), assigneeIds: assignees, observerId,
-        priority, repeatDays, dueDate, skillIds, skillNames: selectedSkillNames, kra, kpa,
+        priority, repeatDays, dueDate, skillIds: [], skillNames: [], kra, kpa,
         observationPoint: observation, attachment, departmentId,
         /*
          * THE CATALOGUE ROW THIS TASK CAME FROM — the link that lets the
@@ -739,8 +746,8 @@ export function CreateTaskModal({
         assigneeId: assignees[0], observerId,
         priority, dueDate,
         kra, kpa,
-        skillNames: selectedSkillNames.join(','),
-        skillIds: skillIds.join(','),
+        skillNames: carriedSkillNames.current,
+        skillIds: carriedSkillIds.current,
         observationPoint: observation,
       })
 
@@ -850,7 +857,7 @@ export function CreateTaskModal({
           assigned_users: assignees, assigned_by: getLaravelContext().userId,
           department, job_role: roles.find((role) => role.id === jobRole)?.name ?? '',
           observer: observerId, repeat_days: repeatDays, repeat_until: dueDate,
-          skills: skillIds, priority, kras: kra, kpis: kpa,
+          skills: [], priority, kras: kra, kpis: kpa,
           observation_point: observation, created_at: new Date().toISOString(),
         }),
       })
@@ -905,7 +912,7 @@ export function CreateTaskModal({
     try {
       const roleName = roles.find((role) => role.id === jobRole)?.name ?? ''
       const response = await taskService.generateTaskDetails(
-        `${title.trim()} for jobrole ${roleName}. Generate task_description, repeat_once_in_every, repeat_until_date, observation_point, kras, kpis, task_type and skill_required from [${skills.map((skill) => skill.name).join(',')}]. Return one JSON object in an array.`
+        `${title.trim()} for jobrole ${roleName}. Generate task_description, repeat_once_in_every, repeat_until_date, observation_point, kras, kpis and task_type. Return one JSON object in an array.`
       )
       const generated = response[0]
       if (!generated) throw new Error('No task details were generated.')
@@ -915,7 +922,6 @@ export function CreateTaskModal({
       setObservation(generated.observation_point ?? observation)
       setKra(generated.kras ?? kra); setKpa(generated.kpis ?? kpa)
       setPriority(generated.task_type ?? priority)
-      setSkillIds((generated.skill_required ?? []).map((name) => skills.find((skill) => skill.name === name)?.id).filter((id): id is string => Boolean(id)).slice(0, 3))
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to generate task details.') }
     finally { setGenerating(false) }
   }
@@ -966,7 +972,7 @@ export function CreateTaskModal({
       {step === 1 && (
       <Section number={1} title="Who it is for" icon={Users} hint="Department narrows the people; the role narrows the work.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
-      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasksError(''); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
+      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role *"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
       {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
           the role narrows the work, and the person is settled before the task so
@@ -1051,8 +1057,7 @@ export function CreateTaskModal({
          : <div className="relative"><div className="flex items-center gap-1"><div className="relative min-w-0 flex-1"><input value={taskSearch} onChange={(event) => { setTaskSearch(event.target.value); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskDropdownOpen(true) }} onFocus={() => setTaskDropdownOpen(true)} disabled={!jobRole || taskTitlesLoading || !employeeTasks.length} placeholder={taskTitlesLoading ? 'Loading tasks…' : !jobRole ? 'Select a job role first' : employeeTasks.length ? 'Type or select a task' : 'No catalogue tasks — use Custom task'} className="h-10 w-full rounded-lg border bg-background px-3 pr-9 text-sm disabled:cursor-not-allowed disabled:bg-muted" /><button type="button" aria-label="Toggle task titles" onClick={() => setTaskDropdownOpen((open) => !open)} disabled={!employeeTasks.length || taskTitlesLoading} className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground disabled:opacity-50">▾</button></div><button type="button" onClick={() => void generateDetails()} disabled={generating || !selectedTaskId} title="Generate task details with AI" className="text-warning"><Sparkles className={cn('size-5', generating && 'animate-pulse')} /></button></div>
          {!taskTitlesLoading && employeeTasks.length > 0 && <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />{employeeTasks.length} task(s)</div>}
          {taskDropdownOpen && employeeTasks.length > 0 && <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-[460px] max-w-[calc(100vw-3rem)] overflow-y-auto rounded-xl border bg-popover p-2 shadow-xl">{employeeTasks.filter((task) => task.label.toLowerCase().includes(taskSearch.toLowerCase())).map((task) => <button key={task.value} type="button" onClick={() => { const jobRoleTask = jobRoleTasks.find((t) => t.id === task.value); setSelectedTaskId(task.value); setTitle(task.label); setTaskSearch(task.label); setDescription(jobRoleTask?.task_description ?? ''); setTaskDropdownOpen(false) }} className={cn('block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted', selectedTaskId === task.value && 'bg-primary/10 text-primary')}>{task.label}</button>)}</div>}
-         {!taskTitlesLoading && jobRole && !employeeTasks.length && !employeeTasksError && <p className="mt-1.5 text-xs text-muted-foreground">This job role has no catalogue tasks yet — switch to “Custom task”.</p>}
-         {employeeTasksError && <p className="mt-1.5 text-xs text-destructive">{employeeTasksError}</p>}
+         {!taskTitlesLoading && jobRole && !employeeTasks.length && <p className="mt-1.5 text-xs text-muted-foreground">This job role has no catalogue tasks yet — switch to “Custom task”.</p>}
        </div>}</Field>
        <Field label="Task Description" span={4}><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add Task Description.." className="min-h-[62px] w-full rounded-lg border bg-background p-3 text-sm" /></Field>
         </div>
@@ -1079,9 +1084,8 @@ export function CreateTaskModal({
       )}
 
       {step === 4 && (
-      <Section number={4} title="What it builds" icon={Sparkles} hint="The skills it needs and the capability it develops.">
+      <Section number={4} title="What it builds" icon={Sparkles} hint="The capability this task develops in whoever does it.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-12">
-      <Field label="Skills Required" span={4}><Multi items={skills} selected={skillIds} onChange={setSkillIds} /></Field>
       {/* WHAT THIS TASK BUILDS — the competency mapping, at the moment of
           judgement rather than on a matrix screen nobody opens.
           Editable because the mapping is PER-TENANT: jobrole_task_competency_map
@@ -1254,9 +1258,6 @@ export function CreateTaskModal({
  * The legacy writer joins with `' , '`, older rows with a bare `','`, and some
  * carry a trailing separator. All three have to read back as the same list.
  */
-function splitList(value: string | null | undefined): string[] {
-  return String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean)
-}
 
 /**
  * The step rail.
