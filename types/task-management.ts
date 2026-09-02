@@ -416,6 +416,8 @@ export interface WorkstreamListResponse {
   data: {
     workstreams: WorkstreamSummary[]
     links: WorkstreamLink[]
+    /** Dated deliverables and checkpoints, for the schedule. */
+    schedule: ScheduleItem[]
     summary: {
       workstreams: number
       by_state: Partial<Record<WorkstreamHealthState, number>>
@@ -435,6 +437,25 @@ export interface WorkstreamListResponse {
  * project. Such tasks are still offered — hiding them makes a task somebody is
  * searching for simply absent — but the picker says where it currently sits.
  */
+/**
+ * One dated thing on a project — a deliverable's due date or a checkpoint's
+ * target date. Tasks are dated too but arrive on `ProjectRecord.tasks`, so the
+ * schedule joins the two on the client rather than fetching tasks twice.
+ *
+ * Undated rows are NOT here: "no date" is a count the UI shows as a prompt,
+ * not a row it can place on a schedule.
+ */
+export interface ScheduleItem {
+  id: string
+  kind: 'DELIVERABLE' | 'CHECKPOINT'
+  title: string
+  date: string
+  status: string | null
+  is_critical?: boolean
+  workstream_id: string
+  workstream_name: string
+}
+
 export interface ProgressBasis {
   done: number
   total: number
