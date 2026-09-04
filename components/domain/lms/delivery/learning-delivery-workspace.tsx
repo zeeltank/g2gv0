@@ -757,12 +757,20 @@ export function LearningDeliveryWorkspace() {
     assessments, assessmentsLoading,
     notes, notesLoading, createNote, updateNote, deleteNote,
     certificates, courseCertificate, claimCertificate, claimingCertificate,
+    markCourseComplete, markingComplete,
     discussions, discussionsLoading, postDiscussion, replyToDiscussion, deleteDiscussion,
     authoringSaving, saveChapter, saveContent, removeChapter, removeContent,
     message, error, dismiss,
   } = useMyLearning()
 
   const { user } = useAuth()
+
+  /*
+   * Enrolment status lives on the course SUMMARY, not the detail payload -
+   * the detail describes the course, the summary describes this learner's
+   * relationship to it.
+   */
+  const enrolmentStatus = courses.find((entry) => entry.id === courseId)?.enrollment_status ?? null
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = user?.role === 'admin' || user?.role === 'hr'
   const canAuthor = canModerate
@@ -1130,6 +1138,36 @@ export function LearningDeliveryWorkspace() {
               </div>
             </CardContent>
           </Card>
+
+          {/*
+            THE LEARNER SAYS WHEN THEY ARE FINISHED.
+            Separate from the certificate below, which still requires every
+            lesson. Some of what a course asks for happens away from the screen,
+            so a system that only counts opened lessons cannot see all the work
+            — but it can, and does, record the gap alongside the declaration.
+          */}
+          {enrolmentStatus !== 'completed' && (
+            <Card className="rounded-xl border-border/80 shadow-sm">
+              <CardContent className="flex flex-col gap-2 p-5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Finished this course?
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {(detail?.completed_content ?? 0) < (detail?.total_content ?? 0)
+                    ? `You have opened ${detail?.completed_content ?? 0} of ${detail?.total_content ?? 0} lessons. Marking it complete records both.`
+                    : 'All lessons opened.'}
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-fit"
+                  disabled={markingComplete}
+                  onClick={() => void markCourseComplete()}
+                >
+                  {markingComplete ? 'Saving…' : 'Mark as complete'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <CertificatePanel
             certificate={courseCertificate}
