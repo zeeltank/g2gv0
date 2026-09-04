@@ -41,6 +41,11 @@ export type AuthoringTarget =
 const FILE_TYPE_OPTIONS = [
   { value: 'mp4', label: 'Video (mp4)' },
   { value: 'pdf', label: 'PDF' },
+  // Slide decks and documents render in place through the Office viewer.
+  // Previously they had no type here at all, so the only way to use one was
+  // to add it as an external link and send the learner out of the course.
+  { value: 'pptx', label: 'Slides (PPT/PPTX)' },
+  { value: 'docx', label: 'Document (DOC/DOCX)' },
   { value: 'link', label: 'External link' },
   { value: 'jpg', label: 'Image' },
 ]

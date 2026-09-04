@@ -57,20 +57,24 @@ function toOptions(values: string[]) {
 }
 
 /*
- * The four types the player can actually render.
+ * The types the player can actually render.
  *
- * This offered Video / Document / SCORM / Live Session, but the player
- * switches on mp4 / pdf / jpg / link — so Document, SCORM and Live Session all
- * fell through to "unknown" and only Video worked. Worse, SCORM promised a
- * capability nothing in this stack has, and a live session is a
- * lms_virtual_classroom row scheduled alongside a course, not a lesson inside
- * one. These are the same four the other authoring surface has always used.
+ * This offered Video / Document / SCORM / Live Session, and the player knew
+ * none of them but Video — the other three fell through to "unknown", so
+ * three lesson types in four could not be opened.
+ *
+ * SCORM and Live Session are gone rather than renamed: nothing in this stack
+ * can play SCORM, and a live session is a lms_virtual_classroom row scheduled
+ * alongside a course, not a lesson inside one. Slides and documents are new,
+ * and render in place through the Office viewer.
  */
 const CONTENT_KINDS: { kind: ContentKind; label: string; icon: typeof Video }[] = [
   { kind: 'mp4', label: 'Video', icon: Video },
   { kind: 'pdf', label: 'PDF', icon: FileText },
-  { kind: 'jpg', label: 'Image', icon: FileBox },
-  { kind: 'link', label: 'External link', icon: Users },
+  { kind: 'pptx', label: 'Slides', icon: PackageOpen },
+  { kind: 'docx', label: 'Document', icon: FileBox },
+  { kind: 'jpg', label: 'Image', icon: ImageIcon },
+  { kind: 'link', label: 'External link', icon: Globe },
 ]
 
 const VALIDITY_OPTIONS = [

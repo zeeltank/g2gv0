@@ -80,17 +80,20 @@ export interface BuilderModule {
  * THE VOCABULARY THE PLAYER ACTUALLY UNDERSTANDS.
  *
  * This was 'video' | 'document' | 'scorm' | 'session'. The player switches on
- * file_type and knows mp4 / pdf / jpg / link (learning-delivery-workspace's
- * lessonKind) — so three of those four rendered as "unknown" and one lesson
- * type in four was the only one that worked. These are the same four values
- * the other authoring surface has always used, which is why lessons made
- * there play and lessons made in the wizard did not.
+ * file_type, and it knew none of those but the first — so three types in four
+ * rendered as "unknown" and only video ever worked. These values are the ones
+ * lessonKind actually branches on, which is why lessons made in the other
+ * authoring surface play and lessons made in the wizard did not.
+ *
+ * pptx and docx are rendered in place through the Office viewer. They had no
+ * type anywhere before, so the only way to put a slide deck in a course was to
+ * add it as an external link and send the learner out of the course to read it.
  *
  * `scorm` and `session` are gone deliberately. Nothing in this stack can play
  * SCORM, and a live session is a lms_virtual_classroom row, not a lesson —
  * offering them promised capabilities that do not exist in any layer.
  */
-export type ContentKind = 'mp4' | 'pdf' | 'jpg' | 'link'
+export type ContentKind = 'mp4' | 'pdf' | 'pptx' | 'docx' | 'jpg' | 'link'
 
 export interface BuilderContent {
   id: number

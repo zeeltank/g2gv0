@@ -61,14 +61,54 @@ function formatDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : format(parsed, 'dd MMM yyyy')
 }
 
-/** file_type drives how a lesson renders: mp4 / pdf / link / jpg are what exist. */
-function lessonKind(fileType: string | null): 'video' | 'pdf' | 'image' | 'link' | 'unknown' {
+/**
+ * How a lesson renders, from its file_type.
+ *
+ * `office` is new. Slide decks and documents used to fall through to the
+ * "opens in a new tab" card, so a PowerPoint lesson was a download rather than
+ * something you could sit and read inside the course — and the Course Builder
+ * did not offer the type at all, so there was no way to add one.
+ *
+ * The extension is also read off the media URL as a fallback, because
+ * `file_type` is free text that older rows filled inconsistently: a .pptx
+ * stored with a blank type should still present as a deck.
+ */
+function lessonKind(
+  fileType: string | null,
+  src?: string | null,
+): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'unknown' {
   const type = (fileType ?? '').toLowerCase()
   if (type === 'mp4' || type === 'video') return 'video'
   if (type === 'pdf') return 'pdf'
   if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
+  if (OFFICE_TYPES.includes(type)) return 'office'
   if (type === 'link' || type === 'url') return 'link'
+
+  // Nothing recognised in file_type - fall back to the file's own extension.
+  const extension = (src ?? '').split('?')[0].split('.').pop()?.toLowerCase() ?? ''
+  if (extension === 'pdf') return 'pdf'
+  if (OFFICE_TYPES.includes(extension)) return 'office'
+  if (['mp4', 'webm', 'mov'].includes(extension)) return 'video'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) return 'image'
+
   return 'unknown'
+}
+
+/** Slide decks, documents and spreadsheets - anything Office can render. */
+const OFFICE_TYPES = ['ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx', 'presentation', 'slides']
+
+/**
+ * Microsoft's viewer renders a deck or document in place, with no plugin and
+ * no conversion step on our side.
+ *
+ * It fetches the file itself, so the URL has to be reachable from the public
+ * internet — which is true of the CDN-hosted material and of Gamma exports,
+ * and NOT true of anything behind a login. When it cannot load, the viewer
+ * shows its own message, so the download link below the frame is always
+ * offered rather than being a fallback the learner has to discover.
+ */
+function officeViewerUrl(src: string) {
+  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(src)}`
 }
 
 function RadialProgress({ value, size = 80 }: { value: number; size?: number }) {
@@ -236,8 +276,8 @@ function LessonViewer({
   onComplete: () => void
   onPositionSave: (seconds: number) => void
 }) {
-  const kind = lessonKind(lesson.file_type)
   const src = lesson.filename || lesson.url || ''
+  const kind = lessonKind(lesson.file_type, src)
 
   if (!src) {
     return (
@@ -281,6 +321,36 @@ function LessonViewer({
         <a href={src} target="_blank" rel="noopener noreferrer" className="self-start">
           <Button variant="outline" size="sm" className="gap-2">
             <ExternalLink className="size-3.5" /> Open in a new tab
+          </Button>
+        </a>
+      </div>
+    )
+  }
+
+  /*
+   * Slide decks and documents, rendered in place.
+   *
+   * These used to fall through to the "opens in a new tab" card, so a
+   * PowerPoint lesson was a download — the learner left the course to read it
+   * and nothing brought them back. The viewer keeps them inside the lesson,
+   * with the same shape as the PDF branch above.
+   *
+   * The download link is always shown rather than being an error fallback:
+   * the viewer needs the file to be publicly reachable, and when it is not,
+   * its own message appears inside the frame. Better a link that was never
+   * needed than a learner staring at a viewer that will not load.
+   */
+  if (kind === 'office') {
+    return (
+      <div className="flex flex-col gap-2">
+        <iframe
+          src={officeViewerUrl(src)}
+          title={lesson.title ?? 'Lesson'}
+          className="aspect-video w-full rounded-xl border border-border/60 bg-background"
+        />
+        <a href={src} target="_blank" rel="noopener noreferrer" className="self-start">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="size-3.5" /> Download the file
           </Button>
         </a>
       </div>
