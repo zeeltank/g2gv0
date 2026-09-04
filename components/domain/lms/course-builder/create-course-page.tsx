@@ -37,6 +37,7 @@ import type { ContentKind, CourseVisibility, EnrollmentRule } from '@/services/l
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { LMS_LEARNING_CATALOG_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competency-inline-panel'
+import { CourseAudiencePanel } from './course-audience-panel'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -903,10 +904,35 @@ export function CreateCoursePage() {
                     </RadioGroup>
                   </div>
 
+                  {/*
+                    ASSIGNING IS NOT RESTRICTING.
+                    The block below controls who MAY enrol themselves. This one
+                    hands the course to people directly. They were conflated
+                    before — there was no way to assign from the create flow at
+                    all, so "restrict to Nursing" was mistaken for "give it to
+                    Nursing", which it never did.
+                  */}
                   <div className="space-y-4">
                     <h3 className="flex items-center gap-2 text-sm font-bold">
-                      <Users className="size-4" /> Target Audience
+                      <Users className="size-4" /> Assign this course
                     </h3>
+                    <p className="-mt-2 text-xs text-muted-foreground">
+                      Hands the course to people now. They will see it in My Learning.
+                    </p>
+                    <CourseAudiencePanel
+                      courseId={courseId}
+                      departments={departments}
+                      jobRoles={jobRoles}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="flex items-center gap-2 text-sm font-bold">
+                      <Users className="size-4" /> Who may enrol themselves
+                    </h3>
+                    <p className="-mt-2 text-xs text-muted-foreground">
+                      Only applies when visibility is set to Restricted. Does not assign anyone.
+                    </p>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">

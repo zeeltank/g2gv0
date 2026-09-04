@@ -332,4 +332,61 @@ export const lmsCourseBuilderService = {
     apiClient.delete<BuilderApiResponse<null>>(`/lms/assessments/${id}`, {
       ...params(context, profileName),
     }),
+
+  /**
+   * How many people the current audience would reach, before committing to it.
+   *
+   * The count is computed by the same server code that does the writing, so
+   * the number shown cannot disagree with the number assigned. Expanding
+   * "everyone in Nursing" in the browser was not an option: the learner
+   * endpoint caps at 200 rows, so a large department would have been silently
+   * half-assigned.
+   */
+  previewAudience: (context: LaravelContext, courseId: number, audience: AudiencePayload) =>
+    apiClient.get<BuilderApiResponse<AudiencePreview>>(
+      `/lms/courses/${courseId}/audience/preview`,
+      { ...params(context), ...audienceQuery(audience) },
+    ),
+
+  /** Assign the course to everyone the audience resolves to. Idempotent. */
+  assignAudience: (
+    context: LaravelContext,
+    courseId: number,
+    audience: AudiencePayload,
+    profileName?: string,
+  ) =>
+    apiClient.post<BuilderApiResponse<AudienceResult>>(`/lms/courses/${courseId}/audience`, {
+      ...params(context, profileName),
+      ...audience,
+    }),
+}
+
+export interface AudiencePayload {
+  user_ids: number[]
+  department_ids: number[]
+  jobrole_ids: number[]
+  assignment_type?: string
+  due_date?: string | null
+}
+
+export interface AudiencePreview {
+  count: number
+  already_enrolled: number
+  will_assign: number
+  sample: { id: number; name: string; department: string | null; jobrole: string | null }[]
+}
+
+export interface AudienceResult {
+  assigned: number
+  already_had_it: number
+  reached: number
+}
+
+/** Arrays have to go over the query string as repeated keys. */
+function audienceQuery(audience: AudiencePayload): Record<string, string> {
+  const query: Record<string, string> = {}
+  audience.user_ids.forEach((id, index) => { query[`user_ids[${index}]`] = String(id) })
+  audience.department_ids.forEach((id, index) => { query[`department_ids[${index}]`] = String(id) })
+  audience.jobrole_ids.forEach((id, index) => { query[`jobrole_ids[${index}]`] = String(id) })
+  return query
 }
