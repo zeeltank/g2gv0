@@ -92,10 +92,27 @@ export interface CatalogDepartment {
   department: string
 }
 
+/** A real job role from `s_user_jobrole`, not a string somebody once typed. */
+export interface CatalogJobRole {
+  id: number
+  jobrole: string
+  department_id: number | null
+}
+
 export interface CatalogFilterOptions {
   categories: string[]
   subject_types: string[]
+  /**
+   * DISTINCT sub_std_map.jobrole - free text previously typed into the course
+   * form itself. Empty on a fresh tenant, and it propagates typos. Kept only
+   * for the legacy free-text datalist; prefer `job_roles`.
+   */
   jobroles: string[]
+  /**
+   * The organisation's actual roles, from the same table the task-assignment
+   * cascade reads. On tenant 3 that is 332 roles against 45 typed strings.
+   */
+  job_roles: CatalogJobRole[]
   departments: CatalogDepartment[]
   /** From config('lms.languages') — server-controlled, not hardcoded in the UI. */
   languages: string[]

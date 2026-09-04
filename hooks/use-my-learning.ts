@@ -82,6 +82,10 @@ export interface MyLearningState {
   claimCertificate: () => Promise<{ ok: boolean; message: string }>
   claimingCertificate: boolean
 
+  /** The learner's own declaration that they are finished. */
+  markCourseComplete: () => Promise<{ ok: boolean; message: string }>
+  markingComplete: boolean
+
   /* Discussions */
   discussions: Discussion[]
   discussionsLoading: boolean
@@ -447,6 +451,40 @@ export function useMyLearning(): MyLearningState {
   const courseCertificate =
     certificates.find((certificate) => certificate.course_id === courseId) ?? null
 
+  /*
+   * The learner declaring themselves finished.
+   *
+   * Distinct from claiming a certificate, which still requires every lesson.
+   * The response carries the real lesson counts so the UI can be honest about
+   * the gap rather than implying the course was worked through.
+   */
+  const [markingComplete, setMarkingComplete] = useState(false)
+
+  const markCourseComplete = useCallback(async () => {
+    if (!courseId) return { ok: false, message: 'No course selected.' }
+
+    const context = resolveContext()
+    setMarkingComplete(true)
+    setError(null)
+
+    try {
+      const response = await lmsLearningService.completeCourse(context, courseId)
+      const result = response.data
+      const note = result && result.completed_content < result.total_content
+        ? ` (${result.completed_content} of ${result.total_content} lessons opened)`
+        : ''
+      void loadCourses()
+      setMessage(`Marked complete${note}.`)
+      return { ok: true, message: `Marked complete${note}.` }
+    } catch (completeError) {
+      const failure = toMessage(completeError, 'Failed to mark this course complete.')
+      setError(failure)
+      return { ok: false, message: failure }
+    } finally {
+      setMarkingComplete(false)
+    }
+  }, [courseId, resolveContext, loadCourses])
+
   const claimCertificate = useCallback(async () => {
     if (!courseId) return { ok: false, message: 'No course selected.' }
 
@@ -704,6 +742,8 @@ export function useMyLearning(): MyLearningState {
     certificates,
     courseCertificate,
     claimCertificate,
+    markCourseComplete,
+    markingComplete,
     claimingCertificate,
 
     discussions,

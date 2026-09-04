@@ -12,6 +12,7 @@ import {
   type BuilderCoursePayload,
   type BuilderModule,
   type CatalogDepartment,
+  type CatalogJobRole,
   type ContentKind,
   type CourseSettings,
   type CoursePrerequisite,
@@ -154,6 +155,9 @@ export function useCourseBuilder() {
   const [categories, setCategories] = useState<string[]>([])
   const [types, setTypes] = useState<string[]>([])
   const [departments, setDepartments] = useState<CatalogDepartment[]>([])
+  // The organisation's real roles. The Job Role field used to be a bare text
+  // input with no options at all.
+  const [jobRoles, setJobRoles] = useState<CatalogJobRole[]>([])
   const [languages, setLanguages] = useState<string[]>([])
   const [certificateTemplates, setCertificateTemplates] = useState<
     { value: string; label: string }[]
@@ -199,6 +203,7 @@ export function useCourseBuilder() {
       setCategories(filters.data?.categories ?? [])
       setTypes(filters.data?.subject_types ?? [])
       setDepartments(filters.data?.departments ?? [])
+      setJobRoles(filters.data?.job_roles ?? [])
       // Served from config('lms.*) rather than hardcoded in the component, so
       // adding a language or template is a server-side change only.
       setLanguages(filters.data?.languages ?? [])
@@ -470,7 +475,21 @@ export function useCourseBuilder() {
         async () => {
           await lmsCourseBuilderService.createContent(
             resolveContext(),
-            { chapter_id: moduleId, title, file_type: kind, url: url || null },
+            {
+              chapter_id: moduleId,
+              title,
+              file_type: kind,
+              /*
+               * `filename` is the column the player reads first. The wizard
+               * used to send only `url`, which the controller did not accept
+               * and never wrote - so every lesson it created was stored with
+               * BOTH media columns NULL and could not be opened. Sending
+               * `filename` matches the other authoring surface, which has
+               * always worked; `url` goes too, now that the server keeps it.
+               */
+              filename: url || null,
+              url: url || null,
+            },
             profileName,
           )
           if (courseId) await reloadModules(courseId)
@@ -646,6 +665,7 @@ export function useCourseBuilder() {
     categories,
     types,
     departments,
+    jobRoles,
     languages,
     certificateTemplates,
 

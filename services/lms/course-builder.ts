@@ -76,7 +76,24 @@ export interface BuilderModule {
  * content_master.file_type. The wizard's four buttons map onto this column,
  * which is the same discriminator the course player already branches on.
  */
-export type ContentKind = 'video' | 'document' | 'scorm' | 'session'
+/**
+ * THE VOCABULARY THE PLAYER ACTUALLY UNDERSTANDS.
+ *
+ * This was 'video' | 'document' | 'scorm' | 'session'. The player switches on
+ * file_type, and it knew none of those but the first — so three types in four
+ * rendered as "unknown" and only video ever worked. These values are the ones
+ * lessonKind actually branches on, which is why lessons made in the other
+ * authoring surface play and lessons made in the wizard did not.
+ *
+ * pptx and docx are rendered in place through the Office viewer. They had no
+ * type anywhere before, so the only way to put a slide deck in a course was to
+ * add it as an external link and send the learner out of the course to read it.
+ *
+ * `scorm` and `session` are gone deliberately. Nothing in this stack can play
+ * SCORM, and a live session is a lms_virtual_classroom row, not a lesson —
+ * offering them promised capabilities that do not exist in any layer.
+ */
+export type ContentKind = 'mp4' | 'pdf' | 'pptx' | 'docx' | 'jpg' | 'link'
 
 export interface BuilderContent {
   id: number
@@ -281,6 +298,12 @@ export const lmsCourseBuilderService = {
       title: string
       description?: string | null
       file_type: string
+      /**
+       * The canonical media column, and what the player reads first. The
+       * wizard sent only `url`, which the server did not accept — so every
+       * lesson it made was stored with no media at all.
+       */
+      filename?: string | null
       url?: string | null
       sort_order?: number
     },
@@ -332,4 +355,61 @@ export const lmsCourseBuilderService = {
     apiClient.delete<BuilderApiResponse<null>>(`/lms/assessments/${id}`, {
       ...params(context, profileName),
     }),
+
+  /**
+   * How many people the current audience would reach, before committing to it.
+   *
+   * The count is computed by the same server code that does the writing, so
+   * the number shown cannot disagree with the number assigned. Expanding
+   * "everyone in Nursing" in the browser was not an option: the learner
+   * endpoint caps at 200 rows, so a large department would have been silently
+   * half-assigned.
+   */
+  previewAudience: (context: LaravelContext, courseId: number, audience: AudiencePayload) =>
+    apiClient.get<BuilderApiResponse<AudiencePreview>>(
+      `/lms/courses/${courseId}/audience/preview`,
+      { ...params(context), ...audienceQuery(audience) },
+    ),
+
+  /** Assign the course to everyone the audience resolves to. Idempotent. */
+  assignAudience: (
+    context: LaravelContext,
+    courseId: number,
+    audience: AudiencePayload,
+    profileName?: string,
+  ) =>
+    apiClient.post<BuilderApiResponse<AudienceResult>>(`/lms/courses/${courseId}/audience`, {
+      ...params(context, profileName),
+      ...audience,
+    }),
+}
+
+export interface AudiencePayload {
+  user_ids: number[]
+  department_ids: number[]
+  jobrole_ids: number[]
+  assignment_type?: string
+  due_date?: string | null
+}
+
+export interface AudiencePreview {
+  count: number
+  already_enrolled: number
+  will_assign: number
+  sample: { id: number; name: string; department: string | null; jobrole: string | null }[]
+}
+
+export interface AudienceResult {
+  assigned: number
+  already_had_it: number
+  reached: number
+}
+
+/** Arrays have to go over the query string as repeated keys. */
+function audienceQuery(audience: AudiencePayload): Record<string, string> {
+  const query: Record<string, string> = {}
+  audience.user_ids.forEach((id, index) => { query[`user_ids[${index}]`] = String(id) })
+  audience.department_ids.forEach((id, index) => { query[`department_ids[${index}]`] = String(id) })
+  audience.jobrole_ids.forEach((id, index) => { query[`jobrole_ids[${index}]`] = String(id) })
+  return query
 }

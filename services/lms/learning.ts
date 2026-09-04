@@ -110,6 +110,15 @@ export interface LearningCourseDetail {
   content_categories: string[]
 }
 
+export interface CompleteCourseResult {
+  marked_complete: boolean
+  total_content: number
+  completed_content: number
+  progress_percent: number
+  /** False when lessons remain - the certificate keeps its own rule. */
+  certificate_available: boolean
+}
+
 export interface SaveProgressPayload {
   course_id: number
   content_id: number
@@ -228,6 +237,20 @@ export const lmsLearningService = {
       ...params(context),
       ...payload,
     }),
+
+  /**
+   * POST /api/lms/learning/courses/{id}/complete - the learner declares
+   * themselves finished.
+   *
+   * Records the declaration AND the real lesson count, so a report can say
+   * "marked complete with 3 of 8 lessons opened". It deliberately does NOT
+   * issue a certificate: that still requires every lesson.
+   */
+  completeCourse: (context: LaravelContext, courseId: number) =>
+    apiClient.post<LearningApiResponse<CompleteCourseResult>>(
+      `/lms/learning/courses/${courseId}/complete`,
+      { ...params(context) },
+    ),
 
   /** GET /api/lms/learning/assessments - this course's papers + my attempts. */
   getAssessments: (context: LaravelContext, courseId: number) =>

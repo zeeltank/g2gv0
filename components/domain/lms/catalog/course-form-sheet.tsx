@@ -366,7 +366,23 @@ export function CourseFormSheet({
             label="Job role"
             value={form.jobrole}
             onChange={(value) => setField('jobrole', value)}
-            suggestions={filterOptions?.jobroles ?? []}
+            /*
+             * The ORGANISATION'S roles, not the strings previously typed into
+             * this box. `jobroles` was DISTINCT sub_std_map.jobrole, so it was
+             * empty on a fresh tenant and every typo became a permanent
+             * option; on tenant 3 it offered 45 guesses against 332 real
+             * roles. Narrowed to the chosen department when there is one, so
+             * the two fields agree.
+             *
+             * Still a suggest input rather than a hard select: the column is
+             * free text and historical rows hold values that are not in the
+             * role table, so forcing a choice would make those courses
+             * uneditable.
+             */
+            suggestions={(filterOptions?.job_roles ?? [])
+              .filter((role) =>
+                !form.standard_id || String(role.department_id ?? '') === String(form.standard_id))
+              .map((role) => role.jobrole)}
             placeholder="Optional"
           />
 

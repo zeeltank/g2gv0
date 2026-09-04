@@ -37,6 +37,7 @@ import type { ContentKind, CourseVisibility, EnrollmentRule } from '@/services/l
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { LMS_LEARNING_CATALOG_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competency-inline-panel'
+import { CourseAudiencePanel } from './course-audience-panel'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -55,11 +56,25 @@ function toOptions(values: string[]) {
   return values.map((value) => ({ label: value, value }))
 }
 
+/*
+ * The types the player can actually render.
+ *
+ * This offered Video / Document / SCORM / Live Session, and the player knew
+ * none of them but Video — the other three fell through to "unknown", so
+ * three lesson types in four could not be opened.
+ *
+ * SCORM and Live Session are gone rather than renamed: nothing in this stack
+ * can play SCORM, and a live session is a lms_virtual_classroom row scheduled
+ * alongside a course, not a lesson inside one. Slides and documents are new,
+ * and render in place through the Office viewer.
+ */
 const CONTENT_KINDS: { kind: ContentKind; label: string; icon: typeof Video }[] = [
-  { kind: 'video', label: 'Video', icon: Video },
-  { kind: 'document', label: 'Document', icon: FileText },
-  { kind: 'scorm', label: 'SCORM', icon: FileBox },
-  { kind: 'session', label: 'Live Session', icon: Users },
+  { kind: 'mp4', label: 'Video', icon: Video },
+  { kind: 'pdf', label: 'PDF', icon: FileText },
+  { kind: 'pptx', label: 'Slides', icon: PackageOpen },
+  { kind: 'docx', label: 'Document', icon: FileBox },
+  { kind: 'jpg', label: 'Image', icon: ImageIcon },
+  { kind: 'link', label: 'External link', icon: Globe },
 ]
 
 const VALIDITY_OPTIONS = [
@@ -81,7 +96,7 @@ export function CreateCoursePage() {
     courseId, prerequisites, setPrerequisites, courseOptions,
     modules, contentCount, addModule, removeModule, addContent, removeContent,
     assessments, addAssessment, removeAssessment,
-    categories, types, departments, languages, certificateTemplates,
+    categories, types, departments, jobRoles, languages, certificateTemplates,
     loadingOptions, saving, message, error, dismiss,
     saveDraft, publish,
     preview, checklist,
@@ -97,6 +112,16 @@ export function CreateCoursePage() {
     url: string
   } | null>(null)
   const [quizName, setQuizName] = useState('')
+
+  /*
+   * Roles for the chosen department. Narrowing here rather than in the hook
+   * because it depends on the form, and an unnarrowed list of 332 roles is not
+   * a choice, it is a search problem.
+   */
+  const jobRoleOptions = jobRoles
+    .filter((role) =>
+      !form.standard_id || String(role.department_id ?? '') === String(form.standard_id))
+    .map((role) => role.jobrole)
 
   const handleCancel = () => router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))
 
@@ -326,11 +351,24 @@ export function CreateCoursePage() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-foreground">Job Role</label>
-                      <Input
-                        placeholder="E.g. Staff Nurse"
-                        className="h-10 bg-muted/20"
+                      {/*
+                        This was a bare text input with no options of any kind -
+                        not even the free-text suggestions the catalogue sheet
+                        had - so the only way to fill it was to type a role name
+                        from memory and hope it matched. It now offers the
+                        organisation's actual roles, narrowed to the chosen
+                        department, and a blank first option because the field
+                        is optional.
+                      */}
+                      <Select
                         value={form.jobrole}
-                        onChange={(event) => setField('jobrole', event.target.value)}
+                        onChange={(value) => setField('jobrole', value)}
+                        options={[
+                          { value: '', label: 'No specific role' },
+                          ...jobRoleOptions.map((role) => ({ value: role, label: role })),
+                        ]}
+                        placeholder={form.standard_id ? 'Select a role' : 'Select a department first'}
+                        disabled={jobRoleOptions.length === 0}
                       />
                     </div>
                   </div>
@@ -880,10 +918,35 @@ export function CreateCoursePage() {
                     </RadioGroup>
                   </div>
 
+                  {/*
+                    ASSIGNING IS NOT RESTRICTING.
+                    The block below controls who MAY enrol themselves. This one
+                    hands the course to people directly. They were conflated
+                    before — there was no way to assign from the create flow at
+                    all, so "restrict to Nursing" was mistaken for "give it to
+                    Nursing", which it never did.
+                  */}
                   <div className="space-y-4">
                     <h3 className="flex items-center gap-2 text-sm font-bold">
-                      <Users className="size-4" /> Target Audience
+                      <Users className="size-4" /> Assign this course
                     </h3>
+                    <p className="-mt-2 text-xs text-muted-foreground">
+                      Hands the course to people now. They will see it in My Learning.
+                    </p>
+                    <CourseAudiencePanel
+                      courseId={courseId}
+                      departments={departments}
+                      jobRoles={jobRoles}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="flex items-center gap-2 text-sm font-bold">
+                      <Users className="size-4" /> Who may enrol themselves
+                    </h3>
+                    <p className="-mt-2 text-xs text-muted-foreground">
+                      Only applies when visibility is set to Restricted. Does not assign anyone.
+                    </p>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
