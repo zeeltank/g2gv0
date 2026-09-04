@@ -76,7 +76,21 @@ export interface BuilderModule {
  * content_master.file_type. The wizard's four buttons map onto this column,
  * which is the same discriminator the course player already branches on.
  */
-export type ContentKind = 'video' | 'document' | 'scorm' | 'session'
+/**
+ * THE VOCABULARY THE PLAYER ACTUALLY UNDERSTANDS.
+ *
+ * This was 'video' | 'document' | 'scorm' | 'session'. The player switches on
+ * file_type and knows mp4 / pdf / jpg / link (learning-delivery-workspace's
+ * lessonKind) — so three of those four rendered as "unknown" and one lesson
+ * type in four was the only one that worked. These are the same four values
+ * the other authoring surface has always used, which is why lessons made
+ * there play and lessons made in the wizard did not.
+ *
+ * `scorm` and `session` are gone deliberately. Nothing in this stack can play
+ * SCORM, and a live session is a lms_virtual_classroom row, not a lesson —
+ * offering them promised capabilities that do not exist in any layer.
+ */
+export type ContentKind = 'mp4' | 'pdf' | 'jpg' | 'link'
 
 export interface BuilderContent {
   id: number
@@ -281,6 +295,12 @@ export const lmsCourseBuilderService = {
       title: string
       description?: string | null
       file_type: string
+      /**
+       * The canonical media column, and what the player reads first. The
+       * wizard sent only `url`, which the server did not accept — so every
+       * lesson it made was stored with no media at all.
+       */
+      filename?: string | null
       url?: string | null
       sort_order?: number
     },

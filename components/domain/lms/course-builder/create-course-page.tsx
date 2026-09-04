@@ -56,11 +56,21 @@ function toOptions(values: string[]) {
   return values.map((value) => ({ label: value, value }))
 }
 
+/*
+ * The four types the player can actually render.
+ *
+ * This offered Video / Document / SCORM / Live Session, but the player
+ * switches on mp4 / pdf / jpg / link — so Document, SCORM and Live Session all
+ * fell through to "unknown" and only Video worked. Worse, SCORM promised a
+ * capability nothing in this stack has, and a live session is a
+ * lms_virtual_classroom row scheduled alongside a course, not a lesson inside
+ * one. These are the same four the other authoring surface has always used.
+ */
 const CONTENT_KINDS: { kind: ContentKind; label: string; icon: typeof Video }[] = [
-  { kind: 'video', label: 'Video', icon: Video },
-  { kind: 'document', label: 'Document', icon: FileText },
-  { kind: 'scorm', label: 'SCORM', icon: FileBox },
-  { kind: 'session', label: 'Live Session', icon: Users },
+  { kind: 'mp4', label: 'Video', icon: Video },
+  { kind: 'pdf', label: 'PDF', icon: FileText },
+  { kind: 'jpg', label: 'Image', icon: FileBox },
+  { kind: 'link', label: 'External link', icon: Users },
 ]
 
 const VALIDITY_OPTIONS = [

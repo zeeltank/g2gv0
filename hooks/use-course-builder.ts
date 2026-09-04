@@ -475,7 +475,21 @@ export function useCourseBuilder() {
         async () => {
           await lmsCourseBuilderService.createContent(
             resolveContext(),
-            { chapter_id: moduleId, title, file_type: kind, url: url || null },
+            {
+              chapter_id: moduleId,
+              title,
+              file_type: kind,
+              /*
+               * `filename` is the column the player reads first. The wizard
+               * used to send only `url`, which the controller did not accept
+               * and never wrote - so every lesson it created was stored with
+               * BOTH media columns NULL and could not be opened. Sending
+               * `filename` matches the other authoring surface, which has
+               * always worked; `url` goes too, now that the server keeps it.
+               */
+              filename: url || null,
+              url: url || null,
+            },
             profileName,
           )
           if (courseId) await reloadModules(courseId)
