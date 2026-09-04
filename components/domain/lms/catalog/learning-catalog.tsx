@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   Archive,
@@ -28,6 +28,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { DataTable, type Column } from '@/components/ui/data-table'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { lmsDashboardService } from '@/services/lms/dashboard'
 import { Progress } from '@/components/ui/progress'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -54,6 +56,7 @@ import type { CatalogCourse, CatalogSortBy } from '@/services/lms'
 import { CourseDetailsSheet } from './course-details-sheet'
 import { CourseFormSheet, type CourseFormMode } from './course-form-sheet'
 import { AiCourseSheet } from './ai-course-sheet'
+import { CourseCardGrid } from './course-card-grid'
 
 function KpiCard({
   title,
@@ -146,9 +149,82 @@ function exportCsv(courses: CatalogCourse[]) {
 
 export function LearningCatalog() {
   const { user } = useAuth()
-  // Course authoring was admin/HR-only in the previous frontend; the API
-  // enforces the same rule, so the UI hides what the server would reject.
+  /*
+   * AUTHORING is admin/HR-only, and the API enforces the same rule, so the UI
+   * hides what the server would reject.
+   *
+   * BROWSING IS NOT. This screen used to gate its whole purpose on the same
+   * flag: an ordinary employee could open the catalogue and find no way to
+   * join anything, while My Learning's empty state told them to "enrol from
+   * the learning catalogue". The only working enrol control in the product was
+   * a quick-action on a different page. That is the dead end this fixes -
+   * every role can browse, and every role can enrol.
+   */
   const canAuthor = user?.role === 'admin' || user?.role === 'hr'
+
+  const [enrollingId, setEnrollingId] = useState<number | null>(null)
+  const [enrolMessage, setEnrolMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  /*
+   * Browse is the default for everyone, including admins - the catalogue's job
+   * is to be browsed. Manage is the table, and only authors can reach it.
+   */
+  const [view, setView] = useState<'browse' | 'manage'>('browse')
+  /*
+   * Which courses this viewer is already in, so a card can say "In My
+   * Learning" rather than offering to enrol them a second time. Read once;
+   * a failure here is not worth blocking the catalogue for, so it degrades to
+   * an empty set and the card simply offers Enrol again - which the server
+   * would refuse harmlessly.
+   */
+  const [enrolledIds, setEnrolledIds] = useState<ReadonlySet<number>>(new Set())
+
+  useEffect(() => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+    queueMicrotask(() => {
+      lmsDashboardService
+        .getEnrolledCourses(context)
+        .then((response) => {
+          setEnrolledIds(new Set((response.data ?? []).map((row) => Number(row.id))))
+        })
+        .catch(() => {
+          /* The catalogue still works; cards just offer Enrol. */
+        })
+    })
+  }, [enrollingId])
+
+  /*
+   * The refusal reason comes from the SERVER, verbatim.
+   *
+   * `checkEnrolmentEligibility` already explains itself - prerequisites not
+   * met, outside the availability window, restricted to another department -
+   * and those sentences are more use than "Unable to enrol" would be. A 422
+   * here is a rule doing its job, not a failure.
+   */
+  const enrol = async (courseId: number, courseName: string) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context) || !user?.id) {
+      setEnrolMessage({ ok: false, text: 'Your ERP session is unavailable. Please sign in again.' })
+      return
+    }
+    setEnrollingId(courseId)
+    setEnrolMessage(null)
+    try {
+      await lmsDashboardService.enroll(context, {
+        user_id: user.id,
+        course_id: courseId,
+        status: 'enrolled',
+      })
+      setEnrolMessage({ ok: true, text: `Enrolled in ${courseName}. It is now in My Learning.` })
+    } catch (reason) {
+      setEnrolMessage({
+        ok: false,
+        text: reason instanceof Error ? reason.message : 'Unable to enrol in this course.',
+      })
+    } finally {
+      setEnrollingId(null)
+    }
+  }
 
   const catalog = useCourseCatalog(10)
   const {
@@ -346,6 +422,28 @@ export function LearningCatalog() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Browse is what the catalogue is for; Manage is the admin table.
+              Only authors are offered the switch, because only they have
+              anything to do in the other view. */}
+          {canAuthor && (
+            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5 text-xs font-medium">
+              {(['browse', 'manage'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setView(value)}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 capitalize transition-colors',
+                    view === value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          )}
           <Button
             variant="outline"
             className="gap-2"
@@ -560,6 +658,57 @@ export function LearningCatalog() {
         </div>
       )}
 
+      {/* The result of an enrol attempt, said plainly. A refusal here is a
+          rule doing its job - prerequisites, availability window, department
+          restriction - and the server writes those sentences itself. */}
+      {enrolMessage && (
+        <div
+          role="status"
+          className={cn(
+            'rounded-lg border px-3 py-2 text-sm',
+            enrolMessage.ok
+              ? 'border-success/30 bg-success/5 text-success'
+              : 'border-destructive/30 bg-destructive/5 text-destructive',
+          )}
+        >
+          {enrolMessage.text}
+        </div>
+      )}
+
+      {view === 'browse' ? (
+        <div className="flex-1">
+          {loading ? (
+            <div className="grid grid-cols-1 gap-4 @2xl/catalog:grid-cols-2 @5xl/catalog:grid-cols-3">
+              {Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="h-44 rounded-xl" />
+              ))}
+            </div>
+          ) : courses.length === 0 ? (
+            <EmptyState
+              icon={<GraduationCap className="size-8" />}
+              title={hasActiveFilters ? 'No matching courses' : 'No courses yet'}
+              description={
+                hasActiveFilters
+                  ? 'Try adjusting or clearing your filters.'
+                  : 'Courses are created in Administration → Course Builder.'
+              }
+              action={
+                hasActiveFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <CourseCardGrid
+              courses={courses}
+              enrollingId={enrollingId}
+              enrolledIds={enrolledIds}
+              onEnrol={(course) => void enrol(course.id, course.display_name ?? `Course ${course.id}`)}
+              onOpenDetails={setDetailsCourse}
+            />
+          )}
+        </div>
+      ) : (
       <div className="flex-1 rounded-xl bg-card">
         <DataTable
           columns={columns}
@@ -600,6 +749,7 @@ export function LearningCatalog() {
           className={cn('border-border/80 shadow-sm')}
         />
       </div>
+      )}
 
       <CourseDetailsSheet
         course={detailsCourse}
