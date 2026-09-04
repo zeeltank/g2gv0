@@ -81,7 +81,7 @@ export function CreateCoursePage() {
     courseId, prerequisites, setPrerequisites, courseOptions,
     modules, contentCount, addModule, removeModule, addContent, removeContent,
     assessments, addAssessment, removeAssessment,
-    categories, types, departments, languages, certificateTemplates,
+    categories, types, departments, jobRoles, languages, certificateTemplates,
     loadingOptions, saving, message, error, dismiss,
     saveDraft, publish,
     preview, checklist,
@@ -97,6 +97,16 @@ export function CreateCoursePage() {
     url: string
   } | null>(null)
   const [quizName, setQuizName] = useState('')
+
+  /*
+   * Roles for the chosen department. Narrowing here rather than in the hook
+   * because it depends on the form, and an unnarrowed list of 332 roles is not
+   * a choice, it is a search problem.
+   */
+  const jobRoleOptions = jobRoles
+    .filter((role) =>
+      !form.standard_id || String(role.department_id ?? '') === String(form.standard_id))
+    .map((role) => role.jobrole)
 
   const handleCancel = () => router.push(resolveAccessLink(LMS_LEARNING_CATALOG_ACCESS_LINK))
 
@@ -326,11 +336,24 @@ export function CreateCoursePage() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-foreground">Job Role</label>
-                      <Input
-                        placeholder="E.g. Staff Nurse"
-                        className="h-10 bg-muted/20"
+                      {/*
+                        This was a bare text input with no options of any kind -
+                        not even the free-text suggestions the catalogue sheet
+                        had - so the only way to fill it was to type a role name
+                        from memory and hope it matched. It now offers the
+                        organisation's actual roles, narrowed to the chosen
+                        department, and a blank first option because the field
+                        is optional.
+                      */}
+                      <Select
                         value={form.jobrole}
-                        onChange={(event) => setField('jobrole', event.target.value)}
+                        onChange={(value) => setField('jobrole', value)}
+                        options={[
+                          { value: '', label: 'No specific role' },
+                          ...jobRoleOptions.map((role) => ({ value: role, label: role })),
+                        ]}
+                        placeholder={form.standard_id ? 'Select a role' : 'Select a department first'}
+                        disabled={jobRoleOptions.length === 0}
                       />
                     </div>
                   </div>
