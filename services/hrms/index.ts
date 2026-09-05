@@ -15,6 +15,8 @@ export * from './leave-bi'
 export * from './payroll'
 // Employee module
 export * from './employee'
+// F-130. My HR - the employee's own view of themselves.
+export * from './my-hr'
 
 export interface AttendanceRecord {
   id: string
@@ -88,6 +90,8 @@ export interface LaravelAttendanceEntry {
   type?: string | null
   ipaddress_in?: string | null
   ipaddress_out?: string | null
+  /** office | home | field. Added in Sprint 2 — see hrms_attendances.work_mode. */
+  work_mode?: string | null
 }
 
 /** One calendar day of the requested range, as resolved by Laravel. */
@@ -104,6 +108,7 @@ export interface LaravelAttendanceCalendarDay {
   punchin_time?: string | null
   punchout_time?: string | null
   timestamp_diff?: string | null
+  work_mode?: string | null
 }
 
 export interface MyAttendanceResponse {
@@ -206,6 +211,93 @@ export interface AttendancePunchResponse {
   attendanceData?: LaravelAttendanceEntry
 }
 
+/* ------------------------------------------------------------------ *
+ * Self summary - GET /api/attendance/self-summary
+ *
+ * Replaces the three hardcoded arrays the dashboard used to render
+ * (F-98, F-113). Leave balance and holidays are NOT here: they already have
+ * endpoints, and leaveService.getBalances / getUpcomingHolidays serve them.
+ * ------------------------------------------------------------------ */
+
+export interface AttendanceShiftWindow {
+  is_working_day: boolean
+  expected_in: string | null
+  expected_out: string | null
+  expected_minutes: number | null
+  source: 'roster' | 'none'
+}
+
+export interface AttendanceAlertRow {
+  id: string
+  text: string
+  severity: 'critical' | 'warning' | 'info'
+  date: string | null
+}
+
+export interface AttendanceRequestRow {
+  id: string
+  type: string
+  pending: number
+  approved: number
+  rejected: number
+}
+
+export interface AttendanceSelfSummaryResponse {
+  status?: number | string
+  message?: string
+  date?: string
+  shift?: AttendanceShiftWindow
+  alerts?: AttendanceAlertRow[]
+  requests?: AttendanceRequestRow[]
+  /** Today's recorded work mode, so the punch control can preselect it. */
+  work_mode?: string | null
+}
+
+/* ------------------------------------------------------------------ *
+ * Attendance regularisation - /api/attendance/regularisations
+ * ------------------------------------------------------------------ */
+
+export interface RegularisationRow {
+  id: number
+  employee_id: number
+  employee_name: string | null
+  employee_no: string | null
+  department: string | null
+  day: string
+  requested_in_time: string | null
+  requested_out_time: string | null
+  original_in_time: string | null
+  original_out_time: string | null
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  reviewer_comment: string | null
+  reviewed_at: string | null
+  submitted_at: string | null
+}
+
+export interface RegularisationListResponse {
+  status?: number | string
+  message?: string
+  scope?: 'mine' | 'team'
+  count?: number
+  data?: RegularisationRow[]
+}
+
+export interface RegularisationPayload {
+  day: string
+  /** 'HH:mm'. At least one of the two is required by the API. */
+  requestedInTime?: string
+  requestedOutTime?: string
+  reason: string
+}
+
+export interface RegularisationActionResponse {
+  status?: number | string
+  message?: string
+  data?: { id: number }
+  errors?: Record<string, string[]>
+}
+
 /** 'all' means "no filter" - the param is omitted so Laravel's filled() check skips it. */
 function activeFilter(value?: string) {
   return value && value !== 'all' && value !== '0' ? value : undefined
@@ -233,11 +325,21 @@ async function ensureAttendanceSuccess(request: Promise<AttendancePunchResponse>
 }
 
 export const hrmsService = {
+  /*
+   * F-118. Three methods were deleted from here: getAttendanceRecords ->
+   * `/attendance`, checkIn -> `/attendance/check-in`, checkOut ->
+   * `/attendance/check-out`. None of those routes is registered
+   * (`php artisan route:list --path=api/attendance` lists my-attendance,
+   * punch-in, punch-out, self-summary, regularisations, kpi, weekly-summary,
+   * report-filters, employees), and nothing in this repo called them.
+   *
+   * They were an earlier generation of the punch API. punchIn/punchOut below
+   * are the ones that work, and keeping both meant the file advertised a
+   * capability that 404s beside the one that does not - which is how somebody
+   * picks the wrong one. Removed rather than repointed: a second name for
+   * punchIn is a duplicate, not a fix.
+   */
   // Attendance
-  getAttendanceRecords: (params?: { userId?: string; startDate?: string; endDate?: string }) => 
-    apiClient.get<AttendanceRecord[]>('/attendance', params as Record<string, string>),
-  checkIn: (userId: string) => apiClient.post<AttendanceRecord>('/attendance/check-in', { userId }),
-  checkOut: (userId: string) => apiClient.post<AttendanceRecord>('/attendance/check-out', { userId }),
   /** /api/attendance/kpi - the employee filter is only honoured by this route. */
   getAttendanceKpis: (context: LaravelContext, params?: Pick<AttendanceWeeklyParams, 'departmentId' | 'employeeId'>) =>
     apiClient.get<AttendanceKpiResponse>('/attendance/kpi', attendanceParams(context, params)),
@@ -276,12 +378,14 @@ export const hrmsService = {
       ...(params?.fromDate ? { from_date: params.fromDate } : {}),
       ...(params?.toDate ? { to_date: params.toDate } : {}),
     })),
-  punchAttendanceIn: (context: LaravelContext, data: { date: string; time: string }) =>
+  punchAttendanceIn: (context: LaravelContext, data: { date: string; time: string; workMode?: string }) =>
     ensureAttendanceSuccess(apiClient.post<AttendancePunchResponse>('/attendance/punch-in', {
       ...withLaravelParams(context),
       employee: context.userId,
       indate: data.date,
       intime: data.time,
+      // Optional server-side, so omitting it keeps the column default.
+      ...(data.workMode ? { work_mode: data.workMode } : {}),
     })),
   punchAttendanceOut: (context: LaravelContext, data: { date: string; time: string }) =>
     ensureAttendanceSuccess(apiClient.post<AttendancePunchResponse>('/attendance/punch-out', {
@@ -291,11 +395,56 @@ export const hrmsService = {
       outtime: data.time,
     })),
 
+  /** /api/attendance/self-summary - the caller's roster, alerts and request counts. */
+  getAttendanceSelfSummary: (context: LaravelContext) =>
+    apiClient.get<AttendanceSelfSummaryResponse>('/attendance/self-summary', withLaravelParams(context)),
+
+  /* ---------------- Attendance regularisation ---------------- */
+
+  /** `scope: 'team'` is the approver queue and requires approval rights. */
+  getRegularisations: (context: LaravelContext, params?: { scope?: 'mine' | 'team'; status?: string }) =>
+    apiClient.get<RegularisationListResponse>('/attendance/regularisations', {
+      ...withLaravelParams(context),
+      ...(params?.scope ? { scope: params.scope } : {}),
+      ...(params?.status ? { status: params.status } : {}),
+    }),
+
+  /**
+   * Always raised for the caller. Re-submitting the same day edits the pending
+   * request rather than creating a second one, so an approver never sees two
+   * contradictory versions of the same morning.
+   */
+  submitRegularisation: (context: LaravelContext, payload: RegularisationPayload) =>
+    apiClient.post<RegularisationActionResponse>('/attendance/regularisations', {
+      ...withLaravelParams(context),
+      day: payload.day,
+      ...(payload.requestedInTime ? { requested_in_time: payload.requestedInTime } : {}),
+      ...(payload.requestedOutTime ? { requested_out_time: payload.requestedOutTime } : {}),
+      reason: payload.reason,
+    }),
+
+  /** Approving applies the correction to the attendance row in one transaction. */
+  decideRegularisation: (
+    context: LaravelContext,
+    id: number,
+    status: 'approved' | 'rejected',
+    reviewerComment?: string,
+  ) =>
+    apiClient.post<RegularisationActionResponse>(`/attendance/regularisations/${id}/decision`, {
+      ...withLaravelParams(context),
+      status,
+      ...(reviewerComment ? { reviewer_comment: reviewerComment } : {}),
+    }),
+
+  withdrawRegularisation: (context: LaravelContext, id: number) =>
+    apiClient.delete<RegularisationActionResponse>(`/attendance/regularisations/${id}`, withLaravelParams(context)),
+
   // Leave - see leaveService below for the Leave Management module endpoints.
 
-  // Compliance
-  getComplianceItems: (params?: { category?: string; status?: string }) => 
-    apiClient.get<ComplianceItem[]>('/compliance', params as Record<string, string>),
-  updateComplianceStatus: (id: string, status: string) => 
-    apiClient.patch<ComplianceItem>(`/compliance/${id}`, { status }),
+  /*
+   * F-118. getComplianceItems -> `/compliance` and updateComplianceStatus ->
+   * `/compliance/{id}` were deleted too. Neither route exists and nothing
+   * called them; there is no compliance surface in this module at all, so
+   * these described a feature rather than reaching one.
+   */
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Lock } from 'lucide-react'
 import { Tabs } from '@/shared/business'
 import { useAuth } from '@/hooks/use-auth'
+import { HR_ADMIN_ROLES } from '@/types/role'
 
 const LeaveTypesTab = lazy(() =>
   import('@/domain/hrms/hrit/leave-management/leave-configuration/components/LeaveTypesTab').then((module) => ({
@@ -24,6 +25,12 @@ const HolidayCalendarTab = lazy(() =>
   })),
 )
 
+const EntitlementsTab = lazy(() =>
+  import('@/domain/hrms/hrit/leave-management/leave-configuration/components/EntitlementsTab').then((module) => ({
+    default: module.default,
+  })),
+)
+
 const RolesAccessTab = lazy(() =>
   import('@/domain/hrms/hrit/leave-management/leave-configuration/components/RolesAccessTab').then((module) => ({
     default: module.default,
@@ -32,6 +39,13 @@ const RolesAccessTab = lazy(() =>
 
 const configTabs = [
   { id: 'leave-types', label: 'Leave Types' },
+  /*
+   * F-96. Entitlement is what every leave balance is computed from, and it had
+   * no screen anywhere in the product - hrms_leave_allocation held one row for
+   * the whole platform. Placed second, right after Leave Types, because a leave
+   * type without an entitlement grants nobody anything.
+   */
+  { id: 'entitlements', label: 'Entitlements' },
   { id: 'approval-workflow', label: 'Approval Workflow' },
   { id: 'holiday-calendar', label: 'Holiday Calendar' },
   { id: 'roles-access', label: 'Roles & Access' },
@@ -45,7 +59,7 @@ export default function LeaveConfigurationPage() {
     return configTabs.some((tab) => tab.id === requested) ? requested! : 'leave-types'
   })
 
-  if (!user || !['admin', 'hr'].includes(user.role)) {
+  if (!user || !HR_ADMIN_ROLES.includes(user.role)) {
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center sm:min-h-[480px] sm:px-8 sm:py-16 md:min-h-[520px] lg:px-10">
         <div
@@ -76,6 +90,7 @@ export default function LeaveConfigurationPage() {
       <div className="px-4 pb-4 sm:px-0 sm:pb-0 md:pb-0 lg:pb-0">
         <Suspense fallback={<div className="h-96 rounded-2xl bg-muted/40" />}>
           {activeTab === 'leave-types' && <LeaveTypesTab isLoading={isLoading} />}
+          {activeTab === 'entitlements' && <EntitlementsTab />}
           {activeTab === 'approval-workflow' && <ApprovalWorkflowTab />}
           {activeTab === 'holiday-calendar' && <HolidayCalendarTab isLoading={isLoading} />}
           {activeTab === 'roles-access' && <RolesAccessTab isLoading={isLoading} />}

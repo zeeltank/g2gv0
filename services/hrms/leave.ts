@@ -125,6 +125,37 @@ export interface LeaveBalanceRow {
   remaining: number
 }
 
+/* ------------------------------------------------------------------ *
+ * Leave entitlement - /api/leave/allocations. F-96.
+ *
+ * hrms_leave_allocation is what every balance is computed from. It holds one
+ * row for the entire platform and had no screen; these are its first callers.
+ * ------------------------------------------------------------------ */
+
+export interface LeaveAllocationOption {
+  value: string
+  label: string
+  code?: string | null
+}
+
+export interface LeaveAllocationData {
+  leave_types: LeaveAllocationOption[]
+  departments: LeaveAllocationOption[]
+  /** department id -> leave type id -> days granted. */
+  grid: Record<string, Record<string, number>>
+  overrides: { id: number; employee_id: number; leave_type_id: number; value: number }[]
+  /** department id -> active headcount, so a grant can be shown as person-days. */
+  headcount: Record<string, number>
+  configured: number
+}
+
+export interface LeaveAllocationPayload {
+  department_id: number
+  leave_type_id: number
+  /** 0 removes the grant - "no grant" and "a grant of nothing" are the same. */
+  value: number
+}
+
 export interface LeaveBalancesData {
   leave_types: LeaveBalanceRow[]
   overall: { total: number; used: number; remaining: number }
@@ -176,10 +207,49 @@ export interface LeaveRequestTimelineEntry {
   timestamp: string | null
 }
 
+/**
+ * One required approval on a request. F-124.
+ *
+ * Distinct from `timeline`, which narrates what has happened. This says who
+ * still has to say yes, and it is the frozen chain the request was submitted
+ * under — not whatever the tenant has configured today.
+ */
+export interface LeaveApprovalStep {
+  step: number
+  role: string
+  role_label: string
+  /** waiting = an earlier step is undecided; pending = it is this step's turn. */
+  status: 'waiting' | 'pending' | 'approved' | 'rejected' | 'sent_back' | 'skipped'
+  /**
+   * What the approver actually chose, verbatim. Separate from `status` because
+   * a step's lifecycle state cannot carry the difference between "rejected" and
+   * "sent back for amendment", and the employee is told very different things.
+   */
+  decision: 'approved' | 'approved_lwp' | 'rejected' | 'sent_back' | 'cancelled' | null
+  approver_id: number | null
+  approver_name: string | null
+  comment: string | null
+  decided_at: string | null
+  pending_since: string | null
+  escalated_at: string | null
+  escalated_to: string | null
+  escalated_to_label: string | null
+}
+
 export interface LeaveRequestDetail extends LeaveRequestRow {
   balances: LeaveBalanceRow[]
   comments: LeaveRequestComment[]
   timeline: LeaveRequestTimelineEntry[]
+  approval_chain: LeaveApprovalStep[]
+}
+
+/** What a decision call reports back about the chain it moved. */
+export interface LeaveDecisionWorkflow {
+  final: boolean
+  step: number
+  of: number
+  next: string | null
+  timeline: LeaveApprovalStep[]
 }
 
 export interface LeavePagination {
@@ -424,6 +494,17 @@ export const leaveService = {
       '/leave/options',
       withLaravelParams(context, optionalParam('department_id', departmentId)),
     ),
+  getAllocations: (context: LaravelContext) =>
+    apiClient.get<LeaveApiResponse<LeaveAllocationData>>(
+      '/leave/allocations',
+      withLaravelParams(context),
+    ),
+  saveAllocations: (context: LaravelContext, allocations: LeaveAllocationPayload[]) =>
+    apiClient.put<LeaveApiResponse<null>>('/leave/allocations', {
+      ...withLaravelParams(context),
+      allocations,
+    }),
+
   getBalances: (context: LaravelContext, employeeId?: string) =>
     apiClient.get<LeaveApiResponse<LeaveBalancesData>>(
       '/leave/balances',

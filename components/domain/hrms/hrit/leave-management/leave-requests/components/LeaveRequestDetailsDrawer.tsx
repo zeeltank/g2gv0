@@ -12,6 +12,7 @@ import { Check, X, MessageSquare, Paperclip, History, Send } from 'lucide-react'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
 import type { LeaveRequestDetail, LeaveStatus } from '@/services/hrms'
 import { Input } from '@/components/ui/input'
+import { ApprovalChain } from './ApprovalChain'
 
 interface LeaveRequestDetailsDrawerProps {
   open: boolean
@@ -88,6 +89,11 @@ export function LeaveRequestDetailsDrawer({
   const balances = detail?.balances ?? []
   const comments = detail?.comments ?? []
   const timeline = detail?.timeline ?? []
+  // F-124. The chain this request was submitted under, from the server. Not
+  // rebuilt from the tenant's current settings - the two can legitimately
+  // differ, because the chain is frozen when the request is raised.
+  const approvalChain = detail?.approval_chain ?? []
+  const awaitingStep = approvalChain.find((step) => step.status === 'pending')
 
   const decide = (status: LeaveStatus) => {
     onDecision?.(requestId, status, remark.trim() ? { hrRemarks: remark.trim() } : undefined)
@@ -254,6 +260,16 @@ export function LeaveRequestDetailsDrawer({
 
           {activeTab === 'timeline' && (
             <div className="space-y-8 px-2 py-2">
+              {/*
+                Who still has to say yes, above what has already happened.
+                An approver opening this needs "is it my turn" before they need
+                the history, and until this sprint the product could not answer
+                that question at all.
+              */}
+              <ApprovalChain steps={approvalChain} loading={loading} />
+
+              <div className="h-px bg-border" />
+
               {timeline.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No timeline events recorded yet.</p>
               ) : (
@@ -371,7 +387,24 @@ export function LeaveRequestDetailsDrawer({
         </div>
 
         {request.status === 'pending' && onDecision && (
-          <div className="shrink-0 border-t border-border bg-card p-4 flex justify-end gap-2">
+          <div className="shrink-0 border-t border-border bg-card p-4 flex flex-wrap items-center justify-end gap-2">
+            {/*
+              F-124. Which approval this click is, before it is made. The
+              buttons are NOT disabled from here - the server decides who may
+              act, and a component that greys a button out is a hint, never a
+              gate (F-91 was payroll reachable by everyone because a React
+              component was the only thing saying no). If someone whose turn it
+              is not clicks Approve, the API refuses and says why.
+            */}
+            {awaitingStep && (
+              <span className="mr-auto text-xs text-muted-foreground">
+                Step {awaitingStep.step} of {approvalChain.length} ·{' '}
+                <span className="font-semibold text-foreground">{awaitingStep.role_label}</span>
+                {awaitingStep.escalated_at
+                  ? ` or ${awaitingStep.escalated_to_label} (escalated)`
+                  : ''}
+              </span>
+            )}
             <Button variant="outline" size="sm" disabled={processing} onClick={() => decide('sent_back')}>
               Send Back
             </Button>

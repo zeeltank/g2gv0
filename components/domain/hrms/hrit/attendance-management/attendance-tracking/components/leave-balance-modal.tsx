@@ -48,7 +48,7 @@ export function LeaveBalanceModal({
     )
   }
 
-  const totalLeave = balance ? balance.casual + balance.earned + balance.sick : 0
+  const totalLeave = balance?.remaining ?? 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,20 +64,30 @@ export function LeaveBalanceModal({
         <div className="space-y-6 py-4">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">Available Leaves</h3>
+            {/*
+              * F-97. Was three hardcoded rows — Casual / Earned / Sick — which
+              * are not the leave types any tenant here has configured. Tenant 3's
+              * are "Annual Leave", "Scholar Clone" and "Scholar Clone 2".
+              */}
             <div className="space-y-3">
-              <LeaveBalanceItem label="Casual Leave" days={balance?.casual ?? 0} />
-              <LeaveBalanceItem label="Earned Leave" days={balance?.earned ?? 0} />
-              <LeaveBalanceItem label="Sick Leave" days={balance?.sick ?? 0} />
+              {(balance?.types ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No leave types are configured for your organisation yet.
+                </p>
+              )}
+              {(balance?.types ?? []).map((type) => (
+                <LeaveBalanceItem key={type.leaveType} label={type.leaveType} days={type.remaining} />
+              ))}
             </div>
           </div>
 
           <Separator />
 
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">Pending Requests</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Used this year</h3>
             <div className="flex justify-between items-center">
-              <span className="text-sm">Pending Approval</span>
-              <span className="text-lg font-semibold">{balance?.pending ?? 0}</span>
+              <span className="text-sm">Days taken</span>
+              <span className="text-lg font-semibold">{balance?.used ?? 0}</span>
             </div>
           </div>
 

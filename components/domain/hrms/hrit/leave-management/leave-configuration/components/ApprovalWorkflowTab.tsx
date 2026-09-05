@@ -73,6 +73,27 @@ export default function ApprovalWorkflowTab() {
   const isDirty = workflow ? JSON.stringify({ ...workflow, id: undefined }) !== JSON.stringify({ ...draft, id: undefined }) : false
   const hasCircleSteps = draft.reporting_manager_enabled || draft.department_head_enabled || draft.hr_enabled
 
+  /*
+   * F-124. The chain these switches produce, mirroring
+   * LeaveApprovalWorkflow::chainFor() on the server so the preview below
+   * updates as they move. The server is authoritative; this is a preview.
+   *
+   * Multi-level OFF means one approval decides, which is what the switch has
+   * always said and what the product now actually does.
+   */
+  const enabledStages = [
+    draft.reporting_manager_enabled ? 'Reporting Manager' : null,
+    draft.department_head_enabled ? 'Department Head' : null,
+    draft.hr_enabled ? 'HR' : null,
+  ].filter((stage): stage is string => stage !== null)
+
+  const previewChain = draft.multi_level_enabled
+    ? enabledStages.slice(0, Math.max(1, draft.multi_level_count))
+    : enabledStages.slice(0, 1)
+
+  const escalateToLabel =
+    escalateToOptions.find((option) => option.value === draft.escalate_to)?.label ?? draft.escalate_to
+
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
       {(actionMessage || error) && (
@@ -155,6 +176,53 @@ export default function ApprovalWorkflowTab() {
           {!hasCircleSteps && (
             <p className="mt-4 text-xs text-destructive">At least one approval stage must be enabled.</p>
           )}
+
+          {/*
+            F-124. What these switches now produce, before Save is pressed.
+
+            Until this sprint the whole card was decorative: it saved to
+            hrms_leave_workflow_settings and nothing in the product ever read
+            that table, so a two-stage chain and a one-stage chain behaved
+            identically. Showing the resulting chain is how an HR user can tell
+            that it no longer does.
+
+            The rule is mirrored from LeaveApprovalWorkflow::chainFor() so the
+            preview updates as the switches move. The SERVER is authoritative —
+            this is a preview, and the chain is frozen onto each request at the
+            moment it is submitted, not read from here at approval time.
+          */}
+          <div className="mt-6 rounded-xl border border-border bg-muted/40 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              A request submitted with these settings will need
+            </p>
+            {previewChain.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No approver is enabled, so HR decides by default — a leave request can never be
+                left with nobody able to approve it.
+              </p>
+            ) : (
+              <ol className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
+                {previewChain.map((role, index) => (
+                  <li key={role} className="flex items-center gap-2">
+                    <span className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground">
+                      {index + 1}. {role}
+                    </span>
+                    {index < previewChain.length - 1 && (
+                      <span className="text-muted-foreground">→</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              {previewChain.length > 1
+                ? 'Every stage must approve. Nobody — including HR — can approve on behalf of a stage that has not been reached.'
+                : 'One approval decides the request.'}
+              {draft.escalation_enabled
+                ? ` If a stage waits longer than ${draft.escalation_time} ${draft.escalation_unit}, ${escalateToLabel} can decide it as well.`
+                : ' Overdue approvals are not escalated.'}
+            </p>
+          </div>
         </CardContent>
       </Card>
 

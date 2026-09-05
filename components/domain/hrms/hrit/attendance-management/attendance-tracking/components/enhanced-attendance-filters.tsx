@@ -16,13 +16,11 @@ export interface EnhancedAttendanceFiltersProps {
   employees: { value: string; label: string }[]
   /** Disables the Employee select while its options are being refetched. */
   employeesLoading?: boolean
-  savedReports: { value: string; label: string }[]
   onDateRangeChange: (range: { from: string; to: string }) => void
   onGroupByChange: (value: string) => void
   onDepartmentChange: (value: string) => void
   onEmployeeChange: (value: string) => void
   onQuickFilterChange: (value: string) => void
-  onSavedReportChange: (value: string) => void
   onReset: () => void
   onSearch?: () => void
   className?: string
@@ -37,13 +35,11 @@ export function EnhancedAttendanceFilters({
   departments,
   employees,
   employeesLoading,
-  savedReports,
   onDateRangeChange,
   onGroupByChange,
   onDepartmentChange,
   onEmployeeChange,
   onQuickFilterChange,
-  onSavedReportChange,
   onReset,
   onSearch,
   className,
@@ -127,10 +123,22 @@ export function EnhancedAttendanceFilters({
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Quick Filters</label>
           <div className="flex items-center gap-2">
+            {/*
+              * F-99. There used to be a "Saved Reports" dropdown beside this,
+              * offering "Last Month Report", "Q1 2026 Report" and "This Week
+              * Report". It saved nothing, persisted nothing and selecting one
+              * called console.log — and its three entries were date ranges,
+              * which is what this control already is. It was a broken duplicate
+              * of the control next to it, so it is gone and the ranges it
+              * promised are here, working.
+              */}
             {[
               { value: 'today', label: 'Today' },
               { value: 'week', label: 'This Week' },
               { value: 'month', label: 'This Month' },
+              { value: 'last-month', label: 'Last Month' },
+              { value: 'quarter', label: 'This Quarter' },
+              { value: 'year', label: 'This Year' },
               { value: 'custom', label: 'Custom' },
             ].map((qf) => (
               <button

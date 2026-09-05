@@ -52,6 +52,24 @@ export interface PayrollStatusResponse {
   message?: string
 }
 
+/**
+ * Whether a payroll month is still writable. F-129.
+ *
+ * `locked` is derived on the server from locked_at vs reopened_at rather than
+ * stored as a flag, so a month that was locked, reopened and locked again keeps
+ * its whole history instead of collapsing to one boolean.
+ */
+export interface PayrollMonthLockResponse extends PayrollStatusResponse {
+  locked?: boolean
+  locked_at?: string | null
+  /** The person's name, not their id - this goes straight into a sentence. */
+  locked_by?: string | null
+  reopened_at?: string | null
+  reopen_reason?: string | null
+  month?: string
+  year?: number
+}
+
 export type PayrollTypeKind = 'Earning' | 'Deduction'
 export type PayrollAmountType = 'Flat' | 'Percentage'
 export type PayrollTypeStatus = 'Active' | 'Inactive'
@@ -660,9 +678,17 @@ export const payrollService = {
   /**
    * POST /monthly-payroll-store.
    *
-   * The controller INSERTs unconditionally - it has no upsert - so only rows
-   * without an existing monthlyData record may be submitted, otherwise the month
-   * gets duplicate payslips.
+   * The warning that used to live here - "the controller INSERTs unconditionally
+   * so only rows without an existing monthlyData record may be submitted,
+   * otherwise the month gets duplicate payslips" - was TRUE, and describing a
+   * data-integrity hazard in a comment is not the same as fixing it. Live data
+   * held 17 payslips for one employee-month.
+   *
+   * Sprint 6 (F-109) made the controller match on
+   * (employee_id, month, year, sub_institute_id) and update in place, so
+   * re-saving a month CORRECTS it. Sprint 7 (F-129) added a lock, so a month
+   * that has been declared finished refuses the save outright - see
+   * getMonthLock / setMonthLock below.
    */
   saveMonthlyPayroll: (context: LaravelContext, payload: MonthlyPayrollSavePayload) =>
     ensurePayrollSuccess(
@@ -685,6 +711,39 @@ export const payrollService = {
       }),
       'Monthly payroll saved successfully.',
     ),
+
+  /**
+   * GET /monthly-payroll-lock - is this month still writable?
+   *
+   * F-129. Read from the SAME endpoint that enforces it at the write, so the
+   * screen cannot show "open" for a month the server will refuse. A lock the
+   * browser decides is the defect F-91 already found in this module's payroll.
+   */
+  getMonthLock: (context: LaravelContext, params: { month: string; year: number }) =>
+    webClient.get<PayrollMonthLockResponse>(
+      `/monthly-payroll-lock?${payrollQuery(context, {
+        month: params.month,
+        year: String(params.year),
+      })}`,
+    ),
+
+  /**
+   * POST /monthly-payroll-lock - close the month, or reopen it with a reason.
+   *
+   * `reason` is required by the server when reopening, not optional-with-a-
+   * default. A lock that can be lifted silently is not a lock.
+   */
+  setMonthLock: (
+    context: LaravelContext,
+    params: { month: string; year: number; action: 'lock' | 'reopen'; reason?: string },
+  ) =>
+    webClient.post<PayrollMonthLockResponse>('/monthly-payroll-lock', {
+      ...withLaravelParams(context),
+      month: params.month,
+      year: params.year,
+      action: params.action,
+      ...(params.reason ? { reason: params.reason } : {}),
+    }),
 
   /**
    * POST /monthly-payroll-delete/{month}.

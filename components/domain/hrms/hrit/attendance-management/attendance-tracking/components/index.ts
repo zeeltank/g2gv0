@@ -3,7 +3,18 @@
 export { AttendanceCalendarDrawer } from './attendance-calendar-drawer'
 export { AttendanceDonutChart } from './attendance-donut-chart'
 export { AttendanceDrillDownDrawer } from './attendance-drill-down-drawer'
-export { AttendanceFilters } from './attendance-filters'
+/*
+ * AttendanceFilters (./attendance-filters) was DELETED in HRIT Sprint 3.
+ *
+ * It was the earlier generation of EnhancedAttendanceFilters — same control,
+ * same props, plus the "Saved Reports" dropdown that F-99 removed. It was
+ * exported from this barrel and imported by NOTHING: the only consumer,
+ * attendance-reports/page.tsx, uses EnhancedAttendanceFilters.
+ *
+ * Two generations of one idea living side by side is the drift risk §E.0 of the
+ * audit calls out; the unused one goes rather than being left to be picked up
+ * by accident.
+ */
 export { AttendanceGroupedTable } from './attendance-grouped-table'
 export { AttendanceHighlights } from './attendance-highlights'
 export { AttendanceKPICards as AttendanceKpiCards } from './attendance-kpi-cards'

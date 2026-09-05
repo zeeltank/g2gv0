@@ -42,17 +42,30 @@ export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWid
       </CardHeader>
       <CardContent className="flex flex-1 flex-col justify-between px-3 pb-3">
         <div className="flex flex-col">
+          {requests.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              You have no open requests.
+            </p>
+          )}
           {requests.map((request) => (
             <div
               key={request.id}
-              className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
+              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
             >
-              <span className="text-sm font-medium text-foreground">
+              <span className="truncate text-sm font-medium text-foreground">
                 {request.type}
               </span>
-              <StatusBadge status={request.status} size="sm">
-                {request.status} ({request.count})
-              </StatusBadge>
+              {request.pending > 0 ? (
+                <StatusBadge status="pending" size="sm">
+                  {request.pending} pending
+                </StatusBadge>
+              ) : request.approved > 0 ? (
+                <StatusBadge status="approved" size="sm">
+                  {request.approved} approved
+                </StatusBadge>
+              ) : (
+                <span className="text-xs font-medium text-muted-foreground">None</span>
+              )}
             </div>
           ))}
         </div>

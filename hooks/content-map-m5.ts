@@ -12,6 +12,10 @@ const PayrollDeductionPage = createLazyComponent(() => import('@/domain/hrms/hri
 const MonthlyPayrollPage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/monthly-payroll/page').then((m) => ({ default: m.default })))
 const SalaryCertificatePage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/salary-certificate/page').then((m) => ({ default: m.default })))
 const Form16Page = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/form-16/page').then((m) => ({ default: m.default })))
+// F-130. The employee's own view of themselves - the audit's Part D gap. Not in
+// tblmenumaster_g2g yet, so it has no submenuId; it is reachable by URL and from
+// the leave screens until HR adds the menu row.
+const MyHrPage = createLazyComponent(() => import('@/domain/hrms/hrit/my-hr/page').then((m) => ({ default: m.default })))
 
 // accessLink is the stable tblmenumaster_g2g column (HRIT Solutions, module
 // id 5); submenuId is kept as a fallback.
@@ -28,4 +32,5 @@ export const M5_CONTENT: ContentRoute[] = [
   { accessLink: '/module/hrit-solutions/payroll-management/monthly-payroll-report', submenuId: '140', component: MonthlyPayrollPage }, // Monthly Payroll Report
   { accessLink: '/module/hrit-solutions/payroll-management/salary-certificate', submenuId: '110', component: SalaryCertificatePage }, // Salary Certificate
   { accessLink: '/module/hrit-solutions/payroll-management/form-16', submenuId: '109', component: Form16Page }, // Form 16
+  { accessLink: '/module/hrit-solutions/my-hr', component: MyHrPage }, // My HR (F-130) - every role, own data only
 ]

@@ -15,7 +15,8 @@ interface LeaveBalanceCardProps {
 }
 
 export function LeaveBalanceCard({ balance, loading, onViewBalance }: LeaveBalanceCardProps) {
-  const totalLeave = balance ? balance.casual + balance.earned + balance.sick : 0
+  // The tenant's own leave types, totalled by the API. Was casual+earned+sick.
+  const totalLeave = balance?.remaining ?? 0
 
   if (loading) {
     return (

@@ -32,6 +32,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
 import { usePayrollDepartments } from '@/hooks/use-payroll-shared'
 import { useMonthlyPayroll, type MonthlyPayrollRow } from '@/hooks/use-monthly-payroll'
+import { MonthLockCard } from './components/month-lock-card'
 import { monthlyPayslipPdfUrl } from '@/services/hrms'
 import {
   PayrollMessages,
@@ -321,6 +322,21 @@ export default function MonthlyPayrollPage() {
               />
             </div>
           </CardHeader>
+
+          {/*
+            F-129. Whether this month is still writable, read from the SAME
+            endpoint that refuses the save. A month that has been paid should be
+            declarable finished, and reopening it should leave a reason behind.
+          */}
+          {lastQuery && (
+            <div className="px-6 pb-2">
+              <MonthLockCard
+                month={lastQuery.month}
+                year={Number(lastQuery.year)}
+                onChange={() => retry()}
+              />
+            </div>
+          )}
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table className="[&_td]:p-2 [&_th]:p-2">

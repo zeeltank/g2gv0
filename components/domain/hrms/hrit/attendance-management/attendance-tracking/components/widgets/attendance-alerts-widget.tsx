@@ -9,6 +9,8 @@ import type { AttendanceAlert } from './widget-types'
 interface AttendanceAlertsWidgetProps {
   alerts: AttendanceAlert[]
   loading?: boolean
+  /** Opens the regularisation drawer for the day the alert names. */
+  onAlertClick?: (alert: AttendanceAlert) => void
 }
 
 const severityConfig = {
@@ -26,7 +28,7 @@ const severityConfig = {
   },
 }
 
-export function AttendanceAlertsWidget({ alerts, loading }: AttendanceAlertsWidgetProps) {
+export function AttendanceAlertsWidget({ alerts, loading, onAlertClick }: AttendanceAlertsWidgetProps) {
   if (loading) {
     return (
       <Card className="h-full rounded-xl border-border bg-card shadow-sm">
@@ -55,12 +57,18 @@ export function AttendanceAlertsWidget({ alerts, loading }: AttendanceAlertsWidg
       </CardHeader>
       <CardContent className="flex-1 px-3 pb-3">
         <div className="flex flex-col">
+          {alerts.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              Nothing needs your attention.
+            </p>
+          )}
           {alerts.map((alert) => {
             const config = severityConfig[alert.severity]
             return (
               <button
                 key={alert.id}
                 type="button"
+                onClick={() => onAlertClick?.(alert)}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted"
               >
                 <span className={`size-2 shrink-0 rounded-full ${config.dot}`} />

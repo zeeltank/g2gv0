@@ -243,7 +243,7 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
-          <RecentLeaveRequests requests={recentRequests} />
+          <RecentLeaveRequests requests={recentRequests} onView={handleViewDetails} />
         </Suspense>
         <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
           <RecentActivity activities={activityData} />

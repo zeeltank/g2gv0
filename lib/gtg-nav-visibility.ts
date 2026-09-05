@@ -1,138 +1,174 @@
-import { type Role } from '@/types/role'
-
-const ALL_ROLES: Role[] = ['admin', 'hr', 'dept-head', 'employee']
+import { ALL_ROLES, HR_ADMIN_ROLES, type Role } from '@/types/role'
 
 /**
- * Role-based menu visibility rules per Permission Flowchart.
- * Maps each module/menu/submenu to the roles that can see it.
+ * Role-based menu visibility, keyed on `role_key`.
+ *
+ * Rewritten in HRIT Sprint 1 (F-104). This file used to speak the frontend's
+ * old four-role vocabulary — 'admin' | 'hr' | 'dept-head' | 'employee' — which
+ * was derived by substring-matching a profile's display name. Two consequences
+ * showed up in the audit's role walk: every Reporting Manager was silently
+ * promoted to Department Head, and `executive`, `auditor` and `recruiter` fell
+ * through to `employee` because they matched none of the substrings.
+ *
+ * The nine role_keys are now named directly. The three groups below are the
+ * only vocabulary the rules use, so a change lands in one place.
+ *
+ * These MIRROR the server-side gates deliberately — `App\Support\RoleKey`
+ * and `hrms_leave_role_permissions`. This file decides what is *shown*; it is
+ * not a control. Hiding a screen is not access control, which is exactly how
+ * payroll ended up reachable by everyone (F-91). The API enforces.
  */
+
+/** Every role. Self-service screens everyone has a legitimate use for. */
+const EVERYONE: Role[] = ALL_ROLES
+
+/** Payroll and configuration: the people who administer HR. */
+const HR_ADMIN: Role[] = HR_ADMIN_ROLES
+
+/**
+ * Reporting. HR_ADMIN plus the two read-only oversight roles.
+ *
+ * `auditor` and `executive` exist to read the organisation and change nothing;
+ * before this change the menu showed them neither, because they were being
+ * treated as ordinary employees.
+ */
+const REPORTING: Role[] = ['administrator', 'hr_manager', 'hr_executive', 'executive', 'auditor']
+
 const VISIBILITY_RULES: Record<string, Role[]> = {
-  'main-dashboard': ALL_ROLES,
+  'main-dashboard': EVERYONE,
 
   // M1 — Organizational Management
   // Menus
-  'org-setup': ['admin', 'hr', 'dept-head', 'employee'],
-  'user-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'task-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'compliance-discipline': ['admin', 'hr', 'dept-head', 'employee'],
+  'org-setup': EVERYONE,
+  'user-management': EVERYONE,
+  'task-management': EVERYONE,
+  'compliance-discipline': EVERYONE,
   
   // Submenus
-  'org-profile': ['admin', 'hr', 'dept-head', 'employee'],
-  'dept-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'employee-directory': ['admin', 'hr', 'dept-head', 'employee'],
-  'role-permissions': ['admin', 'hr', 'dept-head'],
-  'task-assignment': ['admin', 'hr', 'dept-head', 'employee'],
-  'task-tracking': ['admin', 'hr', 'dept-head', 'employee'],
-  'compliance-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'disciplinary-management': ['admin', 'hr', 'dept-head', 'employee'],
+  'org-profile': EVERYONE,
+  'dept-management': EVERYONE,
+  'employee-directory': EVERYONE,
+  'role-permissions': ['administrator', 'hr_manager', 'hr_executive', 'department_head', 'reporting_manager'],
+  'task-assignment': EVERYONE,
+  'task-tracking': EVERYONE,
+  'compliance-management': EVERYONE,
+  'disciplinary-management': EVERYONE,
 
   // M2 — Competency Management
   // Menus
-  'competency-library': ['admin', 'hr', 'dept-head', 'employee'],
-  'job-role-library': ['admin', 'hr', 'dept-head', 'employee'],
-  'competency-rating': ['admin', 'hr', 'dept-head', 'employee'],
+  'competency-library': EVERYONE,
+  'job-role-library': EVERYONE,
+  'competency-rating': EVERYONE,
   
   // Submenus
-  'taxonomy-library': ['admin', 'hr', 'dept-head', 'employee'],
-  'job-role-catalogue': ['admin', 'hr', 'dept-head', 'employee'],
-  'employee-rating': ['admin', 'hr', 'dept-head', 'employee'],
-  'cm-command-center': ALL_ROLES,
-  'cm-competency-library': ALL_ROLES,
-  'cm-libraries-taxonomy': ALL_ROLES,
-  'cm-skill-taxonomy': ALL_ROLES,
-  'cm-taxonomy-ontology': ALL_ROLES,
-  'cm-framework-mapping': ALL_ROLES,
-  'cm-assessments': ALL_ROLES,
-  'cm-employee-profiles': ALL_ROLES,
-  'cm-development-career': ALL_ROLES,
-  'cm-certifications': ALL_ROLES,
-  'cm-audit': ALL_ROLES,
+  'taxonomy-library': EVERYONE,
+  'job-role-catalogue': EVERYONE,
+  'employee-rating': EVERYONE,
+  'cm-command-center': EVERYONE,
+  'cm-competency-library': EVERYONE,
+  'cm-libraries-taxonomy': EVERYONE,
+  'cm-skill-taxonomy': EVERYONE,
+  'cm-taxonomy-ontology': EVERYONE,
+  'cm-framework-mapping': EVERYONE,
+  'cm-assessments': EVERYONE,
+  'cm-employee-profiles': EVERYONE,
+  'cm-development-career': EVERYONE,
+  'cm-certifications': EVERYONE,
+  'cm-audit': REPORTING,
 
   // M7 — Agentic AI
-  'ag-agent-dashboard': ALL_ROLES,
-  'ag-agent-library': ALL_ROLES,
-  'ag-create-agent': ['admin', 'hr'],
-  'ag-run-log': ALL_ROLES,
-  'ag-analytics': ALL_ROLES,
-  'ag-multi-agent': ['admin', 'hr'],
-  'ag-reflection': ['admin', 'hr'],
+  'ag-agent-dashboard': EVERYONE,
+  'ag-agent-library': EVERYONE,
+  'ag-create-agent': HR_ADMIN,
+  'ag-run-log': EVERYONE,
+  'ag-analytics': EVERYONE,
+  'ag-multi-agent': HR_ADMIN,
+  'ag-reflection': HR_ADMIN,
 
   // M3 — Talent Management
   // Menus
-  'talent-acquisition': ['admin', 'hr', 'dept-head', 'employee'],
-  'performance-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'hr-template-engine': ['admin', 'hr'],
+  'talent-acquisition': EVERYONE,
+  'performance-management': EVERYONE,
+  'hr-template-engine': HR_ADMIN,
   
   // Submenus
-  'recruitment-dashboard': ['admin', 'hr', 'dept-head', 'employee'],
-  'job-postings': ['admin', 'hr', 'dept-head', 'employee'],
-  'interview-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'manager-hub': ['admin', 'hr', 'dept-head', 'employee'],
-  'performance-reviews': ['admin', 'hr', 'dept-head', 'employee'],
-  'appraisals-succession': ['admin', 'hr', 'dept-head'],
-  'document-templates': ['admin', 'hr'],
-  'tm-dashboard': ALL_ROLES,
-  'recruitment': ALL_ROLES,
-  'onboarding': ALL_ROLES,
-  'performance': ALL_ROLES,
-  'compensation': ALL_ROLES,
-  'mobility-succession': ALL_ROLES,
-  'offboarding': ALL_ROLES,
-  'administration': ALL_ROLES,
+  'recruitment-dashboard': EVERYONE,
+  'job-postings': EVERYONE,
+  'interview-management': EVERYONE,
+  'manager-hub': EVERYONE,
+  'performance-reviews': EVERYONE,
+  'appraisals-succession': ['administrator', 'hr_manager', 'hr_executive', 'department_head', 'reporting_manager'],
+  'document-templates': HR_ADMIN,
+  'tm-dashboard': EVERYONE,
+  'recruitment': EVERYONE,
+  'onboarding': EVERYONE,
+  'performance': EVERYONE,
+  'compensation': EVERYONE,
+  'mobility-succession': EVERYONE,
+  'offboarding': EVERYONE,
+  'administration': EVERYONE,
 
   // M4 — LMS
   // Menus
-  'content-library': ['admin', 'hr', 'dept-head', 'employee'],
-  'assessment-library': ['admin', 'hr', 'dept-head', 'employee'],
+  'content-library': EVERYONE,
+  'assessment-library': EVERYONE,
   
   // Submenus
-  'learning-dashboard': ['admin', 'hr', 'dept-head', 'employee'],
-  'course-catalogue': ['admin', 'hr', 'dept-head', 'employee'],
-  'assessment-centre': ['admin', 'hr', 'dept-head', 'employee'],
-  'learning': ALL_ROLES,
-  'training-records': ALL_ROLES,
-  'lms-administration': ALL_ROLES,
-  'lms-dashboard': ALL_ROLES,
-  'learning-catalog': ALL_ROLES,
-  'my-learning': ALL_ROLES,
-  'assignments': ALL_ROLES,
-  'sessions-calendar': ALL_ROLES,
-  'certifications': ALL_ROLES,
-  'create-course': ALL_ROLES,
-  'governance': ALL_ROLES,
+  'learning-dashboard': EVERYONE,
+  'course-catalogue': EVERYONE,
+  'assessment-centre': EVERYONE,
+  'learning': EVERYONE,
+  'training-records': EVERYONE,
+  'lms-administration': EVERYONE,
+  'lms-dashboard': EVERYONE,
+  'learning-catalog': EVERYONE,
+  'my-learning': EVERYONE,
+  'assignments': EVERYONE,
+  'sessions-calendar': EVERYONE,
+  'certifications': EVERYONE,
+  'create-course': EVERYONE,
+  'governance': EVERYONE,
 
   // M5 — HRIT Solutions
   // Menus
-  'attendance-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'leave-management': ['admin', 'hr', 'dept-head', 'employee'],
-  'payroll-management': ['admin', 'hr'],
+  'attendance-management': EVERYONE,
+  'leave-management': EVERYONE,
+  'payroll-management': HR_ADMIN,
   
   // Submenus
-  'attendance-tracking': ['admin', 'hr', 'dept-head', 'employee'],
-  'attendance-reports': ['admin', 'hr'],
-  'leave-dashboard': ['admin', 'hr', 'dept-head', 'employee'],
-  'leave-operations': ['admin', 'hr', 'dept-head', 'employee'],
-  'leave-requests': ['admin', 'hr', 'dept-head', 'employee'],
-  'leave-reports': ['admin', 'hr'],
-  'leave-configuration': ['admin', 'hr'],
-  'payroll-type': ['admin', 'hr'],
-  'salary-structure': ['admin', 'hr'],
-  'payroll-deduction': ['admin', 'hr'],
-  'monthly-payroll': ['admin', 'hr'],
-  'salary-certificate': ['admin', 'hr'],
-  'form-16': ['admin', 'hr'],
-  'payroll-processing': ['admin', 'hr'],
-  'tm-tasks': ALL_ROLES,
-  'tm-projects': ALL_ROLES,
-  'tm-dependencies': ALL_ROLES,
-  'tm-calendar': ALL_ROLES,
-  'tm-reports': ['admin', 'hr', 'dept-head'],
-  'tm-admin': ALL_ROLES,
-  'status-management': ALL_ROLES,
-  'priority-management': ALL_ROLES,
-  'permissions': ALL_ROLES,
-  'integrations': ALL_ROLES,
-  'audit-logs': ALL_ROLES,
+  'attendance-tracking': EVERYONE,
+  'attendance-reports': REPORTING,
+  'leave-dashboard': EVERYONE,
+  'leave-operations': EVERYONE,
+  'leave-requests': EVERYONE,
+  /*
+   * F-130. My HR is EVERYONE by design, and it is the one entry where that
+   * needs saying: the endpoints behind it take no employee id at all, so
+   * "everyone" means "everyone sees exactly their own". Gating it by role
+   * would be the wrong tool - the question is not which roles may read a
+   * payslip, it is that each person may read one.
+   */
+  'my-hr': EVERYONE,
+  'leave-reports': REPORTING,
+  'leave-configuration': HR_ADMIN,
+  'payroll-type': HR_ADMIN,
+  'salary-structure': HR_ADMIN,
+  'payroll-deduction': HR_ADMIN,
+  'monthly-payroll': HR_ADMIN,
+  'salary-certificate': HR_ADMIN,
+  'form-16': HR_ADMIN,
+  'payroll-processing': HR_ADMIN,
+  'tm-tasks': EVERYONE,
+  'tm-projects': EVERYONE,
+  'tm-dependencies': EVERYONE,
+  'tm-calendar': EVERYONE,
+  'tm-reports': REPORTING,
+  'tm-admin': EVERYONE,
+  'status-management': EVERYONE,
+  'priority-management': EVERYONE,
+  'permissions': EVERYONE,
+  'integrations': EVERYONE,
+  'audit-logs': REPORTING,
 }
 
 export function isMenuVisible(menuId: string, role: Role): boolean {

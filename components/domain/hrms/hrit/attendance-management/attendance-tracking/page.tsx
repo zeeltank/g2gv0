@@ -16,9 +16,12 @@ import {
   MapPin,
   MoreVertical,
   CalendarPlus,
+  Building2,
 } from 'lucide-react'
 
-import { useAttendance } from '@/hooks'
+import { useRouter } from 'next/navigation'
+import { useAttendance, workModeLabel, type WorkMode } from '@/hooks/use-attendance'
+import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getGreeting } from '@/lib/greeting'
 import { Button } from '@/components/ui/button'
@@ -26,7 +29,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
-import type { AttendanceRecord, AttendanceStatus } from '@/domain/hrms/hrit/attendance-management/types'
+import type {
+  AttendanceRecord,
+  AttendanceStatus,
+  ShiftWindow,
+} from '@/domain/hrms/hrit/attendance-management/types'
 
 const AttendanceCalendarDrawer = lazy(() =>
   import('@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-calendar-drawer').then((m) => ({
@@ -43,6 +50,18 @@ const AttendanceHistoryDrawer = lazy(() =>
 const EventDetailsDrawer = lazy(() =>
   import('@/domain/hrms/hrit/attendance-management/attendance-tracking/components/event-details-drawer').then((m) => ({
     default: m.EventDetailsDrawer,
+  })),
+)
+
+const RegularisationDrawer = lazy(() =>
+  import('@/domain/hrms/hrit/attendance-management/attendance-tracking/components/regularisation-drawer').then((m) => ({
+    default: m.RegularisationDrawer,
+  })),
+)
+
+const RegularisationQueue = lazy(() =>
+  import('@/domain/hrms/hrit/attendance-management/attendance-tracking/components/regularisation-queue').then((m) => ({
+    default: m.RegularisationQueue,
   })),
 )
 
@@ -76,9 +95,20 @@ const UpcomingEventsWidget = lazy(() =>
   })),
 )
 
-const SHIFT_END = '06:00 PM'
-const SHIFT_TOTAL_MINUTES = 510
-const CURRENT_DATE_LABEL = 'Today, 22 Jun 2026'
+/*
+ * F-98, F-113 and F-112. What used to live here:
+ *
+ *   const SHIFT_END = '06:00 PM'          the ring's end, for everyone
+ *   const SHIFT_TOTAL_MINUTES = 510       "of 8h 30m", for everyone
+ *   const CURRENT_DATE_LABEL = 'Today, 22 Jun 2026'   one fixed day, forever
+ *   const ATTENDANCE_ALERTS = [...]       four invented alerts
+ *   const MY_REQUESTS = [...]             four invented counts
+ *   QUICK_ACTIONS with onClick: () => {}  five buttons that did nothing
+ *
+ * All of it is now real: the shift comes from the employee's own roster on
+ * tbluser, the alerts and counts from GET /api/attendance/self-summary, the
+ * date from the clock, and every action goes somewhere.
+ */
 
 const statusLabelMap: Record<AttendanceStatus, string> = {
   present: 'Present',
@@ -88,26 +118,10 @@ const statusLabelMap: Record<AttendanceStatus, string> = {
   leave: 'Leave',
 }
 
-const QUICK_ACTIONS = [
-  { id: 'apply-leave', label: 'Apply Leave', icon: CalendarPlus, onClick: () => {} },
-  { id: 'regularize', label: 'Regularize Attendance', icon: Clock, onClick: () => {} },
-  { id: 'mark-wfh', label: 'Mark WFH', icon: Home, onClick: () => {} },
-  { id: 'download-timesheet', label: 'Download Timesheet', icon: Download, onClick: () => {} },
-  { id: 'monthly-report', label: 'View Monthly Report', icon: BarChart3, onClick: () => {} },
-]
-
-const ATTENDANCE_ALERTS = [
-  { id: 'a1', text: 'Missing Punch-Out (Jun 18)', severity: 'critical' as const },
-  { id: 'a2', text: 'Regularization Pending (1)', severity: 'warning' as const },
-  { id: 'a3', text: 'Attendance Locked in 2 Days', severity: 'info' as const },
-  { id: 'a4', text: 'Early Exit on Jun 20', severity: 'warning' as const },
-]
-
-const MY_REQUESTS = [
-  { id: 'r1', type: 'Regularization', status: 'Pending', count: 1 },
-  { id: 'r2', type: 'Leave Requests', status: 'Pending', count: 2 },
-  { id: 'r3', type: 'WFH Requests', status: 'Approved', count: 1 },
-  { id: 'r4', type: 'Attendance Corrections', status: 'Rejected', count: 1 },
+const WORK_MODE_OPTIONS: { value: WorkMode; label: string; icon: React.ElementType }[] = [
+  { value: 'office', label: 'Office', icon: Building2 },
+  { value: 'home', label: 'Home', icon: Home },
+  { value: 'field', label: 'Field', icon: MapPin },
 ]
 
 const widgetFallback = (
@@ -124,24 +138,106 @@ export function AttendanceDashboard() {
     processing,
     error,
     todayRecord,
-    monthlySummary,
+    attendancePercentage,
     leaveBalance,
     upcomingEvents,
     attendanceHistory,
+    shift,
+    alerts,
+    requests,
+    todayWorkMode,
     punch,
+    retry,
+    reload,
   } = useAttendance()
   const { user } = useAuth()
+  const router = useRouter()
 
   const [calendarOpen, setCalendarOpen] = React.useState(false)
   const [historyOpen, setHistoryOpen] = React.useState(false)
   const [eventsOpen, setEventsOpen] = React.useState(false)
+  const [regularisationOpen, setRegularisationOpen] = React.useState(false)
+  const [regularisationDay, setRegularisationDay] = React.useState<string | null>(null)
+  const [workMode, setWorkMode] = React.useState<WorkMode>('office')
 
-  const attendancePercentage = React.useMemo(() => {
-    if (!monthlySummary) return 0
-    const total = monthlySummary.present + monthlySummary.late + monthlySummary.leave + monthlySummary.absent
-    if (total === 0) return 0
-    return Math.round((monthlySummary.present / total) * 100)
-  }, [monthlySummary])
+  // Preselect the mode already recorded for today, so punching out and back in
+  // does not silently move someone from home to office.
+  React.useEffect(() => {
+    if (todayWorkMode) setWorkMode(todayWorkMode)
+  }, [todayWorkMode])
+
+  /** The date the calendar button shows. Was the constant 'Today, 22 Jun 2026'. */
+  const todayLabel = React.useMemo(
+    () =>
+      `Today, ${new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })}`,
+    [],
+  )
+
+  const openRegularisation = React.useCallback((day?: string | null) => {
+    setRegularisationDay(day ?? null)
+    setRegularisationOpen(true)
+  }, [])
+
+  /** Every one of these was `onClick: () => {}` before (F-112). */
+  const quickActions = React.useMemo(
+    () => [
+      {
+        id: 'apply-leave',
+        label: 'Apply Leave',
+        icon: CalendarPlus,
+        // The Leave Requests page already opens its drawer on ?apply=1 —
+        // reuse that entry point rather than mounting a second copy here.
+        onClick: () => router.push('/module/hrit-solutions/leave-management/leave-requests?apply=1'),
+      },
+      {
+        id: 'regularize',
+        label: 'Regularize Attendance',
+        icon: Clock,
+        onClick: () => openRegularisation(null),
+      },
+      {
+        id: 'mark-wfh',
+        label: workMode === 'home' ? 'Working from Home' : 'Mark WFH',
+        icon: Home,
+        onClick: () => {
+          setWorkMode('home')
+          // Only re-punch if they are already clocked in; otherwise this just
+          // preselects the mode for the punch they are about to make.
+          if (todayRecord?.punchIn && !todayRecord?.punchOut) punch('in', 'home')
+        },
+      },
+      {
+        id: 'download-timesheet',
+        label: 'Download Timesheet',
+        icon: Download,
+        onClick: () =>
+          downloadCsv(
+            `my-timesheet-${new Date().toISOString().slice(0, 7)}.csv`,
+            ['Date', 'Day', 'Punch In', 'Punch Out', 'Total Hours', 'Status', 'Work Mode'],
+            attendanceHistory.map((record) => [
+              record.date,
+              record.day,
+              record.punchIn ?? '',
+              record.punchOut ?? '',
+              record.totalHours ?? '',
+              record.status ? statusLabelMap[record.status] : 'Unknown',
+              workModeLabel(record.workMode),
+            ]),
+          ),
+      },
+      {
+        id: 'monthly-report',
+        label: 'View Monthly Report',
+        icon: BarChart3,
+        onClick: () => setCalendarOpen(true),
+      },
+    ],
+    [attendanceHistory, openRegularisation, punch, router, todayRecord, workMode],
+  )
 
   return (
     <div className="relative space-y-4 lg:space-y-5">
@@ -164,15 +260,19 @@ export function AttendanceDashboard() {
           <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
             c
           </span>
-          <span className="flex-1 text-left">{CURRENT_DATE_LABEL}</span>
+          <span className="flex-1 text-left">{todayLabel}</span>
           <ChevronDown className="size-4 text-muted-foreground" />
         </Button>
       </header>
 
       {error && (
         <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="py-4 text-sm font-medium text-destructive">
-            {error}
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm font-medium text-destructive">
+            <span>{error}</span>
+            {/* F-117: this retries the LOAD. It used to write a punch. */}
+            <Button variant="outline" size="sm" onClick={retry}>
+              Try again
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -181,6 +281,9 @@ export function AttendanceDashboard() {
         record={todayRecord}
         loading={loading}
         processing={processing}
+        shift={shift}
+        workMode={workMode}
+        onWorkModeChange={setWorkMode}
         onPunch={punch}
       />
 
@@ -194,18 +297,35 @@ export function AttendanceDashboard() {
           />
         </Suspense>
         <Suspense fallback={widgetFallback}>
-          <QuickActionsWidget actions={QUICK_ACTIONS} loading={loading} />
+          <QuickActionsWidget actions={quickActions} loading={loading} />
         </Suspense>
         <Suspense fallback={widgetFallback}>
-          <AttendanceAlertsWidget alerts={ATTENDANCE_ALERTS} loading={loading} />
+          <AttendanceAlertsWidget
+            alerts={alerts}
+            loading={loading}
+            onAlertClick={(alert) => openRegularisation(alert.date)}
+          />
         </Suspense>
         <Suspense fallback={widgetFallback}>
-          <MyRequestsWidget requests={MY_REQUESTS} loading={loading} onViewAll={() => { }} />
+          <MyRequestsWidget
+            requests={requests}
+            loading={loading}
+            onViewAll={() => router.push('/module/hrit-solutions/leave-management/leave-requests')}
+          />
         </Suspense>
         <Suspense fallback={widgetFallback}>
           <UpcomingEventsWidget events={upcomingEvents} loading={loading} onViewCalendar={() => setEventsOpen(true)} />
         </Suspense>
       </section>
+
+      {/*
+        * Renders nothing unless the API allows this caller to review - see the
+        * component. Placed above their own history because an approval queue is
+        * work waiting on them.
+        */}
+      <Suspense fallback={null}>
+        <RegularisationQueue onDecided={reload} />
+      </Suspense>
 
       <RecentAttendancePanel
         records={attendanceHistory}
@@ -231,6 +351,14 @@ export function AttendanceDashboard() {
           onOpenChange={setEventsOpen}
           events={upcomingEvents}
         />
+
+        <RegularisationDrawer
+          open={regularisationOpen}
+          onOpenChange={setRegularisationOpen}
+          initialDay={regularisationDay}
+          records={attendanceHistory}
+          onSubmitted={reload}
+        />
       </Suspense>
     </div>
   )
@@ -240,13 +368,19 @@ interface TodayAttendancePanelProps {
   record: AttendanceRecord | null
   loading: boolean
   processing: boolean
-  onPunch: (action: 'in' | 'out') => void
+  shift: ShiftWindow | null
+  workMode: WorkMode
+  onWorkModeChange: (mode: WorkMode) => void
+  onPunch: (action: 'in' | 'out', workMode?: WorkMode) => void
 }
 
 function TodayAttendancePanel({
   record,
   loading,
   processing,
+  shift,
+  workMode,
+  onWorkModeChange,
   onPunch,
 }: TodayAttendancePanelProps) {
   const currentTime = useCurrentTime()
@@ -255,10 +389,26 @@ function TodayAttendancePanel({
     ? formatDuration(currentTime, record?.punchIn)
     : record?.totalHours || '--'
   const workedMinutes = parseDurationToMinutes(workingDuration)
-  const progress = Math.min((workedMinutes / SHIFT_TOTAL_MINUTES) * 100, 100)
+
+  /*
+   * F-113. The ring was drawn against SHIFT_TOTAL_MINUTES = 510 — 8h30m for
+   * every employee in every tenant. It now uses the employee's own roster from
+   * tbluser, and when they have none it says so instead of inventing one.
+   */
+  const hasRoster = shift?.source === 'roster' && !!shift.expectedMinutes
+  const shiftMinutes = hasRoster ? (shift?.expectedMinutes ?? 0) : 0
+  const progress = shiftMinutes > 0 ? Math.min((workedMinutes / shiftMinutes) * 100, 100) : 0
+  const shiftLengthLabel = shiftMinutes > 0
+    ? `of ${Math.floor(shiftMinutes / 60)}h ${String(shiftMinutes % 60).padStart(2, '0')}m`
+    : 'No shift set'
+
   const action = activeShift ? 'out' : 'in'
   const ActionIcon = activeShift ? LogOut : LogIn
-  const statusLabel = activeShift ? 'Working' : statusLabelMap[record?.status || 'absent']
+  const statusLabel = activeShift
+    ? 'Working'
+    : record?.status
+      ? statusLabelMap[record.status]
+      : 'Not punched in'
 
   if (loading) {
     return <Skeleton className="min-h-[360px] rounded-2xl" />
@@ -311,7 +461,7 @@ function TodayAttendancePanel({
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    of 8h 30m
+                    {shiftLengthLabel}
                   </p>
 
                   <p className="text-xs font-semibold text-success">
@@ -329,10 +479,11 @@ function TodayAttendancePanel({
             <TimelinePoint
               icon={LogIn}
               label="Punch In"
-              value={record?.punchIn || "--"}
-              caption="Today"
+              value={record?.punchIn || '--'}
+              caption={hasRoster && shift?.expectedIn ? `Expected ${shift.expectedIn}` : 'Today'}
               metaIcon={MapPin}
-              meta="Office"
+              /* F-115: was the literal "Office". */
+              meta={workModeLabel(record?.workMode ?? workMode)}
               tone="success"
             />
 
@@ -341,8 +492,37 @@ function TodayAttendancePanel({
             {/* Punch Button */}
             <div className="flex flex-col items-center gap-2 text-center">
 
+              {/* F-112: "Mark WFH" used to be a no-op. Work mode is recorded. */}
+              <div className="mb-1 inline-flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Where are you working from?">
+                {WORK_MODE_OPTIONS.map((option) => {
+                  const OptionIcon = option.icon
+                  const selected = (record?.workMode ?? workMode) === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        onWorkModeChange(option.value)
+                        if (activeShift) onPunch('in', option.value)
+                      }}
+                      aria-pressed={selected}
+                      title={option.label}
+                      className={cn(
+                        'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors',
+                        selected
+                          ? 'bg-card text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      <OptionIcon className="size-3.5" />
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+
               <Button
-                onClick={() => onPunch(action)}
+                onClick={() => onPunch(action, workMode)}
                 disabled={processing}
                 className={cn(
                   "size-20 rounded-xl flex-col gap-1.5 text-sm font-semibold shadow-md",
@@ -381,9 +561,9 @@ function TodayAttendancePanel({
 
             <TimelinePoint
               icon={AlarmClock}
-              label="Expected Check Out"
-              value={record?.punchOut || SHIFT_END}
-              caption="Today"
+              label={record?.punchOut ? 'Punch Out' : 'Expected Check Out'}
+              value={record?.punchOut || shift?.expectedOut || '--'}
+              caption={hasRoster ? 'Today' : 'No roster configured'}
               tone="primary"
             />
 
@@ -448,12 +628,16 @@ function RecentAttendancePanel({ records, loading, onViewAll }: RecentAttendance
                   </td>
                   <td className="px-4 py-4 font-semibold text-foreground">{record.totalHours || '--'}</td>
                   <td className="px-4 py-4">
-                    <StatusBadge status={record.status} label={statusLabelMap[record.status]} className="h-9 gap-2 rounded-full px-4 text-base font-bold" />
+                    <StatusBadge
+                      status={record.status ?? 'unknown'}
+                      label={record.status ? statusLabelMap[record.status] : 'Unknown'}
+                      className="h-9 gap-2 rounded-full px-4 text-base font-bold"
+                    />
                   </td>
                   <td className="px-4 py-4 font-medium text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
                       <MapPin className="size-5" />
-                      {record.location || 'Office'}
+                      {workModeLabel(record.workMode)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
