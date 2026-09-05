@@ -6,6 +6,8 @@ import type {
   JobApplicationApi, JobPostingApi, LaravelId, RequisitionPage,
   OfferTemplateApi, ScreeningResultApi, TalentItemResponse, TalentListResponse, TalentOfferApi,
   TeamOverviewApi,
+  AssessmentBlueprintApi, AssessmentBlueprintPayload, AssessmentInviteApi, AssessmentJobRoleApi,
+  CandidateAssessmentResultApi, EmployeeOptionApi,
 } from '@/types/recruitment'
 
 function contextParams(extra?: Record<string, string>) {
@@ -143,8 +145,35 @@ export const recruitmentService = {
   rejectOffer(id: LaravelId) {
     return apiClient.post<TalentItemResponse<TalentOfferApi>>(`/talent-offers/${id}/reject`, contextParams())
   },
+  /**
+   * The other half of the decision, and the point the hire becomes a person.
+   *
+   * The backend records the acceptance, creates the tbluser row from the
+   * application and links the two, so nobody retypes the candidate into the
+   * Employee Directory. Idempotent: accepting twice returns the same employee.
+   */
+  acceptOffer(id: LaravelId) {
+    return apiClient.post<TalentItemResponse<TalentOfferApi> & { data?: { employee_id?: number; created?: boolean } }>(
+      `/talent-offers/${id}/accept`,
+      contextParams(),
+    )
+  },
   offerLetterUrl(id: LaravelId) {
     return buildApiUrl(`/talent-offer-letter/${id}`, contextParams())
+  },
+  /**
+   * Mint (or re-issue) the link a candidate uses to accept or decline, with no
+   * login. Returns the URL whether or not the email went out — outbound mail is
+   * gated per organisation, so the recruiter can always paste it themselves.
+   *
+   * Re-issuing invalidates the previous link.
+   */
+  candidateLink(id: LaravelId) {
+    return apiClient.post<{
+      status: number
+      message: string
+      data: { url: string; expires_at: string; email_sent: boolean; email_error: string | null }
+    }>(`/talent-offers/${id}/candidate-link`, contextParams())
   },
   getScreeningResult(candidateId: LaravelId) {
     return apiClient.get<CandidateScreeningResponse>(`/talent-screening-results/candidate/${candidateId}`, contextParams())
@@ -230,5 +259,76 @@ export const recruitmentService = {
   async getTeamOverview() {
     const result = await apiClient.get<{ data: TeamOverviewApi; recent_team_updates?: string[] }>('/talent/team-overview', contextParams())
     return result
+  },
+
+  /**
+   * The candidate's assessment result, for the Screening tab.
+   *
+   * Returns null when they have not been invited — a normal state, not an
+   * error, so the caller renders an invite prompt rather than a failure.
+   */
+  async getAssessment(applicationId: LaravelId) {
+    const result = await apiClient.get<{ status: number; data: CandidateAssessmentResultApi | null }>(
+      `/talent/applications/${applicationId}/assessment`,
+      contextParams(),
+    )
+    return result.data ?? null
+  },
+
+  /**
+   * Generate a paper for this candidate, mint their link and email it.
+   *
+   * Slow by nature — the model writes the questions before this returns — so
+   * callers must show progress rather than assume it is instant.
+   */
+  async inviteAssessment(applicationId: LaravelId, blueprintId?: number) {
+    return apiClient.post<{ status: number; message: string; data: AssessmentInviteApi }>(
+      `/talent/applications/${applicationId}/assessment/invite`,
+      { ...contextParams(), ...(blueprintId ? { blueprint_id: blueprintId } : {}) },
+    )
+  },
+
+  async getAssessmentBlueprints() {
+    return apiClient.get<{ status: number; data: AssessmentBlueprintApi[]; test_types: Record<string, string> }>(
+      '/talent/assessment/blueprints',
+      contextParams(),
+    )
+  },
+
+  async saveAssessmentBlueprint(payload: AssessmentBlueprintPayload) {
+    return apiClient.post<{ status: number; message: string; data: { id: number } }>(
+      '/talent/assessment/blueprints',
+      { ...payload, ...contextParams() },
+    )
+  },
+
+  async deleteAssessmentBlueprint(id: number) {
+    return apiClient.delete<{ status: number; message: string }>(
+      `/talent/assessment/blueprints/${id}`,
+      contextParams(),
+    )
+  },
+
+  /**
+   * Employees for a person-picker, tenant-scoped by the caller's token.
+   *
+   * Reuses the existing /competency/employee-options rather than adding a
+   * recruitment-specific list: it already returns id, name and employee_no for
+   * this organisation, capped at 500 and searchable. A second endpoint doing the
+   * same thing is how two lists end up disagreeing about who works here.
+   */
+  async getEmployeeOptions(search?: string) {
+    return apiClient.get<{ status: number; data: EmployeeOptionApi[] }>(
+      '/competency/employee-options',
+      contextParams(search ? { search } : undefined),
+    )
+  },
+
+  /** The global job-role catalogue: 3,347 roles across 44 sectors. */
+  async getAssessmentJobRoles(params?: { sector?: string; q?: string }) {
+    return apiClient.get<{ status: number; data: AssessmentJobRoleApi[]; sectors: string[] }>(
+      '/talent/assessment/jobroles',
+      contextParams(params as Record<string, string> | undefined),
+    )
   },
 }

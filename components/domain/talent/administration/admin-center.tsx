@@ -32,12 +32,18 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { StatusBadge } from '@/components/ui/status-badge'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { AdminService, type AdminWorkflowsResponse } from '@/services/talent/admin-service'
+import { AdminService, type AdminAuditEvent, type AdminSummary, type AdminWorkflowsResponse } from '@/services/talent/admin-service'
+import { HiringTeamPanel } from './hiring-team-panel'
 
 import {
-  mockAdminKPIs,
   type Workflow
 } from './admin-data'
 
@@ -57,11 +63,75 @@ export function AdminCenter() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
 
+  /*
+   * Real headline counts, from the same call that fills the table below them.
+   * These tiles used to be five hardcoded numbers (audit F-28) sitting directly
+   * above live data, which lent the invented figures credibility. Null until the
+   * first response arrives, so the tiles show a dash rather than a stale zero.
+   */
+  const [summary, setSummary] = useState<AdminSummary | null>(null)
+  /*
+   * THE AUDIT TRAIL, read from the event store.
+   *
+   * The "Audit Logs" button had no destination and the "Audit & Compliance" tab
+   * fell through to "Module Under Construction", while `g2g_event` had been
+   * recording every talent state change all along - hires, assessment gradings,
+   * task transitions - with nothing reading it back.
+   *
+   * The event store rather than a log table, because it is written in the same
+   * transaction as the change it describes and has no UPDATE or DELETE path: a
+   * mistake is corrected by a compensating event, so it cannot be quietly
+   * rewritten. That is what makes it worth calling an audit trail.
+   */
+  const [auditEvents, setAuditEvents] = useState<AdminAuditEvent[]>([])
+  const [auditTypes, setAuditTypes] = useState<string[]>([])
+  const [auditType, setAuditType] = useState('')
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditLastPage, setAuditLastPage] = useState(1)
+  const [auditTotal, setAuditTotal] = useState(0)
+  const [auditLoading, setAuditLoading] = useState(false)
+
+
   useEffect(() => {
     if (activeTab === 'workflows') {
       fetchWorkflows()
     }
   }, [activeTab, page, module]) // search handled by pressing enter or debounce in a real app, keeping simple here
+
+  /*
+   * Every setState here runs AFTER an await, which react-hooks/set-state-in-effect
+   * requires in this repo (it is an error, not a warning). `cancelled` keeps a
+   * slow response from a tab the user has already left out of the table.
+   */
+  useEffect(() => {
+    if (activeTab !== 'audit') return
+    const signal = { cancelled: false }
+    void (async () => {
+      try {
+        const res = await AdminService.getAuditLogs({
+          page: auditPage,
+          per_page: 25,
+          ...(auditType ? { type: auditType } : {}),
+        })
+        if (signal.cancelled) return
+        setAuditEvents(res.data ?? [])
+        setAuditTypes(res.types ?? [])
+        setAuditTotal(res.pagination?.total ?? 0)
+        setAuditLastPage(res.pagination?.last_page ?? 1)
+      } catch (cause) {
+        if (!signal.cancelled) console.error('Audit log failed to load:', cause)
+      } finally {
+        if (!signal.cancelled) setAuditLoading(false)
+      }
+    })()
+    return () => { signal.cancelled = true }
+  }, [activeTab, auditPage, auditType])
+
+  /** "candidate.assessment.graded" -> "Assessment graded". */
+  const readableEvent = (eventType: string) => {
+    const tail = eventType.split('.').slice(-2).join(' ').replace(/_/g, ' ')
+    return tail.charAt(0).toUpperCase() + tail.slice(1)
+  }
 
   const fetchWorkflows = async () => {
     try {
@@ -73,6 +143,7 @@ export function AdminCenter() {
       })
       if (res.status === 1) {
         setWorkflows(res.data)
+        setSummary(res.summary ?? null)
         setTotalPages(res.pagination.last_page)
         setTotalItems(res.pagination.total)
       }
@@ -143,18 +214,36 @@ export function AdminCenter() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="gap-2 shadow-sm">
+            {/* Now goes where its label says. */}
+            <Button
+              variant="outline"
+              className="gap-2 shadow-sm"
+              onClick={() => { setActiveTab('audit'); setAuditPage(1); setAuditLoading(true) }}
+            >
               <FileText className="size-4" /> Audit Logs
             </Button>
-            <Button className="gap-2 shadow-sm">
+            {/* CREATE NEW IS DISABLED, NOT REMOVED. There is no POST for a
+                workflow - /talent/admin/workflows is GET-only - so a dialog here
+                could collect a name and stages and then have nowhere to send
+                them. Saying so beats a form that silently discards work. */}
+            <Button
+              className="gap-2 shadow-sm"
+              disabled
+              title="Not available yet - workflows are read-only; there is no create endpoint."
+            >
               <Plus className="size-4" /> Create New <ChevronDown className="size-3.5 opacity-70" />
             </Button>
           </div>
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-2">
-          {mockAdminKPIs.map((kpi) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+          {([
+            { id: 'kpi-1', title: 'Active Workflows', value: summary?.active_workflows, linkText: 'View all workflows', icon: 'git-merge' },
+            { id: 'kpi-2', title: 'Templates', value: summary?.templates, linkText: 'View all templates', icon: 'file-text' },
+            { id: 'kpi-3', title: 'User Roles', value: summary?.user_roles, linkText: 'View all roles', icon: 'users' },
+            { id: 'kpi-5', title: 'Audit Events (30 Days)', value: summary?.audit_events_30d, linkText: 'View audit logs', icon: 'shield-check' },
+          ] as const).map((kpi) => (
             <Card key={kpi.id} className="p-4 flex flex-col justify-between border-border/60 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-muted-foreground">{kpi.title}</span>
@@ -163,7 +252,9 @@ export function AdminCenter() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 mt-1">
-                <span className="text-3xl font-bold text-foreground">{kpi.value}</span>
+                <span className="text-3xl font-bold tabular-nums text-foreground">
+                  {kpi.value === undefined ? '—' : kpi.value.toLocaleString()}
+                </span>
               <button
                 key={kpi.id}
                 onClick={() => setActiveTab('workflows')}
@@ -217,9 +308,13 @@ export function AdminCenter() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-[150px]">
-                    <Select 
-                      value={module} 
-                      onValueChange={(val) => { setModule(val); setPage(1); }} 
+                    {/* WAS `onValueChange`, WHICH THIS Select DOES NOT HAVE.
+                        The prop was silently ignored, so the Module filter never
+                        fired - a dead dropdown that tsc had been reporting as an
+                        error the whole time. The component's prop is `onChange`. */}
+                    <Select
+                      value={module}
+                      onChange={(val: string) => { setModule(val); setPage(1); }} 
                       options={[
                         {label: 'All Modules', value: 'all'},
                         {label: 'Recruitment', value: 'Recruitment'},
@@ -241,7 +336,20 @@ export function AdminCenter() {
                       onKeyDown={handleSearch}
                     />
                   </div>
-                  <Button variant="outline" size="icon" className="h-8 w-8"><Filter className="size-4" /></Button>
+                  {/* Had no handler. The only filters this list has are the
+                      search box to its left and the Module select, so it clears
+                      both rather than opening a panel of filters that do not
+                      exist. Disabled when there is nothing to clear. */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Clear search and module filter"
+                    disabled={!search && module === 'all'}
+                    onClick={() => { setSearch(''); setModule('all'); setPage(1) }}
+                  >
+                    <Filter className="size-4" />
+                  </Button>
                 </div>
               </div>
               
@@ -312,9 +420,27 @@ export function AdminCenter() {
                             </div>
                           </TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
+                            {/* Had no handler on every workflow row. The detail
+                                drawer already exists and the row itself opens it;
+                                this offers the same, plus the module filter, so
+                                the menu is not a second way to do nothing. */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => setActiveWorkflowId(workflow.id)}>
+                                  View workflow
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => { setModule(workflow.module); setPage(1) }}
+                                >
+                                  Filter to {workflow.module}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -353,6 +479,122 @@ export function AdminCenter() {
               </div>
             </Card>
           </div>
+        ) : activeTab === 'audit' ? (
+          <div className="flex max-w-[1400px] flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Only the event types this organisation has actually produced.
+                  A fixed list would offer filters that can never match. */}
+              <Select
+                value={auditType}
+                onChange={(val: string) => { setAuditType(val); setAuditPage(1) }}
+                options={[
+                  { label: 'All events', value: '' },
+                  ...auditTypes.map((t) => ({ label: readableEvent(t), value: t })),
+                ]}
+                size="sm"
+                className="h-9 w-[240px]"
+              />
+              <span className="ml-auto text-xs text-muted-foreground">
+                {auditTotal} recorded event{auditTotal === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-border bg-surface">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/10">
+                    <TableRow>
+                      <TableHead className="h-10 text-xs font-semibold">When</TableHead>
+                      <TableHead className="h-10 text-xs font-semibold">Event</TableHead>
+                      <TableHead className="h-10 text-xs font-semibold">Record</TableHead>
+                      <TableHead className="h-10 text-xs font-semibold">By</TableHead>
+                      <TableHead className="h-10 text-xs font-semibold">Detail</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                          Loading the audit trail...
+                        </TableCell>
+                      </TableRow>
+                    ) : auditEvents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                          {auditType ? 'No events match that filter.' : 'Nothing has been recorded for this organisation yet.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      auditEvents.map((e) => (
+                        <TableRow key={e.id} className="hover:bg-muted/10">
+                          <TableCell className="whitespace-nowrap py-2.5 text-xs tabular-nums text-muted-foreground">
+                            {e.occurred_at?.slice(0, 19).replace('T', ' ')}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <span className="text-xs font-semibold text-foreground">{readableEvent(e.type)}</span>
+                            <span className="block text-[10px] text-muted-foreground">{e.type}</span>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-xs text-muted-foreground">
+                            {e.entity_type ? `${e.entity_type.replace(/_/g, ' ')} #${e.entity_id ?? '-'}` : '-'}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            {/* 'System' is a real actor, not a missing one. */}
+                            <StatusBadge variant={e.actor === 'System' ? 'default' : 'active'} size="sm">
+                              {e.actor}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell className="max-w-[320px] py-2.5">
+                            {e.payload ? (
+                              <span
+                                className="block truncate font-mono text-[10px] text-muted-foreground"
+                                title={JSON.stringify(e.payload)}
+                              >
+                                {Object.entries(e.payload).slice(0, 3)
+                                  .map(([k, v]) => `${k}=${typeof v === 'object' ? '...' : String(v)}`)
+                                  .join('  ')}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="flex items-center justify-between border-t bg-muted/5 p-3">
+                <span className="text-xs text-muted-foreground">Page {auditPage} of {auditLastPage}</span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline" size="icon" className="h-7 w-7"
+                    disabled={auditPage <= 1}
+                    onClick={() => setAuditPage((prev) => Math.max(1, prev - 1))}
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <Button
+                    variant="outline" size="icon" className="h-7 w-7"
+                    disabled={auditPage >= auditLastPage}
+                    onClick={() => setAuditPage((prev) => Math.min(auditLastPage, prev + 1))}
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+              Append-only. Entries cannot be edited or deleted - a correction is recorded as its own event.
+            </p>
+          </div>
+        ) : activeTab === 'permissions' ? (
+          /* The hiring team roster. This tab showed "Module Under Construction"
+             like the four below it; it is real now. The others still are not,
+             and still say so. */
+          <HiringTeamPanel />
         ) : (
           <div className="flex flex-col items-center justify-center h-[500px] text-center max-w-[1400px] bg-surface rounded-xl border border-dashed border-border p-8">
             <div className="p-4 bg-muted/50 rounded-full mb-4">
@@ -416,9 +658,24 @@ export function AdminCenter() {
                       </StatusBadge>
                     </div>
                   </div>
-                  <Button variant="outline" className="gap-2 text-sm shadow-sm">
-                    More Actions <ChevronDown className="size-3.5" />
-                  </Button>
+                  {/* Had no handler. It offers the two things this screen can
+                      actually do from here; anything else would need endpoints
+                      that do not exist. */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="gap-2 text-sm shadow-sm">
+                        More Actions <ChevronDown className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => { setActiveTab('audit'); setAuditPage(1); setAuditLoading(true) }}>
+                        View audit trail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setActiveTab('workflows')}>
+                        Back to workflows
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 
                 {/* Info Grid */}

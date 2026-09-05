@@ -179,7 +179,15 @@ export function CmAssessmentWorkspace() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2">
+          {/* No configuration screen exists for assessment campaigns - there is
+              no route, no table and no dialog behind this. Disabled and labelled
+              rather than removed, so the intent survives for whoever builds it. */}
+          <Button
+            variant="outline"
+            className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2"
+            disabled
+            title="Not available yet - campaigns have no configuration screen."
+          >
             <Settings className="w-4 h-4" /> View Configuration
           </Button>
           
@@ -312,7 +320,14 @@ export function CmAssessmentWorkspace() {
                       empty result as "none found" rather than "never set". */}
                   <Select options={statusOptions} placeholder="Status" className="h-9 bg-background w-32" />
                   <Select options={typeOptions} placeholder="Assessment Type" className="h-9 bg-background w-44" />
-                  <Button variant="outline" className="h-9 px-3 gap-2 bg-background border-border text-sm">
+                  {/* The two selects to the left ARE the filters this list has,
+                      so there were no more to show. */}
+                  <Button
+                    variant="outline"
+                    className="h-9 px-3 gap-2 bg-background border-border text-sm"
+                    disabled
+                    title="No further filters - status and type are the only ones this list supports."
+                  >
                     <Filter className="w-3.5 h-3.5" /> More Filters
                   </Button>
                 </div>
@@ -372,8 +387,17 @@ export function CmAssessmentWorkspace() {
                               <MoreVertical className="w-4 h-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Campaign</DropdownMenuItem>
+                              {/* Opens the cycle the row describes. Editing a
+                                  campaign has no endpoint - the API creates and
+                                  reviews cycles but does not update them - so that
+                                  item says so instead of opening a form that
+                                  cannot save. */}
+                              <DropdownMenuItem onSelect={() => setActiveTab('participant')}>
+                                View participants
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled>
+                                Edit campaign (no endpoint yet)
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -401,9 +425,18 @@ export function CmAssessmentWorkspace() {
               <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-card">
                 <span className="tabular-nums">Showing {campaigns.length} review cycle{campaigns.length === 1 ? '' : 's'}</span>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0"><ChevronLeft className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0 bg-primary text-primary-foreground border-primary">1</Button>
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0"><ChevronRight className="w-4 h-4" /></Button>
+                  {/* THIS LIST IS NOT PAGINATED - the line to the left says
+                      "Showing {campaigns.length}", i.e. all of them. Three live-
+                      looking pager buttons implied pages that do not exist, so
+                      they are disabled and the page number is an indicator. */}
+                  <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled title="All cycles are shown"><ChevronLeft className="w-4 h-4" /></Button>
+                  <span
+                    aria-current="page"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-primary bg-primary text-xs font-semibold tabular-nums text-primary-foreground"
+                  >
+                    1
+                  </span>
+                  <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled title="All cycles are shown"><ChevronRight className="w-4 h-4" /></Button>
                 </div>
               </div>
             </div>
@@ -461,7 +494,16 @@ export function CmAssessmentWorkspace() {
                           <Input placeholder="Search employee..." className="h-9 pl-8 bg-background border-border" />
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" className="h-9 text-xs gap-2"><Filter className="w-3.5 h-3.5" /> Filters</Button>
+                          {/* The search box to the left is this table's only
+                              filter; there is no second filter set behind this. */}
+                          <Button
+                            variant="outline"
+                            className="h-9 text-xs gap-2"
+                            disabled
+                            title="No further filters - search is the only one this table supports."
+                          >
+                            <Filter className="w-3.5 h-3.5" /> Filters
+                          </Button>
                           {/* A DEAD CONTROL, NOW HONEST ABOUT IT. This was a
                               dropdown whose only option was its own placeholder —
                               it looked operable and did nothing. Disabled and
@@ -532,7 +574,18 @@ export function CmAssessmentWorkspace() {
                                   />
                                 </TableCell>
                                 <TableCell className="px-4 py-3 text-center">
-                                  <Button variant="ghost" className="h-6 w-6 p-0 text-muted-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                                  {/* Per-participant actions need a participant
+                                      endpoint that does not exist; the row's own
+                                      Approve/Calibrate buttons are the real
+                                      actions and they are wired. */}
+                                  <Button
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-muted-foreground"
+                                    disabled
+                                    title="No per-participant actions yet - use Approve or Calibrate on the row."
+                                  >
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -550,9 +603,31 @@ export function CmAssessmentWorkspace() {
                       <div className="mt-auto pt-4 flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">0 participants selected</span>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" className="h-8 text-xs"><FileText className="w-3.5 h-3.5 mr-2" /> Send Reminder</Button>
-                          <Button variant="outline" className="h-8 text-xs"><Activity className="w-3.5 h-3.5 mr-2" /> View Ratings</Button>
-                          <Button className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90">Start Calibration</Button>
+                          {/* Send Reminder has no endpoint - there is no bulk
+                              notification route for campaign participants. The other
+                              two do: both are tabs of this same screen, and this is
+                              simply the shortcut the buttons always implied. */}
+                          <Button
+                            variant="outline"
+                            className="h-8 text-xs"
+                            disabled
+                            title="Not available yet - there is no reminder endpoint for participants."
+                          >
+                            <FileText className="w-3.5 h-3.5 mr-2" /> Send Reminder
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => setActiveTab('participant')}
+                          >
+                            <Activity className="w-3.5 h-3.5 mr-2" /> View Ratings
+                          </Button>
+                          <Button
+                            className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                            onClick={() => setActiveTab('calibration')}
+                          >
+                            Start Calibration
+                          </Button>
                         </div>
                       </div>
                     </div>

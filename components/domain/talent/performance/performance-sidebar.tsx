@@ -38,6 +38,7 @@ import type {
   PerfGoal,
   PerfNote,
   PerfReviewDetail,
+  ReviewUpdatePayload,
   TeamComparison,
 } from '@/services/talent/performance'
 
@@ -85,6 +86,15 @@ interface PerformanceSidebarProps {
   onAdvanceStage: () => void
   onOpenTeamDetails: () => void
   onSelectReview: (reviewId: number) => void
+  /**
+   * Record the ratings and comments for this review.
+   *
+   * PUT /performance/reviews/{id} has had a full validator, a service method and
+   * a hook since the module was built, and no component ever called it — so the
+   * only way a rating ever reached the database was the calibration grid. Six of
+   * 235 live reviews carry one.
+   */
+  onSaveRatings: (payload: ReviewUpdatePayload) => Promise<unknown>
   saving: boolean
 }
 
@@ -109,6 +119,7 @@ export function PerformanceSidebar({
   onAdvanceStage,
   onOpenTeamDetails,
   onSelectReview,
+  onSaveRatings,
   saving,
 }: PerformanceSidebarProps) {
   const [noteDraft, setNoteDraft] = React.useState('')
@@ -236,6 +247,7 @@ export function PerformanceSidebar({
             team={team}
             canAdvance={canAdvance}
             saving={saving}
+            onSaveRatings={onSaveRatings}
             noteOpen={noteOpen}
             noteDraft={noteDraft}
             moreOpen={moreOpen}
@@ -305,6 +317,7 @@ function OverviewTab({
   team,
   canAdvance,
   saving,
+  onSaveRatings,
   noteOpen,
   noteDraft,
   moreOpen,
@@ -322,6 +335,7 @@ function OverviewTab({
   team: TeamComparison | null
   canAdvance: boolean
   saving: boolean
+  onSaveRatings: (payload: ReviewUpdatePayload) => Promise<unknown>
   noteOpen: boolean
   noteDraft: string
   moreOpen: boolean
@@ -402,6 +416,8 @@ function OverviewTab({
           </div>
         </div>
       </div>
+
+      <RatingEditor detail={detail} onSave={onSaveRatings} saving={saving} />
 
       {/* Details grid */}
       <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4 text-xs">
@@ -761,5 +777,195 @@ function DocsTab({ attachments, loading }: { attachments: PerfAttachment[]; load
         </div>
       ))}
     </div>
+  )
+}
+
+/**
+ * Record the ratings and comments for a review.
+ *
+ * ── WHY THE INPUTS STOP AT 5 WHEN THE API ACCEPTS 10 ────────────────────────
+ *
+ * PUT /performance/reviews/{id} validates every rating as `numeric|min:0|max:10`,
+ * but ResolvesPerformanceContext::ratingLabel() clamps to 1..5 before choosing a
+ * band - so a 7.4 is stored happily and then rendered "7.4 - Outstanding", and a
+ * 0 renders "0 - Below Expectations". That is audit finding F-62 and it is still
+ * open at the API.
+ *
+ * This form offers 1 to 5 because those are the values the product can actually
+ * describe. It is not a fix for F-62 - a direct API caller can still send 9 - but
+ * the screen will not be the thing that creates one.
+ *
+ * Collapsed by default: the panel looked a certain way before this existed and
+ * should keep looking that way until somebody chooses to rate.
+ */
+function RatingEditor({
+  detail,
+  onSave,
+  saving,
+}: {
+  detail: PerfReviewDetail
+  onSave: (payload: ReviewUpdatePayload) => Promise<unknown>
+  saving: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [draft, setDraft] = React.useState({
+    self_rating: detail.self_rating?.toString() ?? '',
+    manager_rating: detail.manager_rating?.toString() ?? '',
+    overall_rating: detail.overall_rating?.toString() ?? '',
+    potential_rating: detail.potential_rating?.toString() ?? '',
+    self_comments: detail.self_comments ?? '',
+    manager_comments: detail.manager_comments ?? '',
+  })
+
+  const set = (key: keyof typeof draft, value: string) =>
+    setDraft((prev) => ({ ...prev, [key]: value }))
+
+  /** Blank means "leave it alone", not zero. */
+  function ratingOrNull(raw: string): number | null | undefined {
+    const trimmed = raw.trim()
+    if (trimmed === '') return undefined
+    const n = Number(trimmed)
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  function invalid(): string | null {
+    for (const key of ['self_rating', 'manager_rating', 'overall_rating', 'potential_rating'] as const) {
+      const trimmed = draft[key].trim()
+      if (trimmed === '') continue
+      const n = Number(trimmed)
+      if (!Number.isFinite(n)) return 'Ratings must be numbers.'
+      if (n < 1 || n > 5) return 'Ratings run from 1 to 5.'
+    }
+    return null
+  }
+
+  async function submit() {
+    const problem = invalid()
+    if (problem) {
+      setError(problem)
+      return
+    }
+    setError(null)
+
+    // Only what changed. Sending the whole shape would overwrite a field another
+    // person edited between this panel opening and Save being pressed.
+    const payload: ReviewUpdatePayload = {}
+    const self = ratingOrNull(draft.self_rating)
+    const manager = ratingOrNull(draft.manager_rating)
+    const overall = ratingOrNull(draft.overall_rating)
+    const potential = ratingOrNull(draft.potential_rating)
+
+    if (self !== undefined && self !== detail.self_rating) payload.self_rating = self
+    if (manager !== undefined && manager !== detail.manager_rating) payload.manager_rating = manager
+    if (overall !== undefined && overall !== detail.overall_rating) payload.overall_rating = overall
+    if (potential !== undefined && potential !== detail.potential_rating) payload.potential_rating = potential
+    if (draft.self_comments !== (detail.self_comments ?? '')) payload.self_comments = draft.self_comments
+    if (draft.manager_comments !== (detail.manager_comments ?? '')) payload.manager_comments = draft.manager_comments
+
+    if (Object.keys(payload).length === 0) {
+      setError('Nothing has changed yet.')
+      return
+    }
+
+    try {
+      await onSave(payload)
+      setOpen(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The ratings could not be saved.')
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
+        <Edit2 className="mr-1.5 size-3.5" />
+        Record ratings
+      </Button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">
+        Record ratings
+      </span>
+
+      {/* Inside the panel, above the fields. Never a toast. */}
+      {error && (
+        <div
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <RatingField label="Self" value={draft.self_rating} onChange={(v) => set('self_rating', v)} />
+        <RatingField label="Manager" value={draft.manager_rating} onChange={(v) => set('manager_rating', v)} />
+        <RatingField label="Overall" value={draft.overall_rating} onChange={(v) => set('overall_rating', v)} />
+        <RatingField label="Potential" value={draft.potential_rating} onChange={(v) => set('potential_rating', v)} />
+      </div>
+      <p className="-mt-1 text-[10px] text-muted-foreground">
+        1 Below Expectations · 2 Needs Improvement · 3 Meets · 4 Exceeds · 5 Outstanding. Leave a box
+        empty to leave that rating unchanged.
+      </p>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-semibold text-muted-foreground">Employee comments</span>
+        <Textarea
+          rows={2}
+          value={draft.self_comments}
+          onChange={(e) => set('self_comments', e.target.value)}
+          placeholder="What the employee said about their own performance."
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-semibold text-muted-foreground">Manager comments</span>
+        <Textarea
+          rows={2}
+          value={draft.manager_comments}
+          onChange={(e) => set('manager_comments', e.target.value)}
+          placeholder="What the manager observed."
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => { setOpen(false); setError(null) }} disabled={saving}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={() => void submit()} disabled={saving}>
+          {saving ? 'Saving…' : 'Save ratings'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function RatingField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        min={1}
+        max={5}
+        step={0.1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="—"
+        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </label>
   )
 }

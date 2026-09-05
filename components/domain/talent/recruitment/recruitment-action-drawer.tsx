@@ -54,6 +54,54 @@ function JobOpeningDetails({ job, canEdit, onEdit }: { job: JobPostingApi; canEd
   </div>
 }
 
+/**
+ * The offer form's starting values, from the candidate the drawer was opened for.
+ *
+ * ── WHY THIS IS A SEPARATE FUNCTION ─────────────────────────────────────────
+ *
+ * Every value here came from a field already in memory - the drawer receives the
+ * whole `candidates` and `jobs` arrays - and HR was retyping them. The interview
+ * branch has seeded from `preselectedCandidate` all along; the offer branch never
+ * did.
+ *
+ * It lives outside the component so it can be asserted against directly. The
+ * behaviour worth protecting is not "some fields get filled" but the em-dash
+ * guard below, which is invisible in a screenshot and wrong in the database.
+ *
+ * Everything it returns stays editable. `reportmanager` is deliberately NOT set:
+ * `talent_job_postings` has no hiring-manager column, only `created_by` (which
+ * the backend uses as the offer letter's SIGNER), and whoever raised the
+ * requisition is not necessarily who the hire reports to. An empty field HR must
+ * fill beats a plausible one they will not question.
+ */
+export function buildOfferDefaults(
+  candidate: Candidate,
+  jobs: JobOpening[],
+  today: Date = new Date(),
+): Record<string, string> {
+  // The candidate's own job id when the mapper provided one (kanban does, the
+  // plain list does not), else the same title match the interview branch uses.
+  const matchingJob = candidate.jobId
+    ?? jobs.find((job) => job.title === candidate.jobOpening)?.id
+
+  /*
+   * `expectedCtc` is the STRING '—' when the candidate stated no expectation -
+   * use-recruitment.ts maps null to that em dash for display. Seeding it blindly
+   * would put a dash in the salary field and post it as the offered salary.
+   */
+  const expected = candidate.expectedCtc
+  const salary = expected && expected !== '\u2014' ? expected : ''
+
+  return {
+    application_id: candidate.id,
+    job_id: matchingJob ? String(matchingJob) : '',
+    salary,
+    // A DEFAULT, not a claim: four weeks out is a normal notice period and HR
+    // changes it. Editable precisely because it is a guess.
+    start_date: new Date(today.getTime() + 28 * 86_400_000).toISOString().slice(0, 10),
+  }
+}
+
 export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob, selectedInterview, selectedOffer, preselectedCandidate, onClose, onSaved, onEditJob }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +110,13 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
   const [resume, setResume] = useState<File | null>(null)
   const [panels, setPanels] = useState<InterviewPanelApi[]>([])
   const [templates, setTemplates] = useState<OfferTemplateApi[]>([])
+  /**
+   * Employees for the Report manager picker.
+   *
+   * The field used to be a free-text box asking HR to type a raw numeric user id,
+   * which is both hard to get right and impossible to verify on screen.
+   */
+  const [employees, setEmployees] = useState<{ label: string; value: string }[]>([])
   const [canEditJob, setCanEditJob] = useState(false)
 
   const set = (key: string, value: string) => {
@@ -77,6 +132,20 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
   useEffect(() => {
     if (!action) return
     queueMicrotask(() => {
+      /*
+       * CLEAR FIRST. `values` is shared by all six drawer actions and used to be
+       * reset only AFTER a successful save, so opening job-view or job-edit
+       * (which stuff the whole job row into it, below) and then opening Create
+       * Offer started the offer form with the JOB's start_date and benefits
+       * already filled in.
+       *
+       * That was survivable while the offer form was blank - HR could see the
+       * stray values were not theirs. It stops being survivable now that the
+       * offer form legitimately pre-fills, because a wrong value inherited from
+       * another form is indistinguishable from one we put there on purpose.
+       */
+      replaceValues({})
+
       if (action === 'interview' || action === 'interview-edit') void recruitmentService.getPanels().then(setPanels)
       if (action === 'interview' && preselectedCandidate) {
         const matchingJob = preselectedCandidate.jobId
@@ -86,7 +155,28 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
           job_id: matchingJob ?? '',
         })
       }
-      if (action === 'offer') void recruitmentService.getTemplates().then(setTemplates)
+
+      if (action === 'offer') {
+        void recruitmentService.getTemplates().then(setTemplates)
+        void recruitmentService.getEmployeeOptions().then((res) => {
+          setEmployees(
+            (res.data ?? []).map((person) => {
+              // The endpoint returns either a composed `name` or the parts.
+              const name = person.name
+                ?? [person.first_name, person.last_name].filter(Boolean).join(' ')
+              return {
+                label: person.employee_no ? `${name} (${person.employee_no})` : name,
+                value: String(person.id),
+              }
+            }),
+          )
+        })
+
+        if (preselectedCandidate) {
+          replaceValues(buildOfferDefaults(preselectedCandidate, jobs))
+        }
+      }
+
       if ((action === 'job-edit' || action === 'job-view') && selectedJob) {
         replaceValues(Object.fromEntries(Object.entries(selectedJob).map(([key, value]) => [key, value == null ? '' : String(value)])))
       }
@@ -281,7 +371,17 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
             <Select value={values.template_id ?? ''} onChange={(value) => set('template_id', value)} options={[
               { label: 'Select template', value: '' }, ...templates.map((template) => ({ label: template.title, value: String(template.id) })),
             ]} />
-            <Input placeholder="Report manager ID" value={values.reportmanager ?? ''} onChange={(event) => set('reportmanager', event.target.value)} />
+            {/* WAS a free-text "Report manager ID" box. Deliberately NOT
+                pre-filled: talent_job_postings has no hiring-manager column,
+                only created_by, which the backend already uses as the offer
+                letter's SIGNER - and whoever raised the requisition is not
+                necessarily who the hire reports to. Easier to fill, not filled
+                wrongly. */}
+            <Select
+              value={values.reportmanager ?? ''}
+              onChange={(value: string) => set('reportmanager', value)}
+              options={[{ label: 'Report manager (optional)', value: '' }, ...employees]}
+            />
             <Input type="time" aria-label="Work start time" value={values.punchintime ?? ''} onChange={(event) => set('punchintime', event.target.value)} />
             <Input type="time" aria-label="Work end time" value={values.punchouttime ?? ''} onChange={(event) => set('punchouttime', event.target.value)} />
             <Textarea className="sm:col-span-2" placeholder="Responsibilities" value={values.responsibilities ?? ''} onChange={(event) => set('responsibilities', event.target.value)} />

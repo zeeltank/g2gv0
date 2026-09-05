@@ -85,6 +85,8 @@ export function journeyStageVariant(stage: JourneyStage): BadgeVariant {
       return 'warning'
     case 'exited':
       return 'error'
+    // Both stages before day one read as "not started yet".
+    case 'offer_accepted':
     case 'preboarding':
       return 'pending'
     default:

@@ -88,9 +88,10 @@ export function OnboardingSidebar({
           <p className="text-xs text-muted-foreground">
             Choose an onboarding journey to see their profile, documents and contacts.
           </p>
-          <Button variant="outline" size="sm" onClick={onPickJourney}>
-            Browse journeys
-          </Button>
+          {/* The card explains what this panel is for; the CONTROL is not repeated
+              here. Browse and New live once above the tabs and once in the header
+              dropdown, and a third copy in the sidebar is the duplication that
+              made every tab of this screen look like a different form. */}
         </CardContent>
       </Card>
     )

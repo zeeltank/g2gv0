@@ -1,17 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardCheck, Clock3 } from 'lucide-react'
+import { ClipboardCheck } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Progress } from '@/components/ui/progress'
-import { RadioGroup, Radio } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { aiAssessmentService, type AiQuestion, type MyTestResult } from '@/services/competency/ai-assessment'
+import { AssessmentPaper } from './assessment-paper'
 import { CmAssessmentResult } from './cm-assessment-result'
 
 /**
@@ -47,7 +44,6 @@ export function CmMyAssessment() {
    * does not hand anybody more time.
    */
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [attemptId, setAttemptId] = useState<number | null>(null)
   const [showResult, setShowResult] = useState(false)
 
   const load = useCallback(async () => {
@@ -90,7 +86,6 @@ export function CmMyAssessment() {
       .start(Number(testId), getLaravelContext(user))
       .then((res) => {
         if (!active) return
-        setAttemptId(res.attempt_id)
         setSecondsLeft(res.seconds_remaining)
       })
       .catch(() => { /* a test with no limit still works; the clock is optional */ })
@@ -227,35 +222,38 @@ export function CmMyAssessment() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">{state.test.title}</h2>
-        {state.test.instructions && (
-          <p className="text-sm text-muted-foreground">{state.test.instructions}</p>
+      {/* THE PAPER IS SHARED WITH THE CANDIDATE MAGIC-LINK PAGE.
+          Same questions, same progress line, same clock — see
+          assessment-paper.tsx. Only the container differs: this one resolves
+          the sitting from the caller's Sanctum token, the candidate's resolves
+          it from a 64-character URL. When the two held their own copies of the
+          markup they drifted, exactly as the backend's two MCQ scorers had. */}
+      <AssessmentPaper
+        title={state.test.title}
+        instructions={state.test.instructions}
+        questions={state.questions.map((q: AiQuestion) => ({
+          id: q.id,
+          format: q.format,
+          text: q.question_text,
+          options: q.options,
+          previouslyAnswered: Boolean(q.answered_at),
+        }))}
+        answers={Object.fromEntries(
+          Object.entries(draft).map(([id, v]) => [
+            Number(id),
+            { selectedOption: v.selected_option, text: v.answer_text },
+          ]),
         )}
-        <div className="flex items-center gap-3">
-          <Progress value={total ? (answeredNow / total) * 100 : 0} className="max-w-sm" />
-          {/* Outstanding is stated, never implied by a score of nothing. */}
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {answeredNow} of {total} answered · {total - answeredNow} outstanding
-          </span>
-          {/* Only shown when the test actually has a limit. A clock on an
-              untimed test would invent pressure nobody asked for. */}
-          {secondsLeft !== null && (
-            <span className={cn('ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium tabular-nums',
-              secondsLeft <= 60 ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                : secondsLeft <= 300 ? 'border-warning/40 bg-warning/10 text-warning'
-                : 'border-border text-muted-foreground')}>
-              <Clock3 className="size-3.5" aria-hidden="true" />
-              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')} left
-            </span>
-          )}
-        </div>
-        {secondsLeft !== null && secondsLeft <= 60 && (
-          <p className="text-xs text-destructive">
-            When the time runs out this submits whatever you have answered. Nothing is lost.
-          </p>
-        )}
-      </div>
+        onAnswer={(id, v) =>
+          setDraft((d) => ({
+            ...d,
+            [id]: v.selectedOption !== undefined
+              ? { selected_option: v.selectedOption }
+              : { answer_text: v.text },
+          }))
+        }
+        secondsLeft={secondsLeft}
+      />
 
       {error && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -265,43 +263,6 @@ export function CmMyAssessment() {
       {notice && (
         <p className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm">{notice}</p>
       )}
-
-      <div className="flex flex-col gap-3">
-        {state.questions.map((q: AiQuestion, index) => (
-          <div key={q.id} className="rounded-xl border border-border bg-background p-4">
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium">
-                <span className="mr-2 text-xs tabular-nums text-muted-foreground">{index + 1}.</span>
-                {q.question_text}
-              </p>
-
-              {q.format === 'mcq' && q.options ? (
-                <RadioGroup
-                  value={draft[q.id]?.selected_option ?? ''}
-                  onValueChange={(v) => setDraft((d) => ({ ...d, [q.id]: { selected_option: v } }))}
-                >
-                  {q.options.map((opt) => (
-                    <Radio key={opt} value={opt} label={opt} />
-                  ))}
-                </RadioGroup>
-              ) : (
-                <Textarea
-                  rows={4}
-                  placeholder="Your answer"
-                  value={draft[q.id]?.answer_text ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, [q.id]: { answer_text: e.target.value } }))}
-                />
-              )}
-
-              {q.answered_at && (
-                <p className="text-xs text-muted-foreground">
-                  Previously answered. Changing it replaces your earlier answer.
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {/* TWO ACTIONS, BECAUSE THEY ARE TWO DIFFERENT DECISIONS.

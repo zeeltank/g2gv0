@@ -38,6 +38,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -66,18 +72,33 @@ import {
   type MobilitySuccessionPlan,
   type MobilityTalentPool,
   type TalentPoolMember,
-  type MobilityOverviewData
+  type MobilityOverviewData,
+  type MobilityFilterOptions,
 } from '@/services/talent/mobility'
 
 export function MobilityCenter() {
   const [activeTab, setActiveTab] = useState<string>('Overview')
   const [sidebarTab, setSidebarTab] = useState<string>('Overview')
   const [overview, setOverview] = useState<MobilityOverviewData | null>(null)
-  const [filters, setFilters] = useState<{
-    departments: { value: string; label: string }[]
-    employees: { value: string; label: string }[]
-    jobroles: { value: string; label: string }[]
-  } | null>(null)
+  /*
+   * The shape comes from the service, not a second copy here. The inline type
+   * this replaces listed only departments/employees/jobroles, so adding
+   * locations/grades/job_types to the endpoint left the component unable to see
+   * them - the same drift, one layer up.
+   */
+  /**
+   * Which view of the internal jobs list is showing.
+   *
+   * The Table / Board / Timeline switcher had no handlers at all - three buttons
+   * that looked like a segmented control and did nothing. All three views are
+   * derivable from the SAME `jobs` array, so this needed no new endpoint.
+   */
+  const [jobView, setJobView] = useState<'table' | 'board' | 'timeline'>('table')
+
+  /** Sort for the jobs list. "Sort by: Posted Date" was a label with no control. */
+  const [jobSort, setJobSort] = useState<'posted_on' | 'title' | 'vacancies'>('posted_on')
+
+  const [filters, setFilters] = useState<MobilityFilterOptions | null>(null)
 
   // Data lists
   const [jobs, setJobs] = useState<MobilityJob[]>([])
@@ -120,6 +141,34 @@ export function MobilityCenter() {
   const [isPoolMembersOpen, setIsPoolMembersOpen] = useState(false)
   const [isRecordTransferOpen, setIsRecordTransferOpen] = useState(false)
   const [isRecordPromotionOpen, setIsRecordPromotionOpen] = useState(false)
+
+  /**
+   * Carry an offered internal applicant into the transfer they were offered.
+   *
+   * Offering an internal candidate only set the application's status, and both
+   * applicant lists hide every action once the status is `Offered` - so the
+   * person who had just been offered the role was a dead end on screen, and
+   * moving them meant opening Record Lateral Transfer and typing their name,
+   * their current role and the target department in again by hand.
+   *
+   * Everything the transfer form needs is already on the application: the
+   * applicant's user id and current designation, and the posting's department
+   * and title. It opens as a draft with status Pending, so this proposes the
+   * transfer for approval - it does not move anybody on its own.
+   */
+  const draftTransferFromApplication = (app: MobilityApplication) => {
+    setTransferForm({
+      user_id: String(app.user_id),
+      from_department_id: '',
+      to_department_id: app.job?.department_id ? String(app.job.department_id) : '',
+      from_jobrole: app.applicant?.designation || '',
+      to_jobrole: app.job?.title || '',
+      effective_date: '',
+      status: 'Pending',
+      remarks: `Internal move from ${app.job?.job_id || 'internal posting'}${app.job?.title ? ` (${app.job.title})` : ''}`,
+    })
+    setIsRecordTransferOpen(true)
+  }
 
   // Form states
   const [jobForm, setJobForm] = useState({
@@ -657,6 +706,51 @@ export function MobilityCenter() {
     }
   }
 
+  /**
+   * Options for a filter, from the tenant's own data.
+   *
+   * The three lists below used to be written into the JSX - five Indian cities,
+   * a grade ladder, three job types - none of which matched what this tenant
+   * stores, so every option returned an empty list and read as "nothing in that
+   * location" rather than "that location does not exist here".
+   *
+   * An empty list is now shown as such rather than padded with inventions:
+   * "All" plus a disabled note, so the filter is visibly not yet useful instead
+   * of silently useless.
+   */
+  const optionsFor = (
+    items: { value: string; label: string }[] | undefined,
+    allLabel: string,
+    prefix: string,
+  ) => {
+    const real = (items ?? []).map((o) => ({ label: `${prefix}: ${o.label}`, value: o.value }))
+    return real.length
+      ? [{ label: allLabel, value: 'All' }, ...real]
+      : [{ label: allLabel, value: 'All' }, { label: 'None recorded yet', value: 'All' }]
+  }
+
+  /** How many filters are actually narrowing the jobs list. */
+  const jobFilterCount = [
+    filterDept !== 'All' ? filterDept : '',
+    filterLoc !== 'All' ? filterLoc : '',
+    filterGrade !== 'All' ? filterGrade : '',
+    filterJobType !== 'All' ? filterJobType : '',
+    search,
+  ].filter(Boolean).length
+
+  /**
+   * The jobs list in the chosen order, shared by all three views.
+   *
+   * Sorted client-side over the current page rather than round-tripping: the
+   * page is already loaded, and re-fetching to reorder ten rows would make the
+   * control feel broken on a slow link.
+   */
+  const sortedJobs = [...jobs].sort((a, b) => {
+    if (jobSort === 'title') return (a.title || '').localeCompare(b.title || '')
+    if (jobSort === 'vacancies') return (b.vacancies ?? 0) - (a.vacancies ?? 0)
+    return new Date(b.posted_on).getTime() - new Date(a.posted_on).getTime()
+  })
+
   const calculateDonutPct = (val: number, total: number) => {
     if (!total) return 0
     return Math.round((val / total) * 100)
@@ -857,14 +951,7 @@ export function MobilityCenter() {
                 <Select
                   value={filterLoc}
                   onChange={(val: string) => setFilterLoc(val)}
-                  options={[
-                    { label: 'Location: All', value: 'All' },
-                    { label: 'Loc: Bengaluru', value: 'Bengaluru' },
-                    { label: 'Loc: Mumbai', value: 'Mumbai' },
-                    { label: 'Loc: Delhi NCR', value: 'Delhi NCR' },
-                    { label: 'Loc: Hyderabad', value: 'Hyderabad' },
-                    { label: 'Loc: Pune', value: 'Pune' },
-                  ]}
+                  options={optionsFor(filters?.locations, 'Location: All', 'Loc')}
                   size="sm"
                   className="border-none bg-transparent hover:bg-muted/50 h-9 font-semibold text-xs text-foreground/90"
                 />
@@ -875,14 +962,7 @@ export function MobilityCenter() {
                 <Select
                   value={filterGrade}
                   onChange={(val: string) => setFilterGrade(val)}
-                  options={[
-                    { label: 'Grade: All', value: 'All' },
-                    { label: 'Grade: G4', value: 'G4' },
-                    { label: 'Grade: G5', value: 'G5' },
-                    { label: 'Grade: G6', value: 'G6' },
-                    { label: 'Grade: G7', value: 'G7' },
-                    { label: 'Grade: G8', value: 'G8' }
-                  ]}
+                  options={optionsFor(filters?.grades, 'Grade: All', 'Grade')}
                   size="sm"
                   className="border-none bg-transparent hover:bg-muted/50 h-9 font-semibold text-xs text-foreground/90"
                 />
@@ -893,12 +973,7 @@ export function MobilityCenter() {
                 <Select
                   value={filterJobType}
                   onChange={(val: string) => setFilterJobType(val)}
-                  options={[
-                    { label: 'Job Type: All', value: 'All' },
-                    { label: 'Type: Permanent', value: 'Permanent' },
-                    { label: 'Type: Contract', value: 'Contract' },
-                    { label: 'Type: Temporary', value: 'Temporary' }
-                  ]}
+                  options={optionsFor(filters?.job_types, 'Job Type: All', 'Type')}
                   size="sm"
                   className="border-none bg-transparent hover:bg-muted/50 h-9 font-semibold text-xs text-foreground/90"
                 />
@@ -910,10 +985,32 @@ export function MobilityCenter() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" className="flex items-center gap-2 h-9">
-                <Filter className="size-4" /> More Filters
+              {/* Every filter this screen has is already inline to the left, so
+                  "More Filters" had nothing to add. It clears them instead, which
+                  is what the row was missing. */}
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 h-9"
+                disabled={jobFilterCount === 0}
+                onClick={() => {
+                  setFilterDept('All'); setFilterLoc('All'); setFilterGrade('All')
+                  setFilterJobType('All'); setSearch(''); setPage(1)
+                }}
+              >
+                <Filter className="size-4" />
+                {jobFilterCount > 0 ? `Clear ${jobFilterCount} Filter${jobFilterCount > 1 ? 's' : ''}` : 'No Filters'}
               </Button>
-              <Button variant="outline" className="flex items-center gap-2 h-9">
+              {/* SAVE VIEW IS DISABLED, NOT REMOVED. Saving a view needs somewhere
+                  to save it: s_performance_saved_views exists but is Performance-
+                  specific, and generalising it is a schema change on two hosts,
+                  not a button. Saying so is honest; a button that silently forgets
+                  is not. */}
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 h-9"
+                disabled
+                title="Not available yet - saved views have no storage outside Performance."
+              >
                 <Bookmark className="size-4" /> Save View
               </Button>
             </div>
@@ -944,25 +1041,53 @@ export function MobilityCenter() {
                     />
                   </div>
                   <div className="flex p-1 bg-muted/30 rounded-lg border ml-2">
-                    <Button size="sm" className="flex items-center gap-2 px-3 py-1 text-xs font-semibold text-primary">
-                      Table
-                    </Button>
-                    <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
-                      Board
-                    </Button>
-                    <Button size="sm" variant="ghost" className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
-                      Timeline
-                    </Button>
+                    {(['table', 'board', 'timeline'] as const).map((view) => (
+                      <Button
+                        key={view}
+                        size="sm"
+                        variant={jobView === view ? 'default' : 'ghost'}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-1 text-xs capitalize',
+                          jobView === view ? 'font-semibold' : 'font-medium text-muted-foreground',
+                        )}
+                        onClick={() => setJobView(view)}
+                      >
+                        {view}
+                      </Button>
+                    ))}
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Sort by:</span>
-                    <span className="font-semibold text-foreground">Posted Date</span>
-                    <ChevronDown className="size-3 text-muted-foreground" />
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground border">
+                  {/* WAS A LABEL DRESSED AS A CONTROL - "Sort by: Posted Date"
+                      with a chevron and no dropdown behind it. */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Sort by:</span>
+                        <span className="font-semibold text-foreground">
+                          {jobSort === 'posted_on' ? 'Posted Date' : jobSort === 'title' ? 'Job Title' : 'Vacancies'}
+                        </span>
+                        <ChevronDown className="size-3 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => setJobSort('posted_on')}>Posted Date</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setJobSort('title')}>Job Title</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setJobSort('vacancies')}>Vacancies</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* The settings icon beside it had no handler either. It resets
+                      the view and sort, which is the only table setting this list
+                      actually has. */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground border"
+                    title="Reset view and sort"
+                    onClick={() => { setJobView('table'); setJobSort('posted_on') }}
+                  >
                     <Settings className="size-4" />
                   </Button>
                 </div>
@@ -978,7 +1103,93 @@ export function MobilityCenter() {
                     description="Try modifying search queries or filters."
                   />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* BOARD - internal openings grouped by status. Built from the
+                      same `jobs` array as the table; no new endpoint. */}
+                  {jobView === 'board' && (
+                    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+                      {(['Open', 'In Review', 'Closed'] as const).map((status) => {
+                        const column = sortedJobs.filter((j) => j.status === status)
+                        return (
+                          <div key={status} className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-foreground">{status}</span>
+                              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {column.length}
+                              </span>
+                            </div>
+                            {column.length === 0 ? (
+                              <p className="py-6 text-center text-[11px] text-muted-foreground">Nothing here</p>
+                            ) : (
+                              column.map((job) => (
+                                <button
+                                  key={job.id}
+                                  onClick={() => { setSelectedJob(job); setSidebarTab('Overview') }}
+                                  className="flex flex-col gap-1 rounded-md border border-border bg-card p-3 text-left transition-colors hover:bg-muted/30"
+                                >
+                                  <span className="text-xs font-semibold text-foreground">{job.title}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {job.department || 'No department'} · {job.location}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {job.vacancies} vacancy{job.vacancies === 1 ? '' : 'ies'} · posted {job.posted_on}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* TIMELINE - the same openings by when they were posted. */}
+                  {jobView === 'timeline' && (
+                    <div className="flex flex-col gap-4 p-4">
+                      {sortedJobs.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">
+                          No internal openings to plot yet.
+                        </p>
+                      ) : (
+                        Object.entries(
+                          [...sortedJobs]
+                            .sort((a, b) => new Date(b.posted_on).getTime() - new Date(a.posted_on).getTime())
+                            .reduce<Record<string, typeof sortedJobs>>((groups, job) => {
+                              const when = new Date(job.posted_on)
+                              const key = Number.isNaN(when.getTime())
+                                ? 'Undated'
+                                : when.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+                              ;(groups[key] ||= []).push(job)
+                              return groups
+                            }, {}),
+                        ).map(([month, group]) => (
+                          <div key={month} className="flex flex-col gap-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{month}</h4>
+                            <div className="flex flex-col gap-2 border-l border-border pl-4">
+                              {group.map((job) => (
+                                <button
+                                  key={job.id}
+                                  onClick={() => { setSelectedJob(job); setSidebarTab('Overview') }}
+                                  className="relative flex items-center gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:bg-muted/20"
+                                >
+                                  <span className="absolute -left-[21px] size-2 rounded-full bg-primary" />
+                                  <div className="flex min-w-0 flex-1 flex-col">
+                                    <span className="text-xs font-semibold text-foreground">{job.title}</span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {job.department || 'No department'} · {job.location} · {job.grade}
+                                    </span>
+                                  </div>
+                                  <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{job.posted_on}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  <div className={cn('overflow-x-auto', jobView !== 'table' && 'hidden')}>
                     <Table>
                       <TableHeader className="bg-muted/10">
                         <TableRow>
@@ -996,7 +1207,7 @@ export function MobilityCenter() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {jobs.map((job) => (
+                        {sortedJobs.map((job) => (
                           <TableRow
                             key={job.id}
                             onClick={() => { setSelectedJob(job); setSidebarTab('Overview'); }}
@@ -1040,6 +1251,7 @@ export function MobilityCenter() {
                       </TableBody>
                     </Table>
                   </div>
+                  </>
                 )}
 
                 {/* Pagination Footer */}
@@ -1058,7 +1270,13 @@ export function MobilityCenter() {
                       >
                         <ChevronLeft className="size-4" />
                       </Button>
-                      <Button variant="default" size="icon" className="h-7 w-7 text-xs">{page}</Button>
+                      {/* An indicator, not a control - it was a Button with no handler. */}
+                      <span
+                        aria-current="page"
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-xs font-semibold tabular-nums text-primary-foreground"
+                      >
+                        {page}
+                      </span>
                       <Button
                         variant="outline"
                         size="icon"
@@ -1085,38 +1303,61 @@ export function MobilityCenter() {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-4 flex items-center gap-6">
-                      {/* Fake Donut Chart via CSS borders */}
-                      <div className="relative size-24 shrink-0 rounded-full border-[12px] border-muted flex items-center justify-center">
-                         <div className="absolute inset-[-12px] rounded-full border-[12px] border-primary/20 border-r-primary border-t-primary border-b-primary rotate-45"></div>
-                         <div className="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-t-success rotate-[135deg]"></div>
-                         <div className="flex flex-col items-center">
-                           <span className="text-xs font-bold text-muted-foreground">Total</span>
-                           <span className="text-xl font-bold text-foreground">46</span>
-                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2 flex-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-primary" />
-                            <span className="text-muted-foreground font-medium">Internal Transfers</span>
-                          </div>
-                          <span className="font-semibold text-foreground">20 (43%)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-success" />
-                            <span className="text-muted-foreground font-medium">Promotions</span>
-                          </div>
-                          <span className="font-semibold text-foreground">16 (35%)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-primary/30" />
-                            <span className="text-muted-foreground font-medium">Lateral Moves</span>
-                          </div>
-                          <span className="font-semibold text-foreground">10 (22%)</span>
-                        </div>
-                      </div>
+                      {/* THE RING IS NOW THE DATA.
+                          Every figure here used to be a literal - "46", "20 (43%)",
+                          "16 (35%)", "10 (22%)" - and the donut was four CSS borders
+                          at fixed rotations, so the card told the same story in every
+                          organisation regardless of what had happened. Against a real
+                          count of 4 transfers and 0 promotions it was simply wrong,
+                          and it sat in the same grid as top_departments, which is live.
+                          A conic-gradient means the arcs and the legend cannot
+                          disagree: both are computed from the same numbers. */}
+                      {(() => {
+                        const m = overview?.charts?.movement_summary
+                        const parts = [
+                          { label: 'Internal Transfers', value: m?.transfers ?? 0, dot: 'bg-primary', colour: 'var(--primary)' },
+                          { label: 'Promotions', value: m?.promotions ?? 0, dot: 'bg-success', colour: 'var(--success)' },
+                          { label: 'Lateral Moves', value: m?.lateral_moves ?? 0, dot: 'bg-primary/30', colour: 'color-mix(in oklch, var(--primary) 30%, transparent)' },
+                        ]
+                        const total = parts.reduce((sum, p) => sum + p.value, 0)
+                        let run = 0
+                        const ring = total > 0
+                          ? `conic-gradient(${parts.filter(p => p.value > 0).map(p => {
+                              const from = (run / total) * 100
+                              run += p.value
+                              return `${p.colour} ${from}% ${(run / total) * 100}%`
+                            }).join(', ')})`
+                          : undefined
+                        return (
+                          <>
+                            <div
+                              className="relative size-24 shrink-0 rounded-full"
+                              style={ring ? { background: ring } : undefined}
+                              role="img"
+                              aria-label={total > 0 ? parts.map(p => `${p.label}: ${p.value}`).join(', ') : 'No moves recorded yet'}
+                            >
+                              {!ring && <div className="absolute inset-0 rounded-full bg-muted" />}
+                              <div className="absolute inset-[12px] flex flex-col items-center justify-center rounded-full bg-card">
+                                <span className="text-xs font-bold text-muted-foreground">Total</span>
+                                <span className="text-xl font-bold tabular-nums text-foreground">{total}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2 flex-1">
+                              {parts.map((p) => (
+                                <div key={p.label} className="flex items-center justify-between text-[10px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={cn('size-2 rounded-full', p.dot)} />
+                                    <span className="text-muted-foreground font-medium">{p.label}</span>
+                                  </div>
+                                  <span className="font-semibold tabular-nums text-foreground">
+                                    {p.value}{total > 0 && ` (${calculateDonutPct(p.value, total)}%)`}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )
+                      })()}
                     </CardContent>
                   </Card>
 
@@ -1129,44 +1370,57 @@ export function MobilityCenter() {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-4 flex items-center gap-6">
-                      <div className="relative size-24 shrink-0 rounded-full border-[12px] border-muted flex items-center justify-center">
-                         <div className="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-t-success border-r-success -rotate-45"></div>
-                         <div className="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-b-primary rotate-45"></div>
-                         <div className="flex flex-col items-center">
-                           <span className="text-xs font-bold text-muted-foreground">Total</span>
-                           <span className="text-xl font-bold text-foreground">22</span>
-                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2 flex-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-success" />
-                            <span className="text-muted-foreground font-medium">Ready Now</span>
-                          </div>
-                          <span className="font-semibold text-foreground">6 (27%)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-primary" />
-                            <span className="text-muted-foreground font-medium">Ready in 1-2 yrs</span>
-                          </div>
-                          <span className="font-semibold text-foreground">10 (45%)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-muted-foreground/40" />
-                            <span className="text-muted-foreground font-medium">Ready in 2+ yrs</span>
-                          </div>
-                          <span className="font-semibold text-foreground">6 (27%)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="size-2 rounded-full bg-destructive" />
-                            <span className="text-muted-foreground font-medium">No Successor</span>
-                          </div>
-                          <span className="font-semibold text-foreground">0 (0%)</span>
-                        </div>
-                      </div>
+                      {/* Same treatment as the movement card above. "No Successor"
+                          in particular was a hardcoded 0 (0%) - the one figure on
+                          this screen that exists to prompt action, and it could
+                          never read as anything but reassuring. It is counted now. */}
+                      {(() => {
+                        const s = overview?.charts?.succession_coverage
+                        const parts = [
+                          { label: 'Ready Now', value: s?.ready_now ?? 0, dot: 'bg-success', colour: 'var(--success)' },
+                          { label: 'Ready in 1-2 yrs', value: s?.ready_1_2_years ?? 0, dot: 'bg-primary', colour: 'var(--primary)' },
+                          { label: 'Ready in 2+ yrs', value: s?.ready_2_plus_years ?? 0, dot: 'bg-muted-foreground/40', colour: 'color-mix(in oklch, var(--muted-foreground) 40%, transparent)' },
+                          { label: 'No Successor', value: s?.no_successor ?? 0, dot: 'bg-destructive', colour: 'var(--destructive)' },
+                        ]
+                        const total = parts.reduce((sum, p) => sum + p.value, 0)
+                        let run = 0
+                        const ring = total > 0
+                          ? `conic-gradient(${parts.filter(p => p.value > 0).map(p => {
+                              const from = (run / total) * 100
+                              run += p.value
+                              return `${p.colour} ${from}% ${(run / total) * 100}%`
+                            }).join(', ')})`
+                          : undefined
+                        return (
+                          <>
+                            <div
+                              className="relative size-24 shrink-0 rounded-full"
+                              style={ring ? { background: ring } : undefined}
+                              role="img"
+                              aria-label={total > 0 ? parts.map(p => `${p.label}: ${p.value}`).join(', ') : 'No succession plans yet'}
+                            >
+                              {!ring && <div className="absolute inset-0 rounded-full bg-muted" />}
+                              <div className="absolute inset-[12px] flex flex-col items-center justify-center rounded-full bg-card">
+                                <span className="text-xs font-bold text-muted-foreground">Total</span>
+                                <span className="text-xl font-bold tabular-nums text-foreground">{total}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2 flex-1">
+                              {parts.map((p) => (
+                                <div key={p.label} className="flex items-center justify-between text-[10px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={cn('size-2 rounded-full', p.dot)} />
+                                    <span className="text-muted-foreground font-medium">{p.label}</span>
+                                  </div>
+                                  <span className="font-semibold tabular-nums text-foreground">
+                                    {p.value}{total > 0 && ` (${calculateDonutPct(p.value, total)}%)`}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )
+                      })()}
                     </CardContent>
                   </Card>
 
@@ -1300,11 +1554,27 @@ export function MobilityCenter() {
                                     <Button size="icon" variant="outline" className="h-5 w-5" onClick={() => handleUpdateApplicationStatus(app.id, 'Screening')} title="Screen">
                                       <Check className="size-3" />
                                     </Button>
-                                    <Button size="icon" variant="outline" className="h-5 w-5 text-success" onClick={() => handleUpdateApplicationStatus(app.id, 'Offered')} title="Hire">
+                                    {/* Was titled "Hire". It sets the status to
+                                        Offered - the same thing the Offer button
+                                        in the table below does - and hiring is
+                                        the transfer that follows. */}
+                                    <Button size="icon" variant="outline" className="h-5 w-5 text-success" onClick={() => handleUpdateApplicationStatus(app.id, 'Offered')} title="Offer">
                                       <CheckCircle2 className="size-3" />
                                     </Button>
                                     <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')} title="Reject">
                                       <X className="size-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                                {app.status === 'Offered' && (
+                                  <div className="flex items-center gap-1 mt-1 justify-end">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-5 text-[9px] px-1.5"
+                                      onClick={() => draftTransferFromApplication(app)}
+                                    >
+                                      Draft transfer
                                     </Button>
                                   </div>
                                 )}
@@ -1466,6 +1736,18 @@ export function MobilityCenter() {
                                 onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')}
                               >
                                 Reject
+                              </Button>
+                            </div>
+                          )}
+                          {app.status === 'Offered' && (
+                            <div className="flex items-center justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px] px-2"
+                                onClick={() => draftTransferFromApplication(app)}
+                              >
+                                Draft transfer
                               </Button>
                             </div>
                           )}

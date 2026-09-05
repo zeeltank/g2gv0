@@ -174,6 +174,14 @@ export function RecruitmentCenter() {
   const [selectedLocation, setSelectedLocation] = useState('')
   const [tableStatus, setTableStatus] = useState('')
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  /**
+   * The candidate the action drawer opens against.
+   *
+   * Named for interviews because that was its only use; it now also carries the
+   * candidate into "Create offer", which is what lets that form pre-fill. Kept
+   * under one name because the drawer takes exactly one `preselectedCandidate`
+   * and two states for the same slot would drift.
+   */
   const [interviewCandidate, setInterviewCandidate] = useState<Candidate | null>(null)
   const [viewingProfileFor, setViewingProfileFor] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -187,8 +195,24 @@ export function RecruitmentCenter() {
   const [selectedInterviewRecord, setSelectedInterviewRecord] = useState<(typeof interviewRecords)[number] | null>(null)
   const [selectedOfferRecord, setSelectedOfferRecord] = useState<(typeof offerRecords)[number] | null>(null)
   const [confirmation, setConfirmation] = useState<{ title: string; description: string; run: () => Promise<unknown> } | null>(null)
+  /**
+   * The candidate's accept/decline link, after HR issues it.
+   *
+   * Shown rather than assumed: outbound mail is gated per organisation, so the
+   * recruiter is told plainly whether it was emailed and can copy it either way.
+   */
+  const [candidateLink, setCandidateLink] = useState<{ url: string; emailSent: boolean; message: string } | null>(null)
 
-  const pageSize = 25
+  /*
+   * Rows per page is state, not a constant, because the settings button beside
+   * the paginator now changes it. It was a fixed 25 and that button did nothing.
+   */
+  const [pageSize, setPageSize] = useState(25)
+
+  /** How many filters are actually narrowing the list, for the clear button. */
+  const activeFilterCount = [
+    searchQuery, selectedJob, selectedStage, selectedSource, selectedRecruiter, selectedLocation,
+  ].filter(Boolean).length
 
   const tabs: { id: MainTab; label: string }[] = [
     { id: 'requisitions', label: 'Requisitions' },
@@ -436,8 +460,29 @@ export function RecruitmentCenter() {
                   size="sm"
                 />
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold lg:ml-auto min-w-fit flex-shrink-0">
-                <Filter className="size-3.5" /> More Filters
+              {/* WAS "More Filters", WITH NO HANDLER AND NOTHING TO ADD.
+                  All five filters — job, stage, source, recruiter, location —
+                  are already inline to the left, so there were no more filters
+                  to show. Rather than invent a purpose for the button, it now
+                  does the one thing this row was missing: clear them all, and
+                  say how many are active. Disabled when none are. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs font-semibold lg:ml-auto min-w-fit flex-shrink-0"
+                disabled={activeFilterCount === 0}
+                onClick={() => {
+                  setSearchQuery('')
+                  setSelectedJob('')
+                  setSelectedStage('')
+                  setSelectedSource('')
+                  setSelectedRecruiter('')
+                  setSelectedLocation('')
+                  setCurrentPage(1)
+                }}
+              >
+                <Filter className="size-3.5" />
+                {activeFilterCount > 0 ? `Clear ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''}` : 'No filters'}
               </Button>
               {/* View Toggle */}
               <div className="flex min-w-fit flex-shrink-0 items-center border border-border rounded-lg overflow-hidden">
@@ -489,21 +534,96 @@ export function RecruitmentCenter() {
               <div className="flex items-center gap-3 px-1 py-2 mb-2">
                 <span className="text-xs font-bold text-muted-foreground">{selectedIds.length} selected</span>
                 <div className="h-4 w-px bg-border" />
-                <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
-                  <MoveRight className="size-3.5" /> Move Stage
-                </button>
-                <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
+
+                {/* MOVE STAGE — the one bulk action with a real endpoint behind it.
+                    `moveCandidate` already existed and worked for drag-and-drop on
+                    the kanban; the bar simply never called it, which also made the
+                    row checkboxes below meaningless. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
+                      <MoveRight className="size-3.5" /> Move Stage
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {PIPELINE_STAGES.map((stage) => (
+                      <DropdownMenuItem
+                        key={stage.id}
+                        onSelect={() =>
+                          setConfirmation({
+                            title: `Move ${selectedIds.length} candidate(s) to ${stage.label}?`,
+                            description:
+                              'Each application moves to that stage. Anything the stage triggers — '
+                              + 'an assessment invite, for example — is not sent automatically here.',
+                            run: async () => {
+                              /*
+                               * Sequential, not Promise.all. Each move is a PUT that
+                               * the optimistic cache update in useRecruitment rolls
+                               * back on failure; firing 25 at once would interleave
+                               * those rollbacks and leave the board showing a state
+                               * that never existed.
+                               */
+                              for (const id of selectedIds) {
+                                await moveCandidate(id, stage.id as Candidate['stage'])
+                              }
+                              setSelectedIds([])
+                            },
+                          })
+                        }
+                      >
+                        {stage.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* ASSIGN RECRUITER, SEND EMAIL, ADD TAG — DELIBERATELY DISABLED.
+                    There is no endpoint for any of them: no recruiter-assignment
+                    column on talent_job_applications, no bulk-mail route, and no
+                    tag table. A button that opens a dialog which cannot save is
+                    worse than one that says it is not available yet, so each
+                    states the reason on hover instead of failing silently. */}
+                <button
+                  disabled
+                  title="Not available yet — applications have no recruiter-assignment field."
+                  className="flex items-center gap-1 text-xs font-semibold text-muted-foreground/40 cursor-not-allowed"
+                >
                   <UserPlus className="size-3.5" /> Assign Recruiter
                 </button>
-                <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
+                <button
+                  disabled
+                  title="Not available yet — there is no bulk email endpoint. Use the candidate drawer to email one person."
+                  className="flex items-center gap-1 text-xs font-semibold text-muted-foreground/40 cursor-not-allowed"
+                >
                   <Mail className="size-3.5" /> Send Email
                 </button>
-                <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
+                <button
+                  disabled
+                  title="Not available yet — candidates have no tags."
+                  className="flex items-center gap-1 text-xs font-semibold text-muted-foreground/40 cursor-not-allowed"
+                >
                   <Tag className="size-3.5" /> Add Tag
                 </button>
-                <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
-                  <MoreHorizontal className="size-3.5" /> More
-                </button>
+
+                {/* MORE — clearing the selection is a real action and the only one
+                    that needs no backend. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors">
+                      <MoreHorizontal className="size-3.5" /> More
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onSelect={() => setSelectedIds([])}>
+                      Clear selection
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setSelectedIds(paginatedCandidates.map((c) => c.id))}
+                    >
+                      Select all on this page
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {/* Pagination */}
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-xs text-muted-foreground font-medium tabular-nums">
@@ -534,9 +654,26 @@ export function RecruitmentCenter() {
                       <ChevronRight className="size-3.5" />
                     </Button>
                   </div>
-                  <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
-                    <Settings className="size-3.5" />
-                  </Button>
+                  {/* WAS A DEAD SETTINGS ICON beside the paginator. It now does
+                      the thing its position implies: rows per page. Changing it
+                      returns to page 1, since page 7 of 25 does not exist at 100. */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground" title="Rows per page">
+                        <Settings className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {[10, 25, 50, 100].map((size) => (
+                        <DropdownMenuItem
+                          key={size}
+                          onSelect={() => { setPageSize(size); setCurrentPage(1) }}
+                        >
+                          {size} per page{size === pageSize ? ' ✓' : ''}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -621,6 +758,14 @@ export function RecruitmentCenter() {
                               {candidate.resume && <DropdownMenuItem onClick={() => window.open(candidate.resume, '_blank', 'noopener,noreferrer')}>Open resume</DropdownMenuItem>}
                               {canProgressCandidate(candidate) && <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Shortlisted' }).then(refresh)}>Shortlist</DropdownMenuItem>}
                               {canProgressCandidate(candidate) && <DropdownMenuItem onClick={() => { setInterviewCandidate(candidate); setActiveAction('interview') }}>Schedule interview</DropdownMenuItem>}
+                              {/* THE MISSING ENTRY POINT. Creating an offer was only
+                                  reachable from a global "Create Offer" menu with no
+                                  candidate context, so HR picked the person again from
+                                  a list of everyone and typed details the screen
+                                  already knew. Reusing `interviewCandidate` as the
+                                  drawer's preselected candidate - the prop it already
+                                  accepts - is what lets the offer form pre-fill. */}
+                              {canProgressCandidate(candidate) && <DropdownMenuItem onClick={() => { setInterviewCandidate(candidate); setActiveAction('offer') }}>Create offer</DropdownMenuItem>}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => void recruitmentService.updateApplication(candidate.id, { status: 'Rejected' }).then(refresh)}>Reject</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -655,6 +800,11 @@ export function RecruitmentCenter() {
                 setInterviewCandidate(candidate)
                 setSelectedCandidate(null)
                 setActiveAction('interview')
+              }}
+              onCreateOffer={(candidate) => {
+                setInterviewCandidate(candidate)
+                setSelectedCandidate(null)
+                setActiveAction('offer')
               }}
               onClose={() => setSelectedCandidate(null)}
               onViewProfile={() => {
@@ -713,9 +863,34 @@ export function RecruitmentCenter() {
                   <TableCell><span className="text-sm text-foreground">{req.createdBy}</span></TableCell>
                   <TableCell><span className="text-sm text-muted-foreground">{req.createdOn}</span></TableCell>
                   <TableCell>
-                    <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
+                    {/* WAS A DEAD OVERFLOW BUTTON on every requisition row. The
+                        job-record actions it implies already exist on the Jobs
+                        tab; this reuses them rather than adding a second path. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="p-1 text-muted-foreground">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedJobRecord(jobRecords.find((r) => String(r.id) === String(req.id)) ?? null)
+                            setActiveAction('job-view')
+                          }}
+                        >
+                          View details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedJobRecord(jobRecords.find((r) => String(r.id) === String(req.id)) ?? null)
+                            setActiveAction('job-edit')
+                          }}
+                        >
+                          Edit requisition
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -890,8 +1065,23 @@ export function RecruitmentCenter() {
                       <DropdownMenuContent>
                         <DropdownMenuItem onClick={() => { setSelectedOfferRecord(offerRecords.find((record) => String(record.id) === offer.id) ?? null); setActiveAction('offer-view') }}>View details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => window.open(recruitmentService.offerLetterUrl(offer.id), '_blank', 'noopener,noreferrer')}>View offer letter</DropdownMenuItem>
+                        {offer.status !== 'Accepted' && offer.status !== 'Declined' && (
+                          <DropdownMenuItem onClick={() => void recruitmentService.candidateLink(offer.id).then((res) => {
+                            const url = res?.data?.url
+                            if (!url) return
+                            void navigator.clipboard?.writeText(url).catch(() => undefined)
+                            setCandidateLink({ url, emailSent: Boolean(res?.data?.email_sent), message: res?.message ?? '' })
+                          }).catch((cause) => setCandidateLink({ url: '', emailSent: false, message: cause instanceof Error ? cause.message : 'The link could not be created.' }))}>
+                            Send / copy candidate link
+                          </DropdownMenuItem>
+                        )}
                         {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/talent-management/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
-                        {offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
+                        {offer.status !== 'Accepted' && offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
+                          title: 'Accept this offer?',
+                          description: 'The candidate becomes an employee: a record is created in the Employee Directory and linked to this offer. Accepting again will not create a second employee.',
+                          run: async () => { await recruitmentService.acceptOffer(offer.id); await refresh() },
+                        })}>Accept offer</DropdownMenuItem>}
+                        {offer.status !== 'Accepted' && offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
                           title: 'Reject this offer?',
                           description: 'The offer status will be changed to rejected.',
                           run: async () => { await recruitmentService.rejectOffer(offer.id); await refresh() },
@@ -920,6 +1110,31 @@ export function RecruitmentCenter() {
               setConfirmation(null)
               if (action) void action()
             }}>Confirm</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(candidateLink)} onOpenChange={(open) => !open && setCandidateLink(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Candidate link</AlertDialogTitle>
+            <AlertDialogDescription>{candidateLink?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {candidateLink?.url ? (
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {candidateLink.emailSent ? 'Emailed to the candidate' : 'Copy this to the candidate'}
+              </span>
+              <p className="break-all rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs text-foreground">
+                {candidateLink.url}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Copied to your clipboard. The link works once and invalidates any earlier one.
+              </p>
+            </div>
+          ) : null}
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setCandidateLink(null)}>Close</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
