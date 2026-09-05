@@ -33,6 +33,8 @@ import { canProgressCandidate, PIPELINE_STAGES } from './recruitment-data'
 import { recruitmentService } from '@/services/talent'
 import type { FeedbackApi, TalentOfferApi } from '@/types/recruitment'
 import { useCandidateScreeningResult } from '@/hooks/use-recruitment'
+import { ResumeReviewBlock } from './resume-review-block'
+import { CandidateAssessmentBlock } from './candidate-assessment-block'
 
 interface CandidateDetailPanelProps {
   candidate: Candidate | null
@@ -40,6 +42,8 @@ interface CandidateDetailPanelProps {
   onViewProfile?: () => void
   onSaved?: () => void
   onSchedule?: (candidate: Candidate) => void
+  /** Opens the offer drawer for THIS candidate, so the form pre-fills. */
+  onCreateOffer?: (candidate: Candidate) => void
 }
 
 const stageOptions = PIPELINE_STAGES.map((s) => ({ label: s.label, value: s.id }))
@@ -62,11 +66,13 @@ const timelineIconMap: Record<string, React.ElementType> = {
   email: Mail,
 }
 
-export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSaved, onSchedule }: CandidateDetailPanelProps) {
+export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSaved, onSchedule, onCreateOffer }: CandidateDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'interviews' | 'assessments' | 'offer' | 'notes'>('timeline')
   const [feedback, setFeedback] = useState<FeedbackApi | null>(null)
   const [offer, setOffer] = useState<TalentOfferApi | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  /** Widens the drawer. Drives the dead Maximize button in the header. */
+  const [expanded, setExpanded] = useState(false)
   const profileQuery = useCandidateScreeningResult(candidate?.id ?? null)
   const application = profileQuery.data?.application ?? null
   const screening = profileQuery.data?.screening ?? null
@@ -160,9 +166,26 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSave
           </div>
           {/* SheetContent has its own close button, but we can keep Maximize if we want. For now just removing the custom close button */}
           <div className="flex items-center gap-1 mr-6">
-            <Button size="icon" variant="ghost" className="p-1.5 text-muted-foreground">
+            {/* WAS A DEAD MAXIMIZE BUTTON. It now does what its icon promises -
+                widens the drawer, which is genuinely useful on the Screening tab
+                where the résumé review and assessment answers are cramped. */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="p-1.5 text-muted-foreground"
+              title={expanded ? 'Shrink panel' : 'Expand panel'}
+              aria-pressed={expanded}
+              onClick={() => setExpanded((prev) => !prev)}
+            >
               <Maximize2 className="size-4" />
             </Button>
+            {/* `loadingDetails` was set true and false around the feedback and
+                offer fetches and then read nowhere, so the tabs below showed
+                empty sections while data was still in flight - indistinguishable
+                from a candidate with no history. */}
+            {loadingDetails && (
+              <span className="text-[10px] text-muted-foreground">Loading…</span>
+            )}
           </div>
         </div>
 
@@ -326,6 +349,10 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSave
                   {!!screening.skill_gaps?.length && <div><p className="mb-2 font-semibold">Skill Gaps</p><div className="flex flex-wrap gap-1.5">{screening.skill_gaps.map((gap, index) => <span key={`${gap}-${index}`} className="rounded-full bg-destructive/10 px-2 py-1 text-[10px] font-semibold text-destructive">{gap}</span>)}</div></div>}
                   {!!screening.strengths?.length && <div><p className="mb-2 font-semibold">Key Strengths</p><div className="flex flex-wrap gap-1.5">{screening.strengths.map((strength, index) => <span key={`${strength}-${index}`} className="rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">{strength}</span>)}</div></div>}
                   {!!candidateSkills.length && <div><p className="mb-2 font-semibold">Candidate Key Skills</p><div className="flex flex-wrap gap-1.5">{candidateSkills.map((skill, index) => <span key={`${skill}-${index}`} className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold">{skill}</span>)}</div></div>}
+                  {/* The assessment is the third input to the same decision as
+                      the CV match above and the resume review below it, so it
+                      lives here rather than in a tab of its own. */}
+                  <CandidateAssessmentBlock applicationId={candidate.id} candidateStage={candidate.stage} />
                   <div className="flex flex-wrap justify-end gap-2 border-t border-border/40 pt-3">
                     {application?.profile_url && <Button size="sm" variant="outline" onClick={() => window.open(application.profile_url!, '_blank', 'noopener,noreferrer')}><Eye className="mr-1.5 size-3.5" />View Profile</Button>}
                     <Button size="sm" variant="outline" disabled={!resumeUrl} onClick={() => resumeUrl && window.open(resumeUrl, '_blank', 'noopener,noreferrer')}><Eye className="mr-1.5 size-3.5" />View Resume</Button>
@@ -333,12 +360,35 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSave
                   </div>
                 </div>
               ) : <p className="py-8 text-center text-sm text-muted-foreground font-medium">{profileQuery.error instanceof Error ? profileQuery.error.message : 'No screening result found'}</p>}
+
+              {/* The recruiter's own review, below the AI analysis. Rendered
+                  outside the `screening` branch on purpose: a person can review
+                  a CV whether or not the model ever produced a verdict. */}
+              {!profileQuery.isPending && <ResumeReviewBlock applicationId={application?.id ? Number(application.id) : null} />}
             </div>
           )}
           {activeTab === 'offer' && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <FileText className="size-8 text-muted-foreground/40 mb-2" />
-              {offer ? <div className="space-y-1 text-sm"><p className="font-semibold">{offer.position}</p><p>{offer.salary ?? '—'}</p><StatusBadge variant="processing">{offer.status}</StatusBadge></div> : <p className="text-sm text-muted-foreground font-medium">No offer found</p>}
+              {offer ? (
+                <div className="space-y-1 text-sm">
+                  <p className="font-semibold">{offer.position}</p>
+                  <p>{offer.salary ?? '—'}</p>
+                  <StatusBadge variant="processing">{offer.status}</StatusBadge>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <p className="text-sm font-medium text-muted-foreground">No offer found</p>
+                  {/* This tab used to be a dead end - it reported the absence of an
+                      offer and gave no way to make one, so HR left the drawer,
+                      opened a global menu and re-selected the same candidate. */}
+                  {onCreateOffer && (
+                    <Button size="sm" onClick={() => onCreateOffer(candidate)}>
+                      Create offer for {candidate.name.split(' ')[0]}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {activeTab === 'notes' && (

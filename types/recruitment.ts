@@ -307,3 +307,97 @@ export interface TeamOverviewApi {
   hired_candidates?: number
   [key: string]: string | number | null | undefined
 }
+
+/**
+ * The candidate's assessment, as HR sees it on the Screening tab.
+ *
+ * `qualified` is TRI-STATE and must stay that way: true, false, and null for
+ * "not judged yet" — a paper still awaiting human marking is not a fail.
+ * Collapsing null to false would show a candidate as rejected while their
+ * written answers are still being marked.
+ */
+export interface CandidateAssessmentResultApi {
+  id: number
+  status: 'invited' | 'started' | 'submitted' | 'graded' | string
+  title: string | null
+  score: number | null
+  max_score: number | null
+  percent: number | null
+  /** The pass mark HR set, in MARKS not percent. */
+  qualification_marks: number | null
+  qualified: boolean | null
+  invited_at: string | null
+  submitted_at: string | null
+  graded_at: string | null
+  expires_at: string | null
+  link_used: boolean
+  answers: CandidateAssessmentAnswerApi[]
+}
+
+export interface CandidateAssessmentAnswerApi {
+  question_id: number
+  format: string
+  question: string
+  answer: string | null
+  /** null means nobody has marked it yet — NOT a zero. */
+  score: number | null
+  max_score: number
+  scored_by: 'auto' | 'ai' | 'human' | string | null
+  /** The model's one-sentence reason, so a recruiter overriding a mark can see it. */
+  ai_feedback: string | null
+}
+
+export interface AssessmentInviteApi {
+  application_id: number
+  test_id: number
+  url: string
+  expires_at: string
+  email_sent: boolean
+  email_error: string | null
+}
+
+export interface AssessmentBlueprintApi {
+  id: number
+  department_id: number | null
+  department_name: string | null
+  jobrole_id: number
+  jobrole: string | null
+  sector: string | null
+  title: string | null
+  test_types: string[]
+  question_count: number
+  total_marks: number
+  qualification_marks: number
+  time_limit_minutes: number | null
+  is_active: boolean
+  updated_at: string | null
+}
+
+export interface AssessmentBlueprintPayload {
+  id?: number
+  department_id?: number | null
+  jobrole_id: number
+  title?: string | null
+  test_types: string[]
+  question_count: number
+  total_marks: number
+  qualification_marks: number
+  time_limit_minutes?: number | null
+  is_active?: boolean
+}
+
+export interface AssessmentJobRoleApi {
+  id: number
+  jobrole: string
+  sector: string | null
+  track: string | null
+}
+
+/** One row of the employee picker, from /competency/employee-options. */
+export interface EmployeeOptionApi {
+  id: LaravelId
+  name?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  employee_no?: string | null
+}

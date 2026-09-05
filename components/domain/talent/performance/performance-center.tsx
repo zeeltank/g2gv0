@@ -1205,6 +1205,13 @@ export function PerformanceCenter() {
                 onAdvanceStage={() => activeReviewId && report(mutations.advanceReview(activeReviewId))}
                 onOpenTeamDetails={() => setTeamDetailsOpen(true)}
                 onSelectReview={openPanel}
+                onSaveRatings={async (payload) => {
+                  if (!activeReviewId) return
+                  // mutations.updateReview has existed since the module was built
+                  // with nothing calling it - PUT /performance/reviews/{id} is the
+                  // only path that can set a self or manager rating.
+                  await report(mutations.updateReview(activeReviewId, payload))
+                }}
                 saving={mutations.saving}
               />
             </div>

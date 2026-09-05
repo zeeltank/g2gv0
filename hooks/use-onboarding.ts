@@ -24,7 +24,10 @@ import {
   type OnbStage,
   type OnbTask,
   type OnbTimeline,
+  type OnbAssetPayload,
+  type OnbBenefitPayload,
   type OnbWorkstream,
+  type OnbWorkstreamData,
   type ProbationDecisionPayload,
   type ProbationFilters,
   type ProbationSummary,
@@ -328,6 +331,49 @@ export function useOnboardingWorkstreams(journeyId: string | undefined, refreshK
   return { workstreams, loading, error, retry: load }
 }
 
+/**
+ * What each workstream actually recorded, for one journey.
+ *
+ * useOnboardingWorkstreams above returns task COUNTS - "3 of 4 complete". This
+ * returns the evidence behind them: which laptop and its serial, which policy
+ * version was signed, whether payroll could actually run. Same shape as every
+ * other hook here, including `queueMicrotask` so the fetch never runs during
+ * render.
+ */
+export function useOnboardingWorkstreamData(journeyId: number | null, refreshKey: number) {
+  const resolveContext = useLaravelContext()
+
+  const [data, setData] = useState<OnbWorkstreamData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    if (!journeyId) {
+      setData(null)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await onboardingService.getWorkstreamData(resolveContext(), journeyId)
+      setData(response.data)
+    } catch (loadError) {
+      setError(toMessage(loadError, 'Failed to load workstream details.'))
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [resolveContext, journeyId])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      load()
+    })
+  }, [load, refreshKey])
+
+  return { data, loading, error, retry: load }
+}
+
 /* ------------------------------------------------------------------ *
  * Probation & Confirmation tab
  * ------------------------------------------------------------------ */
@@ -574,6 +620,37 @@ export function useOnboardingMutations() {
   )
 
   /* -- Probation -- */
+  /* -- The five onboarding workstreams -- */
+  const issueAsset = useCallback(
+    (journeyId: number, payload: OnbAssetPayload) =>
+      run(() => onboardingService.issueAsset(resolveContext(), journeyId, payload), 'Asset issued'),
+    [run, resolveContext],
+  )
+
+  const returnAsset = useCallback(
+    (assetId: number, payload: { returned_on?: string; condition_note?: string } = {}) =>
+      run(() => onboardingService.returnAsset(resolveContext(), assetId, payload), 'Asset returned'),
+    [run, resolveContext],
+  )
+
+  const enrolBenefit = useCallback(
+    (journeyId: number, payload: OnbBenefitPayload) =>
+      run(() => onboardingService.enrolBenefit(resolveContext(), journeyId, payload), 'Benefit enrolled'),
+    [run, resolveContext],
+  )
+
+  const acknowledgePolicy = useCallback(
+    (journeyId: number, payload: { policy_key: string; policy_title?: string; policy_version?: string }) =>
+      run(() => onboardingService.acknowledgePolicy(resolveContext(), journeyId, payload), 'Policy acknowledged'),
+    [run, resolveContext],
+  )
+
+  const savePayroll = useCallback(
+    (journeyId: number, payload: Record<string, string | boolean>) =>
+      run(() => onboardingService.savePayroll(resolveContext(), journeyId, payload), 'Payroll details saved'),
+    [run, resolveContext],
+  )
+
   const updateProbation = useCallback(
     (journeyId: number, payload: { probation_start: string; probation_end: string }) =>
       run(() => onboardingService.updateProbation(resolveContext(), journeyId, payload), 'Probation window updated'),
@@ -612,5 +689,10 @@ export function useOnboardingMutations() {
     deleteNote,
     updateProbation,
     decideProbation,
+    issueAsset,
+    returnAsset,
+    enrolBenefit,
+    acknowledgePolicy,
+    savePayroll,
   }
 }

@@ -165,12 +165,32 @@ function contextParams(extra?: Record<string, string>) {
   return withLaravelParams(context, extra)
 }
 
+export type MobilityOption = { value: string; label: string }
+
+export type MobilityFilterOptions = {
+  departments: MobilityOption[]
+  employees: MobilityOption[]
+  jobroles: MobilityOption[]
+  locations: MobilityOption[]
+  grades: MobilityOption[]
+  job_types: MobilityOption[]
+}
+
 export const mobilityService = {
   getOverview() {
     return apiClient.get<{ status: number; data: MobilityOverviewData }>('/mobility/overview', contextParams())
   },
+  /**
+   * Filter options, all DERIVED FROM THIS TENANT'S DATA.
+   *
+   * locations / grades / job_types were not served at all and the client kept
+   * its own fixed lists (five Indian cities, a grade ladder), none of which
+   * matched what the tenant actually stores - so every option returned nothing.
+   * An option now exists exactly when a row matches it, which also means the
+   * lists are legitimately EMPTY when there are no internal openings yet.
+   */
   getFilters() {
-    return apiClient.get<{ status: number; data: { departments: { value: string; label: string }[]; employees: { value: string; label: string }[]; jobroles: { value: string; label: string }[] } }>('/mobility/filters', contextParams())
+    return apiClient.get<{ status: number; data: MobilityFilterOptions }>('/mobility/filters', contextParams())
   },
 
 

@@ -363,6 +363,24 @@ export function CmFrameworkMapping() {
     if (result.ok) retry()
   }
 
+  /*
+   * `publishNote` held the server's sentence and NOTHING RENDERED IT, so
+   * submitting a framework for approval gave no confirmation at all - the
+   * approval queue is asynchronous, so the screen looked unchanged and the
+   * natural response is to press it again. Shown here, and dismissible.
+   */
+  const publishNoteBanner = publishNote ? (
+    <div className="mb-3 flex items-start justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+      <span>{publishNote}</span>
+      <button
+        onClick={() => setPublishNote(null)}
+        className="shrink-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
+      >
+        Dismiss
+      </button>
+    </div>
+  ) : null
+
   // Seed the form at open time (no setState-in-effect).
   const openFrameworkDialog = (editing: Framework | null) => {
     setFwForm(editing
@@ -513,6 +531,8 @@ export function CmFrameworkMapping() {
 
   return (
     <div className="flex flex-col gap-6 p-6 min-h-max">
+      {/* The approval-queue confirmation, which had nowhere to appear. */}
+      {publishNoteBanner}
       {/* Action message banner */}
       {(actionMessage || actionError) && (
         <div className={`fixed top-4 right-4 z-[60] rounded-xl px-4 py-3 text-sm font-semibold shadow-lg ${actionError ? 'bg-destructive text-white' : 'bg-success text-white'}`}>

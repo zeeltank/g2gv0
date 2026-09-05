@@ -68,7 +68,7 @@ export interface OnbSummaryListResponse<T, S> extends OnbListResponse<T> {
  * ------------------------------------------------------------------ */
 
 export type JourneyStage =
-  | 'preboarding' | 'first_day' | 'orientation' | 'team_integration'
+  | 'offer_accepted' | 'preboarding' | 'first_day' | 'orientation' | 'team_integration'
   | 'probation' | 'confirmed' | 'exited'
 
 export type JourneyStatus = 'not-started' | 'in-progress' | 'completed' | 'on-hold' | 'cancelled'
@@ -139,7 +139,11 @@ export type OnbKpiIcon = 'users' | 'user-check' | 'calendar' | 'check-circle' | 
 
 /** The filter a KPI card's "View all" applies when drilling into the list. */
 export interface OnbKpiFilter {
-  stage?: JourneyStage
+  /**
+   * One stage, or two comma-separated — a tile whose count spans two stages
+   * drills down to exactly the rows it counted rather than a subset of them.
+   */
+  stage?: JourneyStage | `${JourneyStage},${JourneyStage}`
   status?: JourneyStatus
   joining_from?: string
   joining_to?: string
@@ -713,6 +717,57 @@ export const onboardingService = {
       params(context, queryOf(filters)),
     )
   },
+  /** Everything the five workstream panels need, in one call. */
+  getWorkstreamData(context: LaravelContext, journeyId: number) {
+    return apiClient.get<OnbResponse<OnbWorkstreamData>>(
+      `/onboarding/journeys/${journeyId}/workstream-data`,
+      params(context),
+    )
+  },
+
+  issueAsset(context: LaravelContext, journeyId: number, payload: OnbAssetPayload) {
+    return apiClient.post<OnbResponse<{ id: number }>>(
+      `/onboarding/journeys/${journeyId}/assets`,
+      { ...payload, ...params(context) },
+    )
+  },
+
+  returnAsset(context: LaravelContext, assetId: number, payload: { returned_on?: string; condition_note?: string } = {}) {
+    return apiClient.post<OnbResponse<{ id: number }>>(
+      `/onboarding/assets/${assetId}/return`,
+      { ...payload, ...params(context) },
+    )
+  },
+
+  enrolBenefit(context: LaravelContext, journeyId: number, payload: OnbBenefitPayload) {
+    return apiClient.post<OnbResponse<{ id: number }>>(
+      `/onboarding/journeys/${journeyId}/benefits`,
+      { ...payload, ...params(context) },
+    )
+  },
+
+  acknowledgePolicy(
+    context: LaravelContext,
+    journeyId: number,
+    payload: { policy_key: string; policy_title?: string; policy_version?: string },
+  ) {
+    return apiClient.post<OnbResponse<{ acknowledged: boolean }>>(
+      `/onboarding/journeys/${journeyId}/acknowledge-policy`,
+      { ...payload, ...params(context) },
+    )
+  },
+
+  /**
+   * Writes the tbluser columns that already exist. Only the fields SENT are
+   * written, so saving the bank half cannot blank a UAN captured earlier.
+   */
+  savePayroll(context: LaravelContext, journeyId: number, payload: Record<string, string | boolean>) {
+    return apiClient.put<OnbResponse<OnbPayroll>>(
+      `/onboarding/journeys/${journeyId}/payroll`,
+      { ...payload, ...params(context) },
+    )
+  },
+
   updateProbation(
     context: LaravelContext,
     journeyId: number,
@@ -733,4 +788,88 @@ export const onboardingService = {
       { ...payload, ...params(context) },
     )
   },
+}
+
+/**
+ * What each workstream actually recorded, as opposed to how many tasks it has.
+ *
+ * The five cards on the Preboarding tab are a rollup of task counts; this is the
+ * evidence behind them - which laptop, which policy version, whose UAN.
+ */
+export interface OnbAsset {
+  id: number
+  asset_type: string
+  type_label: string
+  make_model: string | null
+  serial_no: string | null
+  issued_on: string | null
+  returned_on: string | null
+  status: string
+  condition_note: string | null
+}
+
+export interface OnbBenefit {
+  id: number
+  benefit_type: string
+  type_label: string
+  provider: string | null
+  policy_no: string | null
+  coverage_amount: string | null
+  effective_from: string | null
+  nominee_name: string | null
+  nominee_relation: string | null
+  status: string
+}
+
+export interface OnbPolicyAck {
+  id: number
+  policy_key: string
+  policy_title: string | null
+  /** Acknowledging v1 is not acknowledging v3 - the version is part of the fact. */
+  policy_version: string
+  acknowledged_at: string | null
+}
+
+export interface OnbPayroll {
+  employee_id: number | null
+  fields: Record<string, string | number | null>
+  /** True when payroll could actually run: bank, account, IFSC and PAN present. */
+  complete: boolean
+  missing: string[]
+}
+
+/** What the IT panel sends. Only asset_type is required; the rest is evidence. */
+export interface OnbAssetPayload {
+  asset_type: string
+  make_model?: string
+  serial_no?: string
+  issued_on?: string
+  condition_note?: string
+}
+
+export interface OnbBenefitPayload {
+  benefit_type: string
+  provider?: string
+  policy_no?: string
+  coverage_amount?: string
+  effective_from?: string
+  nominee_name?: string
+  nominee_relation?: string
+}
+
+export interface OnbWorkstreamData {
+  journey_id: number
+  employee_id: number | null
+  assets: OnbAsset[]
+  benefits: OnbBenefit[]
+  policies: OnbPolicyAck[]
+  payroll: OnbPayroll
+  /** READ-ONLY: what LearningAssigner assigned. This screen never writes it. */
+  learning: { total: number; completed: number; courses: Array<{ id: number; course: string; status: string }> }
+  options: {
+    asset_types: Record<string, string>
+    asset_statuses: string[]
+    benefit_types: Record<string, string>
+    benefit_statuses: string[]
+  }
 }

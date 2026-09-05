@@ -72,6 +72,7 @@ import {
   useOnboardingOverview,
   useOnboardingProbation,
   useOnboardingTasks,
+  useOnboardingWorkstreamData,
   useOnboardingWorkstreams,
   type MutationResult,
 } from '@/hooks/use-onboarding'
@@ -102,7 +103,7 @@ import {
   type TaskMoreFilters,
 } from './onboarding-sheets'
 import { OnboardingSidebar } from './onboarding-sidebar'
-import { JourneyTab, ProbationTab, TimelineTab } from './onboarding-tabs'
+import { JourneyTab, ProbationTab, TimelineTab, WorkstreamPanel, type WorkstreamKey } from './onboarding-tabs'
 import type {
   JourneyFilters,
   OnbDocument,
@@ -206,6 +207,16 @@ export function OnboardingCenter() {
   const [taskPerPage, setTaskPerPage] = React.useState(25)
   const [selectedTaskIds, setSelectedTaskIds] = React.useState<number[]>([])
 
+  /*
+   * Which workstream's RECORDED DATA is open, if any.
+   *
+   * The five cards below were filter chips: clicking one narrowed the task
+   * table and nothing else. They now also open the evidence behind the count -
+   * which laptop and its serial, which policy version was signed, whether
+   * payroll can actually run. Null means no panel, which is the default.
+   */
+  const [wsPanel, setWsPanel] = React.useState<WorkstreamKey | null>(null)
+
   const taskFilters = React.useMemo(
     () => ({
       journey_id: journeyKey,
@@ -263,6 +274,10 @@ export function OnboardingCenter() {
 
   const { workstreams, loading: workstreamsLoading, error: workstreamsError, retry: retryWorkstreams } =
     useOnboardingWorkstreams(journeyKey, refreshKey)
+
+  /* The evidence behind those counts, for the same journey. */
+  const { data: wsData, loading: wsLoading, error: wsError, retry: retryWorkstreamData } =
+    useOnboardingWorkstreamData(effectiveJourneyId, refreshKey)
 
   const {
     journey, stages, stageProgress, contacts, notes, documents,
@@ -767,9 +782,10 @@ export function OnboardingCenter() {
                                       )}
                                     </div>
                                   ) : (
-                                    <Button variant="outline" size="sm" onClick={browseOrCreateJourneys}>
-                                      {hasJourneys ? 'Browse journeys' : 'Create journey'}
-                                    </Button>
+                                    /* No picker: the hoisted empty state above the
+                                       tabs already offers Browse and New, and the
+                                       header dropdown carries both as well. */
+                                    null
                                   )
                                 }
                               />
@@ -905,14 +921,8 @@ export function OnboardingCenter() {
                           </div>
                         )}
 
-                        {!detailLoading && !journey && (
-                          <div className="flex flex-col items-center gap-2 py-8 text-center">
-                            <span className="text-sm text-muted-foreground">No hire selected.</span>
-                            <Button variant="outline" size="sm" onClick={browseOrCreateJourneys}>
-                              {hasJourneys ? 'Browse journeys' : 'Create journey'}
-                            </Button>
-                          </div>
-                        )}
+                        {/* The "no hire selected" message lives once, above the
+                            tabs. This panel simply renders nothing. */}
 
                         {!detailLoading && journey && stages.length > 0 && (
                           <div className="relative space-y-6 pl-6">
@@ -1010,6 +1020,11 @@ export function OnboardingCenter() {
                           onClick={() => {
                             setTaskCategory(taskCategory === workstream.category ? ALL : workstream.category)
                             setTaskPage(1)
+                            /* Also opens what this workstream RECORDED. The card
+                               used to be a filter chip and nothing else. */
+                            setWsPanel((current) =>
+                              current === workstream.category ? null : (workstream.category as WorkstreamKey),
+                            )
                           }}
                         >
                           <CardContent className="flex items-start gap-3 p-3">
@@ -1042,8 +1057,85 @@ export function OnboardingCenter() {
                         </Card>
                       ))}
                   </div>
+
+                  {/* ── WHAT THE SELECTED WORKSTREAM RECORDED ──────────────
+                      Under the cards rather than in a sixth tab: the tabs were
+                      just de-duplicated and another one would undo that. */}
+                  {wsPanel && (
+                    <Card className="shadow-sm">
+                      <CardContent className="p-4">
+                        {wsError && (
+                          <p className="mb-3 flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                            {wsError}
+                            <Button variant="outline" size="sm" onClick={retryWorkstreamData}>
+                              Retry
+                            </Button>
+                          </p>
+                        )}
+
+                        {wsLoading && !wsData && <Skeleton className="h-24 w-full" />}
+
+                        {/* All of this is about ONE person, so it needs one
+                            chosen. Without this the card renders empty. */}
+                        {!effectiveJourneyId && !wsLoading && (
+                          <p className="py-6 text-center text-xs text-muted-foreground">
+                            Choose a hire above to see what has been recorded for them.
+                          </p>
+                        )}
+
+                        {wsData && effectiveJourneyId && (
+                          <WorkstreamPanel
+                            panel={wsPanel}
+                            data={wsData}
+                            journeyId={effectiveJourneyId}
+                            saving={mutations.saving}
+                            onIssueAsset={(id, payload) => report(mutations.issueAsset(id, payload))}
+                            onReturnAsset={(assetId) => report(mutations.returnAsset(assetId))}
+                            onEnrolBenefit={(id, payload) => report(mutations.enrolBenefit(id, payload))}
+                            onAcknowledgePolicy={(id, payload) => report(mutations.acknowledgePolicy(id, payload))}
+                            onSavePayroll={(id, payload) => report(mutations.savePayroll(id, payload))}
+                          />
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </>
+            )}
+
+            {/* ONE EMPTY STATE FOR THE WHOLE SCREEN.
+                Preboarding, Journey, Probation and Timeline each used to render
+                their own "No hire selected" card with their own "Browse
+                journeys" button - four copies of a control the header's More
+                Actions dropdown already carries ("Browse all journeys", "New
+                journey", "Start from accepted offer"). Probation is excluded
+                because it is a LIST across all hires and reads correctly with
+                nobody selected. */}
+            {!journey && !detailLoading && activeTab !== 'probation' && (
+              <Card className="shadow-sm">
+                <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                  <User className="size-8 text-muted-foreground/40" />
+                  <p className="text-sm font-semibold text-foreground">No hire selected</p>
+                  <p className="max-w-sm text-xs text-muted-foreground">
+                    Choose an onboarding journey to see its preboarding checklist, stage plan and
+                    lifecycle timeline.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openJourneyList('Onboarding Journeys')}>
+                      Browse journeys
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditingJourney(null)
+                        setJourneySheetOpen(true)
+                      }}
+                    >
+                      New journey
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {activeTab === 'journey' && (

@@ -447,6 +447,69 @@ export function OffboardingCenter() {
   }
 
   // Calculations for Clearance tracker tab
+  /** Initials for an avatar, from whatever name we actually hold. */
+  const initialsOf = (name?: string | null) =>
+    (name ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?'
+
+  /**
+   * The notice period, measured between the two dates on the case.
+   *
+   * Was the literal "30 Days" on every case, next to the very dates that
+   * contradict it. Returns a dash rather than a guess when either is missing -
+   * an unknown period is not thirty days.
+   */
+  const noticePeriodDays = (c: ExitCase) => {
+    if (!c.noticeDate || !c.lastWorkingDay) return '—'
+    const from = new Date(c.noticeDate)
+    const to = new Date(c.lastWorkingDay)
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return '—'
+    const days = Math.round((to.getTime() - from.getTime()) / 86_400_000)
+    return days >= 0 ? `${days} Days` : '—'
+  }
+
+  /**
+   * How much of the paperwork is done: verified documents over the total.
+   *
+   * This is what "Handover Progress" was pretending to measure with a fixed 60%.
+   * Rejected documents deliberately do NOT count as progress.
+   */
+  const documentProgress = (c: ExitCase) => {
+    const docs = c.documents ?? []
+    if (!docs.length) return 0
+    return Math.round((docs.filter((d) => d.status === 'Verified').length / docs.length) * 100)
+  }
+
+  /**
+   * What is actually outstanding on this case, newest obligation first.
+   *
+   * Replaces two invented rows. Clearance items still Pending, then mandatory
+   * documents not yet verified — both already present in the payload.
+   */
+  const nextActions = (c: ExitCase) => {
+    const fromClearance = (c.clearance_tasks ?? [])
+      .filter((t) => t.status === 'Pending')
+      .map((t) => ({
+        key: `clearance-${t.id}`,
+        title: t.item,
+        detail: `Clearance • ${t.department}`,
+      }))
+
+    const fromDocuments = (c.documents ?? [])
+      .filter((d) => d.isMandatory && d.status !== 'Verified')
+      .map((d) => ({
+        key: `document-${d.id}`,
+        title: d.title,
+        detail: `Document • ${d.status}`,
+      }))
+
+    return [...fromClearance, ...fromDocuments]
+  }
+
   const getClearanceProgress = (c: ExitCase) => {
     const tasks = c.clearance_tasks || []
     if (tasks.length === 0) return 0
@@ -535,6 +598,18 @@ export function OffboardingCenter() {
 
         {/* KPIs Row */}
         <div className="flex overflow-x-auto gap-4 mb-6 pb-2 custom-scrollbar">
+          {/* THE LOADING STATE IS NOW SHOWN. `loadingOverview` was set true and
+              false around the fetch and then read nowhere, so on a slow
+              connection this row was simply empty with no indication that
+              anything was coming - indistinguishable from an organisation with
+              no exit cases. */}
+          {loadingOverview && !overview && (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-24 w-56 shrink-0 animate-pulse rounded-xl bg-muted/50" />
+              ))}
+            </>
+          )}
           {overview?.kpis.map((kpi) => {
             // Determine filter matching
             let isSelected = false
@@ -857,9 +932,14 @@ export function OffboardingCenter() {
                     >
                       <ChevronLeft className="size-4" />
                     </Button>
-                    <Button variant="default" size="icon" className="h-7 w-7 text-xs bg-primary/20 text-primary border border-primary/30">
+                    {/* An INDICATOR, not a control - it was a Button with no
+                        handler, so it read as clickable and did nothing. */}
+                    <span
+                      aria-current="page"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 bg-primary/20 text-xs font-semibold tabular-nums text-primary"
+                    >
                       {page}
-                    </Button>
+                    </span>
                     <Button 
                       variant="outline" 
                       size="icon" 
@@ -947,6 +1027,67 @@ export function OffboardingCenter() {
               )
             })}
           </div>
+        )}
+
+        {/* HISTORY — THE THIRD VIEW TOGGLE, WHICH USED TO BLANK THE PAGE.
+            `viewLayout` is typed 'list' | 'kanban' | 'history' and the History
+            button set it, but only the first two had render branches, so
+            clicking it emptied the content area with no error. It now shows what
+            "history" means at list level: every case ordered by when it last
+            moved, grouped by month, with the stage it reached. */}
+        {activeMainTab === 'Exit Cases' && viewLayout === 'history' && (
+          <Card className="shadow-sm border-border/60">
+            <CardContent className="p-4">
+              {cases.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No exit cases yet, so there is no history to show.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {Object.entries(
+                    [...cases]
+                      .sort((a, b) => new Date(b.updatedOn).getTime() - new Date(a.updatedOn).getTime())
+                      .reduce<Record<string, ExitCase[]>>((groups, c) => {
+                        const when = new Date(c.updatedOn)
+                        const key = Number.isNaN(when.getTime())
+                          ? 'Undated'
+                          : when.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+                        ;(groups[key] ||= []).push(c)
+                        return groups
+                      }, {}),
+                  ).map(([month, group]) => (
+                    <div key={month} className="flex flex-col gap-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{month}</h4>
+                      <div className="flex flex-col gap-2 border-l border-border pl-4">
+                        {group.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => { setActiveCaseId(c.id); setActiveTopTab('overview') }}
+                            className="relative flex items-center gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:bg-muted/20"
+                          >
+                            <span className="absolute -left-[21px] size-2 rounded-full bg-primary" />
+                            <div className="size-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                              {c.employee.initials}
+                            </div>
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <span className="text-xs font-semibold text-foreground">
+                                {c.employee.name} <span className="font-normal text-muted-foreground">· {c.caseId}</span>
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {c.department} · last working day {c.lastWorkingDay}
+                              </span>
+                            </div>
+                            <StatusBadge variant={getStatusVariant(c.status)} size="sm">{c.status}</StatusBadge>
+                            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{c.updatedOn}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {activeMainTab === 'Clearance Tracker' && (
@@ -1320,11 +1461,15 @@ export function OffboardingCenter() {
                               <span className="text-muted-foreground">Last Working Day</span>
                               <span className="font-semibold text-foreground text-right md:text-left">{activeCaseDetails.lastWorkingDay}</span>
 
+                              {/* COMPUTED, was the literal "30 Days" for every case
+                                  regardless of its actual dates. */}
                               <span className="text-muted-foreground">Notice Period</span>
-                              <span className="font-semibold text-foreground text-right md:text-left">30 Days</span>
+                              <span className="font-semibold text-foreground text-right md:text-left">{noticePeriodDays(activeCaseDetails)}</span>
 
+                              {/* The fabricated fallback "Riya Kapoor" is gone. A case
+                                  with no manager on record says so. */}
                               <span className="text-muted-foreground">Handover To</span>
-                              <span className="font-semibold text-foreground text-right md:text-left">{activeCaseDetails.employee.manager || 'Riya Kapoor'}</span>
+                              <span className="font-semibold text-foreground text-right md:text-left">{activeCaseDetails.employee.manager || 'Not recorded'}</span>
 
                               <span className="text-muted-foreground">Exit Type</span>
                               <span className="font-semibold text-foreground capitalize text-right md:text-left">{activeCaseDetails.exitType}</span>
@@ -1335,20 +1480,35 @@ export function OffboardingCenter() {
                           <div className="flex flex-col gap-3">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-bold text-foreground">Owner & Approvals</h4>
-                              <button className="text-muted-foreground hover:text-foreground">
+                              {/* Opens the Reassign Handover Manager dialog that
+                                  already exists lower in this file, rather than a
+                                  second dialog doing the same thing. `update()`
+                                  accepts manager_id, so this saves for real. */}
+                              <button
+                                className="text-muted-foreground hover:text-foreground"
+                                title="Reassign the approving manager"
+                                onClick={() => {
+                                  setAssigneeId(activeCaseDetails.employee.manager_id ?? '')
+                                  setAssignOpen(true)
+                                }}
+                              >
                                 <Edit3 className="size-4" />
                               </button>
                             </div>
                             <div className="flex flex-col gap-4 bg-card p-4 rounded-lg border border-border shadow-sm">
                               <div className="flex flex-col gap-2">
                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Case Owner</span>
+                                {/* THE CASE OWNER, from the record. This was the
+                                    invented "Priya Sharma / HR Business Partner" on
+                                    every case in every organisation, while
+                                    ExitCase.owner sat unused in the same object. */}
                                 <div className="flex items-center gap-3">
                                   <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xs shrink-0 border">
-                                    PR
+                                    {initialsOf(activeCaseDetails.owner)}
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-foreground">Priya Sharma</span>
-                                    <span className="text-[10px] text-muted-foreground">HR Business Partner</span>
+                                    <span className="text-xs font-semibold text-foreground">{activeCaseDetails.owner || 'Unassigned'}</span>
+                                    <span className="text-[10px] text-muted-foreground">Case owner</span>
                                   </div>
                                 </div>
                               </div>
@@ -1359,9 +1519,12 @@ export function OffboardingCenter() {
                                   <div className="size-8 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-xs shrink-0 border">
                                     <User className="size-4 text-muted-foreground" />
                                   </div>
+                                  {/* Was the invented "Rahul Das / HR Manager". The
+                                      approver is the employee's manager, which the
+                                      record already carries. */}
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-foreground">Rahul Das</span>
-                                    <span className="text-[10px] text-muted-foreground">HR Manager</span>
+                                    <span className="text-xs font-semibold text-foreground">{activeCaseDetails.employee.manager || 'Not assigned'}</span>
+                                    <span className="text-[10px] text-muted-foreground">Reporting manager</span>
                                   </div>
                                 </div>
                               </div>
@@ -1371,58 +1534,77 @@ export function OffboardingCenter() {
 
                         {/* Right Column: Next Actions & Progress Tracking */}
                         <div className="flex flex-col gap-6">
-                          {/* Next Actions */}
+                          {/* NEXT ACTIONS, DERIVED FROM THE CASE.
+                              This was two invented rows - "Complete knowledge
+                              transfer, assigned to Riya Kapoor" and "Submit pending
+                              documents, due 15 May 2025" - followed by a dead
+                              "View All Actions (4)" link, on every case forever.
+                              The real outstanding work is already in the payload:
+                              clearance items that are still Pending, and mandatory
+                              documents not yet verified. */}
                           <div className="flex flex-col gap-3">
                             <h4 className="text-sm font-bold text-foreground">Next Actions</h4>
                             <div className="flex flex-col gap-3 bg-card p-4 rounded-lg border border-border shadow-sm">
-                              {/* Complete knowledge transfer */}
-                              <div className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-muted/5">
-                                <div className="mt-0.5 shrink-0">
-                                  <div className="size-4 rounded-full border-2 border-primary flex items-center justify-center">
-                                    <div className="size-1.5 bg-primary rounded-full" />
+                              {nextActions(activeCaseDetails).length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Nothing outstanding. Every clearance item and document on this case is done.
+                                </p>
+                              ) : (
+                                nextActions(activeCaseDetails).slice(0, 4).map((action) => (
+                                  <div key={action.key} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-muted/5">
+                                    <div className="mt-0.5 shrink-0">
+                                      <div className="size-4 rounded-full border-2 border-primary flex items-center justify-center">
+                                        <div className="size-1.5 bg-primary rounded-full" />
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-bold text-foreground">{action.title}</span>
+                                      <span className="text-[10px] text-muted-foreground">{action.detail}</span>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-foreground">Complete knowledge transfer</span>
-                                  <span className="text-[10px] text-muted-foreground">Assigned to: {activeCaseDetails.employee.manager || 'Riya Kapoor'}</span>
-                                </div>
-                              </div>
+                                ))
+                              )}
 
-                              {/* Submit pending documents */}
-                              <div className="flex items-start gap-3 p-3 rounded-lg border border-border/60">
-                                <div className="mt-0.5 shrink-0">
-                                  <div className="size-4 rounded-full border-2 border-muted-foreground/40" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-foreground">Submit pending documents</span>
-                                  <span className="text-[10px] text-muted-foreground">Due: 15 May 2025</span>
-                                </div>
-                              </div>
-
-                              <button className="text-xs font-semibold text-primary hover:underline text-left mt-1">
-                                View All Actions (4)
-                              </button>
+                              {/* Was a dead "View All Actions (4)". It opens the tab
+                                  that actually holds them, and only when there are
+                                  more than the four shown. */}
+                              {nextActions(activeCaseDetails).length > 4 && (
+                                <button
+                                  className="text-xs font-semibold text-primary hover:underline text-left mt-1"
+                                  onClick={() => setActiveTopTab('clearance')}
+                                >
+                                  View all {nextActions(activeCaseDetails).length} actions
+                                </button>
+                              )}
                             </div>
                           </div>
 
-                          {/* Progress Tracking */}
+                          {/* PROGRESS TRACKING, MEASURED.
+                              Both bars were literals - Progress value={60} and
+                              value={30} - beside real fields, on every case. */}
                           <div className="flex flex-col gap-3">
                             <h4 className="text-sm font-bold text-foreground">Progress Tracking</h4>
                             <div className="flex flex-col gap-4 bg-card p-4 rounded-lg border border-border shadow-sm">
                               <div className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-center text-xs">
                                   <span className="font-semibold text-foreground">Handover Progress</span>
-                                  <span className="font-bold text-foreground">60%</span>
+                                  <span className="font-bold text-foreground">{documentProgress(activeCaseDetails)}%</span>
                                 </div>
-                                <Progress value={60} className="h-2" />
+                                <Progress value={documentProgress(activeCaseDetails)} className="h-2" />
+                                <span className="text-[10px] text-muted-foreground">
+                                  Documents verified
+                                </span>
                               </div>
 
                               <div className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-center text-xs">
                                   <span className="font-semibold text-foreground">Clearance Progress</span>
-                                  <span className="font-bold text-foreground">30%</span>
+                                  <span className="font-bold text-foreground">{getClearanceProgress(activeCaseDetails)}%</span>
                                 </div>
-                                <Progress value={30} className="h-2" />
+                                <Progress value={getClearanceProgress(activeCaseDetails)} className="h-2" />
+                                <span className="text-[10px] text-muted-foreground">
+                                  Departments signed off
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1723,6 +1905,13 @@ export function OffboardingCenter() {
           <form onSubmit={handleCreateCase} className="flex flex-col gap-4 mt-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-muted-foreground uppercase">Employee</label>
+              {/* `loadingFilters` was tracked and never read, so this form
+                  rendered nothing at all while the employee list was in flight -
+                  a blank space that looks like a broken dialog rather than one
+                  that is still loading. */}
+              {loadingFilters && !filtersOptions && (
+                <div className="h-10 animate-pulse rounded-md bg-muted/50" />
+              )}
               {filtersOptions && (
                 <Select 
                   value={newCase.employee_id}

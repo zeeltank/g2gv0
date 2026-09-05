@@ -312,7 +312,39 @@ export function CmEmployeeProfiles({ userId }: { userId?: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2">
+          {/* WAS A DEAD EXPORT BUTTON. It writes the profile that is already
+              on screen to CSV - no endpoint needed, because the data is loaded.
+              A server-side export would be a different feature; this is the one
+              the button has always claimed to be. */}
+          <Button
+            variant="outline"
+            className="h-10 px-4 rounded-xl font-semibold border-border bg-background gap-2"
+            onClick={() => {
+              const rows = [
+                ['Field', 'Value'],
+                ['Name', employee?.name ?? ''],
+                ['Employee ID', employee?.emp_id ?? ''],
+                ['Role', employee?.role ?? ''],
+                ['Department', employee?.department ?? ''],
+                ['Location', employee?.location ?? ''],
+                ['Joined', employee?.joined ?? ''],
+                ['Reports to', employee?.reports_to ?? ''],
+                ['Experience', employee?.experience ?? ''],
+                ...Object.entries(metrics ?? {}).map(([k, v]) => [k.replace(/_/g, ' '), String(v ?? '')]),
+              ]
+              // Quotes doubled per RFC 4180, so a designation containing a comma
+              // does not split into two columns in Excel.
+              const csv = rows
+                .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n')
+              const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `profile-${employee?.emp_id || employee?.name || 'employee'}.csv`
+              link.click()
+              URL.revokeObjectURL(url)
+            }}
+          >
             <Download className="w-4 h-4" /> Export Profile
           </Button>
           <DropdownMenu>

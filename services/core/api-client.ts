@@ -94,6 +94,19 @@ class ApiClient {
     const response = await fetch(url, {
       method,
       headers: {
+        /*
+         * Accept is not optional, and its absence was silently costing every
+         * field-level validation message in the product.
+         *
+         * Laravel decides between a 422 JSON body and a 302 redirect on
+         * $request->expectsJson(). Without this header a failed validation came
+         * back as a redirect to an HTML page, fetch followed it, buildApiError()
+         * could not parse the body and fell through to the generic branch below.
+         * The user was told "API Error" instead of which field was wrong, while
+         * the server had generated the exact per-field messages and thrown them
+         * away in transit.
+         */
+        Accept: 'application/json',
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...authHeader(),
         ...headers,
