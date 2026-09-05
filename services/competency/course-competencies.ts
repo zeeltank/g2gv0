@@ -41,8 +41,22 @@ export interface CourseCompetency {
   competency_name: string
   competency_code: string | null
   /** 1–5, or null when the course does not claim a level. */
+  /** The TARGET: what HR says this course is meant to develop somebody to. */
   proficiency_level: number | null
   is_primary: boolean
+  /**
+   * MEASURED, from learners' quiz results — null until somebody has sat it.
+   *
+   * Deliberately a different field from proficiency_level, and a different
+   * table on the server: a declared intention and an observation answer
+   * different questions, and the gap between them is the whole point. Writing
+   * the measurement into the target would also be erased by the next save,
+   * because the mapping is synced destructively.
+   */
+  achieved_level: number | null
+  mean_percent: number | null
+  quiz_attempts: number
+  quiz_learners: number
 }
 
 export interface CourseCompetencyInput {

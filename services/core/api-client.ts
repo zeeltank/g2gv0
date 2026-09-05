@@ -51,9 +51,29 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly errors?: Record<string, string[]>,
+    /**
+     * The server's own explanation, where it gave one.
+     *
+     * Several endpoints answer with a short `message` plus a `detail` that says
+     * what to actually DO about it. The AI generators are the clearest case:
+     *
+     *   message: "The assessment service did not return a usable result."
+     *   detail:  "Refusing to call DeepSeek: the balance is USD -0.24, at or
+     *             below the USD 1.00 floor... Top up the account, or lower the
+     *             floor if this is deliberate."
+     *
+     * This class kept the first and discarded the second, so a user hit a
+     * generic failure while the server had already diagnosed it precisely.
+     */
+    readonly detail?: string,
   ) {
     super(message)
     this.name = 'ApiError'
+  }
+
+  /** message plus detail, for anywhere that shows one string to a person. */
+  get fullMessage(): string {
+    return this.detail ? `${this.message} ${this.detail}` : this.message
   }
 }
 
@@ -62,10 +82,18 @@ async function buildApiError(response: Response) {
     const payload = (await response.clone().json()) as {
       message?: string
       errors?: Record<string, string[]>
+      detail?: string
+      error?: string
     }
 
     if (payload?.message) {
-      return new ApiError(payload.message, response.status, payload.errors)
+      return new ApiError(
+        payload.message,
+        response.status,
+        payload.errors,
+        // `error` is the other name this codebase uses for the same thing.
+        payload.detail ?? payload.error,
+      )
     }
   } catch {
     // Non-JSON error body - fall through to the generic message.

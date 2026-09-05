@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { ApiError } from '@/services/core'
 import { aiAssessmentService, type GenerateResult, type ScopeOptions } from '@/services/competency/ai-assessment'
 
 /**
@@ -136,7 +137,16 @@ export function CmAssessmentGenerator() {
       // The server refuses BEFORE calling the model when a job role has no
       // competencies mapped, and says so in words. That message is shown as-is
       // rather than replaced with a generic failure, because it names the fix.
-      setError(e instanceof Error ? e.message : 'The assessment could not be generated.')
+      setError(
+        // The server explains WHY in `detail` - most often that the DeepSeek
+        // balance is below its floor - and showing only the headline made a
+        // diagnosed problem look like an unexplained failure.
+        e instanceof ApiError
+          ? e.fullMessage
+          : e instanceof Error
+            ? e.message
+            : 'The assessment could not be generated.',
+      )
     } finally { setBusy(false) }
   }
 

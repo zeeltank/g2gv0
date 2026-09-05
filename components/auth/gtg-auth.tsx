@@ -117,7 +117,8 @@ function toUser(data: LaravelSessionData): User {
     id: String(data.user_id),
     email: data.user_email ?? '',
     name: resolveSessionDisplayName(data),
-    role: mapProfileNameToRole(data.user_profile_name),
+    // role_key first, display name only for the legacy profiles. See F-104.
+    role: mapProfileNameToRole(data.user_profile_name, data.role_key),
     profileName: toOptionalString(data.user_profile_name),
     profileId: toOptionalString(data.user_profile_id),
     employeeNo: toOptionalString(data.employee_no),

@@ -32,8 +32,11 @@ export interface TrainingSession {
   session_type: SessionType | null
   description: string | null
   notes: string | null
+  /** From the linked trainer record when there is one, else the typed name. */
   trainer_name: string | null
   trainer_email: string | null
+  /** lms_trainers.id — the governance record this session's trainer is. */
+  trainer_id: number | null
   venue: string | null
   /** Null means uncapped — seat status then stays 'open'. */
   seats_total: number | null
@@ -42,7 +45,10 @@ export interface TrainingSession {
   to_time: string | null
   url: string | null
   status: string | null
+  /** Legacy column with a FK to `subject`; NOT the course. Kept for reads. */
   subject_id: number | null
+  /** The course this session belongs to (sub_std_map.id), or null if standalone. */
+  course_id: number | null
   standard_id: number | null
   registered_count: number
   seats_available: number | null
@@ -84,13 +90,27 @@ export interface SessionPayload {
   notes?: string | null
   trainer_name?: string | null
   trainer_email?: string | null
+  /**
+   * Link the session to a trainer record instead of a typed name.
+   *
+   * The column existed and nothing ever wrote it, so the Governance trainer
+   * directory and the session calendar described the same people with no way
+   * to connect them.
+   */
+  trainer_id?: number | null
   venue?: string | null
   seats_total?: number | null
   event_date: string
   from_time: string
   to_time: string
   url?: string | null
-  subject_id?: number | null
+  /**
+   * The course this session belongs to. Always sent, including as null: the
+   * controller only leaves the link alone when the key is absent entirely, so
+   * sending it explicitly is what makes "no course" a choice rather than an
+   * accident.
+   */
+  course_id?: number | null
 }
 
 /**
@@ -185,4 +205,37 @@ export const lmsSessionService = {
       `/lms/sessions/${id}/register`,
       params(context, profileName, learnerId ? { learner_id: String(learnerId) } : undefined),
     ),
+
+  /**
+   * POST /api/lms/sessions/{id}/attendance — record who turned up (admin/HR).
+   *
+   * The registrations table has always allowed 'attended' and 'no-show', and
+   * until this endpoint existed nothing in the product could write either one.
+   * That matters beyond record-keeping: an attended session counts toward the
+   * course it is linked to, so this is the only way a session can move a
+   * learner's progress at all.
+   *
+   * Learners who are not registered for the session are skipped rather than
+   * silently created; `skipped` in the response says how many.
+   */
+  markAttendance: (
+    context: LaravelContext,
+    id: number,
+    userIds: number[],
+    status: 'attended' | 'no-show' | 'registered',
+    profileName?: string,
+  ) =>
+    apiClient.post<
+      SessionApiResponse<{
+        session_id: number
+        course_id: number | null
+        status: string
+        updated: number
+        skipped: number
+      }>
+    >(`/lms/sessions/${id}/attendance`, {
+      ...params(context, profileName),
+      user_ids: userIds,
+      status,
+    }),
 }

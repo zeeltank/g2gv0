@@ -16,14 +16,14 @@ const LazyAddOrganizationDetail = lazy(() =>
 )
 
 export default function OrgScreensShowcasePage() {
-  const [selectedRole, setSelectedRole] = useState<Role>('admin')
+  const [selectedRole, setSelectedRole] = useState<Role>('administrator')
   const [selectedPage, setSelectedPage] = useState<'org-info' | 'add-detail'>('org-info')
   const panelFallback = <div className="h-96 rounded-xl border border-border bg-muted/20" />
 
   const roles: { value: Role; label: string; description: string }[] = [
-    { value: 'admin', label: 'Administrator', description: 'Full edit access to all fields' },
-    { value: 'hr', label: 'HR Manager', description: 'View-only access to organization data' },
-    { value: 'dept-head', label: 'Department Head', description: 'No access (Access Denied)' },
+    { value: 'administrator', label: 'Administrator', description: 'Full edit access to all fields' },
+    { value: 'hr_manager', label: 'HR Manager', description: 'View-only access to organization data' },
+    { value: 'department_head', label: 'Department Head', description: 'No access (Access Denied)' },
     { value: 'employee', label: 'Employee', description: 'No access (Access Denied)' },
   ]
 

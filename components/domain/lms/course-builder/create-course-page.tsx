@@ -2,26 +2,27 @@
 
 import React, { useState } from 'react'
 import {
-  ChevronRight,
-  Clock,
-  Image as ImageIcon,
-  CheckCircle2,
-  Circle,
-  Search,
-  FileText,
-  Video,
-  FileBox,
-  Users,
-  Plus,
-  Trash2,
-  Globe,
-  Calendar as CalendarIcon,
-  PackageOpen,
-  Loader2,
   AlertCircle,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  ChevronRight,
+  Circle,
+  Clock,
+  FileBox,
+  FileText,
+  Globe,
+  Image as ImageIcon,
+  Loader2,
+  PackageOpen,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+  Users,
+  Video,
   X,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -38,6 +39,8 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { LMS_LEARNING_CATALOG_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competency-inline-panel'
 import { CourseAudiencePanel } from './course-audience-panel'
+import { AiCourseSheet } from '@/domain/lms/catalog/ai-course-sheet'
+import { MultiSelect } from '@/domain/lms/shared/multi-select'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -77,11 +80,21 @@ const CONTENT_KINDS: { kind: ContentKind; label: string; icon: typeof Video }[] 
   { kind: 'link', label: 'External link', icon: Globe },
 ]
 
+/*
+ * The server accepts 1-600 months (`certificate_validity_months`), and the
+ * catalogue's own course form already exposes the full range. Offering four
+ * fixed choices here meant the two authoring surfaces disagreed about what a
+ * course could express, and a five-year certification simply could not be
+ * entered in the wizard.
+ */
 const VALIDITY_OPTIONS = [
-  { label: 'Never Expires', value: '' },
-  { label: 'Valid for 1 Year', value: '12' },
-  { label: 'Valid for 2 Years', value: '24' },
-  { label: 'Valid for 3 Years', value: '36' },
+  { label: 'Never expires', value: '' },
+  { label: '6 months', value: '6' },
+  { label: '1 year', value: '12' },
+  { label: '2 years', value: '24' },
+  { label: '3 years', value: '36' },
+  { label: '5 years', value: '60' },
+  { label: '10 years', value: '120' },
 ]
 
 /* ─── Page ─────────────────────────────────────────────────────────────────── */
@@ -89,15 +102,30 @@ const VALIDITY_OPTIONS = [
 export function CreateCoursePage() {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
-  const builder = useCourseBuilder()
+
+  /*
+   * ?course_id=N opens an existing course for editing.
+   *
+   * A query parameter rather than a route segment because this screen is
+   * mounted through the access-link content map, not by a Next route with
+   * params — the map keys on the path alone, so a /course-builder/123 segment
+   * would resolve to no component at all.
+   */
+  const searchParams = useSearchParams()
+  const requestedId = Number(searchParams.get('course_id'))
+  const editingId = Number.isInteger(requestedId) && requestedId > 0 ? requestedId : null
+
+  const builder = useCourseBuilder(editingId)
   const {
     step, steps, goNext, goBack, goToStep,
     form, setField, errors,
     courseId, prerequisites, setPrerequisites, courseOptions,
-    modules, contentCount, addModule, removeModule, addContent, removeContent,
-    assessments, addAssessment, removeAssessment,
+    modules, contentCount, addModule, renameModule, removeModule, addContent, uploadLessonFile, reloadModules, removeContent,
+    assessments, addAssessment, removeAssessment, renameAssessment,
+    openPaperId, openPaper, paperQuestions, questionsLoading,
+    addQuestion, updateQuestion, removeQuestion, generateQuestions,
     categories, types, departments, jobRoles, languages, certificateTemplates,
-    loadingOptions, saving, message, error, dismiss,
+    loadingOptions, loadingCourse, isEditing, saving, message, error, dismiss,
     saveDraft, publish,
     preview, checklist,
   } = builder
@@ -105,13 +133,77 @@ export function CreateCoursePage() {
   // Small local composers — these hold what the user is typing before it is
   // committed to the server, so they belong here rather than in the hook.
   const [newModuleName, setNewModuleName] = useState('')
+  /**
+   * The lesson being added.
+   *
+   * `source` is new: a lesson could only ever be a pasted URL, so an author
+   * with a file on their laptop had no way to make one. For slides there is a
+   * third way — generate the deck with AI — which is the same Build-with-AI
+   * flow the catalogue offers, reached from the point where you actually want a
+   * deck.
+   */
   const [contentDraft, setContentDraft] = useState<{
     moduleId: number
     kind: ContentKind
     title: string
     url: string
+    source: 'link' | 'upload' | 'ai'
+    uploadedName?: string
   } | null>(null)
+  /** Opens the Build-with-AI sheet from step 2's slide option. */
+  const [aiOpen, setAiOpen] = useState(false)
   const [quizName, setQuizName] = useState('')
+  /** Which module is being renamed inline, and the text so far. */
+  const [renamingModuleId, setRenamingModuleId] = useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  /**
+   * The question being written or edited.
+   *
+   * `id` null means new. `options` empty means a WRITTEN answer — the server
+   * treats that as the discriminator, and refuses options with none correct,
+   * because that combination can never be marked by anything.
+   */
+  const [questionDraft, setQuestionDraft] = useState<{
+    id: number | null
+    question_title: string
+    points: string
+    options: { answer: string; correct: boolean }[]
+  } | null>(null)
+  /**
+   * How many capabilities this course is mapped to, reported by the panel.
+   *
+   * Only used to warn that "update capability records on a pass" is on for a
+   * course that develops nothing — a setting that would look active and move
+   * nobody.
+   */
+  const [competencyCount, setCompetencyCount] = useState(0)
+
+  /*
+   * Hold the wizard back until the course is in hand.
+   *
+   * Rendering the form first would show every field empty over an existing
+   * course's id, and "Save as Draft" from that state is a blank overwrite of a
+   * real course — the one failure on this screen that destroys work.
+   *
+   * ── THIS RETURN MUST STAY BELOW EVERY HOOK ──────────────────────────────
+   *
+   * It was above the three useState calls, which is a hooks-order violation:
+   * the loading render ran N hooks and the resolved render ran N+3, so React
+   * threw "Rendered more hooks than during the previous render" and the screen
+   * went blank. It only fired when a course was actually being loaded — the
+   * create path has loadingCourse false from the start — so the whole
+   * edit-an-existing-course flow was unusable while creation looked fine.
+   *
+   * Neither `tsc` nor `next build` can see this. Only running it can.
+   */
+  if (loadingCourse) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 py-24">
+        <Loader2 className="size-6 animate-spin text-primary" />
+        <p className="text-sm font-semibold text-muted-foreground">Opening course…</p>
+      </div>
+    )
+  }
 
   /*
    * Roles for the chosen department. Narrowing here rather than in the hook
@@ -141,10 +233,17 @@ export function CreateCoursePage() {
             <span>Course Builder</span>
             <ChevronRight className="size-3" />
             <span className="text-primary">
-              {courseId ? `Draft #${courseId}` : 'Create New Course'}
+              {/* An opened course is not a draft — it may well be published. */}
+              {isEditing
+                ? `${form.display_name.trim() || 'Course'} #${courseId}`
+                : courseId
+                  ? `Draft #${courseId}`
+                  : 'Create New Course'}
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Course Builder</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {isEditing ? 'Edit Course' : 'Course Builder'}
+          </h1>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -334,9 +433,27 @@ export function CreateCoursePage() {
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    {/*
+                      * ── OWNING DEPARTMENT, NOT AUDIENCE ──────────────────
+                      *
+                      * This field and the department picker in Publish Settings
+                      * looked like the same question asked twice, which is why
+                      * they read as a duplication. They are not the same:
+                      *
+                      *   here          which department the course BELONGS to.
+                      *                 One value, because sub_std_map.standard_id
+                      *                 is a single foreign key, and it is half
+                      *                 of the duplicate-course check.
+                      *   Publish step  which departments may SEE it. Several,
+                      *                 stored as a list.
+                      *
+                      * Relabelled rather than merged, and the job-role picker
+                      * has moved to Publish Settings where the rest of the
+                      * audience lives.
+                      */}
+                    <div className="space-y-2 md:col-span-2">
                       <label className="flex gap-1 text-sm font-bold text-foreground">
-                        Department <span className="text-destructive">*</span>
+                        Owning department <span className="text-destructive">*</span>
                       </label>
                       <Select
                         options={departments.map((department) => ({
@@ -347,171 +464,25 @@ export function CreateCoursePage() {
                         onChange={(value) => setField('standard_id', String(value))}
                         placeholder={loadingOptions ? 'Loading…' : 'Select a department'}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Which department the course belongs to. Who can see and take it is set in
+                        Publish Settings.
+                      </p>
                       <FieldError message={errors.standard_id} />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-foreground">Job Role</label>
-                      {/*
-                        This was a bare text input with no options of any kind -
-                        not even the free-text suggestions the catalogue sheet
-                        had - so the only way to fill it was to type a role name
-                        from memory and hope it matched. It now offers the
-                        organisation's actual roles, narrowed to the chosen
-                        department, and a blank first option because the field
-                        is optional.
-                      */}
-                      <Select
-                        value={form.jobrole}
-                        onChange={(value) => setField('jobrole', value)}
-                        options={[
-                          { value: '', label: 'No specific role' },
-                          ...jobRoleOptions.map((role) => ({ value: role, label: role })),
-                        ]}
-                        placeholder={form.standard_id ? 'Select a role' : 'Select a department first'}
-                        disabled={jobRoleOptions.length === 0}
-                      />
-                    </div>
                   </div>
 
-                  <div className="h-px w-full bg-border/60" />
-
-                  <div>
-                    <h3 className="mb-4 text-base font-bold">Configuration &amp; Settings</h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 transition-colors hover:bg-muted/30">
-                        <Checkbox
-                          id="mandatory"
-                          className="mt-0.5"
-                          checked={form.is_mandatory}
-                          onCheckedChange={(checked) => setField('is_mandatory', Boolean(checked))}
-                        />
-                        <div className="flex flex-col gap-0.5">
-                          <label htmlFor="mandatory" className="cursor-pointer text-sm font-bold text-foreground">
-                            Mandatory Course
-                          </label>
-                          <span className="text-xs leading-snug text-muted-foreground">
-                            Automatically assign and enforce completion rules.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 transition-colors hover:bg-muted/30">
-                        <Checkbox
-                          id="discussion"
-                          className="mt-0.5"
-                          checked={form.discussion_enabled}
-                          onCheckedChange={(checked) =>
-                            setField('discussion_enabled', Boolean(checked))
-                          }
-                        />
-                        <div className="flex flex-col gap-0.5">
-                          <label htmlFor="discussion" className="cursor-pointer text-sm font-bold text-foreground">
-                            Enable Discussion
-                          </label>
-                          <span className="text-xs leading-snug text-muted-foreground">
-                            Allow learners to ask questions in a course forum.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/10 p-4">
-                        <span className="text-sm font-bold text-foreground">Course Visibility</span>
-                        <RadioGroup
-                          value={form.visibility}
-                          onValueChange={(value) => setField('visibility', value as CourseVisibility)}
-                          className="flex items-center gap-4"
-                        >
-                          <Radio value="all" label="Visible to all" size="sm" />
-                          <Radio value="restricted" label="Restricted" size="sm" />
-                        </RadioGroup>
-                      </div>
-
-                      <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 p-4">
-                        <span className="text-sm font-bold text-foreground">
-                          Prerequisites ({prerequisites.length})
-                        </span>
-                        {prerequisites.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {prerequisites.map((item) => (
-                              <span
-                                key={item.id}
-                                className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
-                              >
-                                {item.title}
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${item.title}`}
-                                  onClick={() =>
-                                    setPrerequisites((current) =>
-                                      current.filter((entry) => entry.id !== item.id),
-                                    )
-                                  }
-                                >
-                                  <X className="size-3" />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <Select
-                          options={courseOptions
-                            .filter(
-                              (option) =>
-                                option.id !== courseId &&
-                                !prerequisites.some((entry) => entry.id === option.id),
-                            )
-                            .map((option) => ({
-                              label: option.title ?? `Course ${option.id}`,
-                              value: String(option.id),
-                            }))}
-                          value=""
-                          onChange={(value) => {
-                            const picked = courseOptions.find(
-                              (option) => option.id === Number(value),
-                            )
-                            if (picked) setPrerequisites((current) => [...current, picked])
-                          }}
-                          placeholder="+ Add Prerequisite Rule"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="h-px w-full bg-border/60" />
-
-                  <div className="max-w-lg space-y-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-sm font-bold text-foreground">Course Thumbnail</label>
-                      <span className="text-xs text-muted-foreground">
-                        Upload a 16:9 image (1280x720) to display in the catalog.
-                      </span>
-                    </div>
-                    <FileUpload
-                      hint="JPEG, PNG or WebP up to 5MB"
-                      className="border-dashed bg-muted/10"
-                      onFileSelect={(file: File | null) => setField('thumbnail', file)}
-                    />
-                    {form.thumbnail && (
-                      <p className="text-xs font-semibold text-muted-foreground">
-                        Selected: {form.thumbnail.name}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* WHAT THIS COURSE BUILDS - merged in from the standalone
-                      Course Competencies screen, which has been removed. The
-                      author knows what the course develops; an admin filling a
-                      matrix later is guessing. It sits in Basic Information
-                      because it describes the course, not its content. */}
-                  <div className="mt-6 border-t border-border/40 pt-6">
-                    <h3 className="mb-1 text-sm font-bold text-foreground">What this course builds</h3>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Map the competencies this course develops. This is what lets it be suggested to
-                      someone with a matching gap.
-                    </p>
-                    <CourseCompetencyInlinePanel courseId={courseId ? Number(courseId) : null} />
-                  </div>
-                </CardContent>
+                  {/*
+                    * MANDATORY, DISCUSSION AND VISIBILITY MOVED TO PUBLISH
+                    * SETTINGS.
+                    *
+                    * They are not basic information about the course - they are
+                    * decisions about how it is released, which is what that step
+                    * is for. Keeping them here alongside a second, different
+                    * department picker is what made the two steps read as
+                    * duplicates of each other.
+                    */}
+</CardContent>
               </>
             )}
 
@@ -564,9 +535,41 @@ export function CreateCoursePage() {
                       >
                         <div className="flex items-center gap-3 border-b border-border/40 bg-muted/30 p-3">
                           <div className="flex flex-1 flex-col">
-                            <span className="text-sm font-bold text-foreground">
-                              {module.chapter_name}
-                            </span>
+                            {/*
+                              * Renaming was implemented in the hook and
+                              * surfaced nowhere, so fixing a typo in a module
+                              * name meant deleting it — and every lesson
+                              * inside it — and rebuilding. Click to rename.
+                              */}
+                            {renamingModuleId === module.id ? (
+                              <Input
+                                autoFocus
+                                className="h-7 text-sm font-bold"
+                                value={renameDraft}
+                                onChange={(event) => setRenameDraft(event.target.value)}
+                                onBlur={() => setRenamingModuleId(null)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Escape') setRenamingModuleId(null)
+                                  if (event.key === 'Enter' && renameDraft.trim()) {
+                                    void renameModule(module.id, renameDraft.trim()).then(() =>
+                                      setRenamingModuleId(null),
+                                    )
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className="w-fit text-left text-sm font-bold text-foreground hover:underline"
+                                title="Rename this module"
+                                onClick={() => {
+                                  setRenameDraft(module.chapter_name)
+                                  setRenamingModuleId(module.id)
+                                }}
+                              >
+                                {module.chapter_name}
+                              </button>
+                            )}
                             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                               {module.content?.length ?? 0} item
                               {(module.content?.length ?? 0) === 1 ? '' : 's'}
@@ -625,14 +628,101 @@ export function CreateCoursePage() {
                                   setContentDraft({ ...contentDraft, title: event.target.value })
                                 }
                               />
-                              <Input
-                                placeholder="URL or file reference"
-                                className="h-9 bg-background"
-                                value={contentDraft.url}
-                                onChange={(event) =>
-                                  setContentDraft({ ...contentDraft, url: event.target.value })
-                                }
-                              />
+                              {/*
+                                * WHERE THE MATERIAL COMES FROM.
+                                *
+                                * This was one text box labelled "URL or file
+                                * reference", and a file reference was never
+                                * supported — course-authoring.tsx even said
+                                * "Uploads are handled by the content library",
+                                * which does not exist. So the only working
+                                * option was a publicly reachable link, and
+                                * anything behind a login rendered as a broken
+                                * frame for every learner.
+                                */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {(
+                                  [
+                                    { key: 'link', label: 'Link' },
+                                    { key: 'upload', label: 'Upload' },
+                                    // Only slides can be generated: Gamma makes
+                                    // decks, not videos or PDFs, and offering
+                                    // it elsewhere would promise something that
+                                    // cannot be delivered.
+                                    ...(contentDraft.kind === 'pptx'
+                                      ? [{ key: 'ai' as const, label: 'Generate with AI' }]
+                                      : []),
+                                  ] as { key: 'link' | 'upload' | 'ai'; label: string }[]
+                                ).map(({ key, label }) => (
+                                  <Button
+                                    key={key}
+                                    size="sm"
+                                    variant={contentDraft.source === key ? 'default' : 'outline'}
+                                    className="h-7 text-xs font-semibold"
+                                    onClick={() => {
+                                      if (key === 'ai') {
+                                        // The same form the catalogue opens.
+                                        // The deck it publishes becomes a
+                                        // course of its own, which the author
+                                        // can then link here.
+                                        setAiOpen(true)
+                                        return
+                                      }
+                                      setContentDraft({ ...contentDraft, source: key, url: '' })
+                                    }}
+                                  >
+                                    {key === 'ai' && <Sparkles className="mr-1 size-3" />}
+                                    {label}
+                                  </Button>
+                                ))}
+                              </div>
+
+                              {contentDraft.source === 'upload' ? (
+                                <div className="flex flex-col gap-1.5">
+                                  <input
+                                    type="file"
+                                    className="text-xs file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs file:font-semibold"
+                                    accept=".mp4,.webm,.mov,.pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0]
+                                      if (!file) return
+                                      void uploadLessonFile(file).then((result) => {
+                                        if (result.ok && result.url) {
+                                          setContentDraft((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  url: result.url as string,
+                                                  uploadedName: file.name,
+                                                  // Take the server's word for
+                                                  // the type: it derives it from
+                                                  // the real extension, and the
+                                                  // player switches on it.
+                                                  title: current.title || file.name,
+                                                }
+                                              : current,
+                                          )
+                                        }
+                                      })
+                                    }}
+                                  />
+                                  {contentDraft.url && contentDraft.uploadedName && (
+                                    <p className="text-xs font-medium text-success">
+                                      Uploaded {contentDraft.uploadedName} — learners will open it
+                                      inside the course.
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <Input
+                                  placeholder="Paste a publicly reachable URL"
+                                  className="h-9 bg-background"
+                                  value={contentDraft.url}
+                                  onChange={(event) =>
+                                    setContentDraft({ ...contentDraft, url: event.target.value })
+                                  }
+                                />
+                              )}
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
@@ -674,6 +764,7 @@ export function CreateCoursePage() {
                                         kind,
                                         title: '',
                                         url: '',
+                                        source: 'link',
                                       })
                                     }
                                   >
@@ -739,32 +830,370 @@ export function CreateCoursePage() {
                     </div>
                   ) : (
                     <div className="flex flex-col divide-y divide-border/50 rounded-lg border border-border/60">
-                      {assessments.map((assessment) => (
-                        <div key={assessment.id} className="flex items-center gap-3 p-3">
-                          <div className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-sm font-bold text-foreground">
-                              {assessment.paper_name}
-                            </span>
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              {assessment.total_ques} question
-                              {assessment.total_ques === 1 ? '' : 's'}
-                              {assessment.attempt_allowed
-                                ? ` · ${assessment.attempt_allowed} attempts`
-                                : ''}
-                            </span>
+                      {assessments.map((assessment) => {
+                        const open = openPaperId === assessment.id
+
+                        return (
+                          <div key={assessment.id} className="flex flex-col">
+                            <div className="flex items-center gap-3 p-3">
+                              <div className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate text-sm font-bold text-foreground">
+                                  {assessment.paper_name}
+                                </span>
+                                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                  {assessment.total_ques} question
+                                  {assessment.total_ques === 1 ? '' : 's'}
+                                  {assessment.attempt_allowed
+                                    ? ` · ${assessment.attempt_allowed} attempts`
+                                    : ''}
+                                </span>
+                                {/*
+                                  * Say it plainly. A quiz with no questions
+                                  * cannot be sat, and the quiz panel on the
+                                  * learner side will have nothing to show —
+                                  * which was the state of EVERY quiz authored
+                                  * through this product until now.
+                                  */}
+                                {assessment.total_ques === 0 && (
+                                  <span className="mt-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                    No questions yet — learners cannot sit this quiz.
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                variant={open ? 'default' : 'outline'}
+                                size="sm"
+                                className="shrink-0 gap-1.5 font-semibold"
+                                onClick={() => {
+                                  setQuestionDraft(null)
+                                  openPaper(open ? null : assessment.id)
+                                }}
+                              >
+                                <FileText className="size-3.5" />
+                                {open ? 'Done' : 'Questions'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Delete ${assessment.paper_name}`}
+                                className="size-7 text-muted-foreground hover:text-destructive"
+                                disabled={saving}
+                                onClick={() => void removeAssessment(assessment.id)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+
+                            {open && (
+                              <div className="flex flex-col gap-3 border-t border-border/40 bg-muted/20 p-3">
+                                {questionsLoading ? (
+                                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="size-3.5 animate-spin" /> Loading questions…
+                                  </p>
+                                ) : paperQuestions.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    No questions yet. Add the first one below.
+                                  </p>
+                                ) : (
+                                  <ol className="flex flex-col gap-2">
+                                    {paperQuestions.map((question, index) => (
+                                      <li
+                                        key={question.id}
+                                        className="flex items-start gap-2 rounded-md border border-border/60 bg-background p-2.5"
+                                      >
+                                        <span className="mt-0.5 text-xs font-bold text-muted-foreground">
+                                          {index + 1}.
+                                        </span>
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                          <span className="text-sm font-semibold text-foreground">
+                                            {question.question_title}
+                                          </span>
+                                          <span className="text-[11px] text-muted-foreground">
+                                            {question.points}{' '}
+                                            {question.points === 1 ? 'mark' : 'marks'} {'·'}{' '}
+                                            {question.options.length === 0
+                                              ? 'written answer'
+                                              : `${question.options.length} options`}
+                                          </span>
+                                          {question.options.length > 0 && (
+                                            <div className="flex flex-col gap-0.5">
+                                              {question.options.map((option) => (
+                                                <span
+                                                  key={option.id}
+                                                  className={cn(
+                                                    'text-[11px]',
+                                                    option.correct
+                                                      ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                                                      : 'text-muted-foreground',
+                                                  )}
+                                                >
+                                                  {option.correct ? '✓ ' : '· '}
+                                                  {option.answer}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          aria-label={`Edit question ${index + 1}`}
+                                          className="size-7 text-muted-foreground"
+                                          onClick={() =>
+                                            setQuestionDraft({
+                                              id: question.id,
+                                              question_title: question.question_title ?? '',
+                                              points: String(question.points),
+                                              options: question.options.map((o) => ({
+                                                answer: o.answer,
+                                                correct: o.correct,
+                                              })),
+                                            })
+                                          }
+                                        >
+                                          <FileText className="size-3.5" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          aria-label={`Remove question ${index + 1}`}
+                                          className="size-7 text-muted-foreground hover:text-destructive"
+                                          disabled={saving}
+                                          onClick={() =>
+                                            void removeQuestion(assessment.id, question.id)
+                                          }
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </Button>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+
+                                {questionDraft === null ? (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-fit gap-2 font-semibold"
+                                      onClick={() =>
+                                        setQuestionDraft({
+                                          id: null,
+                                          question_title: '',
+                                          points: '1',
+                                          // Two blank options is the shape most
+                                          // authors want; clearing both makes it
+                                          // a written answer instead.
+                                          options: [
+                                            { answer: '', correct: true },
+                                            { answer: '', correct: false },
+                                          ],
+                                        })
+                                      }
+                                    >
+                                      <Plus className="size-4" /> Add question
+                                    </Button>
+
+                                    {/*
+                                      * ── WRITE THE QUIZ FROM THE COURSE ────
+                                      *
+                                      * Nothing generated questions for a course
+                                      * quiz before this. The three AI question
+                                      * generators the product has are all
+                                      * job-role shaped and cannot be pointed at
+                                      * a course, so "generate a quiz for this
+                                      * course" had no data route at all — every
+                                      * quiz in the product was typed by hand,
+                                      * one question at a time.
+                                      *
+                                      * The model is given this course's own
+                                      * modules and lesson text as the source,
+                                      * and the capabilities it is mapped to as
+                                      * the target, so each question can name the
+                                      * capability it tests — which is what lets
+                                      * passing move that capability.
+                                      */}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-fit gap-2 font-semibold"
+                                      disabled={saving}
+                                      onClick={() => {
+                                        void generateQuestions(assessment.id, 5, ['mcq'])
+                                      }}
+                                    >
+                                      <Sparkles className="size-4" /> Write 5 with AI
+                                    </Button>
+
+                                    <span className="text-xs text-muted-foreground">
+                                      {modules.length === 0
+                                        ? 'Add modules in step 2 first — questions are written from the course content.'
+                                        : competencyCount === 0
+                                          ? 'Questions come from this course’s lessons. Map a capability below to have them measure one.'
+                                          : 'Questions are written from this course’s lessons and tied to the capabilities above.'}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col gap-3 rounded-lg border border-primary/40 bg-background p-3">
+                                    <Textarea
+                                      rows={2}
+                                      placeholder="Question"
+                                      value={questionDraft.question_title}
+                                      onChange={(event) =>
+                                        setQuestionDraft({
+                                          ...questionDraft,
+                                          question_title: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <label className="text-xs font-bold text-foreground">
+                                        Marks
+                                      </label>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-8 w-20"
+                                        value={questionDraft.points}
+                                        onChange={(event) =>
+                                          setQuestionDraft({
+                                            ...questionDraft,
+                                            points: event.target.value,
+                                          })
+                                        }
+                                      />
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {questionDraft.options.length === 0
+                                          ? 'Written answer — marked by AI, held for a person when it cannot be.'
+                                          : 'Tick every option that is correct.'}
+                                      </span>
+                                    </div>
+
+                                    {questionDraft.options.map((option, index) => (
+                                      <div key={index} className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          className="size-4 shrink-0"
+                                          checked={option.correct}
+                                          aria-label={`Option ${index + 1} is correct`}
+                                          onChange={(event) =>
+                                            setQuestionDraft({
+                                              ...questionDraft,
+                                              options: questionDraft.options.map((o, i) =>
+                                                i === index
+                                                  ? { ...o, correct: event.target.checked }
+                                                  : o,
+                                              ),
+                                            })
+                                          }
+                                        />
+                                        <Input
+                                          className="h-8"
+                                          placeholder={`Option ${index + 1}`}
+                                          value={option.answer}
+                                          onChange={(event) =>
+                                            setQuestionDraft({
+                                              ...questionDraft,
+                                              options: questionDraft.options.map((o, i) =>
+                                                i === index
+                                                  ? { ...o, answer: event.target.value }
+                                                  : o,
+                                              ),
+                                            })
+                                          }
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          aria-label={`Remove option ${index + 1}`}
+                                          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                          onClick={() =>
+                                            setQuestionDraft({
+                                              ...questionDraft,
+                                              options: questionDraft.options.filter(
+                                                (_, i) => i !== index,
+                                              ),
+                                            })
+                                          }
+                                        >
+                                          <X className="size-3.5" />
+                                        </Button>
+                                      </div>
+                                    ))}
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5"
+                                        onClick={() =>
+                                          setQuestionDraft({
+                                            ...questionDraft,
+                                            options: [
+                                              ...questionDraft.options,
+                                              { answer: '', correct: false },
+                                            ],
+                                          })
+                                        }
+                                      >
+                                        <Plus className="size-3.5" /> Option
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        className="gap-1.5 font-semibold"
+                                        disabled={saving || !questionDraft.question_title.trim()}
+                                        onClick={() => {
+                                          const payload = {
+                                            question_title: questionDraft.question_title.trim(),
+                                            points: Number(questionDraft.points) || 1,
+                                            // Blank options are dropped rather
+                                            // than sent: an author who cleared
+                                            // them meant a written answer.
+                                            options: questionDraft.options
+                                              .filter((o) => o.answer.trim())
+                                              .map((o) => ({
+                                                answer: o.answer.trim(),
+                                                correct: o.correct,
+                                              })),
+                                          }
+
+                                          const action =
+                                            questionDraft.id === null
+                                              ? addQuestion(assessment.id, payload)
+                                              : updateQuestion(
+                                                  assessment.id,
+                                                  questionDraft.id,
+                                                  payload,
+                                                )
+
+                                          void action.then((result) => {
+                                            if (result.ok) setQuestionDraft(null)
+                                          })
+                                        }}
+                                      >
+                                        {saving && <Loader2 className="size-3.5 animate-spin" />}
+                                        {questionDraft.id === null
+                                          ? 'Add question'
+                                          : 'Save changes'}
+                                      </Button>
+
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setQuestionDraft(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Delete ${assessment.paper_name}`}
-                            className="size-7 text-muted-foreground hover:text-destructive"
-                            disabled={saving}
-                            onClick={() => void removeAssessment(assessment.id)}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
 
@@ -796,6 +1225,78 @@ export function CreateCoursePage() {
                           onChange={(event) => setField('max_attempts', event.target.value)}
                         />
                         <FieldError message={errors.max_attempts} />
+                      </div>
+                    </div>
+
+                    {/*
+                      * ── WHAT THIS COURSE BUILDS ─────────────────────────────
+                      *
+                      * CourseCompetencyInlinePanel was imported by this file and
+                      * never rendered, so the primary authoring flow could not
+                      * map a course to a capability at all — only the
+                      * catalogue's edit sheet could, after the fact. That made
+                      * two things impossible: a pass could not move any rating
+                      * (there was nothing to move), and the course could not be
+                      * suggested to anyone with a matching gap, which is exactly
+                      * what the edit sheet's own label promises this mapping
+                      * does.
+                      *
+                      * It sits here rather than in Publish Settings because the
+                      * setting directly beneath it is meaningless without it.
+                      */}
+                    <div className="space-y-2 border-t border-border/40 pt-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Capabilities this course builds
+                      </h4>
+                      <CourseCompetencyInlinePanel
+                        courseId={courseId}
+                        onCountChange={setCompetencyCount}
+                      />
+                    </div>
+
+                    {/*
+                      * ── WHAT PASSING ACTUALLY DOES ──────────────────────────
+                      *
+                      * The column behind this has existed since 2026-09-05 and
+                      * had no writer anyone could reach: only an artisan seeder
+                      * ever set it, so the quiz -> capability loop was off for
+                      * every course in the product and no author could turn it
+                      * on. This is that switch.
+                      *
+                      * Off by default, and it says what it does rather than
+                      * naming the flag: an admin deciding this needs to know a
+                      * record changes without them, not what the column is
+                      * called.
+                      */}
+                    <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4">
+                      <Checkbox
+                        id="auto-apply-rating"
+                        className="mt-0.5"
+                        checked={form.auto_apply_rating}
+                        onCheckedChange={(checked) =>
+                          setField('auto_apply_rating', Boolean(checked))
+                        }
+                      />
+                      <div className="flex flex-col gap-0.5">
+                        <label
+                          htmlFor="auto-apply-rating"
+                          className="cursor-pointer text-sm font-bold text-foreground"
+                        >
+                          Update capability records when a learner passes
+                        </label>
+                        <span className="text-xs leading-snug text-muted-foreground">
+                          A passing score raises the learner&rsquo;s rating on the capabilities this
+                          course is mapped to, closing their gap without waiting for a review. Every
+                          change is recorded with the attempt that caused it. A rating an assessor
+                          set by hand is never overwritten, and a result that would <em>lower</em>{' '}
+                          someone still goes to review.
+                        </span>
+                        {form.auto_apply_rating && competencyCount === 0 && (
+                          <span className="mt-1 text-xs font-medium text-warning">
+                            This course isn&rsquo;t mapped to any capability yet, so passing it will
+                            not move anything. Map one in Publish Settings.
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -935,6 +1436,10 @@ export function CreateCoursePage() {
                     </p>
                     <CourseAudiencePanel
                       courseId={courseId}
+                      // Every other write in this wizard passes the caller's
+                      // profile; this one did not, so assignAudience went out
+                      // unauthenticated on the profile gate.
+                      profileName={builder.profileName}
                       departments={departments}
                       jobRoles={jobRoles}
                     />
@@ -950,93 +1455,118 @@ export function CreateCoursePage() {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Restrict to Departments ({form.restrict_departments.length || 'All'})
+                          Restrict to departments ({form.restrict_departments.length || 'All'})
                         </label>
-                        {form.restrict_departments.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {form.restrict_departments.map((id) => {
-                              const department = departments.find((entry) => entry.id === id)
-                              return (
-                                <span
-                                  key={id}
-                                  className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
-                                >
-                                  {department?.department ?? `#${id}`}
-                                  <button
-                                    type="button"
-                                    aria-label="Remove department"
-                                    onClick={() =>
-                                      setField(
-                                        'restrict_departments',
-                                        form.restrict_departments.filter((entry) => entry !== id),
-                                      )
-                                    }
-                                  >
-                                    <X className="size-3" />
-                                  </button>
-                                </span>
-                              )
-                            })}
-                          </div>
-                        )}
-                        <Select
-                          options={departments
-                            .filter((entry) => !form.restrict_departments.includes(entry.id))
-                            .map((entry) => ({
-                              label: entry.department,
-                              value: String(entry.id),
-                            }))}
-                          value=""
-                          onChange={(value) =>
-                            setField('restrict_departments', [
-                              ...form.restrict_departments,
-                              Number(value),
-                            ])
+                        {/*
+                          * Was a chip list plus a Select that appended one at a
+                          * time, with no search - unusable against a real role
+                          * list. One control now, searchable, with the chips
+                          * inside it.
+                          */}
+                        <MultiSelect
+                          aria-label="Restrict to departments"
+                          options={departments.map((entry) => ({
+                            value: String(entry.id),
+                            label: entry.department,
+                          }))}
+                          values={form.restrict_departments.map(String)}
+                          onChange={(values) =>
+                            setField('restrict_departments', values.map(Number).filter(Boolean))
                           }
                           placeholder="All departments"
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Restrict to Roles ({form.restrict_roles.length || 'All'})
+                          Restrict to job roles ({form.restrict_roles.length || 'All'})
                         </label>
-                        {form.restrict_roles.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {form.restrict_roles.map((role) => (
-                              <span
-                                key={role}
-                                className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
-                              >
-                                {role}
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${role}`}
-                                  onClick={() =>
-                                    setField(
-                                      'restrict_roles',
-                                      form.restrict_roles.filter((entry) => entry !== role),
-                                    )
-                                  }
-                                >
-                                  <X className="size-3" />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <Input
-                          placeholder="Type a role and press Enter"
-                          className="h-9"
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return
-                            event.preventDefault()
-                            const value = event.currentTarget.value.trim()
-                            if (value && !form.restrict_roles.includes(value)) {
-                              setField('restrict_roles', [...form.restrict_roles, value])
-                              event.currentTarget.value = ''
-                            }
-                          }}
+                        <MultiSelect
+                          aria-label="Restrict to job roles"
+                          options={jobRoles.map((role) => ({
+                            value: role.jobrole,
+                            label: role.jobrole,
+                            hint: departments.find((d) => d.id === role.department_id)?.department,
+                          }))}
+                          values={form.restrict_roles}
+                          onChange={(values) => setField('restrict_roles', values)}
+                          placeholder="All job roles"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/*
+                    * ── MOVED HERE FROM BASIC INFORMATION ──────────────────
+                    *
+                    * These are decisions about how the course is RELEASED, not
+                    * facts about the course, so they belong with the rest of the
+                    * publish settings. Sitting in step 1 beside a second,
+                    * different department picker is what made the two steps read
+                    * as duplicates.
+                    *
+                    * The descriptions say what each actually does. "Mandatory
+                    * Course - automatically assign and enforce completion rules"
+                    * described behaviour the flag does not have: nothing reads
+                    * is_mandatory to assign anybody.
+                    */}
+                  <div className="space-y-4">
+                    <h3 className="flex items-center gap-2 text-sm font-bold">
+                      <CheckCircle2 className="size-4" /> How this course behaves
+                    </h3>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4">
+                        <Checkbox
+                          id="mandatory"
+                          className="mt-0.5"
+                          checked={form.is_mandatory}
+                          onCheckedChange={(checked) => setField('is_mandatory', Boolean(checked))}
+                        />
+                        <div className="flex flex-col gap-0.5">
+                          <label htmlFor="mandatory" className="cursor-pointer text-sm font-bold text-foreground">
+                            Required training
+                          </label>
+                          <span className="text-xs leading-snug text-muted-foreground">
+                            Marks the course as required rather than optional, so it is flagged as
+                            such wherever it is listed. It does not assign anyone on its own — use
+                            &ldquo;Assign this course&rdquo; above for that.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4">
+                        <Checkbox
+                          id="discussion"
+                          className="mt-0.5"
+                          checked={form.discussion_enabled}
+                          onCheckedChange={(checked) =>
+                            setField('discussion_enabled', Boolean(checked))
+                          }
+                        />
+                        <div className="flex flex-col gap-0.5">
+                          <label htmlFor="discussion" className="cursor-pointer text-sm font-bold text-foreground">
+                            Allow questions
+                          </label>
+                          <span className="text-xs leading-snug text-muted-foreground">
+                            Adds a Discussions tab inside the course where learners can ask
+                            questions and an administrator can answer them.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 md:col-span-2">
+                        <span className="text-sm font-bold text-foreground">Who can see it</span>
+                        <RadioGroup
+                          value={form.visibility}
+                          onValueChange={(value) => setField('visibility', value as CourseVisibility)}
+                          className="flex items-center gap-4"
+                        >
+                          <Radio value="all" label="Anyone in the organisation" size="sm" />
+                          <Radio value="restricted" label="Only the departments and roles above" size="sm" />
+                        </RadioGroup>
+                        <span className="text-xs text-muted-foreground">
+                          The restrictions above only take effect when this is set to restricted.
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1224,6 +1754,24 @@ export function CreateCoursePage() {
           </Card>
         </div>
       </div>
+
+      {/*
+        * The SAME Build-with-AI form the catalogue opens.
+        *
+        * Reached from the slide option in step 2, which is the point at which
+        * an author actually wants a deck. It publishes a course of its own with
+        * the generated presentation attached as a pptx lesson, so the author
+        * can link it here or send learners straight to it.
+        */}
+      <AiCourseSheet
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        filterOptions={null}
+        onPublished={() => {
+          setAiOpen(false)
+          if (courseId) void reloadModules(courseId)
+        }}
+      />
     </div>
   )
 }

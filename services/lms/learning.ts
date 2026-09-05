@@ -78,6 +78,15 @@ export interface LearningCourseSummary {
   end_date: string | null
   total_content: number
   completed_content: number
+  /**
+   * Sessions count toward a course too — but only the ones this learner is
+   * actually registered on. A session nobody signed up for is in neither
+   * figure, so a course behaves exactly as it did before sessions counted.
+   * `progress_percent` combines these with the lesson counts; the lesson
+   * counts above stay lessons only, because every screen labels them that way.
+   */
+  total_sessions: number
+  attended_sessions: number
   progress_percent: number
 }
 
@@ -105,6 +114,15 @@ export interface LearningCourseDetail {
   chapters: LearningChapter[]
   total_content: number
   completed_content: number
+  /**
+   * Sessions count toward a course too — but only the ones this learner is
+   * actually registered on. A session nobody signed up for is in neither
+   * figure, so a course behaves exactly as it did before sessions counted.
+   * `progress_percent` combines these with the lesson counts; the lesson
+   * counts above stay lessons only, because every screen labels them that way.
+   */
+  total_sessions: number
+  attended_sessions: number
   progress_percent: number
   time_spent_seconds: number
   content_categories: string[]
@@ -114,9 +132,20 @@ export interface CompleteCourseResult {
   marked_complete: boolean
   total_content: number
   completed_content: number
+  total_sessions: number
+  attended_sessions: number
   progress_percent: number
-  /** False when lessons remain - the certificate keeps its own rule. */
+  /**
+   * False whenever anything is outstanding — the certificate keeps its own
+   * rule, and that rule now covers lessons, the sessions this learner is
+   * registered on, AND the course quiz. It has to agree with claimCertificate
+   * exactly, or the UI offers a Claim button that comes back 422.
+   */
   certificate_available: boolean
+  quiz_required: boolean
+  quiz_passed: boolean
+  /** Why the certificate is not available yet, in the server's own words. */
+  certificate_blocked_reason: string | null
 }
 
 export interface SaveProgressPayload {
@@ -138,6 +167,10 @@ export interface SaveProgressResult {
 }
 
 export interface LearningAttempt {
+  /** Which path recorded it, so an old result stays explicable. */
+  source?: 'legacy' | 'quiz'
+  percent?: number | null
+  passed?: boolean | null
   id: number
   question_paper_id: number
   total_right: number | null
@@ -161,9 +194,20 @@ export interface LearningAssessment {
   close_date: string | null
   exam_type: string | null
   show_hide: number | null
+  /**
+   * Every attempt, from BOTH tables that hold them.
+   *
+   * `lms_online_exam` is the legacy mobile/Blade path; `lms_quiz_attempt` is
+   * the course quiz. This read used to see only the first, so a learner who
+   * had just sat the quiz saw "0 taken" here while the quiz panel beside it
+   * showed their score.
+   */
   attempts: LearningAttempt[]
   attempt_count: number
   best_score: number | null
+  /** Only quiz attempts carry a percentage; legacy rows have none. */
+  best_percent: number | null
+  passed: boolean
   last_attempt_at: string | null
   status: 'not-started' | 'completed'
 }
@@ -424,6 +468,14 @@ export interface CertificateQuery {
   search?: string
   courseId?: number
   profileName?: string
+  /**
+   * One employee's certificates, for an administrator viewing their record.
+   *
+   * Only honoured alongside scope: 'all', which the server already gates on the
+   * authoring profile - so this narrows a set the caller may see rather than
+   * widening one they may not.
+   */
+  userId?: number
 }
 
 export interface CertificateListResponse {
@@ -446,6 +498,7 @@ export const lmsCertificateService = {
         ...(query.scope ? { scope: query.scope } : {}),
         ...(query.search ? { search: query.search } : {}),
         ...(query.courseId ? { course_id: String(query.courseId) } : {}),
+        ...(query.userId ? { user_id: String(query.userId) } : {}),
       }),
     ),
 

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Plus, Trash2, Edit2, Loader2, ShieldCheck, Save, X } from 'lucide-react'
+import { Plus, Trash2, Edit2, Pencil, Loader2, ShieldCheck, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -74,8 +74,23 @@ export function RolesPanel({ governance }: { governance: GovernanceState }) {
   } = governance
 
   const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState({ name: '', description: '' })
+  /**
+   * The role being edited, or null when adding a new one.
+   *
+   * `saveRole(payload, id?)` already branched to `updateRole` when given an id,
+   * and this panel never passed one — there was no Edit button at all, so a
+   * mistyped role name was permanent and the only remedy was deleting the role
+   * and every permission attached to it.
+   */
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
+  const [draft, setDraft] = useState({ name: '', description: '', status: true })
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
+
+  const closeForm = () => {
+    setAdding(false)
+    setEditingRoleId(null)
+    setDraft({ name: '', description: '', status: true })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -88,13 +103,17 @@ export function RolesPanel({ governance }: { governance: GovernanceState }) {
             </p>
           </div>
           {canAdminister && (
-            <Button size="sm" className="gap-2" onClick={() => setAdding((v) => !v)}>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => (adding || editingRoleId ? closeForm() : setAdding(true))}
+            >
               <Plus className="size-4" /> Add Role
             </Button>
           )}
         </div>
 
-        {adding && (
+        {(adding || editingRoleId !== null) && (
           <div className="flex flex-col gap-3 border-b border-border/60 bg-primary/5 p-4">
             <FormRow>
               <Field label="Role name">
@@ -112,24 +131,43 @@ export function RolesPanel({ governance }: { governance: GovernanceState }) {
                 />
               </Field>
             </FormRow>
+            {/*
+              * Status is a CHOICE now, not a constant.
+              *
+              * Every save in this panel wrote `status: true`, so a deactivated
+              * role could not be reactivated and, worse, editing an inactive
+              * one silently switched it back on.
+              */}
+            <label className="flex w-fit items-center gap-2 text-xs font-semibold text-foreground">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={draft.status}
+                onChange={(e) => setDraft({ ...draft, status: e.target.checked })}
+              />
+              Active
+            </label>
+
             <div className="flex gap-2">
               <Button
                 size="sm"
                 disabled={saving || !draft.name.trim()}
                 onClick={() =>
-                  void saveRole({ name: draft.name.trim(), description: draft.description }).then(
-                    (r) => {
-                      if (r.ok) {
-                        setAdding(false)
-                        setDraft({ name: '', description: '' })
-                      }
+                  void saveRole(
+                    {
+                      name: draft.name.trim(),
+                      description: draft.description,
+                      status: draft.status ? 1 : 0,
                     },
-                  )
+                    editingRoleId ?? undefined,
+                  ).then((r) => {
+                    if (r.ok) closeForm()
+                  })
                 }
               >
-                Save
+                {editingRoleId ? 'Save changes' : 'Save'}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setAdding(false)}>
+              <Button size="sm" variant="outline" onClick={closeForm}>
                 Cancel
               </Button>
             </div>
@@ -181,6 +219,25 @@ export function RolesPanel({ governance }: { governance: GovernanceState }) {
                       >
                         <ShieldCheck className="size-3.5" /> Permissions
                       </Button>
+                      {canAdminister && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${role.name}`}
+                          className="size-8 text-muted-foreground"
+                          onClick={() => {
+                            setAdding(false)
+                            setEditingRoleId(role.id)
+                            setDraft({
+                              name: role.name,
+                              description: role.description ?? '',
+                              status: Boolean(role.status),
+                            })
+                          }}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                      )}
                       {canAdminister &&
                         (confirmDelete === role.id ? (
                           <>
@@ -305,9 +362,21 @@ export function RolesPanel({ governance }: { governance: GovernanceState }) {
 
 /* ─── Trainers ─────────────────────────────────────────────────────────────── */
 
+/*
+ * THE CURRENCY WAS STAMPED AND THEN SHOWN BACK.
+ *
+ * Both forms carried `currency: 'INR'` in their empty state and submitted it
+ * unchanged - there was no currency input anywhere - while the tables render
+ * `{currency} {amount}`. So an hourly rate or a contract value was always
+ * labelled INR whatever it actually was, and a tenant billing in anything else
+ * had no way to say so. The column exists and the API accepts it.
+ */
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD']
+
 const EMPTY_TRAINER = {
   name: '', email: '', phone: '', trainer_type: 'internal' as TrainerType,
   vendor_id: '', specialisation: '', hourly_rate: '', currency: 'INR',
+  status: true,
 }
 
 export function TrainersPanel({ governance }: { governance: GovernanceState }) {
@@ -328,6 +397,9 @@ export function TrainersPanel({ governance }: { governance: GovernanceState }) {
         specialisation: trainer.specialisation ?? '',
         hourly_rate: trainer.hourly_rate ? String(trainer.hourly_rate) : '',
         currency: trainer.currency ?? 'INR',
+        // Was not seeded at all, and saveTrainer hardcoded true - so opening
+        // an inactive trainer and pressing Save silently reactivated them.
+        status: Boolean(trainer.status),
       })
     } else {
       setEditing(null)
@@ -347,7 +419,16 @@ export function TrainersPanel({ governance }: { governance: GovernanceState }) {
         specialisation: draft.specialisation || null,
         hourly_rate: draft.hourly_rate ? Number(draft.hourly_rate) : null,
         currency: draft.currency || null,
-        status: true,
+        /*
+         * Was `true`, always.
+         *
+         * The table renders an Active/Inactive badge, so a deactivated trainer
+         * was visibly inactive and could not be reactivated - and editing one
+         * for any reason silently switched them back on. The only way to
+         * retire a trainer was to DELETE them, which loses the session history
+         * this very panel displays.
+         */
+        status: draft.status,
       },
       editing?.id,
     ).then((r) => {
@@ -409,7 +490,28 @@ export function TrainersPanel({ governance }: { governance: GovernanceState }) {
             <Field label="Hourly rate">
               <Input className="h-9" type="number" value={draft.hourly_rate} onChange={(e) => setDraft({ ...draft, hourly_rate: e.target.value })} />
             </Field>
+            {/* The rate was always labelled INR because nothing could say otherwise. */}
+            <Field label="Currency">
+              <Select
+                options={CURRENCIES.map((c) => ({ label: c, value: c }))}
+                value={draft.currency}
+                onChange={(v) => setDraft({ ...draft, currency: String(v) })}
+              />
+            </Field>
           </FormRow>
+          {/*
+            * A trainer who leaves is deactivated, not deleted — deleting them
+            * loses the session history shown in the table below.
+            */}
+          <label className="flex w-fit items-center gap-2 text-xs font-semibold text-foreground">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={draft.status}
+              onChange={(e) => setDraft({ ...draft, status: e.target.checked })}
+            />
+            Active
+          </label>
           <div className="flex gap-2">
             <Button size="sm" disabled={saving || !draft.name.trim()} onClick={submit}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
@@ -495,6 +597,7 @@ export function TrainersPanel({ governance }: { governance: GovernanceState }) {
 const EMPTY_VENDOR = {
   name: '', vendor_code: '', contact_person: '', email: '', phone: '',
   service_type: '', contract_start: '', contract_end: '', contract_value: '', currency: 'INR',
+  status: true,
 }
 
 export function VendorsPanel({ governance }: { governance: GovernanceState }) {
@@ -517,6 +620,7 @@ export function VendorsPanel({ governance }: { governance: GovernanceState }) {
         contract_end: vendor.contract_end?.slice(0, 10) ?? '',
         contract_value: vendor.contract_value ? String(vendor.contract_value) : '',
         currency: vendor.currency ?? 'INR',
+        status: Boolean(vendor.status),
       })
     } else {
       setEditing(null)
@@ -538,7 +642,9 @@ export function VendorsPanel({ governance }: { governance: GovernanceState }) {
         contract_end: draft.contract_end || null,
         contract_value: draft.contract_value ? Number(draft.contract_value) : null,
         currency: draft.currency || null,
-        status: true,
+        // Same as trainers: a vendor whose contract ended should be
+        // deactivated, not deleted along with its contract record.
+        status: draft.status,
       },
       editing?.id,
     ).then((r) => {
@@ -599,7 +705,23 @@ export function VendorsPanel({ governance }: { governance: GovernanceState }) {
             <Field label="Contract end">
               <Input className="h-9" type="date" value={draft.contract_end} onChange={(e) => setDraft({ ...draft, contract_end: e.target.value })} />
             </Field>
+            <Field label="Currency">
+              <Select
+                options={CURRENCIES.map((c) => ({ label: c, value: c }))}
+                value={draft.currency}
+                onChange={(v) => setDraft({ ...draft, currency: String(v) })}
+              />
+            </Field>
           </FormRow>
+          <label className="flex w-fit items-center gap-2 text-xs font-semibold text-foreground">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={draft.status}
+              onChange={(e) => setDraft({ ...draft, status: e.target.checked })}
+            />
+            Active
+          </label>
           <div className="flex gap-2">
             <Button size="sm" disabled={saving || !draft.name.trim()} onClick={submit}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
@@ -852,7 +974,14 @@ export function IntegrationsPanel({ governance }: { governance: GovernanceState 
 export function AuditPanel({ governance }: { governance: GovernanceState }) {
   const {
     auditLogs, auditMeta, auditFilters, auditAction, setAuditAction, auditPage, setAuditPage,
+    auditSearch, setAuditSearch,
+    auditEntityType, setAuditEntityType,
+    auditFrom, setAuditFrom,
+    auditTo, setAuditTo,
+    resetAuditFilters,
   } = governance
+
+  const filtered = Boolean(auditAction || auditSearch || auditEntityType || auditFrom || auditTo)
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
@@ -865,7 +994,31 @@ export function AuditPanel({ governance }: { governance: GovernanceState }) {
             {auditMeta.journey_events === 1 ? '' : 's'}
           </p>
         </div>
-        <div className="w-full sm:w-56">
+        {filtered && (
+          <Button variant="ghost" size="sm" className="text-xs" onClick={resetAuditFilters}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/*
+        * The filters the endpoint has always implemented.
+        *
+        * `entity_types` was already fetched from the response and stored in
+        * `auditFilters` — and then rendered nowhere, while the request sent
+        * only page and action. An audit log you cannot narrow is one nobody
+        * reads: its whole purpose is answering "who changed this, and when".
+        */}
+      <div className="grid grid-cols-1 gap-3 border-b border-border/60 bg-muted/5 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Field label="Search">
+          <Input
+            className="h-9"
+            placeholder="Action, entity or detail"
+            value={auditSearch}
+            onChange={(e) => setAuditSearch(e.target.value)}
+          />
+        </Field>
+        <Field label="Action">
           <Select
             options={[
               { label: 'All actions', value: '' },
@@ -874,13 +1027,43 @@ export function AuditPanel({ governance }: { governance: GovernanceState }) {
             value={auditAction}
             onChange={(v) => setAuditAction(String(v))}
           />
-        </div>
+        </Field>
+        <Field label="Entity type">
+          <Select
+            options={[
+              { label: 'All entities', value: '' },
+              ...(auditFilters.entity_types ?? []).map((e) => ({ label: e, value: e })),
+            ]}
+            value={auditEntityType}
+            onChange={(v) => setAuditEntityType(String(v))}
+          />
+        </Field>
+        <Field label="From">
+          <Input
+            type="date"
+            className="h-9"
+            value={auditFrom}
+            onChange={(e) => setAuditFrom(e.target.value)}
+          />
+        </Field>
+        <Field label="To">
+          <Input
+            type="date"
+            className="h-9"
+            value={auditTo}
+            onChange={(e) => setAuditTo(e.target.value)}
+          />
+        </Field>
       </div>
 
       {auditLogs.length === 0 ? (
         <EmptyState
-          title="No audit events"
-          description="Structured audit entries for this institute will appear here as changes are made."
+          title={filtered ? 'No events match those filters' : 'No audit events'}
+          description={
+            filtered
+              ? 'Clear the filters to see the full log.'
+              : 'Structured audit entries for this institute will appear here as changes are made.'
+          }
         />
       ) : (
         <>

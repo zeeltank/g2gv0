@@ -45,6 +45,7 @@ import { CmCompetencyComposer } from './cm-competency-composer'
 // optional, and an optional prop nothing passes is a control that silently does
 // nothing — the same shape as a default that hides an absence.
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
+import { isHrAdmin } from '@/types/role'
 
 export function CmCompetencyDefinitions() {
   const { user } = useAuth()
@@ -57,7 +58,7 @@ export function CmCompetencyDefinitions() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const canCreate = user?.role === 'admin' || user?.role === 'hr'
+  const canCreate = isHrAdmin(user?.role)
 
   const load = useCallback(async () => {
     const ctx = getLaravelContext(user)

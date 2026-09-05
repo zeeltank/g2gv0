@@ -33,6 +33,7 @@ import {
   type LearningCertificate,
   type LearningCourseSummary,
 } from '@/services/lms'
+import { isHrAdmin } from '@/types/role'
 
 function toMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
@@ -602,7 +603,7 @@ export function useLmsCertifications(): CertificationsState {
   const { user } = useAuth()
   const resolveContext = useCallback(() => getLaravelContext(user), [user])
   const profileName = user?.profileName
-  const canSeeAll = user?.role === 'admin' || user?.role === 'hr'
+  const canSeeAll = isHrAdmin(user?.role)
 
   const [certificates, setCertificates] = useState<LearningCertificate[]>([])
   const [transcript, setTranscript] = useState<EnrolledCourse[]>([])

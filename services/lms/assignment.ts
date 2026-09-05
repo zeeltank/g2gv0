@@ -33,6 +33,8 @@ export interface LmsAssignment {
   initials: string
   course_name: string
   type: string
+  /** The learner's department; null when they have none recorded. */
+  department: string | null
   assignment_type: string
   due_date: string | null
   status: string
@@ -220,6 +222,28 @@ export const assignmentApprovalService = {
       ...params(context, profileName ? { user_profile_name: profileName } : undefined),
       ids,
       decision,
+    }),
+
+  /**
+   * POST /api/lmsAssignment/request — a learner asks for a course.
+   *
+   * THIS IS WHAT FILLS THE APPROVAL QUEUE.
+   *
+   * The endpoint, the queue that reads it, `review`, `bulkReview`, and the
+   * `ensureEnrolment` call that turns an approval into a real enrolment were
+   * all built and correct. There was simply no client — no service method, no
+   * button, nothing — so the only way a row could enter that queue was a
+   * direct database insert. An admin could open Approval Queue every day of
+   * the year and it would always be empty, by construction.
+   *
+   * The server refuses a duplicate request and refuses one for a course the
+   * learner already has, so the caller does not need to check either.
+   */
+  requestEnrollment: (context: LaravelContext, courseId: number, dueDate?: string | null) =>
+    apiClient.post<AssignmentApiResponse<unknown>>('/lmsAssignment/request', {
+      ...params(context),
+      course_id: courseId,
+      ...(dueDate ? { due_date: dueDate } : {}),
     }),
 
   /** GET /api/lmsAssignment/enrollments — learner-initiated enrolments. */

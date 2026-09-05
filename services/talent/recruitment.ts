@@ -8,6 +8,7 @@ import type {
   TeamOverviewApi,
   AssessmentBlueprintApi, AssessmentBlueprintPayload, AssessmentInviteApi, AssessmentJobRoleApi,
   CandidateAssessmentResultApi, EmployeeOptionApi,
+  CandidateAssessmentReportApi, InvitableApplicationApi,
 } from '@/types/recruitment'
 
 function contextParams(extra?: Record<string, string>) {
@@ -285,6 +286,45 @@ export const recruitmentService = {
     return apiClient.post<{ status: number; message: string; data: AssessmentInviteApi }>(
       `/talent/applications/${applicationId}/assessment/invite`,
       { ...contextParams(), ...(blueprintId ? { blueprint_id: blueprintId } : {}) },
+    )
+  },
+
+  /**
+   * The report behind the Candidate Assessments tab: rows, tiles and the filter
+   * options, in one call. The tiles are counted server-side over the same
+   * filtered set as the rows, so the two can never disagree.
+   */
+  async getCandidateAssessments(params?: {
+    status?: string
+    outcome?: string
+    job_id?: string
+    search?: string
+    page?: number
+    per_page?: number
+  }) {
+    const query: Record<string, string> = {}
+    if (params?.status) query.status = params.status
+    if (params?.outcome) query.outcome = params.outcome
+    if (params?.job_id) query.job_id = params.job_id
+    if (params?.search) query.search = params.search
+    if (params?.page) query.page = String(params.page)
+    if (params?.per_page) query.per_page = String(params.per_page)
+
+    return apiClient.get<CandidateAssessmentReportApi>(
+      '/talent/assessment/candidates',
+      contextParams(query),
+    )
+  },
+
+  /** Candidates an assessment can be sent to, each carrying its own blocker. */
+  async getInvitableApplications(params?: { search?: string; without_assessment?: boolean }) {
+    const query: Record<string, string> = {}
+    if (params?.search) query.search = params.search
+    if (params?.without_assessment) query.without_assessment = '1'
+
+    return apiClient.get<{ status: number; data: InvitableApplicationApi[] }>(
+      '/talent/assessment/applications',
+      contextParams(query),
     )
   },
 

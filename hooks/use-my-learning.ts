@@ -470,12 +470,22 @@ export function useMyLearning(): MyLearningState {
     try {
       const response = await lmsLearningService.completeCourse(context, courseId)
       const result = response.data
-      const note = result && result.completed_content < result.total_content
-        ? ` (${result.completed_content} of ${result.total_content} lessons opened)`
-        : ''
+      /*
+       * Say what is still outstanding, in the server's words.
+       *
+       * The declaration is recorded either way — that is the point of the
+       * button. But a learner who marks a course complete and then finds the
+       * certificate refused deserves to be told why at the moment they press
+       * it, not when they go looking for the certificate.
+       */
+      const note = result?.certificate_blocked_reason
+        ? ` — ${result.certificate_blocked_reason}`
+        : result && result.completed_content < result.total_content
+          ? ` (${result.completed_content} of ${result.total_content} lessons opened)`
+          : ''
       void loadCourses()
-      setMessage(`Marked complete${note}.`)
-      return { ok: true, message: `Marked complete${note}.` }
+      setMessage(`Marked complete${note}`)
+      return { ok: true, message: `Marked complete${note}` }
     } catch (completeError) {
       const failure = toMessage(completeError, 'Failed to mark this course complete.')
       setError(failure)

@@ -51,15 +51,85 @@ export interface AiOutlineResult {
   slide_count: number
 }
 
+/* ─── Scope options ──────────────────────────────────────────────────── */
+
+/**
+ * What the Build-with-AI form is made of.
+ *
+ * Every field on that form used to be a free-text input — industry,
+ * department, job role, proficiency, and a comma-separated "target skills"
+ * box — so the generator was fed whatever somebody typed and the outline could
+ * not be traced back to anything in the system. All of it exists as real,
+ * related data; this is that data.
+ */
+export interface AiScopeJobRole {
+  id: number
+  jobrole: string
+  department_id: number | null
+  department: string | null
+  industries: string | null
+}
+
+export interface AiScopeCompetency {
+  id: number
+  name: string
+  code: string | null
+  required_proficiency: number | null
+  is_mandatory: number
+  jobrole_id: number
+}
+
+/** knowledge / skill / behaviour / attitude / ability, per competency. */
+export interface AiScopeKasbaItem {
+  id: number
+  competency_id: number
+  kasba_type: string
+  item_label: string
+  weight: string | number | null
+}
+
+export interface AiScopeOptions {
+  industries: string[]
+  departments: { id: number; department: string }[]
+  jobroles: AiScopeJobRole[]
+  /**
+   * Only populated when jobrole_ids are supplied — a course is scoped by the
+   * competencies of the roles it is for, not by a global list.
+   */
+  competencies: AiScopeCompetency[]
+  kasba_items: AiScopeKasbaItem[]
+  kasba_types: string[]
+}
+
+/**
+ * What the generator is told about the course.
+ *
+ * `department`, `job_role` and `skills` are ARRAYS now. They were single
+ * strings, which forced a course aimed at three roles to name one of them and
+ * drop the rest.
+ *
+ * `modality` is gone. It was a pair of checkboxes labelled with a word the
+ * people using this form do not use, it changed nothing the model could act
+ * on, and its only visible effect was a line in the generated deck reading
+ * "Modality Instructions".
+ */
 export interface AiOutlineRequest {
   industry?: string
-  department?: string
-  job_role?: string
+  /** hrms_departments.id values. */
+  department_ids?: number[]
+  /** s_user_jobrole.id values. */
+  jobrole_ids?: number[]
   critical_work_function?: string
   tasks?: string[]
-  skills?: string[]
+  /**
+   * How the course is scoped: by whole competencies, or by individual KASBA
+   * items. Only 9 of tenant 6's 266 job roles have competencies mapped, so a
+   * form offering competencies alone would be empty for almost every role.
+   */
+  scope_mode?: 'competency' | 'kasba'
+  competency_ids?: number[]
+  kasba_item_ids?: number[]
   proficiency?: string
-  modality?: { selfPaced?: boolean; instructorLed?: boolean }
   course_title?: string
   slide_count?: number
   model?: string
@@ -115,6 +185,17 @@ export interface AiPublishRequest {
   subject_type?: string | null
   jobrole?: string | null
   status?: number
+  /**
+   * The full scope, so the published course carries what it was generated for.
+   *
+   * sub_std_map has one free-text `jobrole` column and one `standard_id`, so a
+   * course for three roles in two departments could only ever record one of
+   * each. These go to lms_course_settings and course_competency_map, where a
+   * set can actually be stored.
+   */
+  department_ids?: number[]
+  jobrole_ids?: number[]
+  competency_ids?: number[]
 }
 
 export interface AiPublishResult {
@@ -141,6 +222,25 @@ function params(
 
 export const aiCourseService = {
   /** GET /api/lms/ai/status - whether DeepSeek and Gamma are configured. */
+  /**
+   * GET /lms/ai/scope-options
+   *
+   * Pass jobrole_ids to get the competencies those roles map to and the KASBA
+   * items underneath them; omit them for just the industry/department/role
+   * lists.
+   */
+  getScopeOptions: (context: LaravelContext, jobroleIds: number[] = []) =>
+    apiClient.get<AiApiResponse<AiScopeOptions>>(
+      '/lms/ai/scope-options',
+      params(
+        context,
+        undefined,
+        jobroleIds.length
+          ? Object.fromEntries(jobroleIds.map((id, i) => [`jobrole_ids[${i}]`, String(id)]))
+          : undefined,
+      ),
+    ),
+
   getStatus: (context: LaravelContext) =>
     apiClient.get<AiApiResponse<AiProviderStatus>>('/lms/ai/status', params(context)),
 

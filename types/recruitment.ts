@@ -386,6 +386,76 @@ export interface AssessmentBlueprintPayload {
   is_active?: boolean
 }
 
+/** One row of the candidate-assessment report. */
+export interface CandidateAssessmentRowApi {
+  id: number
+  application_id: number
+  candidate: string
+  email: string | null
+  job_id: number | null
+  job_title: string | null
+  blueprint: string | null
+  paper: string | null
+  test_types: string[]
+  status: string
+  score: number | null
+  max_score: number | null
+  percent: number | null
+  pass_mark: number | null
+  /** Tri-state: true, false, and null for "still being marked". */
+  qualified: boolean | null
+  invited_by: string | null
+  invited_at: string | null
+  submitted_at: string | null
+  graded_at: string | null
+  expires_at: string | null
+  link_used: boolean
+  application_status: string | null
+}
+
+export interface CandidateAssessmentSummaryApi {
+  total: number
+  invited: number
+  started: number
+  submitted: number
+  graded: number
+  passed: number
+  failed: number
+  avg_percent: number | null
+}
+
+export interface CandidateAssessmentReportApi {
+  status: number
+  data: CandidateAssessmentRowApi[]
+  summary: CandidateAssessmentSummaryApi
+  pagination: { page: number; per_page: number; total: number; last_page: number }
+  statuses: string[]
+  jobs: Array<{ id: number; title: string }>
+}
+
+/** A candidate the assessment could be sent to, and what stops it if anything. */
+export interface InvitableApplicationApi {
+  id: number
+  name: string
+  email: string | null
+  status: string | null
+  applied_date: string | null
+  job_id: number | null
+  job_title: string | null
+  has_assessment: boolean
+  assessment_status: string | null
+  jobrole_id: number | null
+  blueprint_id: number | null
+  blueprint_title: string | null
+  /**
+   * In the order an invite actually fails. `no_jobrole` and `no_blueprint` are
+   * separate because they need different fixes, and only `no_email` and
+   * `no_posting` are truly fatal - the other two can be worked around by
+   * choosing a template by hand.
+   */
+  blocked_reason: 'no_email' | 'no_posting' | 'no_jobrole' | 'no_blueprint' | null
+}
+
 export interface AssessmentJobRoleApi {
   id: number
   jobrole: string

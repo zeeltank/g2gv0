@@ -32,6 +32,7 @@ import { useRouter } from 'next/navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { CAPABILITY_LIBRARY_ACCESS_LINK, COMPETENCY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { isHrAdmin } from '@/types/role'
 
 const PersonalInfoTab = lazy(() =>
   import('@/domain/organization/edit-employee/personal-info-tab').then((m) => ({
@@ -69,6 +70,20 @@ const CompetencyAssessmentTab = lazy(() =>
   })),
 )
 
+/**
+ * What training this person has actually completed.
+ *
+ * Certificates were only ever visible on Certifications & Records, which shows
+ * the SIGNED-IN person's own - so the one screen an HR user opens to look at an
+ * employee could show their skills, tasks, competency ratings and documents,
+ * and nothing about the courses they had finished.
+ */
+const CertificatesTab = lazy(() =>
+  import('@/domain/organization/edit-employee/certificates-tab').then((m) => ({
+    default: m.CertificatesTab,
+  })),
+)
+
 const TOP_TABS = [
   { id: 'personal-info', label: 'Personal Information' },
   { id: 'upload-docs', label: 'Upload Document' },
@@ -84,6 +99,7 @@ const TOP_TABS = [
    * gap engine. That is why they never agreed.
    */
   { id: 'competency', label: 'Competency' },
+  { id: 'certificates', label: 'Certificates' },
 ] as const
 
 type EmployeeDirectorySheetsProps = {
@@ -806,7 +822,7 @@ function EmployeeOverviewSheet({
                      substring from a profile display name, which is the very
                      matching the server stopped doing. Good enough to decide
                      whether to render a button, never good enough to authorise. */
-                  canEditDefinition={user?.role === 'admin' || user?.role === 'hr'}
+                  canEditDefinition={isHrAdmin(user?.role)}
                   /* A weight change re-scores the roll-up, so the gap and the
                      atoms are both re-read - otherwise the tab shows the old
                      level beside the new weights. */
@@ -828,7 +844,12 @@ function EmployeeOverviewSheet({
                 />
               </Suspense>
             )}
-            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && (
+            {activeTopTab === 'certificates' && (
+              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+                <CertificatesTab employeeId={mergedEmployee ? Number((mergedEmployee as any).id) : null} />
+              </Suspense>
+            )}
+            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && activeTopTab !== 'certificates' && (
               <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
                 <div className="rounded-full bg-muted/50 p-4">
                   <Briefcase className="size-8 opacity-50" />

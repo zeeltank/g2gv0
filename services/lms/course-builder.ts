@@ -46,6 +46,7 @@ export interface CourseSettings {
   issue_certificate: boolean
   certificate_template: string | null
   recert_alerts: boolean
+  auto_apply_rating: boolean
   enrollment_rule: EnrollmentRule
   /** hrms_departments.id values. Null means no restriction at all. */
   restrict_departments: number[] | null
@@ -140,6 +141,53 @@ export interface AssessmentPayload {
   result_show_ans?: boolean
   exam_type?: string | null
   question_ids?: number[]
+}
+
+/* ─── Quiz questions ───────────────────────────────────────────────────────── */
+
+/**
+ * One option on a multiple-choice question, AS THE AUTHOR SEES IT.
+ *
+ * `correct` is present here and NOWHERE on the learner path. The authoring
+ * endpoint is admin-gated precisely so this field can exist; QuizQuestion in
+ * services/lms/quiz.ts deliberately has no equivalent, and the server does not
+ * select the column for a learner.
+ */
+export interface QuestionOptionDraft {
+  id?: number
+  answer: string
+  correct: boolean
+}
+
+/** A question on a paper, with its options and which of them are right. */
+export interface PaperQuestion {
+  id: number
+  question_title: string | null
+  description: string | null
+  points: number
+  hint_text: string | null
+  options: { id: number; answer: string; correct: boolean }[]
+}
+
+export interface PaperQuestionsResponse {
+  status: boolean
+  data: PaperQuestion[]
+  total_marks: number
+}
+
+/**
+ * What the author submits.
+ *
+ * An empty `options` array means a WRITTEN answer, marked by the AI marker and
+ * held for a human when it cannot be. Options with none marked correct are
+ * refused by the server — that combination can never be marked by anything.
+ */
+export interface QuestionPayload {
+  question_title: string
+  description?: string | null
+  points?: number
+  hint_text?: string | null
+  options?: QuestionOptionDraft[]
 }
 
 /** A row from the course's question bank, for picking quiz questions. */
@@ -314,6 +362,30 @@ export const lmsCourseBuilderService = {
       ...body,
     }),
 
+  /**
+   * POST /lms/learning/content/upload — put a lesson file where the player can
+   * open it.
+   *
+   * Until this existed a lesson could only ever be a public URL: both authoring
+   * surfaces asked for one, and course-authoring.tsx said "Uploads are handled
+   * by the content library" — a content library that does not exist anywhere in
+   * this codebase. An author with a PDF on their laptop had no way in.
+   *
+   * The response carries the `file_type` the player switches on, derived
+   * server-side from the real extension rather than guessed here.
+   */
+  uploadContent: (context: LaravelContext, file: File, courseId?: number) => {
+    const form = new FormData()
+
+    Object.entries(params(context)).forEach(([key, value]) => form.append(key, value))
+    form.append('file', file)
+    if (courseId) form.append('course_id', String(courseId))
+
+    return apiClient.postForm<
+      BuilderApiResponse<{ url: string; file_type: string; filename: string; size: number }>
+    >('/lms/learning/content/upload', form)
+  },
+
   deleteContent: (context: LaravelContext, contentId: number, profileName?: string) =>
     apiClient.delete<BuilderApiResponse<null>>(`/lms/learning/content/${contentId}`, {
       ...params(context, profileName),
@@ -355,6 +427,89 @@ export const lmsCourseBuilderService = {
     apiClient.delete<BuilderApiResponse<null>>(`/lms/assessments/${id}`, {
       ...params(context, profileName),
     }),
+
+  /* ── Questions on a paper ──────────────────────────────────────────────
+   *
+   * THE HALF OF QUIZ AUTHORING THAT DID NOT EXIST.
+   *
+   * Until these, a quiz could be created, named, given a pass mark and an
+   * attempt limit — and never asked a question. There was no API path that
+   * wrote lms_question_master or answer_master at all, so every quiz authored
+   * in this product had total_ques = 0 and the wizard reported it without
+   * comment. The scorer, the competency rating and the certificate gate were
+   * all finished and unreachable by any admin.
+   *
+   * The server keeps question_ids, total_ques and total_marks in step on every
+   * write, so the paper can never disagree with its own contents.
+   */
+
+  /** GET — the paper's own questions, WITH which option is correct (admin). */
+  paperQuestions: (context: LaravelContext, paperId: number) =>
+    apiClient.get<PaperQuestionsResponse>(
+      `/lms/assessments/${paperId}/questions`,
+      params(context),
+    ),
+
+  /**
+   * Write questions from the course's own modules, lessons and capabilities.
+   *
+   * Appends - it never replaces what an author already wrote. The response
+   * says how many were kept, how many were unusable and how many are tied to a
+   * capability, because "generated 5" and "generated 7, discarded 2" are
+   * different facts and only one of them is honest.
+   */
+  generateQuestions: (
+    context: LaravelContext,
+    paperId: number,
+    payload: { count: number; formats: string[] },
+    profileName?: string,
+  ) =>
+    apiClient.post<
+      BuilderApiResponse<{
+        created: number
+        dropped: number
+        cited: number
+        modules_used: number
+        capabilities_available: number
+      }>
+    >(`/lms/assessments/${paperId}/questions/generate`, {
+      ...params(context, profileName),
+      ...payload,
+    }),
+
+  addQuestion: (
+    context: LaravelContext,
+    paperId: number,
+    payload: QuestionPayload,
+    profileName?: string,
+  ) =>
+    apiClient.post<BuilderApiResponse<{ id: number }>>(
+      `/lms/assessments/${paperId}/questions`,
+      { ...params(context, profileName), ...payload },
+    ),
+
+  updateQuestion: (
+    context: LaravelContext,
+    paperId: number,
+    questionId: number,
+    payload: QuestionPayload,
+    profileName?: string,
+  ) =>
+    apiClient.put<BuilderApiResponse<null>>(
+      `/lms/assessments/${paperId}/questions/${questionId}`,
+      { ...params(context, profileName), ...payload },
+    ),
+
+  deleteQuestion: (
+    context: LaravelContext,
+    paperId: number,
+    questionId: number,
+    profileName?: string,
+  ) =>
+    apiClient.delete<BuilderApiResponse<null>>(
+      `/lms/assessments/${paperId}/questions/${questionId}`,
+      { ...params(context, profileName) },
+    ),
 
   /**
    * How many people the current audience would reach, before committing to it.

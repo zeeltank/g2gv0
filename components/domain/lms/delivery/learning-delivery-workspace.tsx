@@ -45,6 +45,7 @@ import {
   ChapterFormSheet,
   type AuthoringTarget,
 } from './course-authoring'
+import { CourseQuizPanel } from './course-quiz-panel'
 import type {
   Discussion,
   LearningAssessment,
@@ -52,6 +53,7 @@ import type {
   LearningCourseSummary,
   LearningNote,
 } from '@/services/lms'
+import { isHrAdmin } from '@/types/role'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -502,9 +504,19 @@ function NotesTab({
 function AssessmentsTab({
   assessments,
   loading,
+  onTakeQuiz,
 }: {
   assessments: LearningAssessment[]
   loading: boolean
+  /**
+   * Take the learner to the quiz.
+   *
+   * This tab listed every paper with a "Not started" badge and NO action of any
+   * kind, so a learner looking at the screen named Assessments had no way to
+   * start one from it — the only working control was in the right rail, which
+   * is not where you look when you have clicked "Assessments".
+   */
+  onTakeQuiz: () => void
 }) {
   if (loading) {
     return (
@@ -539,12 +551,27 @@ function AssessmentsTab({
                 <p className="line-clamp-2 text-xs text-muted-foreground">{assessment.paper_desc}</p>
               )}
             </div>
+            {/*
+              * Passed is not the same as attempted, and the certificate gate
+              * cares about the difference. Showing "Attempted" for a failed
+              * attempt told the learner they were done when they were not.
+              */}
             <StatusBadge
-              variant={assessment.status === 'completed' ? 'success' : 'inactive'}
+              variant={
+                assessment.passed
+                  ? 'success'
+                  : assessment.status === 'completed'
+                    ? 'pending'
+                    : 'inactive'
+              }
               size="sm"
               className="shrink-0 text-[10px] font-bold uppercase tracking-wider"
             >
-              {assessment.status === 'completed' ? 'Attempted' : 'Not started'}
+              {assessment.passed
+                ? 'Passed'
+                : assessment.status === 'completed'
+                  ? 'Attempted'
+                  : 'Not started'}
             </StatusBadge>
           </div>
 
@@ -561,13 +588,45 @@ function AssessmentsTab({
             )}
           </div>
 
+          <Button
+            size="sm"
+            variant={assessment.passed ? 'outline' : 'default'}
+            className="w-fit gap-2"
+            onClick={onTakeQuiz}
+          >
+            <ClipboardCheck className="size-3.5" />
+            {assessment.passed
+              ? 'Review your result'
+              : assessment.attempt_count > 0
+                ? 'Try again'
+                : 'Take this assessment'}
+          </Button>
+
           {assessment.attempts.length > 0 && (
             <div className="flex flex-col gap-1 rounded-md bg-muted/30 p-2">
               {assessment.attempts.slice(0, 3).map((attempt) => (
-                <div key={attempt.id} className="flex justify-between text-[11px]">
+                <div key={`${attempt.source ?? 'legacy'}-${attempt.id}`} className="flex justify-between text-[11px]">
                   <span className="text-muted-foreground">{formatDate(attempt.created_at) ?? '—'}</span>
+                  {/*
+                    * The two sources record different things. A quiz attempt
+                    * has a percentage and a pass flag; a legacy exam row has a
+                    * right/wrong split and neither. Rendering one shape for
+                    * both meant printing "0 right / 0 wrong" against a quiz
+                    * the learner had scored 100% on.
+                    */}
                   <span className="font-semibold text-foreground">
-                    {attempt.obtain_marks ?? 0} marks · {attempt.total_right ?? 0} right / {attempt.total_wrong ?? 0} wrong
+                    {attempt.source === 'quiz' ? (
+                      <>
+                        {attempt.obtain_marks ?? 0} marks
+                        {attempt.percent != null && ` · ${Math.round(attempt.percent)}%`}
+                        {attempt.passed != null && (attempt.passed ? ' · passed' : ' · not passed')}
+                      </>
+                    ) : (
+                      <>
+                        {attempt.obtain_marks ?? 0} marks · {attempt.total_right ?? 0} right /{' '}
+                        {attempt.total_wrong ?? 0} wrong
+                      </>
+                    )}
                   </span>
                 </div>
               ))}
@@ -842,9 +901,23 @@ export function LearningDeliveryWorkspace() {
    */
   const enrolmentStatus = courses.find((entry) => entry.id === courseId)?.enrollment_status ?? null
   // Admin/HR may author content; the API enforces the same rule.
-  const canModerate = user?.role === 'admin' || user?.role === 'hr'
+  const canModerate = isHrAdmin(user?.role)
   const canAuthor = canModerate
   const [activeTab, setActiveTab] = useState('learn')
+
+  /**
+   * The quiz panel, so the Assessments tab can take the learner to it.
+   *
+   * The tab is where somebody looks for an assessment; the panel is where the
+   * working control lives. Rather than duplicating the panel's state machine
+   * (start / resume / submit / review / lock reasons) into the tab, the tab
+   * sends them to the one implementation.
+   */
+  const quizPanelRef = React.useRef<HTMLDivElement | null>(null)
+
+  const goToQuiz = React.useCallback(() => {
+    quizPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
   const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'chapter' | 'content'; id: number; label: string } | null
@@ -873,7 +946,18 @@ export function LearningDeliveryWorkspace() {
   }
 
   const course = detail?.course
-  const materials = lessons.filter((lesson) => ['pdf', 'link'].includes(lessonKind(lesson.file_type)))
+  /*
+   * Downloadable material, resolved the SAME way the player resolves a lesson.
+   *
+   * This called `lessonKind(lesson.file_type)` with no `src`, which defeats the
+   * extension fallback the function exists for - so a PDF stored with a blank
+   * or unrecognised `file_type` played correctly in the viewer and then
+   * vanished from "Course materials", because the two calls disagreed about
+   * what it was.
+   */
+  const materials = lessons.filter((lesson) =>
+    ['pdf', 'office', 'link'].includes(lessonKind(lesson.file_type, lesson.url ?? lesson.filename)),
+  )
   const due = formatDate(detail?.enrollment?.end_date ?? null)
 
   const tabs = [
@@ -1163,7 +1247,11 @@ export function LearningDeliveryWorkspace() {
               )}
 
               {activeTab === 'assessments' && (
-                <AssessmentsTab assessments={assessments} loading={assessmentsLoading} />
+                <AssessmentsTab
+                  assessments={assessments}
+                  loading={assessmentsLoading}
+                  onTakeQuiz={goToQuiz}
+                />
               )}
 
               {activeTab === 'notes' && (
@@ -1202,12 +1290,35 @@ export function LearningDeliveryWorkspace() {
                 <span className="font-semibold text-foreground">
                   {detail?.completed_content ?? 0} of {detail?.total_content ?? 0} lessons
                 </span>
+                {/*
+                  * Sessions are counted separately, and shown separately.
+                  *
+                  * The percentage above covers lessons AND the sessions this
+                  * learner is registered on, so without this line a learner who
+                  * had opened every lesson would see "6 of 6 lessons" beside a
+                  * ring reading 86% and have no way to find the missing 14%.
+                  */}
+                {(detail?.total_sessions ?? 0) > 0 && (
+                  <span className="font-semibold text-foreground">
+                    {detail?.attended_sessions ?? 0} of {detail?.total_sessions ?? 0} sessions
+                    attended
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {Math.round((detail?.time_spent_seconds ?? 0) / 60)} min spent
                 </span>
               </div>
             </CardContent>
           </Card>
+
+          {/*
+            The quiz sits between the lessons and the certificate, which is the
+            order it gates in: finish the lessons, pass the quiz, then claim.
+            Renders nothing at all for a course with no quiz.
+          */}
+          <div ref={quizPanelRef}>
+            <CourseQuizPanel courseId={courseId} onPassed={() => void reload()} />
+          </div>
 
           {/*
             THE LEARNER SAYS WHEN THEY ARE FINISHED.

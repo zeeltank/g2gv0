@@ -14,6 +14,7 @@ import { canProgressCandidate, type Candidate, type JobOpening } from './recruit
 import type { InterviewApi, InterviewPanelApi, JobPostingApi, OfferTemplateApi, TalentOfferApi } from '@/types/recruitment'
 import { JobPostingForm } from './job-posting-form'
 import { CandidateApplicationForm } from './candidate-application-form'
+import { isHrAdmin } from '@/types/role'
 
 export type RecruitmentAction = 'job' | 'job-edit' | 'job-view' | 'candidate' | 'interview' | 'interview-edit' | 'offer' | 'offer-view'
 
@@ -188,7 +189,7 @@ export function RecruitmentActionDrawer({ action, jobs, candidates, selectedJob,
 
   useEffect(() => {
     const role = mapProfileNameToRole(readLaravelSession()?.user_profile_name)
-    queueMicrotask(() => setCanEditJob(role === 'admin' || role === 'hr'))
+    queueMicrotask(() => setCanEditJob(isHrAdmin(role)))
   }, [])
 
   async function submit() {

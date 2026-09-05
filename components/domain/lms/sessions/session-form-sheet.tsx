@@ -15,11 +15,39 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import type { SessionPayload, SessionType, TrainingSession } from '@/services/lms'
+import {
+  lmsCatalogService,
+  lmsGovernanceService,
+  type SessionPayload,
+  type SessionType,
+  type TrainingSession,
+} from '@/services/lms'
+import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 
 interface FormState {
   room_name: string
   session_type: SessionType
+  /**
+   * The course this session belongs to, as a string because that is what the
+   * Select yields; '' means standalone.
+   *
+   * NOT `subject_id`, which looks like the course link and is not one — it
+   * carries a foreign key to `subject`, a five-row legacy master list, and the
+   * database refuses a course id outright. `course_id` is the real link, added
+   * because none existed. Until then a session could not be attached to a
+   * course at all, so attendance could never count toward one.
+   */
+  course_id: string
+  /**
+   * The trainer RECORD, when one is chosen; '' means the typed name below.
+   *
+   * `lms_virtual_classroom.trainer_id` has always existed and nothing ever
+   * wrote it, so Governance kept a trainer directory - rates, vendor,
+   * specialisation - that no session pointed at, while every session carried a
+   * free-text name nobody could reconcile with it.
+   */
+  trainer_id: string
   trainer_name: string
   trainer_email: string
   venue: string
@@ -35,6 +63,8 @@ interface FormState {
 const EMPTY: FormState = {
   room_name: '',
   session_type: 'virtual',
+  course_id: '',
+  trainer_id: '',
   trainer_name: '',
   trainer_email: '',
   venue: '',
@@ -58,6 +88,8 @@ function toFormState(session: TrainingSession | null): FormState {
   return {
     room_name: session.room_name ?? '',
     session_type: session.session_type ?? 'virtual',
+    course_id: session.course_id != null ? String(session.course_id) : '',
+    trainer_id: session.trainer_id != null ? String(session.trainer_id) : '',
     trainer_name: session.trainer_name ?? '',
     trainer_email: session.trainer_email ?? '',
     venue: session.venue ?? '',
@@ -91,8 +123,11 @@ export function SessionFormSheet({
   saving: boolean
   onSubmit: (payload: SessionPayload, id?: number) => Promise<{ ok: boolean; message: string }>
 }) {
+  const { user } = useAuth()
   const [form, setForm] = useState<FormState>(EMPTY)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
+  const [courses, setCourses] = useState<{ label: string; value: string }[]>([])
+  const [trainers, setTrainers] = useState<{ label: string; value: string }[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -101,6 +136,67 @@ export function SessionFormSheet({
       setErrors({})
     })
   }, [open, session])
+
+  /*
+   * The tenant's courses, for the Course field.
+   *
+   * Loaded when the sheet opens rather than with the calendar, so the list is
+   * current every time somebody schedules something and the calendar does not
+   * pay for it on every render.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const context = getLaravelContext(user)
+    if (!isLaravelContextReady(context)) return
+
+    let cancelled = false
+
+    void lmsCatalogService
+      .getCourses(context, { perPage: 200, sortBy: 'title', sortDir: 'asc' })
+      .then((response) => {
+        if (cancelled) return
+        setCourses(
+          (response.data ?? []).map((course) => ({
+            label: course.display_name ?? `Course #${course.id}`,
+            value: String(course.id),
+          })),
+        )
+      })
+      // A session can legitimately have no course, so a failure here degrades
+      // to an empty picker rather than blocking the whole form.
+      .catch(() => {
+        if (!cancelled) setCourses([])
+      })
+
+    /*
+     * The tenant's trainer directory.
+     *
+     * Only ACTIVE trainers are offered - somebody deactivated in Governance
+     * should not be schedulable, which is the whole reason deactivation now
+     * exists rather than deletion.
+     */
+    void lmsGovernanceService
+      .trainers(context, undefined, undefined, 1)
+      .then((response) => {
+        if (cancelled) return
+        setTrainers(
+          (response.data ?? []).map((trainer) => ({
+            label: trainer.specialisation
+              ? `${trainer.name} - ${trainer.specialisation}`
+              : trainer.name,
+            value: String(trainer.id),
+          })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setTrainers([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, user])
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
@@ -135,6 +231,13 @@ export function SessionFormSheet({
       {
         room_name: form.room_name.trim(),
         session_type: form.session_type,
+        // Always sent, including as null: the controller only leaves the link
+        // alone when the key is absent entirely, so sending it explicitly is
+        // what makes "no course" a choice rather than an accident.
+        course_id: form.course_id ? Number(form.course_id) : null,
+        trainer_id: form.trainer_id ? Number(form.trainer_id) : null,
+        // Kept alongside the id: a session may name a guest trainer who has no
+        // record, and clearing the name on every linked save would lose that.
         trainer_name: form.trainer_name.trim() || null,
         trainer_email: form.trainer_email.trim() || null,
         venue: form.venue.trim() || null,
@@ -211,6 +314,29 @@ export function SessionFormSheet({
             </div>
           </div>
 
+          {/*
+            * The course this session belongs to.
+            *
+            * Not decoration: once linked, attending the session counts toward
+            * that course's completion for everyone registered — which is the
+            * whole point of scheduling training against a course rather than
+            * beside it. Leaving it blank keeps the session standalone.
+            */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="session-course">Part of course</Label>
+            <Select
+              id="session-course"
+              value={form.course_id}
+              onChange={(value) => setField('course_id', value)}
+              options={[{ label: 'Standalone — not part of a course', value: '' }, ...courses]}
+            />
+            <p className="text-xs text-muted-foreground">
+              {form.course_id
+                ? 'Attendance will count toward this course for registered learners.'
+                : 'This session stands on its own and affects no course progress.'}
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="session-date">
@@ -253,12 +379,27 @@ export function SessionFormSheet({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="session-trainer">Trainer</Label>
+              <Label htmlFor="session-trainer-id">Trainer</Label>
+              <Select
+                id="session-trainer-id"
+                value={form.trainer_id}
+                onChange={(value) => setField('trainer_id', value)}
+                options={[
+                  { label: trainers.length ? 'Not from the directory' : 'No trainers on record', value: '' },
+                  ...trainers,
+                ]}
+              />
+              {/*
+                * The typed name stays, for a guest who has no record. When a
+                * directory trainer is chosen their name is what the calendar
+                * shows, so this becomes a note rather than the source.
+                */}
               <Input
                 id="session-trainer"
+                className="mt-1"
                 value={form.trainer_name}
                 onChange={(event) => setField('trainer_name', event.target.value)}
-                placeholder="Optional"
+                placeholder={form.trainer_id ? 'Optional note' : 'Or type a name'}
               />
             </div>
             <div className="flex flex-col gap-1.5">

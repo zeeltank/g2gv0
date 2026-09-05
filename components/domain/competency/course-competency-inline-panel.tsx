@@ -33,9 +33,19 @@ import { competencyLibraryService } from '@/services/competency/library'
 export function CourseCompetencyInlinePanel({
   courseId,
   readOnly = false,
+  onCountChange,
 }: {
   courseId: number | null
   readOnly?: boolean
+  /**
+   * How many capabilities are mapped, reported to the parent after every load.
+   *
+   * The Course Builder needs it to warn that "update capability records on a
+   * pass" is switched on for a course mapped to nothing - a setting that looks
+   * active and moves no one. Optional, so the catalogue's edit sheet is
+   * unaffected.
+   */
+  onCountChange?: (count: number) => void
 }) {
   const { user } = useAuth()
   const [mapped, setMapped] = useState<CourseCompetency[]>([])
@@ -46,7 +56,7 @@ export function CourseCompetencyInlinePanel({
   const [picked, setPicked] = useState('')
 
   const load = useCallback(async () => {
-    if (!courseId) { setMapped([]); return }
+    if (!courseId) { setMapped([]); onCountChange?.(0); return }
     setLoading(true)
     setError(null)
     try {
@@ -56,13 +66,14 @@ export function CourseCompetencyInlinePanel({
         competencyLibraryService.list(context),
       ])
       setMapped(current.data ?? [])
+      onCountChange?.((current.data ?? []).length)
       setAvailable((library.data ?? []).map((item) => ({ id: item.id, name: item.name })))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load what this course builds.')
     } finally {
       setLoading(false)
     }
-  }, [courseId, user])
+  }, [courseId, user, onCountChange])
 
   useEffect(() => { void load() }, [load])
 
