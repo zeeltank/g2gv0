@@ -257,6 +257,8 @@ function ApplyForm({
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [tracking, setTracking] = useState<{ url: string | null; emailed: boolean } | null>(null)
+  const [copied, setCopied] = useState(false)
   const errorRef = useRef<HTMLDivElement | null>(null)
 
   const set = (key: string, value: string) => setValues((prev) => ({ ...prev, [key]: value }))
@@ -296,7 +298,15 @@ function ApplyForm({
       Object.entries(values).forEach(([key, value]) => value && form.append(key, value))
       form.append('consent_to_retain', keepOnFile ? '1' : '0')
       if (resume) form.append('resume', resume)
-      await careersApi.apply(slug, postingId, form)
+      const result = await careersApi.apply(slug, postingId, form)
+      // The tracking link is shown on screen as well as emailed. If mail is off
+      // for this organisation, or the email is slow, or it lands in spam, this
+      // is the candidate's only route back to their own application - losing it
+      // behind a "check your inbox" message would be the whole point missed.
+      setTracking({
+        url: result.data?.track_url ?? null,
+        emailed: Boolean(result.data?.emailed),
+      })
       setDone(true)
     } catch (cause) {
       if (cause instanceof CareersError && cause.fieldErrors) {
@@ -316,20 +326,61 @@ function ApplyForm({
 
   if (done) {
     return (
-      <section className="rounded-xl border border-success/30 bg-success/5 p-6 text-center" role="status">
-        <CheckCircle2 className="mx-auto mb-3 size-8 text-success" aria-hidden="true" />
-        <h2 className="text-base font-semibold text-foreground">Application received</h2>
-        <p className="mx-auto mt-1.5 max-w-xs text-sm text-muted-foreground">
-          Thank you for applying for <span className="font-medium text-foreground">{roleTitle}</span>.
-          The hiring team will be in touch by email.
-        </p>
-        <Link
-          href={`/careers/${slug}`}
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden="true" />
-          Back to all roles
-        </Link>
+      <section className="rounded-xl border border-success/30 bg-success/5 p-6" role="status">
+        <div className="text-center">
+          <CheckCircle2 className="mx-auto mb-3 size-8 text-success" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-foreground">Application received</h2>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
+            Thank you for applying for <span className="font-medium text-foreground">{roleTitle}</span>.
+            {tracking?.emailed
+              ? ' We have emailed you a link to follow it.'
+              : ' Keep the link below to follow it.'}
+          </p>
+        </div>
+
+        {tracking?.url && (
+          <div className="mt-5 rounded-lg border border-border bg-card p-4">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Follow your application
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Personal to you, no account needed. It works for 90 days.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded bg-muted px-2.5 py-2 text-[11px] text-muted-foreground">
+                {tracking.url}
+              </code>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-xs font-semibold shadow-sm transition-colors hover:bg-accent"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(tracking.url ?? '').then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  })
+                }}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              <a
+                href={tracking.url}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+              >
+                Open
+              </a>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 text-center">
+          <Link
+            href={`/careers/${slug}`}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden="true" />
+            Back to all roles
+          </Link>
+        </div>
       </section>
     )
   }
