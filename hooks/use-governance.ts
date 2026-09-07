@@ -23,6 +23,7 @@ import {
   type Vendor,
   type VendorPayload,
 } from '@/services/lms'
+import { isHrAdmin } from '@/types/role'
 
 function toMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
@@ -42,7 +43,7 @@ export function useGovernance() {
   const resolveContext = useCallback(() => getLaravelContext(user), [user])
   const profileName = user?.profileName
   /** The API enforces this too; the UI uses it to hide writes it would refuse. */
-  const canAdminister = user?.role === 'admin' || user?.role === 'hr'
+  const canAdminister = isHrAdmin(user?.role)
 
   const [tab, setTab] = useState<GovernanceTab>('users')
 
@@ -200,13 +201,38 @@ export function useGovernance() {
     }
   }, [resolveContext, profileName])
 
+  /*
+   * ── THE AUDIT FILTERS WERE FETCHED, STORED, AND THEN DISCARDED ───────────
+   *
+   * `AuditQuery` supports `search`, `entityType`, `from` and `to`; the endpoint
+   * implements all four; and this hook even stored `entity_types` from the
+   * response into `auditFilters`. It then sent `{page, action}` and rendered
+   * none of it — a complete filter capability, built on both sides, connected
+   * on neither.
+   *
+   * An audit log you cannot narrow is a log nobody reads: the whole point of
+   * one is answering "who changed this, and when".
+   */
+  /** The three audit filters the API has always accepted and nothing sent. */
+  const [auditSearch, setAuditSearch] = useState('')
+  const [auditEntityType, setAuditEntityType] = useState('')
+  const [auditFrom, setAuditFrom] = useState('')
+  const [auditTo, setAuditTo] = useState('')
+
   const loadAudit = useCallback(async () => {
     const context = resolveContext()
     if (!isLaravelContextReady(context)) return
     try {
       const response = await lmsGovernanceService.auditLogs(
         context,
-        { page: auditPage, action: auditAction || undefined },
+        {
+          page: auditPage,
+          action: auditAction || undefined,
+          search: auditSearch.trim() || undefined,
+          entityType: auditEntityType || undefined,
+          from: auditFrom || undefined,
+          to: auditTo || undefined,
+        },
         profileName,
       )
       setAuditLogs(response.data ?? [])
@@ -215,7 +241,10 @@ export function useGovernance() {
     } catch {
       setAuditLogs([])
     }
-  }, [resolveContext, auditPage, auditAction, profileName])
+  }, [
+    resolveContext, auditPage, auditAction, auditSearch,
+    auditEntityType, auditFrom, auditTo, profileName,
+  ])
 
   // Each tab fetches only when it is the visible one, so opening the page does
   // not fire seven requests for six panels nobody is looking at.
@@ -381,6 +410,16 @@ export function useGovernance() {
   )
 
   /* ── Roles ── */
+
+  /** Reset every audit filter at once, and go back to page 1. */
+  const resetAuditFilters = useCallback(() => {
+    setAuditSearch('')
+    setAuditEntityType('')
+    setAuditFrom('')
+    setAuditTo('')
+    setAuditAction('')
+    setAuditPage(1)
+  }, [])
 
   const saveRole = useCallback(
     (payload: RolePayload, id?: number) =>
@@ -551,6 +590,34 @@ export function useGovernance() {
       setAuditAction(value)
       setAuditPage(1)
     },
+    /*
+     * Every filter resets the page.
+     *
+     * Narrowing while on page 4 of the unfiltered log lands on a page the
+     * filtered result may not have, and the table reads as empty when it is
+     * not.
+     */
+    auditSearch,
+    setAuditSearch: (value: string) => {
+      setAuditSearch(value)
+      setAuditPage(1)
+    },
+    auditEntityType,
+    setAuditEntityType: (value: string) => {
+      setAuditEntityType(value)
+      setAuditPage(1)
+    },
+    auditFrom,
+    setAuditFrom: (value: string) => {
+      setAuditFrom(value)
+      setAuditPage(1)
+    },
+    auditTo,
+    setAuditTo: (value: string) => {
+      setAuditTo(value)
+      setAuditPage(1)
+    },
+    resetAuditFilters,
     auditPage,
     setAuditPage,
 

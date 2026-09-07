@@ -4,7 +4,7 @@ import * as React from 'react'
 import { GtgPageHeader } from '@/components/shell/gtg-page-header'
 import { EnhancedAttendanceFilters } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/enhanced-attendance-filters'
 import { AttendanceReportTable } from '@/domain/hrms/hrit/attendance-management/attendance-reports/components/AttendanceReportTable'
-import { savedReports, type EarlyGoingRecord } from './services/report-data'
+import type { EarlyGoingRecord } from './types'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
 import {
@@ -18,7 +18,7 @@ import {
 } from '@/services/hrms'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
-import { Eye } from 'lucide-react'
+import { Download, Eye, Printer } from 'lucide-react'
 import type { Column } from '@/components/ui/data-table'
 import { AttendanceTabs } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-tabs'
 import {
@@ -33,6 +33,12 @@ import {
   AttendanceGroupedTable,
   type GroupedRecord,
 } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-grouped-table'
+import {
+  AttendanceDrillDownDrawer,
+  type DrillDownRecord,
+} from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-drill-down-drawer'
+// One CSV writer for the whole module - the payroll screens already had it.
+import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 
 
 type ViewTab = { id: ViewTabId; label: string }
@@ -191,7 +197,7 @@ const viewTabs: ViewTab[] = [
   { id: 'daily-details', label: 'Daily Details' },
 ]
 
-function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
+function getEarlyGoingColumns(onRowOpen: (row: EarlyGoingRecord) => void): Column<EarlyGoingRecord>[] {
   return [
     { id: 'id', header: '#' },
     { id: 'employee', header: 'Employee' },
@@ -216,10 +222,18 @@ function getEarlyGoingColumns(): Column<EarlyGoingRecord>[] {
       ),
     },
     {
+      // F-112: this button had no onClick at all. It opens the drill-down
+      // drawer that already existed in attendance-tracking/components.
       id: 'actions' as keyof EarlyGoingRecord,
       header: 'Actions',
-      render: () => (
-        <Button variant="ghost" size="icon" className="size-8 rounded-full">
+      render: (_value, row) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 rounded-full"
+          aria-label={`View ${row.employee}'s day`}
+          onClick={() => onRowOpen(row)}
+        >
           <Eye className="size-4" />
         </Button>
       ),
@@ -253,6 +267,7 @@ export function AttendanceReportsPage() {
   const [employeesLoading, setEmployeesLoading] = React.useState(false)
   const [departmentReport, setDepartmentReport] = React.useState<DepartmentAttendanceEmployee[]>([])
   const [earlyGoingRows, setEarlyGoingRows] = React.useState<EarlyGoingRecord[]>([])
+  const [drillDownRecord, setDrillDownRecord] = React.useState<DrillDownRecord | null>(null)
   const [appliedFilters, setAppliedFilters] = React.useState<AppliedFilters>(() => ({
     from: initialDate,
     to: initialDate,
@@ -293,6 +308,25 @@ export function AttendanceReportsPage() {
       case 'month': {
         const start = new Date(today.getFullYear(), today.getMonth(), 1)
         const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        setDateRange({ from: formatDate(start), to: formatDate(end) })
+        break
+      }
+      case 'last-month': {
+        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const end = new Date(today.getFullYear(), today.getMonth(), 0)
+        setDateRange({ from: formatDate(start), to: formatDate(end) })
+        break
+      }
+      case 'quarter': {
+        const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3
+        const start = new Date(today.getFullYear(), quarterStartMonth, 1)
+        const end = new Date(today.getFullYear(), quarterStartMonth + 3, 0)
+        setDateRange({ from: formatDate(start), to: formatDate(end) })
+        break
+      }
+      case 'year': {
+        const start = new Date(today.getFullYear(), 0, 1)
+        const end = new Date(today.getFullYear(), 11, 31)
         setDateRange({ from: formatDate(start), to: formatDate(end) })
         break
       }
@@ -350,16 +384,68 @@ export function AttendanceReportsPage() {
     setPage(1)
   }
 
+  /**
+   * F-99. Was `console.log('Export clicked')`.
+   *
+   * Exports what is on screen for the applied filters, in the view the user is
+   * actually looking at — exporting a different shape from the one they can see
+   * is how an export stops being trusted. Reuses `downloadCsv` from the payroll
+   * shell rather than adding a second CSV writer.
+   */
+  /** F-112: the row "eye" had no handler. It opens the existing drawer. */
+  const handleRowOpen = React.useCallback((row: EarlyGoingRecord) => {
+    setDrillDownRecord({
+      id: row.id,
+      date: row.date,
+      employee: row.employee,
+      employeeId: row.employeeId,
+      department: row.department,
+      punchIn: row.punchIn,
+      punchOut: row.punchOut,
+      expectedOut: row.expectedOut,
+      earlyBy: row.earlyBy,
+      status: row.status,
+    })
+  }, [])
+
   const handleExport = () => {
-    console.log('Export clicked')
+    if (viewMode === 'daily-details') {
+      downloadCsv(
+        `attendance-daily-${appliedFilters.from}-to-${appliedFilters.to}.csv`,
+        ['Employee', 'Employee ID', 'Department', 'Date', 'Punch In', 'Punch Out', 'Expected Out', 'Early By', 'Status'],
+        earlyGoingData.map((row) => [
+          row.employee, row.employeeId, row.department, row.date,
+          row.punchIn, row.punchOut, row.expectedOut, row.earlyBy, row.status,
+        ]),
+      )
+      return
+    }
+
+    downloadCsv(
+      `attendance-${groupBy}-${appliedFilters.from}-to-${appliedFilters.to}.csv`,
+      ['Group', 'Department', 'Employee', 'Employees', 'Present', 'Absent', 'Late', 'Attendance %'],
+      groupedTableData.map((row) => [
+        groupBy,
+        row.department ?? '',
+        row.employee ?? '',
+        row.employees ?? '',
+        row.present ?? '',
+        row.absent ?? '',
+        row.late ?? '',
+        row.attendancePercentage ?? '',
+      ]),
+    )
   }
 
+  /**
+   * F-99. Was `console.log('Print clicked')`.
+   *
+   * The browser's own print dialog, with a print stylesheet on the page that
+   * drops the filter bar, the tabs and the action buttons so the report prints
+   * as a report rather than as a screenshot of an app.
+   */
   const handlePrint = () => {
-    console.log('Print clicked')
-  }
-
-  const handleSavedReportChange = (value: string) => {
-    console.log('Saved report:', value)
+    window.print()
   }
 
   React.useEffect(() => {
@@ -710,7 +796,7 @@ export function AttendanceReportsPage() {
   const renderDailyDetails = () => {
     const data = earlyGoingData.slice((page - 1) * pageSize, page * pageSize)
     const total = earlyGoingData.length
-    const columns = getEarlyGoingColumns()
+    const columns = getEarlyGoingColumns(handleRowOpen)
 
     return (
       <div className="flex flex-col gap-6">
@@ -771,11 +857,37 @@ export function AttendanceReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <GtgPageHeader
-        title="Attendance Report"
-        description="View and analyze attendance data with detailed reports."
-      />
+      <div className="report-no-print flex flex-wrap items-start justify-between gap-3">
+        <GtgPageHeader
+          title="Attendance Report"
+          description="View and analyze attendance data with detailed reports."
+        />
 
+        {/*
+          * F-99, and it was worse than filed. The audit recorded Export and
+          * Print as `console.log` handlers; in fact the handlers were bound to
+          * NOTHING - there were no Export or Print controls on this screen at
+          * all. Here they are, and they work.
+          */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            disabled={apiLoading || (viewMode === 'daily-details' ? earlyGoingData.length === 0 : groupedTableData.length === 0)}
+          >
+            <Download className="size-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handlePrint} disabled={apiLoading}>
+            <Printer className="size-4" />
+            Print
+          </Button>
+        </div>
+      </div>
+
+      <div className="report-no-print">
       <EnhancedAttendanceFilters
         dateRange={dateRange}
         groupBy={groupBy}
@@ -785,13 +897,11 @@ export function AttendanceReportsPage() {
         departments={departmentOptions}
         employees={employeeOptions}
         employeesLoading={employeesLoading}
-        savedReports={savedReports}
         onDateRangeChange={handleDateRangeChange}
         onGroupByChange={setGroupBy}
         onDepartmentChange={handleDepartmentChange}
         onEmployeeChange={setEmployee}
         onQuickFilterChange={setQuickFilter}
-        onSavedReportChange={handleSavedReportChange}
         onReset={handleReset}
         onSearch={handleSearchClick}
       />
@@ -801,6 +911,7 @@ export function AttendanceReportsPage() {
         active={viewMode}
         onChange={(id: string) => setViewMode(id as ViewTabId)}
       />
+      </div>
 
       {apiError && (
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
@@ -814,7 +925,45 @@ export function AttendanceReportsPage() {
         </div>
       )}
 
-      {renderContent()}
+      <div className="report-print-area">{renderContent()}</div>
+
+      <AttendanceDrillDownDrawer
+        open={drillDownRecord !== null}
+        onOpenChange={(next) => { if (!next) setDrillDownRecord(null) }}
+        record={drillDownRecord}
+        recentRecords={earlyGoingData
+          .filter((row) => row.employeeId === drillDownRecord?.employeeId)
+          .slice(0, 10)
+          .map((row) => ({
+            id: row.id,
+            date: row.date,
+            employee: row.employee,
+            employeeId: row.employeeId,
+            department: row.department,
+            punchIn: row.punchIn,
+            punchOut: row.punchOut,
+            expectedOut: row.expectedOut,
+            earlyBy: row.earlyBy,
+            status: row.status,
+          }))}
+      />
+
+      {/*
+        * F-99. Print used to be console.log. The browser's own dialog does the
+        * printing; this makes what it prints a report rather than a screenshot
+        * of an application - the filter bar, tabs and buttons come out, and the
+        * table is allowed to break across pages.
+        */}
+      <style jsx global>{`
+        @media print {
+          .report-no-print,
+          nav, aside, header button { display: none !important; }
+          .report-print-area { break-inside: auto; }
+          .report-print-area table { break-inside: auto; width: 100%; }
+          .report-print-area tr { break-inside: avoid; }
+          body { background: #fff; }
+        }
+      `}</style>
     </div>
   )
 }

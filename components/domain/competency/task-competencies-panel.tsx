@@ -47,6 +47,7 @@ import {
   type TaskMapTask,
 } from '@/services/competency/task-competencies'
 import { competencyDefinitionsService } from '@/services/competency/definitions'
+import { isHrAdmin } from '@/types/role'
 
 export function TaskCompetenciesPanel() {
   const { user } = useAuth()
@@ -69,7 +70,7 @@ export function TaskCompetenciesPanel() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const canEdit = user?.role === 'admin' || user?.role === 'hr'
+  const canEdit = isHrAdmin(user?.role)
 
   useEffect(() => {
     const ctx = getLaravelContext(user)

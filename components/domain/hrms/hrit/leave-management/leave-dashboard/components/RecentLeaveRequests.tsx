@@ -25,9 +25,11 @@ import type { LeaveRequest } from '@/types/leave-dashboard'
 
 interface RecentLeaveRequestsProps {
   requests: LeaveRequest[]
+  /** Opens the request in the detail drawer the dashboard already renders. */
+  onView?: (request: LeaveRequest) => void
 }
 
-export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
+export function RecentLeaveRequests({ requests, onView }: RecentLeaveRequestsProps) {
   return (
     <Card className="h-full rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -99,9 +101,13 @@ export function RecentLeaveRequests({ requests }: RecentLeaveRequestsProps) {
                         <MoreVertical className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[160px]">
-                        <DropdownMenuItem onClick={() => console.log('View', request.id)}>
+                        {/*
+                          * F-112. Was `console.log('View', request.id)`. The
+                          * detail drawer and its open handler already existed on
+                          * this page - the component was simply never handed them.
+                          */}
+                        <DropdownMenuItem onClick={() => onView?.(request)}>
                           View
-
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

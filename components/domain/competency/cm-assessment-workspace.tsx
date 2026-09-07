@@ -46,6 +46,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
+import { CmCandidateAssessments } from './cm-candidate-assessments'
 // AI generation, review and publish. Mounted on the Campaigns tab because that
 // is where an HR user already comes to create an assessment — a separate menu
 // would need its own rights row to say the same thing twice.
@@ -263,6 +264,7 @@ export function CmAssessmentWorkspace() {
             string is not a key. */}
         {([
           ['campaigns', 'Review Cycles'],
+          ['candidates', 'Candidate Assessments'],
           ['participant', 'Participant Ratings'],
           ['calibration', 'Calibration'],
           ['approvals', 'Approvals'],
@@ -284,6 +286,13 @@ export function CmAssessmentWorkspace() {
         })}
       </div>
 
+      {/* CANDIDATES — the recruitment side of assessment.
+          Everything below this tab (paper generation, the magic link, the AI
+          marking, the pass decision) already existed and had no way in: an
+          invitation needs an exam template for the job role, and there was no
+          screen to create one. */}
+      {activeTab === 'candidates' && <CmCandidateAssessments />}
+
       {/* Main Studio Area */}
       {activeTab === 'campaigns' && (
         <div className="mb-4 flex flex-col gap-6">
@@ -296,7 +305,10 @@ export function CmAssessmentWorkspace() {
         </div>
       )}
 
-      {activeTab === 'campaigns' ? (
+      {/* The ratings table below belongs to the four review-cycle tabs. The
+          candidate tab renders its own screen above and nothing else, or this
+          would show an empty Participant Ratings table underneath it. */}
+      {activeTab === 'candidates' ? null : activeTab === 'campaigns' ? (
         <div className="w-full overflow-x-auto pb-4 g2g-scrollbar">
           <div className="flex gap-6 items-stretch min-w-[1000px] h-[700px]">
             

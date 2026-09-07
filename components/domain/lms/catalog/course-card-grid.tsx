@@ -31,6 +31,7 @@ export function CourseCardGrid({
   enrollingId,
   enrolledIds,
   onEnrol,
+  onRequest,
   onOpenDetails,
 }: {
   courses: CatalogCourse[]
@@ -38,6 +39,14 @@ export function CourseCardGrid({
   /** Courses this viewer is already in - Enrol becomes "In My Learning". */
   enrolledIds: ReadonlySet<number>
   onEnrol: (course: CatalogCourse) => void
+  /**
+   * Ask for the course instead of joining it.
+   *
+   * Creates a row in the Approval Queue, which until now nothing in the
+   * product could do - the endpoint, the queue and the review actions all
+   * existed with no client between them.
+   */
+  onRequest: (course: CatalogCourse) => void
   onOpenDetails: (course: CatalogCourse) => void
 }) {
   return (
@@ -110,21 +119,40 @@ export function CourseCardGrid({
                       In My Learning
                     </span>
                   ) : (
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      disabled={enrollingId !== null || inactive}
-                      onClick={() => onEnrol(course)}
-                    >
-                      {enrollingId === course.id ? (
-                        <>
-                          <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
-                          Enrolling…
-                        </>
-                      ) : (
-                        'Enrol'
-                      )}
-                    </Button>
+                    <span className="flex items-center gap-1.5">
+                      {/*
+                        * Two ways in, deliberately.
+                        *
+                        * Enrol joins an open course now. Request asks for it,
+                        * which records an assignment with a due date and puts
+                        * a row in the Approval Queue - the queue that could
+                        * never receive one because no client existed.
+                        */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        disabled={enrollingId !== null || inactive}
+                        onClick={() => onRequest(course)}
+                      >
+                        Request
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        disabled={enrollingId !== null || inactive}
+                        onClick={() => onEnrol(course)}
+                      >
+                        {enrollingId === course.id ? (
+                          <>
+                            <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                            Working…
+                          </>
+                        ) : (
+                          'Enrol'
+                        )}
+                      </Button>
+                    </span>
                   )}
                 </div>
               </article>

@@ -49,12 +49,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { useCourseCatalog } from '@/hooks/use-course-catalog'
+import { assignmentApprovalService } from '@/services/lms'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { LMS_COURSE_BUILDER_ACCESS_LINK } from '@/lib/gtg-navigation'
 import type { CatalogCourse, CatalogSortBy } from '@/services/lms'
 import { CourseDetailsSheet } from './course-details-sheet'
 import { CourseFormSheet, type CourseFormMode } from './course-form-sheet'
+import { isHrAdmin } from '@/types/role'
 import { AiCourseSheet } from './ai-course-sheet'
 import { CourseCardGrid } from './course-card-grid'
 
@@ -160,7 +165,7 @@ export function LearningCatalog() {
    * a quick-action on a different page. That is the dead end this fixes -
    * every role can browse, and every role can enrol.
    */
-  const canAuthor = user?.role === 'admin' || user?.role === 'hr'
+  const canAuthor = isHrAdmin(user?.role)
 
   const [enrollingId, setEnrollingId] = useState<number | null>(null)
   const [enrolMessage, setEnrolMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -226,6 +231,50 @@ export function LearningCatalog() {
     }
   }
 
+  /**
+   * Ask for a course instead of joining it.
+   *
+   * ── THIS IS WHAT FILLS THE APPROVAL QUEUE ─────────────────────────────────
+   *
+   * `POST /lmsAssignment/request` existed, the Approval Queue that reads it
+   * existed, `review`/`bulkReview` existed, and approving already called
+   * `ensureEnrolment` so a decision reached the learner's course list. The one
+   * missing piece was a client — there was no service method and no button
+   * anywhere, so nothing in the product could put a row into that queue. An
+   * admin could open Approval Queue every day and find it empty by
+   * construction.
+   *
+   * Offered alongside Enrol rather than replacing it: a learner may join an
+   * open course directly, and ask when they would rather have it approved and
+   * recorded as an assignment with a due date.
+   */
+  const requestCourse = async (courseId: number, courseName: string) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context) || !user?.id) {
+      setEnrolMessage({ ok: false, text: 'Your ERP session is unavailable. Please sign in again.' })
+      return
+    }
+    setEnrollingId(courseId)
+    setEnrolMessage(null)
+    try {
+      await assignmentApprovalService.requestEnrollment(context, courseId)
+      setEnrolMessage({
+        ok: true,
+        text: `Requested ${courseName}. An administrator will review it.`,
+      })
+    } catch (reason) {
+      // The server refuses a duplicate request and one for a course already
+      // held, and says which - those sentences are more use than a generic
+      // failure, so they are shown verbatim.
+      setEnrolMessage({
+        ok: false,
+        text: reason instanceof Error ? reason.message : 'Unable to request this course.',
+      })
+    } finally {
+      setEnrollingId(null)
+    }
+  }
+
   const catalog = useCourseCatalog(10)
   const {
     courses,
@@ -249,15 +298,18 @@ export function LearningCatalog() {
     actionMessage,
     actionError,
     dismissAction,
-    createCourse,
     updateCourse,
     deleteCourse,
     bulkAction,
   } = catalog
 
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
+
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [detailsCourse, setDetailsCourse] = useState<CatalogCourse | null>(null)
-  const [formMode, setFormMode] = useState<CourseFormMode>('create')
+  // Only ever 'edit' now - creating from the catalogue is gone.
+  const [formMode, setFormMode] = useState<CourseFormMode>('edit')
   const [formCourse, setFormCourse] = useState<CatalogCourse | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<CatalogCourse | null>(null)
@@ -266,17 +318,48 @@ export function LearningCatalog() {
 
   const selectedIds = useMemo(() => selectedRows.map(Number), [selectedRows])
 
-  const openCreate = () => {
-    setFormMode('create')
-    setFormCourse(null)
-    setFormOpen(true)
-  }
-
+  /*
+   * ── COURSES ARE NOT CREATED FROM THE CATALOGUE ANY MORE ──────────────────
+   *
+   * `openCreate` and the two "New Course" buttons are gone. The catalogue is
+   * where courses are BROWSED, enrolled on, and edited; a course is authored
+   * either in the Course Builder (which is the only writer of
+   * lms_course_settings, so a course created anywhere else can never have a
+   * pass mark, an enrolment rule or a visibility restriction) or by Build with
+   * AI.
+   *
+   * The bare create form here produced exactly the kind of course the Builder
+   * then had to be opened to finish - which is why "Open in Course Builder"
+   * had to be added to this screen in the first place.
+   *
+   * The sheet stays, in edit mode only. `POST /api/lms/courses` is untouched:
+   * the Course Builder still uses it, and Build with AI has always had its own
+   * insert in AiCourseController::publish().
+   */
   const openEdit = (course: CatalogCourse) => {
     setFormMode('edit')
     setFormCourse(course)
     setFormOpen(true)
     setDetailsCourse(null)
+  }
+
+  /*
+   * Open a course in the Course Builder.
+   *
+   * The sheet above edits the sub_std_map columns; the wizard edits everything
+   * else — passing score, attempts, enrolment rule, visibility, availability
+   * window — and is the only writer of lms_course_settings. Without a way in
+   * from here, a course created by this sheet or by AI publish could never
+   * acquire any of that, because the wizard could only ever create.
+   */
+  const builderRoute = resolveAccessLink(LMS_COURSE_BUILDER_ACCESS_LINK)
+  // resolveAccessLink falls back to /dashboard for a profile without the
+  // right, so the action is hidden rather than offered and then refused.
+  const canOpenBuilder = builderRoute !== '/dashboard'
+
+  const openInBuilder = (course: CatalogCourse) => {
+    setDetailsCourse(null)
+    router.push(`${builderRoute}?course_id=${course.id}`)
   }
 
   const runBulk = async (action: 'activate' | 'deactivate' | 'delete') => {
@@ -373,6 +456,11 @@ export function LearningCatalog() {
                   <DropdownMenuItem onSelect={() => openEdit(row)}>
                     <Pencil className="mr-2 size-4" /> Edit
                   </DropdownMenuItem>
+                  {canOpenBuilder && (
+                    <DropdownMenuItem onSelect={() => openInBuilder(row)}>
+                      <Layers className="mr-2 size-4" /> Open in Course Builder
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onSelect={() =>
                       void bulkAction(row.status === 1 ? 'deactivate' : 'activate', [row.id])
@@ -454,12 +542,19 @@ export function LearningCatalog() {
           </Button>
           {canAuthor && (
             <>
+              {/*
+                * Build with AI is the one authoring entry point here. A course
+                * is otherwise built in the Course Builder, which every row's
+                * menu links to.
+                */}
               <Button variant="outline" className="gap-2" onClick={() => setAiOpen(true)}>
                 <Sparkles className="size-4 text-primary" /> Build with AI
               </Button>
-              <Button className="shrink-0 gap-2" onClick={openCreate}>
-                <Plus className="size-4" /> New Course
-              </Button>
+              {canOpenBuilder && (
+                <Button className="shrink-0 gap-2" onClick={() => router.push(builderRoute)}>
+                  <Plus className="size-4" /> New Course
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -704,6 +799,9 @@ export function LearningCatalog() {
               enrollingId={enrollingId}
               enrolledIds={enrolledIds}
               onEnrol={(course) => void enrol(course.id, course.display_name ?? `Course ${course.id}`)}
+              onRequest={(course) =>
+                void requestCourse(course.id, course.display_name ?? `Course ${course.id}`)
+              }
               onOpenDetails={setDetailsCourse}
             />
           )}
@@ -715,6 +813,19 @@ export function LearningCatalog() {
           data={courses}
           isLoading={loading}
           selectable={canAuthor}
+          /*
+           * SELECT BY COURSE ID, NOT BY ROW POSITION.
+           *
+           * DataTable defaults rowId to String(index), and its own comment says
+           * callers running bulk actions must pass getRowId. This one did not,
+           * so `selectedIds` held ["0","1","2"] and `runBulk` posted those
+           * straight to /lms/courses/bulk as course ids. The endpoint is
+           * tenant-scoped, so it could not reach another organisation — it
+           * simply matched nothing and reported "0 affected", which is why the
+           * bulk bar looked like a button that does not work. On a tenant whose
+           * course ids start low it would have hit the wrong courses instead.
+           */
+          getRowId={(row) => String(row.id)}
           selectedIds={selectedRows}
           onSelectChange={setSelectedRows}
           onRowClick={(row) => setDetailsCourse(row)}
@@ -725,16 +836,16 @@ export function LearningCatalog() {
               description={
                 hasActiveFilters
                   ? 'Try adjusting or clearing your filters.'
-                  : 'Create your first course to build out the catalog.'
+                  : 'Build your first course to fill the catalog.'
               }
               action={
                 hasActiveFilters ? (
                   <Button variant="outline" size="sm" onClick={clearFilters}>
                     Clear filters
                   </Button>
-                ) : canAuthor ? (
-                  <Button size="sm" onClick={openCreate}>
-                    New Course
+                ) : canAuthor && canOpenBuilder ? (
+                  <Button size="sm" onClick={() => router.push(builderRoute)}>
+                    Open Course Builder
                   </Button>
                 ) : undefined
               }
@@ -757,6 +868,7 @@ export function LearningCatalog() {
         onOpenChange={(open) => !open && setDetailsCourse(null)}
         canAuthor={canAuthor}
         onEdit={openEdit}
+        onOpenInBuilder={canOpenBuilder ? openInBuilder : undefined}
         onDelete={(course) => {
           setDetailsCourse(null)
           setPendingDelete(course)
@@ -770,6 +882,12 @@ export function LearningCatalog() {
         onPublished={retry}
       />
 
+      {/*
+        * Edit only. `mode` stays a prop rather than being hardcoded because
+        * CourseFormSheet branches on it in a dozen places (the image field,
+        * the competency panel, the submit label); collapsing it here would be
+        * a larger change to that component for no gain.
+        */}
       <CourseFormSheet
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -777,7 +895,6 @@ export function LearningCatalog() {
         course={formCourse}
         filterOptions={filterOptions}
         saving={saving}
-        onCreate={createCourse}
         onUpdate={updateCourse}
       />
 

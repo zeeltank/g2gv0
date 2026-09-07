@@ -10,6 +10,8 @@ import {
   type AssessmentPayload,
   type BuilderAssessment,
   type BuilderCoursePayload,
+  type PaperQuestion,
+  type QuestionPayload,
   type BuilderModule,
   type CatalogDepartment,
   type CatalogJobRole,
@@ -57,6 +59,8 @@ export interface CourseBuilderForm {
   certificate_template: string
   certificate_validity_months: string
   recert_alerts: boolean
+  /** Passing this course writes the capability rating without a review step. */
+  auto_apply_rating: boolean
 
   // Step 5
   enrollment_rule: EnrollmentRule
@@ -86,6 +90,7 @@ const EMPTY_FORM: CourseBuilderForm = {
   certificate_template: '',
   certificate_validity_months: '',
   recert_alerts: false,
+  auto_apply_rating: false,
   enrollment_rule: 'open',
   restrict_departments: [],
   restrict_roles: [],
@@ -136,7 +141,67 @@ function toNumberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export function useCourseBuilder() {
+/**
+ * The wizard form for a course that already exists.
+ *
+ * Everything the wizard edits lives in one of two places — a handful of
+ * sub_std_map columns and one lms_course_settings row — and GET
+ * /api/lms/courses/{id} returns both. Nothing here is guesswork; the only
+ * shaping is the string-while-editing convention EMPTY_FORM already uses.
+ *
+ * `thumbnail` stays null: the stored image is a URL on the course row, and a
+ * File input cannot be seeded from one. Leaving it null means "unchanged" —
+ * saving an edit does not clear the existing cover.
+ */
+function formFromCourse(
+  course: Record<string, unknown>,
+  settings: CourseSettings | null,
+): CourseBuilderForm {
+  const text = (value: unknown) => (value === null || value === undefined ? '' : String(value))
+
+  return {
+    display_name: text(course.display_name),
+    subject_code: text(course.subject_code),
+    description: text(settings?.description),
+    subject_type: text(course.subject_type),
+    duration: formatDuration(settings?.duration_minutes ?? null),
+    subject_category: text(course.subject_category),
+    language: text(settings?.language),
+    is_mandatory: Boolean(settings?.is_mandatory),
+    discussion_enabled: Boolean(settings?.discussion_enabled),
+    visibility: settings?.visibility ?? 'all',
+    standard_id: text(course.standard_id),
+    jobrole: text(course.jobrole),
+    thumbnail: null,
+    passing_score: text(settings?.passing_score),
+    max_attempts: text(settings?.max_attempts),
+    // A course with no settings row has never been through the wizard. Default
+    // to issuing a certificate, matching EMPTY_FORM, rather than to `false` —
+    // which would silently turn certification off on the first save.
+    issue_certificate: settings ? Boolean(settings.issue_certificate) : true,
+    certificate_template: text(settings?.certificate_template),
+    certificate_validity_months: text(course.certificate_validity_months),
+    recert_alerts: Boolean(settings?.recert_alerts),
+    auto_apply_rating: Boolean(settings?.auto_apply_rating),
+    enrollment_rule: settings?.enrollment_rule ?? 'open',
+    restrict_departments: settings?.restrict_departments ?? [],
+    restrict_roles: settings?.restrict_roles ?? [],
+    // The API returns dates as 'YYYY-MM-DD' or a full timestamp; the date input
+    // only accepts the first ten characters of either.
+    available_from: text(settings?.available_from).slice(0, 10),
+    available_until: text(settings?.available_until).slice(0, 10),
+  }
+}
+
+/**
+ * @param initialCourseId open an existing course instead of starting a new one.
+ *   The builder was create-only: `save` branched on a courseId that nothing
+ *   could ever set from the outside, so a course made in the catalogue — or by
+ *   AI publish — could never be opened here, and since this wizard is the only
+ *   writer of lms_course_settings, such a course could never acquire a passing
+ *   score, an enrolment rule or a visibility restriction at all.
+ */
+export function useCourseBuilder(initialCourseId?: number | null) {
   const { user } = useAuth()
   const resolveContext = useCallback(() => getLaravelContext(user), [user])
   const profileName = user?.profileName
@@ -146,11 +211,28 @@ export function useCourseBuilder() {
   const [errors, setErrors] = useState<BuilderErrors>({})
 
   /** Set once the draft exists; steps 2 and 3 attach to it. */
-  const [courseId, setCourseId] = useState<number | null>(null)
+  const [courseId, setCourseId] = useState<number | null>(initialCourseId ?? null)
+  /** True while an existing course is being fetched, so the form is not shown empty. */
+  const [loadingCourse, setLoadingCourse] = useState(Boolean(initialCourseId))
+  /**
+   * sub_std_map.status as last persisted — 0 draft, 1 published, null unsaved.
+   * The preview called every saved course a "Draft", which is wrong the moment
+   * the wizard can open a published one.
+   */
+  const [savedStatus, setSavedStatus] = useState<number | null>(null)
   const [prerequisites, setPrerequisites] = useState<CoursePrerequisite[]>([])
 
   const [modules, setModules] = useState<BuilderModule[]>([])
   const [assessments, setAssessments] = useState<BuilderAssessment[]>([])
+  /**
+   * The questions on ONE paper — whichever the author has open.
+   *
+   * Loaded per paper rather than for all of them at once: a course can carry
+   * several quizzes, and only one is being edited at a time.
+   */
+  const [openPaperId, setOpenPaperId] = useState<number | null>(null)
+  const [paperQuestions, setPaperQuestions] = useState<PaperQuestion[]>([])
+  const [questionsLoading, setQuestionsLoading] = useState(false)
 
   const [categories, setCategories] = useState<string[]>([])
   const [types, setTypes] = useState<string[]>([])
@@ -307,6 +389,7 @@ export function useCourseBuilder() {
         issue_certificate: form.issue_certificate,
         certificate_template: form.certificate_template || null,
         recert_alerts: form.recert_alerts,
+        auto_apply_rating: form.auto_apply_rating,
         enrollment_rule: form.enrollment_rule,
         restrict_departments: form.restrict_departments.length ? form.restrict_departments : null,
         restrict_roles: form.restrict_roles.length ? form.restrict_roles : null,
@@ -352,6 +435,23 @@ export function useCourseBuilder() {
       try {
         const payload = buildPayload(status)
 
+        /*
+         * ── THE COVER IMAGE ON AN UPDATE ────────────────────────────────────
+         *
+         * `update()` is JSON and cannot carry a file, so a thumbnail chosen
+         * after the first save was collected, previewed in the right rail, and
+         * silently dropped — while the screen reported "Draft saved."
+         *
+         * The wizard auto-saves a draft the moment you leave step 1, so this
+         * hit almost every author who set the image second, and every author
+         * editing an existing course.
+         *
+         * Told, not swallowed. The course still saves; the message says the
+         * image did not, and the catalogue's own form is where a cover can be
+         * set (it hides the field in edit mode for exactly this reason).
+         */
+        const thumbnailDropped = Boolean(courseId && form.thumbnail)
+
         const response = courseId
           ? await lmsCourseBuilderService.update(context, courseId, payload, profileName)
           : form.thumbnail
@@ -366,9 +466,14 @@ export function useCourseBuilder() {
         const savedId = response.course_id ?? courseId
         if (savedId) setCourseId(savedId)
         if (response.prerequisites) setPrerequisites(response.prerequisites)
+        setSavedStatus(status)
 
-        setMessage(successMessage)
-        return { ok: true, message: successMessage, courseId: savedId }
+        const finalMessage = thumbnailDropped
+          ? `${successMessage} The cover image was not applied — a cover can only be set when the course is created.`
+          : successMessage
+
+        setMessage(finalMessage)
+        return { ok: true, message: finalMessage, courseId: savedId }
       } catch (saveError) {
         const failure = toMessage(saveError, 'Failed to save the course.')
         setError(failure)
@@ -398,16 +503,31 @@ export function useCourseBuilder() {
   )
 
   /** Shared wrapper for module/content/assessment writes. */
+  /**
+   * `success` may be null, in which case the operation's own returned string is
+   * shown instead.
+   *
+   * Most writes have one honest outcome — "Module added." — and a fixed string
+   * is right for them. Generation does not: "5 questions written, 2 discarded"
+   * is a different fact from "5 questions written", and flattening both to
+   * "Questions generated." would hide the discard from the person who then
+   * ships the quiz.
+   */
   const run = useCallback(
-    async (operation: () => Promise<void>, success: string, fallback: string) => {
+    async (
+      operation: () => Promise<void | string>,
+      success: string | null,
+      fallback: string,
+    ) => {
       setSaving(true)
       setError(null)
       setMessage(null)
 
       try {
-        await operation()
-        setMessage(success)
-        return { ok: true, message: success }
+        const returned = await operation()
+        const outcome = success ?? (typeof returned === 'string' ? returned : 'Done.')
+        setMessage(outcome)
+        return { ok: true, message: outcome }
       } catch (writeError) {
         const failure = toMessage(writeError, fallback)
         setError(failure)
@@ -467,6 +587,48 @@ export function useCourseBuilder() {
         'Failed to remove the module.',
       ),
     [run, resolveContext, courseId, profileName, reloadModules],
+  )
+
+  /**
+   * Upload a lesson file and hand back what the content row needs.
+   *
+   * Returns the url and the server-derived file_type rather than creating the
+   * lesson: the author still names it, and a failed upload must not leave a
+   * half-made lesson behind.
+   */
+  const uploadLessonFile = useCallback(
+    async (file: File): Promise<{ ok: boolean; url?: string; fileType?: string; message: string }> => {
+      const context = resolveContext()
+
+      if (!isLaravelContextReady(context)) {
+        return { ok: false, message: 'Your session has expired. Sign in again.' }
+      }
+
+      setSaving(true)
+      setError(null)
+
+      try {
+        const response = await lmsCourseBuilderService.uploadContent(
+          context,
+          file,
+          courseId ?? undefined,
+        )
+
+        return {
+          ok: true,
+          url: response.data?.url,
+          fileType: response.data?.file_type,
+          message: `\u201c${file.name}\u201d uploaded.`,
+        }
+      } catch (uploadError) {
+        const failure = toMessage(uploadError, 'Failed to upload the file.')
+        setError(failure)
+        return { ok: false, message: failure }
+      } finally {
+        setSaving(false)
+      }
+    },
+    [resolveContext, courseId],
   )
 
   const addContent = useCallback(
@@ -558,6 +720,183 @@ export function useCourseBuilder() {
     [run, resolveContext, courseId, profileName, reloadAssessments],
   )
 
+  /* ── Questions on a quiz ── */
+
+  const reloadQuestions = useCallback(
+    async (paperId: number) => {
+      setQuestionsLoading(true)
+      try {
+        const response = await lmsCourseBuilderService.paperQuestions(resolveContext(), paperId)
+        setPaperQuestions(response.data ?? [])
+      } catch {
+        setPaperQuestions([])
+      } finally {
+        setQuestionsLoading(false)
+      }
+    },
+    [resolveContext],
+  )
+
+  /** Open a paper for question editing, or close the one that is open. */
+  const openPaper = useCallback(
+    (paperId: number | null) => {
+      setOpenPaperId(paperId)
+      setPaperQuestions([])
+      if (paperId !== null) void reloadQuestions(paperId)
+    },
+    [reloadQuestions],
+  )
+
+  /**
+   * Ask the AI to write this quiz from the course's content.
+   *
+   * Reports what actually happened rather than a flat "done": a run that wrote
+   * three and discarded two has to say so, or the author trusts a quiz that is
+   * shorter than they asked for.
+   */
+  const generateQuestions = useCallback(
+    (paperId: number, count: number, formats: string[]) =>
+      run(
+        async () => {
+          const response = await lmsCourseBuilderService.generateQuestions(
+            resolveContext(),
+            paperId,
+            { count, formats },
+            profileName,
+          )
+          await reloadQuestions(paperId)
+          if (courseId) await reloadAssessments(courseId)
+          return response.message
+        },
+        null,
+        'The questions could not be generated.',
+      ),
+    [run, resolveContext, profileName, reloadQuestions, reloadAssessments, courseId],
+  )
+
+  const addQuestion = useCallback(
+    (paperId: number, payload: QuestionPayload) =>
+      run(
+        async () => {
+          await lmsCourseBuilderService.addQuestion(resolveContext(), paperId, payload, profileName)
+          await reloadQuestions(paperId)
+          // total_ques changed on the paper, so the list above it must agree.
+          if (courseId) await reloadAssessments(courseId)
+        },
+        'Question added.',
+        'Failed to add the question.',
+      ),
+    [run, resolveContext, profileName, reloadQuestions, reloadAssessments, courseId],
+  )
+
+  const updateQuestion = useCallback(
+    (paperId: number, questionId: number, payload: QuestionPayload) =>
+      run(
+        async () => {
+          await lmsCourseBuilderService.updateQuestion(
+            resolveContext(), paperId, questionId, payload, profileName,
+          )
+          await reloadQuestions(paperId)
+          if (courseId) await reloadAssessments(courseId)
+        },
+        'Question updated.',
+        'Failed to update the question.',
+      ),
+    [run, resolveContext, profileName, reloadQuestions, reloadAssessments, courseId],
+  )
+
+  const removeQuestion = useCallback(
+    (paperId: number, questionId: number) =>
+      run(
+        async () => {
+          await lmsCourseBuilderService.deleteQuestion(
+            resolveContext(), paperId, questionId, profileName,
+          )
+          await reloadQuestions(paperId)
+          if (courseId) await reloadAssessments(courseId)
+        },
+        'Question removed.',
+        'Failed to remove the question.',
+      ),
+    [run, resolveContext, profileName, reloadQuestions, reloadAssessments, courseId],
+  )
+
+  /**
+   * Rename a quiz, or change its attempt limit.
+   *
+   * `updateAssessment` existed in the service with zero callers, so a quiz
+   * could be created and deleted but never corrected — fixing a typo in its
+   * name meant deleting it and every question inside.
+   */
+  const renameAssessment = useCallback(
+    (id: number, payload: Omit<AssessmentPayload, 'course_id'>) =>
+      run(
+        async () => {
+          if (!courseId) throw new Error('Save the course first.')
+          await lmsCourseBuilderService.updateAssessment(
+            resolveContext(), id, { ...payload, course_id: courseId }, profileName,
+          )
+          await reloadAssessments(courseId)
+        },
+        'Assessment updated.',
+        'Failed to update the assessment.',
+      ),
+    [run, resolveContext, courseId, profileName, reloadAssessments],
+  )
+
+  /* ── Opening an existing course ── */
+
+  /**
+   * Hydrate the whole wizard from a saved course.
+   *
+   * One request for the course and its settings, then the module tree and the
+   * assessment list — the same two calls step navigation already makes on
+   * arrival, so an opened course looks exactly like one just authored.
+   *
+   * A failure here is fatal to the screen rather than cosmetic: an empty form
+   * bearing an existing course's id would save as a blank overwrite. So the
+   * error is surfaced and the form deliberately left untouched.
+   */
+  useEffect(() => {
+    if (!initialCourseId) return
+
+    let cancelled = false
+
+    void (async () => {
+      const context = resolveContext()
+
+      if (!isLaravelContextReady(context)) {
+        setLoadingCourse(false)
+        setError('Your session has expired. Sign in again to edit this course.')
+        return
+      }
+
+      try {
+        const response = await lmsCourseBuilderService.load(context, initialCourseId)
+        if (cancelled) return
+
+        setForm(formFromCourse(response.data ?? {}, response.settings ?? null))
+        setPrerequisites(response.prerequisites ?? [])
+        setSavedStatus(Number(response.data?.status ?? 0))
+
+        await Promise.all([
+          reloadModules(initialCourseId),
+          reloadAssessments(initialCourseId),
+        ])
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(toMessage(loadError, 'Failed to open this course.'))
+        }
+      } finally {
+        if (!cancelled) setLoadingCourse(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [initialCourseId, resolveContext, reloadModules, reloadAssessments])
+
   /* ── Step navigation ── */
 
   /**
@@ -603,10 +942,10 @@ export function useCourseBuilder() {
       type: form.subject_type || '--',
       duration: form.duration.trim() || '--',
       language: form.language || '--',
-      status: courseId ? 'Draft' : 'Unsaved',
+      status: courseId ? (savedStatus === 1 ? 'Published' : 'Draft') : 'Unsaved',
       thumbnailName: form.thumbnail?.name ?? null,
     }),
-    [form, courseId],
+    [form, courseId, savedStatus],
   )
 
   /** Checklist ticks reflect real saved state, not a hardcoded false. */
@@ -623,7 +962,13 @@ export function useCourseBuilder() {
       {
         id: 5,
         label: 'Publish settings',
-        completed: Boolean(form.enrollment_rule && form.available_from),
+        /*
+         * `available_from` is OPTIONAL — a course with no availability window
+         * is open immediately, which is the normal case. Requiring it here
+         * meant this item could never tick, so the checklist showed a course
+         * as incomplete after it had been published.
+         */
+        completed: Boolean(form.enrollment_rule),
       },
     ],
     [form, modules.length, assessments.length],
@@ -656,11 +1001,24 @@ export function useCourseBuilder() {
     renameModule,
     removeModule,
     addContent,
+    uploadLessonFile,
+    /** Refetch the module tree - used after Build-with-AI publishes. */
+    reloadModules,
     removeContent,
 
     assessments,
     addAssessment,
     removeAssessment,
+    renameAssessment,
+
+    openPaperId,
+    openPaper,
+    paperQuestions,
+    questionsLoading,
+    generateQuestions,
+    addQuestion,
+    updateQuestion,
+    removeQuestion,
 
     categories,
     types,
@@ -669,7 +1027,13 @@ export function useCourseBuilder() {
     languages,
     certificateTemplates,
 
+    /** The caller's profile, for children that make their own writes. */
+    profileName,
+
     loadingOptions,
+    loadingCourse,
+    /** True when the wizard is editing a course that already existed. */
+    isEditing: Boolean(initialCourseId),
     saving,
     message,
     error,

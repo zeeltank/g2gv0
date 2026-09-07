@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { ApiError } from '@/services/core'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
@@ -12,9 +13,20 @@ import {
   type AiOutlineResult,
   type AiProviderStatus,
   type AiPublishRequest,
+  type AiScopeOptions,
 } from '@/services/lms'
 
 function toMessage(error: unknown, fallback: string) {
+  /*
+   * Show the server's DETAIL, not just its headline.
+   *
+   * The AI endpoints answer with a short message plus a detail that says what
+   * to do about it - "the balance is USD -0.24, at or below the USD 1.00
+   * floor... Top up the account, or lower the floor if this is deliberate."
+   * Reporting only the headline turns a precisely diagnosed problem into a
+   * mystery the person cannot act on.
+   */
+  if (error instanceof ApiError) return error.fullMessage
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -27,6 +39,18 @@ export type AiStep = 'idle' | 'outline' | 'rendering' | 'ready' | 'failed'
 export interface AiCourseState {
   providers: AiProviderStatus | null
   providersLoading: boolean
+
+  /**
+   * The lists the form is built from: industries, departments, job roles, and
+   * — once job roles are chosen — their competencies and KASBA items.
+   *
+   * Loaded when the sheet opens, then RELOADED whenever the selected roles
+   * change, because competencies and KASBA items are a property of those roles
+   * rather than a global list.
+   */
+  scope: AiScopeOptions | null
+  scopeLoading: boolean
+  loadScopeFor: (jobroleIds: number[]) => void
 
   step: AiStep
   outline: AiOutline | null
@@ -60,6 +84,9 @@ export function useAiCourse(enabled: boolean): AiCourseState {
 
   const [providers, setProviders] = useState<AiProviderStatus | null>(null)
   const [providersLoading, setProvidersLoading] = useState(false)
+
+  const [scope, setScope] = useState<AiScopeOptions | null>(null)
+  const [scopeLoading, setScopeLoading] = useState(false)
 
   const [step, setStep] = useState<AiStep>('idle')
   const [outline, setOutline] = useState<AiOutline | null>(null)
@@ -103,6 +130,34 @@ export function useAiCourse(enabled: boolean): AiCourseState {
         .finally(() => setProvidersLoading(false))
     })
   }, [enabled, resolveContext])
+
+  /**
+   * Fetch the scope lists, optionally narrowed to some job roles.
+   *
+   * A failure degrades to empty pickers rather than blocking the sheet: the
+   * generator can still be driven by the free-text course title, and an author
+   * who cannot see the lists is better served by a visible empty state than a
+   * dead form.
+   */
+  const loadScopeFor = useCallback(
+    (jobroleIds: number[]) => {
+      const context = resolveContext()
+      if (!isLaravelContextReady(context)) return
+
+      setScopeLoading(true)
+      aiCourseService
+        .getScopeOptions(context, jobroleIds)
+        .then((response) => setScope(response.data ?? null))
+        .catch(() => setScope(null))
+        .finally(() => setScopeLoading(false))
+    },
+    [resolveContext],
+  )
+
+  useEffect(() => {
+    if (!enabled) return
+    queueMicrotask(() => loadScopeFor([]))
+  }, [enabled, loadScopeFor])
 
   const reset = useCallback(() => {
     stopPolling()
@@ -283,6 +338,9 @@ export function useAiCourse(enabled: boolean): AiCourseState {
   return {
     providers,
     providersLoading,
+    scope,
+    scopeLoading,
+    loadScopeFor,
 
     step,
     outline,

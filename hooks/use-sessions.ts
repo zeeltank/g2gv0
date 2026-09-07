@@ -48,6 +48,12 @@ export interface SessionsState {
   removeSession: (id: number) => Promise<{ ok: boolean; message: string }>
   register: (id: number, learnerId?: number) => Promise<{ ok: boolean; message: string }>
   cancelRegistration: (id: number, learnerId?: number) => Promise<{ ok: boolean; message: string }>
+  /** Record who turned up. Admin/HR only; the API refuses anyone else. */
+  markAttendance: (
+    sessionId: number,
+    userId: number,
+    status: 'attended' | 'no-show' | 'registered',
+  ) => Promise<{ ok: boolean; message: string }>
 
   attendees: SessionAttendee[]
   attendeesLoading: boolean
@@ -198,6 +204,32 @@ export function useSessions(): SessionsState {
     [run, resolveContext, profileName],
   )
 
+  /**
+   * Mark one learner attended / no-show / back to registered.
+   *
+   * Refreshes the attendee list as well as the sessions, because the badge the
+   * marker just changed is in that list — `run` alone would leave the row
+   * showing the old status until the sheet was reopened.
+   */
+  const markAttendance = useCallback(
+    (sessionId: number, userId: number, status: 'attended' | 'no-show' | 'registered') =>
+      run(async () => {
+        const response = await lmsSessionService.markAttendance(
+          resolveContext(),
+          sessionId,
+          [userId],
+          status,
+          profileName,
+        )
+
+        const refreshed = await lmsSessionService.attendees(resolveContext(), sessionId)
+        setAttendees(refreshed.data ?? [])
+
+        return response.message ?? 'Attendance recorded.'
+      }, 'Failed to record attendance.'),
+    [run, resolveContext, profileName],
+  )
+
   const loadAttendees = useCallback(
     (sessionId: number) => {
       const context = resolveContext()
@@ -240,6 +272,7 @@ export function useSessions(): SessionsState {
     removeSession,
     register,
     cancelRegistration,
+    markAttendance,
 
     attendees,
     attendeesLoading,

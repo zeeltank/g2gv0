@@ -140,7 +140,19 @@ export function CourseFormSheet({
   course: CatalogCourse | null
   filterOptions: CatalogFilterOptions | null
   saving: boolean
-  onCreate: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string; courseId: number | null }>
+  /**
+   * Optional, because the catalogue no longer creates courses.
+   *
+   * Create moved to the Course Builder, which is the only writer of
+   * lms_course_settings — a course made by this bare form could never acquire
+   * a pass mark, an enrolment rule or a visibility restriction, which is why
+   * "Open in Course Builder" had to exist on every row.
+   *
+   * The create BRANCH is kept rather than deleted: this sheet is a generic
+   * course form and a future caller may legitimately want it. It simply refuses
+   * when no handler was supplied, instead of calling undefined.
+   */
+  onCreate?: (payload: CourseCreatePayload) => Promise<{ ok: boolean; message: string; courseId: number | null }>
   onUpdate: (id: number, payload: CourseUpdatePayload) => Promise<{ ok: boolean; message: string }>
 }) {
   const { user } = useAuth()
@@ -234,7 +246,9 @@ export function CourseFormSheet({
 
     const result =
       mode === 'create'
-        ? await onCreate({ ...base, display_image: image })
+        ? onCreate
+          ? await onCreate({ ...base, display_image: image })
+          : { ok: false, message: 'Courses are created in the Course Builder.', courseId: null }
         : course
           ? await onUpdate(course.id, base)
           : { ok: false, message: 'No course selected.', courseId: null }

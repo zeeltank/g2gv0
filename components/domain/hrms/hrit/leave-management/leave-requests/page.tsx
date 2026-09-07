@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal } from 'lucide-react'
+import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
@@ -21,6 +21,7 @@ import { DataTable, type Column } from '@/components/ui/data-table'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
 import type { LeaveApplyPayload, LeaveStatus } from '@/services/hrms'
 import { formatDateShort } from '@/lib/leave-management-data'
+import { cn } from '@/lib/utils'
 import { useLeaveOptions, useLeaveRequests, useLeaveRequestDetail } from '@/hooks/use-leave'
 import { useAuth } from '@/hooks/use-auth'
 import { mapLeaveRequest } from '@/domain/hrms/hrit/leave-management/services/leave-mappers'
@@ -38,6 +39,20 @@ const ApplyLeaveDrawer = lazy(() =>
 )
 
 const PAGE_SIZE = 10
+
+/** Columns a user may hide. Employee and Status are not optional. */
+const OPTIONAL_COLUMNS: { id: string; label: string }[] = [
+  { id: 'employeeId', label: 'Employee ID' },
+  { id: 'department', label: 'Department' },
+  { id: 'leaveType', label: 'Leave Type' },
+  { id: 'duration', label: 'Duration' },
+  { id: 'fromDate', label: 'Start Date' },
+  { id: 'toDate', label: 'End Date' },
+  { id: 'approver', label: 'Approver' },
+  { id: 'submittedDate', label: 'Submitted Date' },
+]
+
+const HIDDEN_COLUMNS_KEY = 'hrit.leave-requests.hidden-columns'
 
 /** Filter presets. Values match Laravel's hrms_emp_leaves.status vocabulary. */
 const savedFilters = [
@@ -73,6 +88,29 @@ export default function LeaveRequestsPage() {
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [applyLeaveOpen, setApplyLeaveOpen] = useState(() => searchParams.get('apply') === '1')
+
+  // Per-browser display preference. Wrapped because storage throws outright in
+  // some contexts (private windows, blocked site data) rather than returning null.
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(HIDDEN_COLUMNS_KEY)
+      return raw ? (JSON.parse(raw) as string[]) : []
+    } catch {
+      return []
+    }
+  })
+
+  const toggleColumn = (id: string) => {
+    setHiddenColumns((prev) => {
+      const next = prev.includes(id) ? prev.filter((column) => column !== id) : [...prev, id]
+      try {
+        window.localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(next))
+      } catch {
+        // A browser that will not store it still gets the toggle for this visit.
+      }
+      return next
+    })
+  }
 
   // Filtering, sorting and pagination all run server side - Laravel returns one page.
   const filters = useMemo(
@@ -416,6 +454,13 @@ export default function LeaveRequestsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/*
+              * F-112. This menu held a single inert item reading "Customize
+              * Columns". It now lists the optional columns and toggles them,
+              * which is what the control was pretending to be. The choice is
+              * remembered per browser - it is a display preference, not tenant
+              * configuration, so it does not belong in the database.
+              */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -426,7 +471,24 @@ export default function LeaveRequestsPage() {
               </DropdownMenuTrigger>
 
               <DropdownMenuContent>
-                <DropdownMenuItem>Customize Columns</DropdownMenuItem>
+                {OPTIONAL_COLUMNS.map((column) => (
+                  <DropdownMenuItem
+                    key={column.id}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      toggleColumn(column.id)
+                    }}
+                    className="gap-2"
+                  >
+                    <Check
+                      className={cn(
+                        'size-4',
+                        hiddenColumns.includes(column.id) ? 'opacity-0' : 'opacity-100',
+                      )}
+                    />
+                    {column.label}
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -478,9 +540,23 @@ export default function LeaveRequestsPage() {
       ) : (
         <div className="rounded-xl border border-border bg-card">
           <DataTable
-            columns={columns}
+            columns={columns.filter((column) => !hiddenColumns.includes(String(column.id)))}
             data={rows}
             selectable
+            /*
+             * SELECT BY REQUEST ID, NOT BY ROW POSITION.
+             *
+             * DataTable defaults rowId to String(index) and expects callers
+             * running bulk actions to pass getRowId. This one did not, so
+             * `handleBulkDecision` handed row positions to `bulkDecide` and the
+             * API approved or rejected whichever requests happened to hold ids
+             * 0, 1, 2 — not the ones the approver had ticked. Sorting or
+             * filtering the table changed which requests those were.
+             *
+             * Not an LMS screen, but the same shared-component defect, and the
+             * consequences here are somebody's leave.
+             */
+            getRowId={(row) => String(row.id)}
             selectedIds={selectedIds}
             onSelectChange={setSelectedIds}
             density="compact"

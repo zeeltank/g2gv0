@@ -430,10 +430,21 @@ export const lmsGovernanceService = {
 
   /* Trainers */
 
-  trainers: (context: LaravelContext, search?: string, profileName?: string) =>
+  /**
+   * @param status 1 for active only, 0 for inactive only, omit for all.
+   *   The endpoint has always supported this filter and the service never sent
+   *   it — which mattered once trainers could be deactivated rather than
+   *   deleted, because a retired trainer must not be schedulable.
+   */
+  trainers: (
+    context: LaravelContext,
+    search?: string,
+    profileName?: string,
+    status?: number,
+  ) =>
     apiClient.get<GovernanceResponse<Trainer[]>>(
       `${BASE}/trainers`,
-      params(context, profileName, clean({ search })),
+      params(context, profileName, clean({ search, status: status?.toString() })),
     ),
 
   createTrainer: (context: LaravelContext, payload: TrainerPayload, profileName?: string) =>

@@ -8,6 +8,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  Plus,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { MultiSelect } from '@/domain/lms/shared/multi-select'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
@@ -30,31 +32,64 @@ import { useAiCourse } from '@/hooks/use-ai-course'
 import type { AiOutline } from '@/services/lms'
 import type { CatalogFilterOptions } from '@/services/lms'
 
+/**
+ * What the author tells the generator.
+ *
+ * ── EVERY ONE OF THESE USED TO BE A TEXT BOX ────────────────────────────────
+ *
+ * industry, department, job role and proficiency were free text, and "target
+ * skills" was a comma-separated string with no relationship to the job role
+ * above it. So the model was fed whatever somebody typed — "Healthcare",
+ * "healthcare", "Health care" — and the resulting course could not be traced
+ * to a department, a role, or a competency in the system.
+ *
+ * All of it is real, related data: 43 industries, the tenant's departments, 266
+ * job roles each carrying a department, and a competency graph underneath them.
+ */
 interface FormState {
   course_title: string
   industry: string
-  department: string
-  job_role: string
+  /** hrms_departments.id values — a course can serve several. */
+  department_ids: string[]
+  /** s_user_jobrole.id values, narrowed by the departments above. */
+  jobrole_ids: string[]
   critical_work_function: string
-  tasks: string
-  skills: string
+  /** One task per row, entered as rows rather than free text. */
+  tasks: string[]
+  /**
+   * How the course is scoped.
+   *
+   * Only 9 of tenant 6's 266 job roles have competencies mapped, so offering
+   * competencies alone would leave the field empty for almost every role. KASBA
+   * is the fallback the data actually supports.
+   */
+  scope_mode: 'competency' | 'kasba'
+  competency_ids: string[]
+  kasba_item_ids: string[]
   proficiency: string
-  selfPaced: boolean
-  instructorLed: boolean
   slide_count: string
 }
+
+const PROFICIENCY_LEVELS = [
+  { value: '', label: 'Not specified' },
+  { value: 'Awareness', label: 'Awareness — aware of it, not yet able' },
+  { value: 'Basic', label: 'Basic — has the foundations' },
+  { value: 'Intermediate', label: 'Intermediate — dependable on routine work' },
+  { value: 'Advanced', label: 'Advanced — solid working command' },
+  { value: 'Expert', label: 'Expert — near-complete mastery' },
+]
 
 const EMPTY_FORM: FormState = {
   course_title: '',
   industry: '',
-  department: '',
-  job_role: '',
+  department_ids: [],
+  jobrole_ids: [],
   critical_work_function: '',
-  tasks: '',
-  skills: '',
+  tasks: [''],
+  scope_mode: 'competency',
+  competency_ids: [],
+  kasba_item_ids: [],
   proficiency: '',
-  selfPaced: true,
-  instructorLed: false,
   slide_count: '10',
 }
 
@@ -210,37 +245,192 @@ export function AiCourseSheet({
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
 
+  const providersReady = ai.providers?.deepseek_configured ?? false
+  const gammaReady = ai.providers?.gamma_configured ?? false
+
+  /*
+   * The pickers are built from the SCOPE endpoint, not from the catalogue's
+   * filter options.
+   *
+   * `filterOptions.jobroles` is DISTINCT sub_std_map.jobrole - free text
+   * somebody once typed into a course form, 45 strings against the tenant's 266
+   * real roles, and carrying no department. It cannot narrow roles by
+   * department and cannot reach a competency, which is the whole point here.
+   */
+  const industryOptions = ai.scope?.industries ?? []
+
   const departmentOptions = useMemo(
     () =>
-      (filterOptions?.departments ?? []).map((department) => ({
+      (ai.scope?.departments ?? []).map((department) => ({
         value: String(department.id),
         label: department.department,
       })),
-    [filterOptions],
+    [ai.scope],
   )
 
-  const providersReady = ai.providers?.deepseek_configured ?? false
-  const gammaReady = ai.providers?.gamma_configured ?? false
+  /** Roles in the chosen departments; all of them when none is chosen yet. */
+  const jobroleOptions = useMemo(() => {
+    const roles = ai.scope?.jobroles ?? []
+    const chosen = new Set(form.department_ids)
+
+    return roles
+      .filter((role) => chosen.size === 0 || chosen.has(String(role.department_id ?? '')))
+      .map((role) => ({
+        value: String(role.id),
+        label: role.jobrole,
+        // Searchable by department too, which is how people look for a role
+        // they know the team but not the exact title of.
+        hint: role.department ?? role.industries ?? null,
+      }))
+  }, [ai.scope, form.department_ids])
+
+  /**
+   * True when the chosen roles have no capabilities of their own and the author
+   * is choosing from the organisation's whole library instead.
+   *
+   * The server sends the library ONLY in that case, so its presence is the
+   * signal - the client does not have to decide.
+   */
+  const usingLibrary =
+    (ai.scope?.competencies ?? []).length === 0 &&
+    ((ai.scope?.library_competencies ?? []).length > 0 ||
+      (ai.scope?.library_kasba_items ?? []).length > 0)
+
+  const competencyOptions = useMemo(() => {
+    const source = usingLibrary
+      ? (ai.scope?.library_competencies ?? [])
+      : (ai.scope?.competencies ?? [])
+
+    return source.map((competency) => ({
+      value: String(competency.id),
+      label: competency.name,
+      hint: competency.code,
+    }))
+  }, [ai.scope, usingLibrary])
+
+  const kasbaOptions = useMemo(() => {
+    const source = usingLibrary
+      ? (ai.scope?.library_kasba_items ?? [])
+      : (ai.scope?.kasba_items ?? [])
+
+    return source.map((item) => ({
+      value: String(item.id),
+      label: item.item_label,
+      // The type is what distinguishes two similarly-worded items, so it is
+      // the hint rather than a prefix on the label. In library mode the
+      // competency matters more, since the items are no longer all from one.
+      hint:
+        usingLibrary && 'competency_name' in item && item.competency_name
+          ? `${item.kasba_type} · ${item.competency_name}`
+          : item.kasba_type,
+    }))
+  }, [ai.scope, usingLibrary])
+
+  /*
+   * Competencies and KASBA items belong to the CHOSEN ROLES, so the lists are
+   * refetched whenever those change rather than being filtered client-side
+   * from something already loaded - there is nothing already loaded to filter.
+   */
+  const jobroleKey = form.jobrole_ids.join(',')
+
+  useEffect(() => {
+    if (!open) return
+    queueMicrotask(() => ai.loadScopeFor(form.jobrole_ids.map(Number).filter(Boolean)))
+    // `ai` is recreated each render; the roles are what actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, jobroleKey])
+
+  /*
+   * ── THE ROLE'S CAPABILITIES ARE SELECTED AUTOMATICALLY ──────────────────
+   *
+   * Choosing a job role already fetched its competencies and their KASBA items,
+   * and then left every box unticked — so the author had to re-enter, by hand,
+   * information the organisation had already recorded against that role. If they
+   * did not (nothing required it: canGenerate only checks department and role),
+   * the course was generated with capabilities_to_develop: ['-'] and published
+   * developing nothing.
+   *
+   * The role's own capabilities are now ticked as soon as they arrive. They stay
+   * editable — this is a starting point, not a lock — but the default is what
+   * the role actually needs.
+   *
+   * The library fallback is deliberately NOT auto-selected: those items were not
+   * chosen for this role by anybody, so pre-ticking a whole library would be
+   * asserting something nobody decided.
+   */
+  const scopeSignature = `${(ai.scope?.competencies ?? []).map((c) => c.id).join(',')}|${(
+    ai.scope?.kasba_items ?? []
+  )
+    .map((k) => k.id)
+    .join(',')}`
+
+  useEffect(() => {
+    if (!open || usingLibrary) return
+
+    // The form holds ids as STRINGS - MultiSelect's value type - and converts
+    // at the call sites. Matching that here rather than at four more of them.
+    const competencyIds = (ai.scope?.competencies ?? []).map((c) => String(c.id))
+    const kasbaIds = (ai.scope?.kasba_items ?? []).map((k) => String(k.id))
+
+    setForm((current) => {
+      const validCompetencies = new Set<string>(competencyIds)
+      const validKasba = new Set<string>(kasbaIds)
+
+      /*
+       * Ids belonging to a role that is no longer selected are dropped.
+       *
+       * Departments already pruned job roles this way; competencies and KASBA
+       * had no equivalent, so deselecting a role left its capabilities in the
+       * form — invisible in the refreshed picker and still sent to both
+       * generate and publish.
+       */
+      const keptCompetencies = current.competency_ids.filter((id) => validCompetencies.has(id))
+      const keptKasba = current.kasba_item_ids.filter((id) => validKasba.has(id))
+
+      return {
+        ...current,
+        // Nothing kept means this is a fresh set of roles, so take all of it.
+        // Something kept means the author has been editing; leave their choice.
+        competency_ids: keptCompetencies.length > 0 ? keptCompetencies : competencyIds,
+        kasba_item_ids: keptKasba.length > 0 ? keptKasba : kasbaIds,
+      }
+    })
+    // scopeSignature changes exactly when the fetched capability set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scopeSignature, usingLibrary])
+
+  /** A course has to be FOR somebody: department and role are required. */
+  const canGenerate =
+    form.department_ids.length > 0 && form.jobrole_ids.length > 0 && !ai.busy && providersReady
+
 
   const handleGenerateOutline = () =>
     void ai.generateOutline({
       course_title: form.course_title || undefined,
       industry: form.industry || undefined,
-      department: form.department || undefined,
-      job_role: form.job_role || undefined,
+      department_ids: form.department_ids.map(Number).filter(Boolean),
+      jobrole_ids: form.jobrole_ids.map(Number).filter(Boolean),
       critical_work_function: form.critical_work_function || undefined,
-      tasks: form.tasks
-        .split('\n')
-        .map((task) => task.trim())
-        .filter(Boolean),
-      skills: form.skills
-        .split(',')
-        .map((skill) => skill.trim())
-        .filter(Boolean),
+      // Blank rows are dropped here rather than sent: an empty task became a
+      // slide the model was asked to write about nothing.
+      tasks: form.tasks.map((task) => task.trim()).filter(Boolean),
+      scope_mode: form.scope_mode,
+      competency_ids:
+        form.scope_mode === 'competency' ? form.competency_ids.map(Number).filter(Boolean) : [],
+      kasba_item_ids:
+        form.scope_mode === 'kasba' ? form.kasba_item_ids.map(Number).filter(Boolean) : [],
       proficiency: form.proficiency || undefined,
-      modality: { selfPaced: form.selfPaced, instructorLed: form.instructorLed },
       slide_count: Number(form.slide_count) || 10,
     })
+
+  /*
+   * sub_std_map.jobrole is a single free-text column, so a course for three
+   * roles can only name one there. The full set goes to the settings row; this
+   * keeps the legacy column meaningful rather than blank.
+   */
+  const firstJobroleName =
+    (ai.scope?.jobroles ?? []).find((role) => String(role.id) === form.jobrole_ids[0])?.jobrole ??
+    null
 
   const handlePublish = async () => {
     if (!ai.outline || !publishDepartment) return
@@ -248,8 +438,32 @@ export function AiCourseSheet({
       display_name: ai.outline.title,
       standard_id: Number(publishDepartment),
       subject_category: form.industry || 'AI Generated',
-      subject_type: 'E-learning Module',
-      jobrole: form.job_role || null,
+      /*
+       * 'E-learning Module' was hardcoded here AND defaulted server-side, which
+       * is where the invalid course type came from. It now carries the real
+       * scope so the published course is findable by the people it is for.
+       */
+      subject_type: 'Self-paced course',
+      jobrole: firstJobroleName,
+      department_ids: form.department_ids.map(Number).filter(Boolean),
+      jobrole_ids: form.jobrole_ids.map(Number).filter(Boolean),
+      /*
+       * MODE-AWARE, like the generate call above it.
+       *
+       * This sent competency_ids unconditionally. An author who picked
+       * competencies, switched to "individual K/S/B/A items" and scoped by those
+       * still published the stale competencies — the opposite of what they
+       * chose, and silently.
+       *
+       * kasba_item_ids were not sent at all, so a KASBA-scoped course published
+       * mapped to nothing: no course_competency_map rows, and therefore no
+       * capability for its quiz to move. The server derives the competencies
+       * those items belong to.
+       */
+      competency_ids:
+        form.scope_mode === 'competency' ? form.competency_ids.map(Number).filter(Boolean) : [],
+      kasba_item_ids:
+        form.scope_mode === 'kasba' ? form.kasba_item_ids.map(Number).filter(Boolean) : [],
       status: 1,
     })
     if (result.ok) {
@@ -300,6 +514,15 @@ export function AiCourseSheet({
 
           {ai.step === 'idle' && (
             <>
+              {/*
+                * REQUIRED FIELDS ARE MARKED, AND ENFORCED.
+                *
+                * The generator previously accepted an entirely blank form and
+                * produced a generic deck about nothing in particular. A course
+                * has to be FOR somebody: a department and a job role are what
+                * make it scoped, and what let the published course be found by
+                * the people it was written for.
+                */}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="ai-title">Course title</Label>
                 <Input
@@ -313,86 +536,245 @@ export function AiCourseSheet({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ai-industry">Industry</Label>
-                  <Input
+                  {/* Was a text box. These are the industries this tenant's own
+                      job roles are actually in. */}
+                  <Select
                     id="ai-industry"
                     value={form.industry}
-                    onChange={(event) => setField('industry', event.target.value)}
-                    placeholder="e.g. Healthcare"
+                    onChange={(value) => setField('industry', value)}
+                    options={[
+                      { label: 'Not specified', value: '' },
+                      ...industryOptions.map((industry) => ({ label: industry, value: industry })),
+                    ]}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ai-department">Department</Label>
-                  <Input
-                    id="ai-department"
-                    list="ai-department-options"
-                    value={form.department}
-                    onChange={(event) => setField('department', event.target.value)}
-                    placeholder="e.g. Nursing"
+                  <Label>
+                    Departments <span className="text-destructive">*</span>
+                  </Label>
+                  <MultiSelect
+                    aria-label="Departments this course is for"
+                    options={departmentOptions}
+                    values={form.department_ids}
+                    onChange={(values) => {
+                      setField('department_ids', values)
+                      /*
+                       * Job roles belong to departments, so narrowing the
+                       * departments must drop any role that is no longer
+                       * reachable - otherwise the form silently carries a role
+                       * the author can no longer see.
+                       */
+                      const allowed = new Set(
+                        (ai.scope?.jobroles ?? [])
+                          .filter((role) =>
+                            values.length === 0 ||
+                            values.includes(String(role.department_id ?? '')),
+                          )
+                          .map((role) => String(role.id)),
+                      )
+                      setField(
+                        'jobrole_ids',
+                        form.jobrole_ids.filter((id) => allowed.has(id)),
+                      )
+                    }}
+                    placeholder="Select departments"
                   />
-                  <datalist id="ai-department-options">
-                    {(filterOptions?.departments ?? []).map((department) => (
-                      <option key={department.id} value={department.department} />
-                    ))}
-                  </datalist>
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>
+                  Job roles <span className="text-destructive">*</span>
+                </Label>
+                <MultiSelect
+                  aria-label="Job roles this course is for"
+                  options={jobroleOptions}
+                  values={form.jobrole_ids}
+                  onChange={(values) => setField('jobrole_ids', values)}
+                  placeholder={
+                    form.department_ids.length === 0
+                      ? 'Select departments first, or search all roles'
+                      : 'Select job roles'
+                  }
+                  searchPlaceholder="Search job roles\u2026"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {form.department_ids.length > 0
+                    ? `${jobroleOptions.length} role(s) in the selected departments.`
+                    : `All ${jobroleOptions.length} roles. Choose departments above to narrow this.`}
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ai-jobrole">Job role</Label>
+                  <Label htmlFor="ai-cwf">Critical work function</Label>
                   <Input
-                    id="ai-jobrole"
-                    list="ai-jobrole-options"
-                    value={form.job_role}
-                    onChange={(event) => setField('job_role', event.target.value)}
-                    placeholder="e.g. Enrolled Nurse"
+                    id="ai-cwf"
+                    value={form.critical_work_function}
+                    onChange={(event) => setField('critical_work_function', event.target.value)}
+                    placeholder="Optional"
                   />
-                  <datalist id="ai-jobrole-options">
-                    {(filterOptions?.jobroles ?? []).map((jobrole) => (
-                      <option key={jobrole} value={jobrole} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ai-proficiency">Proficiency</Label>
-                  <Input
+                  <Label htmlFor="ai-proficiency">Target proficiency</Label>
+                  {/* Was free text, so "Intermediate", "intermediate" and "mid"
+                      all reached the model as different things. These are the
+                      same five bands the competency module rates against. */}
+                  <Select
                     id="ai-proficiency"
                     value={form.proficiency}
-                    onChange={(event) => setField('proficiency', event.target.value)}
-                    placeholder="e.g. Intermediate"
+                    onChange={(value) => setField('proficiency', value)}
+                    options={PROFICIENCY_LEVELS}
                   />
                 </div>
               </div>
 
+              {/*
+                * Key tasks as ROWS.
+                *
+                * This was a textarea split on newlines, which looks the same
+                * and is not: there was no way to see how many tasks you had, no
+                * way to remove one, and a stray blank line became an empty task
+                * the model was asked to write a slide about.
+                */}
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ai-cwf">Critical work function</Label>
-                <Input
-                  id="ai-cwf"
-                  value={form.critical_work_function}
-                  onChange={(event) => setField('critical_work_function', event.target.value)}
-                  placeholder="Optional"
-                />
+                <Label>Key tasks</Label>
+                {form.tasks.map((task, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={task}
+                      onChange={(event) =>
+                        setField(
+                          'tasks',
+                          form.tasks.map((t, i) => (i === index ? event.target.value : t)),
+                        )
+                      }
+                      placeholder={`Task ${index + 1}`}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove task ${index + 1}`}
+                      className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      disabled={form.tasks.length === 1}
+                      onClick={() =>
+                        setField('tasks', form.tasks.filter((_, i) => i !== index))
+                      }
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit gap-1.5"
+                  onClick={() => setField('tasks', [...form.tasks, ''])}
+                >
+                  <Plus className="size-3.5" /> Task
+                </Button>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ai-tasks">Key tasks</Label>
-                <Textarea
-                  id="ai-tasks"
-                  value={form.tasks}
-                  onChange={(event) => setField('tasks', event.target.value)}
-                  rows={3}
-                  placeholder="One task per line"
-                />
-              </div>
+              {/*
+                * WHAT THE COURSE DEVELOPS.
+                *
+                * "Target skills" was a comma-separated text box with no
+                * connection to the job roles above it, so nothing the author
+                * typed could be checked, reused, or mapped to the course after
+                * publication.
+                *
+                * Two modes, because the data supports two: a role's whole
+                * competencies where they are mapped, and the individual
+                * knowledge / skill / behaviour / attitude / ability items
+                * underneath them where they are not. Only 9 of 266 roles have
+                * competencies, so the second is not a fallback — it is the
+                * common case.
+                */}
+              <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
+                <Label>What should this course develop?</Label>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ai-skills">Target skills</Label>
-                <Input
-                  id="ai-skills"
-                  value={form.skills}
-                  onChange={(event) => setField('skills', event.target.value)}
-                  placeholder="Comma separated"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  {(['competency', 'kasba'] as const).map((mode) => (
+                    <Button
+                      key={mode}
+                      type="button"
+                      variant={form.scope_mode === mode ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setField('scope_mode', mode)}
+                    >
+                      {mode === 'competency' ? 'Whole competencies' : 'Individual K/S/B/A items'}
+                    </Button>
+                  ))}
+                </div>
+
+                {form.jobrole_ids.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Choose one or more job roles above and their competencies appear here.
+                  </p>
+                ) : ai.scopeLoading ? (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" /> Loading what these roles need…
+                  </p>
+                ) : (
+                  <>
+                    {/*
+                      * ── WHAT THIS BLOCK NOW SAYS ────────────────────────────
+                      *
+                      * The amber hint used to offer "switch to individual K/S/B/A
+                      * items" for a role with no competencies. That switch went
+                      * nowhere: KASBA items were queried BY the role's competency
+                      * ids, so no competencies meant no items either, and the
+                      * author landed on a second empty picker with no way
+                      * forward. Nothing blocked generation, so they carried on
+                      * and the model was prompted with capabilities_to_develop:
+                      * ['-'].
+                      *
+                      * Now the server sends the organisation's own library in
+                      * exactly that case, and this says so.
+                      */}
+                    {usingLibrary && (
+                      <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">
+                          These roles have no capabilities mapped to them yet.
+                        </span>{' '}
+                        Choose from your organisation&rsquo;s library below and the course will
+                        develop those instead. Mapping capabilities to the role afterwards makes
+                        this automatic next time.
+                      </p>
+                    )}
+
+                    {form.scope_mode === 'competency' ? (
+                      competencyOptions.length === 0 ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Your organisation has no competencies defined yet, so this course cannot
+                          be tied to one. It will still generate — it just will not move anyone&rsquo;s
+                          capability record.
+                        </p>
+                      ) : (
+                        <MultiSelect
+                          aria-label="Competencies this course develops"
+                          options={competencyOptions}
+                          values={form.competency_ids}
+                          onChange={(values) => setField('competency_ids', values)}
+                          placeholder="Select competencies"
+                        />
+                      )
+                    ) : kasbaOptions.length === 0 ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Your organisation has no knowledge, skill, behaviour, attitude or ability
+                        items defined yet.
+                      </p>
+                    ) : (
+                      <MultiSelect
+                        aria-label="Knowledge, skill, behaviour, attitude and ability items"
+                        options={kasbaOptions}
+                        values={form.kasba_item_ids}
+                        onChange={(values) => setField('kasba_item_ids', values)}
+                        placeholder="Select items"
+                      />
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -407,27 +789,14 @@ export function AiCourseSheet({
                     onChange={(event) => setField('slide_count', event.target.value)}
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Modality</Label>
-                  <div className="flex items-center gap-4 pt-1">
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
-                      <input
-                        type="checkbox"
-                        checked={form.selfPaced}
-                        onChange={(event) => setField('selfPaced', event.target.checked)}
-                      />
-                      Self-paced
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
-                      <input
-                        type="checkbox"
-                        checked={form.instructorLed}
-                        onChange={(event) => setField('instructorLed', event.target.checked)}
-                      />
-                      Instructor-led
-                    </label>
-                  </div>
-                </div>
+                {/*
+                  * "Modality" is gone.
+                  *
+                  * It was two checkboxes labelled with a word the people using
+                  * this form do not use, it changed nothing the model could act
+                  * on, and its only visible effect was a slide in the generated
+                  * deck headed "Modality Instructions".
+                  */}
               </div>
             </>
           )}
@@ -491,21 +860,34 @@ export function AiCourseSheet({
           </Button>
 
           {ai.step === 'idle' && (
-            <Button
-              onClick={handleGenerateOutline}
-              disabled={ai.busy || !providersReady}
-              className="gap-2"
-            >
-              {ai.busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Generate outline
-            </Button>
+            <span className="flex items-center gap-3">
+              {/*
+                * Say WHY it is disabled, at the point it is disabled.
+                *
+                * The generator used to accept an entirely blank form and
+                * produce a generic deck about nothing. A course has to be for
+                * somebody; the button now waits for that and says so, rather
+                * than being greyed out for a reason the author has to guess.
+                */}
+              {!canGenerate && providersReady && (
+                <span className="text-xs text-muted-foreground">
+                  {form.department_ids.length === 0
+                    ? 'Choose at least one department'
+                    : 'Choose at least one job role'}
+                </span>
+              )}
+              <Button onClick={handleGenerateOutline} disabled={!canGenerate} className="gap-2">
+                {ai.busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                Generate outline
+              </Button>
+            </span>
           )}
 
           {ai.step === 'outline' && (
             <Button
               onClick={() =>
                 void ai.generatePresentation({
-                  course_type: form.job_role || 'ai-generated',
+                  course_type: firstJobroleName || 'ai-generated',
                   input_fields: { ...form },
                 })
               }

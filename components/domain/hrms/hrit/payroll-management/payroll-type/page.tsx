@@ -22,6 +22,7 @@ import { usePayrollTypes } from '@/hooks/use-payroll'
 import type { PayrollTypeRow } from '@/services/hrms'
 import PayrollTypeDialog from './components/PayrollTypeDialog'
 import PayrollTypeTable from './components/PayrollTypeTable'
+import { HR_ADMIN_ROLES } from '@/types/role'
 
 type PayrollTab = 'all' | 'earnings' | 'deductions'
 
@@ -99,7 +100,7 @@ export default function PayrollTypePage() {
   )
 
   // Mirrors the Laravel side, where the payroll routes sit behind the HR/Admin menu.
-  if (!authLoading && (!user || !['admin', 'hr'].includes(user.role))) {
+  if (!authLoading && (!user || !HR_ADMIN_ROLES.includes(user.role))) {
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center sm:min-h-[480px] sm:px-8 sm:py-16">
         <div

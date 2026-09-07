@@ -47,6 +47,7 @@ export function CourseDetailsSheet({
   onOpenChange,
   canAuthor,
   onEdit,
+  onOpenInBuilder,
   onDelete,
 }: {
   course: CatalogCourse | null
@@ -55,6 +56,11 @@ export function CourseDetailsSheet({
   /** Admin/HR only - matches what the API will actually allow. */
   canAuthor: boolean
   onEdit: (course: CatalogCourse) => void
+  /**
+   * Send the course to the Course Builder. Omitted when the caller's profile
+   * has no right to that screen, in which case the button is not rendered.
+   */
+  onOpenInBuilder?: (course: CatalogCourse) => void
   onDelete: (course: CatalogCourse) => void
 }) {
   const { user } = useAuth()
@@ -195,6 +201,20 @@ export function CourseDetailsSheet({
               <Button className="w-full justify-center gap-2" onClick={() => onEdit(course)}>
                 <Pencil className="size-4" /> Edit course
               </Button>
+              {/*
+                * The sheet above edits the course row. Everything else the LMS
+                * needs — passing score, attempts, enrolment rule, visibility —
+                * lives in lms_course_settings, which only the wizard writes.
+                */}
+              {onOpenInBuilder && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-center gap-2"
+                  onClick={() => onOpenInBuilder(course)}
+                >
+                  <Layers className="size-4" /> Open in Course Builder
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="w-full justify-center gap-2 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"

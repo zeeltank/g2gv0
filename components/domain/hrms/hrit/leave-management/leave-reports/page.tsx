@@ -25,6 +25,8 @@ import {
   withAllOption,
 } from './components/LeaveReportsSections'
 
+const SAVED_REPORTS_KEY = 'hrit.leave-reports.saved'
+
 /** Report ids whose export should be the row-level register rather than the summary. */
 const REGISTER_REPORTS = new Set(['leave-register', 'employee-history', 'long-leave', 'pending-approvals'])
 const BALANCE_REPORTS = new Set(['leave-balance', 'carry-forward', 'encashment'])
@@ -85,9 +87,25 @@ export default function LeaveReportsPage() {
     const requested = searchParams.get('report')
     return requested && reports.some((report) => report.id === requested) ? requested : 'leave-summary'
   })
-  const [savedIds, setSavedIds] = useState(
-    () => new Set(reports.filter((report) => report.saved).map((report) => report.id)),
-  )
+  /*
+   * F-114. This was seeded from a static `report.saved` flag on the catalogue
+   * and held in component state only, so the Saved tab reset on every refresh
+   * and showed every user the same thing. A starred report is a per-person
+   * display preference, not tenant configuration, so it belongs in the
+   * browser rather than in a new database table.
+   *
+   * Every read and write is wrapped: storage throws outright in some contexts
+   * (private windows, blocked site data) rather than returning null.
+   */
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = window.localStorage.getItem(SAVED_REPORTS_KEY)
+      if (raw) return new Set(JSON.parse(raw) as string[])
+    } catch {
+      // fall through to the catalogue defaults
+    }
+    return new Set(reports.filter((report) => report.saved).map((report) => report.id))
+  })
   const [filters, setFilters] = useState<ReportFilters>(defaultFilters)
   // Draft filters only become the applied filters when the user hits Apply, so
   // the report does not refetch on every dropdown change.
@@ -176,6 +194,13 @@ export default function LeaveReportsPage() {
       } else {
         next.add(reportId)
       }
+
+      try {
+        window.localStorage.setItem(SAVED_REPORTS_KEY, JSON.stringify([...next]))
+      } catch {
+        // A browser that will not store it still gets the toggle for this visit.
+      }
+
       return next
     })
   }

@@ -3,7 +3,9 @@
 import React, { useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  Ban,
   Calendar as CalendarIcon,
+  Check,
   CheckCircle2,
   CheckSquare,
   ChevronLeft,
@@ -56,6 +58,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { useSessions } from '@/hooks/use-sessions'
+import { isHrAdmin } from '@/types/role'
 import type { SeatStatus, SessionPayload, TrainingSession } from '@/services/lms'
 import { SessionFormSheet } from './session-form-sheet'
 
@@ -169,7 +172,7 @@ function KpiCard({
 export function SessionsCalendar() {
   const { user } = useAuth()
   // Scheduling is an admin/HR action; the API enforces the same rule.
-  const canManage = user?.role === 'admin' || user?.role === 'hr'
+  const canManage = isHrAdmin(user?.role)
 
   const {
     sessions, deadlines, stats, loading, error, reload,
@@ -177,6 +180,7 @@ export function SessionsCalendar() {
     search, setSearch,
     saving, message, actionError, dismiss,
     createSession, updateSession, removeSession, register, cancelRegistration,
+    markAttendance,
     attendees, attendeesLoading, loadAttendees,
   } = useSessions()
 
@@ -669,6 +673,17 @@ export function SessionsCalendar() {
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Attendees ({attendees.length})
                     </p>
+                    {/*
+                      * Marking matters beyond the record: an attended session
+                      * counts toward the course it is linked to, so this is
+                      * what moves a learner's progress. A session with no
+                      * course link affects nothing, and says so.
+                      */}
+                    <p className="text-[11px] text-muted-foreground">
+                      {selected.course_id
+                        ? 'Marking someone attended counts this session toward their course progress.'
+                        : 'This session is not linked to a course, so attendance affects no course progress.'}
+                    </p>
                     {attendeesLoading ? (
                       <Skeleton className="h-16 rounded-lg" />
                     ) : attendees.length === 0 ? (
@@ -690,26 +705,74 @@ export function SessionsCalendar() {
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <StatusBadge
-                                variant={attendee.status === 'cancelled' ? 'inactive' : 'active'}
+                                variant={
+                                  attendee.status === 'attended'
+                                    ? 'active'
+                                    : attendee.status === 'cancelled' || attendee.status === 'no-show'
+                                      ? 'inactive'
+                                      : 'pending'
+                                }
                                 size="sm"
                                 className="text-[9px] font-bold uppercase"
                               >
                                 {attendee.status}
                               </StatusBadge>
                               {attendee.status !== 'cancelled' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="size-6 p-0 text-destructive hover:text-destructive"
-                                  aria-label={`Remove ${attendee.learner_name}`}
-                                  onClick={() => {
-                                    void cancelRegistration(selected.id, attendee.user_id).then(() =>
-                                      loadAttendees(selected.id),
-                                    )
-                                  }}
-                                >
-                                  <X className="size-3" />
-                                </Button>
+                                <>
+                                  {/*
+                                    * Attended / no-show, the two transitions
+                                    * the status column has always allowed and
+                                    * nothing in the product could ever write.
+                                    * The active one toggles back to
+                                    * 'registered', so a mis-click is
+                                    * correctable rather than permanent.
+                                    */}
+                                  <Button
+                                    variant={attendee.status === 'attended' ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] font-bold"
+                                    disabled={saving}
+                                    aria-label={`Mark ${attendee.learner_name} attended`}
+                                    onClick={() => {
+                                      void markAttendance(
+                                        selected.id,
+                                        attendee.user_id,
+                                        attendee.status === 'attended' ? 'registered' : 'attended',
+                                      )
+                                    }}
+                                  >
+                                    <Check className="size-3" />
+                                  </Button>
+                                  <Button
+                                    variant={attendee.status === 'no-show' ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] font-bold"
+                                    disabled={saving}
+                                    aria-label={`Mark ${attendee.learner_name} as a no-show`}
+                                    onClick={() => {
+                                      void markAttendance(
+                                        selected.id,
+                                        attendee.user_id,
+                                        attendee.status === 'no-show' ? 'registered' : 'no-show',
+                                      )
+                                    }}
+                                  >
+                                    <Ban className="size-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="size-6 p-0 text-destructive hover:text-destructive"
+                                    aria-label={`Remove ${attendee.learner_name}`}
+                                    onClick={() => {
+                                      void cancelRegistration(selected.id, attendee.user_id).then(
+                                        () => loadAttendees(selected.id),
+                                      )
+                                    }}
+                                  >
+                                    <X className="size-3" />
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>

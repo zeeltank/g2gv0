@@ -3,6 +3,7 @@
 import { useAuth } from '@/components/auth/gtg-auth'
 import { HrDashboard } from './hr/hr-dashboard'
 import { MeDashboard } from './me/me-dashboard'
+import { isHrAdmin } from '@/types/role'
 
 /**
  * THE HOME DASHBOARD — a role switch, and nothing else.
@@ -38,7 +39,7 @@ export function MainDashboard() {
   const { user } = useAuth()
   const role = user?.role
 
-  if (role === 'admin' || role === 'hr') {
+  if (isHrAdmin(role)) {
     return <HrDashboard />
   }
 

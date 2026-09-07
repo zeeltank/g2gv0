@@ -44,6 +44,13 @@ import {
   type LmsAssignment,
 } from '@/services/lms/assignment'
 import { lmsCatalogService, type CatalogCourse } from '@/services/lms'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { isHrAdmin } from '@/types/role'
 
 /* ------------------------------------------------------------------ *
  * Assign Learning Modal (inline dialog)
@@ -477,6 +484,10 @@ export function LearningAssignments() {
     stats,
     filters,
     selectedIds,
+    changeStatus,
+    departmentOptions,
+    assignedByOptions,
+    learningTypeOptions,
     activeTab,
     setActiveTab,
     setSelectedIds,
@@ -506,9 +517,22 @@ export function LearningAssignments() {
     queueMicrotask(() => setPage(1))
   }, [assignments.length, activeTab])
 
+  /*
+   * Clear the selection when the tab changes.
+   *
+   * The Approval Queue and the Bulk Operations table share one `selectedIds`
+   * state but hold DIFFERENT entities — enrolment requests and assignments.
+   * Now that ids are real rather than row positions, a selection carried across
+   * tabs would be a set of request ids handed to an assignment endpoint, which
+   * is worse than the old confusion, not better. So it is dropped on the way.
+   */
+  React.useEffect(() => {
+    queueMicrotask(() => setSelectedIds([]))
+  }, [activeTab, setSelectedIds])
+
   const { user } = useAuth()
   const resolveContext = React.useCallback(() => getLaravelContext(user), [user])
-  const canReview = user?.role === 'admin' || user?.role === 'hr'
+  const canReview = isHrAdmin(user?.role)
 
   // The Approval Queue and Enrollments tabs are different entities from the
   // assignment queue, so each has its own feed rather than re-rendering the
@@ -798,10 +822,40 @@ export function LearningAssignments() {
     {
       id: 'id',
       header: '',
-      render: () => (
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-          <MoreVertical className="size-4" />
-        </Button>
+      /*
+       * This was a <Button> with NO onClick whatsoever - a three-dot menu on
+       * every row that could be clicked forever and never do anything.
+       *
+       * It now carries the per-row status change, which is what the single
+       * `updateStatus` endpoint was built for and which nothing called: the
+       * only way to change one assignment was to tick it and use a bulk action.
+       */
+      render: (_: unknown, row: LmsAssignment) => (
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground"
+                aria-label={`Actions for ${row.learner_name}`}
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(['Not Started', 'In Progress', 'Completed'] as const).map((status) => (
+                <DropdownMenuItem
+                  key={status}
+                  disabled={row.status === status}
+                  onSelect={() => void changeStatus(row.id, status)}
+                >
+                  Mark {status}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ),
     },
   ]
@@ -878,20 +932,18 @@ export function LearningAssignments() {
             >
               <FileUp className="size-4" /> Import Enrollments
             </Button>
-            <div className="flex rounded-md shadow-sm">
-              <Button
-                className="rounded-r-none font-semibold gap-2 border-r border-primary-foreground/20"
-                onClick={() => setShowAssignDialog(true)}
-              >
-                <Plus className="size-4" /> Assign Learning
-              </Button>
-              <Button
-                className="rounded-l-none px-2 shrink-0"
-                onClick={() => setShowAssignDialog(true)}
-              >
-                <ChevronDown className="size-4" />
-              </Button>
-            </div>
+            {/*
+              * This was a split button whose chevron half opened the SAME
+              * dialog as its main half - it looked like a menu of assignment
+              * types and was a duplicate. One button now, which is what it
+              * always was.
+              */}
+            <Button
+              className="font-semibold gap-2 shadow-sm"
+              onClick={() => setShowAssignDialog(true)}
+            >
+              <Plus className="size-4" /> Assign Learning
+            </Button>
           </div>
         </div>
       </div>
@@ -1040,15 +1092,17 @@ export function LearningAssignments() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-bold bg-background shadow-sm"
-                disabled={selectedIds.length === 0}
-                onClick={() => setShowAssignDialog(true)}
-              >
-                Assign
-              </Button>
+              {/*
+                * "Assign" was enabled BY a selection and then threw it away -
+                * the dialog resets all its state on open, so picking five rows
+                * and clicking Assign opened an empty form. It no longer claims
+                * to act on the selection: it is the same "assign learning"
+                * action as the header button, and reads that way.
+                *
+                * "Enroll" was renamed. It called handleBulkUpdate('In
+                * Progress'), which sets a progress status and creates no
+                * enrolment of any kind. It now says what it does.
+                */}
               <Button
                 variant="outline"
                 size="sm"
@@ -1056,7 +1110,16 @@ export function LearningAssignments() {
                 disabled={selectedIds.length === 0}
                 onClick={() => handleBulkUpdate('In Progress')}
               >
-                Enroll
+                Mark In Progress
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 font-bold bg-background shadow-sm"
+                disabled={selectedIds.length === 0}
+                onClick={() => handleBulkUpdate('Completed')}
+              >
+                Mark Completed
               </Button>
               {/*
                 These previously called handleBulkUpdate('Completed') and
@@ -1087,14 +1150,15 @@ export function LearningAssignments() {
                   </Button>
                 </>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-bold bg-background shadow-sm gap-2 ml-2"
-                disabled={selectedIds.length === 0}
-              >
-                More <ChevronDown className="size-3" />
-              </Button>
+              {/*
+                * "More" is gone rather than given a menu.
+                *
+                * It had no onClick at all: select rows, watch it light up,
+                * click it, nothing. There is no action it was meant to hold -
+                * every bulk action this screen has is already on this toolbar,
+                * and the per-row menu now covers single rows. A button that
+                * exists to look complete is worse than no button.
+                */}
             </div>
           </div>
 
@@ -1138,6 +1202,8 @@ export function LearningAssignments() {
                 data={pending}
                 isLoading={tabLoading}
                 selectable={canReview}
+                // Approval decisions are recorded against the REQUEST id.
+                getRowId={(row) => String(row.id)}
                 selectedIds={selectedIds}
                 onSelectChange={setSelectedIds}
                 emptyState={
@@ -1230,6 +1296,15 @@ export function LearningAssignments() {
               data={pagedAssignments}
               isLoading={loading}
               selectable={true}
+              /*
+               * By assignment id, and this table more than any other.
+               *
+               * It renders `pagedAssignments` — a page of a filtered list — so
+               * a row index was an offset into a slice of a slice. The hook
+               * then indexed the UNPAGED list with it, so on page 2 "Mark
+               * Completed" updated page 1's rows.
+               */
+              getRowId={(row) => String(row.id)}
               selectedIds={selectedIds}
               onSelectChange={setSelectedIds}
               emptyState={
@@ -1405,11 +1480,16 @@ export function LearningAssignments() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Learning Type</label>
+                {/*
+                  * "Learning Path" is gone: no service, type or table for it
+                  * exists anywhere in this product, so it was an option that
+                  * could only ever return nothing. The rest come from the rows
+                  * actually loaded.
+                  */}
                 <Select
                   options={[
                     { label: 'All', value: 'All' },
-                    { label: 'Course', value: 'Course' },
-                    { label: 'Learning Path', value: 'Learning Path' },
+                    ...learningTypeOptions.map((value: string) => ({ label: value, value })),
                   ]}
                   value={filters.learningType}
                   onChange={(val) => setFilter('learningType', val)}
@@ -1433,8 +1513,16 @@ export function LearningAssignments() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Department</label>
+                {/*
+                  * Was `[{All}]`, hardcoded - a labelled dropdown with exactly
+                  * one choice, in front of a filter that had no field to read
+                  * because the payload never carried a department at all.
+                  */}
                 <Select
-                  options={[{ label: 'All', value: 'All' }]}
+                  options={[
+                    { label: 'All', value: 'All' },
+                    ...departmentOptions.map((value: string) => ({ label: value, value })),
+                  ]}
                   value={filters.department}
                   onChange={(val) => setFilter('department', val)}
                 />
@@ -1452,8 +1540,16 @@ export function LearningAssignments() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Assigned By</label>
+                {/*
+                  * The predicate for this filter was already correct and
+                  * working; only the input could not express anything but
+                  * "All". Values come from the assignments themselves.
+                  */}
                 <Select
-                  options={[{ label: 'All', value: 'All' }]}
+                  options={[
+                    { label: 'All', value: 'All' },
+                    ...assignedByOptions.map((value: string) => ({ label: value, value })),
+                  ]}
                   value={filters.assignedBy}
                   onChange={(val) => setFilter('assignedBy', val)}
                 />

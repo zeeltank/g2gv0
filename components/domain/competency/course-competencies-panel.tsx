@@ -33,6 +33,7 @@ import {
 } from '@/services/competency/course-competencies'
 import { competencyDefinitionsService } from '@/services/competency/definitions'
 import { lmsCatalogService, type CatalogCourse } from '@/services/lms/catalog'
+import { isHrAdmin } from '@/types/role'
 
 interface DraftRow {
   id: number | null
@@ -40,6 +41,12 @@ interface DraftRow {
   competency_name: string
   proficiency_level: number | null
   is_primary: boolean
+  /**
+   * What learners actually reach, from their quiz results. Read-only: the
+   * target above is authored here, the measurement is not.
+   */
+  achieved_level: number | null
+  quiz_attempts: number
 }
 
 const LEVELS = [1, 2, 3, 4, 5]
@@ -59,7 +66,7 @@ export function CourseCompetenciesPanel() {
   const [notice, setNotice] = useState<string | null>(null)
   const [addId, setAddId] = useState('')
 
-  const canEdit = user?.role === 'admin' || user?.role === 'hr'
+  const canEdit = isHrAdmin(user?.role)
 
   /* -- Sources -------------------------------------------------------- */
   useEffect(() => {
@@ -97,6 +104,8 @@ export function CourseCompetenciesPanel() {
         competency_name: r.competency_name,
         proficiency_level: r.proficiency_level,
         is_primary: r.is_primary,
+        achieved_level: r.achieved_level ?? null,
+        quiz_attempts: r.quiz_attempts ?? 0,
       })))
       setEmptyIsExpected(Boolean(res?.empty_is_expected))
     } catch {
@@ -120,6 +129,7 @@ export function CourseCompetenciesPanel() {
     setRows((p) => [...p, {
       id: null, competency_id: comp.id, competency_name: comp.name,
       proficiency_level: 3, is_primary: false,
+      achieved_level: null, quiz_attempts: 0,
     }])
     setAddId(''); setNotice(null)
   }
@@ -261,7 +271,14 @@ export function CourseCompetenciesPanel() {
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left font-medium px-4 py-2">Competency</th>
-                <th className="text-left font-medium px-4 py-2 w-44">Level developed</th>
+                <th className="text-left font-medium px-4 py-2 w-44">Level targeted</th>
+                {/*
+                  * Target vs achieved. The target is what this course intends;
+                  * the achieved level is what its learners actually reach on
+                  * the quiz. A course consistently landing below its own target
+                  * is visibly weak teaching rather than an average nobody sees.
+                  */}
+                <th className="text-left font-medium px-4 py-2 w-40">Level achieved</th>
                 <th className="text-left font-medium px-4 py-2 w-28">Primary</th>
                 <th className="w-16 px-4 py-2" />
               </tr>
@@ -272,13 +289,38 @@ export function CourseCompetenciesPanel() {
                   <td className="px-4 py-2">{r.competency_name}</td>
                   <td className="px-4 py-2">
                     <Select
-                      aria-label={`Level developed for ${r.competency_name}`}
+                      aria-label={`Level targeted for ${r.competency_name}`}
                       value={r.proficiency_level === null ? '' : String(r.proficiency_level)}
                       placeholder="Not stated"
                       onChange={(v) => setRows((p) => p.map((x, j) => j === i
                         ? { ...x, proficiency_level: v ? Number(v) : null } : x))}
                       options={LEVELS.map((l) => ({ value: String(l), label: `Level ${l}` }))}
                     />
+                  </td>
+                  <td className="px-4 py-2">
+                    {r.achieved_level === null ? (
+                      <span className="text-xs text-muted-foreground">
+                        {r.quiz_attempts === 0 ? 'No quiz results yet' : '—'}
+                      </span>
+                    ) : (
+                      <span className="flex flex-col gap-0.5">
+                        <span
+                          className={
+                            r.proficiency_level !== null && r.achieved_level < r.proficiency_level
+                              ? 'text-sm font-semibold text-amber-600 dark:text-amber-400'
+                              : 'text-sm font-semibold text-emerald-600 dark:text-emerald-400'
+                          }
+                        >
+                          Level {r.achieved_level}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          from {r.quiz_attempts} attempt{r.quiz_attempts === 1 ? '' : 's'}
+                          {r.proficiency_level !== null && r.achieved_level < r.proficiency_level
+                            ? ' · below target'
+                            : ''}
+                        </span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <input

@@ -20,9 +20,12 @@ export function EmployeeSnapshotWidget({
   attendance,
   loading,
 }: EmployeeSnapshotWidgetProps) {
-  const availableLeave = leaveBalance
-    ? leaveBalance.casual + leaveBalance.earned
-    : 0
+  /*
+   * F-97. Was `leaveBalance.casual + leaveBalance.earned` — two of four fixed
+   * leave types that matched the fixture, not any tenant's configuration.
+   * `remaining` is the API's own total across whatever types the tenant has.
+   */
+  const availableLeave = leaveBalance?.remaining ?? 0
 
   if (loading) {
     return (

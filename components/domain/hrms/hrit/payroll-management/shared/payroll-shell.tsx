@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/use-auth'
+import { HR_ADMIN_ROLES } from '@/types/role'
 
 /**
  * Shared chrome for the payroll screens: the HR/Admin gate that mirrors where
@@ -24,7 +25,7 @@ export function PayrollPageShell({
 }) {
   const { user, isLoading } = useAuth()
 
-  if (!isLoading && (!user || !['admin', 'hr'].includes(user.role))) {
+  if (!isLoading && (!user || !HR_ADMIN_ROLES.includes(user.role))) {
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center sm:min-h-[480px] sm:px-8 sm:py-16">
         <div

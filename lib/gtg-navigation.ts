@@ -46,6 +46,14 @@ export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management
 export const DISCIPLINARY_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/disciplinary-library'
 export const LMS_LEARNING_CATALOG_ACCESS_LINK = '/module/lms/learning/learning-catalog'
 export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
+/**
+ * Course Builder — the only writer of lms_course_settings.
+ *
+ * Matches the submenu id 84 row that content-map-m4.ts resolves to
+ * CreateCoursePage. Named here so the catalogue can send an author into the
+ * wizard for a course that already exists; append ?course_id=N to edit one.
+ */
+export const LMS_COURSE_BUILDER_ACCESS_LINK = '/module/lms/administration/course-builder'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
 /**
