@@ -41,6 +41,36 @@ export type CareersOrganisation = {
   address?: string | null
 }
 
+/** One step on the candidate's own timeline. */
+export type TrackStage = {
+  name: string
+  state: 'done' | 'current' | 'upcoming'
+}
+
+/**
+ * What a candidate is allowed to see about their own application.
+ *
+ * Deliberately narrower than the recruiter's view: a coarse stage, never the
+ * internal status; whether an assessment is waiting, never its score.
+ */
+export type ApplicationTracking = {
+  candidate: { name: string; email: string | null }
+  organisation: { name: string | null; slug: string | null; website: string | null }
+  application: {
+    reference: string
+    job_id: number | null
+    job_title: string | null
+    department: string | null
+    location: string | null
+    employment_type: string | null
+    applied_date: string | null
+  }
+  timeline: { current: string; index: number; stages: TrackStage[]; closed: boolean }
+  assessment: { waiting: boolean; submitted: boolean; expires_at: string | null } | null
+  offer: { position: string | null; start_date: string | null; responded: boolean } | null
+  expires_at: string | null
+}
+
 export class CareersError extends Error {
   status: number
   fieldErrors?: Record<string, string[]>
@@ -103,7 +133,25 @@ export const careersApi = {
       { method: 'POST', headers: { Accept: 'application/json' }, body: form },
     )
     if (!response.ok) throw await readError(response)
-    return response.json() as Promise<{ status: number; message: string; data: { application_id: number } }>
+    return response.json() as Promise<{
+      status: number
+      message: string
+      data: {
+        application_id: number
+        /** Where the candidate can follow it. Returned even when email is off. */
+        track_url: string
+        track_expires: string
+        emailed: boolean
+      }
+    }>
+  },
+
+  /**
+   * One candidate's own application. The token IS the credential, so nothing
+   * else is sent - no slug, no id, nothing that could be tampered with.
+   */
+  track(token: string) {
+    return get<ApplicationTracking>(`/careers/track/${encodeURIComponent(token)}`)
   },
 }
 
