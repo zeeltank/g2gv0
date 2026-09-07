@@ -10,6 +10,8 @@ interface ComplianceDialogsProps {
   editingRecord: ComplianceRecord | null
   editForm: ComplianceFormState
   editUploadKey: number
+  /** The tenant's own departments, passed down from the screen. */
+  departmentOptions: { label: string; value: string }[]
   employeeOptions?: { label: string; value: string }[]
   onEditChange: (next: Partial<ComplianceFormState>) => void
   onEditSave: () => void
@@ -23,6 +25,7 @@ export function ComplianceDialogs({
   editingRecord,
   editForm,
   editUploadKey,
+  departmentOptions,
   employeeOptions,
   onEditChange,
   onEditSave,
@@ -44,6 +47,7 @@ export function ComplianceDialogs({
           {editingRecord && (
             <ComplianceForm
               form={editForm}
+              departmentOptions={departmentOptions}
               onChange={onEditChange}
               onSubmit={onEditSave}
               submitLabel="Save Changes"

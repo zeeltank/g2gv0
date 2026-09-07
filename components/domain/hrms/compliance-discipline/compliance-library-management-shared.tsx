@@ -37,13 +37,20 @@ export type ComplianceFormState = {
   attachmentFile?: File
 }
 
-export const departments = [
-  { label: 'Human Resources', value: 'Human Resources', employees: ['Aarav Mehta', 'Priya Sharma', 'Neha Kapoor'] },
-  { label: 'Finance', value: 'Finance', employees: ['Rohan Das', 'Meera Iyer', 'Vikram Rao'] },
-  { label: 'Operations', value: 'Operations', employees: ['Karan Malhotra', 'Ananya Sen', 'Dev Patel'] },
-  { label: 'Legal', value: 'Legal', employees: ['Nisha Verma', 'Arjun Khanna', 'Sara Ali'] },
-  { label: 'Information Technology', value: 'Information Technology', employees: ['Kabir Sethi', 'Isha Nair', 'Rhea Thomas'] },
-]
+/*
+ * ── THE FIVE INVENTED DEPARTMENTS ARE GONE ──────────────────────────────────
+ *
+ * `departments` used to be five fabricated business units — Human Resources,
+ * Finance, Operations, Legal, Information Technology — each carrying three
+ * fabricated employee names. It was not a fallback: it was the ONLY source for
+ * this screen's Department picker, so every compliance record on every tenant
+ * was filed against a department that did not exist in that organisation, and
+ * the assignee list offered fifteen people who work nowhere.
+ *
+ * Departments and employees now arrive as props from the screen, which reads
+ * them from the tenant's own `hrms_departments` and user list — the same shape
+ * the sibling Disciplinary screen has always used.
+ */
 
 export const frequencyOptions: Frequency[] = ['One-Time', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly', 'Custom']
 
@@ -59,7 +66,6 @@ export const initialForm: ComplianceFormState = {
   attachmentFile: undefined,
 }
 
-export const departmentOptions = departments.map(({ label, value }) => ({ label, value }))
 export const frequencySelectOptions = frequencyOptions.map((frequency) => ({ label: frequency, value: frequency }))
 export const pageSizeOptions = [5, 10, 15].map((size) => ({ label: `${size} / page`, value: String(size) }))
 
@@ -115,6 +121,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export function ComplianceForm({
   form,
+  departmentOptions,
   employeeOptions,
   onChange,
   onSubmit,
@@ -123,6 +130,8 @@ export function ComplianceForm({
   currentAttachment,
 }: {
   form: ComplianceFormState
+  /** The tenant's own departments. Empty is a real answer, not a reason to invent. */
+  departmentOptions: { label: string; value: string }[]
   employeeOptions?: { label: string; value: string }[]
   onChange: (next: Partial<ComplianceFormState>) => void
   onSubmit: () => void
@@ -130,9 +139,7 @@ export function ComplianceForm({
   uploadKey: string | number
   currentAttachment?: string
 }) {
-  const resolvedEmployeeOptions = employeeOptions ?? departments
-    .find((department) => department.value === form.department)
-    ?.employees.map((employee) => ({ label: employee, value: employee })) ?? []
+  const resolvedEmployeeOptions = employeeOptions ?? []
 
   const handleDepartmentChange = (department: string) => {
     onChange({ department, assignedTo: '' })
@@ -155,7 +162,12 @@ export function ComplianceForm({
             value={form.department}
             onChange={handleDepartmentChange}
             options={departmentOptions}
-            placeholder="Select department"
+            placeholder={
+              departmentOptions.length === 0
+                ? 'No departments yet — add them under Department Management'
+                : 'Select department'
+            }
+            disabled={departmentOptions.length === 0}
           />
         </Field>
 
