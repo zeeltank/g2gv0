@@ -44,6 +44,11 @@ export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
 export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
 export const DISCIPLINARY_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/disciplinary-library'
+/**
+ * Readiness Gates. The screen existed and worked; it had no menu row, so the
+ * only way in was to type the URL. See the migration that adds the row.
+ */
+export const READINESS_GATES_ACCESS_LINK = '/module/organizational-management/readiness-gates'
 export const LMS_LEARNING_CATALOG_ACCESS_LINK = '/module/lms/learning/learning-catalog'
 export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
 /**

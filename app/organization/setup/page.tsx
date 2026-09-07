@@ -1,560 +1,250 @@
 'use client'
 
-import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AccessDeniedPage } from '@/components/auth/access-denied-page'
+import { ArrowRight, Check, Info, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
-import { SISTER_COMPANIES, type SisterCompany } from '@/lib/gtg-org-data'
-import { useAuth } from '@/components/auth/gtg-auth'
-import { updateOnboarding } from '@/lib/onboarding'
 import type { SetupStep } from '@/components/settings/setup-progress-tracker'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import {
-  type EmployeeRow,
-  type OrganizationForm,
-  type SisterCompanyMode,
-} from '@/components/domain/organization/onboarding'
+  setupStatusService,
+  type SetupStepStatus,
+} from '@/services/organization/setup-status'
 
-const LazySetupProgressRail = lazy(() =>
-  import('@/components/domain/organization/onboarding').then((module) => ({
-    default: module.SetupProgressRail,
-  })),
-)
+/**
+ * ORGANISATION SETUP — what is done, what is left, and where to do it.
+ *
+ * ── WHAT THIS REPLACES ──────────────────────────────────────────────────────
+ *
+ * 561 lines of fiction, plus six step components. It was unreachable, and had
+ * it been reachable it was not real:
+ *
+ *   - `['admin','hr'].includes(user.role)` gated it, while `user.role` holds
+ *     role KEYS - 'administrator', 'hr_manager'. Neither string is a member, so
+ *     the condition was always false and EVERY user, administrator included,
+ *     saw Access Denied.
+ *   - The organisation was prefilled "ABC Technologies Pvt. Ltd.", the employee
+ *     list was three invented people, and the sister companies came from a
+ *     fixture.
+ *   - `importEmployees()` never read the uploaded file - it discarded the File
+ *     and set the three samples.
+ *   - `deleteSisterCompany(id)` never used its `id`; it reset state instead.
+ *   - Every save went to `updateOnboarding()` and stopped there: an in-memory
+ *     Map in the Next.js process. Not one Laravel call in the whole file.
+ *
+ * ── WHY THIS IS A CHECKLIST AND NOT A WIZARD ────────────────────────────────
+ *
+ * A wizard owns its own progress, and that progress can disagree with the
+ * product - which is exactly how the old one could report a finished setup for
+ * an organisation with no departments. Here every step's state is COUNTED on
+ * the server from the tables the rest of the product uses, so:
+ *
+ *   - it cannot claim anything the product would contradict;
+ *   - an organisation that set itself up through the ordinary screens, never
+ *     opening this page, is already ticked;
+ *   - it is resumable by anyone, on any device, because there is no local state
+ *     to lose - the old flow kept "we went live" in one person's localStorage;
+ *   - and it is just as useful to the twelve organisations already on live,
+ *     none of which ever saw a setup flow. It tells them what is missing.
+ *
+ * Each step links to the REAL screen for that job rather than reimplementing
+ * it, so there is one department form in the product, not two.
+ */
 
-const LazyOrganizationProfileStep = lazy(() =>
-  import('@/components/domain/organization/onboarding').then((module) => ({
-    default: module.OrganizationProfileStep,
-  })),
-)
-
-const LazyDepartmentSelectionStep = lazy(() =>
-  import('@/components/domain/organization/onboarding').then((module) => ({
-    default: module.DepartmentSelectionStep,
-  })),
-)
-
-const LazyEmployeeImportStep = lazy(() =>
-  import('@/components/domain/organization/onboarding').then((module) => ({
-    default: module.EmployeeImportStep,
-  })),
-)
-
-const LazySetupCompletionStep = lazy(() =>
-  import('@/components/domain/organization/onboarding').then((module) => ({
-    default: module.SetupCompletionStep,
-  })),
-)
-
-const sampleEmployees: EmployeeRow[] = [
-  {
-    id: '1',
-    employeeId: 'EMP-001',
-    name: 'Aarav Mehta',
-    email: 'aarav.mehta@abctech.com',
-    department: 'Engineering',
-    designation: 'Senior Software Engineer',
-    joiningDate: '2024-04-15',
-    status: 'Ready',
-  },
-  {
-    id: '2',
-    employeeId: 'EMP-002',
-    name: 'Nisha Shah',
-    email: 'nisha.shah@abctech.com',
-    department: 'Human Resources',
-    designation: 'HR Manager',
-    joiningDate: '2023-11-01',
-    status: 'Ready',
-  },
-  {
-    id: '3',
-    employeeId: 'EMP-003',
-    name: 'Rohan Iyer',
-    email: '',
-    department: 'Quality Assurance',
-    designation: 'QA Analyst',
-    joiningDate: '2025-01-20',
-    status: 'Needs Review',
-  },
-]
-
+/** Mirrors the tracker rail. The steps themselves come from the server. */
 const SETUP_STEPS: SetupStep[] = [
-  { id: 'modules', label: 'Module Selection' },
-  { id: 'organization', label: 'Organization Details' },
-  { id: 'department', label: 'Department Setup' },
-  { id: 'employee', label: 'Employee Import' },
-  { id: 'review', label: 'Portal Review' },
-  { id: 'golive', label: 'Go Live' },
-]
-
-type WizardStep = 'organization' | 'departments' | 'employees'
-
-const steps = [
-  {
-    id: 'organization',
-    label: 'Organization Details',
-    description: 'Manage your organization information and preferences',
-  },
-  {
-    id: 'departments',
-    label: 'Department Selection',
-    description: 'Choose departments suggested for your industry.',
-  },
-  {
-    id: 'employees',
-    label: 'Employee Import',
-    description: 'Upload, validate, and review employee records.',
-  },
-]
-
-const initialOrganization: OrganizationForm = {
-  organizationName: 'ABC Technologies Pvt. Ltd.',
-  organizationCode: 'ABC123',
-  organizationType: 'Company',
-  businessType: 'Private Limited',
-  industryType: 'Information Technology',
-  email: 'info@abctech.com',
-  phone: '079-12345678',
-  website: 'www.abctech.com',
-  country: 'India',
-  state: 'Gujarat',
-  city: 'Ahmedabad',
-  registrationNumber: '',
-  gstNumber: '',
-  panNumber: '',
-  establishedDate: '',
-  addressLine1: '',
-  addressLine2: '',
-  postalCode: '',
-  companyDescription: '',
-}
-
-const initialNewSisterCompany: OrganizationForm = {
-  ...initialOrganization,
-  organizationName: '',
-  organizationCode: '',
-  organizationType: 'Company',
-  businessType: 'Subsidiary',
-  email: '',
-  phone: '',
-  website: '',
-  country: '',
-  state: '',
-  city: '',
-  registrationNumber: '',
-  gstNumber: '',
-  panNumber: '',
-  establishedDate: '',
-  addressLine1: '',
-  addressLine2: '',
-  postalCode: '',
-  companyDescription: '',
-}
-
-function getSisterCompanyOrganization(
-  company: SisterCompany,
-): OrganizationForm {
-  const locationParts = company.location
-    .split(',')
-    .map((part) => part.trim())
-  const city = locationParts[0] || ''
-  const country = locationParts[1] || ''
-
-  return {
-    ...initialOrganization,
-    organizationName: company.name,
-    organizationCode: company.code,
-    organizationType: 'Company',
-    businessType: company.type,
-    email: '',
-    phone: '',
-    website: '',
-    country: country || initialOrganization.country,
-    state: '',
-    city: city || '',
-    registrationNumber: '',
-    gstNumber: '',
-    panNumber: '',
-    establishedDate: '',
-    addressLine1: '',
-    addressLine2: '',
-    postalCode: '',
-    companyDescription: `${company.name} is a ${company.type.toLowerCase()} of ${initialOrganization.organizationName}.`,
-  }
-}
-
-const initialSisterCompanyForms = SISTER_COMPANIES.reduce<
-  Record<string, OrganizationForm>
->((forms, company) => {
-  forms[company.id] = getSisterCompanyOrganization(company)
-  return forms
-}, {})
-
-const initialSisterCompany = SISTER_COMPANIES.reduce<Record<string, OrganizationForm>>(
-  (forms, company) => {
-    forms[company.id] = getSisterCompanyOrganization(company)
-    return forms
-  },
-  {},
-)
-
-const requiredOrganizationFields: Array<keyof OrganizationForm> = [
-  'organizationName',
-  'organizationCode',
-  'organizationType',
-  'businessType',
-  'industryType',
-  'email',
-  'phone',
-  'country',
-  'state',
-  'city',
-  'registrationNumber',
-  'gstNumber',
-  'panNumber',
-  'establishedDate',
-  'addressLine1',
-  'postalCode',
-  'companyDescription',
+  { id: 'profile', label: 'Organisation profile' },
+  { id: 'roles', label: 'Standard roles' },
+  { id: 'modules', label: 'Modules' },
+  { id: 'departments', label: 'Departments' },
+  { id: 'people', label: 'People' },
+  { id: 'capability', label: 'Capability framework' },
 ]
 
 export default function OrganizationSetupPage() {
   const router = useRouter()
-  const { user, isLoading } = useAuth()
+  const { user } = useAuth()
+  const { resolveAccessLink } = useSidebarNavigation()
 
-  const [activeStep, setActiveStep] = useState<WizardStep>('organization')
-  const [completed, setCompleted] = useState<Record<WizardStep, boolean>>({
-    organization: false,
-    departments: false,
-    employees: false,
-  })
-  const [mainOrganization, setMainOrganization] =
-    useState<OrganizationForm>(initialOrganization)
-  const [organization, setOrganization] =
-    useState<OrganizationForm>(initialOrganization)
-  const [timeZone, setTimeZone] = useState('(IST) Asia/Kolkata')
-  const [currency, setCurrency] = useState('INR - Indian Rupee (₹)')
-  const [financialYear, setFinancialYear] = useState('April - March')
-  const [language, setLanguage] = useState('English')
-  const [newSisterOrganization, setNewSisterOrganization] =
-    useState<OrganizationForm>(initialNewSisterCompany)
-  const [sisterCompanyForms, setSisterCompanyForms] = useState<
-    Record<string, OrganizationForm>
-  >(initialSisterCompanyForms)
-  const [departmentSearch, setDepartmentSearch] = useState('')
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
-  const [customDepartment, setCustomDepartment] = useState('')
-  const [employees, setEmployees] = useState<EmployeeRow[]>([])
-  const [employeeSearch, setEmployeeSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [sisterCompanyMode, setSisterCompanyMode] =
-    useState<SisterCompanyMode>('none')
-  const [editingSisterCompany, setEditingSisterCompany] = useState<SisterCompany | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [steps, setSteps] = useState<SetupStepStatus[]>([])
+  const [done, setDone] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [busyStep, setBusyStep] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  const mainCompletedSteps = useMemo(() => {
-    const completedIds: string[] = []
-    if (completed.organization) completedIds.push('organization')
-    if (completed.departments) completedIds.push('department')
-    if (completed.employees) completedIds.push('employee')
-    return new Set(['modules', ...completedIds])
-  }, [completed])
-  const currentStep = mainCompletedSteps.size + 1
-  const completionCount = steps.filter((step) => completed[step.id as WizardStep]).length
-  const isComplete = completionCount === steps.length
+  const load = useCallback(async () => {
+    const context = getLaravelContext(user)
 
-  if (!user || !['admin', 'hr'].includes(user.role)) {
-    return (
-      <AccessDeniedPage reason="Organization setup is accessible to Admin and HR roles only." />
-    )
-  }
+    if (!isLaravelContextReady(context)) return
 
-  const updateOrganization = (field: keyof OrganizationForm, value: string) => {
-    setOrganization((current) => {
-      const next = { ...current, [field]: value }
+    setLoading(true)
 
-      if (sisterCompanyMode === 'none') {
-        setMainOrganization(next)
-      } else if (sisterCompanyMode === 'create') {
-        setNewSisterOrganization(next)
-      } else if (editingSisterCompany) {
-        setSisterCompanyForms((currentForms) => ({
-          ...currentForms,
-          [editingSisterCompany.id]: next,
-        }))
-      }
+    try {
+      const response = await setupStatusService.get(context)
+      setSteps(response.data?.steps ?? [])
+      setDone(response.data?.done ?? 0)
+      setError(null)
+    } catch (reason) {
+      setSteps([])
+      setError(reason instanceof Error ? reason.message : 'Could not load your setup status.')
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
 
-      return next
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load()
     })
-  }
+  }, [load])
 
-  const saveOrganization = async () => {
-    const hasMissing = requiredOrganizationFields.some(
-      (field) => !organization[field].trim(),
-    )
-    if (hasMissing) return
+  /**
+   * The one step that finishes here rather than elsewhere.
+   *
+   * Afterwards the status is reloaded rather than assumed - the server is the
+   * thing that decides whether a step is done, and this screen should not start
+   * keeping its own opinion the moment it becomes inconvenient.
+   */
+  async function createRoles() {
+    const context = getLaravelContext(user)
 
-    if (sisterCompanyMode !== 'none') {
-      if (sisterCompanyMode === 'create') {
-        setNewSisterOrganization(organization)
-      } else if (editingSisterCompany) {
-        setSisterCompanyForms((currentForms) => ({
-          ...currentForms,
-          [editingSisterCompany.id]: organization,
-        }))
-      }
-      return
-    }
+    if (!isLaravelContextReady(context)) return
 
-    if (user) {
-      await updateOnboarding(user.id, {
-        organization: {
-          companyName: organization.organizationName,
-          timeZone,
-          currency,
-          financialYear,
-          country: organization.country,
-          industry: organization.industryType,
-        },
-      })
-    }
-    completeStep('organization', 'departments')
-  }
+    setBusyStep('roles')
+    setNotice(null)
+    setError(null)
 
-  const toggleDepartment = (department: string) => {
-    setSelectedDepartments((current) =>
-      current.includes(department)
-        ? current.filter((item) => item !== department)
-        : [...current, department],
-    )
-  }
-
-  const addCustomDepartment = () => {
-    const value = customDepartment.trim()
-    if (!value || selectedDepartments.includes(value)) return
-    setSelectedDepartments((current) => [...current, value])
-    setCustomDepartment('')
-  }
-
-  const importEmployees = () => {
-    setEmployees(sampleEmployees)
-    setEmployeeSearch('')
-    setPage(1)
-  }
-
-  const saveDepartments = async () => {
-    if (user) await updateOnboarding(user.id, { departments: selectedDepartments })
-    completeStep('departments', 'employees')
-  }
-
-  const saveEmployees = async () => {
-    const warnings = employees.filter((employee) => employee.status === 'Needs Review').length
-    if (user) {
-      await updateOnboarding(user.id, {
-        employees: {
-          total: employees.length,
-          successful: employees.length - warnings,
-          warnings,
-          errors: 0,
-        },
-      })
-    }
-    completeStep('employees')
-  }
-
-  const downloadTemplate = () => {
-    const csv = [
-      'Employee ID,Employee Name,Email,Department,Designation,Joining Date',
-      'EMP-001,Aarav Mehta,aarav.mehta@abctech.com,Engineering,Software Engineer,2024-04-15',
-    ].join('\n')
-    const link = document.createElement('a')
-    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
-    link.download = 'employee-import-template.csv'
-    link.click()
-  }
-
-  const deleteEmployee = (id: string) => {
-    setEmployees((current) => current.filter((employee) => employee.id !== id))
-  }
-
-  const markEmployeeReady = (id: string) => {
-    setEmployees((current) =>
-      current.map((employee) =>
-        employee.id === id
-          ? {
-              ...employee,
-              email:
-                employee.email ||
-                `${employee.name.toLowerCase().replace(/\s+/g, '.')}@abctech.com`,
-              status: 'Ready',
-            }
-          : employee,
-      ),
-    )
-  }
-
-  const openSisterCompanyEditor = (company: SisterCompany) => {
-    setEditingSisterCompany(company)
-    setSisterCompanyMode('edit')
-    setActiveStep('organization')
-    setOrganization(sisterCompanyForms[company.id] ?? getSisterCompanyOrganization(company))
-  }
-
-  const openSisterCompanyCreator = () => {
-    setEditingSisterCompany(null)
-    setSisterCompanyMode('create')
-    setActiveStep('organization')
-    setOrganization(newSisterOrganization)
-  }
-
-  const openMainCompany = () => {
-    setEditingSisterCompany(null)
-    setSisterCompanyMode('none')
-    setActiveStep('organization')
-    setOrganization(mainOrganization)
-  }
-
-  const openCurrentSisterCompany = () => {
-    if (sisterCompanyMode === 'create') {
-      setOrganization(newSisterOrganization)
-      return
-    }
-
-    if (editingSisterCompany) {
-      setOrganization(
-        sisterCompanyForms[editingSisterCompany.id] ??
-          getSisterCompanyOrganization(editingSisterCompany),
-      )
+    try {
+      const response = await setupStatusService.createRoles(context)
+      setNotice(response.message)
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The roles could not be created.')
+    } finally {
+      setBusyStep(null)
     }
   }
 
-  const deleteSisterCompany = (id: string) => {
-    setEditingSisterCompany(null)
-    setSisterCompanyMode('none')
-    setOrganization(mainOrganization)
+  /*
+   * Menu links are resolved through the sidebar, not hardcoded. A link to a
+   * screen this role cannot reach would be a dead end, and resolveAccessLink
+   * returns '/dashboard' for anything not in their navigation.
+   */
+  function go(link: string) {
+    router.push(link.startsWith('/module/') ? resolveAccessLink(link) : link)
   }
 
-  const completeStep = (step: WizardStep, next?: WizardStep) => {
-    setCompleted((current) => ({ ...current, [step]: true }))
-    if (next) setActiveStep(next)
-  }
+  const total = steps.length || SETUP_STEPS.length
+  const completedIds = new Set(steps.filter((step) => step.done).map((step) => step.key))
+  const firstOutstanding = steps.findIndex((step) => !step.done)
 
   return (
     <ProtectedLayout>
-      <SetupWizardLayout currentStep={currentStep} steps={SETUP_STEPS} completedSteps={mainCompletedSteps}>
-        <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
-          <aside className="h-full min-h-0 p-4 lg:sticky lg:top-4">
-            <Suspense fallback={<div className="h-[560px] rounded-lg border border-border bg-muted/30" />}>
-              <LazySetupProgressRail activeStep={activeStep} completed={completed} steps={steps} />
-            </Suspense>
-          </aside>
-          <section className="min-w-0 flex-1 overflow-y-auto g2g-scrollbar px-4 py-6 sm:px-6 sm:py-3">
-            {!isComplete && (
-              <div className="sticky top-0 z-20 mb-5 rounded-lg border border-border bg-card p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase text-primary">
-                  Step {steps.findIndex((step) => step.id === activeStep) + 1}{' '}
-                  of {steps.length}
-                </p>
-                <h2 className="mt-1 text-2xl font-bold text-foreground">
-                  {steps.find((step) => step.id === activeStep)?.label}
-                </h2>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  {steps.find((step) => step.id === activeStep)?.description}
-                </p>
-                {sisterCompanyMode !== 'none' && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={openMainCompany}
-                    >
-                      {mainOrganization.organizationName}
-                    </button>
-                    <span aria-hidden="true">/</span>
-                    <button
-                      type="button"
-                      className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={openCurrentSisterCompany}
-                    >
-                      {sisterCompanyMode === 'create'
-                        ? 'New Sister Company'
-                        : organization.organizationName || editingSisterCompany?.name}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!isComplete && activeStep === 'organization' && (
-              <Suspense fallback={<div className="h-[720px] rounded-lg border border-border bg-muted/30" />}>
-                <LazyOrganizationProfileStep
-                  organization={organization}
-                  updateOrganization={updateOrganization}
-                  isOrganizationReady={requiredOrganizationFields.every((field) =>
-                    organization[field].trim(),
-                  )}
-                  saveOrganization={saveOrganization}
-                  employeeCount={employees.length}
-                  timeZone={timeZone}
-                  currency={currency}
-                  financialYear={financialYear}
-                  language={language}
-                  updateTimeZone={setTimeZone}
-                  updateCurrency={setCurrency}
-                  updateFinancialYear={setFinancialYear}
-                  updateLanguage={setLanguage}
-                  sisterCompanyMode={sisterCompanyMode}
-                  onSisterCompanyCreate={openSisterCompanyCreator}
-                  onSisterCompanyEdit={openSisterCompanyEditor}
-                  onSisterCompanyDelete={deleteSisterCompany}
-                  editingSisterCompany={editingSisterCompany}
-                  sisterCompanyForms={sisterCompanyForms}
-                  newSisterOrganization={newSisterOrganization}
-                />
-              </Suspense>
-            )}
-
-            {!isComplete && activeStep === 'departments' && (
-              <Suspense fallback={<div className="h-[560px] rounded-lg border border-border bg-muted/30" />}>
-                <LazyDepartmentSelectionStep
-                  industryType={organization.industryType}
-                  departmentSearch={departmentSearch}
-                  setDepartmentSearch={setDepartmentSearch}
-                  selectedDepartments={selectedDepartments}
-                  toggleDepartment={toggleDepartment}
-                  customDepartment={customDepartment}
-                  setCustomDepartment={setCustomDepartment}
-                  addCustomDepartment={addCustomDepartment}
-                  saveDepartments={saveDepartments}
-                />
-              </Suspense>
-            )}
-
-            {!isComplete && activeStep === 'employees' && (
-              <Suspense fallback={<div className="h-[620px] rounded-lg border border-border bg-muted/30" />}>
-                <LazyEmployeeImportStep
-                  employees={employees}
-                  setEmployees={setEmployees}
-                  employeeSearch={employeeSearch}
-                  setEmployeeSearch={setEmployeeSearch}
-                  page={page}
-                  setPage={setPage}
-                  importEmployees={importEmployees}
-                  saveEmployees={saveEmployees}
-                  markEmployeeReady={markEmployeeReady}
-                  deleteEmployee={deleteEmployee}
-                  downloadTemplate={downloadTemplate}
-                />
-              </Suspense>
-            )}
-
-            {isComplete && (
-              <Suspense fallback={<div className="h-64 rounded-lg border border-border bg-muted/30" />}>
-                <LazySetupCompletionStep router={router} />
-              </Suspense>
-            )}
-          </section>
+      <SetupWizardLayout
+        currentStep={firstOutstanding === -1 ? total : firstOutstanding + 1}
+        steps={SETUP_STEPS}
+        completedSteps={completedIds}
+      >
+        <div className="mb-6 flex flex-col gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Set up your organisation
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {loading
+              ? 'Checking what is already set up…'
+              : `${done} of ${total} done. Everything below is read from your own data, so it stays right whether you finish here or in the screens themselves.`}
+          </p>
         </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <Info className="size-4" aria-hidden="true" />
+            <AlertTitle>Could not load your setup status</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {notice && (
+          <Alert variant="info" className="mb-4">
+            <Check className="size-4" aria-hidden="true" />
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-20 animate-pulse rounded-xl bg-muted/40" />
+            ))}
+          </div>
+        ) : (
+          <ol className="flex flex-col gap-3">
+            {steps.map((step) => (
+              <li
+                key={step.key}
+                className="flex flex-wrap items-center gap-4 rounded-xl border border-border/70 bg-card p-4"
+              >
+                <span
+                  className={
+                    step.done
+                      ? 'flex size-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success'
+                      : 'flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground'
+                  }
+                  aria-hidden="true"
+                >
+                  {step.done ? <Check className="size-4" /> : null}
+                </span>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-foreground">{step.label}</span>
+                  {/* The server's own sentence, with the real numbers in it. */}
+                  <span className="text-xs leading-snug text-muted-foreground">{step.detail}</span>
+                </div>
+
+                {step.inline_action === 'create-roles' ? (
+                  <Button
+                    size="sm"
+                    variant={step.done ? 'outline' : 'default'}
+                    disabled={step.done || busyStep === 'roles'}
+                    onClick={createRoles}
+                  >
+                    {busyStep === 'roles' && (
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    )}
+                    {step.done ? 'Done' : step.action}
+                  </Button>
+                ) : step.link ? (
+                  <Button
+                    size="sm"
+                    variant={step.done ? 'outline' : 'default'}
+                    onClick={() => go(step.link as string)}
+                  >
+                    {step.done ? 'Review' : step.action}
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {!loading && steps.length > 0 && (
+          <Alert variant="info" className="mt-6">
+            <Info className="size-4" aria-hidden="true" />
+            <AlertTitle>You can leave and come back</AlertTitle>
+            <AlertDescription>
+              Nothing on this page is a saved checklist — each line is counted from your
+              organisation&rsquo;s own records every time you open it. Work through it in any
+              order, or do it from the screens themselves; this will keep up either way.
+            </AlertDescription>
+          </Alert>
+        )}
       </SetupWizardLayout>
     </ProtectedLayout>
   )

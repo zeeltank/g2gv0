@@ -6,6 +6,7 @@ import {
   ROLE_PERMISSIONS_ACCESS_LINK,
   COMPLIANCE_LIBRARY_ACCESS_LINK,
   DISCIPLINARY_LIBRARY_ACCESS_LINK,
+  READINESS_GATES_ACCESS_LINK,
 } from '@/lib/gtg-navigation'
 
 const OrganizationInformation = createLazyComponent(() => import('@/domain/organization/organization-information').then((m) => ({ default: m.OrganizationInformation })))
@@ -14,6 +15,7 @@ const EmployeeDirectory = createLazyComponent(() => import('@/domain/organizatio
 const RolePermissions = createLazyComponent(() => import('@/domain/organization/role-permissions').then((m) => ({ default: m.RolePermissions })))
 const ComplianceLibraryManagement = createLazyComponent(() => import('@/domain/hrms/compliance-discipline/compliance-library-management').then((m) => ({ default: m.ComplianceLibraryManagement })))
 const DisciplinaryManagement = createLazyComponent(() => import('@/domain/hrms/compliance-discipline/disciplinary-management').then((m) => ({ default: m.DisciplinaryManagement })))
+const OrganizationReadiness = createLazyComponent(() => import('@/domain/organization/organization-readiness').then((m) => ({ default: m.OrganizationReadiness })))
 
 // accessLink is the stable tblmenumaster_g2g column (Organizational
 // Management, module id 1); submenuId is kept only as a fallback in case a
@@ -25,4 +27,5 @@ export const M1_CONTENT: ContentRoute[] = [
   { accessLink: ROLE_PERMISSIONS_ACCESS_LINK,  component: RolePermissions }, // Role & Permissions
   { accessLink: COMPLIANCE_LIBRARY_ACCESS_LINK, component: ComplianceLibraryManagement }, // Compliance Library
   { accessLink: DISCIPLINARY_LIBRARY_ACCESS_LINK, component: DisciplinaryManagement }, // Disciplinary Library
+  { accessLink: READINESS_GATES_ACCESS_LINK, component: OrganizationReadiness }, // Readiness Gates
 ]

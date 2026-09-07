@@ -45,7 +45,9 @@ function mapComplianceRecord(record: LaravelComplianceRecord): ComplianceRecord 
     name: record.name ?? '',
     description: record.description ?? '',
     department: record.standard_name ?? '-',
-    assignedTo: record.assigned_user ?? String(record.assigned_to ?? '-'),
+    // The name to show, and the id to edit with - see ComplianceRecord.
+    assignedTo: record.assigned_user ?? '',
+    assignedToId: record.assigned_to ? String(record.assigned_to) : '',
     dueDate: record.duedate ?? '',
     frequency: (record.frequency || 'One-Time') as Frequency,
     customDate: record.custom_frequency_details ?? '',
@@ -204,7 +206,9 @@ export function ComplianceLibraryManagement() {
       name: record.name,
       description: record.description,
       department: record.department === '-' ? '' : record.department,
-      assignedTo: record.assignedTo === '-' ? '' : record.assignedTo,
+      // The ID, not the name. Seeding with the name left the Select showing
+      // nothing selected, because its options are keyed by user id.
+      assignedTo: record.assignedToId,
       dueDate: record.dueDate,
       frequency: record.frequency,
       customDate: record.customDate ?? '',
@@ -420,7 +424,7 @@ export function ComplianceLibraryManagement() {
                             <p className="line-clamp-2 text-muted-foreground">{record.description}</p>
                           </TableCell>
                           <TableCell>{record.department}</TableCell>
-                          <TableCell>{record.assignedTo}</TableCell>
+                          <TableCell>{record.assignedTo || '—'}</TableCell>
                           <TableCell>{displayDate(record.dueDate)}</TableCell>
                           <TableCell>
                             <Badge variant={record.frequency === 'Custom' ? 'warning' : 'navy'}>
