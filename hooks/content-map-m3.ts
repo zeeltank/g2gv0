@@ -21,6 +21,10 @@ const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 
+// The organisation's record of people actually improving - the only outcome
+// screen in a module that is otherwise entirely forward-looking.
+const CapabilityProgressRecord = createLazyComponent(() => import('@/domain/talent/development/capability-progress-record').then((m) => ({ default: m.CapabilityProgressRecord })))
+
 // accessLink is the stable tblmenumaster_g2g column (Talent Management,
 // module id 3, menu-level rows); menuId is kept as a fallback.
 export const M3_CONTENT: ContentRoute[] = [
@@ -35,4 +39,9 @@ export const M3_CONTENT: ContentRoute[] = [
   { accessLink: '/module/talent-management/employee-profiles', submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
   { accessLink: '/module/talent-management/development-and-career-paths', submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
   { accessLink: '/module/talent-management/certifications', submenuId: '158', component: CmCertifications }, // Certifications
+  // submenuId 303 is what the INSERT returned on both databases - verified, not
+  // computed. content-map-m2.ts records why MAX(id)+1 is the trap here: a
+  // mismatch is silent, rendering the sidebar row straight onto "under
+  // construction".
+  { accessLink: '/module/talent-management/capability-progress', submenuId: '303', component: CapabilityProgressRecord }, // Capability Progress
 ]

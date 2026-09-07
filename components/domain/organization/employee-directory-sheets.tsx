@@ -78,6 +78,11 @@ const CompetencyAssessmentTab = lazy(() =>
  * employee could show their skills, tasks, competency ratings and documents,
  * and nothing about the courses they had finished.
  */
+const CmCapabilityProgress = lazy(() =>
+  import('@/domain/competency/cm-capability-progress').then((m) => ({
+    default: m.CmCapabilityProgress,
+  })),
+)
 const CertificatesTab = lazy(() =>
   import('@/domain/organization/edit-employee/certificates-tab').then((m) => ({
     default: m.CertificatesTab,
@@ -99,6 +104,18 @@ const TOP_TABS = [
    * gap engine. That is why they never agreed.
    */
   { id: 'competency', label: 'Competency' },
+  /*
+   * WHAT CHANGED, AND WHY — separate from "Competency", which is the current
+   * state and the place ratings are set.
+   *
+   * The drawer could show an HR user this person's ratings, their tasks, their
+   * documents and their certificates, and could not show that any of it had
+   * ever moved. Nothing anywhere connected a passed course to a capability
+   * improving: the quiz wrote a rating keyed so that no reader could see it,
+   * source_ref_id was written and read by nothing, and the Certificates tab
+   * renders no capability link at all.
+   */
+  { id: 'capability-progress', label: 'Capability Progress' },
   { id: 'certificates', label: 'Certificates' },
 ] as const
 
@@ -849,7 +866,17 @@ function EmployeeOverviewSheet({
                 <CertificatesTab employeeId={mergedEmployee ? Number((mergedEmployee as any).id) : null} />
               </Suspense>
             )}
-            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && activeTopTab !== 'certificates' && (
+            {activeTopTab === 'capability-progress' && (
+              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+                <div className="p-1">
+                  <CmCapabilityProgress
+                    userId={mergedEmployee ? Number((mergedEmployee as any).id) : undefined}
+                    title="How this person's capability has changed"
+                  />
+                </div>
+              </Suspense>
+            )}
+            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && activeTopTab !== 'capability-progress' && activeTopTab !== 'certificates' && (
               <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
                 <div className="rounded-full bg-muted/50 p-4">
                   <Briefcase className="size-8 opacity-50" />
