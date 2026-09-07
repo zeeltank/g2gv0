@@ -246,9 +246,17 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
   return roots
 }
 
-export function DepartmentList({ role }: { role: Role }) {
-  const access = getAccess('department-list', role)
+/**
+ * @param role Whose access to render as. OPTIONAL, and it must stay optional —
+ *   see the note on OrganizationInformation. This screen was unreachable for
+ *   every user, administrators included, because the content map mounts it with
+ *   no props and `role` was required. 1,290 lines of working department
+ *   management sat behind an "Access Restricted" card that nobody could pass.
+ */
+export function DepartmentList({ role }: { role?: Role }) {
   const { user } = useAuth()
+  const effectiveRole = role ?? user?.role
+  const access = effectiveRole ? getAccess('department-list', effectiveRole) : 'none'
   const [query, setQuery] = useState('')
   const [treeQuery, setTreeQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -316,14 +324,48 @@ export function DepartmentList({ role }: { role: Role }) {
     queueMicrotask(() => void loadDepartments())
   }, [loadDepartments])
 
+  /**
+   * What a scoped role (department head, reporting manager) may see.
+   *
+   * ── A FIXTURE WAS BEING USED AS AN AUTHORISATION RULE ────────────────────
+   *
+   * This filtered to departments literally NAMED 'Engineering':
+   *
+   *     departments.filter(d => d.name === 'Engineering' || d.parent === 'Engineering')
+   *
+   * a leftover from a deleted demo. Every organisation without a department of
+   * that exact name showed its department heads an empty list, and any
+   * organisation that happened to have one showed them a department they may
+   * have nothing to do with.
+   *
+   * The real rule is the one the data already expresses: a head sees the
+   * department they head, and everything under it. Descendants are walked to
+   * full depth rather than one level, because a sub-department's
+   * sub-department is still theirs.
+   */
   const scopedDepts = useMemo(() => {
-    if (access === 'scoped') {
-      return departments.filter(
-        (d) => d.name === 'Engineering' || d.parent === 'Engineering',
-      )
+    if (access !== 'scoped') return departments
+
+    const mine = departments.filter((d) => d.hodId !== null && d.hodId === user?.id)
+
+    if (mine.length === 0) return []
+
+    // Walk down by name, which is what `parent` holds on this mapped shape.
+    const owned = new Set(mine.map((d) => d.name))
+    let grew = true
+
+    while (grew) {
+      grew = false
+      for (const department of departments) {
+        if (department.parent && owned.has(department.parent) && !owned.has(department.name)) {
+          owned.add(department.name)
+          grew = true
+        }
+      }
     }
-    return departments
-  }, [access, departments])
+
+    return departments.filter((d) => owned.has(d.name))
+  }, [access, departments, user?.id])
 
   const tree = useMemo(() => buildSafeHierarchy(scopedDepts), [scopedDepts])
   const parents = useMemo(
@@ -479,7 +521,7 @@ export function DepartmentList({ role }: { role: Role }) {
   const detailDept = selected ?? lastShown
 
   if (access === 'none') {
-    return <AccessDenied role={roleLabel(role)} />
+    return <AccessDenied role={effectiveRole ? roleLabel(effectiveRole) : ''} />
   }
 
   function toggleSort(key: SortKey) {
@@ -1033,7 +1075,20 @@ export function DepartmentList({ role }: { role: Role }) {
                 {pageRows.length === 0 && (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={7} className="h-24 px-4 text-center text-sm text-muted-foreground">
-                      No departments match the current search or filters.
+                      {/*
+                        * "No results" and "you are scoped to nothing" are
+                        * different facts, and a scoped user who heads no
+                        * department would otherwise be told their search
+                        * matched nothing — when the truth is that nobody has
+                        * recorded them as a head. head_user_id is set on zero
+                        * of 1,274 live departments, so today that is almost
+                        * everyone in a scoped role.
+                        */}
+                      {access === 'scoped' && scopedDepts.length === 0
+                        ? 'You are not recorded as the head of any department yet, so there is nothing here to show. An administrator can assign you one from Department Management.'
+                        : departments.length === 0
+                          ? 'No departments yet. Create the first one to get started.'
+                          : 'No departments match the current search or filters.'}
                     </TableCell>
                   </TableRow>
                 )}

@@ -52,3 +52,6 @@ export type {
   AdoptResponse,
   AdoptSelection,
 } from './catalogue-adopt'
+
+export * from './capability-progress'
+export { capabilityProgressService } from './capability-progress'

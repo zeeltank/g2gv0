@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, Network, Save, Upload, X } from 'lucide-react'
+import { Save, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,6 @@ import {
   SelectInput,
   TextArea,
 } from './components'
-import { SISTER_COMPANIES } from '@/lib/gtg-org-data'
 
 type OrganizationData = {
   organizationName: string
@@ -232,68 +231,22 @@ export function OrganizationInformationEditPanel({
         </SectionCard>
       </div>
 
-      <SectionCard
-        title="Sister Companies"
-        description="Subsidiaries and branches linked to this organization."
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SISTER_COMPANIES.map((sc) => (
-            <div
-              key={sc.id}
-              className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted p-4"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div
-                  className="flex size-10 items-center justify-center rounded-md bg-secondary text-sm font-bold text-secondary-foreground"
-                  aria-hidden="true"
-                >
-                  {sc.name.split(' ').slice(-1)[0].slice(0, 2).toUpperCase()}
-                </div>
-                <Badge variant={sc.type === 'Subsidiary' ? 'navy' : 'outline'}>
-                  {sc.type}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{sc.name}</p>
-                <p className="text-xs text-muted-foreground">{sc.code}</p>
-              </div>
-              <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                <span>{sc.location}</span>
-                <span className="font-semibold text-foreground">{sc.employees} staff</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Organization Structure Preview"
-        description="A high-level view of the reporting structure."
-      >
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border bg-surface-muted p-6">
-          <div className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-            {org.organizationName}
-          </div>
-          <div className="h-5 w-px bg-border" aria-hidden="true" />
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {['Engineering', 'Human Resources', 'Sales & Marketing', 'Finance'].map(
-              (n) => (
-                <div
-                  key={n}
-                  className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs"
-                >
-                  <Network className="size-4 text-muted-foreground" aria-hidden="true" />
-                  {n}
-                </div>
-              ),
-            )}
-          </div>
-          <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-            <Building2 className="size-3.5" aria-hidden="true" />
-            Full interactive view available under Department Hierarchy.
-          </p>
-        </div>
-      </SectionCard>
+      {/*
+        * ── TWO DECORATIVE BLOCKS REMOVED ─────────────────────────────────────
+        *
+        * This edit form ended with a "Sister Companies" grid built from the
+        * SISTER_COMPANIES fixture and an "Organization Structure Preview"
+        * built from the literal list ['Engineering', 'Human Resources',
+        * 'Sales & Marketing', 'Finance'].
+        *
+        * Neither was editable — they were read-only decoration on a form,
+        * showing three subsidiaries and four departments that belong to no
+        * customer. Somebody editing their real organisation profile saw
+        * another company's structure underneath it.
+        *
+        * The real subsidiaries, and the real departments, are on the view
+        * screen where they can be read and added.
+        */}
     </div>
   )
 }

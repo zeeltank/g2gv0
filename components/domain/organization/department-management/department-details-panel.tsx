@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { Department } from '@/lib/gtg-org-data'
-import { ORG_PROFILE } from '@/lib/gtg-org-data'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { organizationService } from '@/services/organization'
 import { Tabs } from '../components'
@@ -131,8 +130,13 @@ function DepartmentHeader({ department }: { department: Department }) {
           <StatusBadge status={department.status} size="sm" />
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
+          {/*
+            * A top-level department has no parent, and said so by rendering
+            * ORG_PROFILE.name — the fixture — so every root department on every
+            * tenant was labelled "GapstoGrowth Technologies".
+            */}
           {departmentCode(department)} <span className="mx-1">-</span>{' '}
-          {department.parent ?? ORG_PROFILE.name}
+          {department.parent ?? 'Top-level department'}
         </p>
       </div>
     </div>
@@ -262,7 +266,7 @@ export function DepartmentDetailsPanel({
               <DetailItem
                 icon={<Folder className="size-4" />}
                 label="Parent Department"
-                value={department.parent ?? ORG_PROFILE.name}
+                value={department.parent ?? 'Top-level department'}
                 action={canManage ? 'Change Parent' : undefined}
                 onAction={canManage ? () => onChangeParent?.(department) : undefined}
               />

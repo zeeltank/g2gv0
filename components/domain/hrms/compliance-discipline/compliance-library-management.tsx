@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import type { SearchKey } from './compliance-library-management-types'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { organizationService, type LaravelComplianceRecord, type LaravelEmployee } from '@/services/organization'
+import { organizationService, type LaravelComplianceRecord, type LaravelDepartment, type LaravelEmployee } from '@/services/organization'
 import {
   ComplianceForm,
   type ComplianceFormState,
@@ -20,7 +20,6 @@ import {
   type Frequency,
   TableSkeleton,
   createCsv,
-  departmentOptions,
   displayDate,
   downloadFile,
   frequencySelectOptions,
@@ -58,6 +57,14 @@ export function ComplianceLibraryManagement() {
   const { user } = useAuth()
   const [records, setRecords] = useState<ComplianceRecord[]>([])
   const [employees, setEmployees] = useState<LaravelEmployee[]>([])
+  /**
+   * The tenant's real departments.
+   *
+   * This screen's Department picker was five invented business units with no
+   * connection to any organisation. The sibling Disciplinary screen has always
+   * read the real ones; this now does the same, the same way.
+   */
+  const [departments, setDepartments] = useState<LaravelDepartment[]>([])
   const [form, setForm] = useState<ComplianceFormState>(initialForm)
   const [editForm, setEditForm] = useState<ComplianceFormState>(initialForm)
   const [editingRecord, setEditingRecord] = useState<ComplianceRecord | null>(null)
@@ -82,9 +89,18 @@ export function ComplianceLibraryManagement() {
   const loadRecords = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await organizationService.getComplianceRecords(context)
+      const [response, departmentsResponse] = await Promise.all([
+        organizationService.getComplianceRecords(context),
+        organizationService.getDepartmentsManagement(context),
+      ])
       setRecords((response.complainceData ?? []).map(mapComplianceRecord))
       setEmployees(response.userDetails ?? [])
+      // Same flattening the Disciplinary screen uses: the API splits the tree
+      // into top level and children, and a picker wants one flat list.
+      setDepartments([
+        ...departmentsResponse.main_departments,
+        ...Object.values(departmentsResponse.sub_departments).flat(),
+      ])
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Failed to load compliance records.')
     } finally {
@@ -143,6 +159,13 @@ export function ComplianceLibraryManagement() {
   const employeeOptions = useMemo(
     () => employees.map((employee) => ({ label: employeeName(employee), value: String(employee.id) })),
     [employees],
+  )
+  const departmentOptions = useMemo(
+    () => departments.map((department) => ({
+      label: department.department,
+      value: department.department,
+    })),
+    [departments],
   )
 
   const validateForm = (state: ComplianceFormState) => {
@@ -309,6 +332,7 @@ export function ComplianceLibraryManagement() {
         <CardContent>
           <ComplianceForm
             form={form}
+            departmentOptions={departmentOptions}
             onChange={(next) => setForm((current) => ({ ...current, ...next }))}
             onSubmit={handleSubmit}
             submitLabel="Submit Compliance"
@@ -466,6 +490,7 @@ export function ComplianceLibraryManagement() {
           editingRecord={editingRecord}
           editForm={editForm}
           editUploadKey={editUploadKey}
+          departmentOptions={departmentOptions}
           employeeOptions={employeeOptions}
           onEditChange={(next) => setEditForm((current) => ({ ...current, ...next }))}
           onEditSave={handleSaveEdit}

@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ClipboardList, UserRound, WifiOff } from 'lucide-react'
 import { CmMyCapability } from './cm-my-capability'
+import { CmCapabilityProgress } from './cm-capability-progress'
 // The employee's own assessment, below their capability. Mounted here rather
 // than on a new menu because this screen ALREADY means 'my own capability' and
 // already carries the employee's identity from their token — a separate menu
@@ -161,6 +162,18 @@ export function CmMyCapabilityScreen() {
    * repeat exactly the coupling the assessment was moved out of.
    */
   const selfRating = <CmSelfRatingPanel />
+  /*
+   * How each of those numbers got there.
+   *
+   * Mounted outside every early-return branch, like the two panels above it and
+   * for the same documented reason: a failure fetching the gap says nothing
+   * about whether this record can be read, and hiding it because an unrelated
+   * call failed is how a real answer becomes invisible.
+   *
+   * No userId — the endpoint defaults to the caller, so this cannot be pointed
+   * at anybody else however the page is loaded.
+   */
+  const progress = <CmCapabilityProgress title="How your capability has changed" />
 
   if (state === 'loading') {
     // SKELETON, NOT A SENTENCE. The design system ships one; a hand-written
@@ -268,6 +281,7 @@ export function CmMyCapabilityScreen() {
             test becomes invisible. */}
         {selfRating}
         {assessment}
+        {progress}
       </div>
     )
   }
@@ -279,6 +293,7 @@ export function CmMyCapabilityScreen() {
           accepts no subject — the endpoints behind it have no user_id. */}
       {selfRating}
       {assessment}
+      {progress}
     </div>
   )
 }

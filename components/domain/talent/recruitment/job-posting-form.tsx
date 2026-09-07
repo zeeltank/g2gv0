@@ -94,18 +94,52 @@ export function JobPostingForm({
     const session = readLaravelSession()
     if (!session?.APP_URL) return
     queueMicrotask(() => setLoadingDepartments(true))
+    /*
+     * SCOPED TO THE ORGANISATION'S INDUSTRY, deliberately.
+     *
+     * An organisation sees the departments of its own industry and no others -
+     * tenant 6 is Information Technology, so it gets those four and not the
+     * Infocomm Technology ones sitting in the same table.
+     *
+     * The one thing to know when a department looks absent: `industries` is a
+     * property of each ROLE, not of the department, and the same department can
+     * hold roles under both labels. On tenant 6, Development has 93 roles under
+     * Information Technology and 8 under Infocomm Technology; Sales and
+     * Marketing is 13 and 11. A department therefore appears as soon as ONE of
+     * its roles matches, while the role picker below shows only the matching
+     * ones - so a role can be missing from a department that is present.
+     *
+     * `org_type` empty is NOT the same as unfiltered: the endpoint matches it as
+     * a literal empty string and returns nothing, which is why the parameter is
+     * omitted rather than sent blank.
+     */
     const params = new URLSearchParams({
       table: 's_user_jobrole',
       'filters[sub_institute_id]': String(session.sub_institute_id),
-      'filters[industries]': session.org_type ?? '',
       group_by: 'department',
       'order_by[column]': 'department',
       'order_by[direction]': 'asc',
     })
+    if (session.org_type) params.set('filters[industries]', session.org_type)
     fetch(`${session.APP_URL}/table_data?${params}`, { headers: { Authorization: `Bearer ${session.token}` } })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Failed to fetch departments: ${response.status}`)
         const items = flattenResponse(await response.json())
+        /*
+         * KNOWN WRONG, DELIBERATELY UNCHANGED - see the note below.
+         *
+         * `item.id` is the s_user_jobrole row id, not a department id, so when a
+         * role carries no department_id this sends a job-role id as the
+         * posting's department_id. That is 29 of the 36 department groups on
+         * tenant 6: they have a department NAME but no row in hrms_departments
+         * and no department_id on the role, so no correct id exists to send.
+         *
+         * Sending null instead is not an option today: store() validates
+         * department_id as `required|integer`, so 29 of 36 departments would
+         * stop being able to create a posting at all. Fixing it properly means
+         * deciding which table owns departments and reconciling the two, which
+         * is a data decision, not a dropdown one. Left as it was, and reported.
+         */
         setDepartments(items.map((item, index) => ({
           id: String(item.department_id ?? item.id ?? index + 1),
           department: String(item.department ?? ''),
@@ -120,15 +154,18 @@ export function JobPostingForm({
     const department = departments.find((item) => item.id === form.department)
     if (!session?.APP_URL || !department) return
     queueMicrotask(() => setLoadingRoles(true))
+    // Same scope as the department lookup above, and omitted rather than sent
+    // blank for the same reason: an empty value matches the empty string and
+    // returns nothing at all.
     const params = new URLSearchParams({
       table: 's_user_jobrole',
       'filters[sub_institute_id]': String(session.sub_institute_id),
-      'filters[industries]': session.org_type ?? '',
       'filters[department]': department.department,
       group_by: 'jobrole',
       'order_by[column]': 'jobrole',
       'order_by[direction]': 'asc',
     })
+    if (session.org_type) params.set('filters[industries]', session.org_type)
     fetch(`${session.APP_URL}/table_data?${params}`, { headers: { Authorization: `Bearer ${session.token}` } })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Failed to fetch job roles: ${response.status}`)
@@ -212,8 +249,12 @@ export function JobPostingForm({
       if (new Date(`${form.applicationDeadline}T00:00:00`) < today) next.applicationDeadline = 'Application deadline must be in the future'
     }
     if (!form.urgency) next.urgency = 'Priority level is required'
-    if (!form.benefits.trim()) next.benefits = 'Benefits are required'
-    else if (form.benefits.length < 10) next.benefits = 'Benefits must be at least 10 characters'
+    // Benefits are OPTIONAL. Plenty of openings are posted before the package is
+    // settled, and blocking the whole posting on a field the backend already
+    // accepts as nullable helped nobody.
+    if (form.benefits.trim() && form.benefits.trim().length < 10) {
+      next.benefits = 'Either leave benefits blank or write at least 10 characters'
+    }
     setErrors(next)
     return !Object.keys(next).length
   }
@@ -261,9 +302,26 @@ export function JobPostingForm({
     }
   }
 
-  const field = (key: keyof FormValues, label: string, node: React.ReactNode, full = false) => (
+  /*
+   * The asterisk is now a fact, not decoration. Every field rendered through
+   * here used to carry one unconditionally, so Benefits looked mandatory - and
+   * was, in the validator - while Certifications beside it was optional and
+   * rendered without `field()` entirely just to avoid the star.
+   */
+  const field = (
+    key: keyof FormValues,
+    label: string,
+    node: React.ReactNode,
+    full = false,
+    optional = false,
+  ) => (
     <div className={`space-y-2 ${full ? 'sm:col-span-2' : ''}`}>
-      <label className="text-sm font-medium">{label} <span className="text-destructive">*</span></label>
+      <label className="text-sm font-medium">
+        {label}{' '}
+        {optional
+          ? <span className="font-normal text-muted-foreground">(optional)</span>
+          : <span className="text-destructive">*</span>}
+      </label>
       {node}
       {errors[key] && <p className="text-sm font-medium text-destructive">{errors[key]}</p>}
     </div>
@@ -292,7 +350,7 @@ export function JobPostingForm({
         </div>, true)}
         <div className="space-y-2 sm:col-span-2"><label className="text-sm font-medium">Certifications</label><Input value={form.certifications} onChange={(e) => change('certifications', e.target.value)} placeholder="Enter required certifications" /></div>
         {field('jobDescription', 'Job Description', <div><Textarea rows={8} maxLength={5000} value={form.jobDescription} onChange={(e) => change('jobDescription', e.target.value)} placeholder="Describe responsibilities and requirements" /><p className="mt-1 text-right text-xs text-muted-foreground">{form.jobDescription.length}/5000 characters</p></div>, true)}
-        {field('benefits', 'Benefits', <Textarea rows={4} value={form.benefits} onChange={(e) => change('benefits', e.target.value)} placeholder="Describe compensation and benefits" />, true)}
+        {field('benefits', 'Benefits', <Textarea rows={4} value={form.benefits} onChange={(e) => change('benefits', e.target.value)} placeholder="Describe compensation and benefits, or leave blank" />, true, true)}
       </fieldset>
       <div className="flex justify-end gap-3 border-t pt-5">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
