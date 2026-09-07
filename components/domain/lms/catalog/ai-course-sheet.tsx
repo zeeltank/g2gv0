@@ -284,27 +284,47 @@ export function AiCourseSheet({
       }))
   }, [ai.scope, form.department_ids])
 
-  const competencyOptions = useMemo(
-    () =>
-      (ai.scope?.competencies ?? []).map((competency) => ({
-        value: String(competency.id),
-        label: competency.name,
-        hint: competency.code,
-      })),
-    [ai.scope],
-  )
+  /**
+   * True when the chosen roles have no capabilities of their own and the author
+   * is choosing from the organisation's whole library instead.
+   *
+   * The server sends the library ONLY in that case, so its presence is the
+   * signal - the client does not have to decide.
+   */
+  const usingLibrary =
+    (ai.scope?.competencies ?? []).length === 0 &&
+    ((ai.scope?.library_competencies ?? []).length > 0 ||
+      (ai.scope?.library_kasba_items ?? []).length > 0)
 
-  const kasbaOptions = useMemo(
-    () =>
-      (ai.scope?.kasba_items ?? []).map((item) => ({
-        value: String(item.id),
-        label: item.item_label,
-        // The type is what distinguishes two similarly-worded items, so it is
-        // the hint rather than a prefix on the label.
-        hint: item.kasba_type,
-      })),
-    [ai.scope],
-  )
+  const competencyOptions = useMemo(() => {
+    const source = usingLibrary
+      ? (ai.scope?.library_competencies ?? [])
+      : (ai.scope?.competencies ?? [])
+
+    return source.map((competency) => ({
+      value: String(competency.id),
+      label: competency.name,
+      hint: competency.code,
+    }))
+  }, [ai.scope, usingLibrary])
+
+  const kasbaOptions = useMemo(() => {
+    const source = usingLibrary
+      ? (ai.scope?.library_kasba_items ?? [])
+      : (ai.scope?.kasba_items ?? [])
+
+    return source.map((item) => ({
+      value: String(item.id),
+      label: item.item_label,
+      // The type is what distinguishes two similarly-worded items, so it is
+      // the hint rather than a prefix on the label. In library mode the
+      // competency matters more, since the items are no longer all from one.
+      hint:
+        usingLibrary && 'competency_name' in item && item.competency_name
+          ? `${item.kasba_type} · ${item.competency_name}`
+          : item.kasba_type,
+    }))
+  }, [ai.scope, usingLibrary])
 
   /*
    * Competencies and KASBA items belong to the CHOSEN ROLES, so the lists are
@@ -319,6 +339,65 @@ export function AiCourseSheet({
     // `ai` is recreated each render; the roles are what actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, jobroleKey])
+
+  /*
+   * ── THE ROLE'S CAPABILITIES ARE SELECTED AUTOMATICALLY ──────────────────
+   *
+   * Choosing a job role already fetched its competencies and their KASBA items,
+   * and then left every box unticked — so the author had to re-enter, by hand,
+   * information the organisation had already recorded against that role. If they
+   * did not (nothing required it: canGenerate only checks department and role),
+   * the course was generated with capabilities_to_develop: ['-'] and published
+   * developing nothing.
+   *
+   * The role's own capabilities are now ticked as soon as they arrive. They stay
+   * editable — this is a starting point, not a lock — but the default is what
+   * the role actually needs.
+   *
+   * The library fallback is deliberately NOT auto-selected: those items were not
+   * chosen for this role by anybody, so pre-ticking a whole library would be
+   * asserting something nobody decided.
+   */
+  const scopeSignature = `${(ai.scope?.competencies ?? []).map((c) => c.id).join(',')}|${(
+    ai.scope?.kasba_items ?? []
+  )
+    .map((k) => k.id)
+    .join(',')}`
+
+  useEffect(() => {
+    if (!open || usingLibrary) return
+
+    // The form holds ids as STRINGS - MultiSelect's value type - and converts
+    // at the call sites. Matching that here rather than at four more of them.
+    const competencyIds = (ai.scope?.competencies ?? []).map((c) => String(c.id))
+    const kasbaIds = (ai.scope?.kasba_items ?? []).map((k) => String(k.id))
+
+    setForm((current) => {
+      const validCompetencies = new Set<string>(competencyIds)
+      const validKasba = new Set<string>(kasbaIds)
+
+      /*
+       * Ids belonging to a role that is no longer selected are dropped.
+       *
+       * Departments already pruned job roles this way; competencies and KASBA
+       * had no equivalent, so deselecting a role left its capabilities in the
+       * form — invisible in the refreshed picker and still sent to both
+       * generate and publish.
+       */
+      const keptCompetencies = current.competency_ids.filter((id) => validCompetencies.has(id))
+      const keptKasba = current.kasba_item_ids.filter((id) => validKasba.has(id))
+
+      return {
+        ...current,
+        // Nothing kept means this is a fresh set of roles, so take all of it.
+        // Something kept means the author has been editing; leave their choice.
+        competency_ids: keptCompetencies.length > 0 ? keptCompetencies : competencyIds,
+        kasba_item_ids: keptKasba.length > 0 ? keptKasba : kasbaIds,
+      }
+    })
+    // scopeSignature changes exactly when the fetched capability set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scopeSignature, usingLibrary])
 
   /** A course has to be FOR somebody: department and role are required. */
   const canGenerate =
@@ -368,7 +447,23 @@ export function AiCourseSheet({
       jobrole: firstJobroleName,
       department_ids: form.department_ids.map(Number).filter(Boolean),
       jobrole_ids: form.jobrole_ids.map(Number).filter(Boolean),
-      competency_ids: form.competency_ids.map(Number).filter(Boolean),
+      /*
+       * MODE-AWARE, like the generate call above it.
+       *
+       * This sent competency_ids unconditionally. An author who picked
+       * competencies, switched to "individual K/S/B/A items" and scoped by those
+       * still published the stale competencies — the opposite of what they
+       * chose, and silently.
+       *
+       * kasba_item_ids were not sent at all, so a KASBA-scoped course published
+       * mapped to nothing: no course_competency_map rows, and therefore no
+       * capability for its quiz to move. The server derives the competencies
+       * those items belong to.
+       */
+      competency_ids:
+        form.scope_mode === 'competency' ? form.competency_ids.map(Number).filter(Boolean) : [],
+      kasba_item_ids:
+        form.scope_mode === 'kasba' ? form.kasba_item_ids.map(Number).filter(Boolean) : [],
       status: 1,
     })
     if (result.ok) {
@@ -620,41 +715,65 @@ export function AiCourseSheet({
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="size-3.5 animate-spin" /> Loading what these roles need…
                   </p>
-                ) : form.scope_mode === 'competency' ? (
-                  competencyOptions.length === 0 ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      These roles have no competencies mapped yet. Switch to{' '}
-                      <button
-                        type="button"
-                        className="font-semibold underline"
-                        onClick={() => setField('scope_mode', 'kasba')}
-                      >
-                        individual K/S/B/A items
-                      </button>
-                      , or map competencies to the role first.
-                    </p>
-                  ) : (
-                    <MultiSelect
-                      aria-label="Competencies this course develops"
-                      options={competencyOptions}
-                      values={form.competency_ids}
-                      onChange={(values) => setField('competency_ids', values)}
-                      placeholder="Select competencies"
-                    />
-                  )
-                ) : kasbaOptions.length === 0 ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    These roles have no knowledge, skill, behaviour, attitude or ability items
-                    recorded yet.
-                  </p>
                 ) : (
-                  <MultiSelect
-                    aria-label="Knowledge, skill, behaviour, attitude and ability items"
-                    options={kasbaOptions}
-                    values={form.kasba_item_ids}
-                    onChange={(values) => setField('kasba_item_ids', values)}
-                    placeholder="Select items"
-                  />
+                  <>
+                    {/*
+                      * ── WHAT THIS BLOCK NOW SAYS ────────────────────────────
+                      *
+                      * The amber hint used to offer "switch to individual K/S/B/A
+                      * items" for a role with no competencies. That switch went
+                      * nowhere: KASBA items were queried BY the role's competency
+                      * ids, so no competencies meant no items either, and the
+                      * author landed on a second empty picker with no way
+                      * forward. Nothing blocked generation, so they carried on
+                      * and the model was prompted with capabilities_to_develop:
+                      * ['-'].
+                      *
+                      * Now the server sends the organisation's own library in
+                      * exactly that case, and this says so.
+                      */}
+                    {usingLibrary && (
+                      <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">
+                          These roles have no capabilities mapped to them yet.
+                        </span>{' '}
+                        Choose from your organisation&rsquo;s library below and the course will
+                        develop those instead. Mapping capabilities to the role afterwards makes
+                        this automatic next time.
+                      </p>
+                    )}
+
+                    {form.scope_mode === 'competency' ? (
+                      competencyOptions.length === 0 ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Your organisation has no competencies defined yet, so this course cannot
+                          be tied to one. It will still generate — it just will not move anyone&rsquo;s
+                          capability record.
+                        </p>
+                      ) : (
+                        <MultiSelect
+                          aria-label="Competencies this course develops"
+                          options={competencyOptions}
+                          values={form.competency_ids}
+                          onChange={(values) => setField('competency_ids', values)}
+                          placeholder="Select competencies"
+                        />
+                      )
+                    ) : kasbaOptions.length === 0 ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Your organisation has no knowledge, skill, behaviour, attitude or ability
+                        items defined yet.
+                      </p>
+                    ) : (
+                      <MultiSelect
+                        aria-label="Knowledge, skill, behaviour, attitude and ability items"
+                        options={kasbaOptions}
+                        values={form.kasba_item_ids}
+                        onChange={(values) => setField('kasba_item_ids', values)}
+                        placeholder="Select items"
+                      />
+                    )}
+                  </>
                 )}
               </div>
 

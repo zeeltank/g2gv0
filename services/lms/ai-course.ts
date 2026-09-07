@@ -98,6 +98,18 @@ export interface AiScopeOptions {
    */
   competencies: AiScopeCompetency[]
   kasba_items: AiScopeKasbaItem[]
+  /**
+   * The whole organisation's capability library, sent ONLY when the chosen
+   * roles have nothing mapped of their own.
+   *
+   * The old fallback — "switch to individual K/S/B/A items" — could not work:
+   * KASBA items were queried by the role's competency ids, so a role with no
+   * competencies returned both lists empty and the switch landed on a second
+   * empty picker. competency_kasba_item has no jobrole_id, so there is no role
+   * path to KASBA at all. These are the manual choice instead.
+   */
+  library_competencies?: AiScopeCompetency[]
+  library_kasba_items?: (AiScopeKasbaItem & { competency_name?: string | null })[]
   kasba_types: string[]
 }
 
@@ -196,6 +208,13 @@ export interface AiPublishRequest {
   department_ids?: number[]
   jobrole_ids?: number[]
   competency_ids?: number[]
+  /**
+   * Sent when the course was scoped by individual capability items. The server
+   * derives the competencies they belong to, because course_competency_map is
+   * what a passing quiz reads to decide which capability to move — a
+   * KASBA-scoped course used to publish mapped to nothing at all.
+   */
+  kasba_item_ids?: number[]
 }
 
 export interface AiPublishResult {

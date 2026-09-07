@@ -526,6 +526,21 @@ export const lmsCourseBuilderService = {
       { ...params(context), ...audienceQuery(audience) },
     ),
 
+  /**
+   * Who this course would actually help, and by how much.
+   *
+   * A different question from the preview: that says how many people a
+   * SELECTION reaches, this says who is behind on what the course teaches.
+   * `unmeasured` is kept apart from `below` because somebody nobody has
+   * assessed is unknown, not behind — counting them as a gap is the defect that
+   * once turned 3,328 of 3,873 live gap rows into shortfalls nobody had measured.
+   */
+  suggestedAudience: (context: LaravelContext, courseId: number, profileName?: string) =>
+    apiClient.get<BuilderApiResponse<SuggestedAudience>>(
+      `/lms/courses/${courseId}/audience/suggested`,
+      { ...params(context, profileName) },
+    ),
+
   /** Assign the course to everyone the audience resolves to. Idempotent. */
   assignAudience: (
     context: LaravelContext,
@@ -543,6 +558,15 @@ export interface AudiencePayload {
   user_ids: number[]
   department_ids: number[]
   jobrole_ids: number[]
+  /**
+   * Include everyone below the level their role requires on the capabilities
+   * this course develops.
+   *
+   * Resolved server-side from course_competency_map, so the admin does not
+   * restate what the course already knows it builds — and so the preview count
+   * and the assignment cannot disagree.
+   */
+  by_gap?: boolean
   assignment_type?: string
   due_date?: string | null
 }
@@ -552,6 +576,29 @@ export interface AudiencePreview {
   already_enrolled: number
   will_assign: number
   sample: { id: number; name: string; department: string | null; jobrole: string | null }[]
+}
+
+export interface SuggestedAudienceRow {
+  user_id: number
+  name: string
+  department: string | null
+  jobrole: string | null
+  competency_id: number
+  competency_name: string | null
+  required_proficiency: number
+  is_mandatory: boolean
+  measured_level: number | null
+  coverage: number
+  /** Present only on `below` rows — how far short of the requirement they are. */
+  gap?: number
+}
+
+export interface SuggestedAudience {
+  competencies: { competency_id: number; name: string | null }[]
+  below: SuggestedAudienceRow[]
+  unmeasured: SuggestedAudienceRow[]
+  /** Set when there is nothing to match against, so the UI says why. */
+  reason: string | null
 }
 
 export interface AudienceResult {
@@ -566,5 +613,6 @@ function audienceQuery(audience: AudiencePayload): Record<string, string> {
   audience.user_ids.forEach((id, index) => { query[`user_ids[${index}]`] = String(id) })
   audience.department_ids.forEach((id, index) => { query[`department_ids[${index}]`] = String(id) })
   audience.jobrole_ids.forEach((id, index) => { query[`jobrole_ids[${index}]`] = String(id) })
+  if (audience.by_gap) query.by_gap = '1'
   return query
 }
