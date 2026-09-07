@@ -246,9 +246,17 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
   return roots
 }
 
-export function DepartmentList({ role }: { role: Role }) {
-  const access = getAccess('department-list', role)
+/**
+ * @param role Whose access to render as. OPTIONAL, and it must stay optional —
+ *   see the note on OrganizationInformation. This screen was unreachable for
+ *   every user, administrators included, because the content map mounts it with
+ *   no props and `role` was required. 1,290 lines of working department
+ *   management sat behind an "Access Restricted" card that nobody could pass.
+ */
+export function DepartmentList({ role }: { role?: Role }) {
   const { user } = useAuth()
+  const effectiveRole = role ?? user?.role
+  const access = effectiveRole ? getAccess('department-list', effectiveRole) : 'none'
   const [query, setQuery] = useState('')
   const [treeQuery, setTreeQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -479,7 +487,7 @@ export function DepartmentList({ role }: { role: Role }) {
   const detailDept = selected ?? lastShown
 
   if (access === 'none') {
-    return <AccessDenied role={roleLabel(role)} />
+    return <AccessDenied role={effectiveRole ? roleLabel(effectiveRole) : ''} />
   }
 
   function toggleSort(key: SortKey) {

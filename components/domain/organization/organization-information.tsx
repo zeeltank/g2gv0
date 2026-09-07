@@ -52,9 +52,32 @@ function mapOrgProfile(data?: LaravelOrgDetail) {
   }
 }
 
-export function OrganizationInformation({ role }: { role: Role }) {
-  const access = getAccess('organization-information', role)
+/**
+ * @param role Whose access to render as. OPTIONAL, and it must stay optional.
+ *
+ * ── WHY THIS DEFAULTS TO THE SIGNED-IN USER ─────────────────────────────────
+ *
+ * This was a REQUIRED prop, and the only caller that ever passed it was the
+ * developer showcase page. The real mount — GtgAppShell, via the content map —
+ * renders `<ContentComponent />` with no props at all, so `role` arrived
+ * `undefined`, `getAccess()` fell through to its `?? 'none'` default, and this
+ * screen returned "Access Restricted" to EVERY user including the
+ * administrator. The same was true of DepartmentList.
+ *
+ * Nothing caught it: `use-content-map-utils.ts` types a lazy screen as
+ * `ComponentType<any>`, which erases required props, so `tsc` and `next build`
+ * both passed while two finished screens were unreachable in the browser.
+ *
+ * The role was available the whole time — `useAuth()` is called on the very
+ * next line. It is read from there now, and the prop survives only so the
+ * showcase can preview the screen as somebody else.
+ */
+export function OrganizationInformation({ role }: { role?: Role }) {
   const { user } = useAuth()
+  // An explicit prop wins (the showcase previews other roles); otherwise this is
+  // the signed-in person, which is what every real mount means.
+  const effectiveRole = role ?? user?.role
+  const access = effectiveRole ? getAccess('organization-information', effectiveRole) : 'none'
   const [editing, setEditing] = useState(false)
   const [orgData, setOrgData] = useState<LaravelOrgDetail>()
   const [isLoading, setIsLoading] = useState(true)
@@ -84,7 +107,7 @@ export function OrganizationInformation({ role }: { role: Role }) {
   }, [loadOrganization])
 
   if (access === 'none') {
-    return <AccessDenied role={roleLabel(role)} />
+    return <AccessDenied role={effectiveRole ? roleLabel(effectiveRole) : ''} />
   }
 
   const org = mapOrgProfile(orgData)
