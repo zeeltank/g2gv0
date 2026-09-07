@@ -11,7 +11,6 @@ import {
   Plus,
   ChevronDown,
   MoreHorizontal,
-  Upload,
   Star,
   LayoutGrid,
   List,
@@ -327,9 +326,11 @@ export function RecruitmentCenter() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={() => setActiveAction('candidate')}>
-            <Upload className="size-4" /> Candidate Apply
-          </Button>
+          {/* The standalone "Candidate Apply" button is gone: it opened exactly
+              the same sheet as the "Candidate Apply" item inside Create New
+              below, so the page offered one action in two places. The dropdown
+              entry is kept, because that is where every other create action
+              already lives. */}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted outline-none cursor-pointer">
                 More Actions <ChevronDown className="size-4" />
