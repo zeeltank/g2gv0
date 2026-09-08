@@ -19,6 +19,10 @@ export type CareersPosting = {
   department: string | null
   location: string | null
   employment_type: string | null
+  /** On-site, Hybrid or Remote. Null means not stated, never On-site. */
+  work_mode: string | null
+  /** The date applications OPEN. Null means open on publication. */
+  opens_on?: string | null
   experience: string | null
   positions: number | null
   deadline: string | null

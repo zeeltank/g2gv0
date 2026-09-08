@@ -7,6 +7,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import {
+  EDUCATION_LEVELS,
+  EMPLOYMENT_TYPES,
+  EXPERIENCE_LEVELS,
+  WORK_MODES,
+  asOptions,
+} from '@/lib/recruitment-vocabulary'
 import { Textarea } from '@/components/ui/textarea'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { recruitmentService } from '@/services/talent'
@@ -16,18 +23,18 @@ interface Department { id: string; department: string }
 interface JobRole { id: string; jobrole: string; department: string; description?: string }
 interface JobRoleSkill { id: string; SkillName: string }
 interface FormValues {
-  title: string; department: string; location: string; employmentType: string
+  title: string; department: string; location: string; employmentType: string; workMode: string
   experienceRequired: string; skillsRequired: string; educationRequirement: string
   certifications: string; jobDescription: string; salaryRangeMin: string
-  salaryRangeMax: string; numberOfPositions: string; applicationDeadline: string
+  salaryRangeMax: string; numberOfPositions: string; openingDate: string; applicationDeadline: string
   urgency: string; benefits: string; status: string
 }
 type Errors = Partial<Record<keyof FormValues, string>>
 
 const emptyForm: FormValues = {
-  title: '', department: '', location: '', employmentType: '', experienceRequired: '',
+  title: '', department: '', location: '', employmentType: '', workMode: '', experienceRequired: '',
   skillsRequired: '', educationRequirement: '', certifications: '', jobDescription: '',
-  salaryRangeMin: '', salaryRangeMax: '', numberOfPositions: '1', applicationDeadline: '',
+  salaryRangeMin: '', salaryRangeMax: '', numberOfPositions: '1', openingDate: '', applicationDeadline: '',
   urgency: '', benefits: '', status: 'active',
 }
 
@@ -79,10 +86,12 @@ export function JobPostingForm({
       setForm({
         title: editingJob.title ?? '', department: String(editingJob.department_id ?? ''),
         location: editingJob.location ?? '', employmentType: editingJob.employment_type ?? '',
+        workMode: editingJob.work_mode ?? '',
         experienceRequired: editingJob.experience ?? '', skillsRequired: skills.join(', '),
         educationRequirement: editingJob.education ?? '', certifications: editingJob.certifications ?? '',
         jobDescription: editingJob.description ?? '', salaryRangeMin: String(editingJob.min_salary ?? ''),
         salaryRangeMax: String(editingJob.max_salary ?? ''), numberOfPositions: String(editingJob.positions ?? '1'),
+        openingDate: editingJob.start_date ?? '',
         applicationDeadline: editingJob.deadline ?? editingJob.end_date ?? '',
         urgency: editingJob.priority_level ?? '', benefits: editingJob.benefits ?? '',
         status: editingJob.status ?? 'active',
@@ -243,6 +252,15 @@ export function JobPostingForm({
     else if (Number(form.salaryRangeMin) > Number(form.salaryRangeMax)) next.salaryRangeMax = 'Maximum salary must be greater than minimum salary'
     if (!form.numberOfPositions.trim()) next.numberOfPositions = 'Number of positions is required'
     else if (Number.isNaN(Number(form.numberOfPositions)) || Number(form.numberOfPositions) < 1) next.numberOfPositions = 'Number of positions must be at least 1'
+    /*
+     * The opening date is OPTIONAL - a posting with none is open the moment it
+     * is published, which is how every posting behaved before the field existed.
+     * It only has to make sense against the closing date.
+     */
+    if (form.openingDate && form.applicationDeadline
+      && new Date(`${form.openingDate}T00:00:00`) > new Date(`${form.applicationDeadline}T00:00:00`)) {
+      next.openingDate = 'Applications cannot open after they close'
+    }
     if (!form.applicationDeadline) next.applicationDeadline = 'Application deadline is required'
     else {
       const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -278,10 +296,14 @@ export function JobPostingForm({
       const role = roles.find((item) => item.id === form.title)
       Object.entries({
         department_id: form.department, user_id: String(session.user_id), location: form.location,
-        employment_type: form.employmentType, title: role?.jobrole ?? form.title,
+        employment_type: form.employmentType, work_mode: form.workMode,
+        title: role?.jobrole ?? form.title,
         experience: form.experienceRequired, education: form.educationRequirement,
         priority_level: form.urgency, positions: form.numberOfPositions,
         min_salary: form.salaryRangeMin, max_salary: form.salaryRangeMax,
+        // Empty string, not null: this becomes FormData, which takes no nulls.
+        // The controller uses $request->filled(), so '' is stored as NULL.
+        start_date: form.openingDate,
         deadline: form.applicationDeadline, skills: selectedSkills.join(', '),
         certifications: form.certifications, benefits: form.benefits,
         description: form.jobDescription, status: form.status,
@@ -335,14 +357,25 @@ export function JobPostingForm({
         {field('title', 'Job Title', <Select value={form.title} onChange={(value) => change('title', value)} disabled={!form.department} placeholder={loadingRoles ? 'Loading job roles...' : 'Select job title'} options={roles.map((item) => ({ label: item.jobrole, value: item.id }))} />)}
         <div className="sm:col-span-2"><Button type="button" variant="outline" size="sm" onClick={() => { onClose(); router.push('/content/Jobrole-library') }}>Add New Job Role</Button></div>
         {field('location', 'Location', <Input value={form.location} onChange={(e) => change('location', e.target.value)} placeholder="Enter job location" />)}
-        {field('employmentType', 'Employment Type', <Select value={form.employmentType} onChange={(v) => change('employmentType', v)} placeholder="Select employment type" options={['Full-Time', 'Part-Time', 'Contract', 'Temporary', 'Internship'].map((v) => ({ label: v, value: v }))} />)}
-        {field('experienceRequired', 'Experience Required', <Select value={form.experienceRequired} onChange={(v) => change('experienceRequired', v)} placeholder="Select experience level" options={['Entry Level (0-2 years)', 'Mid Level (3-5 years)', 'Senior Level (6-10 years)', 'Lead Level (10+ years)'].map((v) => ({ label: v, value: v }))} />)}
-        {field('educationRequirement', 'Education Requirement', <Select value={form.educationRequirement} onChange={(v) => change('educationRequirement', v)} placeholder="Select education level" options={['High School Diploma', 'Associate Degree', "Bachelor's Degree", "Master's Degree", 'PhD', 'Not Required'].map((v) => ({ label: v, value: v }))} />)}
+        {field('employmentType', 'Employment Type', <Select value={form.employmentType} onChange={(v) => change('employmentType', v)} placeholder="Select employment type" options={asOptions(EMPLOYMENT_TYPES)} />)}
+        {/* WHERE the work happens, which the contract type does not say. Kept a
+            separate field so "Remote internship" is expressible - folding it
+            into Employment Type would have made one of the two unaskable. */}
+        {field('workMode', 'Work Mode', <Select value={form.workMode} onChange={(v) => change('workMode', v)} placeholder="Select work mode" options={asOptions(WORK_MODES)} />, false, true)}
+        {field('experienceRequired', 'Experience Required', <Select value={form.experienceRequired} onChange={(v) => change('experienceRequired', v)} placeholder="Select experience level" options={asOptions(EXPERIENCE_LEVELS)} />)}
+        {field('educationRequirement', 'Education Requirement', <Select value={form.educationRequirement} onChange={(v) => change('educationRequirement', v)} placeholder="Select education level" options={asOptions(EDUCATION_LEVELS)} />)}
         {field('urgency', 'Priority Level', <Select value={form.urgency} onChange={(v) => change('urgency', v)} placeholder="Select priority" options={['High', 'Medium', 'Low'].map((v) => ({ label: v, value: v }))} />)}
         {field('numberOfPositions', 'Number of Positions', <Input type="number" min={1} value={form.numberOfPositions} onChange={(e) => change('numberOfPositions', e.target.value)} />)}
         {field('salaryRangeMin', 'Minimum Salary', <Input type="number" min={0} placeholder="e.g., 80000" value={form.salaryRangeMin} onChange={(e) => change('salaryRangeMin', e.target.value)} />)}
         {field('salaryRangeMax', 'Maximum Salary', <Input type="number" min={0} placeholder="e.g., 120000" value={form.salaryRangeMax} onChange={(e) => change('salaryRangeMax', e.target.value)} />)}
-        {field('applicationDeadline', 'Application Deadline', <Input type="date" value={form.applicationDeadline} onChange={(e) => change('applicationDeadline', e.target.value)} />)}
+        {/* The application WINDOW. The detail sheet has rendered an "Opening
+            Date" against a column that did not exist for as long as it has
+            existed, so the field was permanently blank and neither form could
+            offer it. Left blank the role is open as soon as it is published;
+            dated in the future it stays off the public careers page until then,
+            while HR still sees it here. */}
+        {field('openingDate', 'Applications Open', <Input type="date" max={form.applicationDeadline || undefined} value={form.openingDate} onChange={(e) => change('openingDate', e.target.value)} />, false, true)}
+        {field('applicationDeadline', 'Application Deadline', <Input type="date" min={form.openingDate || undefined} value={form.applicationDeadline} onChange={(e) => change('applicationDeadline', e.target.value)} />)}
         {editingJob && field('status', 'Status', <Select value={form.status} onChange={(v) => change('status', v)} options={[{ label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Draft', value: 'draft' }]} />)}
         {field('skillsRequired', 'Required Skills', <div className="space-y-3">
           {!!selectedSkills.length && <div className="flex flex-wrap gap-2 rounded-md border bg-muted/30 p-3">{selectedSkills.map((skill) => <Badge key={skill} variant="secondary">{skill}<button type="button" aria-label={`Remove ${skill}`} onClick={() => { const next = selectedSkills.filter((item) => item !== skill); setSelectedSkills(next); setForm((current) => ({ ...current, skillsRequired: next.join(', ') })) }}><X className="ml-1 size-3" /></button></Badge>)}</div>}

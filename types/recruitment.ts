@@ -9,6 +9,8 @@ export interface TalentItemResponse<T> {
 }
 
 export interface JobPostingApi {
+  /** On-site, Hybrid or Remote. Null means not stated, never On-site. */
+  work_mode?: string | null
   id: LaravelId
   title: string
   department_id: LaravelId
