@@ -35,6 +35,12 @@ import { readLaravelSession } from '@/lib/laravel-session'
 interface Gate {
   gate_key: string
   state: 'blocked' | 'at_risk' | 'ready'
+  /** False when the population is empty — nothing to measure, not a failure. */
+  measurable: boolean
+  /** Passing its threshold, still waiting out the sustained period. */
+  warming_up: boolean
+  sustained_periods: number
+  consecutive_passes: number
   unit: 'percent' | 'count'
   value: number | null
   enable_threshold: number
@@ -59,8 +65,34 @@ const LABEL: Record<string, string> = {
 
 /** NULL is NEVER COMPUTED. Rendering it as 0 would assert a measurement nobody took. */
 function renderValue(g: Gate) {
-  if (g.value === null) return 'not yet computed'
+  if (g.value === null) return 'nothing to measure yet'
   return g.unit === 'count' ? `${g.value} roles` : `${g.value}%`
+}
+
+/**
+ * THE BADGE IS A READING, NOT THE RAW COLUMN.
+ *
+ * `blocked` is stored for three different situations and only one of them is a
+ * failure. Printing the column verbatim told a brand-new organisation that it
+ * had FAILED five checks on the day it signed up — including two that could not
+ * run at all, because it had no courses and no tasks to measure.
+ *
+ * The API sends `measurable` and `warming_up` derived from the same row as the
+ * value, so this cannot drift from the number displayed beside it.
+ */
+function renderState(g: Gate): { label: string; className: string } {
+  if (!g.measurable) {
+    return { label: 'not measured', className: 'text-muted-foreground' }
+  }
+
+  if (g.warming_up) {
+    return { label: 'passing · settling', className: 'text-amber-700' }
+  }
+
+  if (g.state === 'ready') return { label: 'ready', className: 'text-green-700' }
+  if (g.state === 'at_risk') return { label: 'at risk', className: 'text-amber-700' }
+
+  return { label: 'not yet', className: 'text-muted-foreground' }
 }
 
 /**
@@ -186,12 +218,23 @@ export function OrganizationReadiness() {
                   )}
                 </div>
               </div>
-              <span data-testid={`gate-${g.gate_key}-state`} className="text-xs uppercase tracking-wide">
-                {g.state}
+              <span
+                data-testid={`gate-${g.gate_key}-state`}
+                className={`text-xs uppercase tracking-wide ${renderState(g).className}`}
+              >
+                {renderState(g).label}
               </span>
             </div>
 
             {g.why && <p className="mt-2 text-sm">{g.why}</p>}
+
+            {g.warming_up && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                This already meets its threshold. It is checked once a day and reads as ready
+                after {g.sustained_periods} checks in a row — {g.consecutive_passes} so far.
+                Nothing is switched off in the meantime.
+              </p>
+            )}
 
             {g.state === 'at_risk' && (
               <div className="mt-3 rounded bg-amber-50 p-3 text-sm">
