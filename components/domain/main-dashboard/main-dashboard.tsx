@@ -3,6 +3,7 @@
 import { useAuth } from '@/components/auth/gtg-auth'
 import { HrDashboard } from './hr/hr-dashboard'
 import { MeDashboard } from './me/me-dashboard'
+import { NextStepsPanel } from '@/components/domain/onboarding/next-steps-panel'
 import { isHrAdmin } from '@/types/role'
 
 /**
@@ -39,8 +40,22 @@ export function MainDashboard() {
   const { user } = useAuth()
   const role = user?.role
 
+  /*
+   * GUIDANCE SITS ABOVE THE SWITCH, not inside either branch.
+   *
+   * All nine roles get an answer, and which one they get is decided by the
+   * SERVER from the token's owner - not by `user.role`, which is a substring
+   * match on a tenant-editable profile name and is unfit to decide what a person
+   * is told to do. The panel renders nothing at all when there is nothing
+   * outstanding, so this adds no chrome to a finished organisation's dashboard.
+   */
   if (isHrAdmin(role)) {
-    return <HrDashboard />
+    return (
+      <>
+        <NextStepsPanel />
+        <HrDashboard />
+      </>
+    )
   }
 
   // EVERY OTHER ROLE gets their own dashboard: their tasks, their capability
@@ -52,5 +67,10 @@ export function MainDashboard() {
   // no id on this screen that could ask for anybody else's figures. An admin
   // landing here by a misread of `user.role` sees their OWN data, which is a
   // correct answer rather than a 403.
-  return <MeDashboard />
+  return (
+    <>
+      <NextStepsPanel />
+      <MeDashboard />
+    </>
+  )
 }

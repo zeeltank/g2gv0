@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState, use } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Clock, Users, GraduationCap, BadgeCheck, CalendarDays, CheckCircle2, Paperclip,
+  Building2, X,
 } from 'lucide-react'
+import { Select } from '@/components/ui/select'
+import {
+  CANDIDATE_EDUCATION_LEVELS,
+  EMPLOYMENT_TYPES,
+  EXPERIENCE_LEVELS,
+  WORK_MODES,
+  asOptions,
+} from '@/lib/recruitment-vocabulary'
 import {
   careersApi,
   CareersError,
@@ -102,6 +111,8 @@ export default function CareersJobPage({
             <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 @2xl/job:grid-cols-4">
               <Fact icon={MapPin} label="Location" value={posting.location} />
               <Fact icon={Clock} label="Type" value={posting.employment_type} />
+              {/* Where the work happens - a separate fact from the contract. */}
+              <Fact icon={Building2} label="Work mode" value={posting.work_mode ?? null} />
               <Fact icon={Users} label="Openings" value={posting.positions?.toString() ?? null} numeric />
               <Fact icon={BadgeCheck} label="Experience" value={posting.experience} />
             </dl>
@@ -191,7 +202,7 @@ export default function CareersJobPage({
             </div>
 
             <div className="@4xl/job:sticky @4xl/job:top-6 @4xl/job:self-start">
-              <ApplyForm slug={slug} postingId={posting.id} roleTitle={posting.title} />
+              <ApplyForm slug={slug} postingId={posting.id} roleTitle={posting.title} roleSkills={posting.skills} />
             </div>
           </div>
         </>
@@ -236,6 +247,7 @@ function Fact({
 
 type FieldKey =
   | 'first_name' | 'last_name' | 'email' | 'mobile' | 'current_location'
+  | 'employment_type' | 'work_mode'
   | 'experience' | 'education' | 'expected_salary' | 'skills' | 'resume'
 
 const REQUIRED: FieldKey[] = ['first_name', 'last_name', 'email', 'mobile', 'resume']
@@ -244,16 +256,33 @@ function ApplyForm({
   slug,
   postingId,
   roleTitle,
+  roleSkills,
 }: {
   slug: string
   postingId: number
   roleTitle: string
+  /** What THIS advert asks for, offered as one-tap suggestions. */
+  roleSkills: string[]
 }) {
   const [values, setValues] = useState<Record<string, string>>({})
+  const [chosenSkills, setChosenSkills] = useState<string[]>([])
+  const [skillDraft, setSkillDraft] = useState('')
   const [resume, setResume] = useState<File | null>(null)
   /** Consent to retain, off by default. Never assumed from the application itself. */
   const [keepOnFile, setKeepOnFile] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({})
+
+  /** Only what they have not already picked, so the list shrinks as they choose. */
+  const suggestedSkills = roleSkills.filter((skill) => !chosenSkills.includes(skill))
+
+  /** Trimmed, de-duplicated case-insensitively - "React" and "react" are one skill. */
+  function addSkillDraft() {
+    const next = skillDraft.trim()
+    if (!next) return
+    const already = chosenSkills.some((skill) => skill.toLowerCase() === next.toLowerCase())
+    if (!already) setChosenSkills([...chosenSkills, next])
+    setSkillDraft('')
+  }
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
@@ -296,6 +325,8 @@ function ApplyForm({
     try {
       const form = new FormData()
       Object.entries(values).forEach(([key, value]) => value && form.append(key, value))
+      // The chips ARE the answer; `values.skills` is never typed into directly.
+      if (chosenSkills.length) form.append('skills', chosenSkills.join(', '))
       form.append('consent_to_retain', keepOnFile ? '1' : '0')
       if (resume) form.append('resume', resume)
       const result = await careersApi.apply(slug, postingId, form)
@@ -420,11 +451,52 @@ function ApplyForm({
         <Field label="Current location" error={errors.current_location}>
           <Input value={values.current_location ?? ''} onChange={(v) => set('current_location', v)} />
         </Field>
+
+        {/*
+          * WHAT THE CANDIDATE IS LOOKING FOR.
+          *
+          * `employment_type` has been on talent_job_applications and accepted by
+          * the controller from the beginning - the public form simply never sent
+          * it, so every public application stored it empty. Both are validated
+          * against the same PHP consts the posting form offers, so a candidate's
+          * "Part-Time" and a recruiter's filter are the same string.
+          */}
+        <Field label="Looking for" error={errors.employment_type}>
+          <Select
+            value={values.employment_type ?? ''}
+            onChange={(value) => set('employment_type', value)}
+            placeholder="Any employment type"
+            options={asOptions(EMPLOYMENT_TYPES)}
+          />
+        </Field>
+        <Field label="Preferred work mode" error={errors.work_mode}>
+          <Select
+            value={values.work_mode ?? ''}
+            onChange={(value) => set('work_mode', value)}
+            placeholder="No preference"
+            options={asOptions(WORK_MODES)}
+          />
+        </Field>
         <Field label="Experience" error={errors.experience}>
-          <Input value={values.experience ?? ''} onChange={(v) => set('experience', v)} placeholder="e.g. 4 years" />
+          {/* Banded rather than free text, for the same reason: "4 years",
+              "4+ yrs" and "four years" are three different strings and one fact. */}
+          <Select
+            value={values.experience ?? ''}
+            onChange={(value) => set('experience', value)}
+            placeholder="Select your experience"
+            options={asOptions(EXPERIENCE_LEVELS)}
+          />
         </Field>
         <Field label="Highest education" error={errors.education}>
-          <Input value={values.education ?? ''} onChange={(v) => set('education', v)} />
+          {/* The same list HR picks from when they write the requirement, so a
+              candidate's answer and a recruiter's filter use one vocabulary.
+              It was a free-text box, which made the two uncomparable. */}
+          <Select
+            value={values.education ?? ''}
+            onChange={(value) => set('education', value)}
+            placeholder="Select your highest qualification"
+            options={asOptions(CANDIDATE_EDUCATION_LEVELS)}
+          />
         </Field>
         <Field label="Expected salary" error={errors.expected_salary} span2>
           <Input
@@ -435,11 +507,80 @@ function ApplyForm({
           />
         </Field>
         <Field label="Your skills" error={errors.skills} span2>
-          <Input
-            value={values.skills ?? ''}
-            onChange={(v) => set('skills', v)}
-            placeholder="Comma separated, e.g. PHP, Laravel, MySQL"
-          />
+          {/*
+            * MULTIPLE CHOICE, seeded from the skills THIS ROLE asks for.
+            *
+            * It was one comma-separated text box, so a candidate had to guess
+            * both the wording and the separator, and a recruiter got
+            * "React.js", "ReactJS" and "react" as three different skills.
+            * Picking from the advert's own list makes the common case one tap
+            * and keeps the words identical on both sides. Anything not on the
+            * list can still be typed - a candidate's skills are not limited to
+            * what the advert thought to ask for.
+            */}
+          <div className="flex flex-col gap-2">
+            {chosenSkills.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {chosenSkills.map((skill) => (
+                  <span
+                    key={skill}
+                    className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                  >
+                    {skill}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${skill}`}
+                      className="rounded-sm hover:text-destructive"
+                      onClick={() => setChosenSkills(chosenSkills.filter((s) => s !== skill))}
+                    >
+                      <X className="size-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {suggestedSkills.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {suggestedSkills.map((skill) => (
+                  <button
+                    key={skill}
+                    type="button"
+                    className="rounded-md border border-dashed border-input px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                    onClick={() => setChosenSkills([...chosenSkills, skill])}
+                  >
+                    + {skill}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                value={skillDraft}
+                onChange={(v) => setSkillDraft(v)}
+                placeholder={
+                  suggestedSkills.length > 0
+                    ? 'Add another skill'
+                    : 'Add a skill, e.g. Laravel'
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    addSkillDraft()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="shrink-0 rounded-md border border-input bg-background px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+                disabled={!skillDraft.trim()}
+                onClick={addSkillDraft}
+              >
+                Add
+              </button>
+            </div>
+          </div>
         </Field>
 
         <Field label="CV" required error={errors.resume} span2>
@@ -525,6 +666,8 @@ function Input({
   placeholder?: string
   autoComplete?: string
   inputMode?: 'numeric'
+  /** Enter-to-add, for the skills chip input. */
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
 }) {
   return (
     <input

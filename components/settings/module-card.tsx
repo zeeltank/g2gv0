@@ -8,14 +8,27 @@ import { Clock, Eye, FileText, Layers } from 'lucide-react'
 import { Building2, Shield, Users, GraduationCap, UsersRound } from 'lucide-react'
 
 export interface Module {
+  /** tblmenumaster_g2g id of the module, as a string for the toggle handler. */
   id: string
   title: string
+  /**
+   * The server refuses to switch this off - it is not a label somebody typed.
+   * Main Dashboard and Organizational Management, because an organisation must
+   * keep the screens it would need to turn things back on.
+   */
   mandatory: boolean
-  duration: string
   selected: boolean
   description: string
+  /**
+   * How many actual screens this module contains, counted from the menu
+   * catalogue.
+   *
+   * Replaces `duration` and `features`. Those were invented constants - "5-7
+   * mins", "48 features" - and `features` was never even rendered. A count of
+   * real screens is both true and more use to somebody deciding whether to
+   * switch a module on.
+   */
   screens: number
-  features: number
 }
 
 interface ModuleCardProps {
@@ -118,8 +131,8 @@ export function ModuleCard({ module, onToggle, onViewOrganization }: ModuleCardP
             {module.mandatory ? 'Mandatory' : 'Optional'}
           </Badge>
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-            <Clock className="size-4" aria-hidden="true" />
-            {module.duration}
+            <Layers className="size-4" aria-hidden="true" />
+            {module.screens} {module.screens === 1 ? 'screen' : 'screens'}
           </span>
         </div>
       </CardContent>

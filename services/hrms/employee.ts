@@ -23,6 +23,18 @@ export interface EmployeeSkill {
   attitude?: string[]
 }
 
+/**
+ * The signed-in employee's own record.
+ *
+ * The extra fields below were always in the response - /user/add_user returns
+ * the tbluser row - but nothing was declared, so the profile screen fell back
+ * to a fixture for everything except name and email. They are named here so
+ * the screen can show the person their own details.
+ *
+ * All optional: tbluser has 99 columns and most are nullable, so a field
+ * being absent is ordinary and must render as absent rather than as somebody
+ * else's value.
+ */
 export interface EmployeeProfileResponse {
   id: number
   name: string
@@ -30,6 +42,26 @@ export interface EmployeeProfileResponse {
   jobrole: string
   department: string
   skills: EmployeeSkill[]
+
+  first_name?: string | null
+  last_name?: string | null
+  mobile?: string | null
+  gender?: string | null
+  birthdate?: string | null
+  joined_date?: string | null
+  employee_id?: string | null
+  employee_no?: string | null
+
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  pincode?: string | null
+
+  bank_name?: string | null
+  branch_name?: string | null
+  account_no?: string | null
+  ifsc_code?: string | null
+
   [key: string]: unknown
 }
 

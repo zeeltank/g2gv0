@@ -18,7 +18,18 @@ export type ComplianceRecord = {
   name: string
   description: string
   department: string
+  /**
+   * The assignee's NAME, for the table and the export.
+   *
+   * Kept apart from `assignedToId` deliberately. One field used to serve
+   * both jobs: the row carried a name, the form's Select carried ids, so
+   * opening a record for edit seeded the Select with a value matching none
+   * of its options - and saving then posted that NAME into
+   * master_compliance.assigned_to, an unsignedBigInteger.
+   */
   assignedTo: string
+  /** The assignee's user id - what the form binds to and what is saved. */
+  assignedToId: string
   dueDate: string
   frequency: Frequency
   customDate?: string
