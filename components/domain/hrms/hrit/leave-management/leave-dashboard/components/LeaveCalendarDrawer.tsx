@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   Sheet,
-  SheetTrigger,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -17,25 +16,42 @@ interface LeaveCalendarDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   upcomingLeaves: EmployeeLeave[]
-  currentDate: string
 }
 
 export function LeaveCalendarDrawer({
   open,
   onOpenChange,
   upcomingLeaves,
-  currentDate,
 }: LeaveCalendarDrawerProps) {
-  const days = getDaysInMonth(2026, 6) // June 2026
+  /*
+   * THE REAL CURRENT MONTH.
+   *
+   * This was `getDaysInMonth(2026, 6) // June 2026`, with a hardcoded
+   * "June 2026 leave overview" caption and leave dots matched against
+   * `2026-06-${day}`. The button that opens this drawer shows today's real
+   * date, so the calendar it opened contradicted the control that opened it -
+   * and every leave dot was positioned against a month that had passed.
+   *
+   * Derived from `new Date()` rather than the `currentDate` prop, which is a
+   * formatted display string ("Monday, September 8, 2026") and not something
+   * to parse. The prop is gone.
+   */
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth() + 1
+  const days = getDaysInMonth(year, month)
+  const monthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+  }).format(today)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetTrigger />
       <SheetContent className="w-3/5 max-w-lg p-0 flex flex-col gap-0 border-l border-border/80">
         <SheetHeader className="p-6 pb-0 space-y-0 text-left">
           <SheetTitle>Monthly Leave Calendar</SheetTitle>
           <SheetDescription>
-            June 2026 leave overview
+            {monthLabel} leave overview
           </SheetDescription>
         </SheetHeader>
 
@@ -48,7 +64,7 @@ export function LeaveCalendarDrawer({
             ))}
 
             {days.map((day, index) => {
-              const dateStr = `2026-06-${String(day).padStart(2, '0')}`
+              const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
               const leavesOnDay = upcomingLeaves.filter((leave) => {
                 const from = new Date(leave.fromDate)
                 const to = new Date(leave.toDate)
@@ -78,9 +94,12 @@ export function LeaveCalendarDrawer({
 
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Legend</h3>
+            {/* No "Holiday" entry. This grid only ever draws leave dots - no
+                holiday is passed to this drawer - so a legend for a marker that
+                is never rendered told the reader the calendar shows something
+                it does not. */}
             <div className="flex flex-wrap gap-3">
               <LegendItem color="bg-primary" label="Leave Day" />
-              <LegendItem color="bg-destructive" label="Holiday" />
             </div>
           </div>
         </div>

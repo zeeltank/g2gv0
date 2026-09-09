@@ -27,9 +27,16 @@ interface RecentLeaveRequestsProps {
   requests: LeaveRequest[]
   /** Opens the request in the detail drawer the dashboard already renders. */
   onView?: (request: LeaveRequest) => void
+  /**
+   * The header's "View All". It had no handler at all - while the per-row
+   * "View" beside it did, and while three sibling cards on this same dashboard
+   * were already wired to the page's navigate() helper. F-112 fixed the row
+   * item in this very file and left the button eight lines above it inert.
+   */
+  onViewAll?: () => void
 }
 
-export function RecentLeaveRequests({ requests, onView }: RecentLeaveRequestsProps) {
+export function RecentLeaveRequests({ requests, onView, onViewAll }: RecentLeaveRequestsProps) {
   return (
     <Card className="h-full rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -39,6 +46,8 @@ export function RecentLeaveRequests({ requests, onView }: RecentLeaveRequestsPro
         <Button
           variant="link"
           className="h-auto p-0 text-sm font-semibold text-primary"
+          onClick={onViewAll}
+          disabled={!onViewAll}
         >
           View All
           <ArrowUpRight className="ml-1 h-4 w-4" />

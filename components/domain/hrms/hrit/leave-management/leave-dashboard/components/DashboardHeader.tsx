@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { CalendarDays, ChevronDown } from 'lucide-react'
 import { getGreeting } from '@/lib/greeting'
 
 import { Button } from '@/components/ui/button'
@@ -35,8 +35,12 @@ export function DashboardHeader({ userName, currentDate, upcomingLeaves }: Dashb
           onClick={() => setCalendarOpen(true)}
           aria-label="Open monthly leave calendar"
         >
+          {/* Was the literal character "L". The same defect sat on the
+              attendance screen as a literal "c" - a placeholder somebody typed
+              where the icon goes, shipped on both dashboards' primary header
+              control. */}
           <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-            L
+            <CalendarDays className="size-5" />
           </span>
           <span className="flex-1 text-left">{currentDate}</span>
           <ChevronDown className="size-4 text-muted-foreground" />
@@ -47,7 +51,6 @@ export function DashboardHeader({ userName, currentDate, upcomingLeaves }: Dashb
         open={calendarOpen}
         onOpenChange={setCalendarOpen}
         upcomingLeaves={upcomingLeaves}
-        currentDate={currentDate}
       />
     </>
   )

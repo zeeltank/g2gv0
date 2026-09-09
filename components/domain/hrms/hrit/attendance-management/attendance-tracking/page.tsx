@@ -257,8 +257,11 @@ export function AttendanceDashboard() {
           onClick={() => setCalendarOpen(true)}
           aria-label="Open monthly attendance calendar"
         >
+          {/* Was the literal character "c" - CalendarDays was imported and
+              never used. The leave dashboard's header carried the same defect
+              as a literal "L". */}
           <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-            c
+            <CalendarDays className="size-5" />
           </span>
           <span className="flex-1 text-left">{todayLabel}</span>
           <ChevronDown className="size-4 text-muted-foreground" />
@@ -774,29 +777,4 @@ function formatRecordDate(record: AttendanceRecord) {
     month: 'short',
     year: 'numeric',
   })} (${record.day})`
-}
-
-function formatEventDate(dateValue: string) {
-  const date = new Date(`${dateValue}T00:00:00`)
-
-  if (Number.isNaN(date.getTime())) return dateValue
-
-  return date.toLocaleDateString('en-US', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    weekday: 'long',
-  })
-}
-
-function getDayOfMonth(dateValue: string) {
-  const date = new Date(`${dateValue}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return '--'
-  return String(date.getDate()).padStart(2, '0')
-}
-
-function getShortMonth(dateValue: string) {
-  const date = new Date(`${dateValue}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('en-US', { month: 'short' })
 }

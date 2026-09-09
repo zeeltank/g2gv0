@@ -1,15 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { MoreHorizontal } from 'lucide-react'
-import { Profile } from '@/lib/mock-data/profile'
+import { Profile } from '@/types/profile'
 
 interface BankCardProps {
   profile: Profile
@@ -29,24 +21,28 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
+/*
+ * ── THE "..." MENU IS GONE, NOT DISABLED ────────────────────────────────────
+ *
+ * Every one of these five cards carried a MoreHorizontal trigger opening
+ * `Edit` and `View History`, and NEITHER ITEM HAD AN onClick. Ten controls
+ * across the profile screen that opened, looked live, and did nothing.
+ *
+ * They are removed rather than greyed out, following the decision already
+ * recorded in profile-dashboard.tsx. Self-service editing now exists at
+ * `/settings?s=profile`, but it does NOT cover this card: these fields are part
+ * of the employment record and the write path behind Employee Directory is
+ * gated `profile:admin,hr`. Somebody changing them about themselves would not
+ * be a settings change. The header says who to ask, once. `View History` stays
+ * gone: there is no record history feature at all.
+ */
 export function BankCard({ profile, isActive }: BankCardProps) {
   return (
     <Card className={isActive ? 'border-warning' : ''}>
-      <div className="flex items-start justify-between p-6 pb-0">
+      <div className="p-6 pb-0">
         <CardHeader className="p-0">
           <CardTitle>Deposit (Bank Details)</CardTitle>
         </CardHeader>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View History</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       <CardContent>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-3 xl:grid-cols-6">

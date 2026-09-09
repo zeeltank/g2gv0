@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   User,
   MapPin,
@@ -12,12 +13,14 @@ import {
   Phone,
   BookOpen,
   Target,
+  Pencil,
+  KeyRound,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import type { Profile } from '@/lib/mock-data/profile'
+import type { Profile } from '@/types/profile'
 import { PersonalCard } from '@/components/profile/cards/personal-card'
 import { AddressCard } from '@/components/profile/cards/address-card'
 import { ReportingCard } from '@/components/profile/cards/reporting-card'
@@ -193,24 +196,43 @@ export function ProfileDashboard({ user }: ProfileProps) {
           </div>
 
           {/*
-            * ── TWO BUTTONS THAT DID NOTHING ────────────────────────────
+            * ── THE TWO BUTTONS THAT DID NOTHING NOW GO SOMEWHERE ───────
             *
-            * "Change Password" and "Edit Profile" had no onClick at all, as
-            * did the avatar camera and the Edit item in all five cards. A
-            * control that looks live and does nothing is worse than one that
-            * is absent: somebody presses it, believes they changed something,
-            * and finds out later that they did not.
+            * "Change Password" and "Edit Profile" originally had no onClick at
+            * all, as did the avatar camera and the Edit item in all five cards.
+            * They were removed rather than left as decoration, with a note that
+            * self-service editing did not exist - which was true: there was NO
+            * endpoint for an employee to change their own record.
             *
-            * Self-service editing does not exist yet - there is no endpoint
-            * for an employee to change their own record; /user/add_user is a
-            * read here, and the write path behind Employee Directory is
-            * gated profile:admin,hr. So the honest thing is to say who can
-            * change it rather than to offer a control that cannot.
+            * There is now. `/settings` carries both, and each link goes to the
+            * exact section rather than to a hub the person then has to search.
+            *
+            * The note stays underneath, because it is still true of everything
+            * these links CANNOT change - department, job role, pay, employee
+            * number - which is most of what this page displays.
             */}
-          <p className="max-w-xs text-xs leading-snug text-muted-foreground lg:self-start lg:text-right">
-            To correct anything here, ask an administrator or HR — they can edit
-            your record from the Employee Directory.
-          </p>
+          <div className="flex flex-col gap-2 lg:items-end lg:self-start">
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href="/settings?s=profile">
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Edit my details
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/settings?s=security">
+                  <KeyRound className="h-4 w-4" aria-hidden="true" />
+                  Change password
+                </Link>
+              </Button>
+            </div>
+
+            <p className="max-w-xs text-xs leading-snug text-muted-foreground lg:text-right">
+              Your name, contact details and photo are yours to change. Your department, job role,
+              reporting manager and pay are part of your employment record — ask an administrator
+              or HR to correct those.
+            </p>
+          </div>
         </div>
       </Card>
 

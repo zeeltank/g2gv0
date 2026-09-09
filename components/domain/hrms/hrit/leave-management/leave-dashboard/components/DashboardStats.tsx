@@ -41,7 +41,22 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-6">
       {stats.map((stat) => {
         const Icon = iconMap[stat.icon]
-        const isPositive = stat.percentageChange >= 0
+
+        /*
+         * No delta, no badge.
+         *
+         * Every one of these six stats arrives with percentageChange = 0,
+         * because the dashboard endpoint carries no prior-period figure -
+         * mapDashboardStats says so in its own comment. The old code then read
+         * `0 >= 0` as positive and rendered a green TrendingUp "0%" on all six
+         * cards, unconditionally. A trend indicator that cannot move is
+         * decoration wearing the clothes of data.
+         *
+         * The badge now renders only when there is a real change to report, so
+         * the day the API supplies one it appears by itself.
+         */
+        const hasTrend = typeof stat.percentageChange === 'number' && stat.percentageChange !== 0
+        const isPositive = (stat.percentageChange ?? 0) > 0
         const TrendIcon = isPositive ? TrendingUp : TrendingDown
 
         return (
@@ -54,17 +69,19 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
                 <div className={cn('rounded-lg p-2.5 ring-1', toneClassMap[stat.tone])}>
                   <Icon className="size-5" />
                 </div>
-                <div
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium',
-                    isPositive
-                      ? 'bg-success/10 text-success'
-                      : 'bg-destructive/10 text-destructive',
-                  )}
-                >
-                  <TrendIcon className="size-3" />
-                  {Math.abs(stat.percentageChange)}%
-                </div>
+                {hasTrend && (
+                  <div
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium',
+                      isPositive
+                        ? 'bg-success/10 text-success'
+                        : 'bg-destructive/10 text-destructive',
+                    )}
+                  >
+                    <TrendIcon className="size-3" />
+                    {Math.abs(stat.percentageChange)}%
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>

@@ -48,7 +48,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     city: '',
     state: '',
     pincode: '',
-    supervisor_opt: '',
+    reporting_manager_id: '',
     reporting_method: '',
     bank_name: '',
     branch_name: '',
@@ -86,7 +86,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
         city: employee.city || '',
         state: employee.state || '',
         pincode: employee.pincode || '',
-        supervisor_opt: String(employee.supervisor_opt || ''),
+        reporting_manager_id: String(employee.reporting_manager_id || ''),
         // `employee_name` was in this object and posted on every save, but no
         // input rendered it and tbluser has no such column - it was a dead key.
         reporting_method: employee.reporting_method || '',
@@ -311,10 +311,17 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
               <p className="text-sm text-muted-foreground">Assign managers and reporting methods here.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Reporting Manager / Supervisor</Label>
+                  {/*
+                    * Writes `reporting_manager_id`, not `supervisor_opt`.
+                    * This picker always sent a real user id and it landed in a
+                    * VARCHAR whose data is the string "Subordinate" - while leave
+                    * approvals, approval routing and the reporting_coverage gate
+                    * all read reporting_manager_id, which nothing wrote.
+                    */}
+                  <Label>Reporting Manager</Label>
                   <Select 
-                    value={formData.supervisor_opt}
-                    onChange={(val) => handleChange('supervisor_opt', val)}
+                    value={formData.reporting_manager_id}
+                    onChange={(val) => handleChange('reporting_manager_id', val)}
                     placeholder="Select Manager" 
                     options={employeesList?.map((emp: any) => ({
                       label: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.full_name || emp.user_name || String(emp.id),

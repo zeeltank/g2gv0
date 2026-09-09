@@ -35,7 +35,33 @@ export function AttendanceReportTable<T extends Record<string, any>>({
   className,
   ...props
 }: AttendanceReportTableProps<T>) {
-  const visibleColumns = columns.map((c) => String(c.id))
+  /*
+   * Column visibility is real state now.
+   *
+   * `visibleColumns` used to be recomputed as "every column" on each render and
+   * handed to a no-op, so the Columns control could not have worked even if it
+   * had been wired. Hidden ids are tracked rather than visible ones, so a column
+   * added to `columns` later shows up by default instead of silently vanishing.
+   */
+  const [hiddenColumns, setHiddenColumns] = React.useState<string[]>([])
+
+  const visibleColumns = React.useMemo(
+    () => columns.map((c) => String(c.id)).filter((id) => !hiddenColumns.includes(id)),
+    [columns, hiddenColumns],
+  )
+
+  const shownColumns = React.useMemo(
+    () => columns.filter((c) => !hiddenColumns.includes(String(c.id))),
+    [columns, hiddenColumns],
+  )
+
+  const toggleColumn = React.useCallback((columnId: string) => {
+    setHiddenColumns((current) =>
+      current.includes(columnId)
+        ? current.filter((id) => id !== columnId)
+        : [...current, columnId],
+    )
+  }, [])
 
   return (
     <div
@@ -44,17 +70,17 @@ export function AttendanceReportTable<T extends Record<string, any>>({
     >
       <TableToolbar
         totalEntries={total}
+        page={page}
         pageSize={pageSize}
         searchValue={searchValue}
         onSearchChange={onSearchChange}
         columns={columns}
         visibleColumns={visibleColumns}
-        onColumnVisibilityChange={() => {}}
-        onFilterClick={() => {}}
+        onColumnVisibilityChange={toggleColumn}
       />
 
       <DataTable
-        columns={columns}
+        columns={shownColumns}
         data={isLoading ? [] : data}
         isLoading={isLoading}
         density="compact"

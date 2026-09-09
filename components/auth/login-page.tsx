@@ -9,6 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { passwordService } from '@/services/auth/password'
+import { accountService } from '@/services/account'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { readLastVisited } from '@/lib/last-visited'
 import {
   AlertCircle,
   BarChart3,
@@ -157,11 +161,42 @@ export function LoginPage() {
   const searchParams = useSearchParams()
   const { login } = useAuth()
 
-  const getRedirectTarget = () => {
+  /*
+   * WHERE TO GO AFTER SIGNING IN.
+   *
+   * Three sources, in order of how specific the intent is:
+   *
+   *   1. `?redirect=` — they were sent here from a page they were trying to
+   *      reach. Nothing is more specific than that, so it always wins.
+   *   2. Their `landing_page` preference. This is the reader that preference
+   *      never had: Settings stored it and NOTHING consulted it, so choosing
+   *      "the last page I was on" changed nothing at all.
+   *   3. The dashboard.
+   *
+   * Fetched AFTER login, not before — there is no session to read a preference
+   * with until then, which is why this is async and why the provider mounted in
+   * the layout cannot answer it (it runs before anybody has signed in).
+   */
+  const getRedirectTarget = async () => {
     const redirect = searchParams.get('redirect')
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
       return redirect
     }
+
+    try {
+      const context = getLaravelContext(null)
+
+      if (!isLaravelContextReady(context)) return '/dashboard'
+
+      const me = await accountService.me(context)
+
+      if (me.data.preferences.landing_page === 'last-visited') {
+        return readLastVisited() ?? '/dashboard'
+      }
+    } catch {
+      // A preference lookup must never be the reason somebody cannot get in.
+    }
+
     return '/dashboard'
   }
 
@@ -171,6 +206,40 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  /*
+   * FORGOT PASSWORD, FOR REAL THIS TIME.
+   *
+   * The reply is deliberately the same whether or not the address has an
+   * account, so this form cannot be used to find out who is registered - and it
+   * never returns the link itself. See Api\Auth\PasswordController::forgot().
+   */
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotBusy, setForgotBusy] = useState(false)
+  const [forgotNotice, setForgotNotice] = useState('')
+
+  async function requestReset(event: React.FormEvent) {
+    event.preventDefault()
+
+    if (!forgotEmail.trim() || forgotBusy) return
+
+    setForgotBusy(true)
+    setForgotNotice('')
+
+    try {
+      const response = await passwordService.forgot(forgotEmail.trim())
+      setForgotNotice(response.message)
+    } catch {
+      // Even a failure says the same neutral thing: a different message here
+      // would leak exactly what the endpoint refuses to.
+      setForgotNotice(
+        'If that address has an account, a reset link is on its way. Ask your administrator if nothing arrives.',
+      )
+    } finally {
+      setForgotBusy(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -179,7 +248,7 @@ export function LoginPage() {
 
     try {
       await login(email, password)
-      router.push(getRedirectTarget())
+      router.push(await getRedirectTarget())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
@@ -239,13 +308,25 @@ export function LoginPage() {
                   htmlFor="email"
                   className="text-base font-bold text-brand-navy"
                 >
-                  Email or Employee ID
+                  {/*
+                    * WAS "Email or Employee ID". It has never accepted an
+                    * employee ID: authController matches on `email`, which is
+                    * tbluser's only unique key, and `user_name` is queried by
+                    * nothing. Anybody who typed their employee number was told
+                    * their credentials were wrong.
+                    *
+                    * The input `type` follows the label - it was `text`, which
+                    * suppressed the browser's own email autofill and validation
+                    * for a field that only ever accepts an address.
+                    */}
+                  Email address
                 </Label>
                 <div className="relative mt-2">
                   <Mail className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="text"
+                    type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
@@ -293,12 +374,33 @@ export function LoginPage() {
                     Remember me
                   </Label>
                 </div>
-                <a
-                  href="#"
+                {/*
+                  * WAS `<a href="#">Forgot password?</a>` - a link that reloaded
+                  * the login page and left people typing guesses.
+                  *
+                  * It is a sentence rather than a working link because self-serve
+                  * reset is HALF-BUILT, not missing: the backend has
+                  * ForgotPasswordController with a working
+                  * submitForgetPasswordForm() and a token/reset pair on the web
+                  * routes - but showForgetPasswordForm() IS COMMENTED OUT while
+                  * routes/web.php:171 still points at it, so the entry point
+                  * errors. Wiring this link to that route would send somebody
+                  * from a dead link to a broken page, which is worse.
+                  *
+                  * Until the flow is finished, this says who can actually help -
+                  * the same answer the profile screen gives, for the same reason.
+                  */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotEmail(email)
+                    setForgotNotice('')
+                    setForgotOpen(true)
+                  }}
                   className="text-base font-semibold text-primary hover:text-primary/80"
                 >
                   Forgot password?
-                </a>
+                </button>
               </div>
 
               <Button
@@ -336,6 +438,75 @@ export function LoginPage() {
           </div>
         </div>
       </main>
+
+      {/*
+        * A panel rather than a separate page, so nobody loses the login form to
+        * ask a one-field question - and so the address they already typed is
+        * carried across.
+        *
+        * Deliberately NOT a Dialog: this screen renders outside the app shell
+        * and has no other overlay, and a focus-trapped modal over a login form
+        * is more machinery than one input needs.
+        */}
+      {forgotOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forgot-title"
+          onClick={() => setForgotOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="forgot-title" className="text-lg font-semibold text-foreground">
+              Reset your password
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We will send a link to set a new one.
+            </p>
+
+            {forgotNotice ? (
+              <div className="mt-4 flex flex-col gap-4">
+                <Alert variant="info">
+                  <AlertDescription>{forgotNotice}</AlertDescription>
+                </Alert>
+                <Button variant="outline" onClick={() => setForgotOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={requestReset} className="mt-4 flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="forgot-email">Email address</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(event) => setForgotEmail(event.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="ghost" onClick={() => setForgotOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={!forgotEmail.trim() || forgotBusy}>
+                    {forgotBusy ? 'Sending…' : 'Send the link'}
+                  </Button>
+                </div>
+
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  If your organisation has no email set up, ask your administrator — they can
+                  generate a link for you from the Employee Directory.
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

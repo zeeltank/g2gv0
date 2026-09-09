@@ -6,6 +6,8 @@ import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { cn } from '@/lib/utils'
+import { useAppPreferences } from '@/components/providers/preferences-provider'
+import { rememberLastVisited } from '@/lib/last-visited'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
@@ -342,17 +344,52 @@ export function GtgAppShell({
   const breadcrumbItems = resolveBreadcrumb(resolvedActive, modules)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  /*
+   * THE STORED PREFERENCE, not a hardcoded `true`.
+   *
+   * `sidebar_collapsed` was saved to the account by Settings and read by
+   * nothing - the shell always started collapsed however anybody had set it.
+   * `touched` is what stops the server's answer, which arrives a moment after
+   * mount, from snapping the sidebar shut on somebody who has just opened it.
+   */
+  const { preferences, loaded: preferencesLoaded } = useAppPreferences()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [sidebarTouched, setSidebarTouched] = useState(false)
+  const [sidebarSynced, setSidebarSynced] = useState(false)
+
+  /*
+   * Applied DURING RENDER, not in an effect.
+   *
+   * An effect would paint the collapsed default first and then widen it, so
+   * somebody whose preference is "open" would watch the sidebar snap out on
+   * every page load. `sidebarSynced` makes it happen exactly once, and
+   * `sidebarTouched` means a person who has already moved it themselves wins
+   * over the stored value for the rest of the visit.
+   */
+  if (preferencesLoaded && !sidebarSynced && !sidebarTouched) {
+    setSidebarSynced(true)
+    setSidebarCollapsed(preferences.sidebar_collapsed)
+  }
   const [toolbarOpen, setToolbarOpen] = useState(false)
   const toolbarButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
       queueMicrotask(() => {
+        // A deliberate first-open expansion outranks the stored default.
+        // Marking it touched stops the preference, which arrives a moment
+        // later, from closing the sidebar again.
+        setSidebarTouched(true)
         setSidebarCollapsed(false)
       })
     }
   }, [])
+
+  // So "land on the last page I was on" has something to land on. Written on
+  // every navigation inside the shell; the sign-in screen reads it back.
+  useEffect(() => {
+    if (pathname) rememberLastVisited(pathname)
+  }, [pathname])
 
   return (
     <div role="application" aria-label="GapstoGrowth HRMS" className="flex h-screen w-full bg-background overflow-hidden">
@@ -363,7 +400,12 @@ export function GtgAppShell({
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
+        onCollapsedChange={(collapsed) => {
+          // Once somebody has moved it themselves, the stored default stops
+          // applying for this visit.
+          setSidebarTouched(true)
+          setSidebarCollapsed(collapsed)
+        }}
       />
       <div
         className={cn(

@@ -29,7 +29,7 @@ export function PayrollPageShell({
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center sm:min-h-[480px] sm:px-8 sm:py-16">
         <div
-          className="mb-5 flex size-14 items-center justify-center rounded-lg bg-danger/10 text-danger sm:mb-6 sm:size-16"
+          className="mb-5 flex size-14 items-center justify-center rounded-lg bg-destructive/10 text-destructive sm:mb-6 sm:size-16"
           aria-hidden="true"
         >
           <Lock className="size-7 sm:size-8" />

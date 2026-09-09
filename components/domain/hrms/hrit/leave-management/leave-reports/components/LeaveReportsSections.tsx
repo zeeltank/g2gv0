@@ -105,6 +105,8 @@ type ReportPreviewSectionProps = {
   totalDays: number
   totalRequests: number
   onApplyFilters: () => void
+  /** Forces a refetch even when no filter value changed. See the Refresh button. */
+  onRefresh?: () => void
   onExportCsv: () => void
   onSaveToggle: (reportId: string) => void
 }
@@ -119,6 +121,8 @@ type ReportsSidebarProps = {
   topLeaveType: LeaveReportSummaryRow | null
   totalRequests: number
   onApplyFilters: () => void
+  /** Forces a refetch even when no filter value changed. See the Refresh button. */
+  onRefresh?: () => void
   onFilterChange: (key: keyof ReportFilters, value: string | boolean) => void
   onResetFilters: () => void
 }
@@ -262,6 +266,7 @@ export function ReportPreviewSection({
   totalDays,
   totalRequests,
   onApplyFilters,
+  onRefresh,
   onExportCsv,
   onSaveToggle,
 }: ReportPreviewSectionProps) {
@@ -288,7 +293,10 @@ export function ReportPreviewSection({
             <Printer className="size-4" />
             <span className="sr-only">Print</span>
           </Button>
-          <Button variant="outline" size="icon-lg" onClick={onApplyFilters}>
+          {/* onRefresh, not onApplyFilters. Applying the same filter values
+              produces the same cache key and no refetch, so this button did
+              nothing unless the user had changed a filter first. */}
+          <Button variant="outline" size="icon-lg" onClick={onRefresh ?? onApplyFilters}>
             <RefreshCw className="size-4" />
             <span className="sr-only">Refresh</span>
           </Button>
@@ -407,14 +415,17 @@ export function ReportsSidebar({
           <FilterSelect label="Status" value={filters.status} onChange={(value) => onFilterChange('status', value)} options={filterOptions.status} />
           <FilterSelect label="Employee Status" value={filters.employeeStatus} onChange={(value) => onFilterChange('employeeStatus', value)} options={selectOptions.employeeStatus} />
 
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <Checkbox
-              size="sm"
-              checked={filters.includeSubordinates}
-              onCheckedChange={(checked) => onFilterChange('includeSubordinates', checked)}
-            />
-            Include Subordinate Data
-          </label>
+          {/* "Include Subordinate Data" was here. It ticked, it updated local
+              state, and it stopped there: apiFilters never carried it,
+              LeaveReportFilters has no such field, and leaveReportParams could
+              not have sent it. A repo-wide search for "subordinate" found it
+              only in this component and its own local types file - no endpoint,
+              no parameter, nothing on the server side at all.
+
+              Removed rather than left ticking. A filter that visibly changes
+              and produces byte-identical numbers teaches the user to distrust
+              every other filter on the panel. It comes back the day the API
+              accepts the parameter. */}
 
           <Button className="h-10 w-full" onClick={onApplyFilters}>
             Apply Filters

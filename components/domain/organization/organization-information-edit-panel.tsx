@@ -45,6 +45,12 @@ type OrganizationData = {
   numberFormat: string
   workingDays: string[]
   status: 'Active' | 'Inactive' | 'Draft'
+  /**
+   * Counted from `org_details.employee_count`, or null when nobody has
+   * recorded it. The panel rendered the literal string "Pending" here for
+   * every organisation - see the note beside the field.
+   */
+  totalEmployees: number | null
 }
 
 interface OrganizationInformationEditPanelProps {
@@ -73,6 +79,23 @@ export function OrganizationInformationEditPanel({
 }: OrganizationInformationEditPanelProps) {
   const [org, setOrg] = useState(data)
   const [logoFile, setLogoFile] = useState<File>()
+
+  /*
+   * The organisation's OWN initials, from the name being edited - so it updates
+   * as you type, and it is never somebody else's brand.
+   *
+   * Falls back to the organisation code, then to a dash. It never falls back to
+   * a company name, because the whole bug was a company name standing in for
+   * every customer's.
+   */
+  const monogram =
+    org.organizationName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase() || org.organizationCode.slice(0, 3).toUpperCase() || '—'
 
   function updateField<K extends keyof OrganizationData>(field: K, value: OrganizationData[K]) {
     setOrg((current) => ({ ...current, [field]: value }))
@@ -108,11 +131,18 @@ export function OrganizationInformationEditPanel({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard title="Company Logo" className="lg:col-span-1">
           <div className="flex flex-col items-center gap-4">
+            {/*
+              * WAS THE LITERAL STRING "GTG".
+              *
+              * Every organisation on the platform saw GapstoGrowth's initials
+              * as its own logo placeholder - on the screen whose entire job is
+              * recording who the customer is.
+              */}
             <div
               className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
               aria-hidden="true"
             >
-              GTG
+              {monogram}
             </div>
             <Button variant="outline" className="relative w-full overflow-hidden">
               <Upload aria-hidden="true" />
@@ -125,11 +155,28 @@ export function OrganizationInformationEditPanel({
                 onChange={(event) => setLogoFile(event.target.files?.[0])}
               />
             </Button>
+            {/*
+              * "Founded" IS GONE, and "Total Employees" IS REAL.
+              *
+              * Founded was `org.establishedDate || 'Pending'` against a field
+              * this screen always passes as '' - `org_details` has no founded
+              * column, so it could only ever read "Pending". It is removed for
+              * the same reason `fax` and `founded` were removed from the read
+              * view: a field that can never hold anything is not a blank field,
+              * it is a promise the schema cannot keep.
+              *
+              * Total Employees was the LITERAL STRING "Pending" - not a
+              * fallback, not a null check, just the word - while the parent
+              * already had the number.
+              */}
             <div className="flex w-full flex-col gap-3 pt-2">
-              <ReadField label="Founded" value={org.establishedDate || 'Pending'} />
               <ReadField
                 label="Total Employees"
-                value="Pending"
+                value={
+                  org.totalEmployees !== null
+                    ? org.totalEmployees.toLocaleString()
+                    : 'Not recorded yet'
+                }
               />
             </div>
           </div>

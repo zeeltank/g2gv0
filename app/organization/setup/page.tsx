@@ -1,70 +1,67 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Check, Info, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ArrowUpRight, Check, Info, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
-import { SetupWizardLayout } from '@/components/settings/setup-wizard-layout'
-import type { SetupStep } from '@/components/settings/setup-progress-tracker'
+import { WizardLayout } from '@/components/shared/wizard/wizard-layout'
+import { WizardFooter } from '@/components/shared/wizard/wizard-footer'
+import {
+  ModuleConfiguration,
+  type ModuleConfigurationHandle,
+} from '@/components/settings/module-configuration'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import {
-  setupStatusService,
-  type SetupStepStatus,
-} from '@/services/organization/setup-status'
+import { firstOutstanding, REVIEW_STEP_KEY, toStepperSteps } from '@/lib/onboarding-steps'
+import { setupStatusService, type SetupStepStatus } from '@/services/organization/setup-status'
 
 /**
- * ORGANISATION SETUP — what is done, what is left, and where to do it.
+ * SET UP YOUR ORGANISATION — a rail, a pane, and a way back.
  *
- * ── WHAT THIS REPLACES ──────────────────────────────────────────────────────
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHAT CAME BEFORE
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * 561 lines of fiction, plus six step components. It was unreachable, and had
- * it been reachable it was not real:
+ * First 561 lines of fiction: a hardcoded "ABC Technologies Pvt. Ltd.", three
+ * invented employees, a CSV import that discarded the uploaded file, a delete
+ * that ignored its own id, and every save going to a `Map` in the Next.js
+ * process. It was also gated on `['admin','hr'].includes(user.role)` while
+ * `user.role` holds role KEYS, so the condition was always false and every user
+ * saw Access Denied.
  *
- *   - `['admin','hr'].includes(user.role)` gated it, while `user.role` holds
- *     role KEYS - 'administrator', 'hr_manager'. Neither string is a member, so
- *     the condition was always false and EVERY user, administrator included,
- *     saw Access Denied.
- *   - The organisation was prefilled "ABC Technologies Pvt. Ltd.", the employee
- *     list was three invented people, and the sister companies came from a
- *     fixture.
- *   - `importEmployees()` never read the uploaded file - it discarded the File
- *     and set the three samples.
- *   - `deleteSisterCompany(id)` never used its `id`; it reset state instead.
- *   - Every save went to `updateOnboarding()` and stopped there: an in-memory
- *     Map in the Next.js process. Not one Laravel call in the whole file.
+ * Then a checklist that was honest but flat: no rail, no Back, no way to do
+ * anything without leaving the page.
  *
- * ── WHY THIS IS A CHECKLIST AND NOT A WIZARD ────────────────────────────────
+ * ═══════════════════════════════════════════════════════════════════════════
+ * STILL MEASURED, NOW NAVIGABLE
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * A wizard owns its own progress, and that progress can disagree with the
- * product - which is exactly how the old one could report a finished setup for
- * an organisation with no departments. Here every step's state is COUNTED on
- * the server from the tables the rest of the product uses, so:
+ * Every step's state is COUNTED server-side from the tables the rest of the
+ * product writes, so this screen cannot claim anything the product would
+ * contradict, and an organisation that set itself up through the ordinary
+ * screens - never opening this one - is already ticked. That has not changed.
  *
- *   - it cannot claim anything the product would contradict;
- *   - an organisation that set itself up through the ordinary screens, never
- *     opening this page, is already ticked;
- *   - it is resumable by anyone, on any device, because there is no local state
- *     to lose - the old flow kept "we went live" in one person's localStorage;
- *   - and it is just as useful to the twelve organisations already on live,
- *     none of which ever saw a setup flow. It tells them what is missing.
+ * What is new is that it behaves like a wizard: a visible rail you can click,
+ * a step at a time, Back and Skip on every one, and the module picker embedded
+ * rather than linked away to.
  *
- * Each step links to the REAL screen for that job rather than reimplementing
- * it, so there is one department form in the product, not two.
+ * ── WHY "FINISH" STORES NOTHING ─────────────────────────────────────────────
+ *
+ * There is no "we went live" flag, and there was one: the screen this replaces
+ * wrote `localStorage.setItem('gtg-portal-live', 'true')` - per browser, per
+ * device, read by absolutely nothing.
+ *
+ * A stored flag would be a second version of a truth the product already holds.
+ * `GET /api/organization/setup-status` returns `complete`, counted. Finishing is
+ * therefore not an event to record; it is a person deciding they are done for
+ * now, and the correct response to that is to take them to their dashboard.
  */
 
-/** Mirrors the tracker rail. The steps themselves come from the server. */
-const SETUP_STEPS: SetupStep[] = [
-  { id: 'profile', label: 'Organisation profile' },
-  { id: 'roles', label: 'Standard roles' },
-  { id: 'modules', label: 'Modules' },
-  { id: 'departments', label: 'Departments' },
-  { id: 'people', label: 'People' },
-  { id: 'capability', label: 'Capability framework' },
-]
+/** Steps whose work happens on this screen rather than another one. */
+const INLINE_STEPS = new Set(['roles', 'modules'])
 
 export default function OrganizationSetupPage() {
   const router = useRouter()
@@ -72,51 +69,65 @@ export default function OrganizationSetupPage() {
   const { resolveAccessLink } = useSidebarNavigation()
 
   const [steps, setSteps] = useState<SetupStepStatus[]>([])
-  const [done, setDone] = useState(0)
+  const [current, setCurrent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [busyStep, setBusyStep] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    const context = getLaravelContext(user)
+  const moduleHandle = useRef<ModuleConfigurationHandle | null>(null)
 
-    if (!isLaravelContextReady(context)) return
+  const load = useCallback(
+    async (keepStep = true) => {
+      const context = getLaravelContext(user)
 
-    setLoading(true)
+      if (!isLaravelContextReady(context)) return
 
-    try {
-      const response = await setupStatusService.get(context)
-      setSteps(response.data?.steps ?? [])
-      setDone(response.data?.done ?? 0)
-      setError(null)
-    } catch (reason) {
-      setSteps([])
-      setError(reason instanceof Error ? reason.message : 'Could not load your setup status.')
-    } finally {
-      setLoading(false)
-    }
-  }, [user])
+      try {
+        const response = await setupStatusService.get(context)
+        const next = response.data?.steps ?? []
+        setSteps(next)
+        setError(null)
+
+        // On first load, open at the first thing still outstanding rather than
+        // making somebody click past four ticks to find their work.
+        setCurrent((existing) => (keepStep && existing ? existing : firstOutstanding(next)))
+      } catch (reason) {
+        setSteps([])
+        setError(reason instanceof Error ? reason.message : 'Could not load your setup status.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [user],
+  )
 
   useEffect(() => {
     queueMicrotask(() => {
-      void load()
+      void load(false)
     })
   }, [load])
 
-  /**
-   * The one step that finishes here rather than elsewhere.
-   *
-   * Afterwards the status is reloaded rather than assumed - the server is the
-   * thing that decides whether a step is done, and this screen should not start
-   * keeping its own opinion the moment it becomes inconvenient.
-   */
+  const railSteps = useMemo(() => toStepperSteps(steps, current), [steps, current])
+
+  const order = useMemo(() => [...steps.map((step) => step.key), REVIEW_STEP_KEY], [steps])
+  const index = current ? order.indexOf(current) : -1
+  const step = steps.find((item) => item.key === current) ?? null
+  const onReview = current === REVIEW_STEP_KEY
+  const outstanding = steps.filter((item) => !item.done)
+
+  function goTo(key: string) {
+    setNotice(null)
+    setCurrent(key)
+  }
+
+  /** The one step completed in place: create the roles this organisation lacks. */
   async function createRoles() {
     const context = getLaravelContext(user)
 
     if (!isLaravelContextReady(context)) return
 
-    setBusyStep('roles')
+    setBusy(true)
     setNotice(null)
     setError(null)
 
@@ -127,43 +138,89 @@ export default function OrganizationSetupPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The roles could not be created.')
     } finally {
-      setBusyStep(null)
+      setBusy(false)
     }
   }
 
-  /*
-   * Menu links are resolved through the sidebar, not hardcoded. A link to a
-   * screen this role cannot reach would be a dead end, and resolveAccessLink
-   * returns '/dashboard' for anything not in their navigation.
-   */
-  function go(link: string) {
-    router.push(link.startsWith('/module/') ? resolveAccessLink(link) : link)
+  async function saveModules() {
+    if (!moduleHandle.current) return true
+
+    setBusy(true)
+    const ok = await moduleHandle.current.save()
+    setBusy(false)
+
+    if (ok) {
+      // Re-read rather than assume: the server decides whether the step is done,
+      // and this screen should not start keeping its own opinion the moment it
+      // becomes convenient.
+      await load()
+    }
+
+    return ok
   }
 
-  const total = steps.length || SETUP_STEPS.length
-  const completedIds = new Set(steps.filter((step) => step.done).map((step) => step.key))
-  const firstOutstanding = steps.findIndex((step) => !step.done)
+  async function advance() {
+    if (current === 'modules') {
+      const ok = await saveModules()
+      if (!ok) return
+    }
+
+    if (index >= 0 && index < order.length - 1) {
+      goTo(order[index + 1])
+      return
+    }
+
+    router.push('/dashboard')
+  }
+
+  const onModuleReady = useCallback((handle: ModuleConfigurationHandle) => {
+    moduleHandle.current = handle
+  }, [])
 
   return (
     <ProtectedLayout>
-      <SetupWizardLayout
-        currentStep={firstOutstanding === -1 ? total : firstOutstanding + 1}
-        steps={SETUP_STEPS}
-        completedSteps={completedIds}
+      <WizardLayout
+        title="Set up your organisation"
+        subtitle={
+          loading
+            ? 'Checking what is already set up…'
+            : 'Every line is counted from your own records, so it stays right whether you finish here or in the screens themselves.'
+        }
+        steps={railSteps}
+        onSelectStep={goTo}
+        exitLabel="Save & exit"
+        footer={
+          <WizardFooter
+            onBack={index > 0 ? () => goTo(order[index - 1]) : undefined}
+            onSkip={
+              // Nothing to skip on Review, and nothing to skip on a step already
+              // done - "Skip" on a finished step would be a lie about what the
+              // button does.
+              !onReview && index >= 0 && index < order.length - 1 && !step?.done
+                ? () => goTo(order[index + 1])
+                : undefined
+            }
+            onNext={advance}
+            nextLabel={
+              onReview
+                ? 'Finish and go to the dashboard'
+                : current === 'modules'
+                  ? 'Save modules & continue'
+                  : step?.done
+                    ? 'Continue'
+                    : 'Continue'
+            }
+            busy={busy}
+            note={
+              onReview
+                ? 'Nothing is stored when you finish — this checklist is measured from your records every time you open it, so you can come back to it whenever you like.'
+                : undefined
+            }
+          />
+        }
       >
-        <div className="mb-6 flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Set up your organisation
-          </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {loading
-              ? 'Checking what is already set up…'
-              : `${done} of ${total} done. Everything below is read from your own data, so it stays right whether you finish here or in the screens themselves.`}
-          </p>
-        </div>
-
         {error && (
-          <Alert variant="destructive" className="mb-4">
+          <Alert variant="destructive" className="mb-5">
             <Info className="size-4" aria-hidden="true" />
             <AlertTitle>Could not load your setup status</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
@@ -171,7 +228,7 @@ export default function OrganizationSetupPage() {
         )}
 
         {notice && (
-          <Alert variant="info" className="mb-4">
+          <Alert variant="success" className="mb-5">
             <Check className="size-4" aria-hidden="true" />
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
@@ -179,73 +236,126 @@ export default function OrganizationSetupPage() {
 
         {loading ? (
           <div className="flex flex-col gap-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-20 animate-pulse rounded-xl bg-muted/40" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-muted/40" />
             ))}
           </div>
-        ) : (
-          <ol className="flex flex-col gap-3">
-            {steps.map((step) => (
-              <li
-                key={step.key}
-                className="flex flex-wrap items-center gap-4 rounded-xl border border-border/70 bg-card p-4"
-              >
-                <span
-                  className={
-                    step.done
-                      ? 'flex size-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success'
-                      : 'flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground'
-                  }
-                  aria-hidden="true"
-                >
-                  {step.done ? <Check className="size-4" /> : null}
-                </span>
+        ) : onReview ? (
+          <section className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5 sm:p-6">
+            <header>
+              <h2 className="text-base font-semibold text-foreground">Where you have got to</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {outstanding.length === 0
+                  ? 'Everything on this list is done.'
+                  : `${steps.length - outstanding.length} of ${steps.length} done. What is left is below, and none of it blocks you from using the product.`}
+              </p>
+            </header>
 
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-semibold text-foreground">{step.label}</span>
-                  {/* The server's own sentence, with the real numbers in it. */}
-                  <span className="text-xs leading-snug text-muted-foreground">{step.detail}</span>
-                </div>
-
-                {step.inline_action === 'create-roles' ? (
-                  <Button
-                    size="sm"
-                    variant={step.done ? 'outline' : 'default'}
-                    disabled={step.done || busyStep === 'roles'}
-                    onClick={createRoles}
+            <ul className="flex flex-col divide-y divide-border/60">
+              {steps.map((item) => (
+                <li key={item.key} className="flex items-start gap-3 py-3">
+                  <span
+                    className={
+                      item.done
+                        ? 'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-success'
+                        : 'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-border'
+                    }
+                    aria-hidden="true"
                   >
-                    {busyStep === 'roles' && (
-                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    )}
-                    {step.done ? 'Done' : step.action}
-                  </Button>
-                ) : step.link ? (
+                    {item.done ? <Check className="size-3" strokeWidth={3} /> : null}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-sm font-medium text-foreground">{item.label}</span>
+                    {/* The server's own sentence, with the real numbers in it. */}
+                    <span className="text-xs leading-snug text-muted-foreground">{item.detail}</span>
+                  </span>
+                  {!item.done && (
+                    <Button size="sm" variant="ghost" onClick={() => goTo(item.key)}>
+                      Open
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            <Alert variant="info">
+              <Info className="size-4" aria-hidden="true" />
+              <AlertTitle>You can leave and come back</AlertTitle>
+              <AlertDescription>
+                Nothing here is a saved checklist — each line is counted from your organisation&rsquo;s
+                own records every time you open it. Work through it in any order, or do it from the
+                screens themselves; this will keep up either way.
+              </AlertDescription>
+            </Alert>
+          </section>
+        ) : step ? (
+          <section className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5 sm:p-6">
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-foreground">{step.label}</h2>
+                {/* The real numbers, from the server. */}
+                <p className="mt-0.5 text-sm text-muted-foreground">{step.detail}</p>
+              </div>
+
+              {step.done && (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                  <Check className="size-3.5" aria-hidden="true" />
+                  Done
+                </span>
+              )}
+            </header>
+
+            {step.key === 'modules' ? (
+              <ModuleConfiguration onReady={onModuleReady} />
+            ) : step.key === 'roles' ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  These nine roles are the platform&rsquo;s own vocabulary — permissions, approval
+                  routing and reporting all key on them. Creating them assigns nobody and grants no
+                  access; both of those are decisions for a person.
+                </p>
+                <Button onClick={createRoles} disabled={step.done || busy}>
+                  {busy && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                  {step.done ? 'All nine exist' : step.action}
+                </Button>
+              </div>
+            ) : (
+              /*
+               * Every other step happens on the screen that owns it. Linking
+               * rather than reimplementing is what keeps ONE department form in
+               * the product instead of two that drift.
+               */
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  This is done on the {step.label.toLowerCase()} screen. It opens in place; come
+                  back here whenever you like — this list re-reads your records every time.
+                </p>
+                {step.link && (
                   <Button
-                    size="sm"
                     variant={step.done ? 'outline' : 'default'}
-                    onClick={() => go(step.link as string)}
+                    onClick={() =>
+                      router.push(
+                        step.link!.startsWith('/module/')
+                          ? resolveAccessLink(step.link!)
+                          : step.link!,
+                      )
+                    }
                   >
                     {step.done ? 'Review' : step.action}
-                    <ArrowRight className="size-4" aria-hidden="true" />
+                    <ArrowUpRight className="size-4" aria-hidden="true" />
                   </Button>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        )}
+                )}
+              </div>
+            )}
 
-        {!loading && steps.length > 0 && (
-          <Alert variant="info" className="mt-6">
-            <Info className="size-4" aria-hidden="true" />
-            <AlertTitle>You can leave and come back</AlertTitle>
-            <AlertDescription>
-              Nothing on this page is a saved checklist — each line is counted from your
-              organisation&rsquo;s own records every time you open it. Work through it in any
-              order, or do it from the screens themselves; this will keep up either way.
-            </AlertDescription>
-          </Alert>
-        )}
-      </SetupWizardLayout>
+            {!INLINE_STEPS.has(step.key) && !step.done && (
+              <p className="text-xs text-muted-foreground">
+                Nothing on this step is required to move on — you can come back to it.
+              </p>
+            )}
+          </section>
+        ) : null}
+      </WizardLayout>
     </ProtectedLayout>
   )
 }
