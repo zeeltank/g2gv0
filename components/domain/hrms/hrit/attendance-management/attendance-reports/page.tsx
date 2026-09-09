@@ -718,10 +718,22 @@ export function AttendanceReportsPage() {
 
   const distributionData = React.useMemo((): AttendanceDistributionData => {
     if (weeklySummary) {
+      /*
+       * earlyGoing was hardcoded 0 on this branch - the one that actually runs
+       * whenever the weekly summary loads. "Early Going" is a named metric on
+       * this screen: a KPI card, a donut slice, a trend line, a table column and
+       * a drill-down field, all reading a constant.
+       *
+       * The real figure is already fetched. getEarlyGoingAttendanceReport is
+       * asked for a SINGLE date (`date: appliedFilters.to || appliedFilters.from`),
+       * so this is that day's count sitting beside per-day averages for the
+       * other three - comparable in scale, and honest about being one day rather
+       * than an average across the range.
+       */
       return {
         present: average(weeklySummary.present),
         late: average(weeklySummary.late),
-        earlyGoing: 0,
+        earlyGoing: earlyGoingData.filter((r) => r.earlyByMin > 0).length,
         absent: average(weeklySummary.absent),
       }
     }
@@ -768,12 +780,21 @@ export function AttendanceReportsPage() {
     const dist = distributionData
     const total = dist.present + dist.late + dist.earlyGoing + dist.absent
     if (attendanceKpis) {
+      /*
+       * These are PERCENTAGES, and they used to be head-counts.
+       *
+       * dist.late and dist.absent are averages of "how many employees" per day.
+       * They were passed straight into latePercentage / absentPercentage, which
+       * getEnhancedSummaryCards renders with unit '%' - so three late employees
+       * printed as "3%". The fallback branch below already divides by the total;
+       * this branch, the one that runs whenever the KPI endpoint answers, did not.
+       */
       return getEnhancedSummaryCards({
         totalEmployees: attendanceKpis.active_employees,
         attendancePercentage: Math.round(parsePercentage(attendanceKpis.present_today)),
-        latePercentage: dist.late,
-        earlyGoingPercentage: dist.earlyGoing,
-        absentPercentage: dist.absent,
+        latePercentage: total ? Math.round((dist.late / total) * 100) : 0,
+        earlyGoingPercentage: total ? Math.round((dist.earlyGoing / total) * 100) : 0,
+        absentPercentage: total ? Math.round((dist.absent / total) * 100) : 0,
       })
     }
 

@@ -15,6 +15,7 @@ import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import type { AttendanceRecord, AttendanceStatus } from '@/domain/hrms/hrit/attendance-management/types'
 
 interface AttendanceHistoryDrawerProps {
@@ -48,15 +49,30 @@ export function AttendanceHistoryDrawer({
     return result
   }, [search, statusFilter, records])
 
-  // EXPORT IS NOT BUILT. This handler logged to the console and returned, so the
-  // button reported success by doing nothing visible - the same shape as the
-  // notification bell before X-06, and the only one of the four dead controls
-  // that a literal pattern could not see.
-  //
-  // The button is disabled rather than removed: an attendance export is a
-  // reasonable thing to want, and deleting it would erase the fact that somebody
-  // intended it. Disabled and labelled says both true things at once - it is not
-  // available, and it is not forgotten.
+  /*
+   * EXPORT IS BUILT NOW, and it always could have been.
+   *
+   * The comment that stood here said the export "IS NOT BUILT" and defended
+   * leaving the button disabled. That was true of this component and false of
+   * the screen: `downloadCsv` is a real file producer, and the same page's
+   * "Download Timesheet" quick action already exports these very records
+   * through it. No endpoint is needed - the rows are already in memory, and
+   * they are the FILTERED rows, so the file matches what the user is looking at.
+   */
+  const handleExport = React.useCallback(() => {
+    downloadCsv(
+      `attendance-history-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Date', 'Day', 'Punch In', 'Punch Out', 'Total Hours', 'Status'],
+      filteredRecords.map((record) => [
+        String(record.date ?? ''),
+        String(record.day ?? ''),
+        String(record.punchIn ?? ''),
+        String(record.punchOut ?? ''),
+        String(record.totalHours ?? ''),
+        String(record.status ?? ''),
+      ]),
+    )
+  }, [filteredRecords])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -89,7 +105,12 @@ export function AttendanceHistoryDrawer({
                 { value: 'leave', label: 'Leave' },
               ]}
             />
-            <Button variant="outline" disabled title="Export is not available yet">
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={loading || filteredRecords.length === 0}
+              title={filteredRecords.length === 0 ? 'Nothing to export' : undefined}
+            >
               Export
             </Button>
           </div>
@@ -114,7 +135,11 @@ export function AttendanceHistoryDrawer({
                     <TableHead>Punch In</TableHead>
                     <TableHead>Punch Out</TableHead>
                     <TableHead>Total Hours</TableHead>
-                    <TableHead>Break</TableHead>
+                    {/* No "Break" column. `breakTime` is declared on the type and
+                        assigned by nothing - no mapper sets it and no attendance
+                        endpoint returns break data - so the column could only ever
+                        print "--", which reads as "still loading" rather than
+                        "this is not recorded". */}
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -126,7 +151,6 @@ export function AttendanceHistoryDrawer({
                       <TableCell>{record.punchIn || '--'}</TableCell>
                       <TableCell>{record.punchOut || '--'}</TableCell>
                       <TableCell>{record.totalHours || '--'}</TableCell>
-                      <TableCell>{record.breakTime || '--'}</TableCell>
                       <TableCell>
                         <StatusBadge status={record.status} />
                       </TableCell>

@@ -122,11 +122,18 @@ export default function EntitlementsTab() {
     // "remove this grant", which is how a grant is withdrawn.
     const allocations: LeaveAllocationPayload[] = []
 
+    // Cells the user changed to something that is not a number, or is negative.
+    // Counted rather than silently skipped - see the refusal below.
+    let invalid = 0
+
     Object.entries(draft).forEach(([departmentId, byType]) => {
       Object.entries(byType).forEach(([leaveTypeId, value]) => {
         if ((baseline[departmentId]?.[leaveTypeId] ?? '') === value) return
         const days = value.trim() === '' ? 0 : Number(value)
-        if (!Number.isFinite(days) || days < 0) return
+        if (!Number.isFinite(days) || days < 0) {
+          invalid += 1
+          return
+        }
         allocations.push({
           department_id: Number(departmentId),
           leave_type_id: Number(leaveTypeId),
@@ -135,8 +142,22 @@ export default function EntitlementsTab() {
       })
     })
 
+    /*
+     * SAY WHY NOTHING WAS SAVED.
+     *
+     * This returned mute: an invalid cell was skipped above, and if that left
+     * nothing to send the function exited with no message, no error and no
+     * toast. The Save button is enabled whenever the draft is dirty, so the
+     * user edited a cell, pressed Save, and the screen did absolutely nothing -
+     * indistinguishable from a save that worked.
+     */
     if (allocations.length === 0) {
       setSaving(false)
+      setError(
+        invalid > 0
+          ? `${invalid} entitlement${invalid === 1 ? '' : 's'} could not be saved: enter a number of days that is zero or more.`
+          : 'Nothing to save - no entitlement has been changed.',
+      )
       return
     }
 

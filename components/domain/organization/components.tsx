@@ -109,7 +109,7 @@ export function AccessDenied({ role }: { role: string }) {
   return (
     <div className="flex min-h-[360px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
       <div
-        className="mb-5 flex size-14 items-center justify-center rounded-lg bg-danger/10 text-danger"
+        className="mb-5 flex size-14 items-center justify-center rounded-lg bg-destructive/10 text-destructive"
         aria-hidden="true"
       >
         <Lock className="size-7" />

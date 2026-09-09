@@ -36,6 +36,20 @@ export function AttendanceKPICards({ cards, className }: AttendanceKPICardsProps
   )
 }
 
+/**
+ * NO trend / trendValue HERE, DELIBERATELY.
+ *
+ * These five cards used to carry hardcoded deltas - '+2.5%', '-1.2%', '+0.8%'
+ * and '0.0%' - as constants inside this function. KPICard renders `description`
+ * beneath the figure, so every tenant, every filter and every date range showed
+ * the same four numbers, and a user reads "+2.5%" as this month against last.
+ *
+ * A delta needs a prior-period figure and no attendance endpoint returns one:
+ * AttendanceKpiResponse carries present_today, leave_utilization and
+ * active_employees, and nothing else. `trend` and `trendValue` stay on the
+ * interface so a real comparison can be passed in the day one exists - but an
+ * invented number is worse than no number, because it does not announce itself.
+ */
 export function getEnhancedSummaryCards(data: {
   totalEmployees: number
   attendancePercentage: number
@@ -56,8 +70,6 @@ export function getEnhancedSummaryCards(data: {
       value: data.attendancePercentage,
       unit: '%',
       icon: <TrendingUp className="size-4 text-success" />,
-      trend: 'up',
-      trendValue: '+2.5%',
     },
     {
       id: 'late',
@@ -65,8 +77,6 @@ export function getEnhancedSummaryCards(data: {
       value: data.latePercentage,
       unit: '%',
       icon: <Clock className="size-4 text-warning" />,
-      trend: 'down',
-      trendValue: '-1.2%',
     },
     {
       id: 'early-going',
@@ -74,8 +84,6 @@ export function getEnhancedSummaryCards(data: {
       value: data.earlyGoingPercentage,
       unit: '%',
       icon: <TrendingDown className="size-4 text-destructive" />,
-      trend: 'up',
-      trendValue: '+0.8%',
     },
     {
       id: 'absent',
@@ -83,8 +91,6 @@ export function getEnhancedSummaryCards(data: {
       value: data.absentPercentage,
       unit: '%',
       icon: <XCircle className="size-4 text-destructive" />,
-      trend: 'neutral',
-      trendValue: '0.0%',
     },
   ]
 }

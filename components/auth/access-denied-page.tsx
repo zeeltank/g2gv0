@@ -12,8 +12,8 @@ export function AccessDeniedPage({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="text-center">
-        <div className="mb-6 inline-flex rounded-full bg-danger/10 p-4">
-          <ShieldAlert className="size-8 text-danger" aria-hidden="true" />
+        <div className="mb-6 inline-flex rounded-full bg-destructive/10 p-4">
+          <ShieldAlert className="size-8 text-destructive" aria-hidden="true" />
         </div>
         <h1 className="text-3xl font-bold text-foreground">Access Denied</h1>
         <p className="mt-2 text-muted-foreground">{reason}</p>

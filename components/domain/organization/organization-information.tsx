@@ -322,6 +322,9 @@ export function OrganizationInformation({ role }: { role?: Role }) {
     organizationType: org.organizationType,
     businessType: '',
     industryType: org.industry,
+    // establishedDate stays '' and is no longer read: org_details has no
+    // founded column, so the panel's "Founded" field could only ever show
+    // 'Pending'. The field was removed rather than left blank.
     establishedDate: '',
     registrationNo: org.registrationNumber,
     gstNo: orgData?.gstin ?? '',
@@ -348,6 +351,9 @@ export function OrganizationInformation({ role }: { role?: Role }) {
     numberFormat: '',
     workingDays: (orgData?.work_week ?? '').split(',').filter(Boolean),
     status: 'Active' as const,
+    // The panel rendered the literal string "Pending" here while this value was
+    // already sitting two lines up, mapped and ready.
+    totalEmployees: org.totalEmployees,
   }
 
   async function saveOrganization(data: {

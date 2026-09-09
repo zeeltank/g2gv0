@@ -9,7 +9,6 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { FileUpload } from '@/components/ui/file-upload'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
@@ -41,8 +40,6 @@ interface FormData {
   isHalfDay: boolean
   slot: string
   reason: string
-  attachment: File | null
-  emergencyContact: string
 }
 
 /** Laravel validates slot against these two values when day_type is half. */
@@ -59,8 +56,6 @@ const emptyForm: FormData = {
   isHalfDay: false,
   slot: 'first_half',
   reason: '',
-  attachment: null,
-  emergencyContact: '',
 }
 
 /** DatePicker can emit a Date or a date string; normalise to a Date. */
@@ -329,28 +324,18 @@ export function ApplyLeaveDrawer({ open, onOpenChange, processing = false, onSub
               {touched.reason && errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="attachment">Attachment</Label>
-              <FileUpload
-                id="attachment"
-                onFileSelect={(file) => updateField('attachment', file)}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                hint="Not stored in the ERP yet - hrms_emp_leaves has no attachment column."
-              />
-            </div>
+            {/* "Attachment" and "Emergency Contact" stood here. Both accepted
+                input and threw it away: neither appears in the submit payload,
+                LeaveApplyPayload has no field for either, and hrms_emp_leaves
+                has no column for either. Both said so in hint text underneath,
+                which was honest - and still left a file picker that takes a
+                file, and a phone field somebody would fill in during an
+                emergency, believing it had been sent.
 
-            <div className="space-y-2">
-              <Label htmlFor="emergencyContact">Emergency Contact</Label>
-              <Input
-                id="emergencyContact"
-                placeholder="Enter emergency contact number"
-                value={formData.emergencyContact}
-                onChange={(event) => updateField('emergencyContact', event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Not stored in the ERP yet - hrms_emp_leaves has no emergency contact column.
-              </p>
-            </div>
+                Removed rather than left disclosed. When the column and the
+                upload endpoint exist, the controls come back with them; the
+                request detail drawer's Attachments tab carries the same note
+                and should return at the same time. */}
           </div>
 
           <SheetFooter className="shrink-0 mt-6 flex flex-col-reverse sm:flex-row gap-2">

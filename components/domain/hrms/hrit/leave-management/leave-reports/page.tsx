@@ -124,7 +124,17 @@ export default function LeaveReportsPage() {
     [appliedFilters],
   )
 
-  const { loading, error, summary, register, balance } = useLeaveReports(apiFilters)
+  /*
+   * `retry` was returned by the hook and dropped on the floor here.
+   *
+   * Two things followed. The Refresh button was wired to onApplyFilters, which
+   * only calls setAppliedFilters - and the hook keys its fetch on
+   * JSON.stringify(filters), so re-applying identical values produces an
+   * identical key and NO refetch. Pressing Refresh without first changing a
+   * filter, which is the entire point of a refresh button, did nothing.
+   * And the error state offered no way back.
+   */
+  const { loading, error, summary, register, balance, retry } = useLeaveReports(apiFilters)
   const { options } = useLeaveOptions()
 
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? reports[0]
@@ -363,6 +373,7 @@ export default function LeaveReportsPage() {
             totalDays={totalDays}
             totalRequests={totalRequests}
             onApplyFilters={applyFilters}
+            onRefresh={retry}
             onExportCsv={exportCsv}
             onSaveToggle={toggleSaved}
           />

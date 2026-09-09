@@ -36,7 +36,13 @@ export type DirectoryEmployee = {
   joined_date: string | null
   city: string | null
   state: string | null
-  supervisor_opt: number | null
+  /**
+   * A relationship TYPE, historically - its live values are strings like
+   * "Subordinate", not ids. Declared as it comes back; nothing writes it.
+   */
+  supervisor_opt: string | number | null
+  /** Who this person reports to. The column leave and the gates read. */
+  reporting_manager_id: number | null
   profile_name: string | null
   department_name: string | null
   jobrole: string | null
@@ -105,11 +111,26 @@ export type EmployeeListResponse = {
   meta: ListMeta
 }
 
+/** How a set-password link reached the new person — or why it did not. */
+export type InviteDelivery = 'email' | 'link' | 'failed'
+
 export type CreateEmployeeResult = {
   id: number
   email: string
-  invite_sent: boolean
+  /**
+   * The real outcome, replacing a boolean that was ALWAYS true.
+   *
+   * `invite_sent` came back `true` whenever a `password_reset_tokens` row
+   * inserted — and nothing ever sent an email — so the screen reported a
+   * delivery that had not happened, for every employee ever created.
+   */
+  invite: InviteDelivery
+  /** Present only when `invite === 'link'`; withheld once it has been emailed. */
+  invite_link: string | null
+  invite_expires_hours: number
   invite_error: string | null
+  /** Legacy key, kept for older callers. True only for a real send now. */
+  invite_sent: boolean
 }
 
 export type EmployeeFilters = {

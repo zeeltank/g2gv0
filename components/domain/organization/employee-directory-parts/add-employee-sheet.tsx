@@ -55,7 +55,7 @@ type FormState = {
   city: string
   state: string
   pincode: string
-  supervisor_opt: string
+  reporting_manager_id: string
   bank_name: string
   branch_name: string
 }
@@ -66,7 +66,7 @@ const EMPTY_FORM: FormState = {
   department_id: '', allocated_standards: '', user_profile_id: '', subject_ids: '',
   employee_no: '', joined_date: '',
   address: '', address_2: '', city: '', state: '', pincode: '',
-  supervisor_opt: '', bank_name: '', branch_name: '',
+  reporting_manager_id: '', bank_name: '', branch_name: '',
 }
 
 const STEPS = [
@@ -85,7 +85,7 @@ const FIELD_STEP: Record<string, number> = {
   department_id: 2, allocated_standards: 2, user_profile_id: 2, subject_ids: 2,
   employee_no: 2, joined_date: 2,
   address: 3, address_2: 3, city: 3, state: 3, pincode: 3,
-  supervisor_opt: 4, bank_name: 4, branch_name: 4,
+  reporting_manager_id: 4, bank_name: 4, branch_name: 4,
   schedule: 5,
 }
 
@@ -186,10 +186,21 @@ export function AddEmployeeSheet({
       const response = await employeeDirectoryService.create(context, payload)
       const result = response?.data
 
+      /*
+        * Three outcomes, not a boolean. `invite_sent` was previously TRUE ALWAYS,
+        * because the backend returned it whenever a token row inserted - which
+        * is how "An invite was sent to ..." came to be shown for an email that
+        * was never sent.
+        */
+      const name = `${form.first_name} ${form.last_name}`.trim()
+
       await onCreated(
-        result?.invite_sent
-          ? `${form.first_name} ${form.last_name} created. An invite was sent to ${result.email}.`
-          : `${form.first_name} ${form.last_name} created, but the invite could not be sent${result?.invite_error ? `: ${result.invite_error}` : ''}. Use Resend invite from their profile.`,
+        result?.invite === 'email'
+          ? `${name} created, and a link to set their password was emailed to ${result.email}.`
+          : result?.invite === 'link' && result?.invite_link
+            ? `${name} created. Email is not set up for your organisation, so copy this link and send it to them — it works once and expires in ${result.invite_expires_hours ?? 24} hours:
+${result.invite_link}`
+            : `${name} created, but no set-password link could be made${result?.invite_error ? `: ${result.invite_error}` : ''}. They cannot sign in until you resend the invite from their profile.`,
       )
       onOpenChange(false)
     } catch (cause) {
@@ -240,7 +251,8 @@ export function AddEmployeeSheet({
         <div className="border-b border-border px-6 py-4">
           <SheetTitle>Add Employee</SheetTitle>
           <SheetDescription>
-            Creates a login for this person. They will be emailed a link to set their own password.
+            Creates a login for this person and a one-time link for them to set their own
+            password.
           </SheetDescription>
 
           <ol className="mt-4 flex flex-wrap gap-1">
@@ -366,8 +378,8 @@ export function AddEmployeeSheet({
               <div className="space-y-2 sm:col-span-2">
                 <Label>Reporting Manager</Label>
                 <Select
-                  value={form.supervisor_opt}
-                  onChange={(value) => set('supervisor_opt', value)}
+                  value={form.reporting_manager_id}
+                  onChange={(value) => set('reporting_manager_id', value)}
                   placeholder="Select manager..."
                   options={(reference?.managers ?? []).map((m) => ({
                     label: [m.first_name, m.last_name].filter(Boolean).join(' ') + (m.employee_no ? ` (${m.employee_no})` : ''),
@@ -424,9 +436,22 @@ export function AddEmployeeSheet({
                   entry.working ? `${entry.in_time ?? '—'} to ${entry.out_time ?? '—'}` : 'Not worked',
                 ])}
               />
+              {/*
+                * This used to promise "an email is sent". Nothing was sent -
+                * issueInvite() wrote a token row and returned success with no
+                * mail call in it - so every person created here was told to
+                * expect an email that never came, holding a password made of
+                * random bytes that nobody knew.
+                *
+                * It now describes what actually happens, which depends on
+                * whether this organisation has email configured. The result is
+                * shown after the save rather than predicted here.
+                */}
               <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                On create, a login is made for {form.email || 'this address'} and an email is sent so they
-                can set their own password. No password is stored in readable form.
+                On create, a login is made for {form.email || 'this address'} and a one-time link
+                is generated so they can set their own password. If your organisation has email
+                set up it is sent to them; otherwise you will be given the link to pass on. No
+                password is stored in readable form.
               </p>
             </div>
           )}

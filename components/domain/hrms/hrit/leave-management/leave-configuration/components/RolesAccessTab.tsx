@@ -104,16 +104,29 @@ export default function RolesAccessTab({ isLoading }: { isLoading: boolean }) {
     {
       id: 'quickSelect' as keyof LeaveRolePermission,
       header: 'QUICK SELECT',
-      render: (_, row) => (
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto p-0 text-sm font-medium text-primary"
-          onClick={() => handleToggleRolePermissions(row)}
-        >
-          Select All
-        </Button>
-      ),
+      /*
+       * The label now says what the click will do.
+       *
+       * It was always "Select All" while the handler TOGGLED: shouldSelectAll
+       * is false once every permission is already on, so on a fully-permitted
+       * role a button reading "Select All" silently revoked every permission
+       * that role had. On the leave permission matrix, which is the table that
+       * decides who may approve leave.
+       */
+      render: (_, row) => {
+        const willSelectAll = permissionKeys.some((permission) => !row[permission])
+
+        return (
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0 text-sm font-medium text-primary"
+            onClick={() => handleToggleRolePermissions(row)}
+          >
+            {willSelectAll ? 'Select All' : 'Clear All'}
+          </Button>
+        )
+      },
     },
   ]
 

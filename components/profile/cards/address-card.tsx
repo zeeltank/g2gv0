@@ -1,15 +1,8 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Building2 } from 'lucide-react'
-import { Profile } from '@/lib/mock-data/profile'
+import { Building2 } from 'lucide-react'
+import { Profile } from '@/types/profile'
 
 interface AddressCardProps {
   profile: Profile
@@ -29,24 +22,29 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
+/*
+ * ── THE "..." MENU IS GONE, NOT DISABLED ────────────────────────────────────
+ *
+ * Every one of these five cards carried a MoreHorizontal trigger opening
+ * `Edit` and `View History`, and NEITHER ITEM HAD AN onClick. Ten controls
+ * across the profile screen that opened, looked live, and did nothing.
+ *
+ * They are removed rather than greyed out, following the decision already
+ * recorded in profile-dashboard.tsx. The reason has since CHANGED and the note
+ * is corrected here rather than left to rot: self-service editing now exists,
+ * at `/settings?s=profile`, so this card's contents ARE the person's to change.
+ * What has not come back is a per-card Edit menu - the header links to the one
+ * place that edits them, and five menus pointing at the same screen would be
+ * five things to keep in step. `View History` stays gone: there is no record
+ * history feature at all.
+ */
 export function AddressCard({ profile, isActive }: AddressCardProps) {
   return (
     <Card className={isActive ? 'border-warning' : ''}>
-      <div className="flex items-start justify-between p-6 pb-0">
+      <div className="p-6 pb-0">
         <CardHeader className="p-0">
           <CardTitle>Address Details</CardTitle>
         </CardHeader>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View History</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       <CardContent>
         <div className="flex gap-6">
