@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { accountService, type AccountPreferences } from '@/services/account'
+import { accountService, type AccountPreferences, type AccountProfile } from '@/services/account'
 import { useTheme } from '@/components/providers/theme-provider'
 
 /**
@@ -48,10 +48,27 @@ const DEFAULTS: AccountPreferences = {
 
 type PreferencesContextValue = {
   preferences: AccountPreferences
+  /**
+   * The signed-in person's own profile, so the shell can show their photo.
+   *
+   * The header rendered INITIALS ONLY and never an image — so uploading a photo
+   * in Settings changed the profile screen and nothing else, which read as
+   * "the upload is not saving". It was saving; there was simply nowhere else
+   * that displayed it. This is that somewhere.
+   */
+  profile: AccountProfile | null
   /** False until the server's answer has arrived. Consumers that must not act on a default can wait. */
   loaded: boolean
   /** Called by Settings after a save, so the rest of the app sees it without a reload. */
   apply: (next: AccountPreferences) => void
+  /**
+   * Re-read the account from the server.
+   *
+   * Called after a photo upload. Nothing else in the app refetches `/account/me`,
+   * so without this the new picture would appear in the header on the next full
+   * page load and not before.
+   */
+  refresh: () => Promise<void>
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
@@ -59,6 +76,7 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const { setTheme } = useTheme()
   const [preferences, setPreferences] = useState<AccountPreferences>(DEFAULTS)
+  const [profile, setProfile] = useState<AccountProfile | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   const apply = useCallback(
@@ -89,6 +107,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
           if (!active) return
 
           setPreferences(response.data.preferences)
+          setProfile(response.data.profile)
           setTheme(response.data.preferences.theme)
           setLoaded(true)
         })
@@ -104,8 +123,24 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     }
   }, [setTheme])
 
+  const refresh = useCallback(async () => {
+    const context = getLaravelContext(null)
+
+    if (!isLaravelContextReady(context)) return
+
+    try {
+      const response = await accountService.me(context)
+      setPreferences(response.data.preferences)
+      setProfile(response.data.profile)
+      setTheme(response.data.preferences.theme)
+    } catch {
+      // Keep what is already on screen. A failed refresh must not blank the
+      // header's avatar or reset somebody's theme mid-session.
+    }
+  }, [setTheme])
+
   return (
-    <PreferencesContext.Provider value={{ preferences, loaded, apply }}>
+    <PreferencesContext.Provider value={{ preferences, profile, loaded, apply, refresh }}>
       {children}
     </PreferencesContext.Provider>
   )
@@ -146,7 +181,13 @@ export function useAppPreferences(): PreferencesContextValue {
     )
   }
 
-  return { preferences: DEFAULTS, loaded: false, apply: () => {} }
+  return {
+    preferences: DEFAULTS,
+    profile: null,
+    loaded: false,
+    apply: () => {},
+    refresh: async () => {},
+  }
 }
 
 export { DEFAULTS as PREFERENCE_DEFAULTS }
