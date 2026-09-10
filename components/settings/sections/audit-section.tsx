@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { organizationSettingsService, type AuditEntry } from '@/services/organization/settings'
+import { eventLabel, eventArea } from '@/lib/event-labels'
 import { Field, SectionBlock } from './section-primitives'
 
 /**
@@ -36,19 +37,6 @@ import { Field, SectionBlock } from './section-primitives'
  * by the route group, because "may read the trail" and "may change a setting"
  * are two different questions with two different answers.
  */
-
-const TYPE_LABELS: Record<string, string> = {
-  'rights.changed': 'Access changed',
-  'employee.offboarded': 'Somebody left',
-  'leave.submitted': 'Leave requested',
-  'leave.decided': 'Leave decided',
-  'leave.escalated': 'Leave escalated',
-  'task.rejected': 'Task sent back',
-  'assessment.completed': 'Assessment completed',
-  'certification.issued': 'Certificate issued',
-  'certification.expiring': 'Certificate expiring',
-  'development_plan.approved': 'Development plan approved',
-}
 
 export function AuditSection() {
   const resolveContext = useLaravelContext()
@@ -138,9 +126,25 @@ export function AuditSection() {
               value={filters.type}
               onChange={(value) => setFilters((f) => ({ ...f, type: String(value) }))}
               placeholder="Anything"
+              /*
+               * Grouped by area and sorted, because a flat list of every event
+               * an organisation has ever recorded is not something anybody can
+               * scan. The prefix is used as the group name — `task.*` under
+               * Tasks — so a module's events stay together even when the label
+               * map has never heard of them.
+               */
               options={[
                 { value: '', label: 'Anything' },
-                ...types.map((type) => ({ value: type, label: TYPE_LABELS[type] ?? type })),
+                ...[...types]
+                  .sort((a, b) =>
+                    eventArea(a) === eventArea(b)
+                      ? eventLabel(a).localeCompare(eventLabel(b))
+                      : eventArea(a).localeCompare(eventArea(b)),
+                  )
+                  .map((type) => ({
+                    value: type,
+                    label: `${eventArea(type)} · ${eventLabel(type)}`,
+                  })),
               ]}
             />
           </Field>
@@ -200,7 +204,7 @@ export function AuditSection() {
                 <li key={entry.id} className="bg-background px-4 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">
-                      {TYPE_LABELS[entry.type] ?? entry.type}
+                      {eventLabel(entry.type)}
                     </p>
                     <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
                       {entry.occurred_at

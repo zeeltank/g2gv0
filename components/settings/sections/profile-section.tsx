@@ -12,6 +12,7 @@ import type { useAccount } from '@/hooks/use-account'
 import { accountService, type AccountProfile } from '@/services/account'
 import { apiClient } from '@/services/core'
 import { SaveButton } from '@/components/settings/settings-shell'
+import { useAppPreferences } from '@/components/providers/preferences-provider'
 import { Field, SectionBlock, SectionHint } from './section-primitives'
 
 /**
@@ -33,6 +34,8 @@ import { Field, SectionBlock, SectionHint } from './section-primitives'
  */
 export function ProfileSection({ account }: { account: ReturnType<typeof useAccount> }) {
   const resolveContext = useLaravelContext()
+  // So a new photo reaches the header immediately, not on the next page load.
+  const { refresh: refreshAccount } = useAppPreferences()
   const fileInput = useRef<HTMLInputElement | null>(null)
 
   const [form, setForm] = useState<Partial<AccountProfile>>({})
@@ -143,6 +146,8 @@ export function ProfileSection({ account }: { account: ReturnType<typeof useAcco
       setPhoto(null)
       setSaved(true)
       await account.reload()
+      // The app-wide copy, which is what the header's avatar reads.
+      await refreshAccount()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not save your profile.')
     } finally {

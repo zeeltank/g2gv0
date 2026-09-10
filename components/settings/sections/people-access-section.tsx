@@ -110,6 +110,7 @@ export function PeopleAccessSection() {
     message: string
     link: string | null
     error: string | null
+    emailed: boolean
   } | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -169,6 +170,7 @@ export function PeopleAccessSection() {
         message: response.message,
         link: response.data.link,
         error: response.data.error,
+        emailed: response.data.invite === 'email',
       })
       await load()
     } catch (caught) {
@@ -324,9 +326,20 @@ export function PeopleAccessSection() {
                         </div>
                         <p className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
                           <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                          This link works once and expires in {expiresHours} hours. Send it to them
-                          yourself — it is shown here only because your organisation has no email
-                          set up.
+                          {/*
+                            * The link is now shown whether or not the email went.
+                            *
+                            * It used to be hidden on the email path, and that was
+                            * the whole "send invite is not working" complaint: a
+                            * mail send that returns without throwing is not proof
+                            * of delivery, so the screen said "emailed" and gave
+                            * the administrator nothing to fall back on when it
+                            * never arrived.
+                            */}
+                          This link works once and expires in {expiresHours} hours.{' '}
+                          {result.emailed
+                            ? 'The email has gone as well — use this if it does not arrive.'
+                            : 'Send it to them yourself: your organisation has no email set up.'}
                         </p>
                       </>
                     )}

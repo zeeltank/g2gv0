@@ -6,6 +6,7 @@ import { Building2, ChevronDown, LogOut, Settings, User } from 'lucide-react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { platformMeService } from '@/services/platform/me'
 import { useAuth } from '@/hooks/use-auth'
+import { useAppPreferences } from '@/components/providers/preferences-provider'
 
 /**
  * THE AVATAR MENU — one implementation, where there were two.
@@ -40,6 +41,19 @@ import { useAuth } from '@/hooks/use-auth'
 export function GtgUserMenu() {
   const router = useRouter()
   const { user, logout } = useAuth()
+  /*
+   * THE HEADER NOW SHOWS THE PHOTO.
+   *
+   * It rendered initials and nothing else, so uploading a picture in Settings
+   * updated the profile screen and no other surface in the product — which
+   * reads as "the upload is not working". It was working; there was simply
+   * nowhere else that displayed it.
+   *
+   * The provider holds the profile app-wide and Settings calls its `refresh()`
+   * after an upload, so the new picture appears here immediately rather than on
+   * the next full page load.
+   */
+  const { profile } = useAppPreferences()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -148,12 +162,21 @@ export function GtgUserMenu() {
         aria-expanded={open}
         className="flex items-center gap-2 rounded-md py-1 pr-2 pl-1 transition-colors duration-200 outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span
-          className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-          aria-hidden="true"
-        >
-          {userInitials}
-        </span>
+        {profile?.image_url ? (
+          <img
+            src={profile.image_url}
+            alt=""
+            aria-hidden="true"
+            className="size-8 shrink-0 rounded-full border border-border object-cover"
+          />
+        ) : (
+          <span
+            className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+            aria-hidden="true"
+          >
+            {userInitials}
+          </span>
+        )}
         <span className="hidden flex-col items-start leading-tight md:flex">
           <span className="text-sm font-semibold text-foreground">{user?.name}</span>
           <span className="text-xs text-muted-foreground">{user?.role}</span>
