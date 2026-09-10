@@ -172,6 +172,15 @@ export default function MonthlyPayrollPage() {
     )
   }
 
+  /*
+   * F-129 follow-up. The lock lived ONLY inside MonthLockCard's local state, so
+   * the page had no idea whether the month it was showing was writable -
+   * "Generate Payroll" stayed enabled on a locked month and the save came back
+   * refused, which reads as a broken button rather than as the lock doing its
+   * job. The card now reports on load as well as after a lock/reopen.
+   */
+  const [monthLocked, setMonthLocked] = useState(false)
+
   const actions = (
     <>
       <Button
@@ -183,9 +192,18 @@ export default function MonthlyPayrollPage() {
         <Download className="size-4" />
         Export CSV
       </Button>
-      <Button className="gap-2" onClick={save} disabled={processing || summary.pending === 0}>
+      <Button
+        className="gap-2"
+        onClick={save}
+        disabled={processing || summary.pending === 0 || monthLocked}
+        title={monthLocked ? 'This month is locked. Reopen it to change payroll.' : undefined}
+      >
         <Wallet className="size-4" />
-        {processing ? 'Processing...' : `Generate Payroll (${summary.pending})`}
+        {processing
+          ? 'Processing...'
+          : monthLocked
+            ? 'Month locked'
+            : `Generate Payroll (${summary.pending})`}
       </Button>
     </>
   )
@@ -298,6 +316,22 @@ export default function MonthlyPayrollPage() {
               title="No employees for this period"
               description="Widen the department filter, or confirm that active employees exist for this organization."
             />
+            {/*
+              The lock card used to live ONLY inside the populated branch below,
+              so on a month with no rows the Lock/Reopen controls disappeared
+              entirely - and a month with nothing in it is exactly the one an
+              administrator may want to declare finished, or reopen to find out
+              why it is empty.
+            */}
+            {lastQuery && (
+              <div className="mt-4">
+                <MonthLockCard
+                  month={lastQuery.month}
+                  year={Number(lastQuery.year)}
+                  onChange={setMonthLocked}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -333,7 +367,10 @@ export default function MonthlyPayrollPage() {
               <MonthLockCard
                 month={lastQuery.month}
                 year={Number(lastQuery.year)}
-                onChange={() => retry()}
+                onChange={(locked) => {
+                  setMonthLocked(locked)
+                  retry()
+                }}
               />
             </div>
           )}

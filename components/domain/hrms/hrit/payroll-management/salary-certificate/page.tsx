@@ -89,7 +89,9 @@ export default function SalaryCertificatePage() {
     })
   }
 
-  const downloadUrl = pdfUrl()
+  // Built from the CURRENT selection, so a page refresh no longer strands a
+  // certificate that already exists on the server.
+  const downloadUrl = pdfUrl(employeeId && year ? { employeeId, year } : undefined)
 
   return (
     <PayrollPageShell
@@ -227,7 +229,12 @@ export default function SalaryCertificatePage() {
               <Button
                 variant="outline"
                 className="gap-2"
-                disabled={!lastResult || !downloadUrl}
+                disabled={!downloadUrl}
+                title={
+                  !lastResult
+                    ? 'Downloads the certificate on file for this employee and year, if one has been issued.'
+                    : undefined
+                }
                 onClick={() => downloadUrl && window.open(downloadUrl, '_blank')}
               >
                 <Download className="size-4" />

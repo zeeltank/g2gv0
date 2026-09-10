@@ -608,13 +608,11 @@ export function AttendanceReportsPage() {
           employeeId: record.employee_no ?? String(record.user_id),
           department: record.department ?? '--',
           date: `${appliedFilters.from} to ${appliedFilters.to}`,
-          punchIn: '--',
-          punchOut: '--',
-          expectedIn: '--',
-          expectedOut: '--',
+          // No punchIn / punchOut / expectedIn / expectedOut / earlyBy: this row
+          // is built from a day-count summary that has none of them, and the
+          // grouped table no longer renders those columns for this grouping.
           workingHours: `${present}/${workingDays || 0} days`,
           lateBy: late ? `${late} days` : '--',
-          earlyBy: '--',
           present,
           absent,
           late,

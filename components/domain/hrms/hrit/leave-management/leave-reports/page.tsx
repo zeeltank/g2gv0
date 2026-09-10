@@ -27,9 +27,18 @@ import {
 
 const SAVED_REPORTS_KEY = 'hrit.leave-reports.saved'
 
-/** Report ids whose export should be the row-level register rather than the summary. */
-const REGISTER_REPORTS = new Set(['leave-register', 'employee-history', 'long-leave', 'pending-approvals'])
-const BALANCE_REPORTS = new Set(['leave-balance', 'carry-forward', 'encashment'])
+/*
+ * Which dataset each report is. One id per endpoint, and the catalogue is now
+ * trimmed to match - see the note on `reports` in leave-reports-data.ts.
+ *
+ * These sets used to name nine ids between them, seven of which had no endpoint.
+ * `carry-forward` and `encashment` sat in BALANCE_REPORTS and exported a plain
+ * balance CSV - no carry-forward column, no encashment column - under a filename
+ * built from the report id, so the file asserted in its own name what it did not
+ * contain.
+ */
+const REGISTER_REPORTS = new Set(['leave-register'])
+const BALANCE_REPORTS = new Set(['leave-balance'])
 
 function formatRangeLabel(startDate: string, endDate: string) {
   const format = (value: string) =>
@@ -368,6 +377,8 @@ export default function LeaveReportsPage() {
             pending={pending}
             rejected={rejected}
             rows={rows}
+            register={register}
+            balance={balance}
             saved={savedIds.has(selectedReport.id)}
             selectedReport={selectedReport}
             totalDays={totalDays}
@@ -389,10 +400,29 @@ export default function LeaveReportsPage() {
           topLeaveType={topLeaveType}
           totalRequests={totalRequests}
           onApplyFilters={applyFilters}
+          onRefresh={retry}
           onFilterChange={updateFilter}
           onResetFilters={resetFilters}
         />
       </div>
+
+      {/*
+        Print rules, mounted with this page so they apply only while it is open -
+        the same shape attendance-reports uses, and the fix F-99 made there and
+        never brought here. Without them window.print() put the sidebar, tabs,
+        filter panel and every button on the paper: a screenshot of an
+        application rather than a report.
+      */}
+      <style jsx global>{`
+        @media print {
+          .leave-report-no-print,
+          nav, aside, header button { display: none !important; }
+          .leave-report-print-area { break-inside: auto; overflow: visible !important; }
+          .leave-report-print-area table { break-inside: auto; width: 100%; }
+          .leave-report-print-area tr { break-inside: avoid; }
+          body { background: #fff; }
+        }
+      `}</style>
     </div>
   )
 }

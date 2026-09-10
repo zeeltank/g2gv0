@@ -61,7 +61,41 @@ interface RadioProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
 }
 
 const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
-  ({ className, size = 'default', label, ...props }, ref) => {
+  ({ className, size = 'default', label, id, ...props }, ref) => {
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * THE CHECKED STATE WAS INVISIBLE IN LIGHT MODE
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * The dot was `bg-primary-foreground`, which is `hsl(0 0% 100%)` — WHITE,
+     * in both themes. It sat on `bg-background`, which in light mode is
+     * `hsl(210 40% 98%)`: a white dot on a near-white circle. The only thing
+     * marking a radio as selected was the border turning blue, and at 1px on a
+     * 20px circle that is not a state anybody can read at a glance.
+     *
+     * This is not a switch. `Switch` fills with `checked:bg-primary`, so a white
+     * thumb reads correctly against it; a radio keeps its background and marks
+     * itself with a coloured dot. `bg-primary` is that dot.
+     *
+     * ── THE HOVER SCALE IS GONE ────────────────────────────────────────────
+     *
+     * `hover:scale-110` was on the INPUT, and the dot is an absolutely
+     * positioned SIBLING that does not scale with it — so hovering a checked
+     * radio grew the ring and left the dot behind, off-centre. Radios do not
+     * resize on hover anyway; a border colour change is the conventional
+     * affordance and it cannot come apart.
+     *
+     * ── THE LABEL NOW ACTUALLY SELECTS ─────────────────────────────────────
+     *
+     * It carried `cursor-pointer` and no `htmlFor`, and did not wrap the input
+     * either — so it promised a click target and delivered nothing, and a
+     * screen reader had no name for the control. A generated id ties the two
+     * together; `useId` rather than a counter because it is stable across
+     * server and client render.
+     */
+    const generatedId = React.useId()
+    const inputId = id ?? generatedId
+
     const sizeClass = {
       sm: 'size-4',
       default: 'size-5',
@@ -79,23 +113,35 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
         <div className="relative inline-flex">
           <input
             ref={ref}
+            id={inputId}
             type="radio"
             className={cn(
-              'peer appearance-none cursor-pointer rounded-full border border-input bg-background transition-all duration-200 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:border-primary dark:checked:border-primary',
+              'peer appearance-none cursor-pointer rounded-full border-2 border-input bg-background transition-colors duration-200',
+              'hover:border-primary/60',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-input',
+              'checked:border-primary',
               sizeClass,
               className,
             )}
             {...props}
           />
-          <div
+          <span
+            aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground opacity-0 peer-checked:opacity-100',
+              'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary',
+              'scale-50 opacity-0 transition-[opacity,transform] duration-150',
+              'peer-checked:scale-100 peer-checked:opacity-100',
+              'peer-disabled:opacity-50',
               dotSize,
             )}
           />
         </div>
         {label && (
-          <label className="cursor-pointer text-sm text-foreground">
+          <label
+            htmlFor={inputId}
+            className="cursor-pointer select-none text-sm text-foreground"
+          >
             {label}
           </label>
         )}
@@ -103,6 +149,7 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
     )
   },
 )
+
 Radio.displayName = 'Radio'
 
 export { RadioGroup, Radio }

@@ -34,7 +34,12 @@ import {
 import { cn } from '@/lib/utils'
 
 import { Skeleton } from '@/components/ui/skeleton'
-import type { LeaveOption, LeaveReportSummaryRow } from '@/services/hrms'
+import type {
+  LeaveBalanceReportData,
+  LeaveOption,
+  LeaveRegisterRow,
+  LeaveReportSummaryRow,
+} from '@/services/hrms'
 
 import {
   categories,
@@ -100,6 +105,15 @@ type ReportPreviewSectionProps = {
   pending: number
   rejected: number
   rows: LeaveReportSummaryRow[]
+  /*
+   * The register and balance datasets. Both were already fetched by
+   * useLeaveReports and already used by the CSV export - and the PREVIEW
+   * ignored them, rendering the leave-type summary whatever report was
+   * selected. Selecting a report changed the title and nothing else, so the
+   * export and the screen disagreed about what the report was.
+   */
+  register: LeaveRegisterRow[]
+  balance: LeaveBalanceReportData | null
   saved: boolean
   selectedReport: ReportDefinition
   totalDays: number
@@ -261,6 +275,8 @@ export function ReportPreviewSection({
   pending,
   rejected,
   rows,
+  register,
+  balance,
   saved,
   selectedReport,
   totalDays,
@@ -270,6 +286,10 @@ export function ReportPreviewSection({
   onExportCsv,
   onSaveToggle,
 }: ReportPreviewSectionProps) {
+  // One id per endpoint; the catalogue is trimmed to match.
+  const isRegister = selectedReport.id === 'leave-register'
+  const isBalance = selectedReport.id === 'leave-balance'
+  const previewCount = isRegister ? register.length : isBalance ? (balance?.rows.length ?? 0) : rows.length
   return (
     <Card className="overflow-hidden rounded-lg">
       <CardHeader className="flex-row items-center justify-between gap-4 border-b border-border p-4">
@@ -279,17 +299,30 @@ export function ReportPreviewSection({
             {selectedReport.title} <span className="mx-2">|</span> {lastApplied}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="leave-report-no-print flex flex-wrap items-center gap-2">
           <Button variant="outline" className="h-9 gap-2" onClick={() => onSaveToggle(selectedReport.id)}>
             <Bookmark className={cn('size-4', saved && 'fill-primary text-primary')} />
             Save Report
           </Button>
+          {/* No ChevronDown. It advertised a format picker - CSV / XLSX / PDF -
+              that has never existed; one click downloads a CSV. */}
           <Button variant="outline" className="h-9 gap-2" onClick={onExportCsv}>
             <Download className="size-4" />
-            Export
-            <ChevronDown className="size-4" />
+            Export CSV
           </Button>
-          <Button variant="outline" size="icon-lg" onClick={() => window.print()}>
+          {/*
+            F-99 fixed this on the sibling attendance screen and never reached
+            here: with no print stylesheet, window.print() puts the sidebar,
+            the tabs, the filter panel and every button on the paper. The
+            classes below are the same ones attendance-reports uses, and the
+            rules are mounted with this card.
+          */}
+          <Button
+            variant="outline"
+            size="icon-lg"
+            className="leave-report-no-print"
+            onClick={() => window.print()}
+          >
             <Printer className="size-4" />
             <span className="sr-only">Print</span>
           </Button>
@@ -311,19 +344,80 @@ export function ReportPreviewSection({
           <Metric icon={<ShieldAlert className="size-5" />} label="Cancelled" value={String(cancelled)} badge={pct(cancelled, totalRequests)} tone="bg-slate-100 text-slate-700" />
         </div>
 
-        <div className="overflow-auto rounded-lg border border-border">
+        <div className="leave-report-print-area overflow-auto rounded-lg border border-border">
           {loading ? (
             <div className="space-y-3 p-4">
               {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
             </div>
-          ) : rows.length === 0 ? (
+          ) : previewCount === 0 ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
               <FileText className="size-10 text-muted-foreground/50" />
               <p className="mt-3 text-sm font-medium">No leave data for this period</p>
               <p className="mt-1 text-xs text-muted-foreground">Adjust the filters and apply again.</p>
             </div>
+          ) : isRegister ? (
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow className="hover:bg-surface-muted">
+                  <TableHead className="normal-case">Employee</TableHead>
+                  <TableHead className="normal-case">Department</TableHead>
+                  <TableHead className="normal-case">Leave Type</TableHead>
+                  <TableHead className="normal-case">From</TableHead>
+                  <TableHead className="normal-case">To</TableHead>
+                  <TableHead className="text-center normal-case">Days</TableHead>
+                  <TableHead className="normal-case">Status</TableHead>
+                  <TableHead className="normal-case">Approver</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {register.map((row) => (
+                  <TableRow key={`${row.employee_id}-${row.from_date}-${row.leave_type}`}>
+                    <TableCell className="font-medium">{row.employee_name}</TableCell>
+                    <TableCell>{row.department}</TableCell>
+                    <TableCell>{row.leave_type}</TableCell>
+                    <TableCell>{row.from_date}</TableCell>
+                    <TableCell>{row.to_date}</TableCell>
+                    <TableCell className="text-center">{row.days}</TableCell>
+                    <TableCell className="capitalize">{row.status}</TableCell>
+                    <TableCell>{row.approver || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : isBalance && balance ? (
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow className="hover:bg-surface-muted">
+                  <TableHead className="normal-case">Employee</TableHead>
+                  <TableHead className="normal-case">Department</TableHead>
+                  {balance.leave_types.map((type) => (
+                    <TableHead key={type} className="text-center normal-case">
+                      {type}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {balance.rows.map((row) => (
+                  <TableRow key={row.employee_id}>
+                    <TableCell className="font-medium">{row.employee_name}</TableCell>
+                    <TableCell>{row.department}</TableCell>
+                    {balance.leave_types.map((type) => (
+                      <TableCell key={type} className="text-center">
+                        {/* used of total, so the number a person actually cares
+                            about - what is left - is readable at a glance. */}
+                        {row.balances[type]?.used ?? 0} / {row.balances[type]?.total ?? 0}
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({row.balances[type]?.remaining ?? 0} left)
+                        </span>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <Table>
               <TableHeader className="bg-surface-muted">

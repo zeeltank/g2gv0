@@ -154,7 +154,19 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     blurb: 'Working week, financial year, currency, formats',
     icon: Building2,
     group: 'Organisation',
-    roles: ADMIN,
+    /*
+     * ADMIN_ONLY, for the same reason `modules` above is.
+     *
+     * Both endpoints behind this are `->middleware('profile:admin')`, and
+     * `RoleKey::ALIASES['admin']` is `['administrator']` alone - so an HR
+     * manager listed here got a rail entry whose only content was a refusal.
+     * The Modules entry had already been corrected for exactly this; this one
+     * was missed, which is what a second review is for.
+     *
+     * `delivery` stays ADMIN deliberately: its routes are `profile:admin,hr`,
+     * so HR really can reach it.
+     */
+    roles: ADMIN_ONLY,
   },
   {
     id: 'roles',

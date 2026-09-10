@@ -54,7 +54,17 @@ export function MonthLockCard({
     setLoading(true)
     setError(null)
     try {
-      setState(await payrollService.getMonthLock(getLaravelContext(user), { month, year }))
+      const next = await payrollService.getMonthLock(getLaravelContext(user), { month, year })
+      setState(next)
+      /*
+       * Report the lock state on LOAD, not only after a lock/reopen action.
+       *
+       * onChange used to fire only from act(), so the page never learned that
+       * the month it was showing was already locked - and "Generate Payroll"
+       * stayed enabled on a month the server was going to refuse. The person
+       * reads that refusal as a bug in the button, not as the lock working.
+       */
+      onChange?.(Boolean(next?.locked))
     } catch {
       // A month whose lock state cannot be read is NOT reported as open — that
       // would invite a save the server is about to refuse, and the person would
@@ -64,7 +74,7 @@ export function MonthLockCard({
     } finally {
       setLoading(false)
     }
-  }, [month, year, user])
+  }, [month, year, user, onChange])
 
   React.useEffect(() => {
     void load()

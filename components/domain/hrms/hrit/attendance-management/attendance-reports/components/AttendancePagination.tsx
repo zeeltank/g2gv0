@@ -58,9 +58,16 @@ export function AttendancePagination({
       )}
       {...props}
     >
+      {/*
+        Was "Rows per page: 10" - a caption and a number, both plain spans,
+        sitting exactly where a select normally sits, with pageSize a constant
+        on the page. It looked like a control and could not be operated.
+        Phrased as the statement it actually is.
+      */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Rows per page:</span>
-        <span className="text-sm font-medium text-foreground">{pageSize}</span>
+        <span className="text-sm text-muted-foreground">
+          Showing {pageSize} rows per page
+        </span>
       </div>
 
       <div className="flex items-center gap-1">

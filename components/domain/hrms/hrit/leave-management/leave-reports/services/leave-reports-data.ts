@@ -1,25 +1,23 @@
 import {
-  BarChart3,
-  CalendarDays,
   FileBarChart,
   FileSpreadsheet,
-  FileText,
-  FolderClock,
-  History,
-  LockKeyhole,
-  Share2,
-  ShieldAlert,
   WalletCards,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+/*
+ * Only the categories that contain a report.
+ *
+ * 'Leave Usage Reports', 'Employee Reports' and 'Approval Reports' held nothing
+ * once the unbacked reports were removed, and the catalogue sidebar renders one
+ * row per category with a count beside it - so they would have shown as three
+ * filters reading "0" that a user can click and get an empty list from. An
+ * empty category is the same defect as an empty report, one level up.
+ */
 export type ReportCategory =
   | 'All Reports'
   | 'Leave Request Reports'
   | 'Leave Balance Reports'
-  | 'Leave Usage Reports'
-  | 'Employee Reports'
-  | 'Approval Reports'
 
 export type ReportDefinition = {
   id: string
@@ -43,6 +41,31 @@ export type ReportFilters = {
   endDate: string
 }
 
+/*
+ * THREE REPORTS, BECAUSE THERE ARE THREE ENDPOINTS.
+ *
+ * This list held FIFTEEN. Nine of them had no backing endpoint of any kind -
+ * Holiday Calendar, Monthly Leave Trend, Absenteeism, Policy Exception, Leave
+ * Encashment, Carry Forward, Leave Usage, Department Summary and Custom Report -
+ * and the preview always rendered the same leave-type summary regardless, so
+ * the ONLY thing selecting one changed on screen was the title.
+ *
+ * Export was worse than useless for them: the filename is built from the report
+ * id, so choosing "Holiday Calendar Report" downloaded
+ * `holiday-calendar-<dates>.csv` containing leave-type totals. Carry Forward and
+ * Encashment downloaded a plain balance CSV with no carry-forward or
+ * encashment column in it. A file that asserts in its own name what it does not
+ * contain is worse than no export.
+ *
+ * Employee Leave History, Long Leave and Pending Approvals are gone for a
+ * different reason: they carried no filter of any kind - a ReportDefinition is
+ * title, description, category, icon and tone, nothing more - so all three were
+ * labels over the same unfiltered register. They come back the day they carry
+ * the filter their name implies; the API already accepts status and dates.
+ *
+ * leaveService exposes exactly getReportSummary, getReportRegister and
+ * getReportBalance. This list is now those three.
+ */
 export const reports: ReportDefinition[] = [
   {
     id: 'leave-summary',
@@ -56,7 +79,7 @@ export const reports: ReportDefinition[] = [
   {
     id: 'leave-register',
     title: 'Leave Register Report',
-    description: 'Detailed register of all leave requests.',
+    description: 'Detailed register of every leave request in the range.',
     category: 'Leave Request Reports',
     icon: FileSpreadsheet,
     tone: 'bg-sky-100 text-sky-700',
@@ -64,107 +87,11 @@ export const reports: ReportDefinition[] = [
   {
     id: 'leave-balance',
     title: 'Leave Balance Report',
-    description: 'Current leave balance for employees.',
+    description: 'Entitlement, used and remaining, per employee and leave type.',
     category: 'Leave Balance Reports',
     icon: WalletCards,
     tone: 'bg-cyan-100 text-cyan-700',
     saved: true,
-  },
-  {
-    id: 'leave-usage',
-    title: 'Leave Usage Report',
-    description: 'Leave utilization by type, employee and department.',
-    category: 'Leave Usage Reports',
-    icon: BarChart3,
-    tone: 'bg-indigo-100 text-indigo-700',
-  },
-  {
-    id: 'pending-approvals',
-    title: 'Pending Approvals Report',
-    description: 'List of leave requests pending approval.',
-    category: 'Approval Reports',
-    icon: LockKeyhole,
-    tone: 'bg-teal-100 text-teal-700',
-  },
-  {
-    id: 'employee-history',
-    title: 'Employee Leave History',
-    description: 'Complete leave history of employees.',
-    category: 'Employee Reports',
-    icon: History,
-    tone: 'bg-emerald-100 text-emerald-700',
-  },
-  {
-    id: 'absenteeism',
-    title: 'Absenteeism Report',
-    description: 'Absences and leave trends.',
-    category: 'Employee Reports',
-    icon: ShieldAlert,
-    tone: 'bg-cyan-100 text-cyan-700',
-  },
-  {
-    id: 'holiday-calendar',
-    title: 'Holiday Calendar Report',
-    description: 'List of holidays within a date range.',
-    category: 'Leave Usage Reports',
-    icon: CalendarDays,
-    tone: 'bg-indigo-100 text-indigo-700',
-  },
-  {
-    id: 'department-summary',
-    title: 'Department Summary Report',
-    description: 'Leave summary grouped by department.',
-    category: 'Leave Usage Reports',
-    icon: FileBarChart,
-    tone: 'bg-blue-100 text-blue-700',
-  },
-  {
-    id: 'monthly-trend',
-    title: 'Monthly Leave Trend',
-    description: 'Monthly leave trends and comparisons.',
-    category: 'Leave Usage Reports',
-    icon: BarChart3,
-    tone: 'bg-violet-100 text-violet-700',
-  },
-  {
-    id: 'carry-forward',
-    title: 'Carry Forward Report',
-    description: 'Carry forward analysis by employee.',
-    category: 'Leave Balance Reports',
-    icon: FileBarChart,
-    tone: 'bg-violet-100 text-violet-700',
-  },
-  {
-    id: 'policy-exception',
-    title: 'Policy Exception Report',
-    description: 'Requests violating leave policies.',
-    category: 'Approval Reports',
-    icon: ShieldAlert,
-    tone: 'bg-slate-100 text-slate-700',
-  },
-  {
-    id: 'encashment',
-    title: 'Leave Encashment Report',
-    description: 'Encashment details and summaries.',
-    category: 'Leave Balance Reports',
-    icon: WalletCards,
-    tone: 'bg-cyan-100 text-cyan-700',
-  },
-  {
-    id: 'long-leave',
-    title: 'Long Leave Report',
-    description: 'Employees on long duration leave.',
-    category: 'Employee Reports',
-    icon: FolderClock,
-    tone: 'bg-slate-100 text-slate-700',
-  },
-  {
-    id: 'custom-report',
-    title: 'Custom Report',
-    description: 'Create a custom report.',
-    category: 'Leave Request Reports',
-    icon: Share2,
-    tone: 'bg-cyan-100 text-cyan-700',
   },
 ]
 
@@ -172,9 +99,6 @@ export const categories: ReportCategory[] = [
   'All Reports',
   'Leave Request Reports',
   'Leave Balance Reports',
-  'Leave Usage Reports',
-  'Employee Reports',
-  'Approval Reports',
 ]
 
 /** Palette applied to the live department breakdown returned by the API. */
