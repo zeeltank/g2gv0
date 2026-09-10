@@ -102,18 +102,27 @@ export function AttendanceGroupedTable({
           { id: 'earlyGoing', label: 'Early Going' },
           { id: 'attendancePercentage', label: 'Attendance %' },
         ]
+      /*
+       * NO PUNCH-TIME COLUMNS ON THESE TWO GROUPINGS.
+       *
+       * Punch In, Punch Out, Expected In, Expected Out and Early By used to sit
+       * here and were hardcoded '--' on every row, because these groupings are
+       * built from departmentReport - a day-count SUMMARY that carries no punch
+       * times at all. Five of eleven columns were a constant dash, which reads
+       * as "still loading" rather than "this view does not have that".
+       *
+       * The per-punch data exists only for a single date (getEarlyGoingReport)
+       * and for the signed-in user (getMyAttendance); there is no endpoint
+       * returning other employees' punch times across a range. So the columns
+       * are removed rather than filled.
+       */
       case 'department':
         return [
           { id: 'employeeId', label: 'Employee ID' },
           { id: 'department', label: 'Department' },
           { id: 'date', label: 'Date' },
-          { id: 'punchIn', label: 'Punch In' },
-          { id: 'punchOut', label: 'Punch Out' },
-          { id: 'expectedIn', label: 'Expected In' },
-          { id: 'expectedOut', label: 'Expected Out' },
           { id: 'workingHours', label: 'Working Hours' },
           { id: 'lateBy', label: 'Late By' },
-          { id: 'earlyBy', label: 'Early By' },
           { id: 'status', label: 'Status' },
         ]
       case 'employee':
@@ -121,11 +130,8 @@ export function AttendanceGroupedTable({
           { id: 'employeeId', label: 'Employee ID' },
           { id: 'date', label: 'Date' },
           { id: 'department', label: 'Department' },
-          { id: 'punchIn', label: 'Punch In' },
-          { id: 'punchOut', label: 'Punch Out' },
           { id: 'workingHours', label: 'Working Hours' },
           { id: 'lateBy', label: 'Late By' },
-          { id: 'earlyBy', label: 'Early By' },
           { id: 'status', label: 'Status' },
         ]
       case 'date':

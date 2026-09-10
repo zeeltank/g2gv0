@@ -64,7 +64,21 @@ export default function MyHrPage() {
         setError('Could not load your summary.')
       }
 
-      setPayslips(payslipResult.status === 'fulfilled' ? (payslipResult.value.data ?? []) : [])
+      /*
+       * A FAILED FETCH IS NOT "NO PAYSLIPS".
+       *
+       * This collapsed a rejected request to [], which renders the empty state:
+       * "Payslips appear here once your organisation has run payroll." So a
+       * network failure told the employee a fact about their payroll instead of
+       * about the request. The summary half already sets an error; this half
+       * silently did not.
+       */
+      if (payslipResult.status === 'fulfilled') {
+        setPayslips(payslipResult.value.data ?? [])
+      } else {
+        setPayslips([])
+        setError((current) => current ?? 'Could not load your payslips.')
+      }
     } finally {
       setLoading(false)
     }

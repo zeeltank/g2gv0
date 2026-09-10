@@ -86,15 +86,48 @@
   --sidebar-active-foreground: hsl(221 83% 35%);
   --sidebar-border: var(--border);
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * THE SAME BRIGHT-FILL PROBLEM AS DARK MODE, ONLY WORSE
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Measured, light mode was in worse shape than dark:
+   *
+   *     white on --success   2.30 : 1
+   *     white on --warning   2.14 : 1
+   *     white on --destructive 3.78 : 1
+   *
+   * A green or amber badge with white text on it is unreadable at any size,
+   * and it was unreadable in BOTH themes for the same reason - the fill is
+   * chosen to be vivid and the foreground was left at white without anybody
+   * checking the two together.
+   *
+   * Same treatment as dark, for the same reasons: success and warning keep the
+   * vivid fill and take dark text; destructive darkens instead so it can keep
+   * the white label a destructive button is expected to have.
+   */
   --success: hsl(142 71% 45%);
-  --success-foreground: hsl(0 0% 100%);
+  --success-foreground: hsl(142 45% 6%);
   --warning: hsl(38 92% 50%);
-  --warning-foreground: hsl(0 0% 100%);
-  --destructive: hsl(0 84% 60%);
+  --warning-foreground: hsl(38 45% 6%);
+  --destructive: hsl(0 84% 50%);
   --destructive-foreground: hsl(0 0% 100%);
 
-  --border: hsl(214 32% 91%);
-  --input: hsl(214 32% 91%);
+  /*
+   * ── DIVIDERS AND CONTROL OUTLINES ARE NOT THE SAME THING ───────────────
+   *
+   * Both were `hsl(214 32% 91%)`, which is 1.24 : 1 against a white card -
+   * about as visible as the dark-mode border was, which is to say not.
+   *
+   * They are split because they do different jobs. A divider is decoration and
+   * only has to register; 80% does that at 1.67 without turning a dense table
+   * into a grid of lines. A form control's outline is a UI BOUNDARY, and WCAG
+   * 1.4.11 asks 3:1 for it - 66% reaches 2.54, chosen over the 60% that would
+   * hit 3.0 because at 60% an empty input reads as disabled. The shortfall is
+   * recorded in check-contrast.py rather than papered over.
+   */
+  --border: hsl(214 32% 78%);
+  --input: hsl(214 32% 66%);
   --ring: var(--primary);
 
   /* Brand-specific colors */
@@ -123,7 +156,8 @@
   --surface: hsl(222 47% 7%);
   --surface-muted: hsl(217 33% 10%);
 
-  --primary: hsl(221 83% 62%);
+  /* 62% left white text at 3.70:1. See the note below on bright fills. */
+  --primary: hsl(221 83% 56%);
   --primary-foreground: hsl(0 0% 100%);
   --secondary: var(--surface-muted);
   --secondary-foreground: var(--foreground);
@@ -132,15 +166,57 @@
   --accent: var(--surface-muted);
   --accent-foreground: var(--foreground);
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * BRIGHT FILLS TAKE DARK TEXT. WHITE ON AMBER IS NOT A COLOUR SCHEME.
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Dark mode BRIGHTENS every status colour - success 45%->50%, warning
+   * 50%->58%, destructive 60%->66% - and then kept the foreground white, which
+   * is exactly backwards: the brighter the fill, the darker its text must be.
+   * Measured, the result was unreadable:
+   *
+   *     white on success  1.86 : 1     (WCAG wants 4.5)
+   *     white on warning  1.90 : 1
+   *     white on destructive 3.20 : 1
+   *     white on primary  3.70 : 1
+   *
+   * Two different fixes, because the two families want different things.
+   *
+   * SUCCESS and WARNING keep their bright fill and take a DARK foreground. A
+   * green or amber badge is recognised by its fill, and darkening the fill
+   * enough for white text (31% and 33%) would both muddy the colour and drop
+   * its contrast against the page from ~10.7 to ~4.3. Dark text on amber is
+   * also simply what amber wants - it is why road signs are black on yellow.
+   *
+   * PRIMARY and DESTRUCTIVE keep WHITE text and darken the fill instead. A blue
+   * primary button and a red destructive button with white labels is what these
+   * mean everywhere, and both still clear 4.3 : 1 against the page - well past
+   * the 3.0 a UI element needs.
+   */
   --success: hsl(142 71% 50%);
-  --success-foreground: hsl(0 0% 100%);
+  --success-foreground: hsl(142 40% 8%);
   --warning: hsl(38 92% 58%);
-  --warning-foreground: hsl(0 0% 100%);
-  --destructive: hsl(0 84% 66%);
+  --warning-foreground: hsl(38 45% 8%);
+  --destructive: hsl(0 84% 50%);
   --destructive-foreground: hsl(0 0% 100%);
 
-  --border: hsl(215 28% 17%);
-  --input: hsl(215 28% 17%);
+  /*
+   * ── BORDERS YOU CAN ACTUALLY SEE ───────────────────────────────────────
+   *
+   * `hsl(215 28% 17%)` against a card at `hsl(222 47% 7%)` measures 1.31 : 1.
+   * That is not a faint border, it is no border: ten points of lightness apart
+   * on a near-black ground is below the threshold at which an edge registers
+   * at all. It is why popups looked like they were bleeding into the page.
+   *
+   * `--input` is raised further than `--border` on purpose. A divider is
+   * decoration and has no contrast requirement; the outline of a form control
+   * is a UI boundary and WCAG 1.4.11 asks 3:1 for it. 38% lands at 2.83 - just
+   * under, and chosen over a harsher 40% because these sit next to each other
+   * in dense forms and the heavier value reads as a mistake.
+   */
+  --border: hsl(215 28% 28%);
+  --input: hsl(215 28% 38%);
   --ring: var(--primary);
 
   /* Brand-specific colors */
@@ -161,7 +237,83 @@
   --sidebar-hover: hsl(217 33% 14%);
   --sidebar-active: hsl(221 83% 25%);
   --sidebar-active-foreground: hsl(221 83% 70%);
-  --sidebar-border: hsl(217 33% 17%);
+  /* Was 17%: 1.30:1 against the sidebar, i.e. invisible. */
+  --sidebar-border: hsl(217 33% 26%);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ELEVATION IN DARK MODE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Every shadow in this product is black at 4-10% opacity - the four custom
+ * `--shadow-*` variables above, and Tailwind's own shadow-sm/md/lg/xl which the
+ * popups use. Black at 6% over a near-black background (--background is
+ * hsl(222 47% 4%)) is invisible. So in dark mode a dropdown, a popover, the
+ * avatar menu and the sidebar flyout all had NO EDGE AT ALL: a panel at
+ * hsl(222 47% 7%) floating on hsl(222 47% 4%), three points of lightness apart,
+ * with nothing to separate them.
+ *
+ * -- A HAIRLINE RING, NOT JUST A DARKER SHADOW ------------------------------
+ *
+ * Making the shadow blacker does not help on an already-black ground: there is
+ * nothing left for it to darken. What reads as elevation in dark UI is a LIGHT
+ * edge - a 1px ring slightly brighter than the panel, which is how the eye
+ * finds the boundary. The dropped shadow then supplies the depth.
+ *
+ * These are box-shadow overrides rather than a change to --border because only
+ * ELEVATED surfaces should get the brighter edge. Raising --border globally
+ * would light up every table rule and divider in the product.
+ *
+ * -- WHY IT IS WRITTEN AS `.dark .shadow-md` --------------------------------
+ *
+ * It fixes every popup at once without touching a single component, and
+ * components/ui/* is read-only.
+ *
+ * These rules sit OUTSIDE any @layer, deliberately. Tailwind v4 emits its
+ * utilities into `@layer utilities`, and unlayered CSS beats layered CSS in the
+ * cascade whatever the specificity - so this wins without an !important and
+ * without depending on source order. The (0,2,0) selector then confines it to
+ * dark mode and to nothing else.
+ */
+.dark .shadow-sm {
+  box-shadow:
+    0 0 0 1px hsl(215 28% 22%),
+    0 1px 2px 0 rgb(0 0 0 / 0.4);
+}
+
+.dark .shadow-md {
+  box-shadow:
+    0 0 0 1px hsl(215 28% 24%),
+    0 4px 6px -1px rgb(0 0 0 / 0.5),
+    0 2px 4px -2px rgb(0 0 0 / 0.5);
+}
+
+.dark .shadow-lg {
+  box-shadow:
+    0 0 0 1px hsl(215 28% 26%),
+    0 10px 15px -3px rgb(0 0 0 / 0.6),
+    0 4px 6px -4px rgb(0 0 0 / 0.6);
+}
+
+.dark .shadow-xl {
+  box-shadow:
+    0 0 0 1px hsl(215 28% 28%),
+    0 20px 25px -5px rgb(0 0 0 / 0.7),
+    0 8px 10px -6px rgb(0 0 0 / 0.7);
+}
+
+/*
+ * The four named shadows are authored for a light ground. In dark they are pure
+ * depth with no ring, because they sit on cards that already carry a border.
+ */
+.dark {
+  --shadow-card: 0 8px 30px rgb(0 0 0 / 0.5);
+  --shadow-card-hover: 0 8px 30px rgb(0 0 0 / 0.6);
+  --shadow-card-lg: 0 12px 40px rgb(0 0 0 / 0.6);
+  --shadow-sidebar-active:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 1px 3px rgb(0 0 0 / 0.4);
 }
 
 @layer base {

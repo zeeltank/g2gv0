@@ -113,13 +113,30 @@ export const organizationSettingsService = {
     })
   },
 
+  /**
+   * Read the audit trail.
+   *
+   * ── THIS DOES NOT SPREAD auth(), AND THAT IS THE WHOLE POINT ──────────────
+   *
+   * `auth()` includes `type: 'api'`, this product's transport marker. For a GET
+   * that becomes a QUERY-STRING parameter, and the audit endpoint's filter used
+   * to be called `type` — so every default page load sent `?type=api`, the
+   * backend ran `where a.type = 'api'`, and no audit row can ever have that
+   * value. The screen reported "Nothing recorded yet" on an organisation with a
+   * full history, while the type dropdown beside it listed the real event types,
+   * because that query was built without the filter.
+   *
+   * Both halves are fixed: the server's filter is now `event_type`, and this
+   * sends only the token. Either alone would work; both means the collision
+   * cannot come back through a third route.
+   */
   audit: (
     context: LaravelContext,
     filters: { type?: string; from?: string; to?: string; cursor?: number } = {},
   ) =>
     apiClient.get<AuditResponse>('/organization/audit', {
-      ...auth(context),
-      ...(filters.type ? { type: filters.type } : {}),
+      token: context.token,
+      ...(filters.type ? { event_type: filters.type } : {}),
       ...(filters.from ? { from: filters.from } : {}),
       ...(filters.to ? { to: filters.to } : {}),
       ...(filters.cursor ? { cursor: String(filters.cursor) } : {}),

@@ -114,13 +114,31 @@ export function useSalaryCertificate() {
       }
     },
     /** Only valid once `generate` has persisted the certificate HTML. */
-    pdfUrl: () => {
-      if (!lastQuery) return null
+    /*
+     * A REFRESH NO LONGER ORPHANS AN ISSUED CERTIFICATE.
+     *
+     * This read `lastQuery` only - plain in-memory state - so after a page
+     * reload the Download button was permanently disabled even though the
+     * certificate was sitting in hrms_salary_certificate. The only way back to
+     * a document that already existed was to generate it again.
+     *
+     * The URL needs nothing but employee and year, and both are in the form the
+     * user is looking at. So the caller may pass its current selection and get
+     * a working link without regenerating; `lastQuery` stays the fallback for
+     * the moment straight after a generate.
+     *
+     * There is no endpoint that LISTS previously issued certificates - the
+     * index returns dropdown options only - so a history panel is not something
+     * this can honestly offer yet.
+     */
+    pdfUrl: (selection?: { employeeId: string | number; year: string }) => {
+      const source = selection?.employeeId && selection?.year ? selection : lastQuery
+      if (!source) return null
       const context = resolveContext()
       if (!isLaravelContextReady(context)) return null
       return salaryCertificatePdfUrl(context, {
-        employeeId: lastQuery.employeeId,
-        year: lastQuery.year,
+        employeeId: source.employeeId,
+        year: source.year,
       })
     },
   }

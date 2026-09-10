@@ -625,7 +625,10 @@ export function GtgSidebar({
           <div
             ref={flyoutRef}
             className={cn(
-              'fixed z-30 hidden w-64 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-md transition-all duration-150 ease-out md:flex',
+              // shadow-lg, not shadow-md: this panel floats free over the page with
+              // nothing behind it, and in dark mode `.dark .shadow-lg` in
+              // globals.css carries the hairline ring that gives it an edge.
+              'fixed z-30 hidden w-64 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-150 ease-out md:flex',
               flyoutModuleId
                 ? 'opacity-100 translate-x-0'
                 : flyoutDisplay.fromLeft
