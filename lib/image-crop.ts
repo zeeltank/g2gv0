@@ -39,10 +39,13 @@ export type Placement = {
 /**
  * The scale at which the image exactly COVERS a square frame.
  *
- * `max`, not `min`: a frame with an empty corner is not a crop, it is a mistake
- * that somebody will only notice once the avatar is on screen beside their name.
- * Covering means the shortest side touches the frame and the longer one overhangs
- * — which is precisely the overhang the person then pans through.
+ * `max`, not `min`: covering means the SHORTEST side touches the frame and the
+ * longer one overhangs, which is precisely the overhang the person then pans
+ * through.
+ *
+ * This is the reference point rather than a floor. `zoom` multiplies it, so zoom 1
+ * covers and anything below shows bare frame — see `containZoom`, which exists
+ * because treating this as the minimum made a wide logo impossible to fit.
  */
 export function coverScale(naturalWidth: number, naturalHeight: number, frame: number): number {
   if (naturalWidth <= 0 || naturalHeight <= 0) return 1
@@ -51,11 +54,58 @@ export function coverScale(naturalWidth: number, naturalHeight: number, frame: n
 }
 
 /**
- * How far the offset may travel before a corner would go empty.
+ * The zoom at which the WHOLE image just fits inside the frame.
  *
- * Half the overhang, expressed as a fraction of the frame. At zoom 1 with a
- * square image this is 0 in both axes — there is nothing to pan, and the UI
- * should say so rather than accept a drag that does nothing.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THE FLOOR USED TO BE 1, AND 1 IS ALREADY A CROP
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `zoom` multiplies `coverScale`, so zoom 1 means "the short side exactly fills
+ * the frame" — which for anything not square is ALREADY cropped, with the long
+ * side overhanging at both ends. The first version of this cropper would not go
+ * below 1, so a 1000x300 logo opened showing its middle 300x300 and there was no
+ * way to make the whole thing fit. Reported as, exactly, "the image is too big to
+ * fit".
+ *
+ * At this zoom the LONG side fills the frame instead, and nothing is cut off:
+ *
+ *     containZoom = min(w, h) / max(w, h)
+ *
+ * 1 for a square, 0.3 for that 1000x300 logo, 0.75 for a 4:3 photo. Below it the
+ * image sits inside the frame with room to spare, which is what a logo that needs
+ * breathing space wants.
+ */
+export function containZoom(naturalWidth: number, naturalHeight: number): number {
+  if (naturalWidth <= 0 || naturalHeight <= 0) return 1
+
+  return Math.min(naturalWidth, naturalHeight) / Math.max(naturalWidth, naturalHeight)
+}
+
+/**
+ * Whether the image fills the frame completely at this zoom.
+ *
+ * True at zoom >= 1, by the definition of `coverScale`. Below that there is bare
+ * frame around the image — legitimate, and it is what decides whether the export
+ * has to keep an alpha channel.
+ */
+export function covers(zoom: number): boolean {
+  return zoom >= 1
+}
+
+/**
+ * How far the offset may travel.
+ *
+ * TWO REGIMES, where the first version had only one:
+ *
+ *   zoom >= 1   the image overhangs. The limit is half the overhang, so panning
+ *               moves through the hidden part and never opens a gap.
+ *   zoom < 1    the image is SMALLER than the frame. The limit is half the
+ *               shortfall, so it can be placed anywhere inside the frame without
+ *               being pushed out of it.
+ *
+ * `Math.abs` serves both. It was `Math.max(0, ...)`, which pinned a
+ * smaller-than-frame image to the centre — defensible while zooming out was
+ * impossible, meaningless now that zooming out is the point.
  */
 export function panLimit(
   naturalWidth: number,
@@ -68,12 +118,18 @@ export function panLimit(
   const height = naturalHeight * scale
 
   return {
-    x: Math.max(0, (width - frame) / 2 / frame),
-    y: Math.max(0, (height - frame) / 2 / frame),
+    x: Math.abs(width - frame) / 2 / frame,
+    y: Math.abs(height - frame) / 2 / frame,
   }
 }
 
-/** Keeps an offset inside `panLimit`, so the frame can never show a gap. */
+/**
+ * Keeps an offset inside `panLimit`.
+ *
+ * Above zoom 1 that means the frame can never show a gap. Below it, it means the
+ * image can never be pushed out of the frame. Two different guarantees from one
+ * clamp, because `panLimit` already distinguishes the regimes.
+ */
 export function clampOffset(
   offset: Offset,
   naturalWidth: number,
@@ -133,7 +189,23 @@ export function placement(
  * keep it animated here, so it becomes a PNG and the screen tells the person
  * before they commit rather than after.
  */
-export function outputType(inputType: string): { mime: string; extension: string } {
+export function outputType(
+  inputType: string,
+  /**
+   * Whether the image fills the frame. When it does not, the rest of the frame is
+   * BARE, and the format has to be able to say so.
+   *
+   * JPEG has no alpha, so exporting a zoomed-out logo as JPEG turns the space
+   * around it black - the crop meant to stop the logo being cut off would instead
+   * hand back a black square with the logo floating in it. An uncovered frame is
+   * therefore always PNG, whatever came in.
+   */
+  frameFilled = true,
+): { mime: string; extension: string } {
+  if (!frameFilled) {
+    return { mime: 'image/png', extension: 'png' }
+  }
+
   if (inputType === 'image/png' || inputType === 'image/gif') {
     return { mime: 'image/png', extension: 'png' }
   }

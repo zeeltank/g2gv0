@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Maximize2, RotateCcw, ZoomIn } from 'lucide-react'
+import { Loader2, Maximize2, Minimize2, RotateCcw, ZoomIn } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   clampOffset,
+  containZoom,
+  covers,
   outputType,
   panLimit,
   placement,
@@ -74,6 +76,21 @@ import {
 
 const FRAME = 288 // The on-screen crop frame, in CSS pixels.
 const OUTPUT = 512 // What gets saved. Comfortably sharp for a 40px avatar.
+
+/*
+ * THE FLOOR WAS 1, AND THAT WAS THE BUG.
+ *
+ * `zoom` multiplies the COVER scale, so 1 means "the short side fills the frame"
+ * - which for anything not square is already a crop with the long side hanging
+ * off both ends. With 1 as the minimum, a wide logo or a big photo opened
+ * part-cropped and there was no way to pull back far enough to see all of it.
+ * Reported as: "the image is too big to fit in the position photo".
+ *
+ * 0.1 is well past `containZoom` for any realistic aspect ratio (a 10:1 panorama
+ * contains at 0.1), so the whole picture is always reachable, with room to leave
+ * space around a logo that wants it.
+ */
+const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
 const NUDGE = 0.02 // One arrow press, as a fraction of the frame.
 const TWO_MB = 2 * 1024 * 1024
@@ -83,6 +100,7 @@ export type CroppedImage = { file: File; preview: string }
 export function ImageCropper({
   file,
   shape = 'circle',
+  initialFit = 'cover',
   title = 'Position your photo',
   onCancel,
   onApply,
@@ -91,6 +109,15 @@ export function ImageCropper({
   file: File
   /** Matches where the result will be shown, so the frame is not a lie. */
   shape?: 'circle' | 'rounded'
+  /**
+   * How it opens.
+   *
+   * `cover` fills the frame, which is what an avatar wants - a round photo of a
+   * person should not open with bare corners. `contain` shows the WHOLE image,
+   * which is what a logo wants, because a logo that has been cropped is not the
+   * logo any more. Either way both are one control away.
+   */
+  initialFit?: 'cover' | 'contain'
   title?: string
   onCancel: () => void
   onApply: (result: CroppedImage) => void
@@ -220,8 +247,30 @@ export function ImageCropper({
     if (canvas) draw(canvas, FRAME)
   }, [draw])
 
+  /** The zoom at which nothing is cut off. 1 for a square, 0.3 for a 10:3 logo. */
+  const fitZoom = rotated ? containZoom(rotated.width, rotated.height) : 1
+
+  /*
+   * Opening at the requested fit, once, when the image first decodes.
+   *
+   * Adjusted during render rather than in an effect, so the frame is never
+   * painted at the wrong zoom first and then corrected - which would read as the
+   * control moving on its own. `openedAt` makes it happen exactly once per file.
+   */
+  const [openedAt, setOpenedAt] = useState<string | null>(null)
+  const fileKey = `${file.name}:${file.size}:${file.lastModified}`
+
+  if (rotated && openedAt !== fileKey) {
+    setOpenedAt(fileKey)
+
+    if (initialFit === 'contain' && fitZoom < 1) setZoom(fitZoom)
+  }
+
   const limit = rotated ? panLimit(rotated.width, rotated.height, FRAME, zoom) : { x: 0, y: 0 }
   const canPan = limit.x > 0.0001 || limit.y > 0.0001
+
+  /** True when there is bare frame around the image, so the export needs alpha. */
+  const framefilled = covers(zoom)
 
   /* ── dragging, and pinching, through one pointer model ──────────────────── */
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -264,7 +313,7 @@ export function ImageCropper({
       }
 
       const ratio = distance / (pinchStart.current.distance || 1)
-      setZoom(Math.min(MAX_ZOOM, Math.max(1, pinchStart.current.zoom * ratio)))
+      setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStart.current.zoom * ratio)))
       return
     }
 
@@ -288,8 +337,8 @@ export function ImageCropper({
       ArrowDown: () => move(0, -step),
       '+': () => setZoom((z) => Math.min(MAX_ZOOM, z + 0.25)),
       '=': () => setZoom((z) => Math.min(MAX_ZOOM, z + 0.25)),
-      '-': () => setZoom((z) => Math.max(1, z - 0.25)),
-      _: () => setZoom((z) => Math.max(1, z - 0.25)),
+      '-': () => setZoom((z) => Math.max(MIN_ZOOM, z - 0.25)),
+      _: () => setZoom((z) => Math.max(MIN_ZOOM, z - 0.25)),
     }
 
     const action = actions[event.key]
@@ -316,7 +365,10 @@ export function ImageCropper({
   }
 
   function reset() {
-    setZoom(1)
+    // Back to how it OPENED, which for a logo is the fit and for a photo is fill.
+    // Resetting to a hardcoded 1 would have meant "reset" re-cropping a logo that
+    // had been opened whole.
+    setZoom(initialFit === 'contain' && fitZoom < 1 ? fitZoom : 1)
     setOffset({ x: 0, y: 0 })
     setQuarterTurns(0)
   }
@@ -331,7 +383,9 @@ export function ImageCropper({
       const canvas = document.createElement('canvas')
       draw(canvas, OUTPUT)
 
-      const chosen = outputType(file.type)
+      // `framefilled` decides the format: an uncovered frame is always PNG, or the
+      // space around a zoomed-out logo comes back black instead of transparent.
+      const chosen = outputType(file.type, framefilled)
 
       const blob = await new Promise<Blob | null>((resolve) => {
         // 0.92 rather than the 0.92-ish default: a face at 512px shows JPEG
@@ -353,7 +407,10 @@ export function ImageCropper({
       let finalBlob = blob
       let finalType = chosen
 
-      if (blob.size > TWO_MB && chosen.mime !== 'image/jpeg') {
+      // NOT when the frame is unfilled: falling back to JPEG there would trade a
+      // size problem for a black background, which is the very thing the PNG
+      // choice above exists to avoid.
+      if (blob.size > TWO_MB && chosen.mime !== 'image/jpeg' && framefilled) {
         const fallback = await new Promise<Blob | null>((resolve) => {
           canvas.toBlob((result) => resolve(result), 'image/jpeg', 0.9)
         })
@@ -391,8 +448,8 @@ export function ImageCropper({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
             {canPan
-              ? 'Drag to move it, and zoom to fill the frame. What you see here is exactly what will be saved.'
-              : 'Zoom in if you want to crop closer. What you see here is exactly what will be saved.'}
+              ? 'Drag to move it, or zoom out to fit more in. What you see here is exactly what will be saved.'
+              : 'Zoom to crop closer, or out to leave space around it. What you see here is exactly what will be saved.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -413,13 +470,35 @@ export function ImageCropper({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onKeyDown={onKeyDown}
+            /*
+              THE CHECKERBOARD IS INFORMATION, NOT DECORATION.
+
+              Zoomed out, the area around the image is genuinely transparent in the
+              exported PNG. A flat grey would look like a grey background that had
+              been baked in, so somebody would zoom back in to avoid a border that
+              is not there. The checkerboard is the established way of saying
+              "nothing here", and it is drawn by the CSS rather than the canvas so
+              it cannot end up in the file.
+            */
+            style={{
+              width: FRAME,
+              height: FRAME,
+              backgroundImage: framefilled
+                ? undefined
+                : 'linear-gradient(45deg, var(--surface-muted) 25%, transparent 25%),' +
+                  'linear-gradient(-45deg, var(--surface-muted) 25%, transparent 25%),' +
+                  'linear-gradient(45deg, transparent 75%, var(--surface-muted) 75%),' +
+                  'linear-gradient(-45deg, transparent 75%, var(--surface-muted) 75%)',
+              backgroundSize: '16px 16px',
+              backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+            }}
             className={cn(
-              'relative touch-none overflow-hidden border border-border bg-surface-muted outline-none',
+              'relative touch-none overflow-hidden border border-border outline-none',
+              framefilled ? 'bg-surface-muted' : 'bg-card',
               'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               canPan ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
               shape === 'circle' ? 'rounded-full' : 'rounded-2xl',
             )}
-            style={{ width: FRAME, height: FRAME }}
           >
             <canvas ref={canvasRef} className="block size-full" />
 
@@ -437,7 +516,7 @@ export function ImageCropper({
             <span className="sr-only">Zoom</span>
             <input
               type="range"
-              min={1}
+              min={MIN_ZOOM}
               max={MAX_ZOOM}
               step={0.01}
               value={zoom}
@@ -445,10 +524,68 @@ export function ImageCropper({
               disabled={!natural}
               className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
             />
-            <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-              {zoom.toFixed(1)}×
+            {/*
+              Two decimals below 1, one above. `0.3×` and `0.4×` are different
+              framings of a wide logo and `0.3` rounded to one place hides that;
+              above 1 the second decimal is noise.
+            */}
+            <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+              {zoom < 1 ? zoom.toFixed(2) : zoom.toFixed(1)}×
             </span>
           </label>
+
+          {/*
+            THE PRESETS, which are the direct answer to "the image is too big to
+            fit". A slider can reach 0.3x but nobody knows that 0.3x is the number
+            that makes a particular logo fit - it depends on the file. `Fit whole
+            image` computes it.
+
+            `Fill frame` is the other anchor and is exactly zoom 1, the old floor.
+            Both are shown as pressed when they are current, so the row doubles as
+            a readout of which state you are in.
+          */}
+          <div className="flex w-full flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant={natural && Math.abs(zoom - fitZoom) < 0.005 ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setZoom(fitZoom)
+                setOffset({ x: 0, y: 0 })
+              }}
+              disabled={!natural}
+              title="Show the whole image, with nothing cut off"
+            >
+              <Minimize2 className="size-4" aria-hidden="true" />
+              Fit whole image
+            </Button>
+
+            <Button
+              type="button"
+              variant={natural && Math.abs(zoom - 1) < 0.005 ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setZoom(1)}
+              disabled={!natural}
+              title="Fill the frame completely, cropping the longer sides"
+            >
+              Fill frame
+            </Button>
+
+            {/* Coarse steps, for when the slider is fiddly on a phone. */}
+            {[0.25, 0.5, 2].map((preset) => (
+              <Button
+                key={preset}
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setZoom(preset)}
+                disabled={!natural}
+                className="px-2 tabular-nums"
+              >
+                {preset < 1 ? preset.toFixed(2) : preset}×
+              </Button>
+            ))}
+          </div>
 
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="flex gap-1">
