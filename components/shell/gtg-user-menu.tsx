@@ -6,6 +6,7 @@ import { Building2, ChevronDown, LogOut, Settings, User } from 'lucide-react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { platformMeService } from '@/services/platform/me'
 import { useAuth } from '@/hooks/use-auth'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAppPreferences } from '@/components/providers/preferences-provider'
 
 /**
@@ -162,21 +163,29 @@ export function GtgUserMenu() {
         aria-expanded={open}
         className="flex items-center gap-2 rounded-md py-1 pr-2 pl-1 transition-colors duration-200 outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {profile?.image_url ? (
-          <img
-            src={profile.image_url}
-            alt=""
-            aria-hidden="true"
-            className="size-8 shrink-0 rounded-full border border-border object-cover"
-          />
-        ) : (
-          <span
-            className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-            aria-hidden="true"
-          >
+        {/*
+          THE SAME AVATAR BUG AS THE PROFILE SECTION, IN THE MORE VISIBLE PLACE.
+          ───────────────────────────────────────────────────────────────────
+          `profile?.image_url ? <img> : <initials>` asks whether a URL EXISTS,
+          not whether the image LOADS. Every upload writes a new key
+          (`<id>_<random>.<ext>`), so a URL from an `/account/me` response that
+          predates a change — or an object removed from storage — rendered a bare
+          `<img>` with `alt=""`: an empty circle in the top bar, on every page,
+          with no initials to fall back to.
+
+          `AvatarImage` swaps to the fallback on the load error instead, so the
+          worst case is the initials rather than a hole in the nav bar.
+
+          `aria-hidden` stays on the whole thing: the button already names the
+          person in the text beside it, so announcing the avatar as well would
+          read the same name twice.
+        */}
+        <Avatar className="size-8 shrink-0" aria-hidden="true">
+          <AvatarImage src={profile?.image_url ?? undefined} alt="" />
+          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
             {userInitials}
-          </span>
-        )}
+          </AvatarFallback>
+        </Avatar>
         <span className="hidden flex-col items-start leading-tight md:flex">
           <span className="text-sm font-semibold text-foreground">{user?.name}</span>
           <span className="text-xs text-muted-foreground">{user?.role}</span>

@@ -54,6 +54,16 @@ export type ModuleConfigurationHandle = {
   saving: boolean
   /** How many are currently on, for a host that wants to say so. */
   enabledCount: number
+  /**
+   * WHAT SAVING WOULD ACTUALLY CHANGE.
+   *
+   * Turning a module off removes its screens from every administrator's
+   * navigation across the whole organisation - and the only control was a button
+   * reading "Save modules". A confirmation that cannot name the consequence is
+   * just a second click, so the host needs the diff, not only the total.
+   */
+  turningOff: string[]
+  turningOn: string[]
 }
 
 type ModuleConfigurationProps = {
@@ -68,6 +78,19 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
   const queryClient = useQueryClient()
 
   const [modules, setModules] = useState<Module[]>([])
+  /*
+   * WHAT THE SERVER SAID WAS ON, kept apart from the working copy.
+   *
+   * `Module.selected` is mutated by the toggles, and the shared `Module` type
+   * (owned by `module-card.tsx`) has nowhere to record where it started - so
+   * there was no way to answer "what would saving actually change".
+   *
+   * STATE, not a ref. This is read during render to build the diff, and reading
+   * a ref there is a correctness bug React's own lint rule catches: a ref does
+   * not trigger the re-render that would show the new diff, so the footer could
+   * announce a stale set of changes.
+   */
+  const [serverEnabled, setServerEnabled] = useState<Set<string>>(() => new Set())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   /** The server's own sentence about what enabling does. Rendered verbatim. */
@@ -118,6 +141,13 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
               selected: module.enabled,
               description: MODULE_BLURBS[module.id] ?? '',
             })),
+          )
+          setServerEnabled(
+            new Set(
+              (response.data?.modules ?? [])
+                .filter((module) => module.enabled)
+                .map((module) => String(module.id)),
+            ),
           )
           setNote(response.data?.note ?? '')
           setError(null)
@@ -221,12 +251,25 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
 
   const enabledCount = modules.filter((module) => module.selected).length
 
+  /*
+   * Compared against `enabled` as the SERVER last reported it, which is what
+   * `module.enabled` holds - `selected` is the working copy the toggles mutate.
+   * So this is the real delta a save would apply, not a guess.
+   */
+  const turningOff = modules
+    .filter((m) => serverEnabled.has(m.id) && !m.selected)
+    .map((m) => m.title)
+  const turningOn = modules
+    .filter((m) => !serverEnabled.has(m.id) && m.selected)
+    .map((m) => m.title)
+
   // The host's footer needs to drive the save, and it needs to know when the
   // save is possible. Handing the API up on every relevant change keeps the two
   // in step without the host reaching into this component's state.
   useEffect(() => {
-    onReady?.({ save, loading, saving, enabledCount })
-  }, [onReady, save, loading, saving, enabledCount])
+    onReady?.({ save, loading, saving, enabledCount, turningOff, turningOn })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- arrays are rebuilt each render; their CONTENT is the dependency
+  }, [onReady, save, loading, saving, enabledCount, turningOff.join(), turningOn.join()])
 
   // A failed LOAD is almost always the profile:admin guard refusing, so it
   // replaces the screen and explains the rule.

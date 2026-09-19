@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Info } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { useAccount } from '@/hooks/use-account'
 import type { AccountPreferences } from '@/services/account'
-import { SaveButton } from '@/components/settings/settings-shell'
 import { SectionBlock, SectionHint, ToggleRow } from './section-primitives'
+import { ErrorState } from '@/components/ui/error-state'
 
 /**
  * NOTIFICATIONS — the first opt-out of any kind in this product.
@@ -30,168 +30,121 @@ import { SectionBlock, SectionHint, ToggleRow } from './section-primitives'
  * would make switching email back on feel like a reset.
  */
 export function NotificationsSection({ account }: { account: ReturnType<typeof useAccount> }) {
-  const [draft, setDraft] = useState<AccountPreferences | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const stored = account.preferences
-
   /*
-   * SYNC FROM THE SERVER'S COPY, DURING RENDER.
+   * ═══════════════════════════════════════════════════════════════════════════
+   * EVERY SWITCH PERSISTS THE MOMENT IT IS THROWN
+   * ═══════════════════════════════════════════════════════════════════════════
    *
-   * Not in an effect. React's own guidance for "adjust state when a prop
-   * changes" is to compare against the last value seen and set during render:
-   * the component re-renders immediately with the right value and the browser
-   * never paints the stale one. An effect would paint an empty form first, and
-   * `react-hooks/set-state-in-effect` flags it for exactly that reason.
+   * This held a `draft`, a `dirty` memo, a render-phase sync from the server and
+   * a footer Save — the same shape as Preferences, and the same trap: twelve
+   * switches that visibly moved and quietly did not persist until a button below
+   * the fold was pressed. On a page whose whole job is "which of these should
+   * email me", a half-applied answer is worse than no answer.
+   *
+   * `account.preferences` is now the only state. A refresh cannot lose anything
+   * because there is nothing local to lose.
    */
-  const [syncedFrom, setSyncedFrom] = useState<AccountPreferences | null>(null)
-
-  if (stored && stored !== syncedFrom) {
-    setSyncedFrom(stored)
-    setDraft(stored)
-  }
-
-  const dirty = useMemo(() => {
-    if (!draft || !stored) return false
-    if (draft.notify_email !== stored.notify_email) return true
-
-    return Object.keys(draft.notify_events).some(
-      (event) => draft.notify_events[event] !== stored.notify_events[event],
-    )
-  }, [draft, stored])
+  const stored = account.preferences
 
   /*
    * THREE OF THE TEN EVENTS CANNOT BE EMAILED AT ALL.
    *
    * `g2g_notification_template` holds ten in-app templates and only seven email
-   * ones - the HRIT leave events have no email template, and
-   * `NotificationComposer::compose()` returns null without one, which
-   * `sendEmail()` correctly treats as "do not send".
-   *
-   * So an email switch beside those three would be a control that does nothing,
-   * and somebody who turned it off would believe they had stopped an email that
-   * was never going to arrive. They are shown, disabled, and labelled.
+   * ones - the HRIT leave events have no email template, and the composer
+   * returns null without one, which `sendEmail()` correctly treats as "do not
+   * send". So a switch beside those three would change nothing; they are shown,
+   * disabled, and labelled.
    */
-  const emailable = useMemo(
-    () => new Set(account.emailableEvents),
-    [account.emailableEvents],
-  )
+  const emailable = useMemo(() => new Set(account.emailableEvents), [account.emailableEvents])
 
   const groups = useMemo(() => groupEvents(account.notifiableEvents), [account.notifiableEvents])
 
-  if (!draft || !stored) {
-    return <SectionHint>Your notification settings could not be loaded.</SectionHint>
-  }
-
-  function setEvent(event: string, wanted: boolean) {
-    setSaved(false)
-    setDraft((current) =>
-      current
-        ? { ...current, notify_events: { ...current.notify_events, [event]: wanted } }
-        : current,
+  if (!stored) {
+    return (
+      <ErrorState
+        title="Your notification settings could not be loaded"
+        description="The account service did not answer. Nothing has been changed — try again."
+        retry={() => void account.reload()}
+      />
     )
   }
 
-  async function save() {
-    if (!draft) return
+  const draft = stored
 
-    setSaving(true)
-    setError(null)
-    setSaved(false)
-
-    try {
-      // Only the events that actually changed, so a save does not write ten rows
-      // every time somebody flips one switch.
-      const changedEvents: Record<string, boolean> = {}
-
-      for (const [event, wanted] of Object.entries(draft.notify_events)) {
-        if (wanted !== stored?.notify_events[event]) changedEvents[event] = wanted
-      }
-
-      await account.savePreferences({
-        ...(draft.notify_email !== stored?.notify_email
-          ? { notify_email: draft.notify_email }
-          : {}),
-        ...(Object.keys(changedEvents).length > 0 ? { notify_events: changedEvents } : {}),
-      })
-
-      setSaved(true)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Your choices could not be saved.')
-    } finally {
-      setSaving(false)
-    }
+  /**
+   * One event switched.
+   *
+   * Only the event that changed is sent. The server merges it into the stored
+   * map, so a flip does not rewrite the other nine rows — and two switches
+   * thrown quickly cannot overwrite one another with a stale copy of the map.
+   */
+  function setEvent(event: string, wanted: boolean) {
+    void account.saveNow('notify_events', { [event]: wanted } as never)
   }
 
   const emailOff = !draft.notify_email
 
   return (
     <div className="space-y-6">
-      {error && (
+      {/*
+        * A green "Saved." banner fired on every switch once these autosaved,
+        * which on a page of twelve toggles is pure noise. Only a failure earns
+        * the width of the pane.
+        */}
+      {account.saveError && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" aria-hidden="true" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{account.saveError}</AlertDescription>
         </Alert>
       )}
 
-      {saved && (
-        <Alert variant="success">
-          <Check className="size-4" aria-hidden="true" />
-          <AlertDescription>Saved.</AlertDescription>
-        </Alert>
-      )}
+      {/*
+        * A CONTROL THAT EXISTS TO BE UN-TOUCHABLE IS NOT A CONTROL.
+        *
+        * This was a whole SectionBlock containing one permanently disabled
+        * switch — `checked disabled onChange={() => {}}`. It offered a decision
+        * it would never accept. The fact it was trying to state is now stated,
+        * as the description of the section that actually has choices in it.
+        */}
 
       <SectionBlock
-        title="In the product"
-        description="What appears in your notification bell while you are working."
+        title="Email"
+        description="Notifications inside the product are always on — that is how you find out something in your own workspace needs you. These control email only."
+        badge={emailOff ? 'Email off' : undefined}
+        badgeTitle="Your per-event choices below are kept and apply again when you turn email back on."
       >
-        <ToggleRow
-          label="Notifications inside the product"
-          description="Always on. This is how you find out something in your own workspace needs you."
-          checked
-          disabled
-          onChange={() => {}}
-        />
-      </SectionBlock>
-
-      <SectionBlock title="Email" description="Turn the lot off, or choose event by event.">
         <ToggleRow
           label="Email me about anything"
           description="Off means no email at all, whatever the choices below say."
           checked={draft.notify_email}
-          onChange={(value) => {
-            setSaved(false)
-            setDraft((current) => (current ? { ...current, notify_email: value } : current))
-          }}
+          onChange={(value) => void account.saveNow('notify_email', value)}
         />
 
-        {emailOff && (
-          <Alert className="mt-3">
-            <Info className="size-4" aria-hidden="true" />
-            <AlertDescription>
-              Email is off. Your choices below are kept and will apply again if you turn it back
-              on.
-            </AlertDescription>
-          </Alert>
-        )}
 
-        {emailable.size < account.notifiableEvents.length && (
-          <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            {account.notifiableEvents.length - emailable.size} of these cannot be emailed yet and
-            are shown greyed out. You still get them inside the product.
-          </p>
-        )}
-
-        <div className="mt-4 space-y-5 border-t border-border pt-4">
+        {/*
+          * ═══════════════════════════════════════════════════════════════════
+          * GROUPED INTO CARDS, NOT A CAPTION OVER A FLAT LIST
+          * ═══════════════════════════════════════════════════════════════════
+          *
+          * Twelve switches ran down one column, separated only by a 12px
+          * uppercase caption — and each row was a 14px label over a 14px
+          * description, so the group headings, the labels and the descriptions
+          * were all the same weight of text. Nothing read as a boundary.
+          *
+          * The groups were already computed (`groupEvents`); they just had no
+          * container. A bordered panel per area gives the list the structure the
+          * data always had.
+          */}
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
           {groups.map((group) => (
-            <div key={group.title}>
-              <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div
+              key={group.title}
+              className="overflow-hidden rounded-lg border border-border bg-surface-muted/40"
+            >
+              <p className="border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {group.title}
               </p>
-              <div className="mt-1 space-y-0.5">
+              <div className="divide-y divide-border/60">
                 {group.events.map((event) => {
                   const canEmail = emailable.has(event.key)
 
@@ -199,11 +152,7 @@ export function NotificationsSection({ account }: { account: ReturnType<typeof u
                     <ToggleRow
                       key={event.key}
                       label={event.label}
-                      description={
-                        canEmail
-                          ? event.blurb
-                          : 'There is no email for this one yet — you are told inside the product instead.'
-                      }
+                      description={canEmail ? event.blurb : 'In-product only — no email yet.'}
                       checked={canEmail ? (draft.notify_events[event.key] ?? true) : false}
                       disabled={emailOff || !canEmail}
                       onChange={(value) => setEvent(event.key, value)}
@@ -222,10 +171,6 @@ export function NotificationsSection({ account }: { account: ReturnType<typeof u
           )}
         </div>
       </SectionBlock>
-
-      <div className="flex justify-end border-t border-border pt-5">
-        <SaveButton dirty={dirty} saving={saving} onClick={save} />
-      </div>
     </div>
   )
 }

@@ -5,11 +5,12 @@ import { AlertCircle, Check, Info } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { TIMEZONES, dateFormatOptions, numberFormatOptions } from '@/lib/format-labels'
 import { useLaravelContext } from '@/hooks/use-agentic'
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { organizationSettingsService, type OrgSettingsResponse } from '@/services/organization/settings'
-import { SaveButton } from '@/components/settings/settings-shell'
-import { Field, SectionBlock } from './section-primitives'
+import { Field, SaveButton, SectionBlock, SectionError, SectionSkeleton } from './section-primitives'
 
 /**
  * ORGANISATION DEFAULTS — the working week, the financial year, the formats.
@@ -52,14 +53,14 @@ const CURRENCIES = [
   { value: 'SGD', label: 'Singapore Dollar (S$)' },
 ]
 
-const TIMEZONES = [
-  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore',
-  'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'UTC',
-]
-
 type Settings = OrgSettingsResponse['data']
 
-export function OrganizationDefaultsSection() {
+type DirtyReporter = {
+  /** Lets the shell refuse to change section while a draft is unsaved. */
+  onDirtyChange?: (id: 'profile' | 'delivery' | 'organization' | 'policy', label: string, dirty: boolean) => void
+}
+
+export function OrganizationDefaultsSection({ onDirtyChange }: DirtyReporter = {}) {
   const resolveContext = useLaravelContext()
 
   const [stored, setStored] = useState<Settings | null>(null)
@@ -121,22 +122,32 @@ export function OrganizationDefaultsSection() {
     return KEYS.some((key) => draft[key] !== stored.settings[key])
   }, [draft, stored, KEYS])
 
+  // A draft in useState is lost on refresh; warn before that happens.
+  useUnsavedGuard(dirty)
+
+  // And tell the shell, which can refuse to change section while this is true.
+  useEffect(() => {
+    onDirtyChange?.('organization', 'Organisation defaults', dirty)
+
+    // And on unmount: a section swapped out for the loading skeleton while
+    // dirty would otherwise leave the flag set, prompting about a draft that
+    // is no longer on screen.
+    return () => onDirtyChange?.('organization', 'Organisation defaults', false)
+  }, [dirty, onDirtyChange])
+
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-xl bg-muted/40" />
-        ))}
-      </div>
+      <SectionSkeleton rows={3} />
     )
   }
 
   if (!draft || !stored) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden="true" />
-        <AlertDescription>{error ?? 'These settings could not be loaded.'}</AlertDescription>
-      </Alert>
+      <SectionError
+        title="These settings could not be loaded"
+        description={error ?? 'They are available to administrators.'}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -281,7 +292,7 @@ export function OrganizationDefaultsSection() {
             <Select
               value={draft['org.timezone']}
               onChange={(value) => set('org.timezone', String(value))}
-              options={TIMEZONES.map((zone) => ({ value: zone, label: zone.replace('_', ' ') }))}
+              options={TIMEZONES}
             />
           </Field>
 
@@ -289,28 +300,28 @@ export function OrganizationDefaultsSection() {
             <Select
               value={draft['org.date_format']}
               onChange={(value) => set('org.date_format', String(value))}
-              options={stored.choices.date_format.map((format) => ({
-                value: format,
-                label: `${format} — ${sampleDate(format)}`,
-              }))}
+              options={dateFormatOptions(stored.choices.date_format)}
             />
           </Field>
 
-          <Field label="Number format" hint="Indian grouping puts the first separator after three digits, then every two.">
+          <Field label="Number format">
             <Select
               value={draft['org.number_format']}
               onChange={(value) => set('org.number_format', String(value))}
-              options={stored.choices.number_format.map((format) => ({
-                value: format,
-                label: format,
-              }))}
+              options={numberFormatOptions(stored.choices.number_format)}
             />
           </Field>
         </div>
       </SectionBlock>
 
       <div className="flex justify-end border-t border-border pt-5">
-        <SaveButton dirty={dirty} saving={saving} onClick={save} label="Save defaults" />
+        <SaveButton
+          dirty={dirty}
+          saving={saving}
+          saved={saved}
+          onClick={save}
+          label="Save defaults"
+        />
       </div>
     </div>
   )
@@ -334,9 +345,3 @@ function NotYetApplied({ when, children }: { when: boolean; children: React.Reac
   )
 }
 
-function sampleDate(format: string): string {
-  if (format === 'mm/dd/yyyy') return '02/09/2026'
-  if (format === 'yyyy-mm-dd') return '2026-02-09'
-
-  return '09/02/2026'
-}

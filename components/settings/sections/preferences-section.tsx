@@ -7,9 +7,13 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { useAccount } from '@/hooks/use-account'
 import { useTheme } from '@/components/providers/theme-provider'
+import { TIMEZONES, dateFormatOptions } from '@/lib/format-labels'
 import type { AccountPreferences, Theme } from '@/services/account'
-import { SaveButton } from '@/components/settings/settings-shell'
-import { Field, SectionBlock, SectionHint, ToggleRow } from './section-primitives'
+import { Field, SectionBlock, ToggleRow } from './section-primitives'
+import { ErrorState } from '@/components/ui/error-state'
+import { accountService } from '@/services/account'
+import { useLaravelContext } from '@/hooks/use-agentic'
+import { Button } from '@/components/ui/button'
 
 /**
  * PREFERENCES — and the first theme toggle this product has ever had.
@@ -37,13 +41,25 @@ import { Field, SectionBlock, SectionHint, ToggleRow } from './section-primitive
  */
 export function PreferencesSection({ account }: { account: ReturnType<typeof useAccount> }) {
   const { setTheme } = useTheme()
+  const resolveContext = useLaravelContext()
 
-  const [draft, setDraft] = useState<AccountPreferences | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * NO DRAFT, NO SAVE BUTTON. EVERY CONTROL PERSISTS ON CHANGE.
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * There used to be a `draft`, a `dirty` memo and a footer Save. The theme
+   * picker also repainted the app the moment it was clicked — so it LOOKED saved
+   * while nothing had been written, and the next refresh replaced it with the
+   * stored value. `live` held one preference row in total: the save path worked
+   * and hardly anybody ever finished it.
+   *
+   * The server's response is the only state now. `account.preferences` is what is
+   * stored; there is nothing local for a refresh to discard.
+   */
   const stored = account.preferences
+  const [busy, setBusy] = useState<'promote' | 'forget' | null>(null)
+  const [deviceNote, setDeviceNote] = useState<string | null>(null)
 
   /*
    * SYNC FROM THE SERVER'S COPY, DURING RENDER.
@@ -54,74 +70,82 @@ export function PreferencesSection({ account }: { account: ReturnType<typeof use
    * never paints the stale one. An effect would paint an empty form first, and
    * `react-hooks/set-state-in-effect` flags it for exactly that reason.
    */
-  const [syncedFrom, setSyncedFrom] = useState<AccountPreferences | null>(null)
-
-  if (stored && stored !== syncedFrom) {
-    setSyncedFrom(stored)
-    setDraft(stored)
+  if (!stored) {
+    return (
+      <ErrorState
+        title="Your preferences could not be loaded"
+        description="The account service did not answer. Nothing has been lost — try again."
+        retry={() => void account.reload()}
+      />
+    )
   }
 
-  const dirty = useMemo(() => {
-    if (!draft || !stored) return false
-
-    return FLAT_KEYS.some((key) => draft[key] !== stored[key])
-  }, [draft, stored])
-
-  if (!draft || !stored) {
-    return <SectionHint>Your preferences could not be loaded.</SectionHint>
-  }
-
+  /** One control changed: write it straight away. */
   function set<K extends keyof AccountPreferences>(key: K, value: AccountPreferences[K]) {
-    setSaved(false)
-    setDraft((current) => (current ? { ...current, [key]: value } : current))
+    void account.saveNow(key, value)
   }
 
-  async function save() {
-    if (!draft) return
-
-    setSaving(true)
-    setError(null)
-    setSaved(false)
+  async function promote() {
+    setBusy('promote')
+    setDeviceNote(null)
 
     try {
-      const changes: Partial<AccountPreferences> = {}
-
-      for (const key of FLAT_KEYS) {
-        if (draft[key] !== stored?.[key]) {
-          changes[key] = draft[key] as never
-        }
-      }
-
-      await account.savePreferences(changes)
-      setSaved(true)
+      const response = await accountService.promotePreferences(resolveContext())
+      setDeviceNote(response.message)
+      await account.reload()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Your preferences could not be saved.')
+      setDeviceNote(caught instanceof Error ? caught.message : 'That could not be saved.')
     } finally {
-      setSaving(false)
+      setBusy(null)
     }
   }
 
+  async function forget() {
+    setBusy('forget')
+    setDeviceNote(null)
+
+    try {
+      const response = await accountService.forgetDevicePreferences(resolveContext())
+      setDeviceNote(response.message)
+      // The browser keeps its id; only the rows against it are gone, so it will
+      // hold a new choice again the moment one is made.
+      await account.reload()
+    } catch (caught) {
+      setDeviceNote(caught instanceof Error ? caught.message : 'That could not be saved.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const draft = stored
+
   return (
     <div className="space-y-6">
-      {error && (
+      {/*
+        * ONE line, only when something went wrong.
+        *
+        * There were two full-width banners here — a destructive one and a green
+        * "Saved" one. With autosave, a success banner would appear on every
+        * single click, which is noise; the confirmation now sits beside the
+        * control that changed (see `Saved` below). Only a failure is worth the
+        * width of the pane.
+        */}
+      {account.saveError && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" aria-hidden="true" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {saved && (
-        <Alert variant="success">
-          <Check className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            Saved to your account, so they follow you to any device you sign in on.
-          </AlertDescription>
+          <AlertDescription>{account.saveError}</AlertDescription>
         </Alert>
       )}
 
       <SectionBlock
         title="Appearance"
-        description="Theme changes as soon as you pick it, so you can see it before you save."
+        description={
+          account.deviceScope?.is_device
+            ? 'These apply to this browser only. Your other devices keep their own.'
+            : 'These apply to your account. This browser cannot keep settings of its own.'
+        }
+        badge={account.deviceScope?.is_device ? 'This browser' : undefined}
+        badgeTitle="Theme, sidebar and spacing are remembered per browser, so a laptop and a phone can differ. Everything else on this page follows your account."
       >
         <div className="grid gap-3 sm:grid-cols-3">
           {THEMES.map((option) => (
@@ -179,35 +203,58 @@ export function PreferencesSection({ account }: { account: ReturnType<typeof use
             onChange={(value) => set('density', value ? 'compact' : 'comfortable')}
           />
         </div>
+
+        {/*
+          * ── THE TWO THINGS PER-DEVICE STORAGE OWES THE USER ────────────────
+          *
+          * Per-device is right until you set up a new machine and have to do it
+          * all again — so there is a way to push this browser's choices up to
+          * the account, which every device with no opinion of its own then
+          * inherits. And there is a way back: a browser that was configured by
+          * mistake can be told to follow the account again.
+          *
+          * Only shown when this browser actually has an identity. A private
+          * window cannot keep one, and offering it a button that does nothing
+          * would be the exact defect this whole exercise has been removing.
+          */}
+        {account.deviceScope?.is_device && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void promote()}
+              disabled={busy !== null}
+            >
+              {busy === 'promote' ? 'Saving…' : 'Use these on all my devices'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void forget()}
+              disabled={busy !== null}
+            >
+              {busy === 'forget' ? 'Saving…' : 'Follow my account instead'}
+            </Button>
+            {deviceNote && <span className="text-xs text-muted-foreground">{deviceNote}</span>}
+          </div>
+        )}
       </SectionBlock>
 
       <SectionBlock
         title="Language & formats"
         description="How dates, times and numbers are written for you."
+        /*
+         * A BADGE, NOT A BANNER.
+         *
+         * This used to open with a full-width Alert explaining that these three
+         * are stored and not yet read by any screen. It was true and it was
+         * clutter — a paragraph of caveat above three dropdowns, on every visit.
+         * The same fact now rides on the title as two words, the pattern
+         * `module-card.tsx` already uses for module state.
+         */
+        badge="Not applied yet"
+        badgeTitle="Saved to your account now, and applied as each screen is updated to read it. Theme, sidebar and landing page already apply everywhere."
       >
-        {/*
-          * STILL SAYING WHAT IS AND IS NOT LIVE.
-          *
-          * Theme, the sidebar default and the landing page now have real
-          * readers: `PreferencesProvider` fetches these once for the whole app,
-          * `GtgAppShell` reads `sidebar_collapsed`, and the sign-in redirect
-          * reads `landing_page`.
-          *
-          * Language, time zone and date format do NOT yet - the formatters
-          * across this product still hardcode a locale, and three different
-          * files hardcode three different ones. The choice is stored and will
-          * apply as each is updated, and this note stays until that is true,
-          * because the one thing this screen must never do is claim an effect it
-          * does not have.
-          */}
-        <Alert className="mb-4">
-          <Info className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            These three are saved to your account and will apply as each screen is updated to use
-            them. Theme, the sidebar and your landing page take effect straight away.
-          </AlertDescription>
-        </Alert>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Language">
             <Select
@@ -221,7 +268,7 @@ export function PreferencesSection({ account }: { account: ReturnType<typeof use
             <Select
               value={draft.timezone}
               onChange={(value) => set('timezone', String(value))}
-              options={TIMEZONES.map((zone) => ({ value: zone, label: zone.replace('_', ' ') }))}
+              options={TIMEZONES}
             />
           </Field>
 
@@ -229,10 +276,7 @@ export function PreferencesSection({ account }: { account: ReturnType<typeof use
             <Select
               value={draft.date_format}
               onChange={(value) => set('date_format', String(value))}
-              options={(account.choices?.date_format ?? ['dd/mm/yyyy']).map((format) => ({
-                value: format,
-                label: `${format} — ${sampleDate(format)}`,
-              }))}
+              options={dateFormatOptions(account.choices?.date_format ?? ['dd/mm/yyyy'])}
             />
           </Field>
         </div>
@@ -254,10 +298,6 @@ export function PreferencesSection({ account }: { account: ReturnType<typeof use
           </div>
         </Field>
       </SectionBlock>
-
-      <div className="flex justify-end border-t border-border pt-5">
-        <SaveButton dirty={dirty} saving={saving} onClick={save} />
-      </div>
     </div>
   )
 }
@@ -284,25 +324,3 @@ const LOCALES = [
   { value: 'en-US', label: 'English (United States)' },
 ]
 
-const TIMEZONES = [
-  'Asia/Kolkata',
-  'Asia/Dubai',
-  'Asia/Singapore',
-  'Europe/London',
-  'Europe/Berlin',
-  'America/New_York',
-  'America/Los_Angeles',
-  'UTC',
-]
-
-/** A worked example beside each format, so nobody has to decode `dd/mm/yyyy`. */
-function sampleDate(format: string): string {
-  const day = '09'
-  const month = '02'
-  const year = '2026'
-
-  if (format === 'mm/dd/yyyy') return `${month}/${day}/${year}`
-  if (format === 'yyyy-mm-dd') return `${year}-${month}-${day}`
-
-  return `${day}/${month}/${year}`
-}

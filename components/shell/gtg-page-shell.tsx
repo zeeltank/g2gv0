@@ -10,6 +10,9 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import type { BreadcrumbItem } from '@/lib/gtg-navigation'
 import { cn } from '@/lib/utils'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
+import { useAppPreferences } from '@/components/providers/preferences-provider'
+import { accountService } from '@/services/account'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 
 /** Organizational Management > Organization Setup > Organization Profile (tblmenumaster_g2g ids 1/7/12). */
 const DEFAULT_ACTIVE: ActiveNav = {
@@ -28,7 +31,55 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
   const router = useRouter()
   const { modules, getRoutePath } = useSidebarNavigation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THIS SHELL IGNORED THE SIDEBAR PREFERENCE ENTIRELY
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * `useState(true)` — hardcoded collapsed, with `useAppPreferences` appearing
+   * nowhere in the file. `GtgAppShell` read the preference; this one did not, and
+   * this one is what renders `/settings`, `/profile` and `/organization/*`.
+   *
+   * So the "Start with the sidebar collapsed" switch was dead on the very screen
+   * that offers it: you set it, the sidebar did not move, and there was nothing
+   * anywhere to tell you the setting had been stored correctly. That is most of
+   * why the whole area felt like it was not working.
+   *
+   * Applied DURING RENDER, not in an effect, so the sidebar never paints at the
+   * wrong width and then jump. `touched` means a person who has moved it
+   * themselves this visit outranks the stored value.
+   */
+  const { preferences, loaded: preferencesLoaded } = useAppPreferences()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [sidebarTouched, setSidebarTouched] = useState(false)
+  const [sidebarSynced, setSidebarSynced] = useState(false)
+
+  if (preferencesLoaded && !sidebarSynced && !sidebarTouched) {
+    setSidebarSynced(true)
+    setSidebarCollapsed(preferences.sidebar_collapsed)
+  }
+
+  /**
+   * Moving the sidebar is a preference, so it is remembered.
+   *
+   * Per browser, like the theme — a 13-inch laptop and a wide monitor want
+   * different answers. Failure is swallowed: the sidebar has already moved, and
+   * an error banner over a cosmetic write would be worse than quietly not
+   * persisting it.
+   */
+  const rememberSidebar = useCallback((collapsed: boolean) => {
+    setSidebarTouched(true)
+    setSidebarCollapsed(collapsed)
+
+    const context = getLaravelContext(null)
+
+    if (!isLaravelContextReady(context)) return
+
+    void accountService
+      .updatePreferences(context, { sidebar_collapsed: collapsed })
+      .catch(() => {})
+  }, [])
 
   const active = initialActive ?? DEFAULT_ACTIVE
   const items = breadcrumbItems ?? resolveBreadcrumb(active, modules)
@@ -36,6 +87,8 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
       queueMicrotask(() => {
+        // A deliberate post-login expansion outranks the stored default.
+        setSidebarTouched(true)
         setSidebarCollapsed(false)
       })
     }
@@ -67,7 +120,7 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
+        onCollapsedChange={rememberSidebar}
       />
       <div
         className={cn(

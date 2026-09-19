@@ -12,6 +12,7 @@ import {
   ModuleConfiguration,
   type ModuleConfigurationHandle,
 } from '@/components/settings/module-configuration'
+import { ConfirmDialog } from '@/components/settings/sections/section-primitives'
 
 /**
  * MODULE CONFIGURATION as a standalone settings page.
@@ -71,6 +72,7 @@ export function ModuleConfigurationPage() {
   const [saved, setSaved] = useState<number | null>(null)
 
   const ready = handle !== null && !handle.loading && !handle.saving
+  const [confirming, setConfirming] = useState(false)
 
   // A caller that knows where it sent somebody can say so. Anything not starting
   // with '/' is ignored - a `from` a person can type must not become an open
@@ -135,10 +137,45 @@ export function ModuleConfigurationPage() {
           <Button variant="ghost" onClick={() => router.push(backHref)} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={busy || !ready}>
+          {/*
+            * The same guard the in-Settings placement has. This page and that
+            * section drive the SAME imperative handle, so a confirmation on one
+            * and not the other would mean the safer route was whichever door you
+            * happened to come through.
+            */}
+          <Button
+            onClick={() => {
+              if ((handle?.turningOff ?? []).length > 0) setConfirming(true)
+              else void save()
+            }}
+            disabled={busy || !ready}
+          >
             {busy ? 'Saving…' : handle?.loading ? 'Loading…' : 'Save modules'}
           </Button>
         </div>
+
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={
+            (handle?.turningOff ?? []).length === 1
+              ? `Switch off ${(handle?.turningOff ?? [])[0]}?`
+              : `Switch off ${(handle?.turningOff ?? []).length} modules?`
+          }
+          description={
+            <>
+              <strong>{(handle?.turningOff ?? []).join(', ')}</strong> will be removed from the
+              navigation of <strong>everybody in this organisation</strong>, not just yours. Nothing
+              is deleted and you can switch them back on here at any time.
+            </>
+          }
+          confirmLabel={`Switch off ${(handle?.turningOff ?? []).length}`}
+          busy={busy}
+          onConfirm={() => {
+            setConfirming(false)
+            void save()
+          }}
+        />
       </GtgPageShell>
     </ProtectedLayout>
   )
