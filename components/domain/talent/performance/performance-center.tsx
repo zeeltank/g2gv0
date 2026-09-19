@@ -37,6 +37,9 @@ import {
   Trash2,
   UserCheck,
   Users,
+  Pencil,
+  Star,
+  X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -77,6 +80,7 @@ import {
   type CyclePayload,
   type PerfKpiIcon,
   type PerfReview,
+  type PerfSavedView,
   type PerfTab,
   type ReviewStage,
 } from '@/services/talent/performance'
@@ -750,32 +754,16 @@ export function PerformanceCenter() {
                             </p>
                           )}
                           {savedViewsState.views.map((view) => (
-                            <div key={view.id} className="flex items-center justify-between gap-2 border-b last:border-b-0">
-                              <button
-                                type="button"
-                                onClick={() => applySavedView(view.filters)}
-                                className="flex flex-1 flex-col px-3 py-2 text-left hover:bg-muted"
-                              >
-                                <span className="text-xs font-semibold text-foreground">
-                                  {view.name}
-                                  {view.is_default && ' · default'}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {view.is_shared ? 'Shared' : 'Private'}
-                                  {view.owner && !view.is_mine ? ` · ${view.owner}` : ''}
-                                </span>
-                              </button>
-                              {view.is_mine && (
-                                <button
-                                  type="button"
-                                  className="px-2 text-muted-foreground hover:text-destructive"
-                                  aria-label={`Delete ${view.name}`}
-                                  onClick={() => report(mutations.deleteSavedView(view.id))}
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              )}
-                            </div>
+                            <SavedViewRow
+                              key={view.id}
+                              view={view}
+                              saving={mutations.saving}
+                              onApply={() => applySavedView(view.filters)}
+                              onRename={(name) => report(mutations.updateSavedView(view.id, { name }))}
+                              onToggleShared={() => report(mutations.updateSavedView(view.id, { is_shared: !view.is_shared }))}
+                              onMakeDefault={() => report(mutations.updateSavedView(view.id, { is_default: true }))}
+                              onDelete={() => report(mutations.deleteSavedView(view.id))}
+                            />
                           ))}
                           <SaveCurrentView
                             onSave={(name, shareWithTeam) =>
@@ -2129,6 +2117,191 @@ function ActivityPanel({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One saved view: apply it, rename it, change who can see it, make it the
+ * default, or delete it.
+ *
+ * WHAT WAS HERE
+ *
+ * The row RENDERED "Shared"/"Private" and "· default" and offered no way to
+ * change either, because performanceService.updateSavedView had no caller
+ * anywhere in the app. A view saved with a typo, or shared by accident, could
+ * only be deleted and rebuilt from scratch - losing the filter set that was
+ * the reason to save it.
+ *
+ * And the delete was one click, no confirmation, sitting directly beside the
+ * button that applies the view.
+ *
+ * WHY THE CONFIRM IS INLINE AND NOT A DIALOG
+ *
+ * This list lives inside a dropdown that closes on any outside click, behind a
+ * `fixed inset-0` overlay. A modal opened from here would either be dismissed
+ * by that overlay or have its own clicks swallowed by it. Two-step in place
+ * stays inside the popover and cannot be clicked through by accident.
+ */
+function SavedViewRow({
+  view,
+  saving,
+  onApply,
+  onRename,
+  onToggleShared,
+  onMakeDefault,
+  onDelete,
+}: {
+  view: PerfSavedView
+  saving: boolean
+  onApply: () => void
+  onRename: (name: string) => void
+  onToggleShared: () => void
+  onMakeDefault: () => void
+  onDelete: () => void
+}) {
+  const [mode, setMode] = React.useState<'idle' | 'rename' | 'confirm-delete'>('idle')
+  const [draft, setDraft] = React.useState(view.name)
+
+  const startRename = () => {
+    setDraft(view.name)
+    setMode('rename')
+  }
+
+  const commitRename = () => {
+    const name = draft.trim()
+    // An unchanged or empty name is not a save - it is a cancel that would
+    // otherwise spend a request and report "Saved view updated".
+    if (name && name !== view.name) onRename(name)
+    setMode('idle')
+  }
+
+  if (mode === 'rename') {
+    return (
+      <div className="flex items-center gap-1.5 border-b p-2 last:border-b-0">
+        <Input
+          value={draft}
+          autoFocus
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitRename()
+            if (event.key === 'Escape') setMode('idle')
+          }}
+          className="h-7 flex-1 text-xs"
+          aria-label={`Rename ${view.name}`}
+        />
+        <button
+          type="button"
+          className="px-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          disabled={saving || !draft.trim()}
+          onClick={commitRename}
+          aria-label="Save the new name"
+        >
+          <Check className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          className="px-1.5 text-muted-foreground hover:text-foreground"
+          onClick={() => setMode('idle')}
+          aria-label="Cancel renaming"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  if (mode === 'confirm-delete') {
+    return (
+      <div className="flex items-center justify-between gap-2 border-b bg-destructive/5 p-2 last:border-b-0">
+        <span className="px-1 text-[11px] text-foreground">
+          Delete &ldquo;{view.name}&rdquo;?
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-6 px-2 text-[11px]"
+            disabled={saving}
+            onClick={() => {
+              onDelete()
+              setMode('idle')
+            }}
+          >
+            Delete
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setMode('idle')}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-1 border-b last:border-b-0">
+      <button
+        type="button"
+        onClick={onApply}
+        className="flex flex-1 flex-col px-3 py-2 text-left hover:bg-muted"
+      >
+        <span className="text-xs font-semibold text-foreground">
+          {view.name}
+          {view.is_default && ' · default'}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {view.is_shared ? 'Shared' : 'Private'}
+          {view.owner && !view.is_mine ? ` · ${view.owner}` : ''}
+        </span>
+      </button>
+
+      {/* Only the owner may change a view. Someone else's shared view can be
+          applied but not edited, which is what is_mine is for. */}
+      {view.is_mine && (
+        <div className="flex shrink-0 items-center pr-1.5">
+          {!view.is_default && (
+            <button
+              type="button"
+              className="px-1.5 py-2 text-muted-foreground hover:text-foreground"
+              onClick={onMakeDefault}
+              disabled={saving}
+              title="Open this tab with this view"
+              aria-label={`Make ${view.name} the default view`}
+            >
+              <Star className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="px-1.5 py-2 text-muted-foreground hover:text-foreground"
+            onClick={onToggleShared}
+            disabled={saving}
+            title={view.is_shared ? 'Make private' : 'Share with the team'}
+            aria-label={view.is_shared ? `Make ${view.name} private` : `Share ${view.name} with the team`}
+          >
+            <Users className={view.is_shared ? 'size-3.5 text-primary' : 'size-3.5'} />
+          </button>
+          <button
+            type="button"
+            className="px-1.5 py-2 text-muted-foreground hover:text-foreground"
+            onClick={startRename}
+            disabled={saving}
+            title="Rename"
+            aria-label={`Rename ${view.name}`}
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            className="px-1.5 py-2 text-muted-foreground hover:text-destructive"
+            aria-label={`Delete ${view.name}`}
+            title="Delete"
+            onClick={() => setMode('confirm-delete')}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
         </div>
       )}
     </div>
