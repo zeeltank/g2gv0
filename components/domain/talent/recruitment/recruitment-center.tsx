@@ -174,7 +174,27 @@ export function RecruitmentCenter() {
   const [selectedSource, setSelectedSource] = useState('')
   const [selectedRecruiter, setSelectedRecruiter] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
-  const [tableStatus, setTableStatus] = useState('')
+  /*
+   * THE STATUS FILTER IS PER TAB, NOT SHARED.
+   *
+   * This was one string across Job Openings, Interviews and Offers, while the
+   * OPTIONS differ per tab: Draft/Sent/Accepted/Declined, Scheduled/Completed/
+   * Cancelled, Open/Closed. Nothing overlaps.
+   *
+   * So choosing "Accepted" on Offers and switching to Interviews left
+   * tableStatus = 'Accepted'. That value is not among the Interviews options,
+   * so the Select fell back to showing its placeholder - "All statuses" - while
+   * the filter below still tested `interview.status === 'Accepted'` and matched
+   * nothing. The result was an empty table that looked unfiltered: the exact
+   * shape where "none" and "hidden" are indistinguishable.
+   *
+   * Keyed by tab, each tab keeps its own choice and can never be filtered by a
+   * value it does not offer.
+   */
+  const [tableStatusByTab, setTableStatusByTab] = useState<Record<string, string>>({})
+  const tableStatus = tableStatusByTab[activeTab] ?? ''
+  const setTableStatus = (value: string) =>
+    setTableStatusByTab((state) => ({ ...state, [activeTab]: value }))
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   /**
    * The candidate the action drawer opens against.
@@ -432,7 +452,21 @@ export function RecruitmentCenter() {
                 <Select
                   value={selectedStage}
                   onChange={setSelectedStage}
-                  options={[{ label: 'Stage', value: '' }, ...PIPELINE_STAGES.map((s) => ({ label: s.label, value: s.id }))]}
+                  /*
+                   * PIPELINE_STAGES PLUS REJECTED.
+                   *
+                   * PIPELINE_STAGES deliberately omits 'Rejected' because the
+                   * kanban board below should not have a Rejected column. This
+                   * FILTER reused the same list, so although CandidateStage
+                   * includes 'Rejected' and the table happily renders rejected
+                   * candidates, there was no way to filter for them - the one
+                   * stage a recruiter most often wants to review in bulk.
+                   */
+                  options={[
+                    { label: 'Stage', value: '' },
+                    ...PIPELINE_STAGES.map((s) => ({ label: s.label, value: s.id })),
+                    { label: 'Rejected', value: 'Rejected' },
+                  ]}
                   className="w-24"
                   size="sm"
                 />
