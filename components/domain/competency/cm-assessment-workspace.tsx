@@ -169,6 +169,44 @@ export function CmAssessmentWorkspace() {
     }
   }
 
+  /*
+   * THE FILTERS THAT WERE NEVER WIRED.
+   *
+   * statusOptions and typeOptions above are carefully DERIVED from the data,
+   * with a long comment explaining why a hardcoded list was wrong - and then
+   * neither Select was given a `value` or an `onChange`, and neither search box
+   * was given either. All four opened, accepted a choice, and did nothing.
+   *
+   * A filter that visibly accepts input and does not filter is worse than none:
+   * the reader believes the list in front of them is the filtered one.
+   */
+  const [cycleSearch, setCycleSearch] = useState('')
+  const [cycleStatus, setCycleStatus] = useState('all')
+  const [cycleType, setCycleType] = useState('all')
+  const [participantSearch, setParticipantSearch] = useState('')
+
+  const visibleCampaigns = React.useMemo(() => {
+    const term = cycleSearch.trim().toLowerCase()
+    return (campaigns ?? []).filter((c) => {
+      if (cycleStatus !== 'all' && String(c.status) !== cycleStatus) return false
+      // '__unset' is the sentinel typeOptions emits for a campaign with no
+      // type - which is every campaign today. It matches a null, not a string.
+      if (cycleType === '__unset' && c.type) return false
+      if (cycleType !== 'all' && cycleType !== '__unset' && String(c.type ?? '') !== cycleType) return false
+      if (term && !String(c.name ?? '').toLowerCase().includes(term)) return false
+      return true
+    })
+  }, [campaigns, cycleSearch, cycleStatus, cycleType])
+
+  const visibleParticipants = React.useMemo(() => {
+    const term = participantSearch.trim().toLowerCase()
+    if (!term) return participants ?? []
+    return (participants ?? []).filter((person) =>
+      String(person.name ?? '').toLowerCase().includes(term)
+      || String(person.role ?? '').toLowerCase().includes(term),
+    )
+  }, [participants, participantSearch])
+
   const activeCampaign = campaigns.find(c => c.id === selectedCycleId)
 
   return (
@@ -322,7 +360,12 @@ export function CmAssessmentWorkspace() {
                 <div className="flex items-center gap-2 w-64">
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Search review cycles..." className="h-9 pl-8 bg-background border-border" />
+                    <Input
+                      placeholder="Search review cycles..."
+                      className="h-9 pl-8 bg-background border-border"
+                      value={cycleSearch}
+                      onChange={(event) => setCycleSearch(event.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -334,8 +377,20 @@ export function CmAssessmentWorkspace() {
                       `type` is null on every one of them. A filter that offers a
                       value nothing matches is worse than no filter: it reports an
                       empty result as "none found" rather than "never set". */}
-                  <Select options={statusOptions} placeholder="Status" className="h-9 bg-background w-32" />
-                  <Select options={typeOptions} placeholder="Assessment Type" className="h-9 bg-background w-44" />
+                  <Select
+                    options={statusOptions}
+                    placeholder="Status"
+                    className="h-9 bg-background w-32"
+                    value={cycleStatus}
+                    onChange={setCycleStatus}
+                  />
+                  <Select
+                    options={typeOptions}
+                    placeholder="Assessment Type"
+                    className="h-9 bg-background w-44"
+                    value={cycleType}
+                    onChange={setCycleType}
+                  />
                   {/* The two selects to the left ARE the filters this list has,
                       so there were no more to show. */}
                   <Button
@@ -363,7 +418,7 @@ export function CmAssessmentWorkspace() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-primary/5">
-                    {campaigns.map((row) => (
+                    {visibleCampaigns.map((row) => (
                       <TableRow key={row.id} className={`hover:bg-muted/30 cursor-pointer ${selectedCycleId === row.id ? 'bg-primary/5' : ''}`} onClick={() => handleCampaignClick(row.id)}>
                         <TableCell className="px-4 py-4 font-medium text-foreground">
                           <div className="flex items-center gap-3">
@@ -419,7 +474,7 @@ export function CmAssessmentWorkspace() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {campaigns.length === 0 && (
+                    {visibleCampaigns.length === 0 && (
                       <TableRow>
                         {/* NOT "no campaigns found". Two instruments on this
                             screen measure capability and they are easily
@@ -439,7 +494,12 @@ export function CmAssessmentWorkspace() {
                 </Table>
               </div>
               <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-card">
-                <span className="tabular-nums">Showing {campaigns.length} review cycle{campaigns.length === 1 ? '' : 's'}</span>
+                <span className="tabular-nums">
+                  Showing {visibleCampaigns.length} review cycle{visibleCampaigns.length === 1 ? '' : 's'}
+                  {/* Named explicitly when filtered, so an empty list reads as
+                      "nothing matches" rather than "there is nothing". */}
+                  {visibleCampaigns.length !== campaigns.length && ` of ${campaigns.length}`}
+                </span>
                 <div className="flex items-center gap-2">
                   {/* THIS LIST IS NOT PAGINATED - the line to the left says
                       "Showing {campaigns.length}", i.e. all of them. Three live-
@@ -526,7 +586,12 @@ export function CmAssessmentWorkspace() {
                       <div className="flex items-center justify-between mb-4">
                         <div className="relative w-64">
                           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input placeholder="Search employee..." className="h-9 pl-8 bg-background border-border" />
+                          <Input
+                            placeholder="Search employee..."
+                            className="h-9 pl-8 bg-background border-border"
+                            value={participantSearch}
+                            onChange={(event) => setParticipantSearch(event.target.value)}
+                          />
                         </div>
                         <div className="flex items-center gap-2">
                           {/* The search box to the left is this table's only
@@ -575,7 +640,7 @@ export function CmAssessmentWorkspace() {
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-primary/5">
-                            {participants.map((row, i) => (
+                            {visibleParticipants.map((row, i) => (
                               <TableRow key={row.assessment_id} className="hover:bg-muted/30">
                                 <TableCell className="text-center">
                                   <input type="checkbox" className="rounded border-border" />
@@ -624,7 +689,7 @@ export function CmAssessmentWorkspace() {
                                 </TableCell>
                               </TableRow>
                             ))}
-                            {participants.length === 0 && (
+                            {visibleParticipants.length === 0 && (
                               <TableRow>
                                 <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                                   No participants found for this campaign.

@@ -54,6 +54,20 @@ export function AdminCenter() {
   
   const [workflows, setWorkflows] = useState<AdminWorkflowsResponse['data']>([])
   const [isLoading, setIsLoading] = useState(true)
+  /*
+   * WHY THIS EXISTS.
+   *
+   * Every load here was `if (res.status === 1) { ...set state... }` with no
+   * else, and a catch block that only called console.error. So a refused or
+   * failed load produced an empty table reading "No workflows found" - the
+   * same thing it shows when the organisation genuinely has none.
+   *
+   * That is how the workflow 404 stayed invisible: the route was constrained
+   * whereNumber while index() hands out 'wf-' ids, so every detail click
+   * 404'd, and the screen swallowed it silently. A read that fails must not
+   * look like a read that returned nothing.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isDetailLoading, setIsDetailLoading] = useState(false)
   
   // Pagination & Filtering
@@ -146,9 +160,13 @@ export function AdminCenter() {
         setSummary(res.summary ?? null)
         setTotalPages(res.pagination.last_page)
         setTotalItems(res.pagination.total)
+        setLoadError(null)
+      } else {
+        setLoadError((res as { message?: string })?.message || 'The workflow list could not be loaded.')
       }
     } catch (error) {
       console.error('Failed to fetch workflows:', error)
+      setLoadError(error instanceof Error ? error.message : 'The workflow list could not be loaded.')
     } finally {
       setIsLoading(false)
     }
@@ -168,9 +186,14 @@ export function AdminCenter() {
       const res = await AdminService.getWorkflowById(id)
       if (res.status === 1) {
         setActiveWorkflow(res.data)
+        setLoadError(null)
+      } else {
+        // This is the branch that hid the 404 for as long as it existed.
+        setLoadError((res as { message?: string })?.message || 'That workflow could not be opened.')
       }
     } catch (error) {
       console.error('Failed to load workflow details:', error)
+      setLoadError(error instanceof Error ? error.message : 'That workflow could not be opened.')
     } finally {
       setIsDetailLoading(false)
     }
@@ -372,7 +395,19 @@ export function AdminCenter() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoading ? (
+                    {/* A failed load, said out loud. Without this the row below
+                        reports "No workflows found" for a request that never
+                        succeeded. */}
+                    {!isLoading && loadError ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          <p className="text-sm font-semibold text-destructive">{loadError}</p>
+                          <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchWorkflows()}>
+                            Try again
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ) : isLoading ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center">
                           <Loader2 className="size-6 animate-spin text-muted-foreground mx-auto" />
@@ -602,16 +637,46 @@ export function AdminCenter() {
              and still say so. */
           <HiringTeamPanel />
         ) : (
+          /*
+           * WHAT THESE THREE TABS ACTUALLY ARE.
+           *
+           * Templates, Integrations and Configuration all rendered one shared
+           * card reading "Module Under Construction ... will provide advanced
+           * configuration capabilities in a future update". Three tabs, one
+           * message, no way to tell which was which.
+           *
+           * Unlike the four campaign tabs and the six write paths fixed
+           * alongside them, these genuinely have NO backend: there is no
+           * integrations or configuration endpoint under /talent/admin at all,
+           * and talent_offer_templates - the one templates table - is empty on
+           * every tenant in the database, with only a read endpoint.
+           *
+           * So this does not pretend work is imminent. It says what the tab is
+           * for, states plainly that it is not built, and - where the thing
+           * exists elsewhere today - points at where it actually lives. A
+           * signpost is worth more than a promise.
+           */
           <div className="flex flex-col items-center justify-center h-[500px] text-center max-w-[1400px] bg-surface rounded-xl border border-dashed border-border p-8">
             <div className="p-4 bg-muted/50 rounded-full mb-4">
               <Settings className="size-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Module Under Construction</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mb-6">
-              This section is currently being built. It will provide advanced configuration capabilities in a future update.
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {activeTab === 'templates' ? 'Offer letter templates'
+                : activeTab === 'integrations' ? 'Integrations'
+                : 'Module configuration'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mb-2">
+              {activeTab === 'templates'
+                ? 'This tab would list the offer and letter templates this organisation sends. No template has been created on any organisation yet, and there is no endpoint here to create one - templates are attached to an offer when it is drafted in Recruitment.'
+                : activeTab === 'integrations'
+                  ? 'This tab would show connections to external HR and payroll systems. Nothing in Talent Management reads or writes integration settings today.'
+                  : 'This tab would hold Talent-specific settings. Organisation-wide configuration lives in Settings, not here.'}
+            </p>
+            <p className="text-xs text-muted-foreground mb-6">
+              Not built — this is a placeholder, not a feature in progress.
             </p>
             <Button variant="outline" onClick={() => setActiveTab('workflows')}>
-              Return to Workflows
+              Back to Workflows
             </Button>
           </div>
         )}

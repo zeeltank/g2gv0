@@ -61,6 +61,10 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -139,7 +143,10 @@ export function MobilityCenter() {
    * a save succeeded or failed. They were conflated by having neither: every
    * mutation here read
    *
-   *     if (res.status === 1) { ...refresh... }
+   *     if (res.status === 1) { ...refresh... } else {
+   *       // A refused save (status 0) used to do nothing at all here.
+   *       setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
+   *     }
    *
    * with no else, so a rejected save left the dialog open and said nothing at
    * all - 27 of them. The catch blocks did speak, but through window.alert(),
@@ -165,6 +172,18 @@ export function MobilityCenter() {
    * re-added, losing the row's history.
    */
   const [editingSuccessionId, setEditingSuccessionId] = useState<number | null>(null)
+
+  /*
+   * REJECTING SOMEONE ASKED NOTHING.
+   *
+   * Two controls set an internal application to 'Rejected' on a single click:
+   * a ghost icon button in the applicant list, five pixels from "Screen" and
+   * "Interview", and a text button beside "Offer". Both end a colleague's
+   * application for an internal move, and nothing on this screen puts one back.
+   */
+  const [confirmation, setConfirmation] = useState<
+    { title: string; description: string; run: () => void } | null
+  >(null)
   const [isCreatePoolOpen, setIsCreatePoolOpen] = useState(false)
   const [isPoolMembersOpen, setIsPoolMembersOpen] = useState(false)
   const [isRecordTransferOpen, setIsRecordTransferOpen] = useState(false)
@@ -282,6 +301,9 @@ export function MobilityCenter() {
       const res = await mobilityService.getApplications({ job_posting_id: String(jobId) })
       if (res.status === 1) {
         setSelectedJobApplicants(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err) {
       console.error('Error loading sidebar applicants:', err)
@@ -409,9 +431,12 @@ export function MobilityCenter() {
           description: '',
           status: 'Open'
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to create job posting.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to create job posting.' })
     }
   }
 
@@ -449,9 +474,12 @@ export function MobilityCenter() {
         setIsEditJobOpen(false)
         fetchListData()
         setSelectedJob(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update job posting.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update job posting.' })
     }
   }
 
@@ -466,9 +494,12 @@ export function MobilityCenter() {
         if (selectedJob && selectedJob.id === jobId) {
           setSelectedJob(res.data)
         }
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to close job.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to close job.' })
     }
   }
 
@@ -486,10 +517,13 @@ export function MobilityCenter() {
         setApplyForm({ remarks: '' })
         fetchListData()
         loadFiltersAndOverview()
-        alert('Application submitted successfully!')
+        setActionFeedback({ kind: 'success', message: 'Application submitted.' })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to submit application.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to submit application.' })
     }
   }
 
@@ -503,9 +537,12 @@ export function MobilityCenter() {
         if (selectedJob) {
           fetchSelectedJobApplicants(selectedJob.id)
         }
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update status.' })
     }
   }
 
@@ -624,9 +661,12 @@ export function MobilityCenter() {
           status: 'Pending',
           remarks: ''
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to record transfer.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to record transfer.' })
     }
   }
 
@@ -636,9 +676,12 @@ export function MobilityCenter() {
       if (res.status === 1) {
         fetchListData()
         loadFiltersAndOverview()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update transfer status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update transfer status.' })
     }
   }
 
@@ -670,9 +713,12 @@ export function MobilityCenter() {
           status: 'Pending',
           remarks: ''
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to record promotion.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to record promotion.' })
     }
   }
 
@@ -682,9 +728,12 @@ export function MobilityCenter() {
       if (res.status === 1) {
         fetchListData()
         loadFiltersAndOverview()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update promotion status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update promotion status.' })
     }
   }
 
@@ -697,9 +746,12 @@ export function MobilityCenter() {
         setIsCreatePoolOpen(false)
         fetchListData()
         setPoolForm({ name: '', description: '', status: 'Active' })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to create talent pool.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to create talent pool.' })
     }
   }
 
@@ -711,6 +763,9 @@ export function MobilityCenter() {
       const res = await mobilityService.getPoolMembers(pool.id)
       if (res.status === 1) {
         setPoolMembers(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err) {
       console.error('Error loading pool members:', err)
@@ -729,9 +784,12 @@ export function MobilityCenter() {
         const refreshed = await mobilityService.getPoolMembers(selectedPool.id)
         if (refreshed.status === 1) setPoolMembers(refreshed.data)
         fetchListData()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to add member to pool.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to add member to pool.' })
     }
   }
 
@@ -746,9 +804,12 @@ export function MobilityCenter() {
         const refreshed = await mobilityService.getPoolMembers(selectedPool.id)
         if (refreshed.status === 1) setPoolMembers(refreshed.data)
         fetchListData()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to remove pool member.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to remove pool member.' })
     }
   }
 
@@ -1286,7 +1347,18 @@ export function MobilityCenter() {
                       <TableHeader className="bg-muted/10">
                         <TableRow>
                           <TableHead className="w-[40px] pl-4">
-                            <Checkbox />
+                            {/* The select-all had no handler at all - it
+                                selected nothing, while every row checkbox below
+                                it worked. A header checkbox that does nothing
+                                reads as "selection is broken", not "this one
+                                control is". */}
+                            <Checkbox
+                              aria-label="Select all internal jobs"
+                              checked={sortedJobs.length > 0 && selectedJobs.length === sortedJobs.length}
+                              onCheckedChange={(checked) =>
+                                setSelectedJobs(checked ? sortedJobs.map((job) => String(job.id)) : [])
+                              }
+                            />
                           </TableHead>
                           <TableHead className="font-semibold text-foreground h-10 text-xs">Job Title</TableHead>
                           <TableHead className="font-semibold text-foreground h-10 text-xs">Department</TableHead>
@@ -1653,7 +1725,11 @@ export function MobilityCenter() {
                                     <Button size="icon" variant="outline" className="h-5 w-5 text-success" onClick={() => handleUpdateApplicationStatus(app.id, 'Offered')} title="Offer">
                                       <CheckCircle2 className="size-3" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')} title="Reject">
+                                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => setConfirmation({
+                                      title: 'Reject this application?',
+                                      description: `${app.applicant ?? 'This applicant'}'s application for this internal role is marked Rejected. Nothing here reverses it.`,
+                                      run: () => handleUpdateApplicationStatus(app.id, 'Rejected'),
+                                    })} title="Reject">
                                       <X className="size-3" />
                                     </Button>
                                   </div>
@@ -1876,7 +1952,11 @@ export function MobilityCenter() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-7 text-[10px] text-destructive px-2"
-                                onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')}
+                                onClick={() => setConfirmation({
+                                  title: 'Reject this application?',
+                                  description: `${app.applicant ?? 'This applicant'}'s application for this internal role is marked Rejected. Nothing here reverses it.`,
+                                  run: () => handleUpdateApplicationStatus(app.id, 'Rejected'),
+                                })}
                               >
                                 Reject
                               </Button>
@@ -2515,6 +2595,29 @@ export function MobilityCenter() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const action = confirmation?.run
+                // Closed first, so a slow call cannot be confirmed twice.
+                setConfirmation(null)
+                if (action) action()
+              }}
+            >
+              Reject
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* MODAL: Nominate Successor */}
       <Dialog

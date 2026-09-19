@@ -39,8 +39,7 @@ import {
   Send,
   Building,
   UserX,
-  Receipt,
-  CheckSquare
+  Receipt
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,6 +72,10 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function OffboardingCenter() {
   const { user } = useAuth()
@@ -368,6 +371,17 @@ export function OffboardingCenter() {
     }
   }
 
+  /*
+   * CLOSING AN EXIT CASE IS TERMINAL AND ASKED NOTHING.
+   *
+   * "Close Exit Case" sat in a column of six identical-looking outline
+   * buttons - between "Generate F&F" and the ones that merely switch tab -
+   * and ended the case on one click. Nothing on this screen reopens one.
+   */
+  const [confirmation, setConfirmation] = useState<
+    { title: string; description: string; run: () => Promise<unknown> } | null
+  >(null)
+
   const handleStatusTransition = async (newStatus: string) => {
     if (!activeCaseId) return
     try {
@@ -393,6 +407,25 @@ export function OffboardingCenter() {
       console.error(err)
       showBanner('error', 'Failed to update clearance checklist')
     }
+  }
+
+  /**
+   * Open an uploaded exit document.
+   *
+   * Nothing in this screen could open a file. A reviewer was shown Verify and
+   * Reject on a document they had no way to READ - approving paperwork
+   * unseen - and "View Resignation" reported success without opening
+   * anything.
+   *
+   * noopener/noreferrer because the URL is stored per tenant and the opened
+   * page must not get a handle on this one.
+   */
+  const openDocument = (doc: DocumentItem | undefined, label: string) => {
+    if (!doc?.fileUrl) {
+      showBanner('error', `No ${label} has been uploaded to this case yet.`)
+      return
+    }
+    window.open(doc.fileUrl, '_blank', 'noopener,noreferrer')
   }
 
   const handleDocStatusUpdate = async (docId: string, newStatus: 'Pending' | 'Submitted' | 'Verified' | 'Rejected', fileName?: string | null) => {
@@ -1701,10 +1734,25 @@ export function OffboardingCenter() {
                       <h3 className="text-sm font-bold text-foreground">Actions</h3>
                       
                       <div className="flex flex-col gap-2.5">
-                        <Button 
-                          variant="outline" 
+                        {/*
+                          * This showed a GREEN SUCCESS banner reading "Opening
+                          * resignation letter..." and opened nothing at all.
+                          * A success message for something that did not happen
+                          * is worse than no button: the reader goes looking for
+                          * a window that was never opened.
+                          *
+                          * It opens the real file now, and when there is no
+                          * file it says so plainly instead of claiming success.
+                          */}
+                        <Button
+                          variant="outline"
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => showBanner('success', 'Opening resignation letter...')}
+                          onClick={() => openDocument(
+                            activeCaseDetails?.documents?.find(
+                              (d) => d.id === 'd1' || /resignation/i.test(d.title),
+                            ),
+                            'resignation letter',
+                          )}
                         >
                           <FileText className="size-4 text-muted-foreground" /> View Resignation
                         </Button>
@@ -1725,12 +1773,25 @@ export function OffboardingCenter() {
                           <Users className="size-4 text-muted-foreground" /> Assign Handover
                         </Button>
 
+                        {/*
+                          * "Update Clearance" and "View Clearance Status" were
+                          * two buttons with two icons, two labels and ONE
+                          * behaviour - both called setActiveTopTab('clearance').
+                          * A reader comparing them looks for the difference
+                          * between updating and viewing, and there is none.
+                          * One button, named for what it opens.
+                          *
+                          * These duplicate the tab strip directly above the
+                          * panel, so they are shortcuts rather than features;
+                          * kept, because the strip is easy to miss beside a
+                          * column headed "Actions", but not doubled.
+                          */}
                         <Button 
                           variant="outline" 
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
                           onClick={() => setActiveTopTab('clearance')}
                         >
-                          <Shield className="size-4 text-muted-foreground" /> Update Clearance
+                          <Shield className="size-4 text-muted-foreground" /> Clearance Checklist
                         </Button>
 
                         <Button 
@@ -1738,15 +1799,7 @@ export function OffboardingCenter() {
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
                           onClick={() => setActiveTopTab('exit-interview')}
                         >
-                          <Calendar className="size-4 text-muted-foreground" /> Schedule Exit Interview
-                        </Button>
-
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => setActiveTopTab('clearance')}
-                        >
-                          <CheckSquare className="size-4 text-muted-foreground" /> View Clearance Status
+                          <Calendar className="size-4 text-muted-foreground" /> Exit Interview
                         </Button>
 
                         <Button 
@@ -1760,7 +1813,12 @@ export function OffboardingCenter() {
                         <Button 
                           variant="outline" 
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => handleStatusTransition('Closed')}
+                          onClick={() => setConfirmation({
+                            title: 'Close this exit case?',
+                            description: 'The case moves to Closed. Nothing on this screen reopens one, '
+                              + 'and any clearance still outstanding stays outstanding.',
+                            run: () => handleStatusTransition('Closed'),
+                          })}
                         >
                           <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
                         </Button>
@@ -1847,9 +1905,16 @@ export function OffboardingCenter() {
                             </StatusBadge>
                             
                             <div className="flex items-center gap-1.5">
+                              {/* Verify and Reject sat here with no way to READ
+                                  the document they judge. */}
+                              {doc.fileUrl && (
+                                <Button size="xs" variant="outline" onClick={() => openDocument(doc, doc.title)}>
+                                  View
+                                </Button>
+                              )}
                               {doc.status !== 'Verified' && (
                                 <Button size="xs" variant="outline" onClick={() => setUploadingDocId(doc.id)}>
-                                  Upload File
+                                  {doc.fileUrl ? 'Replace' : 'Upload File'}
                                 </Button>
                               )}
                               {doc.status === 'Submitted' && (
@@ -2157,6 +2222,28 @@ export function OffboardingCenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                const action = confirmation?.run
+                // Closed before running, so a slow call cannot be confirmed twice.
+                setConfirmation(null)
+                if (action) void action()
+              }}
+            >
+              Close the case
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 5. Upload Exit Document */}
       <Dialog

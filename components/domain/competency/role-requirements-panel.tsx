@@ -132,6 +132,60 @@ export function RoleRequirementsPanel() {
     setNotice(null)
   }
 
+  /**
+   * DROP ONE REQUIREMENT.
+   *
+   * Removing a row normally just edits local state; `save` syncs and the
+   * server deletes whatever is missing from the list. That works for every row
+   * but the LAST one, because POST /competency/role-map validates
+   * `items` as `min:1` and refuses an empty array.
+   *
+   * So a role with a single requirement could not be cleared at all. Removing
+   * the row and pressing Save produced
+   *
+   *     "A role needs at least one requirement. Remove rows individually to
+   *      clear it."
+   *
+   * — pointing at a per-row delete that did not exist anywhere in the app.
+   * roleRequirementsService.remove and DELETE /competency/role-map/{id} were
+   * both written and never called.
+   *
+   * The last persisted row therefore deletes on the server immediately, which
+   * is the only route to an empty list. It is also the one case that cannot be
+   * undone by pressing Cancel, so it asks first.
+   */
+  const dropRow = async (index: number) => {
+    const target = rows[index]
+    const isLastPersisted = rows.length === 1 && target?.id != null
+
+    if (!isLastPersisted) {
+      // Unsaved, or one of several: local edit, applied by the next save.
+      setRows((p) => p.filter((_, j) => j !== index))
+      return
+    }
+
+    const ctx = getLaravelContext(user)
+    if (!isLaravelContextReady(ctx)) return
+
+    if (!window.confirm(
+      `Remove "${target.competency_name}"? It is the only requirement on this role, `
+      + 'so it is deleted straight away rather than on save.',
+    )) return
+
+    setSaving(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await roleRequirementsService.remove(ctx, target.id as number)
+      setRows([])
+      setNotice('Requirement removed. This role now has none.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The requirement could not be removed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const save = async () => {
     const ctx = getLaravelContext(user)
     if (roleId === null || !isLaravelContextReady(ctx)) return
@@ -139,7 +193,9 @@ export function RoleRequirementsPanel() {
     // per-row delete, not a save — so this is stopped here with a reason
     // rather than sent to collect a 422.
     if (rows.length === 0) {
-      setError('A role needs at least one requirement. Remove rows individually to clear it.')
+      // Reachable only by removing several rows at once, since the LAST row now
+      // deletes on the server as it goes. Says what to do, not what not to do.
+      setError('A role needs at least one requirement to save. Add one, or remove the remaining rows one at a time to clear the role entirely.')
       return
     }
     setSaving(true)
@@ -302,8 +358,12 @@ export function RoleRequirementsPanel() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setRows((p) => p.filter((_, j) => j !== i))}
+                      disabled={saving}
+                      onClick={() => dropRow(i)}
                       aria-label={`Remove ${r.competency_name}`}
+                      title={rows.length === 1 && r.id != null
+                        ? 'Delete this requirement now - it is the last one on this role'
+                        : 'Remove from this role (applied when you save)'}
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
@@ -313,7 +373,8 @@ export function RoleRequirementsPanel() {
             </tbody>
           </table>
           <p className="px-4 py-2 text-xs text-muted-foreground border-t border-border">
-            Saving replaces this role’s whole list. Rows you remove here are deleted when you save.
+            Saving replaces this role’s whole list. Rows you remove here are deleted when you save —
+            except the last one, which is deleted straight away, because a role cannot be saved with an empty list.
           </p>
         </div>
       )}

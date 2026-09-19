@@ -980,6 +980,22 @@ export function usePerformanceMutations() {
     [run, resolveContext],
   )
 
+  /*
+   * RENAME, RE-SCOPE, OR MAKE A VIEW THE DEFAULT.
+   *
+   * performanceService.updateSavedView and PUT /performance/saved-views/{id}
+   * both existed with no caller, so a saved view was immutable: the menu
+   * DISPLAYED whether each one was Shared or Private and which was the
+   * default, and offered no way to change either. A typo in a view's name, or
+   * one shared by mistake, could only be deleted and rebuilt - losing the
+   * filters that made it worth saving.
+   */
+  const updateSavedView = useCallback(
+    (id: number, payload: { name?: string; filters?: Record<string, string>; is_shared?: boolean; is_default?: boolean }) =>
+      run(() => performanceService.updateSavedView(resolveContext(), id, payload), 'Saved view updated'),
+    [run, resolveContext],
+  )
+
   const deleteSavedView = useCallback(
     (id: number) => run(() => performanceService.deleteSavedView(resolveContext(), id), 'Saved view deleted'),
     [run, resolveContext],
@@ -1026,6 +1042,7 @@ export function usePerformanceMutations() {
     uploadAttachment,
     deleteAttachment,
     createSavedView,
+    updateSavedView,
     deleteSavedView,
   }
 }
