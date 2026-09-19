@@ -139,7 +139,27 @@ export function NineBoxGrid() {
                       'rounded-xl border p-3 transition-colors',
                       n > 0 ? 'border-primary/20 bg-primary/5' : 'border-dashed border-border bg-muted/10',
                     )}
-                    style={n > 0 ? { backgroundColor: `hsl(var(--primary) / ${0.04 + (n / max) * 0.12})` } : undefined}
+                    /*
+                     * THE DENSITY TINT, WHICH HAS NEVER RENDERED.
+                     *
+                     * This read `hsl(var(--primary) / ...)`, but --primary is
+                     * already a complete colour - `hsl(221 83% 53%)` in
+                     * globals.css - so it expanded to
+                     *
+                     *     hsl(hsl(221 83% 53%) / 0.1)
+                     *
+                     * which is not valid CSS. The browser drops an invalid
+                     * declaration silently, so every populated box fell back to
+                     * the flat bg-primary/5 from the className and the grid
+                     * showed no density at all. A heat map with one colour is
+                     * just a table - which is the whole point of this component.
+                     *
+                     * color-mix is what the rest of this codebase uses against
+                     * these tokens, and it takes the token as-is.
+                     */
+                    style={n > 0
+                      ? { backgroundColor: `color-mix(in srgb, var(--primary) ${Math.round((0.04 + (n / max) * 0.12) * 100)}%, transparent)` }
+                      : undefined}
                   >
                     <p className="text-lg font-bold text-foreground">{n}</p>
                     <p className="mt-0.5 text-[10px] font-semibold leading-tight text-muted-foreground">

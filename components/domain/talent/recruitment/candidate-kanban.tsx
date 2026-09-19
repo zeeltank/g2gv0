@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Star, MoreVertical, Plus } from 'lucide-react'
+import { Star, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Candidate, CandidateStage } from './recruitment-data'
@@ -27,16 +27,20 @@ export function CandidateCard({ candidate, onClick }: CandidateCardProps) {
           <span className="text-sm font-semibold text-foreground truncate">{candidate.name}</span>
           <span className="text-xs text-muted-foreground truncate">{candidate.role}</span>
         </div>
+        {/*
+          * The "..." button that used to sit here had exactly one statement in
+          * its handler - e.stopPropagation() - and no menu behind it: no
+          * dropdown was imported into this file, and none was ever written.
+          *
+          * It was worse than inert. It appeared on hover, looked like the way
+          * to act on a candidate, and SWALLOWED the click that would otherwise
+          * have opened them, because the card's own onClick is what opens the
+          * detail panel. Removed rather than disabled: the card is already
+          * clickable, so there is no action a menu would carry that is not
+          * already one click away.
+          */}
         <div className="flex items-center gap-1 shrink-0">
           {candidate.starred && <Star className="size-3.5 text-warning fill-warning" />}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="p-0.5 size-6 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => { e.stopPropagation() }}
-          >
-            <MoreVertical className="size-3.5" />
-          </Button>
         </div>
       </div>
       <span className="text-[11px] text-muted-foreground">{candidate.appliedOn}</span>

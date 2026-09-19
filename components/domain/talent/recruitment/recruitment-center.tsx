@@ -682,7 +682,7 @@ export function RecruitmentCenter() {
               </div>
 
               {/* Table */}
-              <div className="rounded-lg border border-border overflow-hidden">
+              <div className="rounded-lg border border-border overflow-x-auto">
                 <Table className="w-full [&_td]:p-3 [&_th]:p-3">
                   <TableHeader className="bg-surface-muted">
                     <TableRow>
@@ -822,7 +822,7 @@ export function RecruitmentCenter() {
 
       {/* TAB: Requisitions */}
       {activeTab === 'requisitions' && (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <Table className="w-full [&_td]:p-3 [&_th]:p-3">
             <TableHeader className="bg-surface-muted">
               <TableRow>
@@ -905,7 +905,7 @@ export function RecruitmentCenter() {
 
       {/* TAB: Job Openings */}
       {activeTab === 'job-openings' && (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <Table className="w-full [&_td]:p-3 [&_th]:p-3">
             <TableHeader className="bg-surface-muted">
               <TableRow>
@@ -966,7 +966,7 @@ export function RecruitmentCenter() {
 
       {/* TAB: Interviews */}
       {activeTab === 'interviews' && (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <Table className="w-full [&_td]:p-3 [&_th]:p-3">
             <TableHeader className="bg-surface-muted">
               <TableRow>
@@ -1029,8 +1029,13 @@ export function RecruitmentCenter() {
       )}
 
       {/* TAB: Offers */}
+      {/* overflow-x-auto, not overflow-hidden, on all five tables in this file:
+          they carry up to ten columns and were CLIPPED below roughly 1400px, so
+          the right-hand ones - including the row actions - could not be reached
+          at all. The corners still clip, because a non-visible overflow on one
+          axis makes the other clip too. */}
       {activeTab === 'offers' && (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <Table className="w-full [&_td]:p-3 [&_th]:p-3">
             <TableHeader className="bg-surface-muted">
               <TableRow>

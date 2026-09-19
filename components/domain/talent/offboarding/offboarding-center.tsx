@@ -395,6 +395,25 @@ export function OffboardingCenter() {
     }
   }
 
+  /**
+   * Open an uploaded exit document.
+   *
+   * Nothing in this screen could open a file. A reviewer was shown Verify and
+   * Reject on a document they had no way to READ - approving paperwork
+   * unseen - and "View Resignation" reported success without opening
+   * anything.
+   *
+   * noopener/noreferrer because the URL is stored per tenant and the opened
+   * page must not get a handle on this one.
+   */
+  const openDocument = (doc: DocumentItem | undefined, label: string) => {
+    if (!doc?.fileUrl) {
+      showBanner('error', `No ${label} has been uploaded to this case yet.`)
+      return
+    }
+    window.open(doc.fileUrl, '_blank', 'noopener,noreferrer')
+  }
+
   const handleDocStatusUpdate = async (docId: string, newStatus: 'Pending' | 'Submitted' | 'Verified' | 'Rejected', fileName?: string | null) => {
     if (!activeCaseId || !activeCaseDetails) return
     const docs = activeCaseDetails.documents || []
@@ -1701,10 +1720,25 @@ export function OffboardingCenter() {
                       <h3 className="text-sm font-bold text-foreground">Actions</h3>
                       
                       <div className="flex flex-col gap-2.5">
-                        <Button 
-                          variant="outline" 
+                        {/*
+                          * This showed a GREEN SUCCESS banner reading "Opening
+                          * resignation letter..." and opened nothing at all.
+                          * A success message for something that did not happen
+                          * is worse than no button: the reader goes looking for
+                          * a window that was never opened.
+                          *
+                          * It opens the real file now, and when there is no
+                          * file it says so plainly instead of claiming success.
+                          */}
+                        <Button
+                          variant="outline"
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => showBanner('success', 'Opening resignation letter...')}
+                          onClick={() => openDocument(
+                            activeCaseDetails?.documents?.find(
+                              (d) => d.id === 'd1' || /resignation/i.test(d.title),
+                            ),
+                            'resignation letter',
+                          )}
                         >
                           <FileText className="size-4 text-muted-foreground" /> View Resignation
                         </Button>
@@ -1847,9 +1881,16 @@ export function OffboardingCenter() {
                             </StatusBadge>
                             
                             <div className="flex items-center gap-1.5">
+                              {/* Verify and Reject sat here with no way to READ
+                                  the document they judge. */}
+                              {doc.fileUrl && (
+                                <Button size="xs" variant="outline" onClick={() => openDocument(doc, doc.title)}>
+                                  View
+                                </Button>
+                              )}
                               {doc.status !== 'Verified' && (
                                 <Button size="xs" variant="outline" onClick={() => setUploadingDocId(doc.id)}>
-                                  Upload File
+                                  {doc.fileUrl ? 'Replace' : 'Upload File'}
                                 </Button>
                               )}
                               {doc.status === 'Submitted' && (
