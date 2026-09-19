@@ -1331,7 +1331,18 @@ export function MobilityCenter() {
                       <TableHeader className="bg-muted/10">
                         <TableRow>
                           <TableHead className="w-[40px] pl-4">
-                            <Checkbox />
+                            {/* The select-all had no handler at all - it
+                                selected nothing, while every row checkbox below
+                                it worked. A header checkbox that does nothing
+                                reads as "selection is broken", not "this one
+                                control is". */}
+                            <Checkbox
+                              aria-label="Select all internal jobs"
+                              checked={sortedJobs.length > 0 && selectedJobs.length === sortedJobs.length}
+                              onCheckedChange={(checked) =>
+                                setSelectedJobs(checked ? sortedJobs.map((job) => String(job.id)) : [])
+                              }
+                            />
                           </TableHead>
                           <TableHead className="font-semibold text-foreground h-10 text-xs">Job Title</TableHead>
                           <TableHead className="font-semibold text-foreground h-10 text-xs">Department</TableHead>

@@ -1,0 +1,105 @@
+/*
+ * KNOWN POSITIVES — every one of these is a real bug that shipped.
+ *
+ * Each block is copied in shape from the code it was found in, and each must be
+ * caught by the rule named above it. `node scripts/dead-controls.mjs --self-test`
+ * scans this file and fails if any rule stops firing.
+ *
+ * A rule that cannot be shown to catch anything is not evidence of a clean
+ * codebase — it is an untested assertion. The scanner reported 0 for weeks
+ * while every finding below was live in the product.
+ *
+ * .tsx.txt, not .tsx, so the build and eslint never see it. The scanner reads
+ * it only in --self-test.
+ */
+
+// ── unwired-input ────────────────────────────────────────────────────────────
+// cm-assessment-workspace: derived options, no value, no onChange. The dropdown
+// opened, accepted a choice, and filtered nothing.
+export function DeadFilters() {
+  return (
+    <div>
+      <Input placeholder="Search review cycles..." className="h-9 pl-8" />
+      <Select options={statusOptions} placeholder="Status" className="h-9 w-32" />
+    </div>
+  )
+}
+
+// ── inert-handler ────────────────────────────────────────────────────────────
+// candidate-kanban: a hover-revealed "..." whose whole handler was
+// stopPropagation, with no menu behind it — and which ate the card's own click.
+export function DeadCardMenu() {
+  return (
+    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation() }}>
+      <MoreVertical className="size-3.5" />
+    </Button>
+  )
+}
+
+// ── inert-handler ────────────────────────────────────────────────────────────
+// offboarding-center: a GREEN SUCCESS banner for something that never happened.
+export function LyingButton() {
+  return (
+    <Button onClick={() => showBanner('success', 'Opening resignation letter...')}>
+      View Resignation
+    </Button>
+  )
+}
+
+// ── derived-tab-id ───────────────────────────────────────────────────────────
+// cm-assessment-workspace: "Audit Trail" became "audit", so the placeholder
+// advertised "building the audit functionality" — a tab that could not name
+// itself, and renaming any label silently repointed its tab.
+export function DerivedTabIds() {
+  return (
+    <div>
+      {['Overview', 'Participants', 'Ratings', 'Calibration', 'Audit Trail'].map(tab => {
+        const id = tab.toLowerCase().split(' ')[0]
+        return <button key={tab} onClick={() => setCampaignTab(id)}>{tab}</button>
+      })}
+    </div>
+  )
+}
+
+// ── literal-in-map ───────────────────────────────────────────────────────────
+// cm-assessment-workspace: a hardcoded 5 rendered as a count badge on Ratings
+// and Calibration, in every campaign, in every tenant.
+export function InventedCounts() {
+  return (
+    <div>
+      {['Ratings', 'Calibration'].map(tab => (
+        <button key={tab}>
+          {tab} <span className="rounded-full px-1.5 text-[10px]">5</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── coming-soon ──────────────────────────────────────────────────────────────
+// admin-center and cm-assessment-workspace both shipped a placeholder standing
+// in for endpoints that were already finished and already returning data.
+export function ComingSoonPanel() {
+  return (
+    <div className="border-dashed p-12">
+      <p className="text-lg font-bold">This section is coming soon</p>
+      <p className="text-sm">We are currently building the {campaignTab} functionality.</p>
+    </div>
+  )
+}
+
+// ── silent-status-check ──────────────────────────────────────────────────────
+// mobility-center, seventeen times: the API answers 200 with {status: 0} for a
+// refused save, and that branch did nothing at all. The drawer stayed open and
+// the screen said nothing, so a rejected save looked exactly like a slow one.
+export async function SilentSave() {
+  try {
+    const res = await mobilityService.createJob(payload)
+    if (res.status === 1) {
+      fetchListData()
+      loadFiltersAndOverview()
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to create job posting.')
+  }
+}

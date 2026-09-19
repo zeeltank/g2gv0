@@ -21,8 +21,22 @@
  *   node scripts/dead-controls.mjs                  # all talent + competency screens
  *   node scripts/dead-controls.mjs --json           # machine-readable
  *   node scripts/dead-controls.mjs path/to/file.tsx # one file
+ *   node scripts/dead-controls.mjs --self-test      # prove the rules still fire
  *
  * Exits 1 when anything is found, so it can sit beside tsc/eslint/build.
+ *
+ * ── WHY --self-test EXISTS ──────────────────────────────────────────────────
+ *
+ * This script reported 0 for weeks while every finding in
+ * scripts/dead-controls.fixtures/known-positives.tsx.txt was live in the
+ * product: four filters that accepted input and filtered nothing, a card menu
+ * whose entire handler was stopPropagation, a button that showed a green
+ * success banner and opened nothing, tab ids derived from labels, a hardcoded
+ * count badge, and seventeen saves that failed in silence.
+ *
+ * A clean report only means something if the rules can be shown to catch
+ * something. --self-test scans the fixtures and fails if any rule stops
+ * firing, so "0 findings" stays evidence rather than an untested assertion.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -38,6 +52,7 @@ const SCAN_DIRS = [
 
 const args = process.argv.slice(2)
 const asJson = args.includes('--json')
+const selfTest = args.includes('--self-test')
 const explicit = args.filter((a) => !a.startsWith('--'))
 
 function walk(dir, out = []) {
@@ -55,9 +70,18 @@ function walk(dir, out = []) {
   return out
 }
 
-const files = explicit.length
-  ? explicit.map((f) => join(ROOT, f))
-  : SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))
+/*
+ * In --self-test the only input is the fixture file, which is deliberately full
+ * of the bugs these rules exist to catch. It is named .tsx.txt so the build,
+ * eslint and the ordinary scan never see it.
+ */
+const FIXTURE = 'scripts/dead-controls.fixtures/known-positives.tsx.txt'
+
+const files = selfTest
+  ? [join(ROOT, FIXTURE)]
+  : explicit.length
+    ? explicit.map((f) => join(ROOT, f))
+    : SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))
 
 const findings = []
 const add = (file, line, kind, control, evidence) =>
@@ -118,7 +142,13 @@ function inComment(src, index) {
  *  - href / Link               — navigation IS the behaviour
  *  - disabled                  — deliberately inert, and visibly so
  */
-const WIRED = /\bon(Click|Select|Change|CheckedChange|ValueChange|Press|Submit|Toggle|OpenChange)\s*=|\{\.\.\.\w+\}|\basChild\b|type\s*=\s*["']submit["']|\bhref\s*=|\bdisabled\b/
+/*
+ * KeyDown/KeyUp/KeyPress/Blur/Input are here because a search box that commits
+ * on Enter is wired - onboarding-center's does exactly that, and reporting it
+ * would be a false positive of the kind this file's header calls the only
+ * failure that matters.
+ */
+const WIRED = /\bon(Click|Select|Change|CheckedChange|ValueChange|Press|Submit|Toggle|OpenChange|KeyDown|KeyUp|KeyPress|Blur|Input)\s*=|\{\.\.\.\w+\}|\basChild\b|type\s*=\s*["']submit["']|\bhref\s*=|\bdisabled\b/
 
 /**
  * Immediately inside a Trigger that forwards behaviour to its child.
@@ -269,9 +299,173 @@ for (const file of files) {
     if (n === 0 || n === 100) continue
     add(file, lineOf(src, m.index), 'hardcoded-data', `${m[1]}={${m[2]}}`, m[0])
   }
+
+  /* ── 5. An input or dropdown that cannot report what was typed ───────────
+   *
+   * Four of these shipped in cm-assessment-workspace, two of them on options
+   * DERIVED from the data with a long comment explaining why a hardcoded list
+   * was wrong - and then no value and no onChange on either. They opened,
+   * accepted a choice, and filtered nothing.
+   *
+   * Rule 1 does not cover them: it tracks Buttons and menu items, and an
+   * <Input> is neither.
+   */
+  const FIELDS = /<(Select|Input|Textarea|Checkbox|Switch|RadioGroup)\b/g
+  for (const m of src.matchAll(FIELDS)) {
+    if (inComment(src, m.index)) continue
+    const tag = openingTag(src, m.index)
+    if (WIRED.test(tag)) continue
+    // A field inside a submitting <form> is read on submit, not per keystroke;
+    // `defaultValue` says so explicitly, and readOnly is a deliberate display.
+    if (insideSubmittingForm(src, m.index)) continue
+    if (/\bdefaultValue\s*=|\breadOnly\b|\bdisabled\b/.test(tag)) continue
+    add(file, lineOf(src, m.index), 'unwired-input', m[1], tag.slice(0, 110))
+  }
+
+  /* ── 6. A handler that exists only to look like one ──────────────────────
+   *
+   * Two shapes, both real:
+   *   - the whole body is e.stopPropagation()  (the kanban card's "..." menu,
+   *     which also ATE the card click that would have opened the candidate)
+   *   - the whole body is a SUCCESS message    ("Opening resignation
+   *     letter..." - green banner, nothing opened)
+   *
+   * A success toast for something that did not happen is worse than an inert
+   * button: the reader goes looking for a window that was never opened.
+   */
+  const INERT = /on(?:Click|Select|Press)\s*=\s*\{\s*\(([^)]*)\)\s*=>\s*\{?\s*([^}\n]{0,160}?)\s*\}?\s*\}/g
+  for (const m of src.matchAll(INERT)) {
+    if (inComment(src, m.index)) continue
+
+    /*
+     * ONLY ON SOMETHING THE USER PRESSES.
+     *
+     * stopPropagation on a CONTAINER is correct and common: a
+     * `<TableCell onClick={e => e.stopPropagation()}>` is exactly what stops a
+     * row's own click firing when someone ticks a checkbox inside that cell.
+     * Eleven of those were flagged on this rule's first run, every one of them
+     * working code. False positives are the only failure that matters here, so
+     * the rule is scoped to leaf controls: a Button that swallows a click and
+     * does nothing else is dead; a TableCell that swallows one is doing its job.
+     */
+    const tagStart = src.lastIndexOf('<', m.index)
+    const tagName = (src.slice(tagStart, m.index).match(/^<\s*([A-Za-z][\w.]*)/) || [])[1] || ''
+    if (!/^(Button|button|a|IconButton|MenuItem|DropdownMenuItem)$/.test(tagName)) continue
+
+    const body = m[2].trim().replace(/;$/, '')
+    const onlyStop = /^\w+\.stopPropagation\(\s*\)$/.test(body)
+    const onlySuccessToast = /^(showBanner|toast|setNotice|setBanner)\(\s*['"]success['"]/.test(body)
+    if (!onlyStop && !onlySuccessToast) continue
+    add(file, lineOf(src, m.index), 'inert-handler',
+      onlyStop ? 'stopPropagation only' : 'success message only', body.slice(0, 90))
+  }
+
+  /* ── 7. A tab id derived from its own label ──────────────────────────────
+   *
+   * `tab.toLowerCase().split(' ')[0]` turned "Audit Trail" into "audit", so
+   * the placeholder announced "building the audit functionality" - a tab that
+   * could not say its own name. Two labels sharing a first word would silently
+   * share a tab, and renaming a label repoints it with nothing to notice.
+   */
+  const DERIVED = /\b\w+\.toLowerCase\(\)\s*\.\s*(split\(|replace\(|slice\()/g
+  for (const m of src.matchAll(DERIVED)) {
+    if (inComment(src, m.index)) continue
+    // Only when it is feeding an identifier, not a search comparison.
+    const around = src.slice(Math.max(0, m.index - 140), m.index + 80)
+    if (!/\b(id|key|value|tab|slug)\b\s*=/.test(around)) continue
+    add(file, lineOf(src, m.index), 'derived-tab-id', m[0],
+      'an id computed from a display label')
+  }
+
+  /* ── 8. A literal rendered inside a map over a literal list ──────────────
+   *
+   * The campaign tab strip rendered a hardcoded 5 as a count badge on Ratings
+   * and Calibration - in every campaign, in every tenant. Rule 4 misses it
+   * because it is JSX text, not a numeric prop.
+   */
+  const MAPS = /\[([^\][]{0,200})\]\s*\.map\s*\(/g
+  for (const m of src.matchAll(MAPS)) {
+    if (inComment(src, m.index)) continue
+    if (!/['"]/.test(m[1])) continue          // a list of literals, not of data
+    // The body of the arrow, roughly: up to its closing )} .
+    const body = src.slice(m.index, m.index + 700)
+    const badge = body.match(/>\s*(\d{1,4})\s*</)
+    if (!badge || badge[1] === '0') continue
+    add(file, lineOf(src, m.index), 'literal-in-map', badge[1],
+      `${badge[1]} rendered for every item of a literal list`)
+  }
+
+  /* ── 9. A placeholder standing in for a finished backend ─────────────────
+   *
+   * Both of these stood in front of endpoints that were already written and
+   * already returning data - four campaign tabs and three Administration
+   * tabs. "Coming soon" is a claim about the backend, and it was false.
+   */
+  const SOON = /(coming soon|under construction|currently being built|we are currently building)/gi
+  for (const m of src.matchAll(SOON)) {
+    if (inComment(src, m.index)) continue
+    add(file, lineOf(src, m.index), 'coming-soon', m[1],
+      'check whether the endpoint behind this already exists')
+  }
+
+  /* ── 10. A save whose failure branch does not exist ──────────────────────
+   *
+   * `if (res.status === 1) { ...refresh... }` with no else, seventeen times in
+   * mobility-center. The API answers 200 with {status: 0, message} for a
+   * refused save, and that branch did nothing: drawer open, nothing changed,
+   * nothing said. The catch block does not cover it - a 200 never throws.
+   */
+  const STATUS_OK = /if\s*\(\s*(?:\w+\.)?(?:res|response|result)\w*\.status\s*===?\s*1\s*\)\s*\{/g
+  for (const m of src.matchAll(STATUS_OK)) {
+    if (inComment(src, m.index)) continue
+    // Walk to the matching brace and see whether an else follows.
+    let depth = 0
+    let i = m.index + m[0].length - 1
+    for (; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') { depth--; if (depth === 0) break }
+    }
+    if (/^\s*else\b/.test(src.slice(i + 1, i + 30))) continue
+    add(file, lineOf(src, m.index), 'silent-status-check', 'status === 1',
+      'a refused save (status 0) falls through and says nothing')
+  }
 }
 
 findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
+
+if (selfTest) {
+  /*
+   * Every rule must still catch the finding it was written for. A rule that
+   * quietly stops matching turns a clean report into a false one, which is
+   * exactly what happened before: this script reported 0 while every fixture
+   * below was live in the product.
+   */
+  const MUST_FIRE = [
+    'unwired-input',
+    'inert-handler',
+    'derived-tab-id',
+    'literal-in-map',
+    'coming-soon',
+    'silent-status-check',
+  ]
+
+  const fired = new Set(findings.map((f) => f.kind))
+  const missing = MUST_FIRE.filter((kind) => !fired.has(kind))
+
+  for (const kind of MUST_FIRE) {
+    const hits = findings.filter((f) => f.kind === kind)
+    console.log(`  ${hits.length ? 'caught ' : 'MISSED '} ${kind.padEnd(20)} ${hits.length} hit(s)`)
+  }
+
+  if (missing.length) {
+    console.log('\nSELF-TEST FAILED - these rules no longer catch their known positive:')
+    for (const kind of missing) console.log(`  ${kind}`)
+    process.exit(1)
+  }
+  console.log(`
+Self-test passed: all ${MUST_FIRE.length} rules still catch a known positive.`)
+  process.exit(0)
+}
 
 if (asJson) {
   console.log(JSON.stringify({ total: findings.length, findings }, null, 2))
