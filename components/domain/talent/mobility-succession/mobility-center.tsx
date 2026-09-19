@@ -34,8 +34,10 @@ import {
   Trash2,
   CheckCircle2,
   XCircle,
-  UserPlus
+  UserPlus,
+  Pencil
 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -130,6 +132,21 @@ export function MobilityCenter() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  /*
+   * THE OUTCOME OF A WRITE, which is a different thing from `error` above.
+   *
+   * `error` means the screen could not load and offers a retry. This one means
+   * a save succeeded or failed. They were conflated by having neither: every
+   * mutation here read
+   *
+   *     if (res.status === 1) { ...refresh... }
+   *
+   * with no else, so a rejected save left the dialog open and said nothing at
+   * all - 27 of them. The catch blocks did speak, but through window.alert(),
+   * which blocks the tab and cannot be styled or dismissed.
+   */
+  const [actionFeedback, setActionFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null)
+
   // Dropdowns/Menus
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false)
 
@@ -138,6 +155,16 @@ export function MobilityCenter() {
   const [isEditJobOpen, setIsEditJobOpen] = useState(false)
   const [isApplyJobOpen, setIsApplyJobOpen] = useState(false)
   const [isNominateSuccessorOpen, setIsNominateSuccessorOpen] = useState(false)
+  /*
+   * Which nomination the dialog is editing, or null to create a new one.
+   *
+   * PUT /mobility/successions/{id} and mobilityService.updateSuccession have
+   * both existed since the module was written and had no caller: a nomination
+   * could be created and deleted but never corrected. Someone whose readiness
+   * moved from "Ready in 1-2 Years" to "Ready Now" had to be deleted and
+   * re-added, losing the row's history.
+   */
+  const [editingSuccessionId, setEditingSuccessionId] = useState<number | null>(null)
   const [isCreatePoolOpen, setIsCreatePoolOpen] = useState(false)
   const [isPoolMembersOpen, setIsPoolMembersOpen] = useState(false)
   const [isRecordTransferOpen, setIsRecordTransferOpen] = useState(false)
@@ -482,31 +509,73 @@ export function MobilityCenter() {
     }
   }
 
-  // Nomination successor submit
+  const resetSuccessorForm = () => {
+    setSuccessorForm({
+      critical_jobrole_id: '',
+      successor_user_id: '',
+      readiness: 'Ready Now',
+      emergency_successor: false,
+      status: 'Active'
+    })
+    setEditingSuccessionId(null)
+  }
+
+  // Open the dialog on an existing nomination rather than a blank one.
+  const handleEditSuccession = (item: any) => {
+    setSuccessorForm({
+      critical_jobrole_id: String(item.critical_jobrole_id ?? ''),
+      successor_user_id: String(item.successor_user_id ?? ''),
+      readiness: item.readiness ?? 'Ready Now',
+      emergency_successor: Boolean(item.emergency_successor),
+      status: item.status ?? 'Active'
+    })
+    setEditingSuccessionId(Number(item.id))
+    setActionFeedback(null)
+    setIsNominateSuccessorOpen(true)
+  }
+
+  // Nomination successor submit - creates, or updates when editing.
   const handleNominateSuccessorSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setActionFeedback(null)
+
+    if (!successorForm.critical_jobrole_id || !successorForm.successor_user_id) {
+      setActionFeedback({ kind: 'error', message: 'Choose both a critical role and the person succeeding into it.' })
+      return
+    }
+
+    const payload = {
+      critical_jobrole_id: Number(successorForm.critical_jobrole_id),
+      successor_user_id: Number(successorForm.successor_user_id),
+      readiness: successorForm.readiness,
+      emergency_successor: successorForm.emergency_successor,
+      status: successorForm.status
+    }
+
     try {
-      const res = await mobilityService.createSuccession({
-        critical_jobrole_id: Number(successorForm.critical_jobrole_id),
-        successor_user_id: Number(successorForm.successor_user_id),
-        readiness: successorForm.readiness,
-        emergency_successor: successorForm.emergency_successor,
-        status: successorForm.status
-      } as any)
+      const res = editingSuccessionId
+        ? await mobilityService.updateSuccession(editingSuccessionId, payload as any)
+        : await mobilityService.createSuccession(payload as any)
+
       if (res.status === 1) {
         setIsNominateSuccessorOpen(false)
+        resetSuccessorForm()
         fetchListData()
         loadFiltersAndOverview()
-        setSuccessorForm({
-          critical_jobrole_id: '',
-          successor_user_id: '',
-          readiness: 'Ready Now',
-          emergency_successor: false,
-          status: 'Active'
+        setActionFeedback({
+          kind: 'success',
+          message: editingSuccessionId ? 'Nomination updated.' : 'Successor nominated.'
+        })
+      } else {
+        // The else that was missing. A refused save now says so instead of
+        // leaving the dialog open and silent.
+        setActionFeedback({
+          kind: 'error',
+          message: (res as any)?.message || 'The nomination could not be saved.'
         })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to nominate successor.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to save the nomination.' })
     }
   }
 
@@ -518,9 +587,12 @@ export function MobilityCenter() {
       if (res.status === 1) {
         fetchListData()
         loadFiltersAndOverview()
+        setActionFeedback({ kind: 'success', message: 'Nomination removed.' })
+      } else {
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'The nomination could not be removed.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to delete nomination.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to delete the nomination.' })
     }
   }
 
@@ -850,6 +922,24 @@ export function MobilityCenter() {
             retry={fetchListData}
             className="mb-6"
           />
+        )}
+
+        {/* The outcome of the last write. Dismissible, and never offers a
+            "retry" - a refused save is not a failed load. */}
+        {actionFeedback && (
+          <Alert
+            variant={actionFeedback.kind === 'error' ? 'destructive' : 'success'}
+            className="mb-6 flex items-start justify-between gap-4"
+          >
+            <AlertDescription>{actionFeedback.message}</AlertDescription>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="shrink-0 text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </Alert>
         )}
 
         {/* Global KPIs Row */}
@@ -2041,9 +2131,26 @@ export function MobilityCenter() {
                           </StatusBadge>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteSuccession(item.id)}>
-                            <Trash2 className="size-4" />
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleEditSuccession(item)}
+                              title="Edit this nomination"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => handleDeleteSuccession(item.id)}
+                              title="Remove this nomination"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -2410,11 +2517,23 @@ export function MobilityCenter() {
       </Dialog>
 
       {/* MODAL: Nominate Successor */}
-      <Dialog open={isNominateSuccessorOpen} onOpenChange={setIsNominateSuccessorOpen}>
+      <Dialog
+        open={isNominateSuccessorOpen}
+        onOpenChange={(open) => {
+          setIsNominateSuccessorOpen(open)
+          // Closing abandons an edit, so the next open starts clean rather than
+          // silently carrying the last person's details into a new nomination.
+          if (!open) resetSuccessorForm()
+        }}
+      >
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Nominate Potential Successor</DialogTitle>
-            <DialogDescription>Add a high-potential employee to the succession pipeline for a critical role.</DialogDescription>
+            <DialogTitle>{editingSuccessionId ? 'Edit Nomination' : 'Nominate Potential Successor'}</DialogTitle>
+            <DialogDescription>
+              {editingSuccessionId
+                ? 'Update this successor\u2019s readiness, status or emergency cover.'
+                : 'Add a high-potential employee to the succession pipeline for a critical role.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleNominateSuccessorSubmit} className="space-y-4 text-xs">
             <div className="flex flex-col gap-1.5">
@@ -2424,6 +2543,7 @@ export function MobilityCenter() {
                 onChange={(val: string) => setSuccessorForm({ ...successorForm, critical_jobrole_id: val })}
                 options={filters?.jobroles || []}
                 placeholder="Select Critical Role"
+                disabled={Boolean(editingSuccessionId)}
               />
             </div>
 
@@ -2434,8 +2554,19 @@ export function MobilityCenter() {
                 onChange={(val: string) => setSuccessorForm({ ...successorForm, successor_user_id: val })}
                 options={filters?.employees || []}
                 placeholder="Select Successor"
+                disabled={Boolean(editingSuccessionId)}
               />
             </div>
+
+            {/* Why those two are locked. The endpoint accepts readiness,
+                emergency cover and status only; a changed role or person would
+                be accepted by the form and silently dropped by the server. */}
+            {editingSuccessionId != null && (
+              <p className="text-[11px] text-muted-foreground -mt-2">
+                The role and the person identify this nomination and cannot be changed here.
+                To line someone else up for this role, remove this nomination and add a new one.
+              </p>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
@@ -2474,7 +2605,7 @@ export function MobilityCenter() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsNominateSuccessorOpen(false)}>Cancel</Button>
-              <Button type="submit">Nominate</Button>
+              <Button type="submit">{editingSuccessionId ? 'Save Changes' : 'Nominate'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

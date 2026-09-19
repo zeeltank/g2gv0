@@ -30,7 +30,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { ACTOR_LABEL, ACTOR_STYLE, STATUS_STYLE, esoService } from '@/services/competency/eso'
-import type { EsoRecord } from '@/services/competency/eso'
+import type { EsoRecord, EsoStatus } from '@/services/competency/eso'
 import { MODE_LABEL } from '@/services/competency/task-execution'
 import type { ExecutionMode } from '@/services/competency/task-execution'
 import { describeFailure } from '../load-state'
@@ -106,6 +106,44 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
       setBusy(false)
     }
   }, [taskId, load])
+
+  /**
+   * MOVE IT ALONG THE LIFECYCLE.
+   *
+   * POST /competency/eso/{id}/status has existed since the module was written
+   * and had no caller, so every execution model this product generated stayed
+   * a Draft for ever. The panel above says, in words, that a draft "cannot be
+   * published until a person has read it" - and then offered no way for that
+   * person to say they had. The review step the backend enforces was
+   * unreachable, which made the warning permanent rather than actionable.
+   *
+   * The server owns the rules, not this component: it refuses Draft ->
+   * Published for anything ai-generated with reason 'unreviewed_generation',
+   * and bumps the version on publish so a procedure that changes is not
+   * silently a different document under the same number. So this sends the
+   * transition and reports what comes back rather than second-guessing it.
+   */
+  const moveTo = useCallback(async (next: EsoStatus) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context) || !eso) return
+
+    setBusy(true)
+    setError(null)
+    setErrorStatus(undefined)
+    setNotice(null)
+    try {
+      const response = await esoService.setStatus(context, eso.id, next)
+      setNotice(response.message ?? `Moved to ${next}.`)
+      await load()
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : `It could not be moved to ${next}.`)
+      setErrorStatus((statusError as { status?: number })?.status)
+      // Retry must re-run the LOAD, not a generation: this failure is not one.
+      setFailedAction('load')
+    } finally {
+      setBusy(false)
+    }
+  }, [eso, load])
 
   if (loading) {
     return (
@@ -251,6 +289,57 @@ export function EsoPanel({ taskId, section }: { taskId: number; section: EsoSect
             </span>
           </p>
         )}
+
+        {/* ── THE LIFECYCLE ────────────────────────────────────────────────
+            One forward step is offered at a time, because the path is a
+            sequence and not a set of choices: a reader who is shown four
+            buttons has to work out which one is legal. The next step is named
+            for what the PERSON is doing ("I have read this"), not for the
+            state it writes. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Status
+          </span>
+
+          {eso.status === 'Draft' && (
+            <Button size="sm" className="h-8" disabled={busy} onClick={() => moveTo('Reviewed')}>
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+              I have read this — mark Reviewed
+            </Button>
+          )}
+
+          {eso.status === 'Reviewed' && (
+            <>
+              <Button size="sm" className="h-8" disabled={busy} onClick={() => moveTo('Published')}>
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+                Publish as the procedure to follow
+              </Button>
+              <Button size="sm" variant="outline" className="h-8" disabled={busy} onClick={() => moveTo('Draft')}>
+                Send back to Draft
+              </Button>
+            </>
+          )}
+
+          {eso.status === 'Published' && (
+            <Button size="sm" variant="outline" className="h-8" disabled={busy} onClick={() => moveTo('Retired')}>
+              Retire this procedure
+            </Button>
+          )}
+
+          {eso.status === 'Retired' && (
+            <Button size="sm" variant="outline" className="h-8" disabled={busy} onClick={() => moveTo('Draft')}>
+              Reopen as a draft
+            </Button>
+          )}
+
+          {/* What the button about to be pressed actually does. Publishing cuts
+              a new version number, which is not guessable from the label. */}
+          {eso.status === 'Reviewed' && (
+            <span className="text-[11px] text-muted-foreground">
+              Publishing cuts version {eso.version + 1}.
+            </span>
+          )}
+        </div>
       </div>
 
       {section === 'governance' ? <Governance eso={eso} /> : <Evidence eso={eso} />}
