@@ -360,6 +360,20 @@ export function JobPostingForm({
         department_id: form.department, user_id: String(session.user_id), location: form.location,
         employment_type: form.employmentType, work_mode: form.workMode,
         title: role?.jobrole ?? form.title,
+        /*
+         * SEND THE ROLE ID, NOT ONLY ITS NAME.
+         *
+         * `form.title` already holds the s_user_jobrole row id - the dropdown
+         * above is built from that table - and this threw it away, sending
+         * only the name and leaving the backend to guess which role was meant.
+         * It guessed against the global catalogue, so a role authored in the
+         * Capability Library resolved to nothing and the posting was stored
+         * with jobrole_id NULL, which is what stops it being assessable.
+         *
+         * Empty string when the title was typed free-hand rather than picked;
+         * the controller uses filled(), so '' falls back to resolving by name.
+         */
+        jobrole_id: role ? String(role.id) : '',
         experience: form.experienceRequired, education: form.educationRequirement,
         priority_level: form.urgency, positions: form.numberOfPositions,
         min_salary: form.salaryRangeMin, max_salary: form.salaryRangeMax,
