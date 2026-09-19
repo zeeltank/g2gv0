@@ -37,6 +37,14 @@ export interface DocumentItem {
   fileName: string | null
   status: 'Pending' | 'Submitted' | 'Verified' | 'Rejected'
   isMandatory: boolean
+  /**
+   * Where the file actually is. Its absence is what the API now checks before
+   * allowing Submitted or Verified - the old screen set a status from a typed
+   * filename with no file behind it anywhere.
+   */
+  fileUrl?: string | null
+  uploadedAt?: string | null
+  uploadedBy?: string | null
 }
 
 export interface CaseComment {
@@ -233,6 +241,21 @@ export const offboardingService = {
       documents,
       ...params(context)
     })
+  },
+
+  /**
+   * The real upload. Multipart, because there is a file - the dialog this
+   * replaces had a text box and called it a filename.
+   *
+   * Same shape as onboardingService.uploadDocument: context goes into the
+   * FormData rather than the query, because postForm sends no JSON body.
+   */
+  uploadDocumentFile(context: LaravelContext, id: string, docId: string, form: FormData) {
+    Object.entries(params(context)).forEach(([key, value]) => form.set(key, value))
+    return apiClient.postForm<OffbResponse<DocumentItem[]>>(
+      `/offboarding/cases/${id}/documents/${docId}/upload`,
+      form,
+    )
   },
 
   addComment(context: LaravelContext, id: string, comment: string) {

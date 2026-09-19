@@ -79,6 +79,40 @@ export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/c
  */
 export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
 
+/**
+ * Talent Management — every sub-module, so nothing has to hand-roll a path.
+ *
+ * WHY THESE EXIST
+ *
+ * Talent was the one module with no constants here, so the Talent Dashboard
+ * built its own links:
+ *
+ *     `/module/talent-management/${menuId}/${menuId}`
+ *
+ * That doubles the last segment, and two of the slugs were wrong besides
+ * (`performance`, `mobility-succession`). No such access_link exists, so
+ * parseRoutePath returned null, the shell kept the screen it already had, and
+ * every quick action, KPI card and action item on the dashboard silently did
+ * nothing. The same path shape broke the Recruitment -> Onboarding handoff.
+ *
+ * Verified against tblmenumaster_g2g (parent_id = 3) on BOTH hosts, so these are
+ * what the backend actually serves, not what the slug is assumed to be.
+ *
+ * Always resolve with useSidebarNavigation's resolveAccessLink(): a profile that
+ * cannot see the target then falls back instead of landing on a blank shell.
+ */
+export const TALENT_DASHBOARD_ACCESS_LINK = '/module/talent-management/talent-dashboard'
+export const TALENT_RECRUITMENT_ACCESS_LINK = '/module/talent-management/recruitment'
+export const TALENT_ONBOARDING_ACCESS_LINK = '/module/talent-management/onboarding'
+export const TALENT_EMPLOYEE_PROFILES_ACCESS_LINK = '/module/talent-management/employee-profiles'
+export const TALENT_PERFORMANCE_ACCESS_LINK = '/module/talent-management/performance-reviews-and-appraisals'
+export const TALENT_DEVELOPMENT_ACCESS_LINK = '/module/talent-management/development-and-career-paths'
+export const TALENT_CERTIFICATIONS_ACCESS_LINK = '/module/talent-management/certifications'
+export const TALENT_CAPABILITY_PROGRESS_ACCESS_LINK = '/module/talent-management/capability-progress'
+export const TALENT_MOBILITY_ACCESS_LINK = '/module/talent-management/mobility-and-succession'
+export const TALENT_OFFBOARDING_ACCESS_LINK = '/module/talent-management/offboarding'
+export const TALENT_ADMINISTRATION_ACCESS_LINK = '/module/talent-management/administration'
+
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'

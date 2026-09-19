@@ -52,7 +52,15 @@ function flattenMenuNodes(rawNodes: SidebarMenuNode[] | undefined, structuralPar
 function buildChildren(flat: FlatNode[], parentId: number | null): NavNode[] {
   return flat
     .filter((node) => node.parentId === parentId)
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    /*
+     * Id breaks a sort_order tie, so the menu never reorders itself between
+     * loads. Talent had three pairs sharing a number (3, 4 and 8 each used
+     * twice), and with a plain numeric comparator those positions were decided
+     * by whatever order MySQL happened to return - stable in practice,
+     * guaranteed by nothing. The migration removed today's ties; this makes a
+     * future one harmless instead of intermittent.
+     */
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
     .map((node) => ({
       id: String(node.id),
       label: node.label,

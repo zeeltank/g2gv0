@@ -31,6 +31,7 @@ import {
   AlertCircle,
   FileDigit,
   Trash2,
+  Upload,
   User,
   Edit2,
   Edit3,
@@ -145,7 +146,17 @@ export function OffboardingCenter() {
 
   // Document Upload Mock State
   const [uploadingDocId, setUploadingDocId] = useState<string | null>(null)
-  const [mockFileName, setMockFileName] = useState('')
+  /*
+   * A REAL FILE.
+   *
+   * This was a plain string the user TYPED as a "file name", after which the
+   * document was marked Submitted - so an entire exit clearance could be signed
+   * off and verified with nothing uploaded anywhere. The API now refuses
+   * Submitted without a stored file, and this is how one gets there.
+   */
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   // Notifications
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -408,12 +419,37 @@ export function OffboardingCenter() {
     }
   }
 
-  const handleUploadMockDoc = async (e: React.FormEvent) => {
+  /** Matches the API: pdf/doc/docx/jpg/png, 5 MB. Checked here too so the user
+   *  is told before the upload rather than by a 422 after it. */
+  const ACCEPTED_DOC = '.pdf,.doc,.docx,.jpg,.jpeg,.png'
+  const MAX_DOC_BYTES = 5 * 1024 * 1024
+
+  const handleUploadDoc = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!activeCaseId || !uploadingDocId || !mockFileName) return
-    await handleDocStatusUpdate(uploadingDocId, 'Submitted', mockFileName)
-    setUploadingDocId(null)
-    setMockFileName('')
+    if (!activeCaseId || !uploadingDocId || !uploadFile) return
+
+    if (uploadFile.size > MAX_DOC_BYTES) {
+      setUploadError('That file is over 5 MB. Please attach a smaller one.')
+      return
+    }
+
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const form = new FormData()
+      form.append('file', uploadFile)
+      await offboardingService.uploadDocumentFile(context, activeCaseId, uploadingDocId, form)
+      showBanner('success', `${uploadFile.name} uploaded`)
+      setUploadingDocId(null)
+      setUploadFile(null)
+      bumpRefresh()
+    } catch (err) {
+      // Shown IN the dialog, not as a banner behind it - the dialog stays open
+      // so a different file can be picked without starting again.
+      setUploadError(err instanceof Error ? err.message : 'The file could not be uploaded.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleSaveInterview = async (e: React.FormEvent) => {
@@ -1264,7 +1300,21 @@ export function OffboardingCenter() {
         )}
 
         {activeMainTab === 'Reports' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-col gap-3">
+            {/*
+              * SAYS WHAT IT COUNTS.
+              *
+              * Exit Type reads overview.totals, which is organisation-wide. The
+              * other two count `cases` - the CURRENT PAGE of the filtered list,
+              * ten rows - and were presented identically, so the same card row
+              * mixed an org-level figure with a page-level one and the numbers
+              * changed when you turned the page.
+              */}
+            <p className="text-xs text-muted-foreground">
+              Exit Type covers the whole organisation. Attrition drivers and departments count the{' '}
+              {cases.length} case{cases.length === 1 ? '' : 's'} currently listed — change the filters or page to widen it.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="p-4 border-border/60">
               <CardHeader className="p-0 pb-3 border-b flex flex-row items-center gap-2">
                 <DoorOpen className="size-4 text-primary" />
@@ -1294,17 +1344,38 @@ export function OffboardingCenter() {
                 <CardTitle className="text-sm font-semibold text-foreground">Key Attrition Drivers</CardTitle>
               </CardHeader>
               <CardContent className="pt-4 px-0 flex flex-col gap-3">
-                {[
-                  { reason: 'Better Opportunity', count: cases.filter(c => c.exitReason === 'Better Opportunity').length },
-                  { reason: 'Personal Reasons', count: cases.filter(c => c.exitReason === 'Personal Reasons').length },
-                  { reason: 'Career Change', count: cases.filter(c => c.exitReason === 'Career Change').length },
-                  { reason: 'Relocation', count: cases.filter(c => c.exitReason === 'Relocation').length }
-                ].map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
-                    <span className="text-muted-foreground font-medium">{item.reason}</span>
-                    <span className="font-bold text-foreground">{item.count} cases</span>
-                  </div>
-                ))}
+                {/*
+                  * THE ORGANISATION'S OWN REASONS, RANKED.
+                  *
+                  * This counted against four hardcoded strings - 'Better
+                  * Opportunity', 'Personal Reasons', 'Career Change',
+                  * 'Relocation' - while filtersOptions.reasons, fetched from
+                  * the API and already used by the Filters sheet, sat unused.
+                  * An organisation whose exits are "Health" or "Higher studies"
+                  * saw four rows of "0 cases" and none of its real drivers.
+                  */}
+                {(() => {
+                  const ranked = (filtersOptions?.reasons ?? [])
+                    .map((r) => ({ reason: r.label, count: cases.filter((c) => c.exitReason === r.label).length }))
+                    .filter((r) => r.count > 0)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 6)
+
+                  if (!ranked.length) {
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        No exit reasons recorded on the cases shown.
+                      </p>
+                    )
+                  }
+
+                  return ranked.map((item) => (
+                    <div key={item.reason} className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
+                      <span className="text-muted-foreground font-medium">{item.reason}</span>
+                      <span className="font-bold text-foreground">{item.count} {item.count === 1 ? 'case' : 'cases'}</span>
+                    </div>
+                  ))
+                })()}
               </CardContent>
             </Card>
 
@@ -1314,17 +1385,30 @@ export function OffboardingCenter() {
                 <CardTitle className="text-sm font-semibold text-foreground">Departmental Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="pt-4 px-0 flex flex-col gap-3">
-                {filtersOptions?.departments.slice(0, 4).map((d, idx) => {
-                  const count = cases.filter(c => c.department === d.label).length
-                  return (
-                    <div key={idx} className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
+                {/* Ranked by exits, not the first four in the option list -
+                    which is what `.slice(0, 4)` on an alphabetical dropdown was
+                    doing, silently presenting an arbitrary four as the top four. */}
+                {(() => {
+                  const ranked = (filtersOptions?.departments ?? [])
+                    .map((d) => ({ label: d.label, count: cases.filter((c) => c.department === d.label).length }))
+                    .filter((d) => d.count > 0)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 6)
+
+                  if (!ranked.length) {
+                    return <p className="text-xs text-muted-foreground">No departments in the cases shown.</p>
+                  }
+
+                  return ranked.map((d) => (
+                    <div key={d.label} className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
                       <span className="text-muted-foreground font-medium">{d.label}</span>
-                      <span className="font-bold text-foreground">{count} exits</span>
+                      <span className="font-bold text-foreground">{d.count} {d.count === 1 ? 'exit' : 'exits'}</span>
                     </div>
-                  )
-                })}
+                  ))
+                })()}
               </CardContent>
             </Card>
+            </div>
           </div>
         )}
 
@@ -2074,26 +2158,64 @@ export function OffboardingCenter() {
         </DialogContent>
       </Dialog>
 
-      {/* 5. Upload File Mock Dialog */}
-      <Dialog open={uploadingDocId !== null} onOpenChange={(open) => !open && setUploadingDocId(null)}>
+      {/* 5. Upload Exit Document */}
+      <Dialog
+        open={uploadingDocId !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          setUploadingDocId(null)
+          setUploadFile(null)
+          setUploadError(null)
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Exit Document</DialogTitle>
-            <DialogDescription>Upload the requested file to the exit folder.</DialogDescription>
+            <DialogDescription>
+              {activeCaseDetails?.documents?.find((d) => d.id === uploadingDocId)?.title ?? 'Exit document'}
+              {' — '}PDF, Word or an image, up to 5 MB.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUploadMockDoc} className="flex flex-col gap-4 mt-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">File Name</label>
-              <Input 
-                placeholder="e.g. clearance_form_signed.pdf"
-                value={mockFileName}
-                onChange={(e) => setMockFileName(e.target.value)}
-                required
+          <form onSubmit={handleUploadDoc} className="flex flex-col gap-4 mt-2">
+            <label
+              className={cn(
+                'flex cursor-pointer items-center gap-3 rounded-md border border-dashed px-4 py-6 transition-colors',
+                uploadFile ? 'border-primary/50 bg-primary/5' : 'border-input hover:bg-muted/40',
+              )}
+            >
+              <Upload className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="flex min-w-0 flex-col">
+                <span className={cn('truncate text-sm', uploadFile ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                  {uploadFile ? uploadFile.name : 'Choose a file'}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {uploadFile
+                    ? `${(uploadFile.size / 1024).toFixed(0)} KB — click to replace`
+                    : 'The document is only marked Submitted once the file is stored.'}
+                </span>
+              </span>
+              <input
+                type="file"
+                className="sr-only"
+                accept={ACCEPTED_DOC}
+                onChange={(e) => {
+                  setUploadFile(e.target.files?.[0] ?? null)
+                  setUploadError(null)
+                }}
               />
-            </div>
+            </label>
+
+            {uploadError && (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {uploadError}
+              </p>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setUploadingDocId(null)}>Cancel</Button>
-              <Button type="submit">Submit Document</Button>
+              <Button type="submit" disabled={!uploadFile || uploading}>
+                {uploading ? 'Uploading…' : 'Upload document'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

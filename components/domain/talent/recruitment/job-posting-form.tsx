@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
+
 import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,13 +54,24 @@ export function JobPostingForm({
   onClose: () => void
   onSaved: () => Promise<void> | void
 }) {
-  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [form, setForm] = useState<FormValues>(emptyForm)
   const [errors, setErrors] = useState<Errors>({})
   const [message, setMessage] = useState<string | null>(null)
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<JobRole[]>([])
   const [roleSkills, setRoleSkills] = useState<JobRoleSkill[]>([])
+  /*
+   * EVERY SKILL THIS ORGANISATION HAS, not only the ones already mapped to the
+   * chosen role.
+   *
+   * The dropdown read s_user_skill_jobrole - the skill-to-ROLE mapping - so a
+   * skill added to the library but never mapped simply was not there. 116 of
+   * tenant 6's 268 roles have no mapping at all, so for 43% of roles the
+   * dropdown was empty and looked broken. Reported exactly that way: "I added
+   * the skill for that role but it is not showing".
+   */
+  const [librarySkills, setLibrarySkills] = useState<JobRoleSkill[]>([])
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const [loadingDepartments, setLoadingDepartments] = useState(false)
   const [loadingRoles, setLoadingRoles] = useState(false)
@@ -98,6 +111,31 @@ export function JobPostingForm({
       })
     })
   }, [editingJob])
+
+  // The tenant's own skill library. Same table_data call the departments and
+  // roles above use, so there is one way this form reads reference data.
+  useEffect(() => {
+    const session = readLaravelSession()
+    if (!session?.APP_URL) return
+    const params = new URLSearchParams({
+      table: 's_users_skills',
+      'filters[sub_institute_id]': String(session.sub_institute_id),
+      'order_by[column]': 'title',
+      'order_by[direction]': 'asc',
+    })
+    fetch(`${session.APP_URL}/table_data?${params}`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Failed to fetch the skill library: ${response.status}`)
+        const items = flattenResponse(await response.json())
+        setLibrarySkills(
+          items
+            .map((item, index) => ({ id: String(item.id ?? index), SkillName: String(item.title ?? '') }))
+            .filter((item) => item.SkillName),
+        )
+      })
+      // A missing library must not block the form; the role's own skills still show.
+      .catch(() => setLibrarySkills([]))
+  }, [])
 
   useEffect(() => {
     const session = readLaravelSession()
@@ -228,45 +266,69 @@ export function JobPostingForm({
       .finally(() => setLoadingSkills(false))
   }, [editingJob, form.title, roles])
 
+  /*
+   * ONLY THE JOB TITLE IS REQUIRED.
+   *
+   * Every other field was mandatory - department, location, employment type,
+   * experience, at least one skill, education, a 50-character description, both
+   * salary bounds, positions, a future deadline and a priority. Eleven gates on
+   * a form whose own table allows NULL on all of them, so none of it was
+   * protecting the database; it was protecting nothing and stopping HR from
+   * saving a posting they had not finished writing.
+   *
+   * `title` stays because the column is NOT NULL with no default - MySQL
+   * rejects the row - and a posting nobody can name cannot be advertised.
+   *
+   * What remains below are CONSISTENCY checks, not presence checks: a value
+   * that is there must make sense. Nothing fires on an empty field.
+   */
   function validate() {
     const next: Errors = {}
+
     if (!form.title) next.title = 'Job title is required'
     else {
       const title = roles.find((item) => item.id === form.title)?.jobrole ?? form.title
       if (title.length < 3) next.title = 'Job title must be at least 3 characters'
       else if (title.length > 100) next.title = 'Job title must be less than 100 characters'
     }
-    if (!form.department) next.department = 'Department is required'
-    if (!form.location.trim()) next.location = 'Location is required'
-    if (!form.employmentType) next.employmentType = 'Employment type is required'
-    if (!form.experienceRequired) next.experienceRequired = 'Experience requirement is required'
-    if (!selectedSkills.length) next.skillsRequired = 'At least one skill is required'
-    if (!form.educationRequirement) next.educationRequirement = 'Education requirement is required'
-    if (!form.jobDescription.trim()) next.jobDescription = 'Job description is required'
-    else if (form.jobDescription.length < 50) next.jobDescription = 'Job description must be at least 50 characters'
-    else if (form.jobDescription.length > 5000) next.jobDescription = 'Job description must be less than 5000 characters'
-    if (!form.salaryRangeMin.trim()) next.salaryRangeMin = 'Minimum salary is required'
-    else if (Number.isNaN(Number(form.salaryRangeMin)) || Number(form.salaryRangeMin) < 0) next.salaryRangeMin = 'Minimum salary must be a valid number'
-    if (!form.salaryRangeMax.trim()) next.salaryRangeMax = 'Maximum salary is required'
-    else if (Number.isNaN(Number(form.salaryRangeMax)) || Number(form.salaryRangeMax) < 0) next.salaryRangeMax = 'Maximum salary must be a valid number'
-    else if (Number(form.salaryRangeMin) > Number(form.salaryRangeMax)) next.salaryRangeMax = 'Maximum salary must be greater than minimum salary'
-    if (!form.numberOfPositions.trim()) next.numberOfPositions = 'Number of positions is required'
-    else if (Number.isNaN(Number(form.numberOfPositions)) || Number(form.numberOfPositions) < 1) next.numberOfPositions = 'Number of positions must be at least 1'
-    /*
-     * The opening date is OPTIONAL - a posting with none is open the moment it
-     * is published, which is how every posting behaved before the field existed.
-     * It only has to make sense against the closing date.
-     */
+
+    if (form.jobDescription.trim() && form.jobDescription.length > 5000) {
+      next.jobDescription = 'Job description must be less than 5000 characters'
+    }
+
+    if (form.salaryRangeMin.trim() && (Number.isNaN(Number(form.salaryRangeMin)) || Number(form.salaryRangeMin) < 0)) {
+      next.salaryRangeMin = 'Minimum salary must be a valid number'
+    }
+    if (form.salaryRangeMax.trim() && (Number.isNaN(Number(form.salaryRangeMax)) || Number(form.salaryRangeMax) < 0)) {
+      next.salaryRangeMax = 'Maximum salary must be a valid number'
+    }
+    if (form.salaryRangeMin.trim() && form.salaryRangeMax.trim()
+      && Number(form.salaryRangeMin) > Number(form.salaryRangeMax)) {
+      next.salaryRangeMax = 'Maximum salary must be greater than minimum salary'
+    }
+
+    if (form.numberOfPositions.trim()
+      && (Number.isNaN(Number(form.numberOfPositions)) || Number(form.numberOfPositions) < 1)) {
+      next.numberOfPositions = 'Number of positions must be at least 1'
+    }
+
+    // The window still has to run forwards if both ends are given.
     if (form.openingDate && form.applicationDeadline
       && new Date(`${form.openingDate}T00:00:00`) > new Date(`${form.applicationDeadline}T00:00:00`)) {
       next.openingDate = 'Applications cannot open after they close'
     }
-    if (!form.applicationDeadline) next.applicationDeadline = 'Application deadline is required'
-    else {
+
+    /*
+     * A deadline already past is still refused - not because the field is
+     * required, but because a posting that closed yesterday cannot be applied
+     * to, and saving one silently is worse than saying so.
+     */
+    if (form.applicationDeadline) {
       const today = new Date(); today.setHours(0, 0, 0, 0)
-      if (new Date(`${form.applicationDeadline}T00:00:00`) < today) next.applicationDeadline = 'Application deadline must be in the future'
+      if (new Date(`${form.applicationDeadline}T00:00:00`) < today) {
+        next.applicationDeadline = 'Application deadline must be in the future'
+      }
     }
-    if (!form.urgency) next.urgency = 'Priority level is required'
     // Benefits are OPTIONAL. Plenty of openings are posted before the package is
     // settled, and blocking the whole posting on a field the backend already
     // accepts as nullable helped nobody.
@@ -330,12 +392,25 @@ export function JobPostingForm({
    * was, in the validator - while Certifications beside it was optional and
    * rendered without `field()` entirely just to avoid the star.
    */
+  /*
+   * OPTIONAL IS THE DEFAULT.
+   *
+   * Every field rendered through here used to carry a red asterisk, and after
+   * validate() was relaxed that asterisk would have been a lie on sixteen of
+   * seventeen fields. Flipping the default is one change that cannot miss a
+   * call site, where editing each one could - only `title` now opts back in,
+   * and it is the single field the database itself insists on.
+   */
+  /** The one field the column itself requires - NOT NULL, no default. */
+  const fieldRequired = (key: keyof FormValues, label: string, node: React.ReactNode, full = false) =>
+    field(key, label, node, full, false)
+
   const field = (
     key: keyof FormValues,
     label: string,
     node: React.ReactNode,
     full = false,
-    optional = false,
+    optional = true,
   ) => (
     <div className={`space-y-2 ${full ? 'sm:col-span-2' : ''}`}>
       <label className="text-sm font-medium">
@@ -354,8 +429,32 @@ export function JobPostingForm({
       {message && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{message}</div>}
       <fieldset disabled={readOnly || saving} className="grid gap-4 sm:grid-cols-2">
         {field('department', 'Department', <Select value={form.department} onChange={(value) => change('department', value)} placeholder={loadingDepartments ? 'Loading departments...' : 'Select department'} options={departments.map((item) => ({ label: item.department, value: item.id }))} />)}
-        {field('title', 'Job Title', <Select value={form.title} onChange={(value) => change('title', value)} disabled={!form.department} placeholder={loadingRoles ? 'Loading job roles...' : 'Select job title'} options={roles.map((item) => ({ label: item.jobrole, value: item.id }))} />)}
-        <div className="sm:col-span-2"><Button type="button" variant="outline" size="sm" onClick={() => { onClose(); router.push('/content/Jobrole-library') }}>Add New Job Role</Button></div>
+        {fieldRequired('title', 'Job Title', <Select value={form.title} onChange={(value) => change('title', value)} disabled={!form.department} placeholder={loadingRoles ? 'Loading job roles...' : 'Select job title'} options={roles.map((item) => ({ label: item.jobrole, value: item.id }))} />)}
+        {/*
+          * ADDS A ROLE WITHOUT DESTROYING THIS FORM.
+          *
+          * It used to call onClose() and push `/content/Jobrole-library` - a
+          * leftover Laravel-blade path with no Next route, so it 404'd. And it
+          * sits between Job Title and Location, so a user fourteen fields in
+          * lost all of them to reach a broken page.
+          *
+          * A new tab is the honest interaction for "I need something that isn't
+          * in this dropdown": the half-written posting is still here when they
+          * come back. Re-picking the department reloads the role list.
+          */}
+        <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(resolveAccessLink(CAPABILITY_LIBRARY_ACCESS_LINK), '_blank', 'noopener')}
+          >
+            Add New Job Role
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Opens in a new tab — this posting is kept. Re-select the department to pick up a new role.
+          </span>
+        </div>
         {field('location', 'Location', <Input value={form.location} onChange={(e) => change('location', e.target.value)} placeholder="Enter job location" />)}
         {field('employmentType', 'Employment Type', <Select value={form.employmentType} onChange={(v) => change('employmentType', v)} placeholder="Select employment type" options={asOptions(EMPLOYMENT_TYPES)} />)}
         {/* WHERE the work happens, which the contract type does not say. Kept a
@@ -379,7 +478,36 @@ export function JobPostingForm({
         {editingJob && field('status', 'Status', <Select value={form.status} onChange={(v) => change('status', v)} options={[{ label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Draft', value: 'draft' }]} />)}
         {field('skillsRequired', 'Required Skills', <div className="space-y-3">
           {!!selectedSkills.length && <div className="flex flex-wrap gap-2 rounded-md border bg-muted/30 p-3">{selectedSkills.map((skill) => <Badge key={skill} variant="secondary">{skill}<button type="button" aria-label={`Remove ${skill}`} onClick={() => { const next = selectedSkills.filter((item) => item !== skill); setSelectedSkills(next); setForm((current) => ({ ...current, skillsRequired: next.join(', ') })) }}><X className="ml-1 size-3" /></button></Badge>)}</div>}
-          <Select placeholder={loadingSkills ? 'Loading skills...' : 'Select a skill to add'} options={roleSkills.filter((item) => !selectedSkills.includes(item.SkillName)).map((item) => ({ label: item.SkillName, value: item.SkillName }))} onChange={(skill) => { const next = [...selectedSkills, skill]; setSelectedSkills(next); change('skillsRequired', next.join(', ')) }} />
+          {/* The role's own skills are offered first because they are the
+              likely answer, then everything else this organisation has - so a
+              skill added to the library is reachable even before anyone has
+              mapped it to a role. Duplicates are removed by name. */}
+          <Select
+            placeholder={loadingSkills ? 'Loading skills...' : 'Select a skill to add'}
+            options={(() => {
+              const taken = new Set(selectedSkills.map((skill) => skill.toLowerCase()))
+              const seen = new Set<string>()
+              const options: { label: string; value: string }[] = []
+
+              for (const group of [roleSkills, librarySkills]) {
+                for (const item of group) {
+                  const key = item.SkillName.toLowerCase()
+                  if (taken.has(key) || seen.has(key)) continue
+                  seen.add(key)
+                  options.push({ label: item.SkillName, value: item.SkillName })
+                }
+              }
+
+              return options
+            })()}
+            onChange={(skill) => { const next = [...selectedSkills, skill]; setSelectedSkills(next); change('skillsRequired', next.join(', ')) }}
+          />
+          {!loadingSkills && roleSkills.length === 0 && librarySkills.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              This role has no skills mapped to it yet, so the list shows your organisation&rsquo;s
+              whole skill library.
+            </p>
+          )}
         </div>, true)}
         <div className="space-y-2 sm:col-span-2"><label className="text-sm font-medium">Certifications</label><Input value={form.certifications} onChange={(e) => change('certifications', e.target.value)} placeholder="Enter required certifications" /></div>
         {field('jobDescription', 'Job Description', <div><Textarea rows={8} maxLength={5000} value={form.jobDescription} onChange={(e) => change('jobDescription', e.target.value)} placeholder="Describe responsibilities and requirements" /><p className="mt-1 text-right text-xs text-muted-foreground">{form.jobDescription.length}/5000 characters</p></div>, true)}

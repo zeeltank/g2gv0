@@ -29,6 +29,7 @@ import {
   Edit2,
   PowerOff,
   User,
+  UserCircle,
   Clock,
   Trash2,
   CheckCircle2,
@@ -854,13 +855,27 @@ export function MobilityCenter() {
         {/* Global KPIs Row */}
         {overview && activeTab === 'Overview' && (
           <div className="flex overflow-x-auto gap-4 mb-6 pb-2 custom-scrollbar">
+            {/*
+              * NO TREND ARROWS.
+              *
+              * Each of these carried a hardcoded string beside a live number -
+              * '12 vs last month', '3 vs last month', 'No change' - every one
+              * of them rendered with a green ArrowUpCircle. A reader saw a real
+              * count and a confident month-on-month delta and had no way to
+              * tell that only the first was measured.
+              *
+              * /mobility/overview returns six counts and three charts. It
+              * returns no prior-period figure at all, so there is nothing to
+              * compute a delta from. Showing the count alone is the honest
+              * version; a trend can come back when the API carries one.
+              */}
             {[
-              { title: 'Open Internal Jobs', value: overview.kpis.open_jobs, trend: '3 vs last month', isPositive: true },
-              { title: 'Applications Received', value: overview.kpis.applications, trend: '12 vs last month', isPositive: true },
-              { title: 'Applications In Review', value: overview.kpis.in_review, trend: '4 vs last month', isPositive: true },
-              { title: 'Transfers in Progress', value: overview.kpis.transfers_in_progress, trend: 'No change', isNeutral: true },
-              { title: 'Promotions in Progress', value: overview.kpis.promotions_in_progress, trend: '2 vs last month', isPositive: true },
-              { title: 'Critical Roles Coverage', value: overview.kpis.critical_roles, trend: '', isAction: true },
+              { title: 'Open Internal Jobs', value: overview.kpis.open_jobs },
+              { title: 'Applications Received', value: overview.kpis.applications },
+              { title: 'Applications In Review', value: overview.kpis.in_review },
+              { title: 'Transfers in Progress', value: overview.kpis.transfers_in_progress },
+              { title: 'Promotions in Progress', value: overview.kpis.promotions_in_progress },
+              { title: 'Critical Roles Coverage', value: overview.kpis.critical_roles, isAction: true },
             ].map((kpi, idx) => (
               <Card key={idx} className="shadow-sm min-w-[200px] flex-1">
                 <CardContent className="p-4 flex flex-col h-full gap-3">
@@ -876,26 +891,13 @@ export function MobilityCenter() {
                   </div>
                   
                   <div className="pl-[52px] mt-auto">
-                    {kpi.isAction ? (
+                    {kpi.isAction && (
                       <button
                         className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 mt-1"
                         onClick={() => handleTabChange('Succession Plans')}
                       >
                         View successors <ArrowRight className="size-3" />
                       </button>
-                    ) : kpi.isNeutral ? (
-                      <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-                        <Minus className="size-3.5" />
-                        <span className="text-xs font-medium">{kpi.trend}</span>
-                      </div>
-                    ) : (
-                      <div className={cn(
-                        "flex items-center gap-1.5 mt-1",
-                        kpi.isPositive ? "text-success" : "text-warning"
-                      )}>
-                        {kpi.isPositive ? <ArrowUpCircle className="size-3.5" /> : <ArrowRight className="size-3.5" />}
-                        <span className="text-xs font-medium">{kpi.trend}</span>
-                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -1585,39 +1587,90 @@ export function MobilityCenter() {
                       </div>
                     )}
 
+                    {/*
+                      * APPROVALS - there is no approval workflow for internal
+                      * jobs, so this says so.
+                      *
+                      * It used to render two green ticks: "Hiring Manager
+                      * Approval - Anita Sharma approved on 12 May 2026" and
+                      * "HR Head Clearance - System auto-cleared". Both were
+                      * hardcoded JSX, shown on EVERY job in EVERY tenant. No
+                      * approvals call exists in this file, s_mobility_jobs has
+                      * no approval columns, and there is no audit table behind
+                      * it. An HR user reading that name believed an approval
+                      * had happened.
+                      *
+                      * The hiring manager IS real, so they are named - as the
+                      * person accountable, not as someone who signed anything.
+                      */}
                     {sidebarTab === 'Approvals' && (
                       <div className="flex flex-col gap-3">
-                        <h4 className="font-bold text-foreground">Approval Workflow</h4>
-                        <div className="relative border-l pl-4 ml-2 py-1 space-y-4">
-                          <div className="relative">
-                            <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-success"></div>
-                            <span className="font-bold block text-foreground">Hiring Manager Approval</span>
-                            <span className="text-[10px] text-muted-foreground">Anita Sharma approved on 12 May 2026</span>
-                          </div>
-                          <div className="relative">
-                            <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-success"></div>
-                            <span className="font-bold block text-foreground">HR Head Clearance</span>
-                            <span className="text-[10px] text-muted-foreground">System auto-cleared on 12 May 2026</span>
-                          </div>
+                        <h4 className="font-bold text-foreground">Approvals</h4>
+                        <div className="rounded-lg border border-dashed border-border p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Internal job postings do not go through an approval workflow. This role was
+                            posted directly and is live as soon as its status is Open.
+                          </p>
                         </div>
+                        {selectedJob?.hiring_manager_name && (
+                          <div className="flex items-center gap-2 rounded-lg border border-border/60 p-3">
+                            <UserCircle className="size-4 shrink-0 text-muted-foreground" />
+                            <div className="flex min-w-0 flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Hiring manager
+                              </span>
+                              <span className="truncate text-sm font-semibold text-foreground">
+                                {selectedJob.hiring_manager_name}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
+                    {/*
+                      * ACTIVITY - built from this job's own dates.
+                      *
+                      * It used to print "INT-2026-0001 status changed to Open"
+                      * on every job, including the job code, which matched
+                      * whichever job you had actually selected only by accident.
+                      * s_mobility_jobs keeps no event log, but it does keep
+                      * posted_on and deadline, and those are real.
+                      */}
                     {sidebarTab === 'Activity' && (
                       <div className="flex flex-col gap-3">
-                        <h4 className="font-bold text-foreground">Recent Activity</h4>
+                        <h4 className="font-bold text-foreground">Timeline</h4>
                         <div className="relative border-l pl-4 ml-2 py-1 space-y-4">
-                          <div className="relative">
-                            <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-primary"></div>
-                            <span className="font-semibold block text-foreground">Job Posting Opened</span>
-                            <span className="text-[10px] text-muted-foreground">INT-2026-0001 status changed to Open</span>
-                          </div>
+                          {selectedJob?.posted_on && (
+                            <div className="relative">
+                              <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-primary"></div>
+                              <span className="font-semibold block text-foreground">Posted</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {selectedJob.job_id} opened on {selectedJob.posted_on}
+                              </span>
+                            </div>
+                          )}
+                          {selectedJob?.deadline && (
+                            <div className="relative">
+                              <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-muted-foreground/30"></div>
+                              <span className="font-semibold block text-foreground">Applications close</span>
+                              <span className="text-[10px] text-muted-foreground">{selectedJob.deadline}</span>
+                            </div>
+                          )}
                           <div className="relative">
                             <div className="absolute -left-[21px] top-1 size-2 rounded-full bg-muted-foreground/30"></div>
-                            <span className="font-semibold block text-foreground">Metadata Initialized</span>
-                            <span className="text-[10px] text-muted-foreground">Hiring requirements registered</span>
+                            <span className="font-semibold block text-foreground">Current status</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {selectedJob?.status ?? '—'}
+                              {typeof selectedJob?.applications_count === 'number'
+                                ? ` · ${selectedJob.applications_count} application${selectedJob.applications_count === 1 ? '' : 's'}`
+                                : ''}
+                            </span>
                           </div>
                         </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Internal jobs keep no event history, so this shows the dates recorded on the posting itself.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -2052,7 +2105,7 @@ export function MobilityCenter() {
           </SheetHeader>
           <form onSubmit={handleCreateJobSubmit} className="space-y-4 text-xs">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-title">Job Title</Label>
+              <Label htmlFor="job-title">Job Title <span className="text-destructive">*</span></Label>
               <Input
                 id="job-title"
                 required
@@ -2094,7 +2147,6 @@ export function MobilityCenter() {
                 <Label htmlFor="job-loc">Location</Label>
                 <Input
                   id="job-loc"
-                  required
                   value={jobForm.location}
                   onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
                   placeholder="e.g. Bengaluru"
@@ -2120,7 +2172,6 @@ export function MobilityCenter() {
                 <Input
                   id="job-vacancies"
                   type="number"
-                  required
                   min={1}
                   value={jobForm.vacancies}
                   onChange={(e) => setJobForm({ ...jobForm, vacancies: Number(e.target.value) })}

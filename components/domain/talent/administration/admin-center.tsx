@@ -239,10 +239,17 @@ export function AdminCenter() {
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
           {([
-            { id: 'kpi-1', title: 'Active Workflows', value: summary?.active_workflows, linkText: 'View all workflows', icon: 'git-merge' },
-            { id: 'kpi-2', title: 'Templates', value: summary?.templates, linkText: 'View all templates', icon: 'file-text' },
-            { id: 'kpi-3', title: 'User Roles', value: summary?.user_roles, linkText: 'View all roles', icon: 'users' },
-            { id: 'kpi-5', title: 'Audit Events (30 Days)', value: summary?.audit_events_30d, linkText: 'View audit logs', icon: 'shield-check' },
+            /*
+             * `tab` is what the link PROMISES. All four used to call
+             * setActiveTab('workflows') regardless of their own label, so
+             * "View all templates", "View all roles" and "View audit logs" each
+             * landed on Workflows - three of the four cards lied about where
+             * they went. The tab ids below match the strip further down exactly.
+             */
+            { id: 'kpi-1', title: 'Active Workflows', value: summary?.active_workflows, linkText: 'View all workflows', icon: 'git-merge', tab: 'workflows' },
+            { id: 'kpi-2', title: 'Templates', value: summary?.templates, linkText: 'View all templates', icon: 'file-text', tab: 'templates' },
+            { id: 'kpi-3', title: 'User Roles', value: summary?.user_roles, linkText: 'View all roles', icon: 'users', tab: 'permissions' },
+            { id: 'kpi-5', title: 'Audit Events (30 Days)', value: summary?.audit_events_30d, linkText: 'View audit logs', icon: 'shield-check', tab: 'audit' },
           ] as const).map((kpi) => (
             <Card key={kpi.id} className="p-4 flex flex-col justify-between border-border/60 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div className="flex items-center justify-between mb-2">
@@ -256,8 +263,7 @@ export function AdminCenter() {
                   {kpi.value === undefined ? '—' : kpi.value.toLocaleString()}
                 </span>
               <button
-                key={kpi.id}
-                onClick={() => setActiveTab('workflows')}
+                onClick={() => setActiveTab(kpi.tab)}
                 className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 w-fit text-left"
               >
                 {kpi.linkText} <ArrowRight className="size-3" />

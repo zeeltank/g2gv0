@@ -35,6 +35,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import {
+  TALENT_MOBILITY_ACCESS_LINK,
+  TALENT_OFFBOARDING_ACCESS_LINK,
+  TALENT_ONBOARDING_ACCESS_LINK,
+  TALENT_PERFORMANCE_ACCESS_LINK,
+  TALENT_RECRUITMENT_ACCESS_LINK,
+} from '@/lib/gtg-navigation'
 import { useTalentDashboard, toDateParam } from '@/hooks/use-talent-dashboard'
 import type {
   TalentActionItem,
@@ -216,13 +224,40 @@ function DashboardSkeleton() {
 
 /* ── page ─────────────────────────────────────────────────────────────────── */
 
-/** Menus without submenus route to themselves - see getRoutePath in the shell. */
-function moduleHref(menuId: string, query?: string) {
-  return `/module/talent-management/${menuId}/${menuId}${query ? `?${query}` : ''}`
+/**
+ * The screen each dashboard target opens.
+ *
+ * ── WHY THIS REPLACED moduleHref() ──────────────────────────────────────────
+ *
+ * It used to build the path by hand:
+ *
+ *     `/module/talent-management/${menuId}/${menuId}`
+ *
+ * which doubles the last segment. No access_link in tblmenumaster_g2g looks like
+ * that, so parseRoutePath returned null, the shell fell back to the screen it
+ * already had, and EVERY control on this page did nothing - 8 quick actions, 6
+ * KPI cards, 4 "view all" links and every My Action Items row. The URL changed
+ * and the screen did not, which is the hardest kind of broken to report.
+ *
+ * Two of the keys were wrong on top of that: `performance` and
+ * `mobility-succession` are not the slugs the database serves.
+ *
+ * The keys below are the vocabulary this file and types/talent-dashboard.ts
+ * already speak, so all nineteen call sites are unchanged; only the resolution
+ * moved. Resolving through resolveAccessLink() also means a user whose profile
+ * cannot see the target degrades gracefully instead of landing on a blank shell.
+ */
+const TARGET: Record<string, string> = {
+  recruitment: TALENT_RECRUITMENT_ACCESS_LINK,
+  onboarding: TALENT_ONBOARDING_ACCESS_LINK,
+  performance: TALENT_PERFORMANCE_ACCESS_LINK,
+  'mobility-succession': TALENT_MOBILITY_ACCESS_LINK,
+  offboarding: TALENT_OFFBOARDING_ACCESS_LINK,
 }
 
 export function TalentDashboard() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const {
     data,
     options,
@@ -239,9 +274,19 @@ export function TalentDashboard() {
     refresh,
   } = useTalentDashboard()
 
+  /**
+   * `query` carries the deep link the target screen is already built to read -
+   * recruitment-center.tsx consumes ?tab= and ?action= on mount. It never
+   * arrived before, because the path it was appended to resolved to nothing.
+   */
   const go = React.useCallback(
-    (menuId: string, query?: string) => router.push(moduleHref(menuId, query)),
-    [router],
+    (key: string, query?: string) => {
+      const link = TARGET[key]
+      if (!link) return
+      const path = resolveAccessLink(link)
+      router.push(query ? `${path}?${query}` : path)
+    },
+    [router, resolveAccessLink],
   )
 
   const departmentOptions = React.useMemo(

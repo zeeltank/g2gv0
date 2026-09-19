@@ -60,9 +60,21 @@ function mapCandidate(application: JobApplicationApi, jobs: Map<string, JobPosti
     role: application.job_title ?? application.position ?? job?.title ?? 'Unassigned role',
     jobOpening: job?.title ?? application.job_title ?? 'Unassigned role',
     stage: candidateStage(application.status, screeningCompleted),
-    source: 'Career Portal',
-    recruiter: 'Recruitment Team',
-    recruiterInitials: 'RT',
+    /*
+     * NOT INVENTED. talent_job_applications has no source, referral,
+     * recruiter_id or recruiter_name column - checked - so there is nothing to
+     * report. These were 'Career Portal' / 'Recruitment Team' / 'RT' on every
+     * candidate, rendered as real Source and Recruiter columns AND used to
+     * build those two filter dropdowns, which therefore offered exactly one
+     * option each and filtered nothing.
+     *
+     * The em dash is this screen's own convention for unknown, and
+     * hasFilterValue() already treats it as absent, so the two filters now
+     * correctly offer nothing rather than one fiction.
+     */
+    source: '—',
+    recruiter: '—',
+    recruiterInitials: '',
     location: application.current_location ?? '—',
     experience: application.experience ?? '—',
     noticePeriod: '—',
@@ -70,6 +82,7 @@ function mapCandidate(application: JobApplicationApi, jobs: Map<string, JobPosti
     resume: application.resume_path ?? '',
     appliedOn: formatDate(application.applied_date ?? application.created_at),
     lastUpdated: formatDate(application.updated_at ?? application.created_at),
+    // No column and no control writes this, so the star never renders.
     starred: false,
     email: application.email,
     phone: application.mobile,
