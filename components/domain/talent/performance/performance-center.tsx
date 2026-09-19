@@ -45,6 +45,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -249,6 +253,31 @@ export function PerformanceCenter() {
   /* -- Shared filter bar (Reviews view) -- */
   const [shared, setShared] = React.useState<SharedFilterState>(INITIAL_SHARED)
   const [moreFiltersOpen, setMoreFiltersOpen] = React.useState(false)
+  /*
+   * DESTRUCTIVE ACTIONS ASK FIRST.
+   *
+   * Seven deletes on this screen fired on a single click with no confirmation.
+   * The worst sat in the cycle Actions menu: "Delete this cycle", two items
+   * below "Refresh all data", destroying a whole review cycle and everything
+   * hanging off it. The rest are ordinary menu items in row menus, one click
+   * from "Mark missed" and "Edit".
+   *
+   * Same shape recruitment-center already uses - {title, description, run} and
+   * one AlertDialog at the bottom - rather than window.confirm(), which blocks
+   * the tab, cannot be styled, and is the thing being removed from mobility.
+   *
+   * Notes are deliberately NOT guarded: a note is one line, written by the
+   * person deleting it, in a list they are looking at. Making every action
+   * equally heavy teaches people to click through the ones that matter.
+   */
+  const [confirmation, setConfirmation] = React.useState<
+    { title: string; description: string; run: () => Promise<unknown> } | null
+  >(null)
+
+  /** Wrap a delete so it asks before it runs. */
+  const confirmThen = (title: string, description: string, run: () => Promise<unknown>) =>
+    setConfirmation({ title, description, run })
+
   const [savedViewsOpen, setSavedViewsOpen] = React.useState(false)
   const [actionsOpen, setActionsOpen] = React.useState(false)
   const [cycleDialogOpen, setCycleDialogOpen] = React.useState(false)
@@ -579,12 +608,17 @@ export function PerformanceCenter() {
                       disabled={!effectiveCycleId || mutations.saving}
                       onSelect={() => {
                         setActionsOpen(false)
-                        report(mutations.deleteCycle(Number(effectiveCycleId))).then((outcome) => {
-                          if (outcome.ok) {
-                            setCycleTouched(false)
-                            setCycleId('')
-                          }
-                        })
+                        confirmThen(
+                          'Delete this review cycle?',
+                          'The cycle and the reviews, goals and appraisals recorded against it '
+                            + 'are removed. This cannot be undone.',
+                          () => report(mutations.deleteCycle(Number(effectiveCycleId))).then((outcome) => {
+                            if (outcome.ok) {
+                              setCycleTouched(false)
+                              setCycleId('')
+                            }
+                          }),
+                        )
                       }}
                     />
                   </div>
@@ -977,7 +1011,11 @@ export function PerformanceCenter() {
                                 onAdvance={() => report(mutations.advanceReview(review.id))}
                                 onRemind={() => report(mutations.sendReminder(review.id))}
                                 onComplete={() => report(mutations.advanceReview(review.id, { stage: 'completed' }))}
-                                onRemove={() => report(mutations.deleteReview(review.id))}
+                                onRemove={() => confirmThen(
+                                  'Delete this review?',
+                                  `The review for ${review.employee?.name ?? 'this employee'} and everything recorded on it - ratings, notes and attachments - are removed.`,
+                                  () => report(mutations.deleteReview(review.id)),
+                                )}
                               />
                             ))}
                         </TableBody>
@@ -1037,7 +1075,11 @@ export function PerformanceCenter() {
                   onUploadAttachment={(file) =>
                     activeReviewId && report(mutations.uploadAttachment(activeReviewId, file))
                   }
-                  onDeleteAttachment={(id) => report(mutations.deleteAttachment(id))}
+                  onDeleteAttachment={(id) => confirmThen(
+                    'Delete this attachment?',
+                    'The file is removed from this review and cannot be recovered from here.',
+                    () => report(mutations.deleteAttachment(id)),
+                  )}
                 />
               </>
             )}
@@ -1055,7 +1097,11 @@ export function PerformanceCenter() {
                 onFilterChange={(patch) => setGoalFilters((state) => ({ ...state, ...patch }))}
                 onCreate={(payload) => report(mutations.createGoal(payload))}
                 onUpdate={(id, payload) => report(mutations.updateGoal(id, payload))}
-                onDelete={(id) => report(mutations.deleteGoal(id))}
+                onDelete={(id) => confirmThen(
+                  'Delete this goal?',
+                  'The goal and its progress history are removed from this cycle.',
+                  () => report(mutations.deleteGoal(id)),
+                )}
                 saving={mutations.saving}
                 cycleId={effectiveCycleId || undefined}
               />
@@ -1076,7 +1122,11 @@ export function PerformanceCenter() {
                 onUpdate={(id, payload) => report(mutations.updateAppraisal(id, payload))}
                 onDecide={(id, action) => report(mutations.decideAppraisal(id, action))}
                 onBulk={(ids, action) => report(mutations.bulkAppraisals(ids, action))}
-                onDelete={(id) => report(mutations.deleteAppraisal(id))}
+                onDelete={(id) => confirmThen(
+                  'Delete this appraisal?',
+                  'The appraisal and any decision recorded on it are removed.',
+                  () => report(mutations.deleteAppraisal(id)),
+                )}
                 saving={mutations.saving}
                 cycleId={effectiveCycleId || undefined}
               />
@@ -1097,7 +1147,12 @@ export function PerformanceCenter() {
                 onUpdate={(id, payload) => report(mutations.updateCompensation(id, payload))}
                 onDecide={(id, action) => report(mutations.decideCompensation(id, action))}
                 onBulk={(ids, action) => report(mutations.bulkCompensation(ids, action))}
-                onDelete={(id) => report(mutations.deleteCompensation(id))}
+                onDelete={(id) => confirmThen(
+                  'Delete this compensation revision?',
+                  'The proposed revision and its approval state are removed. Pay already '
+                    + 'paid is unaffected.',
+                  () => report(mutations.deleteCompensation(id)),
+                )}
                 saving={mutations.saving}
                 cycleId={effectiveCycleId || undefined}
               />
@@ -1119,7 +1174,11 @@ export function PerformanceCenter() {
                 onUpdate={(id, payload) => report(mutations.updateBonus(id, payload))}
                 onDecide={(id, action) => report(mutations.decideBonus(id, action))}
                 onBulk={(ids, action) => report(mutations.bulkBonus(ids, action))}
-                onDelete={(id) => report(mutations.deleteBonus(id))}
+                onDelete={(id) => confirmThen(
+                  'Delete this award?',
+                  'The award and its approval state are removed.',
+                  () => report(mutations.deleteBonus(id)),
+                )}
                 saving={mutations.saving}
                 cycleId={effectiveCycleId || undefined}
               />
@@ -1147,11 +1206,14 @@ export function PerformanceCenter() {
                 onCreate={(payload) => report(mutations.createCalibrationSession(payload))}
                 onUpdate={(id, payload) => report(mutations.updateCalibrationSession(id, payload))}
                 onLock={(id, force) => report(mutations.lockCalibrationSession(id, { force }))}
-                onDelete={(id) =>
-                  report(mutations.deleteCalibrationSession(id)).then((outcome) => {
+                onDelete={(id) => confirmThen(
+                  'Delete this calibration session?',
+                  'The session is removed. Ratings already calibrated in it keep their '
+                    + 'calibrated values.',
+                  () => report(mutations.deleteCalibrationSession(id)).then((outcome) => {
                     if (outcome.ok && openSessionId === id) setOpenSessionId(null)
-                  })
-                }
+                  }),
+                )}
                 onCalibrate={(sessionId, reviewId, rating) =>
                   report(mutations.calibrateRating(sessionId, reviewId, rating))
                 }
@@ -1223,6 +1285,29 @@ export function PerformanceCenter() {
           setMoreFiltersOpen(false)
         }}
       />
+
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const action = confirmation?.run
+                // Closed BEFORE running, so a slow delete cannot be confirmed twice.
+                setConfirmation(null)
+                if (action) void action()
+              }}
+            >
+              Delete
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateCycleDialog
         open={cycleDialogOpen}

@@ -139,7 +139,10 @@ export function MobilityCenter() {
    * a save succeeded or failed. They were conflated by having neither: every
    * mutation here read
    *
-   *     if (res.status === 1) { ...refresh... }
+   *     if (res.status === 1) { ...refresh... } else {
+   *       // A refused save (status 0) used to do nothing at all here.
+   *       setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
+   *     }
    *
    * with no else, so a rejected save left the dialog open and said nothing at
    * all - 27 of them. The catch blocks did speak, but through window.alert(),
@@ -282,6 +285,9 @@ export function MobilityCenter() {
       const res = await mobilityService.getApplications({ job_posting_id: String(jobId) })
       if (res.status === 1) {
         setSelectedJobApplicants(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err) {
       console.error('Error loading sidebar applicants:', err)
@@ -409,9 +415,12 @@ export function MobilityCenter() {
           description: '',
           status: 'Open'
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to create job posting.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to create job posting.' })
     }
   }
 
@@ -449,9 +458,12 @@ export function MobilityCenter() {
         setIsEditJobOpen(false)
         fetchListData()
         setSelectedJob(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update job posting.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update job posting.' })
     }
   }
 
@@ -466,9 +478,12 @@ export function MobilityCenter() {
         if (selectedJob && selectedJob.id === jobId) {
           setSelectedJob(res.data)
         }
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to close job.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to close job.' })
     }
   }
 
@@ -486,10 +501,13 @@ export function MobilityCenter() {
         setApplyForm({ remarks: '' })
         fetchListData()
         loadFiltersAndOverview()
-        alert('Application submitted successfully!')
+        setActionFeedback({ kind: 'success', message: 'Application submitted.' })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to submit application.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to submit application.' })
     }
   }
 
@@ -503,9 +521,12 @@ export function MobilityCenter() {
         if (selectedJob) {
           fetchSelectedJobApplicants(selectedJob.id)
         }
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update status.' })
     }
   }
 
@@ -624,9 +645,12 @@ export function MobilityCenter() {
           status: 'Pending',
           remarks: ''
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to record transfer.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to record transfer.' })
     }
   }
 
@@ -636,9 +660,12 @@ export function MobilityCenter() {
       if (res.status === 1) {
         fetchListData()
         loadFiltersAndOverview()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update transfer status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update transfer status.' })
     }
   }
 
@@ -670,9 +697,12 @@ export function MobilityCenter() {
           status: 'Pending',
           remarks: ''
         })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to record promotion.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to record promotion.' })
     }
   }
 
@@ -682,9 +712,12 @@ export function MobilityCenter() {
       if (res.status === 1) {
         fetchListData()
         loadFiltersAndOverview()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to update promotion status.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to update promotion status.' })
     }
   }
 
@@ -697,9 +730,12 @@ export function MobilityCenter() {
         setIsCreatePoolOpen(false)
         fetchListData()
         setPoolForm({ name: '', description: '', status: 'Active' })
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to create talent pool.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to create talent pool.' })
     }
   }
 
@@ -711,6 +747,9 @@ export function MobilityCenter() {
       const res = await mobilityService.getPoolMembers(pool.id)
       if (res.status === 1) {
         setPoolMembers(res.data)
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err) {
       console.error('Error loading pool members:', err)
@@ -729,9 +768,12 @@ export function MobilityCenter() {
         const refreshed = await mobilityService.getPoolMembers(selectedPool.id)
         if (refreshed.status === 1) setPoolMembers(refreshed.data)
         fetchListData()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to add member to pool.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to add member to pool.' })
     }
   }
 
@@ -746,9 +788,12 @@ export function MobilityCenter() {
         const refreshed = await mobilityService.getPoolMembers(selectedPool.id)
         if (refreshed.status === 1) setPoolMembers(refreshed.data)
         fetchListData()
+      } else {
+        // A refused save (status 0) used to do nothing at all here.
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to remove pool member.')
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to remove pool member.' })
     }
   }
 
