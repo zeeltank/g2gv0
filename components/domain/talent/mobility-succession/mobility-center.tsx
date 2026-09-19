@@ -61,6 +61,10 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -168,6 +172,18 @@ export function MobilityCenter() {
    * re-added, losing the row's history.
    */
   const [editingSuccessionId, setEditingSuccessionId] = useState<number | null>(null)
+
+  /*
+   * REJECTING SOMEONE ASKED NOTHING.
+   *
+   * Two controls set an internal application to 'Rejected' on a single click:
+   * a ghost icon button in the applicant list, five pixels from "Screen" and
+   * "Interview", and a text button beside "Offer". Both end a colleague's
+   * application for an internal move, and nothing on this screen puts one back.
+   */
+  const [confirmation, setConfirmation] = useState<
+    { title: string; description: string; run: () => void } | null
+  >(null)
   const [isCreatePoolOpen, setIsCreatePoolOpen] = useState(false)
   const [isPoolMembersOpen, setIsPoolMembersOpen] = useState(false)
   const [isRecordTransferOpen, setIsRecordTransferOpen] = useState(false)
@@ -1709,7 +1725,11 @@ export function MobilityCenter() {
                                     <Button size="icon" variant="outline" className="h-5 w-5 text-success" onClick={() => handleUpdateApplicationStatus(app.id, 'Offered')} title="Offer">
                                       <CheckCircle2 className="size-3" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')} title="Reject">
+                                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => setConfirmation({
+                                      title: 'Reject this application?',
+                                      description: `${app.applicant ?? 'This applicant'}'s application for this internal role is marked Rejected. Nothing here reverses it.`,
+                                      run: () => handleUpdateApplicationStatus(app.id, 'Rejected'),
+                                    })} title="Reject">
                                       <X className="size-3" />
                                     </Button>
                                   </div>
@@ -1932,7 +1952,11 @@ export function MobilityCenter() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-7 text-[10px] text-destructive px-2"
-                                onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected')}
+                                onClick={() => setConfirmation({
+                                  title: 'Reject this application?',
+                                  description: `${app.applicant ?? 'This applicant'}'s application for this internal role is marked Rejected. Nothing here reverses it.`,
+                                  run: () => handleUpdateApplicationStatus(app.id, 'Rejected'),
+                                })}
                               >
                                 Reject
                               </Button>
@@ -2571,6 +2595,29 @@ export function MobilityCenter() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const action = confirmation?.run
+                // Closed first, so a slow call cannot be confirmed twice.
+                setConfirmation(null)
+                if (action) action()
+              }}
+            >
+              Reject
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* MODAL: Nominate Successor */}
       <Dialog

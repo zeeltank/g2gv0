@@ -39,8 +39,7 @@ import {
   Send,
   Building,
   UserX,
-  Receipt,
-  CheckSquare
+  Receipt
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,6 +72,10 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function OffboardingCenter() {
   const { user } = useAuth()
@@ -367,6 +370,17 @@ export function OffboardingCenter() {
       setSubmitting(false)
     }
   }
+
+  /*
+   * CLOSING AN EXIT CASE IS TERMINAL AND ASKED NOTHING.
+   *
+   * "Close Exit Case" sat in a column of six identical-looking outline
+   * buttons - between "Generate F&F" and the ones that merely switch tab -
+   * and ended the case on one click. Nothing on this screen reopens one.
+   */
+  const [confirmation, setConfirmation] = useState<
+    { title: string; description: string; run: () => Promise<unknown> } | null
+  >(null)
 
   const handleStatusTransition = async (newStatus: string) => {
     if (!activeCaseId) return
@@ -1759,12 +1773,25 @@ export function OffboardingCenter() {
                           <Users className="size-4 text-muted-foreground" /> Assign Handover
                         </Button>
 
+                        {/*
+                          * "Update Clearance" and "View Clearance Status" were
+                          * two buttons with two icons, two labels and ONE
+                          * behaviour - both called setActiveTopTab('clearance').
+                          * A reader comparing them looks for the difference
+                          * between updating and viewing, and there is none.
+                          * One button, named for what it opens.
+                          *
+                          * These duplicate the tab strip directly above the
+                          * panel, so they are shortcuts rather than features;
+                          * kept, because the strip is easy to miss beside a
+                          * column headed "Actions", but not doubled.
+                          */}
                         <Button 
                           variant="outline" 
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
                           onClick={() => setActiveTopTab('clearance')}
                         >
-                          <Shield className="size-4 text-muted-foreground" /> Update Clearance
+                          <Shield className="size-4 text-muted-foreground" /> Clearance Checklist
                         </Button>
 
                         <Button 
@@ -1772,15 +1799,7 @@ export function OffboardingCenter() {
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
                           onClick={() => setActiveTopTab('exit-interview')}
                         >
-                          <Calendar className="size-4 text-muted-foreground" /> Schedule Exit Interview
-                        </Button>
-
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => setActiveTopTab('clearance')}
-                        >
-                          <CheckSquare className="size-4 text-muted-foreground" /> View Clearance Status
+                          <Calendar className="size-4 text-muted-foreground" /> Exit Interview
                         </Button>
 
                         <Button 
@@ -1794,7 +1813,12 @@ export function OffboardingCenter() {
                         <Button 
                           variant="outline" 
                           className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => handleStatusTransition('Closed')}
+                          onClick={() => setConfirmation({
+                            title: 'Close this exit case?',
+                            description: 'The case moves to Closed. Nothing on this screen reopens one, '
+                              + 'and any clearance still outstanding stays outstanding.',
+                            run: () => handleStatusTransition('Closed'),
+                          })}
                         >
                           <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
                         </Button>
@@ -2198,6 +2222,28 @@ export function OffboardingCenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setConfirmation(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                const action = confirmation?.run
+                // Closed before running, so a slow call cannot be confirmed twice.
+                setConfirmation(null)
+                if (action) void action()
+              }}
+            >
+              Close the case
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 5. Upload Exit Document */}
       <Dialog
