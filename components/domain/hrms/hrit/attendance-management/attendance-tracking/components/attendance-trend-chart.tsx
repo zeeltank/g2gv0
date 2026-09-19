@@ -8,7 +8,6 @@ export interface AttendanceTrendData {
   label: string
   present: number
   late: number
-  earlyGoing: number
   absent: number
 }
 
@@ -37,7 +36,7 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
   const chartWidth = width - margin.left - margin.right
   const chartHeight = height - margin.top - margin.bottom
 
-  const allValues = data.flatMap((d) => [d.present, d.late, d.earlyGoing, d.absent])
+  const allValues = data.flatMap((d) => [d.present, d.late, d.absent])
   const maxValue = Math.max(...allValues, 1)
   const minValue = 0
   const gridStep = Math.max(1, Math.ceil(maxValue / 5))
@@ -51,12 +50,11 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
       x,
       present: margin.top + chartHeight - ((d.present - minValue) / (maxValue - minValue)) * chartHeight,
       late: margin.top + chartHeight - ((d.late - minValue) / (maxValue - minValue)) * chartHeight,
-      earlyGoing: margin.top + chartHeight - ((d.earlyGoing - minValue) / (maxValue - minValue)) * chartHeight,
       absent: margin.top + chartHeight - ((d.absent - minValue) / (maxValue - minValue)) * chartHeight,
     }
   })
 
-  const buildPath = (key: 'present' | 'late' | 'earlyGoing' | 'absent') =>
+  const buildPath = (key: 'present' | 'late' | 'absent') =>
     points.map((p, i) => (i === 0 ? `M ${p.x} ${p[key]}` : `L ${p.x} ${p[key]}`)).join(' ')
 
   const strokeColors = {
@@ -67,9 +65,16 @@ export function AttendanceTrendChart({ data, className }: AttendanceTrendChartPr
   }
 
   const legendItems = [
+    /*
+     * F-175. An 'Early Going' series was here, fed `earlyGoing: 0` for
+     * every point - a flat zero line with a legend entry, on a chart
+     * whose other three series are real. /api/attendance/weekly-summary
+     * returns present, absent and late; there is no early-going series
+     * to draw. The donut on the same screen DOES show a real figure,
+     * from the single-date early-going endpoint.
+     */
     { label: 'Present', color: strokeColors.present, key: 'present' as const },
     { label: 'Late', color: strokeColors.late, key: 'late' as const },
-    { label: 'Early Going', color: strokeColors.earlyGoing, key: 'earlyGoing' as const },
     { label: 'Absent', color: strokeColors.absent, key: 'absent' as const },
   ]
 

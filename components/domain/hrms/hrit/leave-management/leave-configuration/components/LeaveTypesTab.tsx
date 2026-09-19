@@ -116,10 +116,24 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
   }
 
   const openEdit = (leaveType: LeaveTypeConfig) => {
+    /*
+     * F-186. annual_quota is NULL when the quota varies by department, and this
+     * used to load that NULL as an empty box next to a department selector
+     * reading "All departments". Typing a number there and saving wrote one
+     * unscoped value over every per-department grant - silently, from a dialog
+     * that had shown none of them.
+     *
+     * Nothing is pre-filled for such a type, the existing allocations are
+     * listed in the dialog, and handleSave refuses the combination that
+     * flattens them.
+     */
     setEditing(leaveType)
     setForm({
       name: leaveType.leave_type,
-      annualQuota: leaveType.annual_quota === null ? '' : String(leaveType.annual_quota),
+      annualQuota:
+        leaveType.annual_quota_varies || leaveType.annual_quota === null
+          ? ''
+          : String(leaveType.annual_quota),
       departmentId: '',
       carryForward: leaveType.carry_forward,
       status: leaveType.status === 1 ? 'Active' : 'Inactive',
@@ -140,6 +154,18 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
       return
     }
 
+    // F-186. The combination that silently flattened per-department grants.
+    if (editing?.annual_quota_varies && form.annualQuota.trim() && !form.departmentId) {
+      const departments = (editing.allocations ?? [])
+        .map((allocation) => `${allocation.department} (${allocation.value})`)
+        .join(', ')
+      setFormError(
+        `${editing.leave_type} is allocated per department${departments ? `: ${departments}` : ''}. ` +
+          'Choose one department to change, or clear the quota to leave them as they are.',
+      )
+      return
+    }
+
     const result = await save({
       id: editing?.id,
       leaveType: form.name.trim(),
@@ -157,9 +183,21 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
     }
   }
 
+  /*
+   * F-200. This closed the dialog unconditionally.
+   *
+   * `remove` returns { ok, message } and the result was discarded, so a REFUSED
+   * delete looked exactly like a successful one: the confirm dialog vanished,
+   * the row stayed, and the reason appeared in an Alert further up the page the
+   * user may well have scrolled past. Refusal is the EXPECTED path here - the
+   * dialog's own warning says an item in use cannot be deleted.
+   *
+   * payroll-type/page.tsx has always done this correctly (`if (result.ok)`).
+   */
   const handleDelete = async () => {
     if (!leaveTypeToDelete) return
-    await remove(leaveTypeToDelete)
+    const result = await remove(leaveTypeToDelete)
+    if (!result.ok) return
     setLeaveTypeToDelete(null)
     setIsDeleteDialogOpen(false)
   }
@@ -192,7 +230,16 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
         <div className="flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={processing}>
+              {/* F-202. Icon-only, and unlabelled - a screen reader announced
+                  nothing but "button". PayrollTypeTable has always named its
+                  equivalent. */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={processing}
+                aria-label={`Actions for ${row.leave_type}`}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -253,6 +300,28 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
             <p className="text-xs text-muted-foreground">
               Saved as this leave year&apos;s allocation. Leave blank to keep the existing allocation.
             </p>
+            {/*
+              F-186. The per-department grants this dialog used to overwrite
+              without ever showing them.
+            */}
+            {editing?.annual_quota_varies && (editing.allocations?.length ?? 0) > 0 && (
+              <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
+                <p className="text-xs font-semibold text-foreground">
+                  Allocated per department:
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  {editing.allocations.map((allocation) => (
+                    <li key={allocation.department_id}>
+                      {allocation.department} &mdash; {allocation.value} days
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Choose a department below to change one of these. A quota with no department
+                  selected would replace all of them.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -377,6 +446,18 @@ export default function LeaveTypesTab({ isLoading }: { isLoading: boolean }) {
               deleted - disable them instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/*
+            F-200. The refusal, where the user is actually looking.
+            The dialog now stays open when the delete is refused, so the reason
+            has to be inside it - on the page behind, it is a banner the user
+            never sees.
+          */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel

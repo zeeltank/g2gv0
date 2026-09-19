@@ -65,6 +65,8 @@ export function RegularisationDrawer({
   const [error, setError] = React.useState<string | null>(null)
   const [message, setMessage] = React.useState<string | null>(null)
   const [mine, setMine] = React.useState<RegularisationRow[]>([])
+  // F-197. Which row is awaiting confirmation, if any.
+  const [confirmingWithdraw, setConfirmingWithdraw] = React.useState<number | null>(null)
   const [loadingMine, setLoadingMine] = React.useState(false)
 
   // Re-seed the form each time the drawer opens, so an alert for a different
@@ -150,10 +152,22 @@ export function RegularisationDrawer({
     }
   }
 
+  /*
+   * F-197. Withdrawing was a bare text link: no confirmation before, and
+   * nothing after.
+   *
+   * Failure set `error`; SUCCESS set nothing at all - the row simply
+   * disappeared from the list, which is indistinguishable from a rendering
+   * glitch. Both halves are fixed: the caller confirms first, and a successful
+   * withdrawal says so.
+   */
   const handleWithdraw = async (id: number) => {
+    setError(null)
+    setMessage(null)
     try {
       await hrmsService.withdrawRegularisation(getLaravelContext(user), id)
       await loadMine()
+      setMessage('Request withdrawn. Your attendance for that day is unchanged.')
       onSubmitted?.()
     } catch (withdrawError) {
       setError(withdrawError instanceof Error ? withdrawError.message : 'Could not withdraw the request.')
@@ -186,7 +200,7 @@ export function RegularisationDrawer({
           )}
 
           <div className="grid gap-2">
-            <Label htmlFor="reg-day">Day</Label>
+            <Label htmlFor="reg-day" required>Day</Label>
             <Input
               id="reg-day"
               type="date"
@@ -209,6 +223,12 @@ export function RegularisationDrawer({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
+              {/*
+                F-204. Neither time is individually required, but ONE of them
+                is - handleSubmit refuses with "Give a corrected punch-in time,
+                a punch-out time, or both." A red asterisk on each would be
+                wrong; saying the rule before they submit is not.
+              */}
               <Label htmlFor="reg-in">Corrected punch-in</Label>
               <Input id="reg-in" type="time" value={inTime} onChange={(e) => setInTime(e.target.value)} />
             </div>
@@ -218,11 +238,12 @@ export function RegularisationDrawer({
             </div>
           </div>
           <p className="-mt-3 text-xs text-muted-foreground">
-            Fill in only what needs changing — a missing punch-out needs just the out time.
+            Fill in only what needs changing — a missing punch-out needs just the out time. At least
+            one of the two is required.
           </p>
 
           <div className="grid gap-2">
-            <Label htmlFor="reg-reason">Reason</Label>
+            <Label htmlFor="reg-reason" required>Reason</Label>
             <Textarea
               id="reg-reason"
               rows={3}
@@ -277,15 +298,37 @@ export function RegularisationDrawer({
                       <StatusBadge status={row.status} size="sm">
                         {row.status}
                       </StatusBadge>
-                      {row.status === 'pending' && (
-                        <button
-                          type="button"
-                          onClick={() => handleWithdraw(row.id)}
-                          className="text-xs font-medium text-destructive hover:underline"
-                        >
-                          Withdraw
-                        </button>
-                      )}
+                      {row.status === 'pending' &&
+                        (confirmingWithdraw === row.id ? (
+                          <span className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Withdraw it?</span>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingWithdraw(null)}
+                              className="font-medium text-muted-foreground hover:underline"
+                            >
+                              Keep
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConfirmingWithdraw(null)
+                                void handleWithdraw(row.id)
+                              }}
+                              className="font-semibold text-destructive hover:underline"
+                            >
+                              Yes, withdraw
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingWithdraw(row.id)}
+                            className="text-xs font-medium text-destructive hover:underline"
+                          >
+                            Withdraw
+                          </button>
+                        ))}
                     </div>
                   </li>
                 ))}

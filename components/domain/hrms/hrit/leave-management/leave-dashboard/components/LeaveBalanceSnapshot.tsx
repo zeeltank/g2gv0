@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, HeartPulse, Plane, TimerReset,ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Progress } from '@/components/ui/progress'
 import type { LeaveBalanceSnapshot } from '@/types/leave-dashboard'
 
@@ -34,6 +35,20 @@ export function LeaveBalanceSnapshotCard({ balances, onViewAll }: LeaveBalanceSn
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/*
+          F-194. This card used to .map() straight into its body, so an empty
+          dataset rendered a heading above whitespace. On a newly-configured
+          tenant the whole dashboard was a grid of headed cards containing
+          nothing - indistinguishable from a broken page. Each empty state
+          names the cause AND the next step, the way payroll-type does.
+        */}
+        {balances.length === 0 ? (
+          <EmptyState
+            title="No leave balance yet"
+            description="Balances come from the entitlement grid. Ask HR to set an allocation under Configuration → Entitlements."
+          />
+        ) : (
+          <>
         {balances.map((balance) => {
           const Icon = iconById[balance.id as keyof typeof iconById] ?? BriefcaseBusiness
 
@@ -55,6 +70,8 @@ export function LeaveBalanceSnapshotCard({ balances, onViewAll }: LeaveBalanceSn
             </div>
           )
         })}
+          </>
+        )}
       </CardContent>
     </Card>
   )

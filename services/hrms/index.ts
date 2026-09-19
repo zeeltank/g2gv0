@@ -49,6 +49,52 @@ export interface AttendanceWeeklyPunch {
   time: string | null
 }
 
+/**
+ * One day of /api/employee-attendance-monthly-report (F-171).
+ *
+ * `status` is resolved by the server against the roster and the holiday
+ * calendar, so a Sunday is 'weekend' and a declared holiday is 'holiday' -
+ * neither is reported as an absence. 'incomplete' means a punch-in with no
+ * punch-out, which is why working_hours is null on those rows.
+ */
+export interface MonthlyAttendanceDay {
+  date: string
+  day_name: string
+  status: 'present' | 'absent' | 'leave' | 'holiday' | 'weekend' | 'incomplete' | string
+  punchin_time: string | null
+  punchout_time: string | null
+  /** "HH:MM". Null unless the day has BOTH punches. */
+  working_hours: string | null
+  is_late: boolean
+  /** The rostered start time for that weekday, or null on a non-working day. */
+  shift_time: string | null
+  leave: { type?: string | null; day_type?: string | number | null; reason?: string | null } | null
+  holiday_name: string | null
+}
+
+export interface MonthlyAttendanceSummary {
+  total_days: number
+  present_days: number
+  absent_days: number
+  leave_days: number
+  holiday_days: number
+  late_days: number
+  weekend_days: number
+  working_days: number
+}
+
+export interface MonthlyAttendanceResponse {
+  status?: number
+  message?: string
+  data?: {
+    employee?: { id?: number | string; name?: string | null; employee_id?: string | null }
+    month?: string
+    summary?: MonthlyAttendanceSummary
+    /** Named `daily_report`, not `daily`. */
+    daily_report?: MonthlyAttendanceDay[]
+  }
+}
+
 export interface AttendanceWeeklyResponse {
   date_range: {
     start: string
@@ -354,6 +400,32 @@ export const hrmsService = {
     apiClient.get<AttendanceEmployeesResponse>('/attendance/employees', {
       ...withLaravelParams(context),
       ...(activeFilter(departmentId) ? { department_id: activeFilter(departmentId) as string } : {}),
+    }),
+  /**
+   * /api/employee-attendance-monthly-report - one employee, one calendar month,
+   * day by day (F-171).
+   *
+   * The most complete attendance endpoint in the module and it had no caller:
+   * a nine-field summary plus a row per date carrying status, punch times,
+   * working hours, lateness, the rostered shift, any leave (with its reason)
+   * and any holiday name. Roster- and holiday-aware, so a weekend is
+   * 'weekend' rather than 'absent'.
+   *
+   * `month` is 'YYYY-MM' and the server validates the format. It refuses a
+   * user_id that is not the caller unless the caller is admin/hr/executive/
+   * auditor (F-159), so the employee picker below is HR's view; an employee
+   * reading their own month passes their own id.
+   *
+   * The payload is nested under `data`, unlike its siblings.
+   */
+  getEmployeeMonthlyAttendance: (
+    context: LaravelContext,
+    params: { userId: string | number; month: string },
+  ) =>
+    apiClient.get<MonthlyAttendanceResponse>('/employee-attendance-monthly-report', {
+      ...withLaravelParams(context),
+      user_id: String(params.userId),
+      month: params.month,
     }),
   getDepartmentAttendanceReport: (context: LaravelContext, params: AttendanceReportParams) =>
     webClient.get<DepartmentAttendanceReportResponse>('/departmentwise-attendance-report/create', withLaravelParams(context, {

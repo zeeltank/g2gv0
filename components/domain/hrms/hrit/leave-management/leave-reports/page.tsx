@@ -6,6 +6,7 @@ import { Search } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { useLeaveOptions, useLeaveReports } from '@/hooks/use-leave'
 
 import {
@@ -143,7 +144,7 @@ export default function LeaveReportsPage() {
    * filter, which is the entire point of a refresh button, did nothing.
    * And the error state offered no way back.
    */
-  const { loading, error, summary, register, balance, retry } = useLeaveReports(apiFilters)
+  const { loading, error, summary, register, balance, loaded, retry } = useLeaveReports(apiFilters)
   const { options } = useLeaveOptions()
 
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? reports[0]
@@ -260,6 +261,17 @@ export default function LeaveReportsPage() {
 
   /** Exports whichever dataset the selected report represents. */
   function exportCsv() {
+    /*
+     * F-189. A failed load must not become a file.
+     *
+     * On failure the hook clears summary, register and balance, and this
+     * function would happily write the resulting zeros to
+     * leave-register-2026-07-01-to-2026-09-30.csv - a document whose own name
+     * asserts a period and whose contents assert that nothing happened in it.
+     * That file then leaves the building and nobody who receives it can tell.
+     */
+    if (!loaded) return
+
     let csvRows: (string | number | null | undefined)[][]
 
     if (REGISTER_REPORTS.has(selectedReport.id)) {
@@ -345,9 +357,25 @@ export default function LeaveReportsPage() {
         </div>
       </div>
 
+      {/*
+        F-189. This used to be the ONLY sign of failure - a banner above a
+        report still rendering "Total Requests 0 / Approved 0 (0%)", "No leave
+        data for this period" and the insight "No leave was taken in the
+        selected period." Every one of those is a claim about an organisation's
+        leave, produced by a network error, and Export would write them to a
+        CSV. The banner now carries a retry and says which it is.
+      */}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {error} Nothing below is a statement about your organisation&rsquo;s leave &mdash;
+              this is a failure to load it.
+            </span>
+            <Button variant="outline" size="sm" onClick={retry} disabled={loading}>
+              Try again
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -380,6 +408,9 @@ export default function LeaveReportsPage() {
             register={register}
             balance={balance}
             saved={savedIds.has(selectedReport.id)}
+            // F-189. False when the load failed, so the preview renders an
+            // error instead of a zeroed report.
+            loaded={loaded}
             selectedReport={selectedReport}
             totalDays={totalDays}
             totalRequests={totalRequests}
@@ -391,6 +422,7 @@ export default function LeaveReportsPage() {
         </div>
 
         <ReportsSidebar
+            loaded={loaded}
           approved={approved}
           cancelled={cancelled}
           departmentBreakdown={departmentSlices}

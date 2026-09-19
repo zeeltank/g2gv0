@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal, Check } from 'lucide-react'
+import { Download, Plus, ChevronDown, Search, ListFilter, Columns3, MoreHorizontal, Check, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
@@ -54,12 +54,40 @@ const OPTIONAL_COLUMNS: { id: string; label: string }[] = [
 
 const HIDDEN_COLUMNS_KEY = 'hrit.leave-requests.hidden-columns'
 
-/** Filter presets. Values match Laravel's hrms_emp_leaves.status vocabulary. */
-const savedFilters = [
-  { label: 'My Pending Approvals', filters: { status: 'pending' } },
-  { label: 'Approved This Year', filters: { status: 'approved' } },
+/**
+ * Filter presets. Values match Laravel's hrms_emp_leaves.status vocabulary.
+ *
+ * F-184. Two of these three promised more than they did.
+ *
+ * "Approved This Year" applied no year filter at all - it returned approved
+ * requests from all time. It now sends fromDate, which LeaveRequestFilters has
+ * always supported and this screen simply never used.
+ *
+ * "My Pending Approvals" returned EVERYONE'S pending requests. There is no
+ * "awaiting me" filter in the API - LeaveRequestFilters has search, status,
+ * department, leave type, employee and a date range, and nothing that expresses
+ * "requests where I am the current approver". So it is renamed to what it
+ * returns rather than left claiming a scope it cannot apply. Implementing it
+ * properly needs an approver filter on the endpoint, which is a backend change.
+ */
+const savedFilters: Array<{ label: string; filters: SavedFilter }> = [
+  // F-208. "My" is back, and now means it. The server resolves "awaiting me"
+  // against the approval chain - the pending step whose approver_role is the
+  // caller's - which no combination of the old filters could express.
+  { label: 'My Pending Approvals', filters: { status: 'pending', awaitingMe: true } },
+  { label: 'Pending Approvals', filters: { status: 'pending' } },
+  { label: 'Approved This Year', filters: { status: 'approved', scope: 'this-year' } },
   { label: 'Rejected Requests', filters: { status: 'rejected' } },
 ]
+
+type SavedFilter = {
+  status?: string
+  department?: string
+  /** 'this-year' narrows to 1 January of the current year onwards. */
+  scope?: 'this-year'
+  /** F-208. Only the requests this caller is the current approver for. */
+  awaitingMe?: boolean
+}
 
 const statusLabelMap: Record<LeaveRequestStatus, string> = {
   pending: 'Pending',
@@ -83,6 +111,11 @@ export default function LeaveRequestsPage() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
+  // F-184. The date bound the "Approved This Year" preset needs. The API has
+  // always accepted fromDate; this screen had no date state to put in it.
+  const [fromDate, setFromDate] = useState('')
+  // F-208. Whether the list is narrowed to what this caller must decide.
+  const [awaitingMe, setAwaitingMe] = useState(false)
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
@@ -120,12 +153,14 @@ export default function LeaveRequestsPage() {
       departmentId: departmentFilter || undefined,
       leaveTypeId: leaveTypeFilter || undefined,
       employeeId: showMine ? user?.id : undefined,
+      fromDate: fromDate || undefined,
+      awaitingMe: awaitingMe || undefined,
       page,
       perPage: PAGE_SIZE,
       sortBy: 'submittedDate',
       sortDir: 'desc' as const,
     }),
-    [searchQuery, statusFilter, departmentFilter, leaveTypeFilter, page, showMine, user?.id],
+    [searchQuery, statusFilter, departmentFilter, leaveTypeFilter, fromDate, awaitingMe, page, showMine, user?.id],
   )
 
   const {
@@ -138,6 +173,8 @@ export default function LeaveRequestsPage() {
     applyLeave,
     decide,
     bulkDecide,
+    withdraw,
+    cancel,
     retry,
     clearMessages,
   } = useLeaveRequests(filters)
@@ -173,9 +210,12 @@ export default function LeaveRequestsPage() {
     setSelectedIds([])
   }
 
-  const handleSavedFilterClick = (preset: Record<string, string | undefined>) => {
+  const handleSavedFilterClick = (preset: SavedFilter) => {
     setStatusFilter(preset.status ?? '')
     setDepartmentFilter(preset.department ?? '')
+    // F-184. The year the preset's label promises.
+    setFromDate(preset.scope === 'this-year' ? `${new Date().getFullYear()}-01-01` : '')
+    setAwaitingMe(Boolean(preset.awaitingMe))
     resetToFirstPage()
   }
 
@@ -328,15 +368,22 @@ export default function LeaveRequestsPage() {
       header: 'Actions',
       render: (_, row) => (
         <div className="flex justify-center">
+          {/*
+            F-202. This had no aria-label AND used a MoreHorizontal (menu)
+            glyph for something that opens a details drawer, not a menu. Named
+            for what it does, and given the eye its behaviour implies.
+          */}
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`View ${row.employee?.name ?? 'request'} details`}
+            title="View details"
             onClick={() => {
               setSelectedRequestId(Number(row.id))
               setDrawerOpen(true)
             }}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <Eye className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -350,7 +397,18 @@ export default function LeaveRequestsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {loading ? 'Loading requests...' : `${total} Requests • Organization-wide`}
+            {/*
+              F-185. This said "Organization-wide" unconditionally, including
+              when ?mine=1 had narrowed the list to the signed-in user. Three
+              rows under an empty filter bar, labelled organisation-wide, reads
+              as "the system lost everyone else's requests" - and "Clear All
+              Filters" does not clear it, because it is URL state.
+            */}
+            {loading
+              ? 'Loading requests...'
+              : showMine
+                ? `${total} ${total === 1 ? 'Request' : 'Requests'} • Yours only`
+                : `${total} Requests • Organization-wide`}
           </p>
         </div>
         <Button onClick={() => setApplyLeaveOpen(true)} className="h-9 px-4 gap-2 rounded-lg font-semibold">
@@ -446,6 +504,11 @@ export default function LeaveRequestsPage() {
                     setDepartmentFilter('')
                     setLeaveTypeFilter('')
                     setSearchQuery('')
+                    // F-184. Including the date bound a preset may have set,
+                    // which otherwise survived "Clear All Filters" invisibly -
+                    // there is no date control on screen to show it is on.
+                    setFromDate('')
+                    setAwaitingMe(false)
                     resetToFirstPage()
                   }}
                 >
@@ -520,6 +583,19 @@ export default function LeaveRequestsPage() {
           loading={detailLoading}
           processing={processing}
           onDecision={handleDecision}
+          // F-164. The applicant taking their own request back. Both close the
+          // drawer on success so the refreshed list is what they look at next;
+          // on refusal the drawer stays open and the hook's error is shown
+          // above the table, carrying the server's own wording.
+          onWithdraw={async (id) => {
+            const result = await withdraw(id)
+            if (result.ok) setDrawerOpen(false)
+          }}
+          onCancel={async (id, reason) => {
+            const result = await cancel(id, reason)
+            if (result.ok) setDrawerOpen(false)
+          }}
+          currentUserId={user?.id}
         />
         <ApplyLeaveDrawer
           open={applyLeaveOpen}

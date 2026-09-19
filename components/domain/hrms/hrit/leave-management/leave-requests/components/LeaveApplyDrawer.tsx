@@ -103,10 +103,36 @@ export function ApplyLeaveDrawer({ open, onOpenChange, processing = false, onSub
     [formData.fromDate, formData.toDate, formData.isHalfDay],
   )
 
+  /*
+   * F-203. Per-field validation existed and was reachable from ONE control.
+   *
+   * `handleBlur` was called only on the Reason textarea. Leave Type, Start
+   * Date, End Date and Slot all rendered `touched.x && errors.x` markup that
+   * nothing could populate before submit - so a user tabbed past a blank Start
+   * Date, filled everything else, pressed Submit, and got three errors at once.
+   *
+   * Blur is the wrong event for the other four: Select and DatePicker commit on
+   * CHANGE and may never blur in a way the component reports. So interacting
+   * with one marks it touched, and the cross-field rules (End Date before Start
+   * Date) are re-checked against the NEW value on every change - which blur
+   * alone would not have caught either.
+   */
   const updateField = (field: keyof FormData, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    setErrors((prev) => ({ ...prev, [field]: undefined }))
     setSubmitError(null)
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value } as FormData
+      setTouched((touchedSoFar) => ({ ...touchedSoFar, [field]: true }))
+      setErrors((prevErrors) => ({
+        ...prevErrors,
+        [field]: validateField(field, next),
+        // The date pair validates as a pair; changing either can fix or break
+        // the other, and only re-checking the edited one leaves a stale error.
+        ...(field === 'fromDate' || field === 'toDate'
+          ? { toDate: validateField('toDate', next) }
+          : {}),
+      }))
+      return next
+    })
   }
 
   const validateField = (field: keyof FormData, data: FormData = formData): string | undefined => {

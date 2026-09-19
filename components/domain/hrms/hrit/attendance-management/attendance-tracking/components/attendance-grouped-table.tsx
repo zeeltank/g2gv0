@@ -93,13 +93,25 @@ export function AttendanceGroupedTable({
   const getColumns = () => {
     switch (groupBy) {
       case 'organization':
+        /*
+         * F-175. 'Early Going' was here and was ALWAYS ZERO.
+         *
+         * This grouping is built from departmentReport, which carries
+         * total_att_day / total_ab_day / late / workingDays and nothing about
+         * early departures - so the accumulator read `entry.earlyGoing += 0`
+         * on every row. A column of zeros labelled as a metric is worse than
+         * no column: it reads as "nobody left early", which is a claim.
+         *
+         * The real figure exists only in getEarlyGoingReport, which answers for
+         * ONE DATE. Putting a single day's count beside range-based present and
+         * absent totals would be a different kind of wrong. Removed.
+         */
         return [
           { id: 'department', label: 'Department' },
           { id: 'employees', label: 'Total Employees' },
           { id: 'present', label: 'Present' },
           { id: 'absent', label: 'Absent' },
           { id: 'late', label: 'Late' },
-          { id: 'earlyGoing', label: 'Early Going' },
           { id: 'attendancePercentage', label: 'Attendance %' },
         ]
       /*
@@ -117,7 +129,10 @@ export function AttendanceGroupedTable({
        * are removed rather than filled.
        */
       case 'department':
+        // F-176. `employee` was computed in the page and never rendered, so
+        // these two groupings identified people by employee number alone.
         return [
+          { id: 'employee', label: 'Employee' },
           { id: 'employeeId', label: 'Employee ID' },
           { id: 'department', label: 'Department' },
           { id: 'date', label: 'Date' },
@@ -127,6 +142,7 @@ export function AttendanceGroupedTable({
         ]
       case 'employee':
         return [
+          { id: 'employee', label: 'Employee' },   // F-176
           { id: 'employeeId', label: 'Employee ID' },
           { id: 'date', label: 'Date' },
           { id: 'department', label: 'Department' },
@@ -134,17 +150,8 @@ export function AttendanceGroupedTable({
           { id: 'lateBy', label: 'Late By' },
           { id: 'status', label: 'Status' },
         ]
-      case 'date':
-        return [
-          { id: 'date', label: 'Date' },
-          { id: 'department', label: 'Department' },
-          { id: 'employees', label: 'Total Employees' },
-          { id: 'present', label: 'Present' },
-          { id: 'absent', label: 'Absent' },
-          { id: 'late', label: 'Late' },
-          { id: 'earlyGoing', label: 'Early Going' },
-          { id: 'attendancePercentage', label: 'Attendance %' },
-        ]
+      // F-175. `case 'date'` was here. It is gone with the Group By option that
+      // selected it - see enhanced-attendance-filters.tsx.
       default:
         return [
           { id: 'department', label: 'Department' },
@@ -246,10 +253,16 @@ export function AttendanceGroupedTable({
                   ))}
                   <td className="p-4 align-middle">
                     <div className="flex items-center gap-2">
+                      {/*
+                        F-202. Unlabelled, while the identical control on the
+                        sibling tab (attendance-reports) has always been named.
+                      */}
                       <Button
                         variant="ghost"
                         size="icon"
                         className="size-8 rounded-full"
+                        aria-label={`View details for ${row.employee ?? row.department ?? 'this row'}`}
+                        title="View details"
                         onClick={() => setDrillDown(row)}
                       >
                         <Eye className="size-4" />

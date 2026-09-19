@@ -1,6 +1,7 @@
 import { CheckCircle2, ClipboardList, XCircle, type LucideIcon } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import type { Activity, ActivityType } from '@/types/leave-dashboard'
 
@@ -28,6 +29,20 @@ export function RecentActivity({ activities }: RecentActivityProps) {
         <CardDescription>Latest leave workflow updates</CardDescription>
       </CardHeader>
       <CardContent>
+        {/*
+          F-194. This card used to .map() straight into its body, so an empty
+          dataset rendered a heading above whitespace. On a newly-configured
+          tenant the whole dashboard was a grid of headed cards containing
+          nothing - indistinguishable from a broken page. Each empty state
+          names the cause AND the next step, the way payroll-type does.
+        */}
+        {activities.length === 0 ? (
+          <EmptyState
+            title="No activity yet"
+            description="Approvals, rejections and withdrawals show up here as they happen."
+          />
+        ) : (
+          <>
         <div className="space-y-0">
           {activities.map((activity, index) => {
             const Icon = activityIconMap[activity.type]
@@ -51,6 +66,8 @@ export function RecentActivity({ activities }: RecentActivityProps) {
             )
           })}
         </div>
+          </>
+        )}
       </CardContent>
     </Card>
   )
