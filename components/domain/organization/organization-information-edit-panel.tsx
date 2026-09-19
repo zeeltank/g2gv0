@@ -270,6 +270,15 @@ export function OrganizationInformationEditPanel({
                 key={`${pendingLogo.name}-${pendingLogo.size}-${pendingLogo.lastModified}`}
                 file={pendingLogo}
                 shape="rounded"
+                /*
+                 * OPENS SHOWING THE WHOLE LOGO.
+                 *
+                 * A photo of a person should fill a round frame, so the cropper
+                 * defaults to `cover`. A logo is the opposite: a wordmark opened
+                 * at cover shows its middle letters and nothing else, and a logo
+                 * that has been cropped is not the logo any more.
+                 */
+                initialFit="contain"
                 title="Position the logo"
                 onCancel={() => setPendingLogo(null)}
                 onApply={({ file, preview }) => {
