@@ -1,5 +1,6 @@
 import { apiClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { getDeviceId } from '@/lib/device-id'
 
 /**
  * Your own account — the first self-service surface in this product.
@@ -59,11 +60,20 @@ export type AccountSession = {
   current: boolean
 }
 
+/** Which of this person's settings are pinned to the browser they are using. */
+export type DeviceScope = {
+  device_id: string
+  /** False when the browser could not keep an id — private window, storage blocked. */
+  is_device: boolean
+  device_scoped_keys: string[]
+}
+
 export type AccountMe = {
   status: boolean
   data: {
     profile: AccountProfile
     preferences: AccountPreferences
+    device_scope: DeviceScope
     /** Decides which SECTIONS are shown. Presentation only — every endpoint is guarded. */
     role: string | null
     notifiable_events: string[]
@@ -83,9 +93,18 @@ export type AccountMe = {
   }
 }
 
+/**
+ * Auth plus this browser's identity.
+ *
+ * `device_id` rides on every account call, read and write. The server decides
+ * which keys it applies to (`UserPreferences::DEVICE_SCOPED` — theme, sidebar,
+ * density) and stores everything else against the account, so no caller here has
+ * to know or remember the distinction.
+ */
 function params(context: LaravelContext) {
   return {
     ...(context.token ? { type: 'api', token: context.token } : {}),
+    ...(getDeviceId() ? { device_id: getDeviceId() } : {}),
   }
 }
 
@@ -124,6 +143,20 @@ export const accountService = {
   endSession: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: boolean; message: string }>(
       `/account/sessions/${id}`,
+      params(context) as Record<string, string>,
+    ),
+
+  /** "Use these on all my devices" — copy this browser's appearance to the account. */
+  promotePreferences: (context: LaravelContext) =>
+    apiClient.post<{ status: boolean; message: string; data: { preferences: AccountPreferences } }>(
+      '/account/preferences/promote',
+      params(context),
+    ),
+
+  /** Forget this browser's overrides, so it follows the account default again. */
+  forgetDevicePreferences: (context: LaravelContext) =>
+    apiClient.delete<{ status: boolean; message: string; data: { preferences: AccountPreferences } }>(
+      '/account/preferences/device',
       params(context) as Record<string, string>,
     ),
 

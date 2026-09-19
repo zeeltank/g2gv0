@@ -1,8 +1,7 @@
 'use client'
 
-import { Info } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SETTINGS_SECTIONS, type SettingsSectionId } from '@/lib/settings-sections'
+import { SectionEmpty, SectionError } from './section-primitives'
 
 /**
  * THE FALLBACK, and no longer a "coming soon" page.
@@ -31,23 +30,31 @@ import { SETTINGS_SECTIONS, type SettingsSectionId } from '@/lib/settings-sectio
 export function ComingSoonSection({ id }: { id: SettingsSectionId | undefined }) {
   const section = SETTINGS_SECTIONS.find((entry) => entry.id === id)
 
+  /*
+   * TWO STATES, TWO PRIMITIVES — NOT TWO IDENTICAL ALERTS.
+   *
+   * Both branches rendered the same `<Alert>` with the same `Info` icon, so a
+   * prompt ("pick a section") and a fault ("this one could not be opened") were
+   * visually indistinguishable. One is the normal first frame of a fresh visit;
+   * the other means something is broken.
+   *
+   * `SectionEmpty` and `SectionError` are the product's own vocabulary for
+   * exactly this distinction, and both were sitting unused in
+   * `section-primitives.tsx` while this file hand-rolled the ambiguous version.
+   */
   if (!section) {
     return (
-      <Alert>
-        <Info className="size-4" aria-hidden="true" />
-        <AlertDescription>Pick a section from the list to get started.</AlertDescription>
-      </Alert>
+      <SectionEmpty
+        title="Nothing selected"
+        description="Pick a section from the list to get started."
+      />
     )
   }
 
   return (
-    <Alert>
-      <Info className="size-4" aria-hidden="true" />
-      <AlertDescription>
-        <strong>{section.label}</strong> could not be opened. Every section in this list is built,
-        so this is a fault rather than something missing — please report it, and try another
-        section in the meantime.
-      </AlertDescription>
-    </Alert>
+    <SectionError
+      title={`${section.label} could not be opened`}
+      description="Every section in this list is built, so this is a fault rather than something missing. Please report it, and try another section in the meantime."
+    />
   )
 }

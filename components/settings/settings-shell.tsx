@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -10,6 +10,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { cn } from '@/lib/utils'
 import { useAccount } from '@/hooks/use-account'
+import { SectionBoundary } from './sections/section-primitives'
 import {
   isSectionId,
   sectionsForRole,
@@ -136,7 +137,49 @@ export function SettingsShell() {
     }
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * SWITCHING SECTION USED TO DISCARD A DRAFT SILENTLY
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Type a new mobile number in Profile, click Preferences to check something,
+   * come back — and it was gone, with `SaveButton` reading "Saved" over the
+   * emptied form.
+   *
+   * `beforeunload` cannot help here: this is an in-app state change, not a
+   * browser exit. But it IS a click this component owns, so it can ask. A
+   * section declares itself dirty through `registerDirty`, and this refuses to
+   * move until the person says so.
+   *
+   * `window.confirm` rather than the house AlertDialog, deliberately: the answer
+   * has to be known BEFORE the section changes, and a dialog that resolves
+   * asynchronously would mean rendering the new section first and undoing it —
+   * which is the flicker this is meant to prevent. It is the one place in the
+   * settings area where a native prompt is the correct tool.
+   */
+  const dirtySection = useRef<{ id: SettingsSectionId; label: string } | null>(null)
+
+  const registerDirty = useCallback(
+    (id: SettingsSectionId, label: string, dirty: boolean) => {
+      if (dirty) dirtySection.current = { id, label }
+      else if (dirtySection.current?.id === id) dirtySection.current = null
+    },
+    [],
+  )
+
   function open(id: SettingsSectionId) {
+    const pending = dirtySection.current
+
+    if (pending && pending.id !== id) {
+      const leave = window.confirm(
+        `You have unsaved changes in ${pending.label}. Leave without saving?`,
+      )
+
+      if (!leave) return
+
+      dirtySection.current = null
+    }
+
     setActive(id)
     // `replace`, not `push`: clicking through six sections should not mean six
     // presses of Back to leave Settings.
@@ -175,10 +218,57 @@ export function SettingsShell() {
           </Button>
         </div>
 
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+          A FAILED /account/me USED TO LOOK LIKE "ALL MY SETTINGS VANISHED"
+          ═══════════════════════════════════════════════════════════════════
+
+          `sectionsForRole` reads `if (!role) return false`, which is right when
+          the role is genuinely absent and wrong about what it means here: a
+          failed call also leaves `role` null. So one network error silently
+          removed every role-gated section — the entire Organisation half of the
+          rail — and `?s=audit` landed on Profile instead. The banner said
+          something had failed; nothing connected that to the six sections that
+          had just disappeared.
+
+          Two things were missing, and neither is "show them anyway":
+
+          THE SECTIONS ARE NOT GUESSED. Which sections somebody may open is an
+          access decision, and the answer to "we could not find out" is never to
+          assume yes. Rendering Organisation sections we have not verified they
+          may see would put an unauthorised rail in front of them and fail on the
+          first click — a worse outcome than a short rail with an explanation.
+
+          SO IT SAYS SO, AND OFFERS THE RETRY. The message now names the
+          consequence, and the button is the thing that actually fixes it. The
+          previous banner was a statement with no action in a page whose content
+          depended on it.
+        */}
         {account.error && (
           <Alert variant="destructive" className="mb-5">
             <AlertCircle className="size-4" aria-hidden="true" />
-            <AlertDescription>{account.error}</AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {account.error}
+                {!account.role && (
+                  <>
+                    {' '}
+                    Until this succeeds only your personal settings are listed —
+                    anything belonging to your organisation is hidden because we
+                    could not confirm your role.
+                  </>
+                )}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void account.reload()}
+                disabled={account.loading}
+                className="shrink-0"
+              >
+                {account.loading ? 'Trying…' : 'Try again'}
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
 
@@ -248,9 +338,32 @@ export function SettingsShell() {
             )}
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <Suspense fallback={<PaneSkeleton />}>
-                {account.loading ? <PaneSkeleton /> : <SectionBody id={current?.id} account={account} />}
-              </Suspense>
+              {/*
+                THE BOUNDARY IS KEYED ON THE SECTION.
+
+                A boundary holds its error until something resets it, so without
+                the key a section that failed once would keep showing its error
+                after the person clicked away to a different one — eleven working
+                sections hidden behind one broken pane. Re-keying throws the
+                errored instance away, which is exactly the behaviour wanted here.
+
+                It sits OUTSIDE `Suspense` on purpose: a rejected `lazy()` import
+                is what it is here to catch, and a boundary nested inside the
+                Suspense it is protecting never sees that rejection.
+              */}
+              <SectionBoundary key={current?.id ?? 'none'}>
+                <Suspense fallback={<PaneSkeleton />}>
+                  {account.loading ? (
+                    <PaneSkeleton />
+                  ) : (
+                    <SectionBody
+                      id={current?.id}
+                      account={account}
+                      onDirtyChange={registerDirty}
+                    />
+                  )}
+                </Suspense>
+              </SectionBoundary>
             </div>
           </div>
         </div>
@@ -357,13 +470,16 @@ function SectionRail({
 function SectionBody({
   id,
   account,
+  onDirtyChange,
 }: {
   id: SettingsSectionId | undefined
   account: ReturnType<typeof useAccount>
+  /** A section with a draft reports it, so `open()` can refuse to leave. */
+  onDirtyChange: (id: SettingsSectionId, label: string, dirty: boolean) => void
 }) {
   switch (id) {
     case 'profile':
-      return <ProfileSection account={account} />
+      return <ProfileSection account={account} onDirtyChange={onDirtyChange} />
     case 'security':
       return <SecuritySection />
     case 'preferences':
@@ -377,11 +493,11 @@ function SectionBody({
     case 'modules':
       return <ModulesSection />
     case 'delivery':
-      return <DeliverySection />
+      return <DeliverySection onDirtyChange={onDirtyChange} />
     case 'organization':
-      return <OrganizationDefaultsSection />
+      return <OrganizationDefaultsSection onDirtyChange={onDirtyChange} />
     case 'policy':
-      return <SecurityPolicySection />
+      return <SecurityPolicySection onDirtyChange={onDirtyChange} />
     case 'audit':
       return <AuditSection />
     case 'roles':
@@ -401,31 +517,10 @@ function PaneSkeleton() {
   )
 }
 
-/** Shared by every section, so a "saving…" button looks the same everywhere. */
-export function SaveButton({
-  dirty,
-  saving,
-  onClick,
-  label = 'Save changes',
-}: {
-  dirty: boolean
-  saving: boolean
-  onClick: () => void
-  label?: string
-}) {
-  return (
-    <Button
-      onClick={onClick}
-      disabled={!dirty || saving}
-      className={cn(
-        'shadow-sm transition-all duration-300 active:scale-95',
-        dirty && !saving
-          ? 'hover:-translate-y-0.5 hover:shadow-md'
-          : 'bg-muted text-muted-foreground',
-      )}
-    >
-      {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-      {saving ? 'Saving…' : dirty ? label : 'Saved'}
-    </Button>
-  )
-}
+/*
+ * `SaveButton` HAS MOVED to `sections/section-primitives.tsx`.
+ *
+ * It lived here and this file never rendered it - every one of its four callers
+ * is a section, which meant four section files importing from the shell that
+ * imports them. It is a primitive, so it now sits with the other primitives.
+ */

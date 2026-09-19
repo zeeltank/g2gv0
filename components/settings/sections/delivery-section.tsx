@@ -1,16 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Loader2, Mail, Send, ShieldAlert } from 'lucide-react'
+import { AlertCircle, Check, Loader2, Send, ShieldAlert } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useLaravelContext } from '@/hooks/use-agentic'
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { apiClient } from '@/services/core'
-import { SaveButton } from '@/components/settings/settings-shell'
-import { Field, SectionBlock } from './section-primitives'
+import { Field, SaveButton, SectionBlock, SectionError, SectionSkeleton } from './section-primitives'
 
 /**
  * EMAIL & SMS — what makes an invite arrive instead of being copied out by hand.
@@ -55,7 +55,12 @@ type Delivery = {
   sms: { configured: boolean; endpoint: string | null; active: boolean }
 }
 
-export function DeliverySection() {
+type DirtyReporter = {
+  /** Lets the shell refuse to change section while a draft is unsaved. */
+  onDirtyChange?: (id: 'profile' | 'delivery' | 'organization' | 'policy', label: string, dirty: boolean) => void
+}
+
+export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
   const resolveContext = useLaravelContext()
 
   const [stored, setStored] = useState<Delivery | null>(null)
@@ -122,6 +127,77 @@ export function DeliverySection() {
     )
   }, [form, stored])
 
+  /*
+   * VALIDATION, BECAUSE THE ASTERISKS WERE DECORATIVE.
+   *
+   * Three fields here are marked `required` and none of them was checked. Saving
+   * with all three blank sent empty strings to the server, which stored them —
+   * so an organisation could go from "no mailbox" to "a mailbox that is three
+   * empty strings", and the only visible difference was that the badge stopped
+   * saying "Not set up".
+   *
+   * Each message says what to do rather than what is wrong: "Type the address
+   * people should see", not "This field is required".
+   *
+   * A note on the email rule: it deliberately only checks for one `@` with
+   * something either side and no spaces. A stricter regex rejects addresses that
+   * are perfectly valid, and the authority on whether an address works is the
+   * mail server, not this function. The only thing worth catching here is an
+   * obvious typo before a round trip.
+   */
+  const problems = useMemo(() => {
+    const found: Record<string, string> = {}
+
+    if (!form.from_address.trim()) {
+      found.from_address = 'Type the address people should see messages coming from.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.from_address.trim())) {
+      found.from_address = 'That does not look like an email address — check for a typo.'
+    }
+
+    if (!form.server.trim()) {
+      found.server = 'Your email provider gives you this — for Gmail it is smtp.gmail.com.'
+    } else if (/\s/.test(form.server.trim())) {
+      found.server = 'A server name has no spaces in it.'
+    }
+
+    const port = Number(form.port)
+
+    if (!form.port) found.port = 'Usually 465 or 587.'
+    else if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      found.port = 'A port is a number between 1 and 65535.'
+    }
+
+    // Only on the first setup. Afterwards blank means "keep the stored one",
+    // which is the whole reason the field starts empty every time.
+    if (!stored?.email.has_password && !form.password) {
+      found.password = 'Needed the first time. For Gmail this is an app password.'
+    }
+
+    return found
+  }, [form, stored])
+
+  /*
+   * Only shown after an attempt. Red text under every field the moment the
+   * section opens — before anybody has typed anything — is how a form tells
+   * somebody they have already failed.
+   */
+  const [attempted, setAttempted] = useState(false)
+  const shown = attempted ? problems : {}
+  const valid = Object.keys(problems).length === 0
+
+  // A draft in useState is lost on refresh; warn before that happens.
+  useUnsavedGuard(dirty)
+
+  // And tell the shell, which can refuse to change section while this is true.
+  useEffect(() => {
+    onDirtyChange?.('delivery', 'Email & SMS', dirty)
+
+    // And on unmount: a section swapped out for the loading skeleton while
+    // dirty would otherwise leave the flag set, prompting about a draft that
+    // is no longer on screen.
+    return () => onDirtyChange?.('delivery', 'Email & SMS', false)
+  }, [dirty, onDirtyChange])
+
   function set(field: keyof typeof form, value: string) {
     setSaved(false)
     setTestResult(null)
@@ -129,6 +205,12 @@ export function DeliverySection() {
   }
 
   async function save() {
+    setAttempted(true)
+
+    // Refuses here rather than disabling the button: a disabled Save with no
+    // explanation is the thing people report as "the button does nothing".
+    if (!valid) return
+
     setSaving(true)
     setError(null)
     setSaved(false)
@@ -183,20 +265,17 @@ export function DeliverySection() {
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-xl bg-muted/40" />
-        ))}
-      </div>
+      <SectionSkeleton rows={3} />
     )
   }
 
   if (error && !stored) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden="true" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <SectionError
+        title="These settings could not be loaded"
+        description={error}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -227,28 +306,22 @@ export function DeliverySection() {
         </Alert>
       )}
 
-      {stored && stored.allowed && !stored.email.configured && (
-        <Alert>
-          <Mail className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            No mailbox is set up yet, so invitations hand you a link to pass on by hand instead of
-            emailing. Fill this in and they will simply arrive.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {saved && (
-        <Alert variant="success">
-          <Check className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            Saved. Send yourself a test below to check it actually works.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <SectionBlock
         title="Email"
-        description="The mailbox this organisation sends invitations and notifications from."
+        description={
+          stored?.email.configured
+            ? 'The mailbox this organisation sends invitations and notifications from.'
+            : 'Not set up yet, so invitations hand you a link to pass on by hand. Fill this in and they will simply arrive.'
+        }
+        /*
+         * A BADGE, NOT A BANNER.
+         *
+         * Per this file's own note, eleven of twelve organisations have no
+         * mailbox — so the "no mailbox yet" Alert fired on almost every first
+         * visit, above the very fields that fix it. The state belongs on the
+         * title and the instruction belongs in the description.
+         */
+        badge={stored?.email.configured ? undefined : 'Not set up'}
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
@@ -256,6 +329,7 @@ export function DeliverySection() {
             required
             className="sm:col-span-2"
             hint="People will see this address as the sender, and replies go to it."
+            error={shown.from_address}
           >
             <Input
               type="email"
@@ -265,7 +339,7 @@ export function DeliverySection() {
             />
           </Field>
 
-          <Field label="Server" required hint="For example smtp.gmail.com">
+          <Field label="Server" required hint="For example smtp.gmail.com" error={shown.server}>
             <Input
               value={form.server}
               onChange={(e) => set('server', e.target.value)}
@@ -273,7 +347,7 @@ export function DeliverySection() {
             />
           </Field>
 
-          <Field label="Port" required hint="465 for SSL, 587 for TLS.">
+          <Field label="Port" required hint="465 for SSL, 587 for TLS." error={shown.port}>
             <Input
               inputMode="numeric"
               value={form.port}
@@ -286,6 +360,7 @@ export function DeliverySection() {
             label="Password"
             className="sm:col-span-2"
             required={!stored?.email.has_password}
+            error={shown.password}
             hint={
               stored?.email.has_password
                 ? 'A password is saved. Leave this blank to keep it, or type a new one to replace it.'
@@ -302,12 +377,28 @@ export function DeliverySection() {
           </Field>
         </div>
 
-        <p className="mt-3 text-xs text-muted-foreground">
-          The password is never shown again after you save it — not here, and not to anyone else
-          with these settings open.
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <p className="text-xs text-muted-foreground">
+            The password is never shown again after you save it.
+          </p>
+          {saved && (
+            <span className="flex items-center gap-1.5 text-xs text-success">
+              <Check className="size-3.5" aria-hidden="true" />
+              Saved — send yourself a test below
+            </span>
+          )}
+        </div>
       </SectionBlock>
 
+      {/*
+        * THE TEST BUTTON LIVES WITH THE SETTINGS IT TESTS.
+        *
+        * It had a bordered card of its own, a title, a description, and its
+        * disabled reason explained in a paragraph BELOW it — a section's worth of
+        * chrome around one button. It now sits under the mailbox fields, where
+        * the thing it is testing is, and the reason it is unavailable is on the
+        * button itself rather than underneath.
+        */}
       <SectionBlock
         title="Check it works"
         description="Sends one message to your own address. Nowhere else."
@@ -327,6 +418,13 @@ export function DeliverySection() {
           variant="outline"
           onClick={sendTest}
           disabled={testing || dirty || !stored?.email.configured}
+          title={
+            dirty
+              ? 'Save your changes first — a test uses the settings that are stored, not the ones on screen.'
+              : !stored?.email.configured
+                ? 'Set up a mailbox above first.'
+                : undefined
+          }
         >
           {testing ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -335,45 +433,44 @@ export function DeliverySection() {
           )}
           {testing ? 'Sending…' : 'Send myself a test'}
         </Button>
+      </SectionBlock>
 
-        {dirty && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Save your changes first — a test would go out using the settings that are stored, not
-            the ones on screen.
-          </p>
+      <SectionBlock
+        title="SMS"
+        description="Used for one-time sign-in codes."
+        badge={stored?.sms.configured ? (stored.sms.active ? 'Active' : 'Switched off') : 'Not set up'}
+        badgeTitle={
+          stored?.sms.configured
+            ? 'Configured by your platform operator.'
+            : 'Sign-in by one-time code is unavailable until a provider is configured.'
+        }
+      >
+        {/*
+          * The raw endpoint URL used to be printed here as body copy, and the
+          * unconfigured state was a dashed box whose paragraph ended "not built
+          * yet — ask your platform operator". Both are now one sentence, and the
+          * state is a badge on the title.
+          */}
+        <p className="text-sm text-muted-foreground">
+          {stored?.sms.configured
+            ? 'Your platform operator manages this. Sign-in by one-time code is available to this organisation.'
+            : 'No provider is set up, so sign-in by one-time code is not available. Ask your platform operator to configure one — it cannot be edited here.'}
+        </p>
+      </SectionBlock>
+
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
+        {attempted && !valid && (
+          <span className="text-xs text-destructive">
+            Check the fields marked above.
+          </span>
         )}
-      </SectionBlock>
-
-      <SectionBlock title="SMS" description="Used for one-time sign-in codes.">
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            stored?.sms.configured
-              ? 'border-border bg-background text-foreground'
-              : 'border-dashed border-border text-muted-foreground',
-          )}
-        >
-          {stored?.sms.configured ? (
-            <>
-              <p className="font-medium">
-                Configured{stored.sms.active ? ' and active' : ' but switched off'}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {stored.sms.endpoint}
-              </p>
-            </>
-          ) : (
-            <p>
-              No SMS provider is set up, so sign-in by one-time code is not available to this
-              organisation. Editing SMS settings from here is not built yet — ask your platform
-              operator.
-            </p>
-          )}
-        </div>
-      </SectionBlock>
-
-      <div className="flex justify-end border-t border-border pt-5">
-        <SaveButton dirty={dirty} saving={saving} onClick={save} label="Save email settings" />
+        <SaveButton
+          dirty={dirty}
+          saving={saving}
+          saved={saved}
+          onClick={save}
+          label="Save email settings"
+        />
       </div>
     </div>
   )

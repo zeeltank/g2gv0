@@ -1,17 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { AlertCircle, ArrowUpRight, Check, Info, Loader2, ShieldCheck, Users } from 'lucide-react'
+import { AlertCircle, ArrowUpRight, Check, Info, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { DataTable } from '@/components/ui/data-table'
 import { cn } from '@/lib/utils'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { apiClient } from '@/services/core'
 import { ROLE_PERMISSIONS_ACCESS_LINK } from '@/lib/gtg-navigation'
-import { Field, SectionBlock, ToggleRow } from './section-primitives'
+import { SectionBlock, SectionEmpty, SectionError, SectionSkeleton } from './section-primitives'
 
 /**
  * ROLES & ACCESS.
@@ -30,6 +32,39 @@ import { Field, SectionBlock, ToggleRow } from './section-primitives'
  * what its data scope says.
  *
  * ═══════════════════════════════════════════════════════════════════════════
+ * NINE STACKED CARDS BECAME ONE TABLE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * This was nine `SectionBlock`s, one per role, each about 300px tall: a heading,
+ * a description, two stat lines, two dropdowns, a switch and a status line. Two
+ * and a half thousand pixels of scrolling to see nine rows of what is, in every
+ * respect, a table — the same six values for each role, in the same order.
+ *
+ * The cost was not only the scrolling. Comparing two roles meant remembering one
+ * card while scrolling to another, and the question people actually bring to
+ * this screen is comparative: which roles can see everything, which are emailed,
+ * which of them has nobody in it.
+ *
+ * ── WHY THE EDITORS ARE IN THE CELLS ────────────────────────────────────────
+ *
+ * The obvious alternative was a read-only table that opens a drawer per role.
+ * That is one more click and one more surface for what is a single dropdown
+ * change, and it hides the comparison the table exists to give. Every editor
+ * here saves on change, so a cell is the whole interaction.
+ *
+ * `DataTable` carries no horizontal overflow of its own, so the wrapper below
+ * supplies it: six columns with two dropdowns do not fit a narrow pane, and a
+ * table that widens the page body is worse than one that scrolls inside itself.
+ *
+ * ── WHY NOT THE HOUSE `Tooltip` ─────────────────────────────────────────────
+ *
+ * It opens on `mouseenter` only — no keyboard focus, no touch — and it is
+ * absolutely positioned, so inside the scroll container above it would be
+ * clipped. `title` is worse-looking and better-behaved: it appears on focus and
+ * is never clipped. Adopting the nicer component here would have cost keyboard
+ * users the explanation entirely.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
  * data_scope IS SHOWN AND NOT ENFORCED, AND THE SCREEN SAYS SO
  * ═══════════════════════════════════════════════════════════════════════════
  *
@@ -41,8 +76,7 @@ import { Field, SectionBlock, ToggleRow } from './section-primitives'
  * Setting it changes what is recorded and nothing about who can see what. An
  * administrator who set it to "Their own records only" and believed they had
  * restricted somebody would be worse off than one who was never offered the
- * control — which is exactly why the warning sits above the control and not in
- * a footnote.
+ * control — which is why the warning sits above the table, not in a footnote.
  */
 
 type Role = {
@@ -76,9 +110,17 @@ export function RolesAccessSection() {
 
   const [data, setData] = useState<RolesResponse['data'] | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savingId, setSavingId] = useState<number | null>(null)
-  const [savedId, setSavedId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  /*
+   * A Set, not a single id.
+   *
+   * Every editor here saves on change, and there are three per row across nine
+   * rows. A single `savingId` meant changing a second dropdown while the first
+   * was still in flight moved the spinner off the row that was actually saving.
+   */
+  const [saving, setSaving] = useState<ReadonlySet<number>>(() => new Set())
+  const [savedId, setSavedId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     const context = resolveContext()
@@ -115,47 +157,215 @@ export function RolesAccessSection() {
     })
   }, [load])
 
-  async function saveRole(role: Role, changes: Record<string, string | boolean>) {
-    setSavingId(role.id)
-    setSavedId(null)
-    setError(null)
+  const saveRole = useCallback(
+    async (role: Role, changes: Record<string, string | boolean>) => {
+      setSaving((current) => new Set(current).add(role.id))
+      setSavedId(null)
+      setError(null)
 
-    try {
-      const context = resolveContext()
+      try {
+        const context = resolveContext()
 
-      const response = await apiClient.put<RolesResponse>(`/organization/roles/${role.id}`, {
-        type: 'api',
-        token: context.token,
-        ...changes,
-      })
+        const response = await apiClient.put<RolesResponse>(`/organization/roles/${role.id}`, {
+          type: 'api',
+          token: context.token,
+          ...changes,
+        })
 
-      setData(response.data)
-      setSavedId(role.id)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'That role could not be saved.')
-    } finally {
-      setSavingId(null)
-    }
-  }
+        setData(response.data)
+        setSavedId(role.id)
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'That role could not be saved.')
+      } finally {
+        setSaving((current) => {
+          const next = new Set(current)
+          next.delete(role.id)
+          return next
+        })
+      }
+    },
+    [resolveContext],
+  )
+
+  /*
+   * The columns are built here rather than inline so the row renderers close
+   * over `data` and `saveRole` once, instead of nine times per render.
+   */
+  /*
+   * A NOTE ON THE COLUMN IDS, WHICH LOOK WRONG AND ARE NOT.
+   *
+   * `DataTable` types `Column.id` as `keyof T`, so every column must borrow the
+   * name of a real field on the row — it is used as the React key and to read a
+   * default value. Two columns here are computed rather than a field (the Email
+   * switch, which lives at `settings.notify_email`, and the save indicator,
+   * which is not data at all), so they borrow unused field names. Both pass a
+   * `render`, so nothing ever reads the borrowed field.
+   *
+   * Left as is rather than worked around: the alternative was widening the
+   * primitive in `components/ui`, which this work does not modify.
+   */
+  const columns = useMemo(() => {
+    if (!data) return []
+
+    const landingOptions = data.choices.landing_page.map((page) => ({
+      value: page,
+      label: page === 'dashboard' ? 'Dashboard' : 'Last page they were on',
+    }))
+
+    return [
+      {
+        id: 'name' as const,
+        header: 'Role',
+        render: (_value: unknown, role: Role) => (
+          <div className="min-w-[13rem] max-w-[18rem]">
+            <p
+              className="flex items-center gap-1.5 text-sm font-medium text-foreground"
+              /*
+               * The raw `role_key` chip is gone from the screen. It was
+               * `hr_manager` in 10px monospace — a database identifier shown to
+               * an administrator, at a size nobody can read, beside the human
+               * name that already said the same thing. Kept here so somebody
+               * debugging can still find it.
+               */
+              title={role.role_key ? `Internal key: ${role.role_key}` : undefined}
+            >
+              <span className="truncate">{role.name}</span>
+              {!role.role_key && (
+                <span
+                  className="shrink-0 text-muted-foreground"
+                  title="This role predates the current role system, so only its data scope can be set."
+                >
+                  <Info className="size-3.5" aria-hidden="true" />
+                </span>
+              )}
+            </p>
+            {role.description && (
+              <p className="truncate text-xs text-muted-foreground" title={role.description}>
+                {role.description}
+              </p>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'user_count' as const,
+        header: 'People',
+        render: (_value: unknown, role: Role) => (
+          // `tabular-nums` so a column of counts lines up rather than jittering.
+          <span className="block text-right text-sm tabular-nums text-foreground">
+            {role.user_count}
+          </span>
+        ),
+      },
+      {
+        id: 'menu_count' as const,
+        header: 'Screens',
+        render: (_value: unknown, role: Role) =>
+          role.menu_count === 0 ? (
+            /*
+             * This was a full-width destructive Alert inside every affected
+             * card. As a cell it is the same information where the eye already
+             * is — in the column of screen counts, as the one value that is not
+             * a number.
+             */
+            <span
+              className="block text-right text-sm font-medium text-destructive"
+              title="Anybody in this role signs in to an empty product until it is given rights in Role & Permissions."
+            >
+              None
+            </span>
+          ) : (
+            <span className="block text-right text-sm tabular-nums text-foreground">
+              {role.menu_count}
+            </span>
+          ),
+      },
+      {
+        id: 'data_scope' as const,
+        header: 'Data scope',
+        render: (_value: unknown, role: Role) => (
+          <div className="w-[13rem]">
+            <Select
+              value={role.data_scope ?? ''}
+              onChange={(value) => void saveRole(role, { data_scope: String(value) })}
+              placeholder="Not set"
+              options={data.choices.data_scope}
+              aria-label={`Data scope for ${role.name}`}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'settings' as const,
+        header: 'Starts on',
+        render: (_value: unknown, role: Role) => (
+          <div className="w-[12rem]">
+            <Select
+              value={role.settings?.landing_page ?? 'dashboard'}
+              onChange={(value) => void saveRole(role, { landing_page: String(value) })}
+              options={landingOptions}
+              aria-label={`Landing page for ${role.name}`}
+              disabled={!role.settings}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'is_system' as const,
+        header: 'Email',
+        render: (_value: unknown, role: Role) =>
+          role.settings ? (
+            <span className="flex items-center justify-center">
+              <Switch
+                checked={role.settings.notify_email === '1'}
+                onChange={(event) =>
+                  void saveRole(role, { notify_email: event.target.checked })
+                }
+                aria-label={`Email people in ${role.name} by default`}
+                title="Anybody who has set their own notification preferences keeps theirs."
+              />
+            </span>
+          ) : (
+            <span className="block text-center text-xs text-muted-foreground">—</span>
+          ),
+      },
+      {
+        id: 'role_key' as const,
+        // Not an empty string: `header` is typed `string`, so a blank one renders
+        // an unlabelled column header that a screen reader reads as nothing.
+        header: 'Saved',
+        render: (_value: unknown, role: Role) => (
+          // A fixed width, so a spinner appearing does not shift the columns.
+          <span className="flex w-16 items-center justify-end">
+            {saving.has(role.id) ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+            ) : savedId === role.id ? (
+              <span className="flex items-center gap-1 text-xs text-success">
+                <Check className="size-3.5" aria-hidden="true" />
+                Saved
+              </span>
+            ) : null}
+          </span>
+        ),
+      },
+    ]
+  }, [data, saveRole, saving, savedId])
 
   if (loading) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-32 animate-pulse rounded-xl bg-muted/40" />
-        ))}
-      </div>
-    )
+    return <SectionSkeleton rows={4} />
   }
 
   if (!data) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden="true" />
-        <AlertDescription>{error ?? 'Roles could not be loaded.'}</AlertDescription>
-      </Alert>
+      <SectionError
+        title="Roles could not be loaded"
+        description={error ?? 'This section is available to administrators.'}
+        onRetry={() => void load()}
+      />
     )
   }
+
+  const emptyRoles = data.roles.filter((role) => role.menu_count === 0)
 
   return (
     <div className="space-y-6">
@@ -166,157 +376,89 @@ export function RolesAccessSection() {
         </Alert>
       )}
 
-      <Alert>
-        <ShieldCheck className="size-4" aria-hidden="true" />
-        <AlertDescription>
-          <strong>Which screens a role can open is set in Role &amp; Permissions</strong>, not here.
-          This page covers where each role starts, how it is notified, and what its data scope
-          records.
-          <Link
-            href={ROLE_PERMISSIONS_ACCESS_LINK}
-            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open Role &amp; Permissions
-            <ArrowUpRight className="size-3.5" aria-hidden="true" />
-          </Link>
-        </AlertDescription>
-      </Alert>
+      {/*
+        TWO BANNERS BECAME ONE LINE AND ONE NOTICE.
+
+        This opened with ~90 words in two stacked full-width Alerts, before any
+        control: one explaining that permissions live elsewhere, one explaining
+        that data scope is not enforced. Both were true and both fired on every
+        single visit.
+
+        The first is orientation, so it is a line with a link. The second is a
+        warning that changes how somebody should read a control below it, so it
+        stays a notice — it is the one thing on this screen that could mislead an
+        administrator into thinking they had restricted somebody.
+      */}
+      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+        Which screens a role can open is set in
+        <Link
+          href={ROLE_PERMISSIONS_ACCESS_LINK}
+          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+        >
+          Role &amp; Permissions
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
+        . This page covers where each role starts and how it is notified.
+      </p>
 
       {!data.data_scope_enforced && (
-        <Alert>
+        <Alert variant="info">
           <Info className="size-4" aria-hidden="true" />
           <AlertDescription>
-            <strong>Data scope is recorded, not enforced.</strong> Nothing in this product reads it
-            yet, so changing it does not restrict what anybody can see. It is here so the intent is
-            written down and applies the day it is enforced — until then, what a role can reach is
-            decided entirely by Role &amp; Permissions.
+            <strong>Data scope is recorded, not enforced.</strong> Nothing reads it yet, so
+            changing it does not restrict what anybody can see.
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="space-y-4">
-        {data.roles.map((role) => (
-          <SectionBlock
-            key={role.id}
-            title={role.name}
-            description={role.description ?? undefined}
+      <SectionBlock
+        title="Roles in this organisation"
+        description="Every change here saves as you make it. Hover a role for its internal key."
+        badge={
+          emptyRoles.length > 0
+            ? `${emptyRoles.length} with no screens`
+            : `${data.roles.length} roles`
+        }
+        badgeTitle={
+          emptyRoles.length > 0
+            ? `${emptyRoles.map((role) => role.name).join(', ')} can open no screens at all.`
+            : undefined
+        }
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void load()}
+            disabled={saving.size > 0}
           >
-            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Users className="size-3.5" aria-hidden="true" />
-                {role.user_count} {role.user_count === 1 ? 'person' : 'people'}
-              </span>
-              <span>
-                {role.menu_count} {role.menu_count === 1 ? 'screen' : 'screens'} visible
-              </span>
-              {role.role_key && (
-                <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                  {role.role_key}
-                </span>
-              )}
-              {role.is_system && (
-                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-                  Built in
-                </span>
-              )}
-            </div>
-
-            {role.menu_count === 0 && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="size-4" aria-hidden="true" />
-                <AlertDescription>
-                  This role can open no screens at all. Anybody in it will sign in to an empty
-                  product until it is given rights in Role &amp; Permissions.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Data scope"
-                hint={
-                  data.data_scope_enforced
-                    ? undefined
-                    : 'Recorded only — see the note above. It restricts nothing today.'
-                }
-              >
-                <Select
-                  value={role.data_scope ?? ''}
-                  onChange={(value) => saveRole(role, { data_scope: String(value) })}
-                  placeholder="Not set"
-                  options={data.choices.data_scope}
-                />
-              </Field>
-
-              <Field
-                label="Lands on"
-                hint={
-                  data.landing_page_enforced
-                    ? 'Where somebody in this role goes after signing in.'
-                    : 'Stored as a default. A person’s own choice under Preferences is what applies today.'
-                }
-              >
-                <Select
-                  value={role.settings?.landing_page ?? 'dashboard'}
-                  onChange={(value) => saveRole(role, { landing_page: String(value) })}
-                  options={data.choices.landing_page.map((page) => ({
-                    value: page,
-                    label: page === 'dashboard' ? 'Dashboard' : 'The last page they were on',
-                  }))}
-                />
-              </Field>
-            </div>
-
-            {role.settings && (
-              <div className="mt-3 space-y-1 border-t border-border pt-3">
-                <ToggleRow
-                  label="Email people in this role by default"
-                  description="Anybody who has set their own notification preferences keeps theirs."
-                  checked={role.settings.notify_email === '1'}
-                  onChange={(value) => saveRole(role, { notify_email: value })}
-                />
-              </div>
-            )}
-
-            {!role.role_key && (
-              <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
-                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                This role predates the current role system, so only its data scope can be set here.
-              </p>
-            )}
-
-            <div className="mt-3 flex h-5 items-center">
-              {savingId === role.id && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                  Saving…
-                </span>
-              )}
-              {savedId === role.id && savingId !== role.id && (
-                <span className={cn('flex items-center gap-1.5 text-xs text-success')}>
-                  <Check className="size-3.5" aria-hidden="true" />
-                  Saved
-                </span>
-              )}
-            </div>
-          </SectionBlock>
-        ))}
-      </div>
-
-      {data.roles.length === 0 && (
-        <Alert>
-          <Info className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            This organisation has no roles yet. They are created when it is set up.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="flex justify-end border-t border-border pt-5">
-        <Button variant="outline" onClick={() => load()} disabled={savingId !== null}>
-          Refresh
-        </Button>
-      </div>
+            Refresh
+          </Button>
+        }
+      >
+        {data.roles.length === 0 ? (
+          <SectionEmpty
+            title="No roles yet"
+            description="Roles are created when the organisation is set up."
+          />
+        ) : (
+          /*
+            The overflow lives here, not on the page.
+            `DataTable` renders a bare `<Table>` inside a bordered div with no
+            overflow of its own, so without this the six columns would widen the
+            whole settings pane and put a horizontal scrollbar on the document.
+          */
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <DataTable
+              columns={columns}
+              data={data.roles}
+              getRowId={(role: Role) => String(role.id)}
+              density="compact"
+              striped={false}
+              className={cn('min-w-[54rem]')}
+            />
+          </div>
+        )}
+      </SectionBlock>
     </div>
   )
 }

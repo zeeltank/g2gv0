@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bookmark, Info, Laptop, Trash2 } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Bookmark, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { SectionBlock } from './section-primitives'
+import { ConfirmDialog, SectionBlock, SectionEmpty } from './section-primitives'
 
 /**
  * SAVED VIEWS — the six preferences that were already here, finally visible.
@@ -74,6 +73,12 @@ const KNOWN_KEYS: { key: string; label: string; where: string }[] = [
 export function SavedViewsSection() {
   const [views, setViews] = useState<StoredView[]>([])
   const [scanned, setScanned] = useState(false)
+  /*
+   * "Clear" removed the entry on the first click, and the sentence reassuring
+   * people it was safe sat BELOW the buttons - so the reassurance arrived after
+   * the decision. The consequence is now stated at the moment of the click.
+   */
+  const [confirming, setConfirming] = useState<StoredView | null>(null)
 
   const scan = useCallback(() => {
     const found: StoredView[] = []
@@ -124,30 +129,35 @@ export function SavedViewsSection() {
 
   return (
     <div className="space-y-6">
-      <Alert>
-        <Laptop className="size-4" aria-hidden="true" />
-        <AlertDescription>
-          These are kept in <strong>this browser only</strong>. They do not follow you to another
-          computer, and clearing your browsing data removes them. Everything in{' '}
-          <strong>Preferences</strong> and <strong>Notifications</strong>, by contrast, is stored on
-          your account and follows you anywhere.
-        </AlertDescription>
-      </Alert>
+      {/*
+        FIFTY WORDS BECAME A BADGE AND A SENTENCE.
 
+        This was a full-width Alert on every visit, and the fact it carries is a
+        real one worth knowing - saved views live in this browser and nothing
+        else in Settings does. But the comparison with Preferences and
+        Notifications was the reader's third sentence before they had seen a
+        single view, and it answers a question most of them were not asking.
+
+        The state goes on the title as a badge, where a badge is the product's
+        established way of saying "this thing is like THIS"; the consequence goes
+        in the description, which is the line people actually read before using a
+        section. Nothing true was dropped - it is the same information at a
+        weight that matches how often it changes what somebody does.
+      */}
       <SectionBlock
         title="Kept on this device"
-        description="Filters, columns and presets the screens you use have remembered."
+        description="Filters, columns and presets the screens you use have remembered. They stay in this browser: they do not follow you to another computer, and clearing your browsing data removes them."
+        badge="This browser only"
+        badgeTitle="Unlike Preferences and Notifications, which are stored on your account and follow you anywhere."
       >
         {!scanned && <div className="h-16 animate-pulse rounded-lg bg-muted/40" />}
 
         {scanned && views.length === 0 && (
-          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
-            <Bookmark className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-            <p className="mt-2 text-sm font-medium text-foreground">Nothing saved yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              When you save a view or hide a column on a list screen, it will appear here.
-            </p>
-          </div>
+          <SectionEmpty
+            icon={<Bookmark className="size-6" aria-hidden="true" />}
+            title="Nothing saved yet"
+            description="When you save a view or hide a column on a list screen, it will appear here."
+          />
         )}
 
         {scanned && views.length > 0 && (
@@ -155,7 +165,10 @@ export function SavedViewsSection() {
             {views.map((view) => (
               <li
                 key={view.key}
-                className="flex flex-wrap items-center justify-between gap-3 bg-background px-4 py-3"
+                // `bg-background` here was grey-on-white in light and a dark
+                // hole in the card in dark - see the note in
+                // people-access-section. Inherit the card; hover on surface.
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface-muted"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{view.label}</p>
@@ -169,7 +182,7 @@ export function SavedViewsSection() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => clear(view.key)}
+                  onClick={() => setConfirming(view)}
                   className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="size-4" aria-hidden="true" />
@@ -180,12 +193,29 @@ export function SavedViewsSection() {
           </ul>
         )}
 
-        <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          Clearing one only removes what that screen remembered. It does not delete any of your
-          work.
-        </p>
       </SectionBlock>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={`Clear ${confirming?.label ?? 'this'}?`}
+        description={
+          <>
+            {confirming?.where} will forget{' '}
+            {confirming?.count !== null && confirming?.count !== undefined
+              ? `${confirming.count} ${confirming.count === 1 ? 'entry' : 'entries'}`
+              : 'what it remembered'}
+            . None of your actual work is deleted, and this browser only — your other devices keep
+            theirs. It cannot be undone.
+          </>
+        }
+        confirmLabel="Clear"
+        onConfirm={() => {
+          const target = confirming
+          setConfirming(null)
+          if (target) clear(target.key)
+        }}
+      />
     </div>
   )
 }

@@ -32,6 +32,33 @@ export default function RootLayout({
       className="bg-background"
       suppressHydrationWarning
     >
+      <head>
+        {/*
+          * ═══════════════════════════════════════════════════════════════════
+          * THE ONLY THING THAT CAN STOP THE LIGHT FLASH
+          * ═══════════════════════════════════════════════════════════════════
+          *
+          * The dark palette is class-gated — `@custom-variant dark (&:is(.dark *))`
+          * in globals.css — so until something puts `dark` on <html>, the page
+          * is light. React cannot do it: the earliest a client effect runs is
+          * after the bundle has downloaded, parsed and hydrated, and every one of
+          * those milliseconds is a white screen for somebody who chose dark.
+          *
+          * This runs BEFORE the first paint, which is why it has to be an inline
+          * blocking script and cannot be a component. It reads only the local
+          * paint hint; the server's stored value arrives moments later through
+          * PreferencesProvider and wins if they disagree.
+          *
+          * Kept deliberately tiny and wrapped in try/catch: it executes before
+          * anything else on the page, so a throw here would be a blank document.
+          * A browser with storage blocked simply falls through to `system`.
+          */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('gtg-theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/*
           * ThemeProvider WRAPS everything, and that placement is load-bearing.

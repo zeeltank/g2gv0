@@ -2,7 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { accountService, type AccountPreferences, type AccountProfile } from '@/services/account'
+import {
+  accountService,
+  type AccountMe,
+  type AccountPreferences,
+  type AccountProfile,
+} from '@/services/account'
 import { useTheme } from '@/components/providers/theme-provider'
 
 /**
@@ -57,8 +62,56 @@ type PreferencesContextValue = {
    * that displayed it. This is that somewhere.
    */
   profile: AccountProfile | null
+  /**
+   * THE WHOLE `/account/me` RESPONSE, SO NOTHING FETCHES IT TWICE.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * TWO FETCHES MEANT TWO ANSWERS THAT COULD DISAGREE
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * This provider already fetched the full response and threw most of it away,
+   * keeping only `preferences` and `profile`. So `useAccount` — which needs
+   * `role`, `choices` and the two event lists — fetched the very same endpoint
+   * again on every `/settings` load.
+   *
+   * The wasted request was the smaller problem. The two calls had SEPARATE error
+   * states, and they could land differently: the provider's succeeding while the
+   * screen's failed left the sidebar and theme correct while Settings reported it
+   * could not load anything. They also disagreed about what an unready context
+   * MEANS — this one treats it as "nobody is signed in, defaults are correct",
+   * while `useAccount` reported "your session has expired". Same condition, two
+   * conclusions, whichever arrived last on screen.
+   *
+   * One fetch, one error, one copy. `useAccount` keeps ownership of SAVING; this
+   * owns reading, which is the split the file header already described.
+   *
+   * (The plan called for React Query under a shared key. That needs this provider
+   * to sit inside `QueryProvider`, and it sits outside it in `app/layout.tsx` —
+   * reordering the app-wide provider tree to remove one request was the larger
+   * risk of the two, and this provider has already shipped once imported but not
+   * rendered. Sharing the response it was already discarding gets the same
+   * result without touching the tree.)
+   */
+  account: AccountMe['data'] | null
   /** False until the server's answer has arrived. Consumers that must not act on a default can wait. */
   loaded: boolean
+  /**
+   * Set when the fetch FAILED, as opposed to there being nobody signed in.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * WHY THESE TWO MUST NOT LOOK THE SAME
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * A swallowed error left the hardcoded defaults in place with nothing shown
+   * outside `/settings` — and `role` stayed null, so `sectionsForRole(null)`
+   * dropped the whole Organisation half of the settings rail and `?s=audit`
+   * silently landed on Profile. To the person using it, one failed request
+   * looked exactly like every setting they had ever chosen being wiped.
+   *
+   * Null here means "no session, and that is fine". A string means something
+   * broke and the screen should say so and offer to retry.
+   */
+  error: string | null
   /** Called by Settings after a save, so the rest of the app sees it without a reload. */
   apply: (next: AccountPreferences) => void
   /**
@@ -77,12 +130,19 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const { setTheme } = useTheme()
   const [preferences, setPreferences] = useState<AccountPreferences>(DEFAULTS)
   const [profile, setProfile] = useState<AccountProfile | null>(null)
+  const [account, setAccount] = useState<AccountMe['data'] | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const apply = useCallback(
     (next: AccountPreferences) => {
       setPreferences(next)
       setTheme(next.theme)
+
+      // And into the shared copy. Without this a save would update the app but
+      // leave `account.preferences` holding the pre-save values, so the settings
+      // screen — which now reads from here — would show the old ones back.
+      setAccount((current) => (current ? { ...current, preferences: next } : current))
     },
     [setTheme],
   )
@@ -106,15 +166,27 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         .then((response) => {
           if (!active) return
 
+          setAccount(response.data)
           setPreferences(response.data.preferences)
           setProfile(response.data.profile)
           setTheme(response.data.preferences.theme)
           setLoaded(true)
         })
-        .catch(() => {
-          // An expired token, or the endpoint being unreachable. Neither is a
-          // reason to render nothing — the defaults are already in place.
-          if (active) setLoaded(true)
+        .catch((caught: unknown) => {
+          if (!active) return
+
+          /*
+           * The defaults stay on screen — a page must still render — but the
+           * failure is RECORDED rather than swallowed, so the shell can say
+           * "these could not be loaded" instead of quietly presenting factory
+           * values as though they were the person's own choices.
+           */
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : 'Your settings could not be loaded. What you see are defaults.',
+          )
+          setLoaded(true)
         })
     })
 
@@ -130,9 +202,11 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
     try {
       const response = await accountService.me(context)
+      setAccount(response.data)
       setPreferences(response.data.preferences)
       setProfile(response.data.profile)
       setTheme(response.data.preferences.theme)
+      setError(null)
     } catch {
       // Keep what is already on screen. A failed refresh must not blank the
       // header's avatar or reset somebody's theme mid-session.
@@ -140,7 +214,9 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   }, [setTheme])
 
   return (
-    <PreferencesContext.Provider value={{ preferences, profile, loaded, apply, refresh }}>
+    <PreferencesContext.Provider
+      value={{ preferences, profile, account, loaded, error, apply, refresh }}
+    >
       {children}
     </PreferencesContext.Provider>
   )
@@ -184,7 +260,9 @@ export function useAppPreferences(): PreferencesContextValue {
   return {
     preferences: DEFAULTS,
     profile: null,
+    account: null,
     loaded: false,
+    error: null,
     apply: () => {},
     refresh: async () => {},
   }

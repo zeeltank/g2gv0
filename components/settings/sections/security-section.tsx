@@ -1,14 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Check, Eye, EyeOff, Loader2, LogOut, Monitor, ShieldAlert } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import { DataTable } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { accountService, type AccountSession } from '@/services/account'
-import { Field, SectionBlock } from './section-primitives'
+import { ConfirmDialog, Field, SectionBlock, SectionSkeleton } from './section-primitives'
 
 /**
  * SIGN-IN & SECURITY.
@@ -44,6 +47,12 @@ export function SecuritySection() {
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [sessionBusy, setSessionBusy] = useState<number | 'all' | null>(null)
   const [sessionNote, setSessionNote] = useState<string | null>(null)
+  /*
+   * Both session actions are irreversible and neither asked. Signing out
+   * everywhere else can end thousands of tokens on one account, with no undo and
+   * no list of what went.
+   */
+  const [confirming, setConfirming] = useState<'all' | number | null>(null)
 
   const loadSessions = useCallback(async () => {
     const context = resolveContext()
@@ -129,6 +138,108 @@ export function SecuritySection() {
 
   const others = sessions.filter((session) => !session.current).length
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THE SESSION LIST IS THE ONE THE COMPLAINT WAS ABOUT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * "In the login history show the laptop name and device information rather
+   * than api." Every one of the 4,955 live tokens was named `api-token`, which
+   * the backend work fixed at the three minting sites. This is the other half:
+   * making the names readable once they are there.
+   *
+   * It was three lines of prose per row — the device name on one, then "Last used
+   * <date> · Signed in <date>" joined by a middot on the next, ragged left. The
+   * question somebody brings to this screen is "which of these is old and not
+   * mine", and answering it meant reading both dates out of a sentence, on every
+   * row, with nothing aligned.
+   *
+   * As columns the dates line up under each other with `tabular-nums`, so a stale
+   * session is visible without reading anything.
+   *
+   * ── AND THE SAME LIST-WIDE DISABLE BUG AS THE INVITE LIST ───────────────────
+   *
+   * `disabled={sessionBusy !== null}` disabled the Sign out button on all 25
+   * rows while any one of them was in flight. Per row now — except while "Sign
+   * out everywhere else" is running, when disabling them all IS correct, because
+   * every one of those sessions is about to end anyway.
+   */
+  const sessionColumns = useMemo(
+    () => [
+      {
+        id: 'name' as const,
+        header: 'Device',
+        render: (_value: unknown, session: AccountSession) => (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium text-foreground">
+                {session.name || 'Unnamed device'}
+              </span>
+              {session.current && (
+                <StatusBadge variant="processing" size="sm" className="shrink-0">
+                  This device
+                </StatusBadge>
+              )}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: 'last_used_at' as const,
+        header: 'Last used',
+        render: (_value: unknown, session: AccountSession) => (
+          <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            {session.last_used_at
+              ? new Date(session.last_used_at).toLocaleString()
+              : 'Never since it was created'}
+          </span>
+        ),
+      },
+      {
+        id: 'created_at' as const,
+        header: 'Signed in',
+        render: (_value: unknown, session: AccountSession) => (
+          <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            {session.created_at ? new Date(session.created_at).toLocaleDateString() : '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'expires_at' as const,
+        // Borrowed field name for an action column: `Column.id` is `keyof T` and
+        // this renders a button, never `expires_at`.
+        header: 'End it',
+        render: (_value: unknown, session: AccountSession) =>
+          session.current ? (
+            <span
+              className="block whitespace-nowrap text-xs text-muted-foreground"
+              title="You are using this one. Use Sign out in the menu to end it."
+            >
+              In use
+            </span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirming(session.id)}
+              // Per row. `'all'` still disables everything, on purpose.
+              disabled={sessionBusy === session.id || sessionBusy === 'all'}
+              className="whitespace-nowrap text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              {sessionBusy === session.id ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <LogOut className="size-4" aria-hidden="true" />
+              )}
+              Sign out
+            </Button>
+          ),
+      },
+    ],
+    [sessionBusy],
+  )
+
   return (
     <div className="space-y-6">
       <SectionBlock
@@ -181,12 +292,13 @@ export function SecuritySection() {
 
           {next.length > 0 && (
             <div className="flex items-center gap-3">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${strength.tone}`}
-                  style={{ width: `${strength.percent}%` }}
-                />
-              </div>
+              <ProgressBar
+                value={strength.percent}
+                variant={strength.variant}
+                size="md"
+                className="flex-1"
+                aria-label="How strong this password is"
+              />
               <span className="w-24 shrink-0 text-xs text-muted-foreground">{strength.label}</span>
             </div>
           )}
@@ -229,11 +341,7 @@ export function SecuritySection() {
         )}
 
         {sessionsLoading && (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-16 animate-pulse rounded-lg bg-muted/40" />
-            ))}
-          </div>
+          <SectionSkeleton rows={3} />
         )}
 
         {!sessionsLoading && sessions.length === 0 && (
@@ -253,52 +361,20 @@ export function SecuritySection() {
               </Alert>
             )}
 
-            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {sessions.slice(0, 25).map((session) => (
-                <li
-                  key={session.id}
-                  className="flex flex-wrap items-center justify-between gap-3 bg-background px-4 py-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
-                        {session.name || 'Unnamed device'}
-                        {session.current && (
-                          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                            This device
-                          </span>
-                        )}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {session.last_used_at
-                          ? `Last used ${new Date(session.last_used_at).toLocaleString()}`
-                          : 'Never used since it was created'}
-                        {session.created_at &&
-                          ` · Signed in ${new Date(session.created_at).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {!session.current && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => endSession(session.id)}
-                      disabled={sessionBusy !== null}
-                      className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      {sessionBusy === session.id ? (
-                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <LogOut className="size-4" aria-hidden="true" />
-                      )}
-                      Sign out
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
+            {/*
+              The overflow container is here: `DataTable` renders a bare table
+              inside a bordered div with no overflow of its own, and four columns
+              with two timestamps do not fit a narrow pane.
+            */}
+            <div className="-mx-1 overflow-x-auto px-1 pb-1">
+              <DataTable
+                columns={sessionColumns}
+                data={sessions.slice(0, 25)}
+                getRowId={(session: AccountSession) => String(session.id)}
+                density="compact"
+                className="min-w-[38rem]"
+              />
+            </div>
 
             {sessions.length > 25 && (
               <p className="mt-2 text-xs text-muted-foreground">
@@ -309,7 +385,11 @@ export function SecuritySection() {
 
             {others > 0 && (
               <div className="mt-4 flex justify-end">
-                <Button variant="outline" onClick={endOthers} disabled={sessionBusy !== null}>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirming('all')}
+                  disabled={sessionBusy !== null}
+                >
                   {sessionBusy === 'all' ? (
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   ) : (
@@ -322,6 +402,26 @@ export function SecuritySection() {
           </>
         )}
       </SectionBlock>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={confirming === 'all' ? 'Sign out everywhere else?' : 'Sign out this device?'}
+        description={
+          confirming === 'all'
+            ? `${others} other ${others === 1 ? 'device' : 'devices'} will be signed out immediately and will need to sign in again. This device stays signed in. It cannot be undone.`
+            : 'That device will be signed out immediately and will need to sign in again. It cannot be undone.'
+        }
+        confirmLabel={confirming === 'all' ? `Sign out ${others}` : 'Sign out'}
+        busy={sessionBusy !== null}
+        onConfirm={() => {
+          const target = confirming
+          setConfirming(null)
+
+          if (target === 'all') void endOthers()
+          else if (typeof target === 'number') void endSession(target)
+        }}
+      />
     </div>
   )
 }
@@ -330,8 +430,22 @@ export function SecuritySection() {
  * A hint, not a gate. The rule that decides is server-side and shared:
  * `PasswordController::rule()` — at least 8, with letters and numbers.
  */
-function scorePassword(value: string) {
-  if (!value) return { percent: 0, label: '', tone: 'bg-muted' }
+/*
+ * A VARIANT NAME, NOT A TAILWIND CLASS.
+ *
+ * This used to hand back `tone: 'bg-destructive'` for a hand-rolled bar whose
+ * markup was character-for-character what `ui/progress-bar.tsx` already renders
+ * — same `h-1.5` track, same `rounded-full transition-all duration-300` fill,
+ * same three colours. Two implementations of one bar, and the local one had no
+ * `role="progressbar"`, so a screen reader was told nothing about the strength
+ * of the password being typed.
+ */
+function scorePassword(value: string): {
+  percent: number
+  label: string
+  variant: 'default' | 'success' | 'warning' | 'destructive'
+} {
+  if (!value) return { percent: 0, label: '', variant: 'default' }
 
   let score = 0
   if (value.length >= 8) score++
@@ -340,8 +454,8 @@ function scorePassword(value: string) {
   if (/\d/.test(value)) score++
   if (/[^\w\s]/.test(value)) score++
 
-  if (score <= 2) return { percent: 33, label: 'Weak', tone: 'bg-destructive' }
-  if (score === 3) return { percent: 66, label: 'Reasonable', tone: 'bg-warning' }
+  if (score <= 2) return { percent: 33, label: 'Weak', variant: 'destructive' }
+  if (score === 3) return { percent: 66, label: 'Reasonable', variant: 'warning' }
 
-  return { percent: 100, label: 'Strong', tone: 'bg-success' }
+  return { percent: 100, label: 'Strong', variant: 'success' }
 }

@@ -1,9 +1,10 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Save, Upload, X } from 'lucide-react'
-import { useState } from 'react'
+import { Crop, Save, Upload, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ImageCropper } from '@/components/settings/image-cropper'
 import { Badge } from '@/components/ui/badge'
 import {
   SectionCard,
@@ -78,7 +79,38 @@ export function OrganizationInformationEditPanel({
   onSave,
 }: OrganizationInformationEditPanelProps) {
   const [org, setOrg] = useState(data)
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THE LOGO UPLOAD SHOWED YOU NOTHING
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * `setLogoFile(event.target.files?.[0])` was the whole of it. The file was
+   * stored and correctly sent - `saveOrganizationProfile` builds a FormData, so
+   * the upload itself worked - but the monogram stayed on screen either way. You
+   * picked a logo, the square kept showing your initials, and you found out what
+   * had actually been stored on the next page load.
+   *
+   * Nothing told you whether the right file had been chosen, and nothing let you
+   * decide which part of a wide logo would survive being put in a square. The
+   * cropper answers both: a preview that is exactly what will be saved, and
+   * control over the framing.
+   *
+   * `logoFile` is now the CROPPED file. `pending` is the one waiting to be framed.
+   */
   const [logoFile, setLogoFile] = useState<File>()
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null)
+  /** As picked, so "Reposition" reframes at full resolution instead of recropping a crop. */
+  const [originalLogo, setOriginalLogo] = useState<File | null>(null)
+  const [logoError, setLogoError] = useState<string | null>(null)
+
+  // Without this every logo somebody previews leaks for the life of the tab.
+  useEffect(() => {
+    if (!logoPreview) return
+
+    return () => URL.revokeObjectURL(logoPreview)
+  }, [logoPreview])
 
   /*
    * The organisation's OWN initials, from the name being edited - so it updates
@@ -138,23 +170,116 @@ export function OrganizationInformationEditPanel({
               * as its own logo placeholder - on the screen whose entire job is
               * recording who the customer is.
               */}
-            <div
-              className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
-              aria-hidden="true"
-            >
-              {monogram}
-            </div>
+            {/*
+              THE PICKED LOGO, not the monogram, once one has been chosen.
+              The monogram is the placeholder for "no logo", and it was being
+              shown as the answer to "which logo did I just pick".
+            */}
+            {logoPreview ? (
+              <img
+                src={logoPreview}
+                alt=""
+                className="size-28 rounded-2xl border border-border object-cover shadow-md"
+              />
+            ) : (
+              <div
+                className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
+                aria-hidden="true"
+              >
+                {monogram}
+              </div>
+            )}
             <Button variant="outline" className="relative w-full overflow-hidden">
               <Upload aria-hidden="true" />
               Upload New Logo
               <input
                 type="file"
-                accept="image/*"
+                /*
+                 * The server's list, not `image/*`. The old value offered every
+                 * format the operating system can produce against a backend that
+                 * accepts four, so the most likely file on a phone - an iPhone's
+                 * HEIC - was one that could not be stored.
+                 */
+                accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
                 aria-label="Upload organization logo"
                 className="absolute inset-0 cursor-pointer opacity-0"
-                onChange={(event) => setLogoFile(event.target.files?.[0])}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  // So picking the same file twice in a row still fires onChange.
+                  event.target.value = ''
+
+                  if (!file) return
+
+                  const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+                  if (!ALLOWED.includes(file.type)) {
+                    setLogoError('That kind of image cannot be used. JPG, PNG, GIF or WEBP.')
+                    return
+                  }
+
+                  // Generous: what gets uploaded is the cropper's small export,
+                  // so the only thing this guards is the memory cost of decoding.
+                  if (file.size > 25 * 1024 * 1024) {
+                    setLogoError(
+                      `That image is ${(file.size / 1024 / 1024).toFixed(0)}MB, which is too large to open here.`,
+                    )
+                    return
+                  }
+
+                  setLogoError(null)
+                  setPendingLogo(file)
+                }}
               />
             </Button>
+
+            {logoFile && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={() => setPendingLogo(originalLogo ?? logoFile)}
+              >
+                <Crop aria-hidden="true" />
+                Reposition
+              </Button>
+            )}
+
+            {logoError && (
+              <p role="alert" className="w-full text-xs text-destructive">
+                {logoError}
+              </p>
+            )}
+
+            {logoFile && !logoError && (
+              <p className="w-full text-xs text-muted-foreground">
+                {logoFile.name} — saved when you press Save.
+              </p>
+            )}
+
+            {/*
+              THE CROPPER. `shape="rounded"` because that is how the logo is shown
+              here and on the read view - a circular frame would promise a crop
+              the product does not apply.
+
+              Keyed on the file so a second pick opens centred rather than at the
+              previous logo's framing.
+            */}
+            {pendingLogo && (
+              <ImageCropper
+                key={`${pendingLogo.name}-${pendingLogo.size}-${pendingLogo.lastModified}`}
+                file={pendingLogo}
+                shape="rounded"
+                title="Position the logo"
+                onCancel={() => setPendingLogo(null)}
+                onApply={({ file, preview }) => {
+                  setOriginalLogo(pendingLogo)
+                  setLogoFile(file)
+                  setLogoPreview(preview)
+                  setPendingLogo(null)
+                }}
+              />
+            )}
             {/*
               * "Founded" IS GONE, and "Total Employees" IS REAL.
               *

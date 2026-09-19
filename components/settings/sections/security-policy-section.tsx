@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Info, ShieldCheck } from 'lucide-react'
+import { AlertCircle, Check } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { useLaravelContext } from '@/hooks/use-agentic'
+import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { organizationSettingsService, type OrgSettingsResponse } from '@/services/organization/settings'
-import { SaveButton } from '@/components/settings/settings-shell'
-import { Field, SectionBlock, ToggleRow } from './section-primitives'
+import { Field, SaveButton, SectionBlock, SectionError, SectionSkeleton, ToggleRow } from './section-primitives'
 
 /**
  * SECURITY POLICY — including the switch that would have made the backdoor moot.
@@ -46,7 +46,12 @@ const KEYS = [
   'security.otp_login_enabled',
 ] as const
 
-export function SecurityPolicySection() {
+type DirtyReporter = {
+  /** Lets the shell refuse to change section while a draft is unsaved. */
+  onDirtyChange?: (id: 'profile' | 'delivery' | 'organization' | 'policy', label: string, dirty: boolean) => void
+}
+
+export function SecurityPolicySection({ onDirtyChange }: DirtyReporter = {}) {
   const resolveContext = useLaravelContext()
 
   const [stored, setStored] = useState<Settings | null>(null)
@@ -94,22 +99,32 @@ export function SecurityPolicySection() {
     return KEYS.some((key) => draft[key] !== stored.settings[key])
   }, [draft, stored])
 
+  // A draft in useState is lost on refresh; warn before that happens.
+  useUnsavedGuard(dirty)
+
+  // And tell the shell, which can refuse to change section while this is true.
+  useEffect(() => {
+    onDirtyChange?.('policy', 'Security policy', dirty)
+
+    // And on unmount: a section swapped out for the loading skeleton while
+    // dirty would otherwise leave the flag set, prompting about a draft that
+    // is no longer on screen.
+    return () => onDirtyChange?.('policy', 'Security policy', false)
+  }, [dirty, onDirtyChange])
+
   if (loading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-xl bg-muted/40" />
-        ))}
-      </div>
+      <SectionSkeleton rows={3} />
     )
   }
 
   if (!draft || !stored) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden="true" />
-        <AlertDescription>{error ?? 'This policy could not be loaded.'}</AlertDescription>
-      </Alert>
+      <SectionError
+        title="This policy could not be loaded"
+        description={error ?? 'It is available to administrators.'}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -168,17 +183,17 @@ export function SecurityPolicySection() {
       <SectionBlock
         title="Passwords"
         description="Applies wherever anybody in this organisation sets a password."
+        /*
+         * A BADGE, NOT A GREEN BANNER.
+         *
+         * "These rules are live" was rendered as `variant="success"`, which made
+         * the section look like a form that had just been submitted — every time
+         * it was opened, before anybody had touched it. It is a steady-state
+         * fact, so it belongs on the title.
+         */
+        badge={stored.enforced.password_policy ? 'Live' : undefined}
+        badgeTitle="Applies to changing your own password, accepting an invite, and resetting a forgotten one."
       >
-        {stored.enforced.password_policy && (
-          <Alert variant="success" className="mb-4">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            <AlertDescription>
-              These rules are live. They apply to changing your own password, accepting an invite
-              and resetting a forgotten one.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid gap-4 sm:max-w-md">
           <Field
             label="Minimum length"
@@ -209,17 +224,24 @@ export function SecurityPolicySection() {
             onChange={(value) => set('security.password_require_symbol', value ? '1' : '0')}
           />
         </div>
+
+        {/*
+          * The one true sentence the deleted "Sessions" card had to offer.
+          * A line, under the rules it relates to — not a card of its own.
+          */}
+        <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+          Sessions do not expire on their own yet, so there is no session length to set here.
+          Anybody can end their own under Sign-in &amp; security, and suspending an account signs
+          it out everywhere immediately.
+        </p>
       </SectionBlock>
 
       <SectionBlock
         title="Invitation links"
         description="How long a set-password link stays usable after it is created."
+        badge={stored.enforced.invite_hours ? undefined : 'Not applied yet'}
+        badgeTitle="Saved now. Links currently expire after a fixed 24 hours for every organisation; this applies once that becomes per-organisation."
       >
-        <NotLiveYet when={!stored.enforced.invite_hours}>
-          Stored, but invitation links currently expire after a fixed 24 hours for every
-          organisation. This will apply once that becomes per-organisation.
-        </NotLiveYet>
-
         <Field label="Hours before a link expires" hint="Between 1 hour and one week." className="sm:max-w-xs">
           <Input
             inputMode="numeric"
@@ -234,12 +256,9 @@ export function SecurityPolicySection() {
       <SectionBlock
         title="Signing in with a one-time code"
         description="Whether people in this organisation may sign in with an SMS code instead of a password."
+        badge={stored.enforced.otp_login ? undefined : 'Not applied yet'}
+        badgeTitle="Saved now. No sign-in path reads this yet, so turning it off does not currently block one-time-code sign-in."
       >
-        <NotLiveYet when={!stored.enforced.otp_login}>
-          Stored, but no sign-in path reads this yet. Turning it off does not currently block
-          one-time-code sign-in.
-        </NotLiveYet>
-
         <div className="space-y-1">
           <ToggleRow
             label="Allow sign-in by one-time code"
@@ -250,37 +269,40 @@ export function SecurityPolicySection() {
         </div>
       </SectionBlock>
 
-      <SectionBlock title="Sessions" description="How long somebody stays signed in.">
-        <Alert>
-          <Info className="size-4" aria-hidden="true" />
-          <AlertDescription>
-            Sessions in this product do not currently expire on their own, so there is nothing to
-            set here yet. Anybody can end their own sessions under <strong>Sign-in &amp;
-            security</strong>, and suspending an account now signs it out everywhere immediately.
-          </AlertDescription>
-        </Alert>
-      </SectionBlock>
+      {/*
+        * THE "SESSIONS" BLOCK IS GONE.
+        *
+        * It was a whole card — heading, description and a full-width banner —
+        * whose entire message was that there is nothing to configure. A section
+        * that exists to announce its own absence is chrome, not content.
+        *
+        * What it actually had to say is now one line under the password rules,
+        * where somebody reading about security policy will already be looking.
+        */}
 
-      <div className="flex justify-end border-t border-border pt-5">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
+        {/*
+          * `dirty && !belowFloor` used to be passed straight to SaveButton, which
+          * renders the word "Saved" whenever it is not dirty — so holding an
+          * invalid minimum showed a grey button reading SAVED while nothing had
+          * been saved and nothing could be. The reason is stated instead.
+          */}
+        {belowFloor && (
+          <span className="text-xs text-destructive">
+            Fix the minimum length before saving.
+          </span>
+        )}
         <SaveButton
-          dirty={dirty && !belowFloor}
+          dirty={dirty}
           saving={saving}
-          onClick={save}
+          saved={saved}
+          onClick={() => {
+            if (belowFloor) return
+            void save()
+          }}
           label="Save policy"
         />
       </div>
     </div>
-  )
-}
-
-/** Rendered from the server's own `enforced` flags — see the section docblock. */
-function NotLiveYet({ when, children }: { when: boolean; children: React.ReactNode }) {
-  if (!when) return null
-
-  return (
-    <Alert className="mb-4">
-      <Info className="size-4" aria-hidden="true" />
-      <AlertDescription>{children}</AlertDescription>
-    </Alert>
   )
 }
