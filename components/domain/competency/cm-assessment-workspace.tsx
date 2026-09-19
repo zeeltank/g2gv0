@@ -53,6 +53,8 @@ import { CmCandidateAssessments } from './cm-candidate-assessments'
 import { CmAssessmentGenerator } from './cm-assessment-generator'
 import { CmAssessmentConsole } from './cm-assessment-console'
 import { useCompetencyStudio } from '@/hooks/use-competency-studio'
+import { CampaignDetailTabs } from './campaign-detail-tabs'
+import type { CampaignDetailTab } from './campaign-detail-tabs'
 
 export function CmAssessmentWorkspace() {
   const [activeTab, setActiveTab] = useState('campaigns')
@@ -66,7 +68,9 @@ export function CmAssessmentWorkspace() {
     ],
     [frameworks],
   )
-  const [campaignTab, setCampaignTab] = useState('participants')
+  // Opens on Overview: it is the first tab in the strip, and it is the one
+  // that answers "how is this campaign going" without scanning a table.
+  const [campaignTab, setCampaignTab] = useState('overview')
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newCampaignName, setNewCampaignName] = useState('')
@@ -478,16 +482,35 @@ export function CmAssessmentWorkspace() {
                   
                   {/* Internal Tabs */}
                   <div className="flex items-center gap-6 mt-2 border-b border-border/50">
-                    {['Overview', 'Participants', 'Ratings', 'Calibration', 'Audit Trail'].map(tab => {
-                      const id = tab.toLowerCase().split(' ')[0]
-                      const isActive = id === campaignTab
+                    {/*
+                      * IDS ARE DECLARED, NOT DERIVED FROM THE LABEL.
+                      *
+                      * This read `tab.toLowerCase().split(' ')[0]`, so "Audit
+                      * Trail" became "audit" and the placeholder below printed
+                      * "we are currently building the audit functionality" — a
+                      * tab that could not say its own name. Renaming any label
+                      * silently repointed its tab.
+                      *
+                      * The count badges that used to sit here rendered a
+                      * literal 5 on Ratings and Calibration, in every campaign,
+                      * in every tenant. There is no count in the campaign list
+                      * response to put there, so there is no badge.
+                      */}
+                    {([
+                      { id: 'overview', label: 'Overview' },
+                      { id: 'participants', label: 'Participants' },
+                      { id: 'ratings', label: 'Ratings' },
+                      { id: 'calibration', label: 'Calibration' },
+                      { id: 'audit', label: 'Audit Trail' },
+                    ] as const).map(tab => {
+                      const isActive = tab.id === campaignTab
                       return (
                         <button
-                          key={tab}
-                          onClick={() => setCampaignTab(id)}
+                          key={tab.id}
+                          onClick={() => setCampaignTab(tab.id)}
                           className={`pb-2 text-xs font-semibold transition-colors relative ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                          {tab} {['Ratings', 'Calibration'].includes(tab) && <span className="bg-muted px-1.5 py-0.5 rounded-full ml-1 text-[10px]">5</span>}
+                          {tab.label}
                           {isActive && (
                             <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full" />
                           )}
@@ -644,10 +667,13 @@ export function CmAssessmentWorkspace() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-primary/20 rounded-2xl bg-card/20 text-muted-foreground p-12 h-full">
-                      <p className="text-lg font-bold">This section is coming soon</p>
-                      <p className="text-sm">We are currently building the {campaignTab} functionality.</p>
-                    </div>
+                    /* The four tabs that said "coming soon" for four endpoints
+                       that were already finished. Each loads only its own, and
+                       only once opened. */
+                    <CampaignDetailTabs
+                      cycleId={selectedCycleId}
+                      tab={campaignTab as CampaignDetailTab}
+                    />
                   )}
                 </div>
               </div>
