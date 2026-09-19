@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, MoreHorizontal, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
@@ -81,7 +81,19 @@ function asDate(value?: Date | string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
-export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }) {
+export default function HolidayCalendarTab({
+  isLoading,
+  onDirtyChange,
+}: {
+  isLoading: boolean
+  /**
+   * F-191. Reports whether this tab holds unsaved edits.
+   *
+   * The parent conditionally renders each tab, so switching UNMOUNTS this one and
+   * the draft goes with it. The page uses this to confirm before discarding.
+   */
+  onDirtyChange?: (dirty: boolean) => void
+}) {
   const [calendarYear, setCalendarYear] = useState(String(currentYear))
 
   const {
@@ -131,6 +143,12 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
     [weekdays, weekdayDraft],
   )
 
+  // F-191. Tell the page, so a tab switch can confirm before discarding.
+  useEffect(() => {
+    onDirtyChange?.(weekdaysDirty)
+  }, [weekdaysDirty, onDirtyChange])
+
+
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
@@ -178,9 +196,21 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
     }
   }
 
+  /*
+   * F-200. This closed the dialog unconditionally.
+   *
+   * `remove` returns { ok, message } and the result was discarded, so a REFUSED
+   * delete looked exactly like a successful one: the confirm dialog vanished,
+   * the row stayed, and the reason appeared in an Alert further up the page the
+   * user may well have scrolled past. Refusal is the EXPECTED path here - the
+   * dialog's own warning says an item in use cannot be deleted.
+   *
+   * payroll-type/page.tsx has always done this correctly (`if (result.ok)`).
+   */
   const handleDelete = async () => {
     if (!holidayToDelete) return
-    await remove(holidayToDelete)
+    const result = await remove(holidayToDelete)
+    if (!result.ok) return
     setHolidayToDelete(null)
     setIsDeleteDialogOpen(false)
   }
@@ -222,7 +252,14 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
         <div className="flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={processing}>
+              {/* F-202. Icon-only and unlabelled - announced as just "button". */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={processing}
+                aria-label={`Actions for ${row.holiday_name}`}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -322,15 +359,23 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
             Used alongside holidays when leave days are counted.
           </CardDescription>
         </div>
-        {weekdaysDirty && (
-          <Button
-            className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto"
-            onClick={() => saveWeekdays(weekdayDraft)}
-            disabled={processing}
-          >
-            {processing ? 'Saving...' : 'Save Pattern'}
-          </Button>
-        )}
+        {/*
+          F-198. This was `{weekdaysDirty && ( ... )}` - the Save button did not exist
+          until you had already changed something, and then appeared in the CARD
+          HEADER, above where you were working.
+          A screen full of editable controls with no visible Save leaves "does
+          this save automatically?" unanswered, which is the question a Save
+          button exists to answer. Every other editable screen in this module
+          keeps it visible and disabled (ApprovalWorkflowTab, EntitlementsTab,
+          salary-structure).
+        */}
+        <Button
+          className="h-9 w-full gap-2 rounded-lg font-semibold sm:w-auto"
+          onClick={() => saveWeekdays(weekdayDraft)}
+          disabled={processing || !weekdaysDirty}
+        >
+          {processing ? 'Saving...' : 'Save Pattern'}
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -437,6 +482,18 @@ export default function HolidayCalendarTab({ isLoading }: { isLoading: boolean }
               Are you sure you want to delete this holiday? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/*
+            F-200. The refusal, where the user is actually looking.
+            The dialog now stays open when the delete is refused, so the reason
+            has to be inside it - on the page behind, it is a banner the user
+            never sees.
+          */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel

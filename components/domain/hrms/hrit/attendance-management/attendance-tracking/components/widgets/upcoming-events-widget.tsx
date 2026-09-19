@@ -58,6 +58,18 @@ export function UpcomingEventsWidget({ events, loading, onViewCalendar }: Upcomi
       </CardHeader>
       <CardContent className="flex flex-1 flex-col justify-between px-3 pb-3">
         <div className="flex flex-col">
+          {/*
+            F-194. The only widget in this row without one. Its two neighbours
+            both say something when empty ("Nothing needs your attention.",
+            "You have no open requests."), so an empty Upcoming Events card -
+            a heading over blank space above a "View Calendar" link - read as a
+            failure rather than as a quiet month.
+          */}
+          {events.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No holidays coming up. Add them under Configuration &rarr; Holiday Calendar.
+            </p>
+          )}
           {events.map((event) => (
             <div
               key={event.id}

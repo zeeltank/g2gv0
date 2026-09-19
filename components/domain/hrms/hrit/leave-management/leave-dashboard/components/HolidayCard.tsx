@@ -1,6 +1,7 @@
 import { CalendarDays, ArrowRight } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { formatDate } from '@/lib/leave-management-data'
 import type { Holiday } from '@/types/leave-dashboard'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,20 @@ export function HolidayCard({ holidays, onViewAll }: HolidayCardProps) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/*
+          F-194. This card used to .map() straight into its body, so an empty
+          dataset rendered a heading above whitespace. On a newly-configured
+          tenant the whole dashboard was a grid of headed cards containing
+          nothing - indistinguishable from a broken page. Each empty state
+          names the cause AND the next step, the way payroll-type does.
+        */}
+        {holidays.length === 0 ? (
+          <EmptyState
+            title="No holidays configured"
+            description="Add them under Configuration → Holiday Calendar. Until then, leave requests treat every working day as workable."
+          />
+        ) : (
+          <>
         {holidays.map((holiday) => (
           <div
             key={holiday.id}
@@ -51,6 +66,8 @@ export function HolidayCard({ holidays, onViewAll }: HolidayCardProps) {
             <span className="shrink-0 text-sm font-medium text-foreground">{formatDate(holiday.date)}</span>
           </div>
         ))}
+          </>
+        )}
       </CardContent>
     </Card>
   )

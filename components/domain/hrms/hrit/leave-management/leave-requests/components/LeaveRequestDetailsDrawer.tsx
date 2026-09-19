@@ -23,6 +23,17 @@ interface LeaveRequestDetailsDrawerProps {
   loading?: boolean
   processing?: boolean
   onDecision?: (id: number, status: LeaveStatus, remarks?: { hrRemarks?: string }) => void
+  /**
+   * F-164. The applicant taking their own request back.
+   *
+   * Separate from onDecision, which is an APPROVER acting on somebody else's
+   * request. These two are the applicant acting on their own, and the server
+   * gates them on ownership rather than on approve_leave.
+   */
+  onWithdraw?: (id: number) => void
+  onCancel?: (id: number, reason?: string) => void
+  /** The signed-in user, so the drawer can tell "my request" from "someone else's". */
+  currentUserId?: number | string | null
 }
 
 const statusLabelMap: Record<LeaveRequestStatus, string> = {
@@ -70,15 +81,31 @@ export function LeaveRequestDetailsDrawer({
   loading = false,
   processing = false,
   onDecision,
+  onWithdraw,
+  onCancel,
+  currentUserId,
 }: LeaveRequestDetailsDrawerProps) {
   const [activeTab, setActiveTab] = React.useState('overview')
   const [remark, setRemark] = React.useState('')
+  /*
+   * Which irreversible action is awaiting confirmation, if any.
+   *
+   * Three, not two, because "cancel" reaches the server two different ways:
+   *   withdraw        - the applicant, on their own PENDING request
+   *   cancel          - the applicant, on their own APPROVED future request
+   *   approver-cancel - an APPROVER cancelling somebody else's, which is a
+   *                     decision and goes through onDecision's gate
+   */
+  const [confirming, setConfirming] = React.useState<
+    'withdraw' | 'cancel' | 'approver-cancel' | null
+  >(null)
 
   // Reset on close in the handler rather than an effect, so no cascading render.
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setActiveTab('overview')
       setRemark('')
+      setConfirming(null)
     }
     onOpenChange(next)
   }
@@ -98,6 +125,34 @@ export function LeaveRequestDetailsDrawer({
   const decide = (status: LeaveStatus) => {
     onDecision?.(requestId, status, remark.trim() ? { hrRemarks: remark.trim() } : undefined)
   }
+
+  /*
+   * F-164. Which of the two "take it back" actions this request qualifies for.
+   *
+   * Mirrors what the server will actually allow, so the drawer does not offer a
+   * button that is certain to be refused:
+   *   pending                      -> Withdraw   (DELETE, soft-delete)
+   *   approved + starts in future  -> Cancel     (POST .../cancel)
+   *   approved + already started   -> neither    (HR correction, and the server
+   *                                               says so if you try)
+   *
+   * These are HINTS, not the gate. The server decides - the same rule F-91 and
+   * F-124 established, where a React component was the only thing saying no.
+   */
+  const isOwnRequest =
+    currentUserId != null && String(request.employeeId) === String(currentUserId)
+  const startsInFuture = (() => {
+    if (!request.fromDate) return false
+    const start = new Date(String(request.fromDate).replace(' ', 'T'))
+    if (Number.isNaN(start.getTime())) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return start.getTime() >= today.getTime()
+  })()
+
+  const canWithdraw = Boolean(onWithdraw) && isOwnRequest && request.status === 'pending'
+  const canCancel =
+    Boolean(onCancel) && isOwnRequest && request.status === 'approved' && startsInFuture
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -408,8 +463,24 @@ export function LeaveRequestDetailsDrawer({
             <Button variant="outline" size="sm" disabled={processing} onClick={() => decide('sent_back')}>
               Send Back
             </Button>
-            <Button variant="outline" size="sm" disabled={processing} onClick={() => decide('cancelled')}>
-              Cancel
+            {/*
+              F-165. This button read "Cancel" and sat between "Send Back" and
+              "Reject", styled exactly like them. It does not dismiss the drawer:
+              it CANCELS THE EMPLOYEE'S LEAVE. Everywhere else in this module -
+              payroll-type, LeaveTypesTab, HolidayCalendarTab, PayrollTypeDialog -
+              a button labelled "Cancel" closes the dialog, so an approver who
+              wanted to back out without deciding had every reason to click it.
+              Named for what it does, and confirmed, because it is not reversible
+              from this screen.
+            */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive text-destructive hover:bg-destructive/10"
+              disabled={processing}
+              onClick={() => setConfirming('approver-cancel')}
+            >
+              Cancel Request
             </Button>
             <Button
               variant="outline"
@@ -428,6 +499,101 @@ export function LeaveRequestDetailsDrawer({
             >
               Approve
             </Button>
+          </div>
+        )}
+
+        {/*
+          F-164. The applicant's own footer.
+          Separate from the approver footer above: that one acts on somebody
+          else's request and is gated on approve_leave; this one is the person
+          who raised it taking it back, and the server gates it on ownership.
+          Both never show at once - an approver looking at their OWN pending
+          request sees Withdraw here and the decision row above, which is
+          correct: they can do both, and the server allows both.
+        */}
+        {(canWithdraw || canCancel) && !confirming && (
+          <div className="shrink-0 border-t border-border bg-card p-4 flex flex-wrap items-center justify-end gap-2">
+            <span className="mr-auto text-xs text-muted-foreground">
+              {canWithdraw
+                ? 'This request is still awaiting approval.'
+                : 'Approved, and it has not started yet.'}
+            </span>
+            {canWithdraw && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10"
+                disabled={processing}
+                onClick={() => setConfirming('withdraw')}
+              >
+                Withdraw Request
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10"
+                disabled={processing}
+                onClick={() => setConfirming('cancel')}
+              >
+                Cancel Leave
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/*
+          One confirmation surface for all three irreversible actions. Inline
+          rather than a nested AlertDialog because this already sits inside a
+          Sheet, and a dialog inside a sheet traps focus twice.
+        */}
+        {confirming && (
+          <div className="shrink-0 border-t border-destructive/40 bg-destructive/5 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {confirming === 'withdraw'
+                  ? 'Withdraw this request?'
+                  : confirming === 'cancel'
+                    ? 'Cancel this approved leave?'
+                    : `Cancel ${request.employee?.name ?? 'this employee'}'s leave?`}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {confirming === 'withdraw'
+                  ? 'It will be removed from your approver’s queue. You can apply again at any time.'
+                  : confirming === 'cancel'
+                    ? 'The days go back to your balance and the request leaves your approver’s queue. You can apply again at any time.'
+                    : 'This cancels leave that has already been approved. The employee is not asked first, and it cannot be undone from this screen.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={processing}
+                onClick={() => setConfirming(null)}
+              >
+                Keep it
+              </Button>
+              <Button
+                size="sm"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={processing}
+                onClick={() => {
+                  if (confirming === 'withdraw') onWithdraw?.(requestId)
+                  else if (confirming === 'cancel')
+                    onCancel?.(requestId, remark.trim() || undefined)
+                  else decide('cancelled')
+                  setConfirming(null)
+                }}
+              >
+                {processing
+                  ? 'Working…'
+                  : confirming === 'withdraw'
+                    ? 'Yes, withdraw it'
+                    : 'Yes, cancel it'}
+              </Button>
+            </div>
           </div>
         )}
       </SheetContent>

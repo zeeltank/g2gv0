@@ -4,6 +4,7 @@ import { ArrowUpRight, MoreVertical } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
 import {
   DropdownMenu,
@@ -55,6 +56,20 @@ export function RecentLeaveRequests({ requests, onView, onViewAll }: RecentLeave
       </CardHeader>
 
       <CardContent className="p-0">
+        {/*
+          F-194. With no requests this rendered a seven-column table HEADER and
+          nothing under it - the emptiest shape on the dashboard, and the one
+          that most looks like a rendering failure. The header is only drawn
+          when there is something to put beneath it.
+        */}
+        {requests.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              title="No requests yet"
+              description="Leave requests appear here as they are raised, newest first."
+            />
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-card">
@@ -126,6 +141,7 @@ export function RecentLeaveRequests({ requests, onView, onViewAll }: RecentLeave
             </TableBody>
           </Table>
         </div>
+        )}
       </CardContent>
     </Card>
   )

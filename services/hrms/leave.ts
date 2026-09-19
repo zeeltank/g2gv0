@@ -269,6 +269,16 @@ export interface LeaveRequestFilters {
   departmentId?: string
   leaveTypeId?: string
   employeeId?: string
+  /**
+   * F-208. Only the requests this caller has to decide.
+   *
+   * "Awaiting me" is a property of the approval CHAIN, not of the request, so
+   * the server resolves it against hrms_leave_approval_steps - the step that is
+   * still pending is the one whose turn it is. The screen cannot compute this
+   * from a status alone, which is why the preset that claimed it had to be
+   * renamed until the endpoint could answer.
+   */
+  awaitingMe?: boolean
   fromDate?: string
   toDate?: string
   sortBy?: string
@@ -521,6 +531,8 @@ export const leaveService = {
         ...optionalParam('department_id[0]', filters?.departmentId),
         ...optionalParam('leave_type_id[0]', filters?.leaveTypeId),
         ...optionalParam('employee_id[0]', filters?.employeeId),
+        // F-208. Resolved server-side against the approval chain.
+        ...(filters?.awaitingMe ? { awaiting_me: '1' } : {}),
         ...optionalParam('from_date', filters?.fromDate),
         ...optionalParam('to_date', filters?.toDate),
         ...(filters?.sortBy ? { sort_by: filters.sortBy } : {}),
@@ -579,8 +591,34 @@ export const leaveService = {
           : {}),
       },
     ),
+  /**
+   * Withdraw one's OWN request, while it is still pending.
+   *
+   * F-164. This existed with zero call sites - defined, typed, and reachable by
+   * nothing. Together with the missing cancelRequest below it meant an employee
+   * could apply for leave and then had no way to take it back: every
+   * cancellation went through HR by message.
+   */
   withdrawRequest: (context: LaravelContext, id: number | string) =>
     apiClient.delete<LeaveApiResponse<null>>(`/leave/requests/${id}`, withLaravelParams(context)),
+
+  /**
+   * Cancel leave that was already APPROVED and has not started yet.
+   *
+   * A different operation from withdraw, not a synonym - the API separates them
+   * and says so in its refusals ("This request has not been approved yet -
+   * withdraw it instead"). Withdraw soft-deletes a pending row; cancel moves an
+   * approved one to 'cancelled', returns the days to the balance, and closes any
+   * open approval step so it leaves the approver's queue.
+   *
+   * The server refuses once the leave has started, because by then attendance
+   * has been recorded against those days and unpicking it is an HR correction.
+   */
+  cancelRequest: (context: LaravelContext, id: number | string, reason?: string) =>
+    apiClient.post<LeaveApiResponse<null>>(`/leave/requests/${id}/cancel`, {
+      ...withLaravelParams(context),
+      ...(reason ? { reason } : {}),
+    }),
 
   // Reports
   getReportSummary: (context: LaravelContext, filters?: LeaveReportFilters) =>

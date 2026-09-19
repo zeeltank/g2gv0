@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { FileSpreadsheet, Printer } from 'lucide-react'
+import { Download, FileSpreadsheet, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -228,8 +228,9 @@ export default function Form16Page() {
               <FileSpreadsheet className="size-4" />
               {loading ? 'Generating...' : 'Generate Form 16'}
             </Button>
+            {/* F-205. A Printer glyph on a button that writes a CSV. */}
             <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!form16}>
-              <Printer className="size-4" />
+              <Download className="size-4" />
               Export CSV
             </Button>
           </div>

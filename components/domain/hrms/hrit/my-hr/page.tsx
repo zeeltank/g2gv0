@@ -43,6 +43,7 @@ export default function MyHrPage() {
 
   const [summary, setSummary] = React.useState<MyHrSummary | null>(null)
   const [payslips, setPayslips] = React.useState<MyPayslip[]>([])
+  const [payslipError, setPayslipError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -75,9 +76,23 @@ export default function MyHrPage() {
        */
       if (payslipResult.status === 'fulfilled') {
         setPayslips(payslipResult.value.data ?? [])
+        setPayslipError(null)
       } else {
+        /*
+         * F-188. The fix above was incomplete, and the incompleteness was the
+         * whole defect.
+         *
+         * `error` is read in exactly one place - `if (error && !summary)` -
+         * which is FALSE whenever the summary succeeded. That is the common
+         * case this branch exists for, so the string was set and then never
+         * rendered anywhere, and the card below still said "No payslips yet".
+         * Identical outcome to before the fix.
+         *
+         * Tracked separately so the payslip card can say what happened to the
+         * payslips.
+         */
         setPayslips([])
-        setError((current) => current ?? 'Could not load your payslips.')
+        setPayslipError('Could not load your payslips.')
       }
     } finally {
       setLoading(false)
@@ -284,7 +299,14 @@ export default function MyHrPage() {
           <CardTitle className="text-lg font-bold">My payslips</CardTitle>
         </CardHeader>
         <CardContent>
-          {payslips.length === 0 ? (
+          {payslipError ? (
+            // F-188. A failure to load is not a statement about your pay.
+            <ErrorState
+              title="Unable to load your payslips"
+              description={`${payslipError} This is a problem fetching them, not a sign that none exist.`}
+              retry={load}
+            />
+          ) : payslips.length === 0 ? (
             <EmptyState
               icon={<FileText className="size-10" />}
               title="No payslips yet"

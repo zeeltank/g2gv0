@@ -31,7 +31,17 @@ import { leaveService, type LeaveAllocationData, type LeaveAllocationPayload } f
  * leave year, which is the shape `entitlementByType()` already reads — this
  * gives the existing shape a way in rather than inventing a new one.
  */
-export default function EntitlementsTab() {
+export default function EntitlementsTab({
+  onDirtyChange,
+}: {
+  /**
+   * F-191. Reports whether this tab holds unsaved edits.
+   *
+   * The parent conditionally renders each tab, so switching UNMOUNTS this one and
+   * the draft goes with it. The page uses this to confirm before discarding.
+   */
+  onDirtyChange?: (dirty: boolean) => void
+} = {}) {
   const { user } = useAuth()
 
   const [data, setData] = useState<LeaveAllocationData | null>(null)
@@ -88,6 +98,12 @@ export default function EntitlementsTab() {
   }
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(baseline), [draft, baseline])
+
+  // F-191. Tell the page, so a tab switch can confirm before discarding.
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
 
   const departments = useMemo(() => {
     const term = search.trim().toLowerCase()

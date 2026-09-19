@@ -115,6 +115,16 @@ type ReportPreviewSectionProps = {
   register: LeaveRegisterRow[]
   balance: LeaveBalanceReportData | null
   saved: boolean
+  /**
+   * F-189. Whether the numbers below came from a successful load.
+   *
+   * On failure the hook clears summary, register and balance, and this
+   * component rendered that as "Total Requests 0 / Approved 0 (0%)", "No leave
+   * data for this period" and "No leave was taken in the selected period" -
+   * three claims about an organisation's leave, produced by a network error.
+   * Defaults to true so the many other callers are unaffected.
+   */
+  loaded?: boolean
   selectedReport: ReportDefinition
   totalDays: number
   totalRequests: number
@@ -134,6 +144,13 @@ type ReportsSidebarProps = {
   rejected: number
   topLeaveType: LeaveReportSummaryRow | null
   totalRequests: number
+  /**
+   * F-189. Whether the figures came from a successful load. The Insights list
+   * turns numbers into SENTENCES - "No leave was taken in the selected period",
+   * "Approval rate is 0%" - and a failed fetch made every one of them a false
+   * statement rather than a blank. Defaults to true.
+   */
+  loaded?: boolean
   onApplyFilters: () => void
   /** Forces a refetch even when no filter value changed. See the Refresh button. */
   onRefresh?: () => void
@@ -256,9 +273,18 @@ export function ReportCatalogSection({
                 </p>
               </div>
             )}
+            {/*
+              F-206. The denominator was categoryCounts['All Reports'] whatever
+              category was selected, so filtering to "Leave Balance Reports"
+              read "Showing 1 to 1 of 3 reports" and invited the user to hunt
+              for two that were never in that category.
+            */}
             <p className="mt-4 text-sm text-muted-foreground">
               Showing {filteredReports.length ? 1 : 0} to {filteredReports.length} of{' '}
-              {activeTab === 'saved' ? savedCount : categoryCounts['All Reports']} reports
+              {filteredReports.length} reports
+              {activeTab !== 'saved' && category !== 'All Reports' && (
+                <> in {category}</>
+              )}
             </p>
           </div>
         </div>
@@ -278,6 +304,7 @@ export function ReportPreviewSection({
   register,
   balance,
   saved,
+  loaded = true,
   selectedReport,
   totalDays,
   totalRequests,
@@ -306,7 +333,19 @@ export function ReportPreviewSection({
           </Button>
           {/* No ChevronDown. It advertised a format picker - CSV / XLSX / PDF -
               that has never existed; one click downloads a CSV. */}
-          <Button variant="outline" className="h-9 gap-2" onClick={onExportCsv}>
+          {/*
+            F-189. Disabled when the load failed. exportCsv already refuses, but
+            a button that looks live and does nothing is the defect class this
+            module has spent two phases removing - so it is visibly off, with
+            the reason on hover.
+          */}
+          <Button
+            variant="outline"
+            className="h-9 gap-2"
+            onClick={onExportCsv}
+            disabled={!loaded || loading}
+            title={loaded ? undefined : 'The report could not be loaded, so there is nothing to export'}
+          >
             <Download className="size-4" />
             Export CSV
           </Button>
@@ -350,6 +389,18 @@ export function ReportPreviewSection({
               {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
+            </div>
+          ) : !loaded ? (
+            // F-189. A failed load, said as a failure.
+            <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
+              <FileText className="size-10 text-destructive/60" />
+              <p className="mt-3 text-sm font-medium text-destructive">
+                This report could not be loaded
+              </p>
+              <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                The figures above are not a result. Use Try again at the top of the screen; nothing
+                here says anything about your organisation&rsquo;s leave.
+              </p>
             </div>
           ) : previewCount === 0 ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
@@ -483,6 +534,7 @@ export function ReportsSidebar({
   rejected,
   topLeaveType,
   totalRequests,
+  loaded = true,
   onApplyFilters,
   onFilterChange,
   onResetFilters,
@@ -532,18 +584,31 @@ export function ReportsSidebar({
           <CardTitle className="text-base">Report Insights</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5 p-4">
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <Insight>Approval rate is {pct(approved, totalRequests)} for the selected period.</Insight>
-            {topLeaveType ? (
-              <Insight>
-                Maximum leaves taken are {topLeaveType.leave_type} ({topLeaveType.days.toFixed(1)} days).
-              </Insight>
-            ) : (
-              <Insight>No leave was taken in the selected period.</Insight>
-            )}
-            <Insight>{rejected} requests were rejected.</Insight>
-            <Insight>{cancelled} requests were cancelled.</Insight>
-          </ul>
+          {/*
+            F-189. Insights are sentences, which is exactly why they must not be
+            generated from a failed fetch. "No leave was taken in the selected
+            period" and "Approval rate is 0%" read as findings; produced by a
+            500 they are simply untrue, and they sat beside an Export button.
+          */}
+          {loaded ? (
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <Insight>Approval rate is {pct(approved, totalRequests)} for the selected period.</Insight>
+              {topLeaveType ? (
+                <Insight>
+                  Maximum leaves taken are {topLeaveType.leave_type} ({topLeaveType.days.toFixed(1)} days).
+                </Insight>
+              ) : (
+                <Insight>No leave was taken in the selected period.</Insight>
+              )}
+              <Insight>{rejected} requests were rejected.</Insight>
+              <Insight>{cancelled} requests were cancelled.</Insight>
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Insights appear once the report loads. Nothing can be said about this period until it
+              does.
+            </p>
+          )}
 
           <div>
             <h3 className="text-sm font-semibold text-foreground">Top Departments by Leave Requests</h3>

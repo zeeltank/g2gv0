@@ -60,7 +60,19 @@ export interface LeaveDashboardState {
   recent: LeaveRequestRow[]
   upcoming: LeaveRequestRow[]
   retry: () => void
-  decide: (id: number | string, status: 'approved' | 'rejected') => Promise<{ ok: boolean; message: string }>
+  /**
+   * F-183. Widened from `'approved' | 'rejected'` and no remarks.
+   *
+   * The dashboard's detail drawer offers Send Back, Cancel Request and an HR
+   * remark - the same drawer the Leave Requests screen uses - so a signature
+   * that only took approve/reject made those unreachable from here and left
+   * the remark box saving nothing.
+   */
+  decide: (
+    id: number | string,
+    status: LeaveStatus,
+    remarks?: { hodComment?: string; hrRemarks?: string },
+  ) => Promise<{ ok: boolean; message: string }>
 }
 
 export function useLeaveDashboard(departmentId?: string): LeaveDashboardState {
@@ -159,12 +171,16 @@ export function useLeaveDashboard(departmentId?: string): LeaveDashboardState {
   }, [load])
 
   const decide = useCallback(
-    async (id: number | string, status: 'approved' | 'rejected') => {
+    async (
+      id: number | string,
+      status: LeaveStatus,
+      remarks?: { hodComment?: string; hrRemarks?: string },
+    ) => {
       setProcessingRequestId(String(id))
       setActionError(null)
 
       try {
-        const response = await leaveService.decideRequest(resolveContext(), id, { status })
+        const response = await leaveService.decideRequest(resolveContext(), id, { status, ...remarks })
         // Reload every dashboard endpoint so counts, lists, balances and activity
         // all reflect the decision returned by Laravel.
         await load()
@@ -341,6 +357,66 @@ export function useLeaveRequests(filters: LeaveRequestFilters) {
     [load, resolveContext],
   )
 
+  /*
+   * F-164. Taking your own request back.
+   *
+   * Two operations, not one, because the API separates them and refuses the
+   * wrong one with a reason:
+   *   withdraw - your own request, still PENDING. Soft-deletes it.
+   *   cancel   - your own APPROVED request that has not started. Returns the
+   *              days to your balance and closes any open approval step.
+   *
+   * Both endpoints already existed and were permission-correct. Neither had a
+   * caller, so an employee could apply for leave and never take it back.
+   *
+   * The server's message is surfaced verbatim on success AND on refusal: it is
+   * more specific than anything worth writing here ("This leave has already
+   * started. Ask HR to correct it.").
+   */
+  const withdraw = useCallback(
+    async (id: number | string) => {
+      setProcessing(true)
+      setError(null)
+      setActionMessage(null)
+
+      try {
+        const response = await leaveService.withdrawRequest(resolveContext(), id)
+        setActionMessage(response.message)
+        await load()
+        return { ok: true as const, message: response.message }
+      } catch (withdrawError) {
+        const message = toMessage(withdrawError, 'Failed to withdraw the leave request.')
+        setError(message)
+        return { ok: false as const, message }
+      } finally {
+        setProcessing(false)
+      }
+    },
+    [load, resolveContext],
+  )
+
+  const cancel = useCallback(
+    async (id: number | string, reason?: string) => {
+      setProcessing(true)
+      setError(null)
+      setActionMessage(null)
+
+      try {
+        const response = await leaveService.cancelRequest(resolveContext(), id, reason)
+        setActionMessage(response.message)
+        await load()
+        return { ok: true as const, message: response.message }
+      } catch (cancelError) {
+        const message = toMessage(cancelError, 'Failed to cancel the leave request.')
+        setError(message)
+        return { ok: false as const, message }
+      } finally {
+        setProcessing(false)
+      }
+    },
+    [load, resolveContext],
+  )
+
   return {
     loading,
     processing,
@@ -352,6 +428,8 @@ export function useLeaveRequests(filters: LeaveRequestFilters) {
     applyLeave,
     decide,
     bulkDecide,
+    withdraw,
+    cancel,
     retry: load,
     clearMessages: () => {
       setError(null)
@@ -407,6 +485,20 @@ export function useLeaveReports(filters: LeaveReportFilters) {
   const [summary, setSummary] = useState<LeaveReportSummaryData | null>(null)
   const [register, setRegister] = useState<LeaveRegisterRow[]>([])
   const [balance, setBalance] = useState<LeaveBalanceReportData | null>(null)
+  /**
+   * F-189. Whether a load has actually SUCCEEDED.
+   *
+   * On failure this hook sets summary=null, register=[], balance=null - and the
+   * screen rendered that as "No leave data for this period", "Total Requests 0
+   * / Approved 0 (0%)" and the insight "No leave was taken in the selected
+   * period." Those are claims about an organisation's leave, produced by a
+   * network error. Worse, exportCsv would then write them to
+   * leave-summary-<from>-to-<to>.csv and that file leaves the building.
+   *
+   * Three empty datasets are indistinguishable from three empty datasets. This
+   * flag is the only thing that separates them.
+   */
+  const [loaded, setLoaded] = useState(false)
 
   const filterKey = JSON.stringify(filters)
 
@@ -427,7 +519,13 @@ export function useLeaveReports(filters: LeaveReportFilters) {
       setSummary(summaryResponse.data)
       setRegister(registerResponse.data ?? [])
       setBalance(balanceResponse.data)
+      setLoaded(true)
     } catch (loadError) {
+      // F-189. `loaded` stays false, so the screen can tell "this organisation
+      // took no leave" from "the request failed". Clearing the three datasets
+      // without that distinction is what made a 500 render as a zeroed report -
+      // and made it exportable.
+      setLoaded(false)
       setError(toMessage(loadError, 'Failed to load the leave report.'))
       setSummary(null)
       setRegister([])
@@ -443,7 +541,7 @@ export function useLeaveReports(filters: LeaveReportFilters) {
     })
   }, [load])
 
-  return { loading, error, summary, register, balance, retry: load }
+  return { loading, error, summary, register, balance, loaded, retry: load }
 }
 
 /* ------------------------------------------------------------------ *

@@ -18,6 +18,14 @@ import {
   CalendarPlus,
   Building2,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from '@/components/ui/alert-dialog'
 
 import { useRouter } from 'next/navigation'
 import { useAttendance, workModeLabel, type WorkMode } from '@/hooks/use-attendance'
@@ -159,6 +167,37 @@ export function AttendanceDashboard() {
   const [regularisationOpen, setRegularisationOpen] = React.useState(false)
   const [regularisationDay, setRegularisationDay] = React.useState<string | null>(null)
   const [workMode, setWorkMode] = React.useState<WorkMode>('office')
+  /**
+   * F-196. The work mode awaiting confirmation, because applying it while
+   * clocked in re-records the punch-in at the CURRENT time.
+   */
+  const [pendingWorkMode, setPendingWorkMode] = React.useState<WorkMode | null>(null)
+
+  /*
+   * F-196. The work-mode control looks like a display switch and WRITES A
+   * PUNCH.
+   *
+   * useAttendance.punch posts punchAttendanceIn with `time = now`, so an
+   * employee clicking "Home" at 14:32 had their morning punch-in re-recorded
+   * at 14:32 - no confirmation, no success message, no warning that the start
+   * time was being replaced.
+   *
+   * The decision lives here rather than in the segmented control, because this
+   * is where "am I currently clocked in" is known. Choosing a mode while NOT
+   * clocked in is free and applies immediately; it only preselects the mode for
+   * the punch the user is about to make.
+   */
+  const handleWorkModeChange = React.useCallback(
+    (mode: WorkMode) => {
+      const clockedIn = Boolean(todayRecord?.punchIn && !todayRecord?.punchOut)
+      if (clockedIn && mode !== workMode) {
+        setPendingWorkMode(mode)
+        return
+      }
+      setWorkMode(mode)
+    },
+    [todayRecord?.punchIn, todayRecord?.punchOut, workMode],
+  )
 
   // Preselect the mode already recorded for today, so punching out and back in
   // does not silently move someone from home to office.
@@ -204,10 +243,13 @@ export function AttendanceDashboard() {
         label: workMode === 'home' ? 'Working from Home' : 'Mark WFH',
         icon: Home,
         onClick: () => {
+          // F-196. Same rule as the segmented control: preselecting the mode is
+          // free, re-punching an active shift is not.
+          if (todayRecord?.punchIn && !todayRecord?.punchOut) {
+            setPendingWorkMode('home')
+            return
+          }
           setWorkMode('home')
-          // Only re-punch if they are already clocked in; otherwise this just
-          // preselects the mode for the punch they are about to make.
-          if (todayRecord?.punchIn && !todayRecord?.punchOut) punch('in', 'home')
         },
       },
       {
@@ -286,7 +328,7 @@ export function AttendanceDashboard() {
         processing={processing}
         shift={shift}
         workMode={workMode}
-        onWorkModeChange={setWorkMode}
+        onWorkModeChange={handleWorkModeChange}
         onPunch={punch}
       />
 
@@ -363,6 +405,44 @@ export function AttendanceDashboard() {
           onSubmitted={reload}
         />
       </Suspense>
+
+      {/* F-196. Confirm before a mode change rewrites today's start time. */}
+      <AlertDialog
+        open={pendingWorkMode !== null}
+        onOpenChange={(open) => !open && setPendingWorkMode(null)}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-record your punch-in?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are already clocked in. Switching to{' '}
+              {pendingWorkMode === 'home' ? 'Work from Home' : 'Office'} records a new punch-in at
+              the current time, replacing this morning&rsquo;s start time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setPendingWorkMode(null)}
+            >
+              Keep my start time
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => {
+                const mode = pendingWorkMode
+                setPendingWorkMode(null)
+                if (!mode) return
+                setWorkMode(mode)
+                void punch('in', mode)
+              }}
+            >
+              Re-record it
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -504,10 +584,21 @@ function TodayAttendancePanel({
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => {
-                        onWorkModeChange(option.value)
-                        if (activeShift) onPunch('in', option.value)
-                      }}
+                      /*
+                       * F-196. This looks like a display toggle and WRITES A
+                       * PUNCH.
+                       *
+                       * useAttendance.punch posts punchAttendanceIn with
+                       * `time = now`, so an employee clicking "Home" at 14:32
+                       * had their morning punch-in re-recorded at 14:32 - no
+                       * confirmation, no success message, no warning that the
+                       * start time was being replaced.
+                       *
+                       * Changing the mode while clocked in now asks first. The
+                       * mode itself still changes immediately either way; only
+                       * the re-punch is confirmed.
+                       */
+                      onClick={() => onWorkModeChange(option.value)}
                       aria-pressed={selected}
                       title={option.label}
                       className={cn(

@@ -27,6 +27,17 @@ export interface SalaryStructureRow {
   status: 'Active' | 'Inactive'
   /** payroll_type_id (as a string key) -> amount */
   values: Record<string, number>
+  /**
+   * F-174 / Q10. Amounts stored against heads this grid does NOT render,
+   * because the head is deactivated, soft-deleted, or belongs to another
+   * organisation.
+   *
+   * They are kept so a Save can post them back: employeeSalaryStructureStore
+   * overwrites employee_salary_data with exactly what it receives, so a head
+   * that is not posted is a head that has been deleted. They are also what the
+   * warning above the grid counts.
+   */
+  carriedValues: Record<string, number>
 }
 
 /** Earnings add, deductions subtract - the same arithmetic the payslip uses. */
@@ -95,6 +106,24 @@ export function useSalaryStructure() {
               values[String(payrollType.id)] = Number(savedValues[String(payrollType.id)] ?? 0) || 0
             })
 
+            /*
+             * F-174. Everything the grid will not show.
+             *
+             * `types` is payroll_types WHERE status = 1, so a structure that
+             * references a deactivated, deleted or foreign head has amounts
+             * with nowhere to render. Before this they were simply dropped -
+             * and because Save rewrites the whole JSON from the posted rows,
+             * dropping them on load meant DELETING them on save. An ordinary
+             * Save on a screen nobody had edited destroyed them.
+             */
+            const active = new Set(types.map((payrollType) => String(payrollType.id)))
+            const carriedValues: Record<string, number> = {}
+            Object.entries(savedValues).forEach(([headId, amount]) => {
+              if (active.has(String(headId))) return
+              const parsed = Number(amount)
+              if (Number.isFinite(parsed) && parsed !== 0) carriedValues[String(headId)] = parsed
+            })
+
             return {
               employeeId: employee.id,
               employeeNo: employee.employee_no ?? '',
@@ -104,6 +133,7 @@ export function useSalaryStructure() {
               gender: employee.gender ?? '',
               status: String(employee.status ?? '1') === '1' ? 'Active' : 'Inactive',
               values,
+              carriedValues,
             }
           }),
         )
@@ -196,6 +226,8 @@ export function useSalaryStructure() {
               employeeId: row.employeeId,
               gender: row.gender,
               values: row.values,
+              // F-174. Without this, Save deletes them.
+              carriedValues: row.carriedValues,
             })),
           }),
         'Failed to save the salary structure.',

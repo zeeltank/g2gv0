@@ -46,6 +46,8 @@ export function MonthLockCard({
   const [loading, setLoading] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [reopening, setReopening] = React.useState(false)
+  // F-195. Whether the lock is awaiting confirmation.
+  const [confirmingLock, setConfirmingLock] = React.useState(false)
   const [reason, setReason] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
 
@@ -162,11 +164,46 @@ export function MonthLockCard({
           </Alert>
         )}
 
-        {!locked && (
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => act('lock')}>
+        {/*
+          F-195. Locking fired on one click.
+          Re-OPENING a month already demands a typed reason (below), so the
+          product already treats this as consequential - in one direction only.
+          Locking stops every payslip in the month being edited; that is worth a
+          sentence first.
+        */}
+        {!locked && !confirmingLock && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirmingLock(true)}>
             <Lock className="mr-2 size-4" />
             Lock {month} {year}
           </Button>
+        )}
+
+        {!locked && confirmingLock && (
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm font-medium text-foreground">
+              Lock {month} {year}?
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              No payslip in this month can be changed or generated while it is locked. Reopening it
+              afterwards requires a reason, which is kept on the record.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmingLock(false)}>
+                Not yet
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmingLock(false)
+                  void act('lock')
+                }}
+              >
+                <Lock className="mr-2 size-4" />
+                Lock the month
+              </Button>
+            </div>
+          </div>
         )}
 
         {locked && !reopening && (

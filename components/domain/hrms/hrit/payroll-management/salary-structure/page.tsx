@@ -11,6 +11,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Table,
   TableBody,
@@ -77,6 +78,33 @@ export default function SalaryStructurePage() {
     rollover,
   } = useSalaryStructure()
   const { departments } = usePayrollDepartments()
+
+  /*
+   * Q10 / F-174. What the grid cannot render.
+   *
+   * `payrollTypes` is payroll_types WHERE status = 1, so an amount stored
+   * against a deactivated, deleted or foreign head has no column. It is still
+   * real money that payroll reads, and before the carriedValues fix pressing
+   * Save deleted it - the store rewrites employee_salary_data from exactly
+   * what is posted.
+   */
+  const carriedSummary = useMemo(() => {
+    const heads = new Set<string>()
+    let structures = 0
+    let total = 0
+
+    rows.forEach((row) => {
+      const entries = Object.entries(row.carriedValues ?? {})
+      if (entries.length === 0) return
+      structures += 1
+      entries.forEach(([headId, amount]) => {
+        heads.add(headId)
+        total += amount
+      })
+    })
+
+    return { structures, heads: heads.size, total }
+  }, [rows])
 
   const [selectedYear, setSelectedYear] = useState(String(currentYear))
   const [employeeStatus, setEmployeeStatus] = useState('1')
@@ -265,6 +293,35 @@ export default function SalaryStructurePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/*
+        Q10 / F-174. Structures that reference a pay head this grid cannot show.
+        Worth saying out loud on the screen that edits them, because until the
+        carriedValues fix an ordinary Save deleted those amounts outright.
+      */}
+      {carriedSummary.structures > 0 && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            <span className="font-semibold">
+              {carriedSummary.structures}{' '}
+              {carriedSummary.structures === 1 ? 'employee has' : 'employees have'} pay
+              {carriedSummary.heads === 1 ? ' a component' : ' components'} on{' '}
+              {carriedSummary.heads} pay {carriedSummary.heads === 1 ? 'head' : 'heads'} that
+              {carriedSummary.heads === 1 ? ' is' : ' are'} no longer active.
+            </span>{' '}
+            Those amounts are not shown in the grid below because there is no column for them, and
+            they total{' '}
+            <span className="font-semibold">
+              {new Intl.NumberFormat('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(carriedSummary.total)}
+            </span>
+            . They are preserved when you save, and payroll still reads them. Re-point them at a
+            live head on the Payroll Type screen, or clear them deliberately.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <PayrollMessages error={error} actionMessage={actionMessage} onDismiss={clearMessages} />
 

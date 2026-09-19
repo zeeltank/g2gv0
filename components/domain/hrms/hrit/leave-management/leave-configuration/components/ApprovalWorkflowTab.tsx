@@ -14,10 +14,20 @@ import { ErrorState } from '@/components/ui/error-state'
 import { useLeaveWorkflow } from '@/hooks/use-leave'
 import type { LeaveWorkflowSettings } from '@/services/hrms'
 
+/*
+ * F-187. '4 Levels' was here and was indistinguishable from '3 Levels'.
+ *
+ * The chain is built from exactly three switches - Reporting Manager,
+ * Department Head, HR - so `enabledStages` can never hold more than three
+ * entries, and `enabledStages.slice(0, count)` returns the same array for 3 and
+ * 4. Choosing 4 changed nothing in the preview and nothing in what was saved.
+ *
+ * Adding a real fourth level means a fourth approver role, which is a schema
+ * and workflow change, not a dropdown entry. Removed until there is one.
+ */
 const levelOptions = [
   { label: '2 Levels', value: '2' },
   { label: '3 Levels', value: '3' },
-  { label: '4 Levels', value: '4' },
 ]
 
 const timeUnitOptions = [
@@ -165,8 +175,14 @@ export default function ApprovalWorkflowTab() {
             {draft.multi_level_enabled && (
               <div className="pl-0 sm:pl-4 pt-2 sm:pt-0">
                 <Label htmlFor="multiLevelCount">Number of Levels</Label>
+                {/*
+                  F-187. A tenant may already have 4 stored from when the option
+                  existed. Clamped to 3 for display rather than rendering an
+                  empty select - 4 and 3 produce an identical chain, so this
+                  shows what is actually in force. Saving then normalises it.
+                */}
                 <Select
-                  value={String(draft.multi_level_count)}
+                  value={String(Math.min(Math.max(draft.multi_level_count, 2), 3))}
                   onChange={(value) => update('multi_level_count', Number(value))}
                   options={levelOptions}
                 />

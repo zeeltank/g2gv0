@@ -56,11 +56,32 @@ type AppliedFilters = {
   employee: string
 }
 
+/**
+ * The four datasets this screen loads, in the order they are requested.
+ *
+ * F-161. Used to name the ones that actually failed. Order matters: these are
+ * matched positionally against the Promise.allSettled results, so a new request
+ * added to that array needs a label added here at the same index.
+ */
+const REPORT_DATASET_LABELS = [
+  'the summary cards',
+  'the weekly trend',
+  'the department breakdown',
+  'the early-going records',
+] as const
+
+/** "a", "a and b", "a, b and c" - so the error line reads as a sentence. */
+function formatList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
 type AttendanceTrendData = {
   label: string
   present: number
   late: number
-  earlyGoing: number
+  // F-175. No earlyGoing. The weekly-summary endpoint does not carry one, so
+  // the chart drew a flat zero line with its own legend entry.
   absent: number
 }
 
@@ -100,7 +121,9 @@ function mapWeeklyTrend(response: AttendanceWeeklyResponse | null): AttendanceTr
     label,
     present: response.present[index] ?? 0,
     late: response.late[index] ?? 0,
-    earlyGoing: 0,
+    // F-175. `earlyGoing: 0` was here and the chart drew it as a named series
+    // with its own legend entry - a flat zero line labelled as a metric.
+    // AttendanceWeeklyResponse carries present/absent/late and nothing else.
     absent: response.absent[index] ?? 0,
   }))
 }
@@ -199,7 +222,13 @@ const viewTabs: ViewTab[] = [
 
 function getEarlyGoingColumns(onRowOpen: (row: EarlyGoingRecord) => void): Column<EarlyGoingRecord>[] {
   return [
-    { id: 'id', header: '#' },
+    /*
+     * F-179. This rendered `record.id` - the hrms_attendances primary key -
+     * under a heading that everywhere else in this product means "row number".
+     * On the live data it reads 1447, 1452, 1461... which looks like a broken
+     * counter. A positional index is what the heading promises.
+     */
+    { id: 'rowNumber', header: '#' },
     { id: 'employee', header: 'Employee' },
     { id: 'employeeId', header: 'Employee ID' },
     { id: 'department', header: 'Department' },
@@ -515,7 +544,20 @@ export function AttendanceReportsPage() {
         const context = getLaravelContext(user)
         const departmentId = getApiDepartmentId(appliedFilters.department)
         const employeeId = getApiEmployeeId(appliedFilters.employee)
-        const [kpis, weekly, departmentSummary, earlyGoing] = await Promise.all([
+        /*
+         * F-161. This was Promise.all, and its catch cleared ALL FOUR datasets.
+         *
+         * So one failing endpoint blanked the whole screen - KPIs, charts, table
+         * and highlights - even when the other three had answered perfectly. The
+         * stray `echo` in HrmsController::earlyGoingHrmsAttendanceReport meant
+         * that happened every time a specific employee was selected.
+         *
+         * That backend bug is fixed, but the coupling was the reason a one-line
+         * defect presented as a dead screen. allSettled keeps each dataset
+         * independent: whatever answered is rendered, and the error line names
+         * only what actually failed.
+         */
+        const results = await Promise.allSettled([
           hrmsService.getAttendanceKpis(context, { departmentId, employeeId }),
           hrmsService.getAttendanceWeeklySummary(context, {
             fromDate: appliedFilters.from,
@@ -537,10 +579,34 @@ export function AttendanceReportsPage() {
         ])
 
         if (!cancelled) {
-          setAttendanceKpis(kpis)
-          setWeeklySummary(weekly)
-          setDepartmentReport(departmentSummary.empData ?? [])
-          setEarlyGoingRows((earlyGoing.hrmsList ?? []).map((entry) => mapEarlyGoingRecord(entry, departmentsById)))
+          const [kpisResult, weeklyResult, departmentResult, earlyGoingResult] = results
+
+          setAttendanceKpis(kpisResult.status === 'fulfilled' ? kpisResult.value : null)
+          setWeeklySummary(weeklyResult.status === 'fulfilled' ? weeklyResult.value : null)
+          setDepartmentReport(
+            departmentResult.status === 'fulfilled' ? departmentResult.value.empData ?? [] : [],
+          )
+          setEarlyGoingRows(
+            earlyGoingResult.status === 'fulfilled'
+              ? (earlyGoingResult.value.hrmsList ?? []).map((entry) =>
+                  mapEarlyGoingRecord(entry, departmentsById),
+                )
+              : [],
+          )
+
+          // Name what failed. "Failed to load attendance reports" when three of
+          // four worked sends the user looking for a problem that isn't there.
+          const failed = REPORT_DATASET_LABELS.filter(
+            (_, index) => results[index].status === 'rejected',
+          )
+
+          setApiError(
+            failed.length === 0
+              ? null
+              : failed.length === results.length
+                ? 'Could not load attendance data.'
+                : `Could not load ${formatList(failed)}. The rest of this report is up to date.`,
+          )
         }
       } catch (error) {
         if (!cancelled) {
@@ -566,31 +632,35 @@ export function AttendanceReportsPage() {
 
   const groupedTableData = React.useMemo((): GroupedRecord[] => {
     if (departmentReport.length > 0) {
-      if (groupBy === 'organization' || groupBy === 'date') {
-        const deptMap = new Map<string, { employees: number; present: number; absent: number; late: number; earlyGoing: number; workingDays: number }>()
+      /*
+       * F-175. This read `groupBy === 'organization' || groupBy === 'date'`.
+       * One body for two options meant "Group By: Date" grouped by DEPARTMENT
+       * and differed only by a column holding the same "from to to" string on
+       * every row. The option is gone; so is the `earlyGoing` accumulator,
+       * which was `+= 0` because departmentReport carries no early-going field.
+       */
+      if (groupBy === 'organization') {
+        const deptMap = new Map<string, { employees: number; present: number; absent: number; late: number; workingDays: number }>()
         departmentReport.forEach((record) => {
           const dept = record.department || '--'
           if (!deptMap.has(dept)) {
-            deptMap.set(dept, { employees: 0, present: 0, absent: 0, late: 0, earlyGoing: 0, workingDays: 0 })
+            deptMap.set(dept, { employees: 0, present: 0, absent: 0, late: 0, workingDays: 0 })
           }
           const entry = deptMap.get(dept)!
           entry.employees += 1
           entry.present += toNumber(record.total_att_day)
           entry.absent += toNumber(record.total_ab_day)
           entry.late += toNumber(record.late)
-          entry.earlyGoing += 0
           entry.workingDays += toNumber(record.workingDays)
         })
 
         return Array.from(deptMap.entries()).map(([dept, vals]) => ({
           id: `${groupBy}-${dept}`,
-          date: groupBy === 'date' ? `${appliedFilters.from} to ${appliedFilters.to}` : undefined,
           department: dept,
           employees: vals.employees,
           present: vals.present,
           absent: vals.absent,
           late: vals.late,
-          earlyGoing: vals.earlyGoing,
           attendancePercentage: vals.workingDays > 0 ? Math.round((vals.present / vals.workingDays) * 100) : 0,
           recentRecords: earlyGoingData.filter((record) => record.department === dept).slice(0, 3),
         }))
@@ -758,10 +828,22 @@ export function AttendanceReportsPage() {
       if (r.earlyByMin > 0) entry.early += 1
     })
 
+    /*
+     * F-177. `worstPct` started at 100 and the test was `pct < worstPct`.
+     *
+     * mapEarlyGoingRecord sets status 'present' whenever there is a punch-in,
+     * and the endpoint only returns rows that HAVE a punch-out - so every
+     * department scores exactly 100%, `100 < 100` is false for all of them,
+     * and worstDept stayed ''. The card rendered the label "Highest
+     * Absenteeism" above an empty value, on every load.
+     *
+     * Seeded from the data instead of from a constant, so the first department
+     * always wins the comparison and a real name comes out.
+     */
     let bestDept = '', worstDept = '', earlyDept = ''
-    let bestPct = 0, worstPct = 100, earlyCnt = 0
+    let bestPct = -1, worstPct = Number.POSITIVE_INFINITY, earlyCnt = 0
     deptCounts.forEach((vals, dept) => {
-      const pct = (vals.present / vals.total) * 100
+      const pct = vals.total > 0 ? (vals.present / vals.total) * 100 : 0
       if (pct > bestPct) { bestPct = pct; bestDept = dept }
       if (pct < worstPct) { worstPct = pct; worstDept = dept }
       if (vals.early > earlyCnt) { earlyCnt = vals.early; earlyDept = dept }
@@ -813,13 +895,40 @@ export function AttendanceReportsPage() {
   }, [attendanceKpis, distributionData])
 
   const renderDailyDetails = () => {
-    const data = earlyGoingData.slice((page - 1) * pageSize, page * pageSize)
+    // F-179. The row number is positional and accounts for the page offset, so
+    // page 2 starts at 11 rather than restarting at 1.
+    const offset = (page - 1) * pageSize
+    const data = earlyGoingData
+      .slice(offset, page * pageSize)
+      .map((record, index) => ({ ...record, rowNumber: offset + index + 1 }))
     const total = earlyGoingData.length
     const columns = getEarlyGoingColumns(handleRowOpen)
+
+    // F-180. This tab is ONE DAY, and the filter bar above it offers a range.
+    //
+    // getEarlyGoingAttendanceReport takes a single `date` and the controller
+    // does `where('day', $date)`; there is no range variant. So picking "This
+    // Year" and pressing Apply returned a single day's rows with nothing on
+    // screen saying so - the filter promised something the tab cannot honour.
+    // Said out loud rather than left to be discovered.
+    const shownDate = appliedFilters.to || appliedFilters.from
+    const isRange = appliedFilters.from && appliedFilters.to && appliedFilters.from !== appliedFilters.to
 
     return (
       <div className="flex flex-col gap-6">
         <AttendanceKPICards cards={enhancedCards} />
+        {shownDate && (
+          <p className="-mb-2 text-sm text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{shownDate}</span>.
+            {isRange && (
+              <>
+                {' '}This tab reports a single day, so only the end of your{' '}
+                {appliedFilters.from} to {appliedFilters.to} range is shown. Use the Summary tab for
+                the whole range.
+              </>
+            )}
+          </p>
+        )}
         <AttendanceReportTable
           columns={columns}
           data={data}
@@ -848,11 +957,32 @@ export function AttendanceReportsPage() {
     </div>
   )
 
+  /*
+   * F-178. The Summary tab's search box filtered nothing.
+   *
+   * `search` is applied by `earlyGoingData` (line ~393), which feeds Daily
+   * Details. This tab renders `groupedTableData`, built from departmentReport,
+   * which `search` never touched - and AttendanceGroupedTable only sorts, it
+   * does not filter. So typing in the search box on the screen's DEFAULT tab
+   * changed nothing at all.
+   *
+   * Filtered here rather than inside the table, so the row count the table
+   * reports is the filtered one.
+   */
+  const filteredGroupedData = React.useMemo(() => {
+    if (!search.trim()) return groupedTableData
+    const query = search.trim().toLowerCase()
+    return groupedTableData.filter((row) =>
+      [row.department, row.employee, row.employeeId, row.status]
+        .some((value) => String(value ?? '').toLowerCase().includes(query)),
+    )
+  }, [groupedTableData, search])
+
   const renderTableFocus = () => (
     <div className="flex flex-col gap-6">
       <AttendanceKPICards cards={enhancedCards} />
       <AttendanceGroupedTable
-        records={groupedTableData}
+        records={filteredGroupedData}
         groupBy={groupBy}
         searchValue={search}
         onSearchChange={setSearch}
@@ -932,19 +1062,47 @@ export function AttendanceReportsPage() {
       />
       </div>
 
+      {/*
+        F-199. This banner had NO RETRY, and sat above a table reading "No
+        records found" - because the catch had already cleared all four
+        datasets. Together they read as "there is no attendance data", not as
+        "the request failed". A retry is the one control the state needs.
+
+        Since F-161 the message names which datasets failed, so a partial
+        failure no longer claims the whole screen is broken.
+      */}
       {apiError && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
-          {apiError}
+        <div className="report-no-print flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
+          <span>{apiError}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAppliedFilters({ ...appliedFilters })}
+            disabled={apiLoading}
+          >
+            Try again
+          </Button>
         </div>
       )}
 
+      {/*
+        F-199. The loading state was a one-line text strip while renderContent()
+        kept painting the PREVIOUS result underneath, so stale numbers looked
+        current. The strip stays - it is unobtrusive - but the content below is
+        now visibly inert while it refreshes.
+      */}
       {apiLoading && (
-        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground">
+        <div className="report-no-print rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground">
           Loading attendance data...
         </div>
       )}
 
-      <div className="report-print-area">{renderContent()}</div>
+      <div
+        className={`report-print-area ${apiLoading ? 'pointer-events-none opacity-50' : ''}`}
+        aria-busy={apiLoading}
+      >
+        {renderContent()}
+      </div>
 
       <AttendanceDrillDownDrawer
         open={drillDownRecord !== null}

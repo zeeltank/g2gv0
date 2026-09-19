@@ -4,6 +4,7 @@ import { ArrowRight, Check, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatDateShort } from '@/lib/leave-management-data'
 import type { LeaveRequest } from '@/types/leave-dashboard'
@@ -41,6 +42,20 @@ export function PendingApprovalsCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/*
+          F-194. This card used to .map() straight into its body, so an empty
+          dataset rendered a heading above whitespace. On a newly-configured
+          tenant the whole dashboard was a grid of headed cards containing
+          nothing - indistinguishable from a broken page. Each empty state
+          names the cause AND the next step, the way payroll-type does.
+        */}
+        {requests.length === 0 ? (
+          <EmptyState
+            title="Nothing waiting on you"
+            description="Leave requests appear here while they need a decision. An empty list means every request in your scope has been actioned."
+          />
+        ) : (
+          <>
         {requests.slice(0, 4).map((request) => (
           <div
             key={request.id}
@@ -121,6 +136,8 @@ export function PendingApprovalsCard({
             </div>
           </div>
         ))}
+          </>
+        )}
       </CardContent>
     </Card>
   )

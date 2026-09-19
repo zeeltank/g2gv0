@@ -84,11 +84,21 @@ export function EnhancedAttendanceFilters({
             value={groupBy}
             onChange={onGroupByChange}
             className="w-40"
+            /*
+              F-175. 'Date' was here and grouped by DEPARTMENT.
+              The branch behind it was `groupBy === 'organization' || groupBy
+              === 'date'` - one body - so the only difference it made was an
+              extra column holding the same "from to to" string on every row.
+              It could not do more: this screen's grouped table is built from
+              departmentReport, a day-COUNT summary over a range that carries no
+              per-date breakdown at all, and no endpoint returns one.
+              Removed rather than left as a grouping that does not group, which
+              is the F-99 rule.
+            */
             options={[
               { label: 'Organization', value: 'organization' },
               { label: 'Department', value: 'department' },
               { label: 'Employee', value: 'employee' },
-              { label: 'Date', value: 'date' },
             ]}
           />
         </div>

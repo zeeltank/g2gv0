@@ -31,6 +31,7 @@ import {
   PayrollTableSkeleton,
   downloadCsv,
 } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
+import { UnappliedAdjustmentsPanel } from './components/UnappliedAdjustmentsPanel'
 
 const categoryTabs = [
   { id: '1', label: DEDUCTION_CATEGORY_LABELS['1'] },
@@ -268,6 +269,15 @@ export default function PayrollDeductionPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/*
+        Q9 / F-173. Adjustments saved on THIS screen that payroll has never
+        applied, because their month is stored as "8" rather than "Aug".
+        Rendered above the working area rather than below it: they are worth
+        343,001 on this deployment and were invisible until now. The panel
+        removes itself once there are none.
+      */}
+      <UnappliedAdjustmentsPanel />
 
       <PayrollMessages error={error} actionMessage={actionMessage} onDismiss={clearMessages} />
 

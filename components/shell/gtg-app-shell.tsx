@@ -16,7 +16,8 @@ import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import type { Message as AgentMessage } from '@/components/shell/agent/agent-chat'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
-import { getLaravelContext } from '@/lib/laravel-context'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { accountService } from '@/services/account'
 import { useAuth } from '@/components/auth/gtg-auth'
 
 
@@ -45,8 +46,20 @@ function ContentSkeleton() {
   )
 }
 
+/*
+ * F-192. A crashed screen used to be a dead end with a developer error string.
+ *
+ * It rendered `this.state.error.message` verbatim - "Cannot read properties of
+ * undefined (reading 'map')" - with no retry, no reload and no link back. And
+ * because nothing ever reset `state.error`, navigating to the same route again
+ * within the shell kept the boundary tripped: the only escapes were a different
+ * sidebar item or a browser refresh.
+ *
+ * Now: a sentence a person can act on, a Try again that actually clears the
+ * error, and the raw message behind a disclosure for whoever needs it.
+ */
 class ContentErrorBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; resetKey?: string },
   { error: Error | null }
 > {
   state = { error: null as Error | null }
@@ -55,14 +68,48 @@ class ContentErrorBoundary extends Component<
     return { error }
   }
 
+  /**
+   * Clear the error when the route changes, so a screen that crashed once does
+   * not poison every later visit to it.
+   */
+  componentDidUpdate(prevProps: { resetKey?: string }) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null })
+    }
+  }
+
   render() {
     if (this.state.error) {
       return (
         <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
-          <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
+          <h2 className="text-xl font-semibold text-foreground">This screen could not be shown</h2>
           <p className="mt-2 max-w-md text-pretty text-sm leading-relaxed text-muted-foreground">
-            {this.state.error.message || 'This content failed to load.'}
+            Something in it failed while loading. Your data has not been changed.
           </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => this.setState({ error: null })}
+              className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              Reload the page
+            </button>
+          </div>
+          <details className="mt-5 max-w-md text-left">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Technical details
+            </summary>
+            <p className="mt-2 break-words rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+              {this.state.error.message || 'No error message was provided.'}
+            </p>
+          </details>
         </div>
       )
     }
@@ -76,10 +123,18 @@ function ComingSoonFallback({ active }: { active: ActiveNav }) {
     return <ComingSoonScreen title={comingSoon.title} description={comingSoon.description} />
   }
 
+  /*
+   * F-193. This said "Application Shell Ready - This is the GapstoGrowth master
+   * application layout. Select a module in the sidebar to get started."
+   *
+   * Build-status text, shown to somebody who has just clicked a named menu
+   * item, advising them to do the thing they did. `active` carries the item's
+   * own name, so the screen can at least say which one is missing.
+   */
   return (
     <ComingSoonScreen
-      title="Application Shell Ready"
-      description="This is the GapstoGrowth master application layout. Select a module in the sidebar to get started."
+      title="This screen is not available yet"
+      description="It is listed in the menu but has not been built. Nothing is wrong with your account or your permissions - choose another item in the sidebar, or ask your administrator when this one is due."
     />
   )
 }
@@ -109,7 +164,9 @@ function ContentRenderer({ active }: { active: ActiveNav }) {
   const ContentComponent = route?.component
 
   return (
-    <ContentErrorBoundary>
+    // F-192. resetKey is the pathname, so a screen that crashed once is not
+    // permanently broken for the rest of the session.
+    <ContentErrorBoundary resetKey={pathname}>
       <Suspense fallback={<ContentSkeleton />}>
         {ContentComponent ? <ContentComponent /> : <ComingSoonFallback active={active} />}
       </Suspense>
@@ -401,10 +458,24 @@ export function GtgAppShell({
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
         onCollapsedChange={(collapsed) => {
-          // Once somebody has moved it themselves, the stored default stops
-          // applying for this visit.
+          /*
+           * Remembered, not just applied.
+           *
+           * This used to set local state only, so moving the sidebar was undone
+           * by the next navigation - the shell lives inside each page, not in
+           * the layout, so it unmounts every time. Persisting it per browser is
+           * what makes the position survive.
+           */
           setSidebarTouched(true)
           setSidebarCollapsed(collapsed)
+
+          const context = getLaravelContext(user)
+
+          if (!isLaravelContextReady(context)) return
+
+          void accountService
+            .updatePreferences(context, { sidebar_collapsed: collapsed })
+            .catch(() => {})
         }}
       />
       <div

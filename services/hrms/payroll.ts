@@ -239,6 +239,19 @@ export interface SalaryStructureSavePayload {
     gender: string
     /** payroll_type_id (as string) -> amount */
     values: Record<string, number>
+    /**
+     * F-174. Amounts stored against heads this screen does NOT render, because
+     * the head is deactivated, soft-deleted, or belongs to another
+     * organisation.
+     *
+     * They have to be posted back. employeeSalaryStructureStore rebuilds
+     * `employee_salary_data` from the posted rows and OVERWRITES the column -
+     * it does not merge - so a head that is not posted is deleted. Since the
+     * grid only renders active heads, an ordinary Save on an untouched screen
+     * silently destroyed every amount on a non-active head. On this deployment
+     * that is all eight live structures.
+     */
+    carriedValues?: Record<string, number>
   }>
 }
 
@@ -563,6 +576,28 @@ export const payrollService = {
         formData.append(`${key}[2]`, payrollType.payroll_name ?? '')
         formData.append(`${key}[3]`, String(payrollType.payroll_type ?? ''))
       })
+
+      /*
+       * F-174. Carry the unrendered heads through the rewrite.
+       *
+       * The controller overwrites employee_salary_data with exactly what is
+       * posted, so anything omitted is deleted. These are amounts on heads the
+       * grid cannot show; they are posted back unchanged so a Save preserves
+       * them instead of destroying them.
+       *
+       * name and payroll_type are sent as placeholders on purpose: the
+       * controller reads [2] only to spot the literal strings 'PF' and 'PT',
+       * and a head id can never collide with those. The amount at [1] is what
+       * matters, and for a head PayrollType cannot resolve the controller
+       * passes it through untouched.
+       */
+      Object.entries(employee.carriedValues ?? {}).forEach(([headId, amount]) => {
+        const key = `emp[${employee.employeeId}][${headId}]`
+        formData.append(`${key}[0]`, headId)
+        formData.append(`${key}[1]`, String(amount))
+        formData.append(`${key}[2]`, `head-${headId}`)
+        formData.append(`${key}[3]`, '0')
+      })
     })
 
     return ensurePayrollSuccess(
@@ -820,6 +855,311 @@ export const payrollService = {
       )}`,
       new FormData(),
     ),
+
+  /**
+   * POST /payroll-bank-wise-report - the month's payment advice (F-166).
+   *
+   * Month and year are required by the controller: without both it returns the
+   * pickers and an empty employee list rather than an error, so the screen must
+   * send them rather than rely on a default.
+   */
+  getBankWiseReport: (
+    context: LaravelContext,
+    params: { month: string; year: string | number },
+  ) =>
+    webClient.postForm<BankWiseReportResponse>(
+      `/payroll-bank-wise-report?${payrollQuery(context, {
+        month: params.month,
+        year: params.year,
+      })}`,
+      new FormData(),
+    ),
+
+  /**
+   * POST /employee-payroll-history - one financial year of payslips (F-169).
+   *
+   * `year` is a PAIR ("2025-2026"), not a single year: the controller splits on
+   * the hyphen and reads Jan/Feb/Mar from the later year. Sending "2025" would
+   * make `$year[0]+1` produce NaN-ish behaviour and return nothing.
+   *
+   * `emp_id` and `department_id` are compared with `!= 0`, so "no filter" is the
+   * literal 0, not an omitted parameter.
+   */
+  getPayrollHistory: (
+    context: LaravelContext,
+    params: { financialYear: string; employeeId?: string | number; departmentId?: string | number },
+  ) =>
+    webClient.postForm<PayrollHistoryResponse>(
+      `/employee-payroll-history?${payrollQuery(context, {
+        year: params.financialYear,
+        emp_id: params.employeeId ?? 0,
+        department_id: params.departmentId ?? 0,
+      })}`,
+      new FormData(),
+    ),
+
+  /**
+   * POST /payroll-report - the month's payroll register (F-172).
+   *
+   * Beware the year. The controller puts `Helpers::getPairYears()` into
+   * `res['years']`, so it OFFERS "2025-2026" style pairs - but the query does
+   * `where('year', $searchedYear)` against a single year, and bumps it by one
+   * for Jan/Feb/Mar. Sending a pair matches nothing and returns an empty
+   * register that looks like "no payroll was run". A single calendar year is
+   * what this takes.
+   */
+  getPayrollRegister: (
+    context: LaravelContext,
+    params: { month: string; year: string | number; departmentId?: string | number },
+  ) =>
+    webClient.postForm<PayrollRegisterResponse>(
+      `/payroll-report?${payrollQuery(context, {
+        month: params.month,
+        year: params.year,
+        department_id: params.departmentId ?? 0,
+      })}`,
+      new FormData(),
+    ),
+
+  /**
+   * POST /salary-structure-report - every employee's structure for a year.
+   *
+   * Until F-160 this read session() with no type=API branch, so an API caller
+   * resolved to tenant null and it returned an empty list however it was
+   * filtered. The screen could not have been built on it.
+   */
+  /**
+   * GET /payroll-deduction/orphans - adjustments the calculation cannot find
+   * (Q9 / F-173).
+   *
+   * Their `month` is stored as "8"/"2"/"3" rather than "Aug"/"Feb"/"Mar", and
+   * the calculation matches the spelling exactly, so every payroll run since
+   * they were entered has skipped them. 343,001 on this deployment, all
+   * entered on a screen that reported success.
+   */
+  getDeductionOrphans: (context: LaravelContext) =>
+    webClient.get<DeductionOrphansResponse>(
+      '/payroll-deduction/orphans',
+      withLaravelParams(context),
+    ),
+
+  /**
+   * POST /payroll-deduction/orphans/resolve - one explicit decision, one row.
+   *
+   * There is no bulk repair on purpose: no rule can derive the right month
+   * from "3", and a "fix all" button would be that guess wearing a label.
+   */
+  resolveDeductionOrphan: (
+    context: LaravelContext,
+    params: { id: number | string; action: 'set-month' | 'delete'; month?: string },
+  ) =>
+    webClient.postForm<PayrollStatusResponse>(
+      `/payroll-deduction/orphans/resolve?${payrollQuery(context, {
+        id: params.id,
+        action: params.action,
+        ...(params.month ? { month: params.month } : {}),
+      })}`,
+      new FormData(),
+    ),
+
+  getSalaryStructureReport: (
+    context: LaravelContext,
+    params: { year?: string | number; employeeIds?: Array<string | number>; departmentIds?: Array<string | number> },
+  ) =>
+    webClient.postForm<SalaryStructureReportResponse>(
+      `/salary-structure-report?${payrollQuery(
+        context,
+        {
+          year: params.year ?? 0,
+          // The controller tests `$request->emp_id != 0` and only then does
+          // implode(), so "no filter" has to be the literal 0 - an omitted
+          // parameter is null, null != 0 is FALSE in PHP, and it happens to
+          // work, but a `0` says what is meant. When a filter IS set the
+          // array form below supplies emp_id[0], emp_id[1]... instead.
+          ...(params.employeeIds?.length ? {} : { emp_id: 0 }),
+          ...(params.departmentIds?.length ? {} : { department_id: 0 }),
+        },
+        {
+          ...(params.employeeIds?.length ? { emp_id: params.employeeIds } : {}),
+          ...(params.departmentIds?.length ? { department_id: params.departmentIds } : {}),
+        },
+      )}`,
+      new FormData(),
+    ),
+}
+
+/* ------------------------------------------------------------------ *
+ * Bank-wise Payment Advice - /payroll-bank-wise-report
+ *
+ * F-166. The endpoint has been implemented, routed, gated and returning clean
+ * JSON the whole time, with no caller anywhere. It is the one payroll report
+ * that produces something the business cannot get any other way: for a given
+ * month, every employee who was ACTUALLY PAID (the query is
+ * `whereNotNull('total_payment')`), with the bank_name / account_no / ifsc_code
+ * needed to move the money. Until now finance re-keyed that by hand.
+ * ------------------------------------------------------------------ */
+
+/** The tbluser row the controller attaches to each payslip as `usersDetails`. */
+export interface BankWiseEmployeeDetails {
+  id?: number | string
+  employee_no?: string | null
+  first_name?: string | null
+  middle_name?: string | null
+  last_name?: string | null
+  department?: string | null
+  bank_name?: string | null
+  account_no?: string | null
+  ifsc_code?: string | null
+}
+
+export interface BankWisePayslip {
+  id: number | string
+  employee_id: number | string
+  month?: string | null
+  year?: string | number | null
+  total_payment?: string | number | null
+  total_deduction?: string | number | null
+  total_day?: string | number | null
+  /**
+   * `[]` when the employee row could not be resolved, an object when it could -
+   * Laravel serialises an empty array and a populated map differently, which is
+   * why this is not simply `BankWiseEmployeeDetails`.
+   */
+  usersDetails?: BankWiseEmployeeDetails | unknown[]
+}
+
+export interface BankWiseReportResponse {
+  status_code?: number
+  message?: string
+  employees?: BankWisePayslip[]
+  list?: { month?: string; year?: string | number }
+  months?: Record<string, string> | string[]
+  years?: Record<string, string> | string[]
+  currentYear?: string | number
+}
+
+/** Narrows the `[] | object` union above to something renderable. */
+export function bankWiseEmployee(row: BankWisePayslip): BankWiseEmployeeDetails {
+  const details = row.usersDetails
+  return details && !Array.isArray(details) ? details : {}
+}
+
+/* ------------------------------------------------------------------ *
+ * Employee Payroll History - /employee-payroll-history
+ *
+ * F-169. One employee's payslips across a FINANCIAL year (Apr-Mar): the
+ * controller takes `year` as a PAIR - "2025-2026" - splits it, and pulls
+ * Jan/Feb/Mar from the second year and everything else from the first.
+ *
+ * The screen built on this has to be careful with one thing. `header` is built
+ * from payroll_types WHERE status = 1, but a filed payslip's
+ * `employee_salary_data` stores amounts against whatever head ids were used at
+ * the time - including heads since deactivated, soft-deleted, or (on payslip 22
+ * in this deployment) belonging to a DIFFERENT organisation entirely. Of that
+ * payslip's stated 81,300, only 6,205 sits on a live head of its own tenant;
+ * 35,000 is on soft-deleted heads and 52,500 on tenant 1's.
+ *
+ * So a table that renders only the `header` columns silently loses most of the
+ * money and does not add up. Every id present in `data` is rendered.
+ * ------------------------------------------------------------------ */
+
+export interface PayrollHistoryEntry {
+  employee_id?: number | string
+  employee_no?: string | null
+  employee_name?: string | null
+  /** payroll_type_id -> amount. Keys are NOT guaranteed to exist in `header`. */
+  data?: Record<string, number | string> | unknown[]
+  total_day?: string | number | null
+  month?: string | null
+  year?: string | number | null
+  total_deduction?: string | number | null
+  total_payment?: string | number | null
+}
+
+/* ------------------------------------------------------------------ *
+ * Payroll Register - /payroll-report  (F-172)
+ *
+ * The month's payslips with the DAY COUNTS reconciled against attendance,
+ * leave and the holiday calendar: lwp_days, leave_days and absent_days are
+ * computed per employee by walking the month. Nothing else in the frontend
+ * joins payroll to attendance, so this is the only place "why is this person's
+ * pay low" is answered in the same row as the pay.
+ * ------------------------------------------------------------------ */
+
+export interface PayrollRegisterRow {
+  /** The payslip's own id. Was overwritten by u.id until F-172. */
+  id: number | string
+  employee_id: number | string
+  /** The joined tbluser id, aliased by F-172 so it stops shadowing `id`. */
+  user_id?: number | string
+  full_name?: string | null
+  employee_no?: string | null
+  department_ids?: number | string | null
+  month?: string | null
+  year?: string | number | null
+  total_day?: string | number | null
+  total_deduction?: string | number | null
+  total_payment?: string | number | null
+  received_by?: string | null
+  /** JSON STRING of payroll_type_id -> amount, not an object. */
+  employee_salary_data?: string | null
+  /** Computed by the controller, not stored on the payslip. */
+  lwp_days?: number | string | null
+  leave_days?: number | string | null
+  absent_days?: number | string | null
+}
+
+export interface PayrollRegisterResponse {
+  months?: Record<string, string> | string[]
+  /** Pair years ("2025-2026") even though the query wants a single one. */
+  years?: Record<string, string> | string[]
+  month?: string
+  year?: string | number
+  employeeDetails?: PayrollRegisterRow[]
+  department_id?: string | number | null
+}
+
+/* ------------------------------------------------------------------ *
+ * Salary Structure Report - /salary-structure-report
+ * ------------------------------------------------------------------ */
+
+export interface SalaryStructureReportRow {
+  id: number | string
+  employee_id: number | string
+  /** JSON STRING of payroll_type_id -> amount. */
+  employee_salary_data?: string | null
+  year?: string | number | null
+  employee_name?: string | null
+  employee_no?: string | null
+  department?: string | null
+}
+
+export interface SalaryStructureReportResponse {
+  year?: string | number
+  selected_emp?: unknown
+  department_id?: unknown
+  /** payroll_type_id -> name, ACTIVE heads only - same caveat as F-169. */
+  headers?: Record<string, string> | unknown[]
+  years?: Record<string, string> | string[]
+  salaryStructure?: SalaryStructureReportRow[]
+}
+
+export interface PayrollHistoryResponse {
+  employeeLists?: LaravelPayrollEmployee[]
+  /**
+   * The controller's map returns `[]` for a row matching neither of its two
+   * year branches, so this array can contain empty objects. They are dropped
+   * rather than rendered as a blank month.
+   */
+  currentYearemployeeDetails?: PayrollHistoryEntry[]
+  /** payroll_type_id -> name, ACTIVE heads only. */
+  header?: Record<string, string> | unknown[]
+  list?: { month?: string; year?: string; employee_id?: string | number }
+  /** "2025-2026" style pairs. */
+  years?: Record<string, string> | string[]
+  selEmp?: string | number
+  selDept?: string | number
+  selYear?: string
 }
 
 /**
@@ -844,4 +1184,41 @@ export function monthlyPayslipPdfUrl(
 ) {
   const query = payrollQuery(context)
   return `${resolveWebBaseUrl()}/monthly-payroll-report/pdf/${params.employeeId}/${params.month}/${params.year}?${query}`
+}
+
+/* ------------------------------------------------------------------ *
+ * Q9 / F-173 - payroll adjustments the calculation has never found
+ * ------------------------------------------------------------------ */
+
+export interface DeductionOrphan {
+  id: number | string
+  /** The raw stored value - "8", "2", "3". Deliberately NOT normalised. */
+  month: string | null
+  year: string | number | null
+  employee_id: number | string
+  deduction_type: number | string
+  deduction_amount: string | number | null
+  employee_name?: string | null
+  employee_no?: string | null
+  /** Null when the head itself no longer exists. */
+  payroll_name?: string | null
+  head_status?: number | string | null
+  head_deleted_at?: string | null
+  head_tenant?: number | string | null
+  /**
+   * When the row was ENTERED - the evidence that decides what its month meant.
+   *
+   * A row stored as month "8" but entered in December, or year 2020 entered in
+   * 2025, says far more about what happened than the month field does. Shown
+   * beside the stored month so the person deciding has both.
+   */
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface DeductionOrphansResponse {
+  status_code?: number
+  orphans?: DeductionOrphan[]
+  months?: string[]
+  total?: number
 }

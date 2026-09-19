@@ -260,6 +260,23 @@ export function GtgSidebar({
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
   }, [])
 
+  /*
+   * F-201. Is the sidebar OVERLAYING the content, or sitting beside it?
+   *
+   * On a narrow viewport the expanded rail covers what the user just navigated
+   * to, so collapsing after a selection is correct. On a desktop it sits
+   * alongside, and collapsing there simply overrode the stored
+   * `sidebar_collapsed` preference that gtg-app-shell goes to some trouble to
+   * read and apply - an HR admin working through HRIT's twelve screens had to
+   * re-open and re-expand the module tree for every single one.
+   *
+   * lg: is Tailwind's 1024px, the width at which this layout stops overlaying.
+   */
+  const isOverlayWidth = useCallback(
+    () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches,
+    [],
+  )
+
   useEffect(() => {
     if (collapsed) return
 
@@ -269,14 +286,19 @@ export function GtgSidebar({
       if (sidebarRef.current?.contains(target)) return
 
       clearFlyout()
-      onCollapsedChange?.(true)
+      /*
+       * F-201. The flyout always closes - it is a transient popup. The RAIL
+       * only collapses when it is overlaying the content; on a desktop,
+       * clicking into the page is not a request to collapse the navigation.
+       */
+      if (isOverlayWidth()) onCollapsedChange?.(true)
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [clearFlyout, collapsed, onCollapsedChange])
+  }, [clearFlyout, collapsed, onCollapsedChange, isOverlayWidth])
 
   useLayoutEffect(() => {
     if (!flyoutModuleId || !flyoutPosition || !flyoutRef.current) {
@@ -332,8 +354,9 @@ export function GtgSidebar({
     const nextModule = modules.find((m) => m.id === next.moduleId)
     setDesktopExpandedIds(nextModule ? activePathIds(nextModule, next) : new Set())
     onSelect(next)
-    onCollapsedChange?.(true)
-  }, [clearFlyout, modules, onSelect, onCollapsedChange])
+    // F-201. Only when the rail is covering the content.
+    if (isOverlayWidth()) onCollapsedChange?.(true)
+  }, [clearFlyout, modules, onSelect, onCollapsedChange, isOverlayWidth])
 
   const handleFlyoutLeafSelect = useCallback((next: ActiveNav) => {
     setFlyoutModuleId(null)
