@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { TALENT_ONBOARDING_ACCESS_LINK } from '@/lib/gtg-navigation'
 import {
   Briefcase,
   Users,
@@ -142,6 +144,7 @@ function readDeepLinkAction(value: string | null): RecruitmentAction | null {
 // -------------------------------------------------------------------
 export function RecruitmentCenter() {
   const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const {
     candidates,
     jobs,
@@ -1076,7 +1079,12 @@ export function RecruitmentCenter() {
                             Send / copy candidate link
                           </DropdownMenuItem>
                         )}
-                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push('/module/talent-management/onboarding/onboarding')}>Start onboarding</DropdownMenuItem>}
+                        {/* The recruitment -> onboarding handoff. The path was
+                            hand-written with the last segment doubled, so the
+                            single most important link in the hiring lifecycle
+                            pushed a URL that resolved to nothing and left the
+                            user on Recruitment. */}
+                        {offer.status === 'Accepted' && <DropdownMenuItem onClick={() => router.push(resolveAccessLink(TALENT_ONBOARDING_ACCESS_LINK))}>Start onboarding</DropdownMenuItem>}
                         {offer.status !== 'Accepted' && offer.status !== 'Declined' && <DropdownMenuItem onClick={() => setConfirmation({
                           title: 'Accept this offer?',
                           description: 'The candidate becomes an employee: a record is created in the Employee Directory and linked to this offer. Accepting again will not create a second employee.',
