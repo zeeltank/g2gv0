@@ -45,6 +45,12 @@
       "@/lib/*": [
         "./lib/*"
       ],
+      "@shared/ai-intelligence-core": [
+        "./packages/ai-intelligence-core/src/index.ts"
+      ],
+      "@shared/ai-intelligence-core/*": [
+        "./packages/ai-intelligence-core/src/*"
+      ],
       "@shared/conversational-ai-core": [
         "./packages/conversational-ai-core/src/index.ts"
       ],

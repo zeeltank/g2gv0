@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, ChevronDown, LogOut, Settings, User } from 'lucide-react'
+import { Building2, ChevronDown, LogOut, Settings, Sparkles, User } from 'lucide-react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { platformMeService } from '@/services/platform/me'
 import { useAuth } from '@/hooks/use-auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAppPreferences } from '@/components/providers/preferences-provider'
+import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
+import { ROLE_GROUPS } from '@/types/role'
 
 /**
  * THE AVATAR MENU — one implementation, where there were two.
@@ -131,6 +133,31 @@ export function GtgUserMenu() {
     }
   }, [user])
 
+/**
+ * AI & INTELLIGENCE, DRIVEN BY THE REGISTRY RATHER THAN BY A LIST HERE.
+ *
+ * The twelve entries come from `packages/ai-intelligence-core`, which is also what
+ * builds the console at `/ai` and every capability page. Adding or renaming a
+ * capability is a registry edit; this file does not change. A hand-written list
+ * beside it would be a thirteenth place to forget.
+ *
+ * WHY IT HANGS OFF THIS MENU AND NOT THE SIDEBAR
+ *
+ * Same reason "Create an organisation" does: `tblmenumaster_g2g` is the CUSTOMER'S
+ * navigation, and these are platform administration screens that configure the AI
+ * every module then uses. Putting them in the catalogue would also mean nobody
+ * could open one until rights rows had been written for every profile on the
+ * estate.
+ *
+ * ADMINISTRATORS ONLY, AND THE SERVER AGREES
+ *
+ * `routes/ai.php` is behind `profile:admin`, so a non-administrator who reached
+ * `/ai` would meet a 403 on every panel. Hiding the entry is the courtesy; the
+ * gate is the middleware. Doing only the first would be the mistake
+ * `RequireProfile`'s own note calls out — hiding a button is not a control.
+ */
+  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
+
   const items = [
     { id: 'profile', label: 'My Profile', icon: User, href: '/profile' },
     { id: 'settings', label: 'Account Settings', icon: Settings, href: '/settings' },
@@ -196,14 +223,14 @@ export function GtgUserMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+          className="absolute right-0 z-50 mt-2 flex max-h-[min(32rem,80vh)] w-72 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
         >
           <div className="border-b border-border px-3 py-3">
             <p className="text-sm font-semibold text-foreground">{user?.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
           </div>
 
-          <div className="p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {items.map((item) => {
               const Icon = item.icon
 
@@ -223,9 +250,50 @@ export function GtgUserMenu() {
                 </button>
               )
             })}
+
+            {isAdministrator && (
+              <div className="mt-1 border-t border-border pt-1">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false)
+                    router.push('/ai')
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:bg-secondary"
+                >
+                  <Sparkles className="size-4 text-muted-foreground" aria-hidden="true" />
+                  AI &amp; Intelligence
+                </button>
+
+                {/* The capabilities themselves, so an administrator reaches the one
+                    they want in one click rather than two. The console at /ai above
+                    is still there for the overview — this is a shortcut into it, not
+                    a second navigation. */}
+                {AI_CAPABILITIES.map((capability) => (
+                  <button
+                    key={capability.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false)
+                      router.push(`/ai/${capability.slug}`)
+                    }}
+                    className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 pr-3 pl-10 text-left text-sm text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:bg-secondary"
+                  >
+                    <span className="truncate">{capability.name}</span>
+                    {capability.status !== 'live' && (
+                      <span className="shrink-0 text-[10px] tracking-wider text-muted-foreground/70 uppercase">
+                        {capability.status === 'in-progress' ? 'WIP' : 'Soon'}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-border p-1">
+          <div className="shrink-0 border-t border-border p-1">
             <button
               type="button"
               role="menuitem"
