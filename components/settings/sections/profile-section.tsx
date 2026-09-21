@@ -1,12 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Camera, Check, Crop, Info } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, Check, Info } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ImageCropper } from '@/components/settings/image-cropper'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useLaravelContext } from '@/hooks/use-agentic'
@@ -14,6 +12,7 @@ import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import type { useAccount } from '@/hooks/use-account'
 import { accountService, type AccountProfile } from '@/services/account'
 import { apiClient } from '@/services/core'
+import { ProfilePhotoPicker } from '@/components/settings/profile-photo-picker'
 import { useAppPreferences } from '@/components/providers/preferences-provider'
 import { Field, SaveButton, SectionBlock, SectionHint } from './section-primitives'
 
@@ -46,7 +45,6 @@ export function ProfileSection({
   const resolveContext = useLaravelContext()
   // So a new photo reaches the header immediately, not on the next page load.
   const { refresh: refreshAccount } = useAppPreferences()
-  const fileInput = useRef<HTMLInputElement | null>(null)
 
   const [form, setForm] = useState<Partial<AccountProfile>>({})
   const [saving, setSaving] = useState(false)
@@ -68,23 +66,7 @@ export function ProfileSection({
     original: File
   } | null>(null)
 
-  // Why the last picked file was refused. Beside the photo state, not in the
-  // section-wide `error`, which is for what the server said.
-  const [photoError, setPhotoError] = useState<string | null>(null)
 
-  /*
-   * THE PICKED FILE IS NOT THE SAVED FILE ANY MORE.
-   *
-   * Choosing a file used to stage it for upload directly, and the avatar is round
-   * with `object-cover` — so a 4:3 phone photo lost its left and right thirds,
-   * always those thirds, whatever was in them. Somebody whose face sits off to one
-   * side got a picture of their shoulder and had no way to say otherwise.
-   *
-   * A pick now opens the cropper, and only what comes back out of it is staged.
-   * `pending` is that in-between state: chosen, not yet framed, definitely not yet
-   * uploaded.
-   */
-  const [pending, setPending] = useState<File | null>(null)
 
   useEffect(() => {
     if (!photo) return
@@ -151,6 +133,17 @@ export function ProfileSection({
     return () => onDirtyChange?.('profile', 'Profile', false)
   }, [dirty, onDirtyChange])
 
+  /*
+   * Read-only employment facts. Null while loading, and null if the server's
+   * lookup degraded — see `workIdentity()`, which returns nulls rather than
+   * letting a missing table take `/account/me` down with it.
+   *
+   * Optional chaining because this sits above the `if (!profile)` guard, which
+   * has to stay below the hooks. Reading it here keeps the value next to the
+   * other derived state rather than buried in the JSX.
+   */
+  const work = profile?.work ?? null
+
   const initials = useMemo(() => {
     const letters = `${form.first_name ?? ''} ${form.last_name ?? ''}`
       .split(' ')
@@ -160,6 +153,31 @@ export function ProfileSection({
 
     return (letters || form.email?.[0] || '?').slice(0, 2).toUpperCase()
   }, [form.first_name, form.last_name, form.email])
+
+  /** The preference values behind the identity and visibility controls. */
+  const preferences = account.preferences
+
+  /*
+   * Save one identity or visibility preference immediately.
+   *
+   * ── WHY THESE DO NOT JOIN THE FORM'S DRAFT ────────────────────────────────
+   *
+   * The name and address fields are one record: they should save together or not
+   * at all, which is why they have a Save button and an unsaved-changes guard.
+   * "My pronouns" is a single independent value with nothing to be half-finished
+   * with, so it persists on blur like every other preference in the product.
+   *
+   * Guarded on no-change because `onBlur` fires on every tab-through: without it,
+   * moving focus across three untouched fields would send three pointless writes.
+   */
+  function saveIdentity(
+    key: 'display_name' | 'pronouns' | 'about' | 'visible_mobile' | 'visible_birthdate' | 'visible_address',
+    value: string,
+  ) {
+    if ((preferences?.[key] ?? '') === value) return
+
+    void account.saveNow(key, value as never)
+  }
 
   function set(field: keyof AccountProfile, value: string) {
     setSaved(false)
@@ -257,166 +275,37 @@ export function ProfileSection({
       )}
 
       <SectionBlock title="Photo" description="Shown beside your name across the product.">
-        <div className="flex flex-wrap items-center gap-5">
-          {/*
-            THE HOUSE `Avatar`, AND NOT ONLY FOR CONSISTENCY.
-            ─────────────────────────────────────────────────────────────────
-            The hand-rolled version branched on whether an image URL EXISTED —
-            `photo || profile.image_url ? <img> : <initials>` — which is not the
-            same question as whether the image LOADS. An avatar key is
-            `<id>_<random>.<ext>` and every upload writes a new one, so a URL
-            held in a stale `/account/me` response, or an object removed from
-            storage, gave a bare `<img>` with `alt=""`: a broken-image glyph, or
-            in most browsers an empty 80px box, with no initials and nothing to
-            say what had happened.
+        {/*
+          THE CONTROL LIVES IN `profile-photo-picker.tsx` NOW.
 
-            `AvatarImage` falls back on the load ERROR, so a URL that no longer
-            resolves shows the initials — which is what the person expects to
-            see when they have no photo, and is indistinguishable from never
-            having had one. The primitive also carries the ring as an `::after`
-            pseudo-element, so the explicit border is gone with it.
-          */}
-          <Avatar className="size-20">
-            <AvatarImage
-              src={photo?.preview ?? profile.image_url ?? undefined}
-              alt=""
-            />
-            <AvatarFallback className="bg-primary/10 text-xl font-semibold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          It was ~160 lines here: the file input, the server's `accept` list, the
+          type and size refusals, the cropper hand-off, the object-URL lifecycle
+          and the preview. `/profile` needed all of it, and a second copy would
+          have drifted at the first change to any of them — the `accept` list in
+          particular has to match the server's five formats or the upload fails
+          after the work.
 
-          <div className="space-y-2">
-            <input
-              ref={fileInput}
-              type="file"
-              /*
-               * THE SERVER'S OWN LIST, NOT `image/*`.
-               *
-               * `image/*` offers every format the operating system can produce,
-               * and the server accepts five. The gap is not theoretical: an
-               * iPhone photographs in HEIC by default, so the most likely file
-               * anybody picks on a phone was one the server would reject — after
-               * it had been uploaded in full.
-               *
-               * Spelling the extensions out means the picker greys those files
-               * out instead. `accept` is a hint a determined person can bypass,
-               * which is why the check below repeats it rather than trusting it.
-               */
-              accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null
-                // So choosing the same file twice in a row still fires onChange.
-                event.target.value = ''
-                setSaved(false)
+          What stays here is the only part that is this screen's business: WHEN it
+          saves. This is a form, so a picked photo is staged and goes up with the
+          text fields in one multipart PUT. `/profile` has no form and saves
+          immediately. The picker does not know or care which.
+        */}
+        <ProfilePhotoPicker
+          imageUrl={profile.image_url}
+          initials={initials}
+          preview={photo?.preview ?? null}
+          busy={saving}
+          onPicked={(picked) => {
+            setSaved(false)
 
-                if (!file) {
-                  setPhoto(null)
-                  return
-                }
+            if (!picked) {
+              setPhoto(null)
+              return
+            }
 
-                /*
-                 * ═══════════════════════════════════════════════════════════
-                 * THE CROPPER CHANGED WHAT THIS CHECK SHOULD BE
-                 * ═══════════════════════════════════════════════════════════
-                 *
-                 * This used to refuse anything over 2MB, because 2MB is the
-                 * server's `max:2048` and the picked file was the file that got
-                 * uploaded. That is no longer true: what gets uploaded is the
-                 * cropper's 512x512 export, which is about 80KB whatever came in.
-                 *
-                 * So the old limit had become a rule that refused the very files
-                 * it was meant to help with — a phone photo is routinely 4 to 8MB,
-                 * and every one of them would have been turned away by a check
-                 * whose reason for existing the cropper had already removed.
-                 *
-                 * A ceiling is still worth having, an order of magnitude higher:
-                 * decoding an image costs roughly width x height x 4 bytes of
-                 * memory regardless of how well the file compresses, so a
-                 * genuinely enormous file can still take the tab down. 25MB
-                 * clears any camera and refuses the 200MB scan.
-                 */
-                const MAX_PICK = 25 * 1024 * 1024
-                const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-
-                if (!ALLOWED.includes(file.type)) {
-                  setPhotoError(
-                    'That kind of image cannot be used. JPG, PNG, GIF or WEBP — a photo from an iPhone may need converting.',
-                  )
-                  setPhoto(null)
-                  return
-                }
-
-                if (file.size > MAX_PICK) {
-                  setPhotoError(
-                    `That image is ${(file.size / 1024 / 1024).toFixed(0)}MB, which is too large to open here. Anything up to 25MB is fine — it gets resized when you position it.`,
-                  )
-                  setPhoto(null)
-                  return
-                }
-
-                setPhotoError(null)
-
-                // Off to the cropper. Nothing is staged until it comes back.
-                setPending(file)
-              }}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => fileInput.current?.click()}>
-                <Camera className="size-4" aria-hidden="true" />
-                {profile.image_url ? 'Change photo' : 'Upload photo'}
-              </Button>
-
-              {/*
-                REFRAMING WITHOUT RE-PICKING.
-
-                Without this, changing your mind about the framing meant finding
-                the file again — and on a phone, going back through the camera roll
-                to the same photo is the moment people give up. The original file
-                is still in `photo.file`, so it costs nothing to reopen it.
-
-                It reopens the ORIGINAL, not the cropped result: cropping a crop
-                loses resolution each time and cannot get framing back that has
-                already been discarded.
-              */}
-              {photo && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPending(photo.original)}
-                >
-                  <Crop className="size-4" aria-hidden="true" />
-                  Adjust
-                </Button>
-              )}
-
-              {photo && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setPhoto(null)}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-            {/*
-              ONE LINE, THREE STATES: refused, chosen but unsaved, or the rules.
-              The refusal takes the same slot so it cannot be missed — it was
-              going to be a banner at the top of the form, a full screen away
-              from the button that caused it.
-            */}
-            {photoError ? (
-              <p role="alert" className="text-xs text-destructive">
-                {photoError}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {photo
-                  ? `${photo.file.name} — positioned, not saved yet`
-                  : 'JPG, PNG, GIF or WEBP. You choose which part is used.'}
-              </p>
-            )}
-          </div>
-        </div>
+            setPhoto({ file: picked.file, preview: picked.preview, original: picked.file })
+          }}
+        />
       </SectionBlock>
 
       <SectionBlock title="Your name" description="How you appear to colleagues.">
@@ -433,6 +322,104 @@ export function ProfileSection({
           <Field label="Suffix" hint="Jr., III, and so on">
             <Input value={form.name_suffix ?? ''} onChange={(e) => set('name_suffix', e.target.value)} />
           </Field>
+        </div>
+      </SectionBlock>
+
+      {/*
+        ═══════════════════════════════════════════════════════════════════════
+        HOW YOU APPEAR TO COLLEAGUES — three fields this product had none of
+        ═══════════════════════════════════════════════════════════════════════
+
+        Every comparable product has a display name, pronouns and a line about
+        yourself. Without them a person is only ever the legal name HR typed:
+        somebody called Alexandra who goes by Alex has nowhere to say so, and a
+        name HR spelled wrong is stuck that way until a ticket is raised.
+
+        ── THESE AUTOSAVE; THE FIELDS BELOW DO NOT ──────────────────────────
+
+        They are preferences, not `tbluser` columns, so they go through
+        `saveNow` and persist on blur. That is deliberate and not an
+        inconsistency: the name and address fields below form ONE record that
+        should save or not save together, while "my pronouns" is a single
+        independent value with nothing to be half-finished with.
+
+        Stored as preferences rather than columns because `tbluser` is already 99
+        columns wide and read by dozens of controllers — three more nullable
+        strings there is three more things every SELECT carries.
+      */}
+      <SectionBlock
+        title="How you appear to colleagues"
+        description="Saved as you type. Your legal name above is what appears on documents."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Display name"
+            hint="What colleagues see. Leave it empty to use your real name."
+          >
+            <Input
+              defaultValue={preferences?.display_name ?? ''}
+              placeholder={[profile.first_name, profile.last_name].filter(Boolean).join(' ')}
+              maxLength={60}
+              onBlur={(e) => saveIdentity('display_name', e.target.value)}
+            />
+          </Field>
+
+          <Field label="Pronouns" hint="For example she/her, he/him, they/them.">
+            <Input
+              defaultValue={preferences?.pronouns ?? ''}
+              placeholder="Optional"
+              maxLength={30}
+              onBlur={(e) => saveIdentity('pronouns', e.target.value)}
+            />
+          </Field>
+
+          <Field
+            label="About"
+            className="sm:col-span-2"
+            hint="A line or two about what you do. Up to 300 characters."
+          >
+            <Input
+              defaultValue={preferences?.about ?? ''}
+              placeholder="Optional"
+              maxLength={300}
+              onBlur={(e) => saveIdentity('about', e.target.value)}
+            />
+          </Field>
+        </div>
+      </SectionBlock>
+
+      {/*
+        ═══════════════════════════════════════════════════════════════════════
+        WHO CAN SEE WHAT — and this one is enforced on the server
+        ═══════════════════════════════════════════════════════════════════════
+
+        Before this, every colleague who could open the Employee Directory could
+        read everybody's personal mobile number, date of birth and home address.
+        That was not a setting anybody chose; it was the absence of one.
+
+        The redaction happens in `EmployeeDirectoryController` via
+        `ProfileVisibility`, not here — a control that only hides fields in React
+        is privacy-shaped decoration with the data one request away.
+
+        HR and administrators still see everything: they maintain the record, and
+        their edit form has to round-trip what it loaded or saving blanks it. The
+        wording says so rather than implying otherwise.
+      */}
+      <SectionBlock
+        title="Who can see your details"
+        description="Applies to colleagues browsing the Employee Directory. HR and administrators always see your full record."
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          {VISIBILITY_FIELDS.map(({ key, label, hint }) => (
+            <Field key={key} label={label} hint={hint}>
+              <Select
+                value={preferences?.[key] ?? 'everyone'}
+                onChange={(value) => saveIdentity(key, String(value))}
+                options={VISIBILITY_CHOICES}
+                aria-label={label}
+              />
+            </Field>
+          ))}
         </div>
       </SectionBlock>
 
@@ -504,10 +491,51 @@ export function ProfileSection({
         </div>
       </SectionBlock>
 
-      <SectionBlock title="Your record at work" description="Set by HR. Shown here so you can check it.">
+      {/*
+        ═══════════════════════════════════════════════════════════════════════
+        THIS BLOCK USED TO PROMISE THIS INFORMATION AND NOT SHOW IT
+        ═══════════════════════════════════════════════════════════════════════
+
+        It printed an employee number and a last-signed-in date, then a sentence
+        saying "your department, job role and reporting manager are part of your
+        employment record" — naming three things it did not display. To see them
+        you had to know `/profile` existed and went somewhere else for them.
+
+        `/account/me` carries them now, so they are here. Read-only, and the
+        server enforces that rather than the `disabled` attribute: a PUT naming
+        `jobtitle_id` is discarded like an invented field.
+      */}
+      <SectionBlock
+        title="Your record at work"
+        description="Set by HR. Shown here so you can check it is right."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Job title">
+            <Input value={work?.job_title ?? 'Not set'} readOnly disabled />
+          </Field>
+          <Field label="Department">
+            <Input value={work?.department ?? 'Not set'} readOnly disabled />
+          </Field>
+
+          {/*
+            Only when set. `reporting_manager_id` is populated for nobody on live
+            today, and `joined_date` for 14 of 299 — rendering "Not set" for a
+            field the organisation has never filled in reads as a fault in the
+            product rather than an empty record.
+          */}
+          {work?.reporting_manager && (
+            <Field label="Reports to">
+              <Input value={work.reporting_manager} readOnly disabled />
+            </Field>
+          )}
+          {work?.joined_date && (
+            <Field label="Joined">
+              <Input value={new Date(work.joined_date).toLocaleDateString()} readOnly disabled />
+            </Field>
+          )}
+
           <Field label="Employee number">
-            <Input value={profile.employee_no ?? 'Not assigned'} readOnly disabled />
+            <Input value={work?.employee_no ?? profile.employee_no ?? 'Not assigned'} readOnly disabled />
           </Field>
           <Field label="Last signed in">
             <Input
@@ -520,33 +548,11 @@ export function ProfileSection({
 
         <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          Your department, job role, reporting manager and pay are part of your employment
-          record. Ask HR to change any of them — they are not editable here on purpose.
+          These come from your employment record. Ask HR to change any of them — moving your own
+          department is a promotion, not a setting, so it is not editable here on purpose.
         </p>
       </SectionBlock>
 
-      {/*
-        THE CROPPER, mounted only while a file is waiting to be framed.
-
-        `key={...}` so picking a second file resets zoom, pan and rotation rather
-        than opening the new photo at the previous photo's framing — which would
-        look like the control had ignored the new file.
-      */}
-      {pending && (
-        <ImageCropper
-          key={`${pending.name}-${pending.size}-${pending.lastModified}`}
-          file={pending}
-          shape="circle"
-          title="Position your photo"
-          onCancel={() => setPending(null)}
-          onApply={({ file: cropped, preview }) => {
-            setSaved(false)
-            setPhotoError(null)
-            setPhoto({ file: cropped, preview, original: pending })
-            setPending(null)
-          }}
-        />
-      )}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
         {attempted && !valid && (
@@ -557,6 +563,37 @@ export function ProfileSection({
     </div>
   )
 }
+
+/**
+ * The visibility choices, worded as a person would ask the question.
+ *
+ * "Everyone in my organisation" rather than "public": nothing here is ever
+ * visible outside the tenant, and "public" would suggest otherwise on a screen
+ * about privacy.
+ */
+const VISIBILITY_CHOICES = [
+  { value: 'everyone', label: 'Everyone in my organisation' },
+  { value: 'department', label: 'Only my department' },
+  { value: 'private', label: 'Only me' },
+]
+
+const VISIBILITY_FIELDS = [
+  {
+    key: 'visible_mobile' as const,
+    label: 'Mobile number',
+    hint: 'Your personal number, as shown in the directory.',
+  },
+  {
+    key: 'visible_birthdate' as const,
+    label: 'Date of birth',
+    hint: 'Hiding it does not affect leave or payroll.',
+  },
+  {
+    key: 'visible_address' as const,
+    label: 'Home address',
+    hint: 'Covers the street, city, state and PIN code together.',
+  },
+]
 
 /** Exactly the fields `AccountController::EDITABLE` accepts. */
 const EDITABLE = [

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/components/auth/gtg-auth'
+import { TwoFactorRequiredError, useAuth } from '@/components/auth/gtg-auth'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -240,20 +240,94 @@ export function LoginPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * THE SECOND STEP, FOR ACCOUNTS WITH TWO-STEP VERIFICATION ON
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `challenge` holds the server's sentence and doubles as the flag for which step
+   * is on screen: null is email-and-password, a string is the code field.
+   *
+   * ── WHY THE PASSWORD IS RE-SENT RATHER THAN A PENDING STATE HELD ───────────
+   *
+   * The second call repeats the email and password alongside the code. The
+   * alternative — the server remembering a half-authenticated sign-in between the
+   * two calls — needs a store, an expiry, and a decision about what happens when
+   * somebody abandons it halfway; and for the duration of that window a
+   * half-finished sign-in exists that is not the second factor's business to
+   * protect. Nothing is remembered here, so there is nothing to abandon.
+   *
+   * Both values are already in component state from the first attempt, so nobody
+   * types their password twice.
+   */
+  const [challenge, setChallenge] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const [recoveryCode, setRecoveryCode] = useState('')
+  const [useRecovery, setUseRecovery] = useState(false)
+
+  const leaveChallenge = () => {
+    setChallenge(null)
+    setCode('')
+    setRecoveryCode('')
+    setUseRecovery(false)
     setError('')
-    
+    // The password is cleared on the way out, because the credential step is
+    // about to be shown again and leaving it filled invites a second blind
+    // attempt against an account that has already challenged once.
+    setPassword('')
+  }
+
+  /**
+   * One sign-in attempt, with or without a second factor.
+   *
+   * Shared by both steps rather than duplicated, so the redirect, the error
+   * handling and the loading flag cannot drift between them — the code path and the
+   * password path end in exactly the same place.
+   */
+  const attempt = async (second?: { code?: string; recoveryCode?: string }) => {
+    setError('')
     setIsLoading(true)
 
     try {
-      await login(email, password)
+      await login(email, password, second)
       router.push(await getRedirectTarget())
     } catch (err) {
+      if (err instanceof TwoFactorRequiredError) {
+        /*
+         * Into `challenge`, never into `error`. The password was accepted; a red
+         * "Enter the code from your authenticator app" above the password field —
+         * which is what this was before the branch existed — reads as a rejection
+         * and offers nowhere to type.
+         *
+         * The same object is thrown for a WRONG code, so this also covers the
+         * second and later attempts: the step stays on screen with the server's
+         * newer sentence, including the throttle message.
+         */
+        setChallenge(err.message)
+        setCode('')
+        setRecoveryCode('')
+        return
+      }
+
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await attempt()
+  }
+
+  const submitChallenge = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    await attempt(
+      useRecovery
+        ? { recoveryCode: recoveryCode.trim() }
+        : { code: code.trim() },
+    )
   }
 
   // The ERP exposes no OAuth endpoint - authController only accepts
@@ -302,6 +376,117 @@ export function LoginPage() {
               </Alert>
             )}
 
+            {/*
+              ══════════════════════════════════════════════════════════════════
+              THE CODE STEP — INSTEAD OF the credential form, not below it
+              ══════════════════════════════════════════════════════════════════
+
+              Replacing the fields rather than adding a third one is the whole
+              reason this reads as a step: an email box, a password box and a code
+              box stacked together look like three things to fill in at once, and
+              somebody whose account has no two-step verification would wonder what
+              the empty one is for.
+            */}
+            {challenge !== null ? (
+              <form onSubmit={submitChallenge} className="space-y-4">
+                <div className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4">
+                  <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-base font-bold text-brand-navy">Two-step verification</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{challenge}</p>
+                  </div>
+                </div>
+
+                {useRecovery ? (
+                  <div>
+                    <Label htmlFor="recovery-code" className="text-base font-bold text-brand-navy">
+                      Recovery code
+                    </Label>
+                    <Input
+                      id="recovery-code"
+                      // NOT `one-time-code`: that prompts the browser to offer the
+                      // SMS/authenticator code it may have captured, which is the
+                      // wrong credential for this field.
+                      autoComplete="off"
+                      autoFocus
+                      value={recoveryCode}
+                      onChange={(e) => setRecoveryCode(e.target.value)}
+                      placeholder="xxxx-xxxx"
+                      disabled={isLoading}
+                      className="mt-2 h-14 rounded-xl border-input bg-surface px-5 font-mono text-base shadow-sm max-[640px]:h-12"
+                    />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      One of the codes you saved when you turned this on. Each one works once.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="two-factor-code" className="text-base font-bold text-brand-navy">
+                      6-digit code
+                    </Label>
+                    <Input
+                      id="two-factor-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={6}
+                      value={code}
+                      // Digits only. A code pasted from an app often arrives as
+                      // "123 456", and refusing that as wrong would be this
+                      // screen's fault rather than theirs.
+                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="000000"
+                      disabled={isLoading}
+                      className="mt-2 h-14 rounded-xl border-input bg-surface px-5 text-center text-2xl font-bold tracking-[0.4em] tabular-nums shadow-sm max-[640px]:h-12"
+                    />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      From your authenticator app. It changes every 30 seconds.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={
+                    isLoading || (useRecovery ? recoveryCode.trim().length < 4 : code.length !== 6)
+                  }
+                  className="h-14 w-full rounded-xl text-base font-bold shadow-lg shadow-primary/20 max-[640px]:h-12"
+                >
+                  {isLoading ? 'Checking...' : 'Verify'}
+                </Button>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/*
+                    The way back in for somebody holding a printed code and no
+                    phone. Buried at the bottom of the step on purpose — offered
+                    where it is needed, and never the obvious first choice, because
+                    a recovery code is the weaker of the two paths.
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseRecovery((value) => !value)
+                      setCode('')
+                      setRecoveryCode('')
+                      setError('')
+                    }}
+                    disabled={isLoading}
+                    className="text-base font-semibold text-primary hover:text-primary/80"
+                  >
+                    {useRecovery ? 'Use my authenticator app' : "I don't have my phone"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={leaveChallenge}
+                    disabled={isLoading}
+                    className="text-base font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    Start again
+                  </button>
+                </div>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <Label
@@ -430,6 +615,7 @@ export function LoginPage() {
                 Sign in with Google
               </Button>
             </form>
+            )}
 
             <div className="mt-5 hidden items-center justify-center gap-3 text-sm text-muted-foreground sm:flex">
               <ShieldCheck className="size-6 text-muted-foreground" />

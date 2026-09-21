@@ -66,6 +66,24 @@ export class ApiError extends Error {
      * generic failure while the server had already diagnosed it precisely.
      */
     readonly detail?: string,
+    /**
+     * `two_factor_required` off the body — the password was right, and a code is
+     * still needed.
+     *
+     * ── WHY A FEATURE FLAG SITS ON THE TRANSPORT CLASS ──────────────────────
+     *
+     * Because this is the last place the body exists. `buildApiError` parses the
+     * response, lifts `message`, and throws the rest away; by the time the sign-in
+     * screen has the error there is nothing left to inspect. Either the flag is
+     * carried across here or the screen has to guess from the status code — and
+     * "401 on /login means ask for a code" is a guess that silently becomes wrong
+     * the day anything else there answers 401.
+     *
+     * It is deliberately NOT a general `payload: unknown` escape hatch: that would
+     * invite every caller to dig through untyped server output, and this class
+     * exists to stop exactly that.
+     */
+    readonly twoFactorRequired: boolean = false,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -84,6 +102,7 @@ async function buildApiError(response: Response) {
       errors?: Record<string, string[]>
       detail?: string
       error?: string
+      two_factor_required?: boolean
     }
 
     if (payload?.message) {
@@ -93,6 +112,7 @@ async function buildApiError(response: Response) {
         payload.errors,
         // `error` is the other name this codebase uses for the same thing.
         payload.detail ?? payload.error,
+        payload.two_factor_required === true,
       )
     }
   } catch {

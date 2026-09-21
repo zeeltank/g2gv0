@@ -44,8 +44,39 @@ export interface Session {
   isLoading: boolean
 }
 
+/**
+ * THE PASSWORD WAS RIGHT AND A CODE IS STILL NEEDED.
+ *
+ * Its own class rather than a message, because the sign-in screen has to tell this
+ * apart from a rejection to know whether to show a second field or a red line — and
+ * a string comparison against the server's wording is a check that breaks the next
+ * time somebody rephrases it.
+ *
+ * `message` carries the server's sentence, so the same object both signals the state
+ * and says what went wrong within it: "enter the code" the first time, "that code is
+ * not right" after a bad attempt, "too many attempts" once throttled.
+ */
+export class TwoFactorRequiredError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TwoFactorRequiredError'
+  }
+}
+
+/** A code from the app, or one of the printed recovery codes. */
+export type SecondFactor = { code?: string; recoveryCode?: string }
+
 interface AuthContextType extends Session {
-  login: (email: string, password: string) => Promise<void>
+  /**
+   * Throws `TwoFactorRequiredError` when the account is enrolled and no code was
+   * given. Call again with the same email and password plus a `SecondFactor`.
+   *
+   * The password is deliberately re-sent rather than the server holding a
+   * half-authenticated state between the two calls: there is nothing to expire,
+   * nothing to clean up, and no window in which a pending sign-in exists that
+   * somebody else could finish.
+   */
+  login: (email: string, password: string, second?: SecondFactor) => Promise<void>
   logout: () => void
   switchRole: (role: Role) => void
 }
@@ -155,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, second?: SecondFactor) => {
     // Mirrors authController::index - both fields are `required|string` there.
     if (!email.trim()) {
       throw new Error('The email field is required.')
@@ -166,10 +197,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let response
     try {
-      response = await authService.login({ email: email.trim(), password })
+      response = await authService.login({
+        email: email.trim(),
+        password,
+        twoFactorCode: second?.code,
+        recoveryCode: second?.recoveryCode,
+      })
     } catch (error) {
       // 422 - Laravel returned the first validation error in `message`.
       if (error instanceof ApiError) {
+        /*
+         * A CHALLENGE IS NOT A FAILURE, AND MUST NOT ARRIVE AS ONE.
+         *
+         * Flattening this into `new Error(message)` — which is what every other
+         * branch here does — would put "Enter the code from your authenticator
+         * app" on screen as a red login error, with no field to type it into. The
+         * person's password was correct; the sign-in is halfway through, not
+         * rejected.
+         */
+        if (error.twoFactorRequired) {
+          throw new TwoFactorRequiredError(
+            error.message || 'Enter the code from your authenticator app.',
+          )
+        }
+
         throw new Error(error.message || LOGIN_FAILED_MESSAGE)
       }
       // fetch() rejects with a TypeError when the ERP is unreachable.

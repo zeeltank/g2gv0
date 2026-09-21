@@ -3,22 +3,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  User,
-  MapPin,
-  Users,
+  BookOpen,
+  Calendar,
   Clock,
+  KeyRound,
   Landmark,
   Mail,
-  Calendar,
-  Phone,
-  BookOpen,
-  Target,
+  MapPin,
   Pencil,
-  KeyRound,
+  Phone,
+  Target,
+  User,
+  Users,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import type { Profile } from '@/types/profile'
 import { PersonalCard } from '@/components/profile/cards/personal-card'
@@ -28,6 +27,11 @@ import { AttendanceCard } from '@/components/profile/cards/attendance-card'
 import { BankCard } from '@/components/profile/cards/bank-card'
 import { SkillsPanel } from '@/components/profile/skills-panel'
 import { useEmployeeProfile } from '@/hooks/use-employee-profile'
+import { ProfilePhotoPicker } from '@/components/settings/profile-photo-picker'
+import { accountService } from '@/services/account'
+import { useLaravelContext } from '@/hooks/use-agentic'
+import { cn } from '@/lib/utils'
+import { useAppPreferences } from '@/components/providers/preferences-provider'
 import { CmMyCapabilityScreen } from '@/domain/competency/cm-my-capability-screen'
 
 type TabId = 'personal' | 'address' | 'reporting' | 'attendance' | 'bank' | 'skills' | 'capability'
@@ -114,6 +118,82 @@ export function ProfileDashboard({ user }: ProfileProps) {
     skills: employeeProfile?.skills ?? [],
   }
 
+  /*
+   * The photo, from the ONE app-wide `/account/me` response.
+   *
+   * Read from the provider rather than fetched here, so this screen and the header
+   * avatar cannot disagree about whose photo it is - which is the class of bug
+   * that produced this report.
+   */
+  const {
+    profile: accountProfile,
+    preferences,
+    refresh: refreshAccount,
+  } = useAppPreferences()
+
+  /** Employment facts, from the one account response rather than a second fetch. */
+  const work = accountProfile?.work ?? null
+
+  /*
+   * What to call this person.
+   *
+   * Their display name if they set one, then the name on the account, and only
+   * then the employee record's - in that order because the earlier sources are
+   * the ones THEY control. Falling back the other way round would show the legal
+   * name HR typed to somebody who has explicitly asked to be called something
+   * else.
+   */
+  const shownName =
+    (preferences?.display_name || '').trim() ||
+    [accountProfile?.first_name, accountProfile?.last_name].filter(Boolean).join(' ').trim() ||
+    profile.fullName
+  const resolveContext = useLaravelContext()
+
+  const [savingPhoto, setSavingPhoto] = useState(false)
+  const [photoNotice, setPhotoNotice] = useState<{ ok: boolean; message: string } | null>(null)
+
+  /**
+   * Upload the framed photo now, because this screen has no Save button.
+   *
+   * ── THE REFRESH IS NOT OPTIONAL ─────────────────────────────────────────
+   *
+   * The header avatar reads the shared `/account/me` response. Without the
+   * refresh the photo would be stored, this screen would still be showing the
+   * cropper's local blob preview, and the header would keep the old picture until
+   * the next full page load - which is exactly the "the photo is not updating on
+   * other pages" report that started this work.
+   *
+   * ── A 200 IS NOT NECESSARILY A SUCCESS ──────────────────────────────────
+   *
+   * `AccountController` writes the profile row and then puts the object on the
+   * store. If the store refuses it the response is still 200 with an
+   * `image_error`, so treating the status alone as success would tell somebody
+   * their photo was saved when only the row was.
+   */
+  async function savePhoto(file: File) {
+    setSavingPhoto(true)
+    setPhotoNotice(null)
+
+    try {
+      const response = await accountService.updatePhoto(resolveContext(), file)
+
+      await refreshAccount()
+
+      setPhotoNotice(
+        response.image_error
+          ? { ok: false, message: response.image_error }
+          : { ok: true, message: 'Photo saved.' },
+      )
+    } catch (caught) {
+      setPhotoNotice({
+        ok: false,
+        message: caught instanceof Error ? caught.message : 'That photo could not be saved.',
+      })
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
   const initials = profile.fullName
     .split(' ')
     .map((n) => n[0])
@@ -148,32 +228,109 @@ export function ProfileDashboard({ user }: ProfileProps) {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           {/* Left Section */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center flex-1">
-            <div className="relative shrink-0">
-              <Avatar className="h-20 w-20">
-                <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+            {/*
+              ═══════════════════════════════════════════════════════════════
+              THIS SCREEN SHOWED NO PHOTO, THEN LINKED AWAY TO SET ONE
+              ═══════════════════════════════════════════════════════════════
 
-              {/* The camera button here had no onClick either - see the note by
-                  the header actions. Removed rather than left looking live. */}
+              First it rendered `AvatarFallback` and nothing else - no
+              `AvatarImage`, no reference to `image_url` anywhere in the file. So
+              somebody set their photo in Settings, came to Profile, and saw their
+              initials. Reported as the profile image not being theirs.
+
+              Then it showed the photo but sent you to Settings to change it, which
+              was called out as a hack, and fairly: this is the screen somebody
+              opens when they want their profile, and the photo was the one thing
+              on it they could not set.
+
+              The picker is here now. It is the SAME component Settings uses, so
+              the `accept` list, the size and type refusals and the cropper cannot
+              drift between the two screens.
+
+              ── WHAT IS DIFFERENT HERE IS WHEN IT SAVES ────────────────────
+
+              Settings stages the photo and sends it with the text fields, because
+              there it is one field of a form. This screen has no form and nothing
+              to press, so a staged photo would sit there unsaved with no way to
+              commit it. It uploads on Apply and then refreshes the shared
+              `/account/me`, which is what makes the header avatar follow at once
+              rather than on the next full page load.
+            */}
+            <div className="relative shrink-0">
+              <ProfilePhotoPicker
+                imageUrl={accountProfile?.image_url}
+                initials={initials}
+                busy={savingPhoto}
+                onPicked={(picked) => {
+                  if (picked) void savePhoto(picked.file)
+                }}
+              />
+
+              {photoNotice && (
+                <p
+                  role="status"
+                  className={cn(
+                    'mt-2 text-xs',
+                    photoNotice.ok ? 'text-success' : 'text-destructive',
+                  )}
+                >
+                  {photoNotice.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-semibold">
-                  {profile.fullName}
-                </h1>
+              {/*
+                ═══════════════════════════════════════════════════════════════
+                ONE SOURCE FOR THE NAME AND THE JOB, NOT TWO
+                ═══════════════════════════════════════════════════════════════
+
+                This read `profile.fullName`, `profile.jobRole` and
+                `profile.department` from `useEmployeeProfile` - a SECOND fetch of
+                a second set of endpoints - while Settings read the same person
+                from `/account/me`. Two sources for one person, with nothing
+                making them agree.
+
+                `/account/me` carries the work identity now, so both screens read
+                it. `employeeProfile` is still the source for the cards below
+                (skills, attendance, bank) which genuinely live elsewhere; what it
+                is no longer the source for is who this person is.
+
+                ── AND THE DISPLAY NAME IS HONOURED HERE ────────────────────
+
+                Somebody who set one has said what they want to be called. A
+                profile page that shows their legal name instead is the one place
+                that choice most obviously has to hold.
+              */}
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-semibold">{shownName}</h1>
+
+                {preferences?.pronouns && (
+                  <span className="text-sm text-muted-foreground">
+                    ({preferences.pronouns})
+                  </span>
+                )}
+
                 <Badge variant="success">Active</Badge>
               </div>
 
-              <p className="text-sm font-medium text-primary">
-                {profile.jobRole}
-              </p>
+              {/*
+                Job title and department on ONE line, not two stacked paragraphs
+                in the same colour and weight - which read as two headings and
+                gave no clue which was which.
 
-              <p className="text-sm font-medium text-primary">
-                {profile.department}
-              </p>
+                Rendered only when set: an organisation that has not filled these
+                in should see nothing rather than an empty coloured line.
+              */}
+              {(work?.job_title || work?.department) && (
+                <p className="text-sm font-medium text-primary">
+                  {[work?.job_title, work?.department].filter(Boolean).join('  ·  ')}
+                </p>
+              )}
+
+              {preferences?.about && (
+                <p className="max-w-prose text-sm text-muted-foreground">{preferences.about}</p>
+              )}
 
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
 

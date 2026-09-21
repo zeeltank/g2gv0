@@ -46,13 +46,22 @@ export function PersonalCard({ profile, isActive }: PersonalCardProps) {
         </CardHeader>
       </div>
       <CardContent>
+        {/*
+          FULL NAME, DEPARTMENT AND JOB ROLE ARE GONE FROM HERE.
+
+          The header above this card now shows all three - the name as an `h1`,
+          the job title and department on one line beneath it. Repeating them in a
+          grid a few hundred pixels lower was not redundancy for emphasis; the two
+          could disagree, because until now they came from DIFFERENT fetches. The
+          header reads `/account/me` and this card reads the employee record, so a
+          stale response in either made one screen contradict itself.
+
+          What stays is what the header does not say.
+        */}
         <dl className="grid grid-cols-2 gap-4">
-          <Field label="Full Name" value={profile.fullName} />
           <Field label="Mobile Number" value={profile.mobileNumber} />
           <Field label="Email" value={profile.email} />
-          <Field label="Department" value={profile.department} />
           <Field label="Date of Birth" value={profile.dob} />
-          <Field label="Job Role" value={profile.jobRole} />
           <Field label="Gender" value={profile.gender} />
           <Field label="Join Year" value={profile.joinYear} />
         </dl>
