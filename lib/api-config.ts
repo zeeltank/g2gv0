@@ -84,3 +84,37 @@ export function resolveHpApiBaseUrl() {
 // a developer deciding whether an endpoint needs a guard would see a key on the
 // wire and move on. Removing it is not a security change - nothing was
 // protecting anything - it removes a FALSE SIGNAL.
+
+/**
+ * Where the AI & Intelligence API lives, which is not always where the rest of the
+ * API lives.
+ *
+ * WHY THIS IS A SEPARATE VARIABLE RATHER THAN `resolveApiBaseUrl()`
+ *
+ * `/api/ai/*` is served by the same Laravel application as everything else, so on a
+ * single-host deployment these two answers are identical and this function is
+ * invisible. They diverge whenever the AI backend has shipped to one host and not
+ * the other — which is the ordinary state of affairs while the feature is being
+ * rolled out, and it is not a state the frontend can detect: the older host answers
+ * a perfectly valid 404, and every AI panel then reports "the route could not be
+ * found" with no indication that the cause is a deployment rather than a bug.
+ *
+ * So the AI host can be named explicitly. `NEXT_PUBLIC_AI_BASE_URL` wins where it is
+ * set, because it is the more specific statement of the two: the main variable says
+ * where this product's API is, while this one says where the AI backend actually
+ * runs, and only the second is a claim about the AI backend at all.
+ *
+ * With nothing configured the main base URL still wins, so a single-host deployment
+ * behaves exactly as it did before and nobody has to set anything. This mirrors
+ * `resolveAiBaseUrl()` in LMS K-12, which exists for the same reason.
+ *
+ * The value may be given with or without the trailing `/api`; both are accepted, so
+ * `http://127.0.0.1:8000` and `http://127.0.0.1:8000/api` mean the same thing.
+ */
+export function resolveAiBaseUrl() {
+  const configured = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_AI_BASE_URL)
+
+  if (!configured) return resolveApiBaseUrl()
+
+  return configured.endsWith('/api') ? configured : `${configured}/api`
+}
