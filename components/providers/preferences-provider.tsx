@@ -49,6 +49,23 @@ const DEFAULTS: AccountPreferences = {
   landing_page: 'dashboard',
   notify_email: true,
   notify_events: {},
+
+  /*
+   * These mirror `UserPreferences::DEFAULTS` on the server, and the mirroring is
+   * the point: this object is what every screen sees before the fetch lands, and
+   * what it keeps if the fetch fails. A key missing here is `undefined` in a
+   * control that expects a string - a select with no matching option renders
+   * blank, which reads as "I have no pronouns set" rather than "not loaded".
+   */
+  display_name: '',
+  pronouns: '',
+  about: '',
+
+  // `everyone` matches the server, so a failed fetch cannot silently tighten or
+  // loosen somebody's privacy relative to what is actually stored.
+  visible_mobile: 'everyone',
+  visible_birthdate: 'everyone',
+  visible_address: 'everyone',
 }
 
 type PreferencesContextValue = {

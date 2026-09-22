@@ -28,12 +28,11 @@ import {
   AlertDialogFooter,
 } from '@/components/ui/alert-dialog'
 import { KPICard } from '@/shared/business'
-import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
 import { usePayrollDepartments } from '@/hooks/use-payroll-shared'
 import { useMonthlyPayroll, type MonthlyPayrollRow } from '@/hooks/use-monthly-payroll'
 import { MonthLockCard } from './components/month-lock-card'
-import { monthlyPayslipPdfUrl } from '@/services/hrms'
+import { usePayslipDownload } from '@/hooks/use-payslip-download'
 import {
   PayrollMessages,
   PayrollPageShell,
@@ -131,16 +130,15 @@ export default function MonthlyPayrollPage() {
     }
   }, [rows])
 
-  const payslipUrl = (row: MonthlyPayrollRow) => {
-    if (!lastQuery) return null
-    const context = getLaravelContext(user)
-    if (!isLaravelContextReady(context)) return null
-    return monthlyPayslipPdfUrl(context, {
-      employeeId: row.employeeId,
-      month: lastQuery.month,
-      year: lastQuery.year,
-    })
-  }
+  /*
+   * F-209. The payslip was a window.open on a URL carrying the token, behind
+   * `row.isSaved && payslipUrl(row)` - so when the Laravel context was not yet
+   * ready the control simply WAS NOT THERE, with nothing to explain its
+   * absence. A download that vanishes is indistinguishable from one that was
+   * never built, which is how this arrived as "the payslip download option is
+   * not there". Shared with the four other screens that show a paid month.
+   */
+  const payslip = usePayslipDownload()
 
   const handleExport = () => {
     downloadCsv(
@@ -304,6 +302,14 @@ export default function MonthlyPayrollPage() {
 
       <PayrollMessages error={error} actionMessage={actionMessage} onDismiss={clearMessages} />
 
+      {/* Kept separate from the grid's own error: a payslip that would not
+          build says nothing about whether the month loaded. */}
+      <PayrollMessages
+        error={payslip.error}
+        actionMessage={null}
+        onDismiss={payslip.clearError}
+      />
+
       {loading ? (
         <PayrollTableSkeleton />
       ) : error && rows.length === 0 ? (
@@ -456,17 +462,29 @@ export default function MonthlyPayrollPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {row.isSaved && payslipUrl(row) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              aria-label={`Download payslip for ${row.name}`}
-                              onClick={() => window.open(payslipUrl(row) as string, '_blank')}
-                            >
-                              <FileText className="size-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            aria-label={`Download payslip for ${row.name}`}
+                            title={
+                              row.isSaved
+                                ? `Download payslip for ${row.name}`
+                                : 'Save this month’s payroll first - a payslip is produced from the saved row'
+                            }
+                            disabled={!row.isSaved || payslip.busy}
+                            onClick={() =>
+                              payslip.download({
+                                employeeId: row.employeeId,
+                                employeeName: row.name,
+                                employeeNo: row.employeeNo,
+                                month: lastQuery?.month ?? '',
+                                year: lastQuery?.year ?? '',
+                              })
+                            }
+                          >
+                            <FileText className="size-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"

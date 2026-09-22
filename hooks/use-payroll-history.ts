@@ -41,6 +41,13 @@ export interface HistoryMonth {
 }
 
 export interface PayrollHistoryState {
+  /**
+   * F-209. The grouping key was computed and then discarded, so the screen
+   * knew whose year it was rendering but could not name them to any other
+   * endpoint - which is why this screen had no payslip download while holding
+   * every month it would need to ask for one.
+   */
+  employeeId: string
   employeeName: string
   employeeNo: string
   months: HistoryMonth[]
@@ -146,6 +153,7 @@ export function usePayrollHistory() {
           const key = String(entry.employee_id ?? entry.employee_no ?? 'unknown')
           if (!byPerson.has(key)) {
             byPerson.set(key, {
+              employeeId: String(entry.employee_id ?? ''),
               employeeName: String(entry.employee_name ?? '').replace(/\s+/g, ' ').trim() || key,
               employeeNo: String(entry.employee_no ?? '').trim(),
               months: [],

@@ -95,15 +95,15 @@ export function PayrollTableSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
-/** Client-side CSV export - the project ships no spreadsheet dependency. */
-export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number>>) {
-  const escape = (value: string | number) => {
-    const text = String(value ?? '')
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-  }
-
-  const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')
-  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' })
+/**
+ * Hand a file to the browser. One save path for every download in HRIT.
+ *
+ * Kept separate from whoever produced the bytes, because the two kinds of
+ * download in this module arrive very differently: a CSV is built here from
+ * rows already on screen, while a payslip PDF is fetched from an authenticated
+ * endpoint (F-209). Both end here.
+ */
+export function saveBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
 
   const link = document.createElement('a')
@@ -113,4 +113,15 @@ export function downloadCsv(filename: string, headers: string[], rows: Array<Arr
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+/** Client-side CSV export - the project ships no spreadsheet dependency. */
+export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number>>) {
+  const escape = (value: string | number) => {
+    const text = String(value ?? '')
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }
+
+  const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')
+  saveBlob(filename, new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' }))
 }

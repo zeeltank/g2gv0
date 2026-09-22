@@ -62,6 +62,17 @@ export interface LaravelLoginResponse {
 export interface LoginCredentials {
   email: string
   password: string
+  /**
+   * A code from the authenticator app, on the second attempt.
+   *
+   * Absent on the first call, always. The server answers 401 with
+   * `two_factor_required` when the account is enrolled and no code was sent, and
+   * the screen then asks for one — so nothing here has to know in advance whether
+   * a given account has two-step verification on.
+   */
+  twoFactorCode?: string
+  /** One of the ten single-use codes, for somebody without their phone. */
+  recoveryCode?: string
 }
 
 export const LOGIN_FAILED_MESSAGE = 'Invalid User Id And Password'
@@ -98,7 +109,22 @@ export const authService = {
   login: (credentials: LoginCredentials) =>
     webClient.get<LaravelLoginResponse>(
       '/login',
-      { email: credentials.email, password: credentials.password, type: 'API' },
+      {
+        email: credentials.email,
+        password: credentials.password,
+        type: 'API',
+        /*
+         * Sent only when there is one, so the server can tell "has not been asked
+         * yet" from "answered wrongly" — it returns `two_factor_required` for the
+         * first and an error for the second, and an always-present empty string
+         * would collapse the two.
+         *
+         * The parameter names are the server's: `two_factor_code` and
+         * `recovery_code`, read in authController::twoFactorChallenge.
+         */
+        ...(credentials.twoFactorCode ? { two_factor_code: credentials.twoFactorCode } : {}),
+        ...(credentials.recoveryCode ? { recovery_code: credentials.recoveryCode } : {}),
+      },
       { credentials: 'include' },
     ),
 }

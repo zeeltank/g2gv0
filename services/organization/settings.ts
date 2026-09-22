@@ -21,6 +21,8 @@ export type OrgSettings = {
   'security.password_require_symbol': string
   'security.invite_hours': string
   'security.otp_login_enabled': string
+  /** 'off' | 'administrators' | 'everyone' — see `choices.require_two_factor`. */
+  'security.require_two_factor': string
 }
 
 export type OrgSettingsResponse = {
@@ -32,6 +34,22 @@ export type OrgSettingsResponse = {
       date_format: string[]
       number_format: string[]
       week_start: string[]
+      require_two_factor: string[]
+    }
+    /**
+     * How many people the 2FA policy covers, and how many already have it on.
+     *
+     * Sent so the screen can put the number next to the switch. "Require it for
+     * everyone" reads like a checkbox and behaves like a migration: on a tenant
+     * with 293 people and four enrolments it means 289 authenticator apps before
+     * anybody can work. Null when the count could not be taken — the screen then
+     * says nothing rather than guessing.
+     */
+    two_factor_coverage: {
+      people: number | null
+      people_enrolled: number | null
+      administrators: number | null
+      administrators_enrolled: number | null
     }
     /**
      * Which groups have a reader in the product TODAY.
@@ -45,6 +63,8 @@ export type OrgSettingsResponse = {
       otp_login: boolean
       calendar: boolean
       formats: boolean
+      /** True: RequireTwoFactorEnrolment refuses every other endpoint until enrolled. */
+      require_two_factor: boolean
     }
   }
 }

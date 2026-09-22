@@ -1177,13 +1177,32 @@ export function salaryCertificatePdfUrl(
 /**
  * GET /monthly-payroll-report/pdf/{id}/{month}/{year} - the payslip Laravel
  * generates and files under the employee's staff documents on save.
+ *
+ * F-209. This used to return a URL for the caller to open in a new tab, with
+ * the token in the query string. Two things were wrong with that.
+ *
+ * The token first: a URL is not a private place. It is written to access logs,
+ * browser history, proxy logs, and leaks through Referer on any outbound link,
+ * and a harvested Sanctum token is a working credential for the whole API -
+ * far more than the one payslip it was meant to fetch. authMiddleware accepts
+ * `$request->input('token') ?: $request->bearerToken()`, so the header costs
+ * nothing and the credential leaves the URL.
+ *
+ * And the failures: window.open on a generator that answers with a redirect
+ * (no salary structure for that year) left the user looking at a blank tab
+ * with nothing to read. Fetching it means a refusal can be shown on the screen
+ * the user is already on.
  */
-export function monthlyPayslipPdfUrl(
+export async function downloadMonthlyPayslip(
   context: LaravelContext,
   params: { employeeId: string | number; month: string; year: string | number },
-) {
-  const query = payrollQuery(context)
-  return `${resolveWebBaseUrl()}/monthly-payroll-report/pdf/${params.employeeId}/${params.month}/${params.year}?${query}`
+): Promise<Blob> {
+  const query = new URLSearchParams(withLaravelParams(context))
+  query.delete('token') // sent as Authorization: Bearer instead
+
+  return webClient.getBlob(
+    `/monthly-payroll-report/pdf/${params.employeeId}/${params.month}/${params.year}?${query.toString()}`,
+  )
 }
 
 /* ------------------------------------------------------------------ *

@@ -10,8 +10,10 @@ import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
-import { accountService, type AccountSession } from '@/services/account'
-import { ConfirmDialog, Field, SectionBlock, SectionSkeleton } from './section-primitives'
+import { accountService, type AccountActivityEntry, type AccountSession } from '@/services/account'
+import { eventLabel } from '@/lib/event-labels'
+import { ConfirmDialog, Field, SectionBlock, SectionEmpty, SectionSkeleton } from './section-primitives'
+import { TwoFactorBlock } from './two-factor-block'
 
 /**
  * SIGN-IN & SECURITY.
@@ -136,6 +138,46 @@ export function SecuritySection() {
     }
   }
 
+  /*
+   * The person's own security history.
+   *
+   * A separate call from `sessions` deliberately: the session list is a live
+   * inventory somebody acts on, the history is a log they read. One endpoint for
+   * both would mean refetching the whole history every time a device is signed out.
+   */
+  const [activity, setActivity] = useState<AccountActivityEntry[]>([])
+  const [activityLoading, setActivityLoading] = useState(true)
+  const [activityError, setActivityError] = useState<string | null>(null)
+
+  const loadActivity = useCallback(async () => {
+    const context = resolveContext()
+
+    if (!isLaravelContextReady(context)) {
+      setActivityLoading(false)
+      return
+    }
+
+    try {
+      const response = await accountService.activity(context, 25)
+      setActivity(response.data.entries)
+      setActivityError(null)
+    } catch (caught) {
+      // The history failing must not take the password form or the session list
+      // with it - those are the parts of this screen somebody came to use.
+      setActivityError(
+        caught instanceof Error ? caught.message : 'Your recent activity could not be loaded.',
+      )
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [resolveContext])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadActivity()
+    })
+  }, [loadActivity])
+
   const others = sessions.filter((session) => !session.current).length
 
   /*
@@ -187,14 +229,63 @@ export function SecuritySection() {
       },
       {
         id: 'last_used_at' as const,
-        header: 'Last used',
+        header: 'Last active',
         render: (_value: unknown, session: AccountSession) => (
           <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            {/*
+              "Not recorded yet" rather than "Never since it was created".
+              ────────────────────────────────────────────────────────────────
+              Both read the same on screen and only one is true. Nothing wrote
+              `last_used_at` until now - Sanctum does it in a guard this
+              application never uses - so every row on every account said "Never
+              used" regardless of how heavily the session was being used. That
+              was the column reporting a defect in the product as a fact about
+              the person.
+              The 9,714 tokens that predate the fix have no history and will
+              never get one, so they say so. Anything used from now on shows a
+              real time.
+            */}
             {session.last_used_at
               ? new Date(session.last_used_at).toLocaleString()
-              : 'Never since it was created'}
+              : 'Not recorded yet'}
           </span>
         ),
+      },
+      {
+        id: 'expires_at' as const,
+        header: 'Expires',
+        render: (_value: unknown, session: AccountSession) => {
+          if (!session.expires_at) {
+            /*
+             * Should no longer happen: every token now gets an expiry at
+             * creation, and a migration gave the 9,714 existing immortal ones
+             * one. Kept because a row without an expiry would be a session that
+             * can never end, and that is worth saying out loud rather than
+             * rendering as a blank cell.
+             */
+            return (
+              <span className="block whitespace-nowrap text-xs text-warning">
+                Does not expire
+              </span>
+            )
+          }
+
+          const days = Math.ceil(
+            (new Date(session.expires_at).getTime() - Date.now()) / 86_400_000,
+          )
+
+          return (
+            <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+              {/*
+                Days remaining, not a date. "Expires 21 October" invites the
+                reader to work out whether that is soon; "in 30 days" is the
+                answer they were going to compute. Using the session resets it,
+                so the number is a measure of idleness rather than a deadline.
+              */}
+              {days <= 0 ? 'Expired' : days === 1 ? 'in 1 day' : `in ${days} days`}
+            </span>
+          )
+        },
       },
       {
         id: 'created_at' as const,
@@ -206,9 +297,24 @@ export function SecuritySection() {
         ),
       },
       {
-        id: 'expires_at' as const,
-        // Borrowed field name for an action column: `Column.id` is `keyof T` and
-        // this renders a button, never `expires_at`.
+        /*
+         * `current`, NOT `expires_at` — and the difference is a real bug.
+         *
+         * `Column.id` is typed `keyof T`, so an action column has to borrow a
+         * field name. This borrowed `expires_at`, which was free until an Expires
+         * column was added above and took it. Two columns then shared one id, and
+         * `DataTable` renders `key={String(column.id)}` — duplicate React keys in
+         * the same list, which React resolves by keeping one and discarding the
+         * other.
+         *
+         * Found by investigating a mutation test that looked blind: the guard
+         * grepped for `id: 'expires_at' as const` and still matched after the
+         * Expires column was mutated away, because a SECOND one existed.
+         *
+         * `current` is a real field on AccountSession and is not a column, so it
+         * is free. Nothing reads it here — this cell renders a button.
+         */
+        id: 'current' as const,
         header: 'End it',
         render: (_value: unknown, session: AccountSession) =>
           session.current ? (
@@ -329,6 +435,13 @@ export function SecuritySection() {
         </div>
       </SectionBlock>
 
+      {/*
+        Directly under the password, and above the session list, because that is the
+        order these three things matter in: what proves it is you, then what a second
+        proof adds, then where those proofs are currently being accepted.
+      */}
+      <TwoFactorBlock />
+
       <SectionBlock
         title="Where you are signed in"
         description="Each row is a device or browser holding a live session for your account."
@@ -372,7 +485,9 @@ export function SecuritySection() {
                 data={sessions.slice(0, 25)}
                 getRowId={(session: AccountSession) => String(session.id)}
                 density="compact"
-                className="min-w-[38rem]"
+                // Five columns now, not four: Expires was added. Without widening this the
+                // table squeezes rather than scrolling, and the dates wrap mid-value.
+                className="min-w-[46rem]"
               />
             </div>
 
@@ -403,6 +518,71 @@ export function SecuritySection() {
         )}
       </SectionBlock>
 
+      {/*
+        ═══════════════════════════════════════════════════════════════════════
+        A PERSON COULD NOT SEE WHAT HAD HAPPENED TO THEIR OWN ACCOUNT
+        ═══════════════════════════════════════════════════════════════════════
+
+        `g2g_event` has recorded organisation activity since it was built, and
+        every screen that read it was an administrator's. Nothing showed somebody
+        the events about themselves — and those are the ones they alone can
+        recognise as wrong. A password change you did not make is the clearest
+        sign an account has been taken, and it was invisible.
+
+        Here rather than as a twelfth settings section: "where am I signed in" and
+        "what has happened to this account" are one question, and splitting them
+        would mean checking two screens to answer it.
+
+        Read-only, and there is no id parameter on the endpoint — the server
+        resolves the subject from the token, so this can only ever be your own.
+      */}
+      <SectionBlock
+        title="Recent activity"
+        description="Sign-ins and changes to this account. Only you can see this."
+        badge={activity.length > 0 ? `${activity.length} shown` : undefined}
+      >
+        {activityLoading && <SectionSkeleton rows={3} />}
+
+        {!activityLoading && activity.length === 0 && (
+          <SectionEmpty
+            title="Nothing recorded yet"
+            description="Sign-ins and changes will appear here as they happen."
+          />
+        )}
+
+        {!activityLoading && activity.length > 0 && (
+          <ul className="divide-y divide-border">
+            {activity.map((entry, index) => (
+              <li
+                key={`${entry.type}-${entry.at}-${index}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5"
+              >
+                <span className="text-sm text-foreground">
+                  {ACTIVITY_LABELS[entry.type] ?? eventLabel(entry.type)}
+                  {entry.device && (
+                    <span className="text-muted-foreground"> · {entry.device}</span>
+                  )}
+                  {entry.detail && (
+                    <span className="block text-xs text-muted-foreground">{entry.detail}</span>
+                  )}
+                </span>
+
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {entry.at ? new Date(entry.at).toLocaleString() : 'Time not recorded'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {activityError && (
+          <p role="alert" className="mt-3 text-xs text-destructive">
+            {activityError}
+          </p>
+        )}
+      </SectionBlock>
+
+
       <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
@@ -425,6 +605,25 @@ export function SecuritySection() {
     </div>
   )
 }
+
+/**
+ * Plain names for the account events, since `eventLabel` knows the organisation
+ * catalogue and not these.
+ *
+ * Written as something that happened to a person rather than as a type name: "A
+ * new device signed in" is what somebody scanning for something wrong needs to
+ * read, not "account.new_device". Anything unrecognised falls through to
+ * `eventLabel`, so a new event type is readable the first time it appears rather
+ * than invisible.
+ */
+const ACTIVITY_LABELS: Record<string, string> = {
+  'account.signed_in': 'Signed in',
+  'account.new_device': 'A new device signed in',
+  'account.password_changed': 'Password changed',
+  'account.photo_changed': 'Photo changed',
+  'account.sessions_ended': 'Signed out other devices',
+}
+
 
 /**
  * A hint, not a gate. The rule that decides is server-side and shared:
