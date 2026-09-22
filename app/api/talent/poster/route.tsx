@@ -95,7 +95,8 @@ async function render(content: PosterContent, filename: string, dropped: number)
 }
 
 export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams
+  const requestUrl = new URL(request.url)
+  const params = requestUrl.searchParams
   const slug = (params.get('slug') ?? '').trim()
   const format = (params.get('format') ?? 'portrait') as PosterFormat
   const ids = parseIds(params.get('ids'))
@@ -108,7 +109,12 @@ export async function GET(request: Request) {
   if (ids.length === 0) return fail('No role was chosen for the poster.', 422)
 
   try {
-    const payload = await fetchPosterContent(slug, ids, format)
+    /*
+     * This route IS the careers site, so its own origin is the authoritative
+     * answer to "where does /careers/{slug} live" - which matters on a
+     * deployment where FRONTEND_URL was never set on the API.
+     */
+    const payload = await fetchPosterContent(slug, ids, format, requestUrl.origin)
     const filename = filenameFor(payload.data, 'png')
 
     return await render(payload.data, filename, payload.dropped?.length ?? 0)

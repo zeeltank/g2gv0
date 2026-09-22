@@ -111,11 +111,23 @@ export async function fetchPosterContent(
   slug: string,
   ids: number[],
   format: PosterFormat,
+  /**
+   * Which origin serves the careers page.
+   *
+   * Needed because this call happens SERVER-side, where no browser sets an
+   * Origin header - and on a deployment with FRONTEND_URL unset that header is
+   * the only thing that knows where /careers/{slug} actually lives. Passing
+   * the route's own origin is a fact about this deployment, not a guess.
+   */
+  origin?: string,
 ): Promise<PosterContentResponse> {
   const query = new URLSearchParams({ ids: ids.join(','), format })
   const url = `${resolveApiBaseUrl()}/careers/${encodeURIComponent(slug)}/poster-content?${query}`
 
-  const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' })
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json', ...(origin ? { Origin: origin } : {}) },
+    cache: 'no-store',
+  })
   const payload = (await response.json().catch(() => null)) as PosterContentResponse | null
 
   if (!response.ok || !payload?.data) {
