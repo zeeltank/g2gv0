@@ -52,12 +52,23 @@ function Wordmark({ content, scale }: { content: PosterContent; scale: Scale }) 
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       {brand.logo && brand.logo_width && brand.logo_height ? (
-        <img
-          src={brand.logo}
-          width={Math.round((brand.logo_width / brand.logo_height) * scale.logo)}
-          height={scale.logo}
-          alt=""
-        />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#ffffff',
+            borderRadius: 14,
+            padding: `${Math.round(scale.logo * 0.18)}px ${Math.round(scale.logo * 0.26)}px`,
+          }}
+        >
+          <img
+            src={brand.logo}
+            width={Math.round((brand.logo_width / brand.logo_height) * scale.logo * 0.78)}
+            height={Math.round(scale.logo * 0.78)}
+            alt=""
+          />
+        </div>
       ) : (
         /*
          * A missing logo is a normal state, not a failure: the organisation may
@@ -102,44 +113,49 @@ function Facts({ facts, scale, palette }: { facts: PosterFact[]; scale: Scale; p
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: scale.gap }}>
-      {facts.map((fact) => (
-        <div
-          key={fact.label}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: palette.blue_soft,
-            borderRadius: 12,
-            padding: `${Math.round(scale.panelPad * 0.42)}px ${Math.round(scale.panelPad * 0.6)}px`,
-            marginRight: 10,
-            marginBottom: 10,
-          }}
-        >
+      {facts.map((fact) => {
+        // The two a candidate looks for first.
+        const lead = fact.label === 'Salary' || fact.label === 'Apply by'
+
+        return (
           <div
+            key={fact.label}
             style={{
               display: 'flex',
-              fontSize: scale.label,
-              letterSpacing: 1.1,
-              textTransform: 'uppercase',
-              color: palette.muted,
-              fontWeight: 700,
+              flexDirection: 'column',
+              backgroundColor: lead ? palette.navy : palette.blue_soft,
+              borderRadius: 12,
+              padding: `${Math.round(scale.panelPad * 0.4)}px ${Math.round(scale.panelPad * 0.58)}px`,
+              marginRight: 9,
+              marginBottom: 9,
             }}
           >
-            {fact.label}
+            <div
+              style={{
+                display: 'flex',
+                fontSize: scale.label,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+                color: lead ? '#8fb0ee' : palette.muted,
+                fontWeight: 700,
+              }}
+            >
+              {fact.label}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                fontSize: scale.chip,
+                color: lead ? '#ffffff' : palette.navy,
+                fontWeight: 700,
+                marginTop: 3,
+              }}
+            >
+              {fact.value}
+            </div>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              fontSize: scale.chip,
-              color: palette.navy,
-              fontWeight: 700,
-              marginTop: 4,
-            }}
-          >
-            {fact.value}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -162,16 +178,34 @@ function Panel({
     <div
       style={{
         display: 'flex',
-        flexDirection: 'column',
         flexGrow: grow ? 1 : 0,
         flexBasis: 'auto',
-        backgroundColor: primary ? palette.blue_soft : palette.green_soft,
-        borderRadius: 18,
-        borderLeft: `6px solid ${accent}`,
-        padding: scale.panelPad,
         marginBottom: Math.round(scale.gap * 0.75),
       }}
     >
+      {/* The accent rule, as an element rather than a border: Satori curves a
+          border along the corner radius, which drew it as a crescent floating
+          beside the panel instead of an edge belonging to it. */}
+      <div
+        style={{
+          display: 'flex',
+          width: 7,
+          backgroundColor: accent,
+          borderTopLeftRadius: 18,
+          borderBottomLeftRadius: 18,
+        }}
+      />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flexGrow: 1,
+          backgroundColor: primary ? palette.blue_soft : palette.green_soft,
+          borderTopRightRadius: 18,
+          borderBottomRightRadius: 18,
+          padding: scale.panelPad,
+        }}
+      >
       <div
         style={{
           display: 'flex',
@@ -208,8 +242,19 @@ function Panel({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {panel.items.map((item) => (
-            <div key={item} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div style={{ display: 'flex', color: accent, fontWeight: 700, fontSize: scale.body, marginRight: 12 }}>
+            <div key={item} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 11 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  color: accent,
+                  fontWeight: 700,
+                  fontSize: Math.round(scale.body * 0.86),
+                  lineHeight: 1.4,
+                  // Optical nudge: the tick's ink sits high in its em box.
+                  marginTop: Math.round(scale.body * 0.1),
+                  marginRight: 12,
+                }}
+              >
                 {TICK}
               </div>
               <div style={{ display: 'flex', flexGrow: 1, fontSize: scale.body, color: palette.ink, lineHeight: 1.4 }}>
@@ -219,6 +264,7 @@ function Panel({
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -315,7 +361,8 @@ export function PosterArt({ content }: { content: PosterContent }) {
             fontSize: format.headline_size,
             fontWeight: 700,
             color: '#ffffff',
-            letterSpacing: -1,
+            letterSpacing: Math.round(format.headline_size * -0.022),
+            lineHeight: 1,
             marginTop: Math.round(scale.gap * 0.7),
           }}
         >
@@ -328,9 +375,9 @@ export function PosterArt({ content }: { content: PosterContent }) {
             fontSize: scale.chip,
             letterSpacing: 2.4,
             textTransform: 'uppercase',
-            color: palette.blue_soft,
+            color: '#8fb0ee',
             fontWeight: 700,
-            marginTop: 6,
+            marginTop: 8,
           }}
         >
           {multi ? `${roles.length} open roles` : 'Join our team'}
@@ -353,23 +400,34 @@ export function PosterArt({ content }: { content: PosterContent }) {
         }}
       >
         {multi ? (
-          <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-            {roles.map((each) => (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flexGrow: 1,
+              /*
+               * The CARDS size to their content and the STACK is centred.
+               *
+               * Growing the cards instead - which is what this did first -
+               * gave two roles a 430px card holding 200px of content, so each
+               * one had a band of empty tint above and below it and the poster
+               * read as unfinished. Spare height belongs between the cards as
+               * air, not inside them as a void.
+               */
+              justifyContent: 'center',
+            }}
+          >
+            {roles.map((each, index) => (
               <div
                 key={each.id}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  // Cards share the height: a multi-role poster holds only
-                  // titles and chips, so without this they bunch at the top
-                  // and leave a gap where the reader expects more roles.
-                  flexGrow: 1,
-                  justifyContent: 'center',
                   border: `1px solid ${palette.line}`,
-                  borderLeft: `6px solid ${palette.blue}`,
+                  borderLeft: `7px solid ${palette.blue}`,
                   borderRadius: 16,
-                  padding: scale.panelPad,
-                  marginBottom: scale.gap,
+                  padding: `${Math.round(scale.panelPad * 1.5)}px ${scale.panelPad}px`,
+                  marginBottom: index < roles.length - 1 ? Math.round(scale.gap * 1.4) : 0,
                 }}
               >
                 <RoleHead role={each} scale={scale} palette={palette} />
