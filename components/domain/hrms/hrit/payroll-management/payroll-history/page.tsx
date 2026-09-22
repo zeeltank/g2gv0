@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Download, Printer, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, FileText, Printer, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import {
   downloadCsv,
 } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { usePayrollHistory } from '@/hooks/use-payroll-history'
+import { usePayslipDownload } from '@/hooks/use-payslip-download'
 
 /**
  * Employee Payroll History.
@@ -79,6 +80,13 @@ export default function PayrollHistoryPage() {
 
   const hasRows = people.some((person) => person.months.length > 0)
 
+  /*
+   * F-209. This screen already holds every month of an employee's pay and
+   * the components behind it, and offered no way to get the document that
+   * states them. One row, one payslip.
+   */
+  const payslip = usePayslipDownload()
+
   return (
     <PayrollPageShell
       title="Employee Payroll History"
@@ -142,6 +150,19 @@ export default function PayrollHistoryPage() {
           </p>
         )}
       </div>
+
+      {/* Its own line: a payslip that would not build says nothing about
+          whether the year's history loaded. */}
+      {payslip.error && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{payslip.error}</span>
+            <Button variant="ghost" size="sm" onClick={payslip.clearError}>
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error ? (
         <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-6 py-12 text-center">
@@ -230,6 +251,7 @@ export default function PayrollHistoryPage() {
                       <th scope="col" className="px-4 py-3 text-right font-semibold">Days</th>
                       <th scope="col" className="px-4 py-3 text-right font-semibold">Deductions</th>
                       <th scope="col" className="px-4 py-3 text-right font-semibold">Net Pay</th>
+                      <th scope="col" className="px-4 py-3 text-right font-semibold">Payslip</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -272,6 +294,27 @@ export default function PayrollHistoryPage() {
                             {money.format(month.totalPayment)}
                             {!reconciles && <span aria-hidden="true"> *</span>}
                           </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              aria-label={`Download the ${month.month} ${month.year} payslip for ${person.employeeName}`}
+                              title={`Download the ${month.month} ${month.year} payslip`}
+                              disabled={payslip.busy || !person.employeeId}
+                              onClick={() =>
+                                payslip.download({
+                                  employeeId: person.employeeId,
+                                  employeeName: person.employeeName,
+                                  employeeNo: person.employeeNo,
+                                  month: month.month,
+                                  year: month.year,
+                                })
+                              }
+                            >
+                              <FileText className="size-4" />
+                            </Button>
+                          </td>
                         </tr>
                       )
                     })}
@@ -296,6 +339,8 @@ export default function PayrollHistoryPage() {
                       <td className="px-4 py-3 text-right text-base font-bold tabular-nums">
                         {money.format(person.months.reduce((sum, m) => sum + m.totalPayment, 0))}
                       </td>
+                      {/* the Payslip column */}
+                      <td className="px-4 py-3" />
                     </tr>
                   </tfoot>
                 </table>

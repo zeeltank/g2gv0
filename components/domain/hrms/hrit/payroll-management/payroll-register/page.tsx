@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Download, Printer, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, FileText, Printer, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import {
   downloadCsv,
 } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { usePayrollRegister } from '@/hooks/use-payroll-reports'
+import { usePayslipDownload } from '@/hooks/use-payslip-download'
 
 /**
  * Payroll Register.
@@ -50,6 +51,13 @@ export default function PayrollRegisterPage() {
   )
 
   const dirty = loadedFor !== null && (loadedFor.month !== month || loadedFor.year !== year)
+
+  /*
+   * F-209. This is the screen HR reads a month's pay on, and until now it
+   * offered CSV and print but no payslip - the one document an employee
+   * ever asks for. The row already knows the employee and the period.
+   */
+  const payslip = usePayslipDownload()
 
   const exportCsv = () => {
     if (!loadedFor) return
@@ -136,6 +144,19 @@ export default function PayrollRegisterPage() {
         )}
       </div>
 
+      {/* A payslip that would not build says nothing about whether the register
+          loaded, so it gets its own line rather than replacing the table. */}
+      {payslip.error && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{payslip.error}</span>
+            <Button variant="ghost" size="sm" onClick={payslip.clearError}>
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error ? (
         <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-6 py-12 text-center">
           <AlertTriangle className="mb-4 size-10 text-destructive" aria-hidden="true" />
@@ -192,6 +213,7 @@ export default function PayrollRegisterPage() {
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Absent</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Deductions</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Net Pay</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Payslip</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,6 +252,27 @@ export default function PayrollRegisterPage() {
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">
                         {money.format(row.netPay)}
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          aria-label={`Download payslip for ${row.name}`}
+                          title={`Download payslip for ${row.name}`}
+                          disabled={payslip.busy}
+                          onClick={() =>
+                            payslip.download({
+                              employeeId: row.employeeId,
+                              employeeName: row.name,
+                              employeeNo: row.employeeNo,
+                              month: loadedFor?.month ?? '',
+                              year: loadedFor?.year ?? '',
+                            })
+                          }
+                        >
+                          <FileText className="size-4" />
+                        </Button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -248,6 +291,8 @@ export default function PayrollRegisterPage() {
                   <td className="px-4 py-3 text-right text-base font-bold tabular-nums">
                     {money.format(totals.net)}
                   </td>
+                  {/* the Payslip column */}
+                  <td className="px-4 py-3" />
                 </tr>
               </tfoot>
             </table>

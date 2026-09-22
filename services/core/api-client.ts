@@ -178,6 +178,45 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET', params, ...options })
   }
 
+  /**
+   * A file, not a JSON envelope.
+   *
+   * F-209. The payslip route is `auth:sanctum`, so the browser cannot reach it
+   * by navigation: an `<a href>` sends no Authorization header, and Laravel
+   * answered 302 to /login. That redirect - not a payslip - is what every
+   * employee got when they pressed Download on My HR.
+   *
+   * Appending `?token=` to the URL would also work, and is what the legacy
+   * payroll routes still do. It is not done here: it would put a live
+   * credential into browser history, access logs and Referer headers, which is
+   * precisely what authHeader() above exists to stop. So the file is fetched
+   * with the header and handed to the browser as a blob instead.
+   *
+   * Failures still arrive as JSON - 404 "You have no payslip for that month",
+   * 409 "there is no salary structure on record for you" - so the same error
+   * builder runs and the caller gets the server's own sentence rather than a
+   * status code.
+   */
+  async getBlob(endpoint: string, params?: Record<string, string>): Promise<Blob> {
+    /*
+     * An absolute URL is passed through untouched. The payslip's is built by
+     * the server and handed to the client in the payslip row, so the client
+     * never assembles one - it cannot name a month, or a person, it was not
+     * given. Relative endpoints resolve against the API base as usual.
+     */
+    let url = /^https?:\/\//.test(endpoint) ? endpoint : `${this.baseUrl}${endpoint}`
+    if (params) url += `?${new URLSearchParams(params).toString()}`
+
+    const response = await fetch(url, {
+      // Accept both: a success is the file, a failure is JSON.
+      headers: { Accept: 'application/pdf, application/json', ...authHeader() },
+    })
+
+    if (!response.ok) throw await buildApiError(response)
+
+    return response.blob()
+  }
+
   async post<T>(endpoint: string, body: unknown, options?: MutationOptions): Promise<T> {
     return this.request<T>(endpoint, { method: 'POST', body, ...options })
   }

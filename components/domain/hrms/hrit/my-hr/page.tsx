@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, CalendarDays, Clock, Download, FileText, Wallet } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Clock, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -12,6 +12,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { myHrService, type MyHrSummary, type MyPayslip } from '@/services/hrms/my-hr'
+import { MyPayBreakdown } from './components/MyPayBreakdown'
+import { MyDocuments } from './components/MyDocuments'
 
 /**
  * My HR — the employee's own view of themselves. F-130.
@@ -127,12 +129,29 @@ export default function MyHrPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">My HR</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your leave, your attendance and your payslips — for the {summary?.year}–
-          {(summary?.year ?? 0) + 1} leave year.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">My HR</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your leave, your pay and your documents — for the {summary?.year}–
+            {(summary?.year ?? 0) + 1} leave year.
+          </p>
+        </div>
+        {/*
+          The hub links out rather than reimplementing. Attendance Tracking is
+          already a good screen with punch in/out and the employee's own history;
+          a second, thinner copy of it here would be the worse kind of "rich".
+        */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            router.push('/module/hrit-solutions/attendance-management/attendance-tracking')
+          }
+        >
+          <Clock className="mr-2 size-4" />
+          My attendance
+        </Button>
       </header>
 
       {/* The three numbers somebody opens this page to see. */}
@@ -293,71 +312,29 @@ export default function MyHrPage() {
         </CardContent>
       </Card>
 
-      {/* THE ONE AN EMPLOYEE COULD NOT REACH AT ALL BEFORE THIS SPRINT. */}
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-bold">My payslips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {payslipError ? (
-            // F-188. A failure to load is not a statement about your pay.
-            <ErrorState
-              title="Unable to load your payslips"
-              description={`${payslipError} This is a problem fetching them, not a sign that none exist.`}
-              retry={load}
-            />
-          ) : payslips.length === 0 ? (
-            <EmptyState
-              icon={<FileText className="size-10" />}
-              title="No payslips yet"
-              description="Payslips appear here once your organisation has run payroll for a month you were employed in."
-            />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {payslips.map((payslip) => (
-                <div
-                  key={payslip.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground">
-                      {payslip.month} {payslip.year}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-                      Gross ₹{money(payslip.gross)} · Deductions ₹{money(payslip.deductions)} ·{' '}
-                      <span className="font-semibold text-foreground">
-                        Net ₹{money(payslip.net)}
-                      </span>
-                    </p>
-                  </div>
-                  <Button size="sm" variant="outline" asChild>
-                    {/* A plain link to the server-built URL. The browser never
-                        assembles one, so it cannot assemble somebody else's. */}
-                    <a href={payslip.pdf_url} target="_blank" rel="noreferrer">
-                      <Download className="mr-2 size-4" />
-                      Payslip
-                    </a>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/*
+        F-209. The flat payslip list this replaces showed a month, a gross and
+        a net behind a Download button that answered 302 to /login. MyPayBreakdown
+        fetches the PDF with the token, and opens each month to show the pay
+        heads the figure is actually made of - which lived only on the HR
+        console until now.
+      */}
+      <MyPayBreakdown
+        context={getLaravelContext(user)}
+        payslips={payslips}
+        payslipError={payslipError}
+        onRetry={load}
+      />
 
       {/*
-        Say WHY the certificate is unavailable rather than offering a button
-        that refuses. A salary certificate is built from the salary structure,
-        and for two years an employee without one got a stack trace (F-110).
+        The two documents an employee previously had to ask HR for - and that
+        HR could not produce either, because both screens were broken.
       */}
-      {summary && summary.salary_structure_years.length === 0 && (
-        <Alert>
-          <AlertDescription>
-            A salary certificate can only be issued for a year you have a salary structure on
-            record for, and you have none yet. Ask HR to add one under Salary Structure.
-          </AlertDescription>
-        </Alert>
-      )}
+      <MyDocuments
+        context={getLaravelContext(user)}
+        years={summary?.salary_structure_years ?? []}
+      />
+
     </div>
   )
 }
