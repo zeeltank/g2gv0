@@ -15,6 +15,7 @@ import type { InterviewApi, InterviewPanelApi, JobPostingApi, OfferTemplateApi, 
 import { JobPostingForm } from './job-posting-form'
 import { CandidateApplicationForm } from './candidate-application-form'
 import { isHrAdmin } from '@/types/role'
+import { PosterMenu } from './poster-menu'
 
 export type RecruitmentAction = 'job' | 'job-edit' | 'job-view' | 'candidate' | 'interview' | 'interview-edit' | 'offer' | 'offer-view'
 
@@ -46,6 +47,10 @@ function JobOpeningDetails({ job, canEdit, onEdit }: { job: JobPostingApi; canEd
         <Badge variant="outline">{job.employment_type}</Badge>
         {job.priority_level && <Badge variant="outline">{job.priority_level} priority</Badge>}
         {canEdit && onEdit && <Button size="sm" onClick={onEdit}><Pencil className="size-4" />Edit</Button>}
+        {/* Beside Edit, because "we just opened this role" and "advertise it"
+            are the same moment. Renders nothing when the organisation has no
+            careers page to link to. */}
+        <PosterMenu ids={[Number(job.id)]} published={status === 'Open'} />
       </div>
     </div>
     <section className="rounded-xl border p-4"><h4 className="mb-4 font-semibold">Job Information</h4><div className="grid gap-5 sm:grid-cols-2"><DetailField label="Department" value={job.department_name ?? job.department_id} /><DetailField label="Location" value={job.location} /><DetailField label="Employment Type" value={job.employment_type} /><DetailField label="Number of Positions" value={job.positions} /><DetailField label="Experience" value={job.experience} /><DetailField label="Education" value={job.education} /></div></section>

@@ -35,8 +35,49 @@ export type LaravelOrgDetail = {
 
 export type LaravelSisterOrg = Omit<LaravelOrgDetail, 'sisters_org' | 'sistersOrg'>
 
+/**
+ * An organisation's own identity, from `school_setup` - the table that has a row
+ * for every tenant.
+ *
+ * Three tables describe an organisation and they disagree about how many exist:
+ * `school_setup` 12 rows on live, `org_details` 4, `institute_detail` 5. So the
+ * logo and name cannot be read from `org_details` - for eight of twelve tenants it
+ * is absent, which is why the organisation screen showed a monogram where a logo
+ * had been uploaded.
+ *
+ * `logo_url` is built by the server, so the screen never has to know which bucket
+ * or folder the file lives in.
+ */
+export type OrganizationIdentity = {
+  name: string | null
+  short_code: string | null
+  logo: string | null
+  logo_url: string | null
+  contact_person: string | null
+  mobile: string | null
+  email: string | null
+  institute_type: string | null
+  /**
+   * The public careers address: /careers/{slug}.
+   *
+   * NULL for a tenant with no `institute_detail` row, which is most of them -
+   * that table has 5 rows against `school_setup`'s 12. A null slug means the
+   * organisation has no careers page at all, so anything that would build a
+   * URL from it must treat the feature as unavailable rather than produce a
+   * link that 404s.
+   */
+  careers_slug: string | null
+}
+
 export type OrganizationProfileResponse = {
+  /*
+   * Kept as an array of one, which is the shape the web route returned and the
+   * shape the screen already destructures. The API answers with a single object;
+   * the service wraps it rather than making every consumer change at once.
+   */
   org_data?: LaravelOrgDetail[]
+  /** Absent only if the server predates this field. */
+  identity?: OrganizationIdentity
 }
 
 /**
@@ -275,8 +316,51 @@ async function ensureLaravelSuccess<T extends LaravelStatusResponse>(request: Pr
 }
 
 export const organizationService = {
-  getOrganizationProfile: (context: LaravelContext) =>
-    webClient.get<OrganizationProfileResponse>('/settings/organization_data', withLaravelParams(context)),
+  /**
+   * The organisation's profile, from the API.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THIS USED TO CALL A ROUTE THIS APP CANNOT AUTHENTICATE AGAINST
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * It was `webClient.get('/settings/organization_data')` - a Laravel WEB route
+   * behind `['auth','session','menu']`, which needs the ERP's browser session
+   * cookie. The Next.js app authenticates with a Sanctum token and has no such
+   * session, so this call depended on a cookie that may or may not be there.
+   *
+   * `GET /api/organization/profile` is the token-authenticated replacement. It has
+   * existed and been role-gated since the organisation audit, and until now
+   * nothing called it.
+   *
+   * ── THE RESPONSE IS RESHAPED HERE, NOT IN THE SCREEN ────────────────────────
+   *
+   * The API answers `{ data: { profile, sister_companies, identity } }`; the screen
+   * reads `org_data[0]`. Mapping in the service keeps the switch to one file
+   * instead of rewriting every consumer, and `sister_companies` is folded onto the
+   * profile under the name the screen already looks for.
+   */
+  getOrganizationProfile: async (context: LaravelContext): Promise<OrganizationProfileResponse> => {
+    const response = await apiClient.get<{
+      status: boolean
+      data: {
+        profile: LaravelOrgDetail | null
+        sister_companies?: LaravelSisterOrg[]
+        identity?: OrganizationIdentity
+      }
+    }>('/organization/profile', withLaravelParams(context))
+
+    const profile = response.data?.profile ?? null
+
+    return {
+      // An empty array when there is no statutory record yet - which is the case
+      // for eight of twelve live organisations. `org_data?.[0]` is then undefined,
+      // exactly as it was when the web route returned nothing.
+      org_data: profile
+        ? [{ ...profile, sisters_org: response.data?.sister_companies ?? [] }]
+        : [],
+      identity: response.data?.identity,
+    }
+  },
 
   saveOrganizationProfile: (context: LaravelContext, data: Record<string, string | File | undefined>) => {
     const formData = new FormData()

@@ -56,6 +56,14 @@ type OrganizationData = {
 
 interface OrganizationInformationEditPanelProps {
   data: OrganizationData
+  /**
+   * The logo already stored, so the editor shows what is there rather than a
+   * monogram beside a button reading "Upload New Logo".
+   *
+   * Optional: a caller that does not know (or an organisation with no logo) gets
+   * the monogram, which is the correct fallback either way.
+   */
+  storedLogoUrl?: string | null
   onCancel: () => void
   onSave: (data: OrganizationData & { logoFile?: File }) => void
 }
@@ -75,6 +83,7 @@ function ReadField({ label, value }: { label: string; value: ReactNode }) {
 
 export function OrganizationInformationEditPanel({
   data,
+  storedLogoUrl,
   onCancel,
   onSave,
 }: OrganizationInformationEditPanelProps) {
@@ -180,6 +189,22 @@ export function OrganizationInformationEditPanel({
                 src={logoPreview}
                 alt=""
                 className="size-28 rounded-2xl border border-border object-cover shadow-md"
+              />
+            ) : storedLogoUrl ? (
+              /*
+               * THE LOGO ALREADY SAVED, which this panel never showed.
+               *
+               * Opening the editor rendered the monogram whether or not a logo was
+               * stored, so somebody editing their address had no way to tell
+               * whether a logo existed - and "Upload New Logo" beside a monogram
+               * reads as "there is none". Three states now, in order of what the
+               * person most recently expressed: the file they just picked, the file
+               * that is saved, then the fallback.
+               */
+              <img
+                src={storedLogoUrl}
+                alt=""
+                className="size-28 rounded-2xl border border-border bg-card object-contain shadow-md"
               />
             ) : (
               <div

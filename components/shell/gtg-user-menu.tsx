@@ -159,7 +159,7 @@ export function GtgUserMenu() {
   const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
 
   const items = [
-    { id: 'profile', label: 'My Profile', icon: User, href: '/profile' },
+    { id: 'profile', label: 'My Profile', icon: User, href: '/settings?s=profile' },
     { id: 'settings', label: 'Account Settings', icon: Settings, href: '/settings' },
     ...(isPlatformOwner
       ? [
@@ -299,7 +299,24 @@ export function GtgUserMenu() {
               role="menuitem"
               onClick={() => {
                 logout()
-                router.push('/login')
+
+                /*
+                 * A HARD NAVIGATION, NOT `router.push`.
+                 *
+                 * `router.push` is a client-side route change: the root layout is
+                 * never unmounted, so every provider above the router keeps its
+                 * state. That is what let one person's cached `/account/me`
+                 * payload survive into the next person's session and show their
+                 * name and photo on somebody else's profile.
+                 *
+                 * `PreferencesProvider` now resets on a session change and would
+                 * handle this on its own. This stays as well, deliberately: it
+                 * guarantees that NOTHING in memory survives a sign-out, including
+                 * state in some provider nobody thought to reset. Belt and braces
+                 * on the one action where leaking across users matters most, and
+                 * the cost is a page load somebody is leaving anyway.
+                 */
+                window.location.assign('/login')
               }}
               className="flex w-full items-center gap-2.5 rounded-md bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition-colors duration-200 outline-none hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-ring"
             >

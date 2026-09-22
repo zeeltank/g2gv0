@@ -69,12 +69,81 @@ export function readLaravelSession(): LaravelSessionData | null {
 export function saveLaravelSession(data: LaravelSessionData) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(LARAVEL_SESSION_KEY, JSON.stringify(data))
+  announceSessionChange()
 }
 
 export function clearLaravelSession() {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(LARAVEL_SESSION_KEY)
   window.sessionStorage.removeItem(LARAVEL_SESSION_KEY)
+  announceSessionChange()
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   WHO IS SIGNED IN, AND TELLING THE APP WHEN THAT CHANGES
+   ══════════════════════════════════════════════════════════════════════════
+
+   This exists because of a real bug on live: somebody edited their profile,
+   signed out, signed in as a colleague, and saw their OWN details on the
+   colleague's profile screen.
+
+   Nothing on the server was wrong — the correct row was written, and
+   `/account/me` returns the right answer for each token. The leak was entirely
+   in the browser: `PreferencesProvider` fetched `/account/me` once per PAGE LOAD
+   and kept it in React state, while sign-out and sign-in are both `router.push`,
+   which never reloads. So one person's payload outlived their session.
+
+   The provider sits ABOVE `AuthProvider` in `app/layout.tsx`, so it cannot watch
+   the auth context. It has to learn about a user change from the place the change
+   actually happens — here, where the session is written and cleared.
+
+   ── WHY AN EVENT AND NOT THE `storage` EVENT ALONE ────────────────────────
+
+   `storage` fires only in OTHER tabs, never in the tab that did the writing, so
+   on its own it would miss every sign-in and sign-out. Both are subscribed to
+   below: the custom event covers this tab, `storage` covers the others — so
+   signing out in one tab also drops the cached account in the rest. */
+
+const SESSION_CHANGED_EVENT = 'gtg:laravel-session-changed'
+
+function announceSessionChange() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(SESSION_CHANGED_EVENT))
+}
+
+/**
+ * A stable string naming WHO is signed in, for use as a cache key. Null when
+ * nobody is.
+ *
+ * The token is part of it deliberately, not just the user id: signing in again
+ * mints a new token even for the same person, so a fresh sign-in also invalidates
+ * anything cached against the old one. Keying on the user id alone would let a
+ * stale payload survive a sign-out-and-back-in as yourself.
+ */
+export function laravelSessionIdentity(): string | null {
+  const session = readLaravelSession()
+
+  if (!session) return null
+
+  return `${session.user_id}:${session.token}`
+}
+
+/**
+ * Run `listener` whenever the signed-in user changes. Returns an unsubscribe.
+ *
+ * Safe to call during SSR — it returns a no-op rather than throwing, so a caller
+ * does not need to guard.
+ */
+export function subscribeToLaravelSession(listener: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+
+  window.addEventListener(SESSION_CHANGED_EVENT, listener)
+  window.addEventListener('storage', listener)
+
+  return () => {
+    window.removeEventListener(SESSION_CHANGED_EVENT, listener)
+    window.removeEventListener('storage', listener)
+  }
 }
 
 /**

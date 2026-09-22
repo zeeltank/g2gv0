@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { type Role } from '@/types/role'
-import { clearSidebarFirstOpenExpansion, requestSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
+import { requestSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import {
   clearLaravelSession,
   mapProfileNameToRole,
@@ -11,6 +11,9 @@ import {
   saveLaravelSession,
   type LaravelSessionData,
 } from '@/lib/laravel-session'
+import { clearBrowserStateOnSignOut } from '@/lib/browser-storage'
+import { accountService } from '@/services/account'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   authService,
   isLoginSuccess,
@@ -246,14 +249,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionCookie(newSession)
   }
 
+  /**
+   * Sign out, and leave nothing of this person behind.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * THIS USED TO CLEAR FOUR KEYS OUT OF FOURTEEN
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * The nine it missed were each inherited by whoever signed in next on the same
+   * browser: the theme, the last page visited, saved report filters, hidden
+   * columns, unsaved agent drafts. On a shared machine that is a stream of one
+   * person's choices - and in two cases their unfinished work - leaking to the
+   * next person to sit down.
+   *
+   * `clearBrowserStateOnSignOut()` owns that list now, so a key added anywhere in
+   * the product is cleared here without this function being edited again.
+   *
+   * ── `clearLaravelSession()` STILL RUNS, AND ITS ORDER MATTERS ────────────
+   *
+   * It is what announces the session change, and that is how `PreferencesProvider`
+   * learns to drop the cached `/account/me` payload. It runs before the registry
+   * sweep so the announcement happens while the rest is still being torn down.
+   */
   const logout = () => {
+    /*
+     * TELL THE SERVER FIRST, AND DO NOT WAIT FOR IT.
+     *
+     * Until now this was the whole of signing out: clear the browser. There was no
+     * logout endpoint anywhere in the backend, so the Sanctum token stayed valid for
+     * its full 30-day window - a token recovered from a shared machine was still a
+     * working credential for a person who believed they had signed out.
+     *
+     * Fired before the local teardown, because `params()` needs the token that is
+     * about to be removed. NOT awaited, and the failure is swallowed: somebody
+     * clicking Sign out must end up signed out even with no network. A request that
+     * fails leaves a token alive for up to 30 idle days, which is bad; refusing to
+     * sign somebody out of the browser in front of them is worse.
+     */
+    try {
+      const context = getLaravelContext(null)
+
+      if (isLaravelContextReady(context)) {
+        void accountService.logout(context).catch(() => {
+          // Already leaving. Nothing here can help, and an error on the way out
+          // would be shown to somebody who is no longer looking.
+        })
+      }
+    } catch {
+      // Reading the session can throw where storage is blocked. Sign out anyway.
+    }
+
     setSession({ user: null, isAuthenticated: false, isLoading: false })
-    localStorage.removeItem(SESSION_COOKIE)
-    // Drop the Laravel token/tenant bundle too - otherwise the next visitor on
-    // this browser would keep issuing API calls as the previous user.
-    clearLaravelSession()
-    clearSidebarFirstOpenExpansion()
     clearSessionCookie()
+
+    // Announces the session change; PreferencesProvider is subscribed to it.
+    clearLaravelSession()
+
+    // The whole registry - including `gtg-session` and the sidebar flag this
+    // function used to remove by hand, and the nine it used to forget.
+    clearBrowserStateOnSignOut()
   }
 
   const switchRole = (role: Role) => {

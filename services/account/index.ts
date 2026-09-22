@@ -270,6 +270,32 @@ export const accountService = {
       password_confirmation: confirmation,
     }),
 
+  /**
+   * End this session on the server.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * SIGNING OUT USED TO BE PURELY LOCAL
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * There was no logout endpoint in the backend at all, so "Sign out" cleared
+   * localStorage and nothing else. The Sanctum token stayed valid for its full
+   * 30-day window: anybody who recovered it from a shared machine was still
+   * authenticated as that person.
+   *
+   * Revokes only the calling token. Signing out of a laptop must not sign the same
+   * person out of their phone - that is `endSessions`, a separate action somebody
+   * chooses deliberately.
+   *
+   * ── THE CALLER MUST NOT WAIT ON THIS TO SUCCEED ─────────────────────────────
+   *
+   * A person clicking Sign out has to end up signed out even if the network is
+   * down. So callers fire this and clear local state regardless; see `logout()` in
+   * `gtg-auth.tsx`. Leaving somebody stuck in a session because a request failed
+   * would be a worse outcome than a token that outlives the browser state.
+   */
+  logout: (context: LaravelContext) =>
+    apiClient.post<{ status: boolean; message: string }>('/account/logout', params(context)),
+
   /* ── two-step verification ─────────────────────────────────────────────── */
 
   /**
