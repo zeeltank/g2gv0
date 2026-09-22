@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { LISTABLE_KEYS } from '@/lib/browser-storage'
 import { Bookmark, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog, SectionBlock, SectionEmpty } from './section-primitives'
@@ -38,37 +39,24 @@ type StoredView = {
 }
 
 /**
- * The keys the product actually writes, each with the screen that owns it.
- * Read from the code, not guessed — an entry here that nothing writes would
- * simply never appear.
+ * The keys the product writes, from the one shared registry.
+ *
+ * This was five entries hard-coded here, while `logout()` had its own four inline.
+ * Two lists, neither complete, and nothing to make the next person who adds a
+ * localStorage key update either. `lib/browser-storage.ts` is now the single list,
+ * so what this screen offers to clear and what sign-out actually clears cannot
+ * drift apart again.
+ *
+ * Only the entries with a label appear here: the rest are plumbing (the session
+ * bundle, the device id) that nobody needs to see listed as a "saved view".
  */
-const KNOWN_KEYS: { key: string; label: string; where: string }[] = [
-  {
-    key: 'cm-competency-library:saved-views',
-    label: 'Saved views',
-    where: 'Competency library',
-  },
-  {
-    key: 'cm-audit:display-settings',
-    label: 'Display settings',
-    where: 'Competency audit',
-  },
-  {
-    key: 'hrit.leave-reports.saved',
-    label: 'Saved reports',
-    where: 'Leave reports',
-  },
-  {
-    key: 'hrit.leave-requests.hidden-columns',
-    label: 'Hidden columns',
-    where: 'Leave requests',
-  },
-  {
-    key: 'task-assign:last-used',
-    label: 'Last used department and role',
-    where: 'Assign a task',
-  },
-]
+const KNOWN_KEYS: { key: string; label: string; where: string }[] = LISTABLE_KEYS.map(
+  (entry) => ({
+    key: entry.key,
+    label: entry.label ?? entry.key,
+    where: entry.where ?? '',
+  }),
+)
 
 export function SavedViewsSection() {
   const [views, setViews] = useState<StoredView[]>([])

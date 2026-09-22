@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { laravelSessionIdentity, subscribeToLaravelSession } from '@/lib/laravel-session'
 import {
   accountService,
   type AccountMe,
@@ -151,6 +152,67 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * WHOSE ACCOUNT THIS IS — AND THE BUG THAT EXISTED WITHOUT IT
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Reported on live: somebody edited their profile, signed out, signed in as a
+   * colleague, and the colleague's profile screen showed the FIRST person's
+   * details.
+   *
+   * The server was innocent — the right row was written, and `/account/me`
+   * answers correctly per token. The fault was here. The fetch below used to
+   * depend on `[setTheme]`, which is stable, so it ran EXACTLY ONCE PER FULL PAGE
+   * LOAD. Sign-out and sign-in are both `router.push`, which never reloads, and
+   * this provider is mounted in the root layout, which never unmounts. So one
+   * person's payload stayed in memory for the whole of the next person's session.
+   *
+   * The tell was that opening `/settings?s=profile` as a URL showed the CORRECT
+   * data while clicking through to `/profile` showed the wrong data — the first
+   * forces a page load, the second does not.
+   *
+   * `identity` is the token-derived key, so the fetch now follows the USER rather
+   * than the page load. Starts null and is filled in after mount, matching
+   * `gtg-auth.tsx`: reading localStorage during render would differ between server
+   * and client and break hydration.
+   */
+  const [identity, setIdentity] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Deferred for the same reason the fetch below is: never part of the mount
+    // render, so this cannot cascade into a second render before paint.
+    const sync = () => queueMicrotask(() => setIdentity(laravelSessionIdentity()))
+
+    sync()
+
+    return subscribeToLaravelSession(sync)
+  }, [])
+
+  /*
+   * DROP THE PREVIOUS USER'S DATA IN THE SAME RENDER THAT NOTICES THE CHANGE.
+   *
+   * A render-phase adjustment rather than an effect, and the difference matters:
+   * an effect runs AFTER the children have already rendered, so there would be
+   * one frame in which the new user's screen is painted with the old user's name
+   * and photo. React re-renders immediately on a state change during render, so
+   * nothing stale is ever committed.
+   *
+   * `loaded` going false is the important half — every consumer treats it as
+   * "wait", so screens show their skeletons instead of confidently displaying
+   * somebody else's details while the refetch is in flight.
+   */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+
+  if (identity !== loadedFor) {
+    setLoadedFor(identity)
+    setAccount(null)
+    setProfile(null)
+    setPreferences(DEFAULTS)
+    setLoaded(false)
+    setError(null)
+  }
+
   const apply = useCallback(
     (next: AccountPreferences) => {
       setPreferences(next)
@@ -210,7 +272,11 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     return () => {
       active = false
     }
-  }, [setTheme])
+    // `identity` is what makes this follow the user instead of the page load.
+    // Changing it re-runs the fetch; the cleanup above marks the previous run
+    // inactive, so a slow response for the PREVIOUS user can never land in the
+    // new user's state.
+  }, [identity, setTheme])
 
   const refresh = useCallback(async () => {
     const context = getLaravelContext(null)

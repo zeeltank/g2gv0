@@ -18,7 +18,11 @@ import { SectionCard, ReadField, AccessDenied } from './components'
 import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { organizationService, type LaravelOrgDetail } from '@/services/organization'
+import {
+  organizationService,
+  type LaravelOrgDetail,
+  type OrganizationIdentity,
+} from '@/services/organization'
 
 const LazyOrganizationInformationEditPanel = lazy(() =>
   import('@/domain/organization/organization-information-edit-panel').then((module) => ({
@@ -240,6 +244,17 @@ export function OrganizationInformation({ role }: { role?: Role }) {
   const [editing, setEditing] = useState(false)
   const [orgData, setOrgData] = useState<LaravelOrgDetail>()
   /**
+   * The organisation's identity, from `school_setup` rather than `org_details`.
+   *
+   * Separate state from `orgData` because the two have different lifetimes: every
+   * tenant has an identity, and only four of twelve live organisations have a
+   * statutory record. Folding them together would make "no CIN yet" look like
+   * "no organisation".
+   */
+  const [identity, setIdentity] = useState<OrganizationIdentity>()
+  /** Set when the stored logo will not load, so the monogram takes over. */
+  const [logoBroken, setLogoBroken] = useState(false)
+  /**
    * The organisation's real departments, for the structure preview.
    *
    * That preview rendered the literal list ['Engineering', 'Human Resources',
@@ -259,7 +274,13 @@ export function OrganizationInformation({ role }: { role?: Role }) {
     setIsLoading(true)
     organizationService.getOrganizationProfile(context)
       .then((response) => {
-        if (activeRef.active) setOrgData(response.org_data?.[0])
+        if (!activeRef.active) return
+
+        setOrgData(response.org_data?.[0])
+        setIdentity(response.identity)
+        // A newly loaded logo deserves a fresh attempt; without this, one failed
+        // load would keep the monogram for the rest of the session.
+        setLogoBroken(false)
       })
       .catch((error: Error) => {
         if (activeRef.active) setNotice(error.message)
@@ -400,6 +421,8 @@ export function OrganizationInformation({ role }: { role?: Role }) {
       })
       const refreshed = await organizationService.getOrganizationProfile(context)
       setOrgData(refreshed.org_data?.[0])
+      setIdentity(refreshed.identity)
+      setLogoBroken(false)
       setEditing(false)
       setNotice('Organization profile updated successfully.')
     } catch (error) {
@@ -473,6 +496,8 @@ export function OrganizationInformation({ role }: { role?: Role }) {
 
       const refreshed = await organizationService.getOrganizationProfile(context)
       setOrgData(refreshed.org_data?.[0])
+      setIdentity(refreshed.identity)
+      setLogoBroken(false)
       setAddingSister(false)
       setNotice(`${sister.legal_name} added.`)
     } catch (error) {
@@ -485,8 +510,15 @@ export function OrganizationInformation({ role }: { role?: Role }) {
   if (editing) {
     return (
       <Suspense fallback={<div className="h-[960px] rounded-2xl bg-muted/30" />}>
+        {/*
+          `storedLogoUrl` reads `identity` directly rather than the view's
+          `logoUrl`: that one is suppressed by `logoBroken`, which describes the
+          image on the page behind this panel and says nothing about what the
+          editor should show.
+        */}
         <LazyOrganizationInformationEditPanel
           data={editData}
+          storedLogoUrl={identity?.logo_url ?? null}
           onCancel={() => setEditing(false)}
           onSave={saveOrganization}
         />
@@ -495,6 +527,13 @@ export function OrganizationInformation({ role }: { role?: Role }) {
   }
 
   const canEdit = access === 'full'
+  /*
+   * `identity` comes from `school_setup`, which has a row for every tenant, and
+   * falls back to `org_details.logo` server-side. Reading it from `org_details`
+   * here instead would show nothing for the eight of twelve live organisations
+   * that have no statutory record yet.
+   */
+  const logoUrl = logoBroken ? null : (identity?.logo_url ?? null)
   const sisters = orgData?.sistersOrg ?? orgData?.sisters_org ?? []
   // Up to three initials from the organisation's own name.
   const initials = org.name
@@ -568,17 +607,43 @@ export function OrganizationInformation({ role }: { role?: Role }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard title="Company Logo" className="lg:col-span-1">
           <div className="flex flex-col items-center gap-4">
-            <div
-              className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
-              aria-hidden="true"
-            >
-              {/*
-                * The organisation's own initials. This was the literal string
-                * "GTG" for every tenant on the platform, so every customer's
-                * profile page was badged with our company's monogram.
-                */}
-              {initials || '—'}
-            </div>
+            {/*
+              ══════════════════════════════════════════════════════════════════
+              THE LOGO, WHICH WAS UPLOADED AND THEN NEVER SHOWN
+              ══════════════════════════════════════════════════════════════════
+
+              This card was titled "Company Logo" and rendered a monogram — no
+              `<img>` anywhere on the screen. An organisation could upload its logo,
+              the file reached the object store, the filename was written to two
+              database columns, and the only place it was ever read was a PDF
+              certificate. So every customer saw a coloured square of initials on a
+              card promising their logo.
+
+              The monogram is still the fallback, and a good one: it is derived from
+              the organisation's OWN name, so it is never another company's mark.
+              (It used to be the literal string "GTG" for all twelve tenants.)
+            */}
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={`${org.name} logo`}
+                className="size-28 rounded-2xl bg-card object-contain shadow-md"
+                /*
+                 * A broken URL falls back to the monogram rather than leaving the
+                 * browser's broken-image icon on a customer's profile page. The
+                 * file lives on an object store this app does not control, so a
+                 * missing object is a real possibility, not a hypothetical.
+                 */
+                onError={() => setLogoBroken(true)}
+              />
+            ) : (
+              <div
+                className="flex size-28 items-center justify-center rounded-2xl bg-primary text-3xl font-bold text-primary-foreground shadow-md"
+                aria-hidden="true"
+              >
+                {initials || '—'}
+              </div>
+            )}
             <div className="flex w-full flex-col gap-3 pt-2">
               {/*
                 * "Founded" is gone. org_details has no such column, so that

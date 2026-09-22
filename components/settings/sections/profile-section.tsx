@@ -10,10 +10,13 @@ import { Select } from '@/components/ui/select'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import type { useAccount } from '@/hooks/use-account'
-import { accountService, type AccountProfile } from '@/services/account'
+import { accountService, type AccountPreferences, type AccountProfile } from '@/services/account'
 import { apiClient } from '@/services/core'
 import { ProfilePhotoPicker } from '@/components/settings/profile-photo-picker'
 import { useAppPreferences } from '@/components/providers/preferences-provider'
+import { useEmployeeProfile } from '@/hooks/use-employee-profile'
+import type { Profile } from '@/types/profile'
+import { BankCard } from '@/components/profile/cards/bank-card'
 import { Field, SaveButton, SectionBlock, SectionHint } from './section-primitives'
 
 /**
@@ -45,6 +48,34 @@ export function ProfileSection({
   const resolveContext = useLaravelContext()
   // So a new photo reaches the header immediately, not on the next page load.
   const { refresh: refreshAccount } = useAppPreferences()
+  /*
+   * The bank details, for the read-only block at the foot of this section.
+   *
+   * A second fetch, deliberately: this is HRMS data `/account/me` does not carry,
+   * and the hook re-runs when the signed-in user changes - which is what keeps this
+   * block honest across a sign-out, the bug this release is about.
+   *
+   * Only the four fields `BankCard` actually reads are mapped. The dashboard builds
+   * a full 40-line `Profile` literal; copying that here would be two mappings of one
+   * response, drifting from the day it was written - which is the shape of the
+   * two-profile problem this change exists to end.
+   */
+  const { profile: employeeRecord } = useEmployeeProfile()
+
+  const bankProfile = employeeRecord
+    ? ({
+        bankDetails: {
+          bankName: employeeRecord.bank_name ?? '',
+          branchName: employeeRecord.branch_name ?? '',
+          accountNumber: employeeRecord.account_no ?? '',
+          ifscCode: employeeRecord.ifsc_code ?? '',
+          // Neither is in the response. Blank renders an em dash; inventing a
+          // value is what the removed fixture did.
+          amount: '',
+          transferType: '',
+        },
+      } as Profile)
+    : null
 
   const [form, setForm] = useState<Partial<AccountProfile>>({})
   const [saving, setSaving] = useState(false)
@@ -158,6 +189,35 @@ export function ProfileSection({
   const preferences = account.preferences
 
   /*
+   * AND THE SAME FOR THE THREE IDENTITY FIELDS, WHICH WERE UNCONTROLLED.
+   *
+   * These were `defaultValue={preferences?.display_name}` and friends. An
+   * uncontrolled input reads its default ONCE, at mount — so when the signed-in
+   * user changed and `preferences` was replaced, these three kept showing the
+   * previous person's display name, pronouns and about text until something
+   * happened to remount them.
+   *
+   * That was the second half of the profile-bleed bug on live, independent of the
+   * provider: even after the provider was fixed to refetch per user, these would
+   * still have shown the wrong name.
+   *
+   * They save on BLUR rather than on change (a single value with nothing to leave
+   * half-finished, unlike the name-and-address record above), so they need local
+   * state to be controlled at all — hence the same render-phase sync as the form.
+   */
+  const [identity, setIdentity] = useState({ display_name: '', pronouns: '', about: '' })
+  const [identityFrom, setIdentityFrom] = useState<AccountPreferences | null>(null)
+
+  if (preferences && preferences !== identityFrom) {
+    setIdentityFrom(preferences)
+    setIdentity({
+      display_name: preferences.display_name ?? '',
+      pronouns: preferences.pronouns ?? '',
+      about: preferences.about ?? '',
+    })
+  }
+
+  /*
    * Save one identity or visibility preference immediately.
    *
    * ── WHY THESE DO NOT JOIN THE FORM'S DRAFT ────────────────────────────────
@@ -208,9 +268,25 @@ export function ProfileSection({
         body.append('token', context.token)
         body.append('image', photo.file)
 
+        /*
+         * ONLY THE FIELDS THAT CHANGED — same rule as the JSON path below.
+         *
+         * This used to append EVERY editable field unconditionally, and that was a
+         * cross-user write waiting to happen. The form is seeded from the cached
+         * account payload; while that cache could belong to a previously
+         * signed-in user (the bug this release fixes), uploading a photo would
+         * have written THAT person's mobile, gender, birthdate and full home
+         * address onto this person's row. A photo upload silently carrying
+         * somebody else's address is far worse than showing it.
+         *
+         * The provider fix stops the form being seeded wrongly in the first place.
+         * This makes the write safe even if it ever is again: a field the person
+         * did not touch is not sent, so there is nothing to overwrite with.
+         */
         for (const field of EDITABLE) {
-          const value = form[field]
-          if (value !== null && value !== undefined) body.append(field, String(value))
+          if ((form[field] ?? '') === (profile?.[field] ?? '')) continue
+
+          body.append(field, String(form[field] ?? ''))
         }
 
         const response = await apiClient.putForm<{
@@ -357,7 +433,8 @@ export function ProfileSection({
             hint="What colleagues see. Leave it empty to use your real name."
           >
             <Input
-              defaultValue={preferences?.display_name ?? ''}
+              value={identity.display_name}
+              onChange={(e) => setIdentity((c) => ({ ...c, display_name: e.target.value }))}
               placeholder={[profile.first_name, profile.last_name].filter(Boolean).join(' ')}
               maxLength={60}
               onBlur={(e) => saveIdentity('display_name', e.target.value)}
@@ -366,7 +443,8 @@ export function ProfileSection({
 
           <Field label="Pronouns" hint="For example she/her, he/him, they/them.">
             <Input
-              defaultValue={preferences?.pronouns ?? ''}
+              value={identity.pronouns}
+              onChange={(e) => setIdentity((c) => ({ ...c, pronouns: e.target.value }))}
               placeholder="Optional"
               maxLength={30}
               onBlur={(e) => saveIdentity('pronouns', e.target.value)}
@@ -379,7 +457,8 @@ export function ProfileSection({
             hint="A line or two about what you do. Up to 300 characters."
           >
             <Input
-              defaultValue={preferences?.about ?? ''}
+              value={identity.about}
+              onChange={(e) => setIdentity((c) => ({ ...c, about: e.target.value }))}
               placeholder="Optional"
               maxLength={300}
               onBlur={(e) => saveIdentity('about', e.target.value)}
@@ -553,6 +632,47 @@ export function ProfileSection({
         </p>
       </SectionBlock>
 
+
+      {/*
+        ══════════════════════════════════════════════════════════════════════
+        YOUR BANK DETAILS — MOVED HERE FROM THE SECOND PROFILE PAGE
+        ══════════════════════════════════════════════════════════════════════
+
+        This product had TWO profile URLs. `/profile` was entirely read-only and
+        `/settings?s=profile` was the only place anything could be changed, so
+        somebody looking for "my profile" landed on a page that could not edit it and
+        had no way of knowing the other existed. `/profile` now redirects here.
+
+        Of the five cards that page held, FOUR are already covered: personal details
+        and address are the editable fields above, and the job title and department
+        are in the work block. Bank details were the one thing that existed there and
+        nowhere else, so they move rather than being quietly dropped in a redirect.
+
+        ── AND THE TWO CARDS THAT ARE NOT HERE ─────────────────────────────────
+
+        Reporting line and attendance are deliberately NOT moved. In the page that
+        was deleted, both were fed hardcoded empty arrays - `reporting: []`,
+        `attendance: []` - so they rendered an empty state for every person, always,
+        whatever the data said. The data agrees: `reporting_manager_id` is set on
+        0 of 299 live accounts. Carrying them across would have added two permanently
+        blank blocks to this screen. When either gains a real source it belongs here,
+        not on a second page.
+
+        ── STILL READ-ONLY, AND FOR THE SAME REASON AS BEFORE ──────────────────
+
+        This is the employment record, not a setting. The write path is Employee
+        Directory, gated `profile:admin,hr` - somebody changing their own bank
+        account is not a preference change. The card component is reused unchanged,
+        so the wording about who to ask travels with it.
+      */}
+      {bankProfile && (
+        <SectionBlock
+          title="Your bank details"
+          description="Held by HR for payroll. Ask HR if any of it is wrong — it cannot be changed here."
+        >
+          <BankCard profile={bankProfile} />
+        </SectionBlock>
+      )}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
         {attempted && !valid && (
