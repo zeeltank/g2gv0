@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,8 @@ import { KanbanColumn } from './candidate-kanban'
 import { CandidateDetailPanel } from './candidate-detail-panel'
 import { TalentProfileView } from '../profile/talent-profile-view'
 import { RecruitmentActionDrawer, type RecruitmentAction } from './recruitment-action-drawer'
+import { usePosterDownload } from './poster-menu'
+import { POSTER_FORMATS, POSTER_FORMAT_LABELS } from '@/lib/poster'
 import { recruitmentService } from '@/services/talent'
 import { InterviewToolsDrawer } from './interview-tools-drawer'
 import {
@@ -217,6 +220,19 @@ export function RecruitmentCenter() {
   const [selectedInterviewRecord, setSelectedInterviewRecord] = useState<(typeof interviewRecords)[number] | null>(null)
   const [selectedOfferRecord, setSelectedOfferRecord] = useState<(typeof offerRecords)[number] | null>(null)
   const [confirmation, setConfirmation] = useState<{ title: string; description: string; run: () => Promise<unknown> } | null>(null)
+
+  /*
+   * The hiring poster download, shared with the job drawer's own menu so the
+   * fetch, the filename and the error wording exist once rather than twice.
+   *
+   * `posterSlug` is null when the organisation has no careers page - 7 of the
+   * 12 tenants on live - and the menu items are hidden entirely in that case,
+   * because a poster whose Apply link goes nowhere is worse than no poster.
+   */
+  const [posterNotice, setPosterNotice] = useState<{ ok: boolean; message: string } | null>(null)
+  const { slug: posterSlug, busy: posterBusy, download: downloadPoster } = usePosterDownload(
+    (notice) => setPosterNotice(notice),
+  )
   /**
    * The candidate's accept/decline link, after HR issues it.
    *
@@ -988,6 +1004,34 @@ export function RecruitmentCenter() {
                           description: 'Laravel will soft-delete the job and its related applications, interviews, feedback, and offers.',
                           run: async () => { await recruitmentService.deleteJob(job.id); await refresh() },
                         })}>Delete job</DropdownMenuItem>
+
+                        {/*
+                          Flat items rather than a submenu: components/ui does
+                          not export DropdownMenuSubTrigger/SubContent and that
+                          directory must not be edited. Hidden entirely when the
+                          organisation has no careers page, because a poster
+                          whose Apply link goes nowhere is worse than no poster.
+                        */}
+                        {posterSlug && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground">
+                              {job.status === 'Open' ? 'Hiring poster' : 'Publish to make a poster'}
+                            </DropdownMenuLabel>
+                            {POSTER_FORMATS.map((format) => (
+                              <DropdownMenuItem
+                                key={format}
+                                disabled={job.status !== 'Open' || posterBusy !== null}
+                                onSelect={(event) => {
+                                  event.preventDefault()
+                                  void downloadPoster([Number(job.id)], format)
+                                }}
+                              >
+                                {POSTER_FORMAT_LABELS[format]}
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1158,6 +1202,27 @@ export function RecruitmentCenter() {
               setConfirmation(null)
               if (action) void action()
             }}>Confirm</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/*
+        Shown AFTER the file has saved, never instead of it. The usual case is
+        a plain confirmation; the one that matters is a multi-role poster where
+        a role closed between being chosen and the button being pressed - the
+        file is correct without it, but the person has to know which one is
+        missing before they post it.
+      */}
+      <AlertDialog open={Boolean(posterNotice)} onOpenChange={(open) => !open && setPosterNotice(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {posterNotice?.ok ? 'Hiring poster' : 'The poster could not be made'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{posterNotice?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button onClick={() => setPosterNotice(null)}>Close</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

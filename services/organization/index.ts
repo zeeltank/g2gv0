@@ -57,6 +57,16 @@ export type OrganizationIdentity = {
   mobile: string | null
   email: string | null
   institute_type: string | null
+  /**
+   * The public careers address: /careers/{slug}.
+   *
+   * NULL for a tenant with no `institute_detail` row, which is most of them -
+   * that table has 5 rows against `school_setup`'s 12. A null slug means the
+   * organisation has no careers page at all, so anything that would build a
+   * URL from it must treat the feature as unavailable rather than produce a
+   * link that 404s.
+   */
+  careers_slug: string | null
 }
 
 export type OrganizationProfileResponse = {
