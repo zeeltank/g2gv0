@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: var(--font-inter), 'Inter Fallback', sans-serif;
+  --font-sans: var(--font-geist-sans), 'Geist Fallback', sans-serif;
   --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
 
   --color-ring: var(--ring);
@@ -373,25 +373,121 @@
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Login page gradient backgrounds */
-  .g2g-login-gradient {
-    background: linear-gradient(135deg, #f8fbff 0%, #ffffff 45%, #f3f8ff 100%);
-  }
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * SIGN-IN SCREEN
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * Replaces `.g2g-login-gradient`, `.g2g-login-hero-gradient`,
+   * `.g2g-login-card-gradient` and `.g2g-login-progress` above — four
+   * hardcoded light-mode hex gradients with no `.dark` override, so the
+   * signed-out screen was the one surface in the product that stayed light
+   * even when everything around it went dark. Nothing else in the app
+   * referenced those four classes; nothing lost by deleting them outright.
+   *
+   * Nothing here is a gradient. The page ground is `bg-muted` (plain,
+   * already theme-aware), the collage panel is `bg-brand-navy` (already
+   * theme-aware — light `#071943`, dark `#1e40af`), both used directly as
+   * Tailwind utilities in the component with no new class needed. The two
+   * things that DO need a class are below: the diagonal seam, which no
+   * Tailwind utility expresses cleanly, and the collage's slow zoom.
+   */
 
-  .g2g-login-hero-gradient {
-    background: radial-gradient(circle at 70% 24%, rgba(37, 99, 235, 0.16), transparent 31%),
-      linear-gradient(135deg, #ffffff 0%, #eff6ff 52%, #dbeafe 100%);
+  /*
+   * The collage panel's right edge leans forward — narrower at the top than
+   * the bottom — rather than running the panel/form seam as a straight
+   * vertical line, which is the "50/50 split" look this build was
+   * specifically asked to avoid. A fixed pixel inset, not a percentage, so
+   * the lean's angle stays visually consistent regardless of the panel's
+   * rendered height instead of going shallower on a tall viewport.
+   */
+  .g2g-auth-diagonal {
+    clip-path: polygon(0 0, calc(100% - 3rem) 0, 100% 100%, 0 100%);
   }
+}
 
-  .g2g-login-card-gradient {
-    background: linear-gradient(135deg, #173c95 0%, #1e40af 100%);
+/*
+ * Unlayered on purpose, matching the `.dark .shadow-*` rules above this file
+ * — these must not be subject to Tailwind's layer ordering.
+ */
+@keyframes g2g-ken-burns {
+  from {
+    transform: scale(1);
   }
+  to {
+    transform: scale(1.06);
+  }
+}
 
-  /* Login progress indicator conic gradient */
-  .g2g-login-progress {
-    background: conic-gradient(
-      var(--primary) 0 72%,
-      color-mix(in srgb, var(--primary) 20%, transparent) 72% 100%
-    );
+/* Applied to whichever collage image is currently on screen. */
+.g2g-ken-burns {
+  animation: g2g-ken-burns 8s linear forwards;
+}
+
+/* One cycle, on a rejected field. Never a loop — a form that keeps shaking
+   reads as broken rather than as wrong. Applied inline via an arbitrary
+   Tailwind value (`[animation:g2g-shake_…]`) rather than a class, since it
+   only ever needs to fire once per validation error, not stay attached. */
+@keyframes g2g-shake {
+  0%,
+  100% {
+    transform: translateX(0);
   }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+/*
+ * Belt-and-suspenders: the collage component itself checks
+ * `prefers-reduced-motion` in JS and never starts its rotation timer at all
+ * when it's set, which is the real authority here (a CSS override cannot stop
+ * a crossfade or restart a cancelled timer). This rule only guards against
+ * the animation class landing on an element some future edit forgets to gate
+ * in JS. `motion-safe:` on the shake in password-field.tsx covers that one at
+ * the call site instead, since it's applied inline rather than via a class.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .g2g-ken-burns {
+    animation: none;
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * `:-webkit-autofill` gets a hardcoded pale-yellow/white background straight
+ * from the browser, and `background-color` does not override it. So the
+ * instant a password manager fills a form in dark mode, the field flashes to
+ * a white box with near-white text — looking broken at exactly the moment it
+ * is working.
+ *
+ * The inset box-shadow is the standard workaround: it paints over the
+ * browser's fill because shadows are drawn inside the border box.
+ * `-webkit-text-fill-color` is needed separately because `color` is
+ * overridden too. The long transition delay stops the fill flashing back in
+ * on focus/blur.
+ *
+ * Product-wide, not login-only — every form in the app has this bug the
+ * moment a password manager touches it, not just this one.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  caret-color: var(--foreground);
+  transition: background-color 9999s ease-in-out 0s;
 }

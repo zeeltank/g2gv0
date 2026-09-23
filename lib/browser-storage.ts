@@ -63,6 +63,17 @@ export const CLEARED_ON_SIGN_OUT: BrowserKey[] = [
   { key: 'userData', where: 'Sign-in' },
   {
     /*
+     * Whether "Keep me signed in" was ticked. Cleared because it is a
+     * decision about ONE sign-in, not a standing preference — leaving it
+     * behind would hand the next person at a shared machine the last
+     * person's answer, and the conservative default (unticked) is the one
+     * worth defaulting back to.
+     */
+    key: 'gtg-remember',
+    where: 'Sign-in',
+  },
+  {
+    /*
      * Per-browser by design — it scopes theme and sidebar preferences to THIS
      * machine, which is why it is not per-user. It is still cleared: keeping it
      * would tie two different people's device-scoped preferences to one id, and a
