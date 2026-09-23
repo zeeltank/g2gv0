@@ -66,9 +66,29 @@ export function readLaravelSession(): LaravelSessionData | null {
   }
 }
 
-export function saveLaravelSession(data: LaravelSessionData) {
+/**
+ * Persist the session.
+ *
+ * `remember` picks WHICH store, and that choice is the whole of "Keep me
+ * signed in" — the login checkbox has existed for as long as the screen has,
+ * wired to a state variable that was never read. `localStorage` outlives the
+ * browser; `sessionStorage` dies with the tab. `readLaravelSession()` already
+ * reads both and `clearLaravelSession()` already clears both, so nothing else
+ * has to know which one was used.
+ *
+ * The unused store is cleared either way. Signing in without the box ticked on
+ * a machine where it was ticked last time must not leave the old token sitting
+ * in localStorage, silently re-authenticating the next person to open the
+ * browser.
+ */
+export function saveLaravelSession(data: LaravelSessionData, remember = true) {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(LARAVEL_SESSION_KEY, JSON.stringify(data))
+
+  const store = remember ? window.localStorage : window.sessionStorage
+  const other = remember ? window.sessionStorage : window.localStorage
+
+  store.setItem(LARAVEL_SESSION_KEY, JSON.stringify(data))
+  other.removeItem(LARAVEL_SESSION_KEY)
   announceSessionChange()
 }
 

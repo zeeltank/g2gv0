@@ -1,165 +1,111 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { AlertCircle } from 'lucide-react'
 import { TwoFactorRequiredError, useAuth } from '@/components/auth/gtg-auth'
+import { CredentialForm } from '@/components/auth/login/credential-form'
+import { ForgotPasswordPanel } from '@/components/auth/login/forgot-password-panel'
+import { ImageCollage, type CollageSlide } from '@/components/auth/login/image-collage'
+import { TwoFactorStep } from '@/components/auth/login/two-factor-step'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { passwordService } from '@/services/auth/password'
 import { accountService } from '@/services/account'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { readLastVisited } from '@/lib/last-visited'
-import {
-  AlertCircle,
-  BarChart3,
-  BriefcaseBusiness,
-  CalendarCheck,
-  ChevronDown,
-  Eye,
-  Globe2,
-  Headset,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-  Users,
-  Wallet,
-} from 'lucide-react'
 
-function FeatureTile({
-  className,
-  icon,
-  label,
-}: {
-  className: string
-  icon: React.ReactNode
-  label: string
-}) {
-  return (
-    <div
-      className={`absolute z-10 flex w-32 flex-col items-center gap-2 rounded-2xl bg-surface/90 px-4 py-4 text-center text-xs font-bold leading-tight text-brand-navy shadow-xl shadow-blue-400/20 backdrop-blur ${className}`}
-    >
-      {icon}
-      <span>{label}</span>
-    </div>
-  )
-}
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THE SIGN-IN SCREEN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * This file is an orchestrator: it owns the state and the three calls that
+ * can happen here — sign in, answer a two-step challenge, ask for a reset
+ * link — and renders one of three steps. Everything visual lives in
+ * `./login/`. The previous version of this file interleaved ~200 lines of
+ * hand-drawn CSS illustration (a laptop built from divs, a potted plant made
+ * of colour blobs) with the auth logic; none of that survives, and none of
+ * the auth logic below changed except the one deliberate addition —
+ * `rememberMe` now actually reaches `login()`, see gtg-auth.tsx.
+ *
+ * ── COMPOSITION ──────────────────────────────────────────────────────────
+ *
+ * Full bleed — no floating card, no page frame around it, the two panels
+ * fill the actual viewport. Below `lg` there is no image panel at all: a
+ * scattered multi-card collage cannot read as anything but noise in a
+ * shallow strip, so it is not attempted there. At `lg` and up, a flat
+ * `bg-brand-navy` panel carries the collage, its right edge cut on a shallow
+ * diagonal (`.g2g-auth-diagonal` in globals.css) rather than a straight
+ * vertical line — the seam is absolutely positioned and the form clears it
+ * with padding, which is what makes the lean possible without the two
+ * panels needing to be ordinary flex siblings.
+ *
+ * ── WHY THIS SCREEN IS ALWAYS LIGHT ─────────────────────────────────────
+ *
+ * There is no theme toggle on this screen, so "the app's current theme"
+ * and "what a visitor can actually choose here" are not the same thing —
+ * whatever a signed-out visitor's OS or last-stored preference says, this
+ * screen renders light. Two mechanisms, not one, because they cover two
+ * different moments: the blocking script in `app/layout.tsx` special-cases
+ * `/login` so the very first paint is never dark, and the effect below
+ * corrects `ThemeProvider`'s own post-mount sync — it re-applies the real
+ * stored/system preference on every mount via a deferred microtask,
+ * regardless of route, so without this it would silently re-darken the
+ * screen a moment after the script's fix already ran. The `setTimeout(0)`
+ * inside it is deliberate: it has to resolve after that microtask, not
+ * before it, to actually win.
+ */
 
-function BrandIllustrationSection() {
-  return (
-    <section className="relative hidden h-[100dvh] min-h-0 flex-1 overflow-hidden g2g-login-hero-gradient px-6 py-4 text-brand-navy sm:px-10 sm:py-6 lg:flex">
-      <div className="pointer-events-none absolute left-[69%] top-[8%] grid grid-cols-5 gap-3 opacity-35">
-        {Array.from({ length: 25 }).map((_, index) => (
-          <span key={index} className="size-2 rounded-full bg-blue-200" />
-        ))}
-      </div>
-      <div className="pointer-events-none absolute -bottom-28 -left-20 size-[520px] rounded-full border border-white/80" />
-      <div className="pointer-events-none absolute bottom-16 right-14 size-72 rounded-full bg-white/25 blur-sm" />
-
-      <div className="relative z-10 flex min-h-0 h-full w-full flex-col">
-        <GtgBrandMark className="[&>div:first-child]:size-14 [&>div:first-child]:rounded-xl [&>div:first-child_span]:text-base [&>div:last-child_span:first-child]:text-2xl [&>div:last-child_span:first-child]:text-brand-navy [&>div:last-child_span:last-child]:text-lg [&>div:last-child_span:last-child]:font-bold [&>div:last-child_span:last-child]:text-orange-500" />
-
-        <div className="relative z-20 mt-6 max-w-lg">
-          <h1 className="text-3xl font-bold leading-tight text-brand-navy sm:text-4xl lg:text-4xl">
-            Close Every Gap.
-            <span className="block text-primary">Transform Talent,</span>
-            Unlock Growth.
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground sm:text-base">
-            A complete HRMS solution to streamline your workforce, empower your
-            people and drive your organization forward.
-          </p>
-        </div>
-
-        <div className="relative mt-auto flex min-h-[250px] items-end justify-center pb-6 sm:min-h-[280px] sm:pb-8 lg:min-h-[300px]">
-          <div className="absolute bottom-8 left-4 right-4 h-40 rounded-[50%] border border-white/90 shadow-[0_0_34px_rgba(255,255,255,0.9)]" />
-          <div className="absolute bottom-24 left-[17%] h-px w-[56%] rotate-[18deg] bg-blue-300/70" />
-          <div className="absolute bottom-28 left-[21%] h-px w-[62%] -rotate-[10deg] bg-blue-300/70" />
-          <div className="absolute bottom-14 left-[31%] h-px w-[40%] rotate-[-2deg] bg-blue-300/70" />
-
-          <FeatureTile
-            className="left-8 top-16 rotate-[-12deg] sm:top-20"
-            icon={<Users className="size-8 text-primary" />}
-            label="People Management"
-          />
-          <FeatureTile
-            className="bottom-16 left-0 rotate-[-14deg]"
-            icon={<CalendarCheck className="size-8 text-success" />}
-            label="Attendance & Leave"
-          />
-          <FeatureTile
-            className="bottom-4 left-[37%] rotate-[-15deg]"
-            icon={<Wallet className="size-8 text-amber-500" />}
-            label="Payroll & Compliance"
-          />
-          <FeatureTile
-            className="bottom-16 right-3 rotate-[-13deg]"
-            icon={<BarChart3 className="size-8 text-primary" />}
-            label="Analytics & Reports"
-          />
-
-          <div className="relative mb-16 w-[390px]">
-            <div className="absolute -right-14 bottom-0 h-28 w-20 rounded-t-full bg-gradient-to-b from-lime-500 to-green-700 shadow-xl">
-              <div className="absolute -left-8 top-8 h-14 w-20 -rotate-45 rounded-full bg-lime-500" />
-              <div className="absolute left-6 top-4 h-16 w-24 -rotate-12 rounded-full bg-success" />
-              <div className="absolute -right-5 top-10 h-14 w-20 rotate-45 rounded-full bg-lime-600" />
-            </div>
-            <div className="absolute -right-16 bottom-[-18px] h-20 w-20 rounded-b-2xl rounded-t-md bg-gradient-to-b from-white to-blue-100 shadow-lg" />
-            <div className="relative z-10 rotate-[-9deg] rounded-xl g2g-login-card-gradient p-2 shadow-2xl shadow-blue-500/30">
-              <div className="rounded-lg bg-gradient-to-br from-blue-50 to-white p-5">
-                <div className="mb-5 flex gap-2">
-                  <span className="size-2 rounded-full bg-white sha000dow" />
-                  <span className="size-2 rounded-full bg-white shadow" />
-                  <span className="size-2 rounded-full bg-white shadow" />
-                </div>
-                <div className="grid grid-cols-[1fr_0.85fr] gap-5">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex size-14 items-center justify-center rounded-full bg-primary/10">
-                        <BriefcaseBusiness className="size-8 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 rounded-full bg-primary/10" />
-                        <div className="h-3 w-4/5 rounded-full bg-primary/10" />
-                      </div>
-                    </div>
-                    <div className="flex h-24 items-end gap-3">
-                      {[34, 54, 78, 98].map((height, index) => (
-                        <span
-                          key={index}
-                          className="w-7 rounded-t-lg bg-primary/80"
-                          style={{ height }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-surface p-4 shadow-sm">
-                    <div className="mx-auto mt-3 size-24 rounded-full g2g-login-progress p-5">
-                      <div className="size-full rounded-full bg-surface" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mx-auto h-5 w-[84%] rounded-b-2xl bg-gradient-to-r from-blue-200 via-muted to-blue-300 shadow-lg" />
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          (c) 2025 Gaps to Growth. All rights reserved.
-        </p>
-      </div>
-    </section>
-  )
-}
+const SLIDES: CollageSlide[] = [
+  { src: '/auth/collage-1.png', caption: 'Headcount and growth, at a glance.' },
+  { src: '/auth/collage-2.png', caption: 'Attendance and leave, simplified.' },
+  { src: '/auth/collage-3.png', caption: 'Performance and open roles, live.' },
+]
 
 export function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth()
+
+  /*
+   * ALWAYS LIGHT — see the file header for why this needs two mechanisms.
+   *
+   * `useLayoutEffect` applies the correction synchronously, before the
+   * browser's next paint, which is as early as anything running inside
+   * React (rather than the blocking head script) can act. That alone is
+   * not enough: `ThemeProvider` defers ITS sync with `queueMicrotask`
+   * specifically so a mount isn't immediately followed by a second render,
+   * and a microtask queued by a parent's effect still resolves after a
+   * child's layout effect has already run — so on first mount that sync
+   * lands AFTER this one and silently reapplies the real preference. The
+   * `setTimeout(0)` queues a macrotask, which is guaranteed to run after
+   * every already-queued microtask (ThemeProvider's included), so it is
+   * what actually wins the race.
+   *
+   * Restored on unmount, not left removed — leaving `.dark` off after
+   * navigating to an authenticated page would show a dark-preferring
+   * visitor a light dashboard until something else happened to correct it.
+   */
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const wasDark = root.classList.contains('dark')
+    const previousColorScheme = root.style.colorScheme
+
+    const forceLight = () => {
+      root.classList.remove('dark')
+      root.style.colorScheme = 'light'
+    }
+
+    forceLight()
+    const timer = window.setTimeout(forceLight, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      if (wasDark) root.classList.add('dark')
+      root.style.colorScheme = previousColorScheme
+    }
+  }, [])
 
   /*
    * WHERE TO GO AFTER SIGNING IN.
@@ -173,9 +119,10 @@ export function LoginPage() {
    *      "the last page I was on" changed nothing at all.
    *   3. The dashboard.
    *
-   * Fetched AFTER login, not before — there is no session to read a preference
-   * with until then, which is why this is async and why the provider mounted in
-   * the layout cannot answer it (it runs before anybody has signed in).
+   * Fetched AFTER login, not before — there is no session to read a
+   * preference with until then, which is why this is async and why the
+   * provider mounted in the layout cannot answer it (it runs before anybody
+   * has signed in).
    */
   const getRedirectTarget = async () => {
     const redirect = searchParams.get('redirect')
@@ -207,11 +154,25 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   /*
+   * A rejection has to be ANNOUNCED, not merely displayed. WCAG 3.3.1 asks
+   * that a detected error be identified in text; a red box that silently
+   * appears above a form satisfies that only for people who can see it
+   * appear. Focus moves to the alert so it is read out, and so the next Tab
+   * lands back at the top of the form rather than wherever focus happened to
+   * be when the request failed.
+   */
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus()
+  }, [error])
+
+  /*
    * FORGOT PASSWORD, FOR REAL THIS TIME.
    *
    * The reply is deliberately the same whether or not the address has an
-   * account, so this form cannot be used to find out who is registered - and it
-   * never returns the link itself. See Api\Auth\PasswordController::forgot().
+   * account, so this form cannot be used to find out who is registered - and
+   * it never returns the link itself. See Api\Auth\PasswordController::forgot().
    */
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -245,20 +206,22 @@ export function LoginPage() {
    * THE SECOND STEP, FOR ACCOUNTS WITH TWO-STEP VERIFICATION ON
    * ═════════════════════════════════════════════════════════════════════════
    *
-   * `challenge` holds the server's sentence and doubles as the flag for which step
-   * is on screen: null is email-and-password, a string is the code field.
+   * `challenge` holds the server's sentence and doubles as the flag for which
+   * step is on screen: null is email-and-password, a string is the code
+   * field.
    *
    * ── WHY THE PASSWORD IS RE-SENT RATHER THAN A PENDING STATE HELD ───────────
    *
    * The second call repeats the email and password alongside the code. The
-   * alternative — the server remembering a half-authenticated sign-in between the
-   * two calls — needs a store, an expiry, and a decision about what happens when
-   * somebody abandons it halfway; and for the duration of that window a
-   * half-finished sign-in exists that is not the second factor's business to
-   * protect. Nothing is remembered here, so there is nothing to abandon.
+   * alternative — the server remembering a half-authenticated sign-in between
+   * the two calls — needs a store, an expiry, and a decision about what
+   * happens when somebody abandons it halfway; and for the duration of that
+   * window a half-finished sign-in exists that is not the second factor's
+   * business to protect. Nothing is remembered here, so there is nothing to
+   * abandon.
    *
-   * Both values are already in component state from the first attempt, so nobody
-   * types their password twice.
+   * Both values are already in component state from the first attempt, so
+   * nobody types their password twice.
    */
   const [challenge, setChallenge] = useState<string | null>(null)
   const [code, setCode] = useState('')
@@ -281,27 +244,30 @@ export function LoginPage() {
    * One sign-in attempt, with or without a second factor.
    *
    * Shared by both steps rather than duplicated, so the redirect, the error
-   * handling and the loading flag cannot drift between them — the code path and the
-   * password path end in exactly the same place.
+   * handling and the loading flag cannot drift between them — the code path
+   * and the password path end in exactly the same place.
    */
   const attempt = async (second?: { code?: string; recoveryCode?: string }) => {
     setError('')
     setIsLoading(true)
 
     try {
-      await login(email, password, second)
+      // `rememberMe` reaches the provider for the first time here. It decides
+      // whether the session survives the browser closing — see
+      // setSessionCookie() in gtg-auth.tsx.
+      await login(email, password, second, rememberMe)
       router.push(await getRedirectTarget())
     } catch (err) {
       if (err instanceof TwoFactorRequiredError) {
         /*
-         * Into `challenge`, never into `error`. The password was accepted; a red
-         * "Enter the code from your authenticator app" above the password field —
-         * which is what this was before the branch existed — reads as a rejection
-         * and offers nowhere to type.
+         * Into `challenge`, never into `error`. The password was accepted; a
+         * red "Enter the code from your authenticator app" above the
+         * password field — which is what this was before the branch existed
+         * — reads as a rejection and offers nowhere to type.
          *
-         * The same object is thrown for a WRONG code, so this also covers the
-         * second and later attempts: the step stays on screen with the server's
-         * newer sentence, including the throttle message.
+         * The same object is thrown for a WRONG code, so this also covers
+         * the second and later attempts: the step stays on screen with the
+         * server's newer sentence, including the throttle message.
          */
         setChallenge(err.message)
         setCode('')
@@ -324,375 +290,153 @@ export function LoginPage() {
     e.preventDefault()
 
     await attempt(
-      useRecovery
-        ? { recoveryCode: recoveryCode.trim() }
-        : { code: code.trim() },
+      useRecovery ? { recoveryCode: recoveryCode.trim() } : { code: code.trim() },
     )
   }
 
-  // The ERP exposes no OAuth endpoint - authController only accepts
-  // email/password (and a separate mobile OTP flow), so this cannot sign in yet.
-  const handleGoogleSignIn = () => {
-    setError('Google sign-in is not available yet. Please sign in with your email and password.')
-  }
+  const step = challenge !== null ? 'challenge' : forgotOpen ? 'forgot' : 'credentials'
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden g2g-login-gradient text-brand-navy">
-      <BrandIllustrationSection />
+    /*
+     * FULL BLEED — no floating card, no page frame around it. What used to
+     * wrap this in a padded, centered, rounded-and-shadowed card (a `bg-muted`
+     * page ground behind a `max-w-[1040px]` card) is gone entirely; the two
+     * panels below now fill the actual viewport edge to edge, the way the
+     * screen this replaces already did. `relative` stays on the root because
+     * the collage panel still needs an absolutely-positioned ancestor for the
+     * diagonal-seam technique — see the comment on that panel below.
+     */
+    <div className="relative min-h-[100dvh] bg-background">
+      {/*
+        The collage panel. Absolutely positioned — not an ordinary flex
+        sibling — because a clip-path that leans its right edge only reads
+        as a diagonal SEAM (rather than a shape floating over a straight
+        boundary) if it is allowed to overlap the nominal form column at its
+        widest point, with the form clearing it via padding instead. See
+        `.g2g-auth-diagonal` in globals.css.
+      */}
+      <div
+        className="g2g-auth-diagonal absolute inset-y-0 left-0 hidden w-[48%] bg-brand-navy lg:block xl:w-[46%]"
+        aria-hidden="true"
+      >
+        <ImageCollage slides={SLIDES} className="h-full w-full" />
+      </div>
 
-      <main className="relative flex min-h-[100dvh] flex-1 flex-col items-center justify-center overflow-hidden px-4 py-4 sm:px-8">
-        <div className="absolute left-4 right-4 top-4 flex justify-between lg:justify-end">
-          <div className="lg:hidden">
-            <GtgBrandMark />
-          </div>
-          <button
-            type="button"
-            className="inline-flex h-12 items-center gap-3 rounded-xl bg-surface px-5 text-base font-semibold text-brand-navy shadow-lg shadow-primary/10 ring-1 ring-primary/10"
-          >
-            <Globe2 className="size-5 text-brand-navy" />
-            English
-            <ChevronDown className="size-4" />
-          </button>
+      <main className="relative flex min-h-[100dvh] flex-col px-6 py-8 sm:px-10 sm:py-10 lg:py-14 lg:pl-[calc(48%+2.5rem)] lg:pr-12 xl:pl-[calc(46%+3rem)] xl:pr-16">
+        {/* One brand placement, at every width — not on the collage art at
+            any point (it used to also live in a chip over the images at
+            lg+). Top of the right panel, horizontally centered within it —
+            `justify-center` on this row, not `mx-auto` on the mark itself,
+            so it centers on `<main>`'s full content width rather than being
+            constrained to the narrower 380px form column below it. */}
+        <div className="mb-5 mt-4 flex justify-center">
+          <GtgBrandMark size="lg" />
         </div>
 
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[660px] overflow-hidden rounded-2xl border border-primary/20 bg-surface/95 px-4 py-4 shadow-2xl shadow-foreground/5 backdrop-blur max-[640px]:px-3 max-[640px]:py-3 sm:px-7 sm:py-6 md:px-10 md:py-7">
-            <div className="mb-4 text-center">
-              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 sm:size-14">
-                <Headset className="size-7 text-primary sm:size-8" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-brand-navy max-[640px]:text-xl sm:text-3xl">
-                Welcome Back!
-              </h2>
-              <p className="mt-1 max-w-md text-xs text-muted-foreground max-[640px]:text-[11px] sm:text-sm">
-                Sign in to continue to your account
+        {/*
+          `flex-1` at every breakpoint, not just below `lg` — this is what
+          pushes the copyright to the bottom of the viewport, and it used to
+          switch to `lg:flex-none` with the copyright pulled out via
+          `lg:absolute` instead. That absolute positioning was the actual bug:
+          `inset-x-0` on a child aligns to the ANCESTOR's padding-box edges,
+          which ignores the ancestor's own padding entirely — it does not
+          "respect" `<main>`'s asymmetric left/right padding the way CSS
+          padding affects normal-flow content, so the footer centered on the
+          full viewport width instead of the padded content column. One flex
+          mechanism at every size, and the copyright below sharing the exact
+          same `mx-auto max-w-[380px]` wrapper as the form, sidesteps that
+          entirely — both are centered by the same computation, so they can't
+          drift apart.
+        */}
+        <div className="flex flex-1 flex-col justify-center">
+          <div className="mx-auto w-full max-w-[380px]">
+            {/* The "Gaps to Growth" eyebrow that used to sit here was
+                redundant with the brand mark above — the same name, twice.
+                Removed rather than kept alongside a mark that already
+                carries it. */}
+            <div className="mb-7">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                {step === 'forgot' ? 'Account recovery' : 'Sign in'}
+              </h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {step === 'challenge'
+                  ? 'One more step to confirm it’s you.'
+                  : step === 'forgot'
+                    ? 'We’ll get you back into your workspace.'
+                    : 'Welcome back to your workspace.'}
               </p>
             </div>
 
             {error && (
-              <Alert variant="destructive" className="mb-3">
+              <Alert
+                variant="destructive"
+                ref={errorRef}
+                tabIndex={-1}
+                role="alert"
+                className="mb-5 focus:outline-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
+              >
                 <AlertCircle className="size-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            {/*
-              ══════════════════════════════════════════════════════════════════
-              THE CODE STEP — INSTEAD OF the credential form, not below it
-              ══════════════════════════════════════════════════════════════════
-
-              Replacing the fields rather than adding a third one is the whole
-              reason this reads as a step: an email box, a password box and a code
-              box stacked together look like three things to fill in at once, and
-              somebody whose account has no two-step verification would wonder what
-              the empty one is for.
-            */}
-            {challenge !== null ? (
-              <form onSubmit={submitChallenge} className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4">
-                  <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-base font-bold text-brand-navy">Two-step verification</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{challenge}</p>
-                  </div>
-                </div>
-
-                {useRecovery ? (
-                  <div>
-                    <Label htmlFor="recovery-code" className="text-base font-bold text-brand-navy">
-                      Recovery code
-                    </Label>
-                    <Input
-                      id="recovery-code"
-                      // NOT `one-time-code`: that prompts the browser to offer the
-                      // SMS/authenticator code it may have captured, which is the
-                      // wrong credential for this field.
-                      autoComplete="off"
-                      autoFocus
-                      value={recoveryCode}
-                      onChange={(e) => setRecoveryCode(e.target.value)}
-                      placeholder="xxxx-xxxx"
-                      disabled={isLoading}
-                      className="mt-2 h-14 rounded-xl border-input bg-surface px-5 font-mono text-base shadow-sm max-[640px]:h-12"
-                    />
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      One of the codes you saved when you turned this on. Each one works once.
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <Label htmlFor="two-factor-code" className="text-base font-bold text-brand-navy">
-                      6-digit code
-                    </Label>
-                    <Input
-                      id="two-factor-code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      autoFocus
-                      maxLength={6}
-                      value={code}
-                      // Digits only. A code pasted from an app often arrives as
-                      // "123 456", and refusing that as wrong would be this
-                      // screen's fault rather than theirs.
-                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="000000"
-                      disabled={isLoading}
-                      className="mt-2 h-14 rounded-xl border-input bg-surface px-5 text-center text-2xl font-bold tracking-[0.4em] tabular-nums shadow-sm max-[640px]:h-12"
-                    />
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      From your authenticator app. It changes every 30 seconds.
-                    </p>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={
-                    isLoading || (useRecovery ? recoveryCode.trim().length < 4 : code.length !== 6)
-                  }
-                  className="h-14 w-full rounded-xl text-base font-bold shadow-lg shadow-primary/20 max-[640px]:h-12"
-                >
-                  {isLoading ? 'Checking...' : 'Verify'}
-                </Button>
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  {/*
-                    The way back in for somebody holding a printed code and no
-                    phone. Buried at the bottom of the step on purpose — offered
-                    where it is needed, and never the obvious first choice, because
-                    a recovery code is the weaker of the two paths.
-                  */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUseRecovery((value) => !value)
-                      setCode('')
-                      setRecoveryCode('')
-                      setError('')
-                    }}
-                    disabled={isLoading}
-                    className="text-base font-semibold text-primary hover:text-primary/80"
-                  >
-                    {useRecovery ? 'Use my authenticator app' : "I don't have my phone"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={leaveChallenge}
-                    disabled={isLoading}
-                    className="text-base font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    Start again
-                  </button>
-                </div>
-              </form>
+            {step === 'challenge' ? (
+              <TwoFactorStep
+                challenge={challenge as string}
+                code={code}
+                onCodeChange={setCode}
+                recoveryCode={recoveryCode}
+                onRecoveryCodeChange={setRecoveryCode}
+                useRecovery={useRecovery}
+                onToggleRecovery={() => {
+                  setUseRecovery((value) => !value)
+                  setCode('')
+                  setRecoveryCode('')
+                  setError('')
+                }}
+                isLoading={isLoading}
+                onSubmit={submitChallenge}
+                onRestart={leaveChallenge}
+              />
+            ) : step === 'forgot' ? (
+              <ForgotPasswordPanel
+                email={forgotEmail}
+                onEmailChange={setForgotEmail}
+                busy={forgotBusy}
+                notice={forgotNotice}
+                onSubmit={requestReset}
+                onBack={() => setForgotOpen(false)}
+              />
             ) : (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <Label
-                  htmlFor="email"
-                  className="text-base font-bold text-brand-navy"
-                >
-                  {/*
-                    * WAS "Email or Employee ID". It has never accepted an
-                    * employee ID: authController matches on `email`, which is
-                    * tbluser's only unique key, and `user_name` is queried by
-                    * nothing. Anybody who typed their employee number was told
-                    * their credentials were wrong.
-                    *
-                    * The input `type` follows the label - it was `text`, which
-                    * suppressed the browser's own email autofill and validation
-                    * for a field that only ever accepts an address.
-                    */}
-                  Email address
-                </Label>
-                <div className="relative mt-2">
-                  <Mail className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    disabled={isLoading}
-                    className="h-14 rounded-xl border-input bg-surface pl-14 pr-5 text-base shadow-sm placeholder:text-muted-foreground focus-visible:ring-primary/20 max-[640px]:h-12"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="password"
-                  className="text-base font-bold text-brand-navy"
-                >
-                  Password
-                </Label>
-                <div className="relative mt-2">
-                  <LockKeyhole className="pointer-events-none absolute left-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="********"
-                    disabled={isLoading}
-                    className="h-14 rounded-xl border-input bg-surface pl-14 pr-12 text-base shadow-sm placeholder:text-muted-foreground focus-visible:ring-primary/20 max-[640px]:h-12"
-                  />
-                  <Eye className="pointer-events-none absolute right-5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground" />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked: boolean) => setRememberMe(checked)}
-                    disabled={isLoading}
-                    className="size-5 rounded-md"
-                  />
-                  <Label
-                    htmlFor="remember"
-                    className="cursor-pointer text-base font-medium text-muted-foreground"
-                  >
-                    Remember me
-                  </Label>
-                </div>
-                {/*
-                  * WAS `<a href="#">Forgot password?</a>` - a link that reloaded
-                  * the login page and left people typing guesses.
-                  *
-                  * It is a sentence rather than a working link because self-serve
-                  * reset is HALF-BUILT, not missing: the backend has
-                  * ForgotPasswordController with a working
-                  * submitForgetPasswordForm() and a token/reset pair on the web
-                  * routes - but showForgetPasswordForm() IS COMMENTED OUT while
-                  * routes/web.php:171 still points at it, so the entry point
-                  * errors. Wiring this link to that route would send somebody
-                  * from a dead link to a broken page, which is worse.
-                  *
-                  * Until the flow is finished, this says who can actually help -
-                  * the same answer the profile screen gives, for the same reason.
-                  */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgotEmail(email)
-                    setForgotNotice('')
-                    setForgotOpen(true)
-                  }}
-                  className="text-base font-semibold text-primary hover:text-primary/80"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="h-14 w-full rounded-xl text-base font-bold shadow-lg shadow-primary/20 max-[640px]:h-12"
-              >
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </Button>
-
-              <div className="flex items-center gap-6 py-1 text-base text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
-                or
-                <span className="h-px flex-1 bg-border" />
-              </div>
-
-              <Button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                variant="outline"
-                className="h-14 w-full rounded-xl border-input bg-surface text-base font-bold text-brand-navy shadow-sm hover:bg-muted max-[640px]:h-12"
-              >
-                <span className="text-2xl font-bold text-primary" aria-hidden="true">
-                  G
-                </span>
-                Sign in with Google
-              </Button>
-            </form>
+              <CredentialForm
+                email={email}
+                onEmailChange={setEmail}
+                password={password}
+                onPasswordChange={setPassword}
+                remember={rememberMe}
+                onRememberChange={setRememberMe}
+                isLoading={isLoading}
+                hasError={Boolean(error)}
+                onSubmit={handleSubmit}
+                onForgot={() => {
+                  // Carried across, so nobody types the address twice.
+                  setForgotEmail(email)
+                  setForgotNotice('')
+                  setError('')
+                  setForgotOpen(true)
+                }}
+              />
             )}
-
-            <div className="mt-5 hidden items-center justify-center gap-3 text-sm text-muted-foreground sm:flex">
-              <ShieldCheck className="size-6 text-muted-foreground" />
-              <span>Your data is secure with enterprise-grade protection</span>
-            </div>
           </div>
         </div>
+
+        {/* Same wrapper as the form above, not absolute positioning — see
+            the comment on the flex-1 container for why the previous attempt
+            at this (inset-x-0) didn't actually work. */}
+        <p className="mx-auto mt-8 w-full max-w-[380px] text-center text-xs text-muted-foreground">
+          &copy; {new Date().getFullYear()} Gaps to Growth
+        </p>
       </main>
-
-      {/*
-        * A panel rather than a separate page, so nobody loses the login form to
-        * ask a one-field question - and so the address they already typed is
-        * carried across.
-        *
-        * Deliberately NOT a Dialog: this screen renders outside the app shell
-        * and has no other overlay, and a focus-trapped modal over a login form
-        * is more machinery than one input needs.
-        */}
-      {forgotOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="forgot-title"
-          onClick={() => setForgotOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg sm:p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 id="forgot-title" className="text-lg font-semibold text-foreground">
-              Reset your password
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              We will send a link to set a new one.
-            </p>
-
-            {forgotNotice ? (
-              <div className="mt-4 flex flex-col gap-4">
-                <Alert variant="info">
-                  <AlertDescription>{forgotNotice}</AlertDescription>
-                </Alert>
-                <Button variant="outline" onClick={() => setForgotOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={requestReset} className="mt-4 flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="forgot-email">Email address</Label>
-                  <Input
-                    id="forgot-email"
-                    type="email"
-                    value={forgotEmail}
-                    onChange={(event) => setForgotEmail(event.target.value)}
-                    autoFocus
-                  />
-                </div>
-
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="ghost" onClick={() => setForgotOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={!forgotEmail.trim() || forgotBusy}>
-                    {forgotBusy ? 'Sending…' : 'Send the link'}
-                  </Button>
-                </div>
-
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  If your organisation has no email set up, ask your administrator — they can
-                  generate a link for you from the Employee Directory.
-                </p>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

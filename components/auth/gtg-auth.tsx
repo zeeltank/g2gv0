@@ -79,7 +79,12 @@ interface AuthContextType extends Session {
    * nothing to clean up, and no window in which a pending sign-in exists that
    * somebody else could finish.
    */
-  login: (email: string, password: string, second?: SecondFactor) => Promise<void>
+  login: (
+    email: string,
+    password: string,
+    second?: SecondFactor,
+    remember?: boolean,
+  ) => Promise<void>
   logout: () => void
   switchRole: (role: Role) => void
 }
@@ -118,7 +123,11 @@ function getInitialSession(): Session {
 function getStoredSession(): Session {
   const signedOut: Session = { user: null, isAuthenticated: false, isLoading: false }
 
-  const stored = localStorage.getItem(SESSION_COOKIE)
+  // Both stores: an un-remembered sign-in deliberately writes to the
+  // tab-scoped one (see storeSession below). localStorage first, since that's
+  // where a remembered session lives.
+  const stored =
+    localStorage.getItem(SESSION_COOKIE) ?? sessionStorage.getItem(SESSION_COOKIE)
   if (!stored) {
     return signedOut
   }
@@ -128,6 +137,7 @@ function getStoredSession(): Session {
   // routing cookie has to go too, or middleware.ts would bounce /login -> /dashboard.
   if (!readLaravelSession()) {
     localStorage.removeItem(SESSION_COOKIE)
+    sessionStorage.removeItem(SESSION_COOKIE)
     clearSessionCookie()
     return signedOut
   }
@@ -167,14 +177,82 @@ function toUser(data: LaravelSessionData): User {
   }
 }
 
-function setSessionCookie(session: Session) {
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * "KEEP ME SIGNED IN" — A CHECKBOX THAT DID NOTHING
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The login page has had a working `rememberMe` checkbox for as long as it
+ * has existed. Nothing read it. It was not sent to the API, it was not
+ * stored, and the cookie below was hardcoded to seven days whether it was
+ * ticked or not — so unticking it changed nothing on a shared HR machine.
+ *
+ * Three places hold the session, and all three have to agree or the control
+ * is still a decoration:
+ *
+ *   1. the `gtg-session` COOKIE — the only one `proxy.ts` can see, so it is
+ *      what actually gates /dashboard on the next page load
+ *   2. the `gtg-session` MIRROR — what `getStoredSession()` rehydrates from
+ *   3. the `userData` TOKEN — without it `getStoredSession()` returns signed
+ *      out regardless, so it is the real backstop (see laravel-session.ts)
+ *
+ * Ticked: ~30 days, all three in persistent storage. Unticked: a session
+ * cookie with no `max-age`, and both browser stores scoped to the tab — so
+ * closing the browser genuinely signs you out, which is what the words on the
+ * checkbox have always promised.
+ */
+const REMEMBER_KEY = 'gtg-remember'
+const REMEMBERED_DAYS = 30
+
+/** The choice made at sign-in, so a later write does not silently undo it. */
+function readRememberChoice(): boolean {
+  try {
+    return window.localStorage.getItem(REMEMBER_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Write the session cookie `proxy.ts` routes on.
+ *
+ * `remember` is omitted by callers UPDATING an existing session rather than
+ * creating one — `switchRole` — which then inherit the choice already made.
+ * Without that, switching role mid-session would silently promote a
+ * deliberately temporary sign-in to a thirty-day one.
+ */
+function setSessionCookie(session: Session, remember?: boolean) {
+  const keep = remember ?? readRememberChoice()
+
+  if (remember !== undefined) {
+    try {
+      window.localStorage.setItem(REMEMBER_KEY, keep ? '1' : '0')
+    } catch {
+      // Storage blocked. The cookie below still carries the decision for this
+      // browsing session, which is the conservative half of the two.
+    }
+  }
+
+  // No `max-age` at all makes it a session cookie: the browser drops it on exit.
+  const lifetime = keep ? `; max-age=${60 * 60 * 24 * REMEMBERED_DAYS}` : ''
+
   document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
     JSON.stringify(session)
-  )}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`
+  )}; path=/${lifetime}; samesite=lax`
 }
 
 function clearSessionCookie() {
   document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax`
+}
+
+/** The session mirror, in the store matching the "keep me signed in" choice. */
+function storeSession(session: Session, remember?: boolean) {
+  const keep = remember ?? readRememberChoice()
+  const store = keep ? window.localStorage : window.sessionStorage
+  const other = keep ? window.sessionStorage : window.localStorage
+
+  store.setItem(SESSION_COOKIE, JSON.stringify(session))
+  other.removeItem(SESSION_COOKIE)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -189,7 +267,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const login = async (email: string, password: string, second?: SecondFactor) => {
+  const login = async (
+    email: string,
+    password: string,
+    second?: SecondFactor,
+    remember = false,
+  ) => {
     // Mirrors authController::index - both fields are `required|string` there.
     if (!email.trim()) {
       throw new Error('The email field is required.')
@@ -239,14 +322,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(resolveLoginMessage(response.message))
     }
 
-    saveLaravelSession(response.sessionData)
+    saveLaravelSession(response.sessionData, remember)
     const user = toUser(response.sessionData)
 
     const newSession: Session = { user, isAuthenticated: true, isLoading: false }
     setSession(newSession)
-    localStorage.setItem(SESSION_COOKIE, JSON.stringify(newSession))
+    // `remember` is passed explicitly here and nowhere else: this is the one
+    // moment somebody actually makes the choice.
+    storeSession(newSession, remember)
     requestSidebarFirstOpenExpansion()
-    setSessionCookie(newSession)
+    setSessionCookie(newSession, remember)
   }
 
   /**
@@ -314,7 +399,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session.user) {
       const updated = { ...session, user: { ...session.user, role } }
       setSession(updated)
-      localStorage.setItem(SESSION_COOKIE, JSON.stringify(updated))
+      // No `remember` argument — inherit the choice made at sign-in.
+      storeSession(updated)
       setSessionCookie(updated)
     }
   }

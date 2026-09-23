@@ -1,5 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
+import { GeistSans } from 'geist/font/sans'
+import { GeistMono } from 'geist/font/mono'
 import { AuthProvider } from '@/components/auth/gtg-auth'
 import { QueryProvider } from '@/components/providers/query-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
@@ -7,8 +9,17 @@ import { PreferencesProvider } from '@/components/providers/preferences-provider
 import '@mdi/font/css/materialdesignicons.min.css'
 import './globals.css'
 
-const systemSans = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-const systemMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+/*
+ * `--font-inter` used to be a plain CSS font-stack STRING set inline on
+ * <html> — "Inter" only if the OS happened to have it installed, Segoe UI for
+ * most Windows users otherwise. `globals.css` has declared `--font-geist-mono`
+ * since before this file loaded any real font at all; `.variable` below
+ * finishes that intent rather than inventing a new one, and `--font-geist-sans`
+ * replaces the old `--font-inter` name in globals.css to match — there is no
+ * Inter anywhere in this build any more, so nothing should still be named
+ * after it. `geist/font/*` is a self-hosted next/font build: no network
+ * request, no layout shift, no external Google Fonts origin to add to the CSP.
+ */
 
 export const metadata: Metadata = {
   title: 'GapstoGrowth — HRMS',
@@ -25,11 +36,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-brand="gaps-to-growth"
-      style={{
-        ['--font-inter' as string]: systemSans,
-        ['--font-geist-mono' as string]: systemMono,
-      }}
-      className="bg-background"
+      className={`bg-background ${GeistSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -52,10 +59,18 @@ export default function RootLayout({
           * Kept deliberately tiny and wrapped in try/catch: it executes before
           * anything else on the page, so a throw here would be a blank document.
           * A browser with storage blocked simply falls through to `system`.
+          *
+          * `/login` is excluded from the calculation on purpose — that screen
+          * is always light regardless of the stored or system preference (see
+          * the matching effect in login-page.tsx, which additionally corrects
+          * ThemeProvider's own post-mount sync so it can't re-darken it a
+          * moment later). Checked here too, not only there, so a visitor whose
+          * stored preference is dark never sees a flash of the dark login
+          * before React has even hydrated.
           */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('gtg-theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+            __html: `(function(){try{var p=window.location.pathname;var t=localStorage.getItem('gtg-theme')||'system';var d=p!=='/login'&&(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches));var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
           }}
         />
       </head>
