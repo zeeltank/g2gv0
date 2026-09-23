@@ -410,19 +410,6 @@
  * Unlayered on purpose, matching the `.dark .shadow-*` rules above this file
  * — these must not be subject to Tailwind's layer ordering.
  */
-@keyframes g2g-ken-burns {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.06);
-  }
-}
-
-/* Applied to whichever collage image is currently on screen. */
-.g2g-ken-burns {
-  animation: g2g-ken-burns 8s linear forwards;
-}
 
 /* One cycle, on a rejected field. Never a loop — a form that keeps shaking
    reads as broken rather than as wrong. Applied inline via an arbitrary
@@ -444,21 +431,6 @@
   }
   80% {
     transform: translateX(2px);
-  }
-}
-
-/*
- * Belt-and-suspenders: the collage component itself checks
- * `prefers-reduced-motion` in JS and never starts its rotation timer at all
- * when it's set, which is the real authority here (a CSS override cannot stop
- * a crossfade or restart a cancelled timer). This rule only guards against
- * the animation class landing on an element some future edit forgets to gate
- * in JS. `motion-safe:` on the shake in password-field.tsx covers that one at
- * the call site instead, since it's applied inline rather than via a class.
- */
-@media (prefers-reduced-motion: reduce) {
-  .g2g-ken-burns {
-    animation: none;
   }
 }
 
