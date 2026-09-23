@@ -6,7 +6,7 @@ import { AlertCircle } from 'lucide-react'
 import { TwoFactorRequiredError, useAuth } from '@/components/auth/gtg-auth'
 import { CredentialForm } from '@/components/auth/login/credential-form'
 import { ForgotPasswordPanel } from '@/components/auth/login/forgot-password-panel'
-import { ImageCollage, type CollageSlide } from '@/components/auth/login/image-collage'
+import { SpiralGallery } from '@/components/auth/login/spiral-gallery'
 import { TwoFactorStep } from '@/components/auth/login/two-factor-step'
 import { GtgBrandMark } from '@/components/shell/gtg-brand-mark'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -33,13 +33,15 @@ import { readLastVisited } from '@/lib/last-visited'
  *
  * Full bleed — no floating card, no page frame around it, the two panels
  * fill the actual viewport. Below `lg` there is no image panel at all: a
- * scattered multi-card collage cannot read as anything but noise in a
- * shallow strip, so it is not attempted there. At `lg` and up, a flat
- * `bg-brand-navy` panel carries the collage, its right edge cut on a shallow
- * diagonal (`.g2g-auth-diagonal` in globals.css) rather than a straight
- * vertical line — the seam is absolutely positioned and the form clears it
- * with padding, which is what makes the lean possible without the two
- * panels needing to be ordinary flex siblings.
+ * 3D spiral of 15 cards cannot read as anything but noise in a shallow
+ * strip, so it is not attempted there. At `lg` and up, a flat `bg-brand-navy`
+ * panel carries the spiral gallery (`./login/spiral-gallery.tsx` — real
+ * industry photography, one card per vertical G2G serves, not the
+ * AI-invented-UI-with-baked-in-text collage this replaced), its right edge
+ * cut on a shallow diagonal (`.g2g-auth-diagonal` in globals.css) rather
+ * than a straight vertical line — the seam is absolutely positioned and the
+ * form clears it with padding, which is what makes the lean possible
+ * without the two panels needing to be ordinary flex siblings.
  *
  * ── WHY THIS SCREEN IS ALWAYS LIGHT ─────────────────────────────────────
  *
@@ -56,12 +58,6 @@ import { readLastVisited } from '@/lib/last-visited'
  * inside it is deliberate: it has to resolve after that microtask, not
  * before it, to actually win.
  */
-
-const SLIDES: CollageSlide[] = [
-  { src: '/auth/collage-1.png', caption: 'Headcount and growth, at a glance.' },
-  { src: '/auth/collage-2.png', caption: 'Attendance and leave, simplified.' },
-  { src: '/auth/collage-3.png', caption: 'Performance and open roles, live.' },
-]
 
 export function LoginPage() {
   const router = useRouter()
@@ -315,14 +311,22 @@ export function LoginPage() {
         widest point, with the form clearing it via padding instead. See
         `.g2g-auth-diagonal` in globals.css.
       */}
+      {/*
+        Widened from 48%/46% to 52%/50% when the cards inside grew from
+        120px to 150px — the panel's own width, not just the spiral's
+        props, has to grow too, or the bigger cards crowd right up against
+        (or past) the diagonal seam. `<main>`'s left padding below is kept
+        in lockstep with this value on purpose — they're two halves of the
+        same seam, see the comment on the diagonal-panel technique above.
+      */}
       <div
-        className="g2g-auth-diagonal absolute inset-y-0 left-0 hidden w-[48%] bg-brand-navy lg:block xl:w-[46%]"
+        className="g2g-auth-diagonal absolute inset-y-0 left-0 hidden w-[52%] overflow-hidden bg-brand-navy lg:block xl:w-[50%]"
         aria-hidden="true"
       >
-        <ImageCollage slides={SLIDES} className="h-full w-full" />
+        <SpiralGallery className="h-full w-full" />
       </div>
 
-      <main className="relative flex min-h-[100dvh] flex-col px-6 py-8 sm:px-10 sm:py-10 lg:py-14 lg:pl-[calc(48%+2.5rem)] lg:pr-12 xl:pl-[calc(46%+3rem)] xl:pr-16">
+      <main className="relative flex min-h-[100dvh] flex-col px-6 py-8 sm:px-10 sm:py-10 lg:py-14 lg:pl-[calc(52%+2.5rem)] lg:pr-12 xl:pl-[calc(50%+3rem)] xl:pr-16">
         {/* One brand placement, at every width — not on the collage art at
             any point (it used to also live in a chip over the images at
             lg+). Top of the right panel, horizontally centered within it —
