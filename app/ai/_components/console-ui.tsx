@@ -1,75 +1,39 @@
 'use client'
 
 /**
- * The small pieces the AI console's screens share.
+ * The AI console's own small pieces.
  *
- * They exist so the index and the capability pages cannot word or colour the same
- * thing differently — the console's whole claim is that one description of a
- * capability is shown everywhere, and two screens drawing their own chips would
- * undercut that on the first edit.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MOST OF THIS FILE MOVED, AND THE REASON IT MOVED IS THE REASON IT EXISTED
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * ── WHY THIS IS NOT LMS K-12's `ComingSoonBadge` ────────────────────────────
+ * `StatusChip`, `SectionCard` and `PointList` now live in
+ * `components/shared/console-ui.tsx`. They were written here so the AI index and the
+ * capability pages could not word or colour the same thing differently; Platform
+ * Services then arrived with the same three states, and "What's Coming" lists platform
+ * services and AI capabilities together in ONE table. A second implementation of the
+ * chip would have had to stay pixel-identical across three screens by hand, which is the
+ * same drift one level up.
  *
- * That component resolves its wording from `lib/roadmap`, a delivery registry G2G
- * does not have. Importing it would mean importing that registry too, and a roadmap
- * with no rows would make every badge read "Coming soon" regardless of what the
- * capability's own status says — the exact mistake the status field exists to
- * prevent. So the chip is local and reads the status directly.
+ * They are re-exported rather than having their import sites rewritten, so `app/ai/page.tsx`,
+ * `app/ai/[capability]/page.tsx` and `CapabilityShell.tsx` are untouched by the move —
+ * a refactor that changes no behaviour should change as few files as it can.
  *
- * Nothing here invents a second "not built yet" look for the product at large: this
- * is the AI console's own vocabulary, and it uses the same semantic tokens as the
- * rest of G2G.
+ * `CapabilityStatus` is structurally `ConsoleStatus`, so `StatusChip` accepts it with no
+ * cast and no adapter.
+ *
+ * ── WHAT STAYED, AND WHY ────────────────────────────────────────────────────
+ *
+ * `ConsumptionPill` is about `SolutionConsumption` — whether G2G, LMS K-12 or Enterprise
+ * Brain consumes a capability today. That is a fact about the AI registry's three-product
+ * model, which Platform Services has no equivalent of and should not grow one to match.
+ * Sharing it would be sharing a concept, not a component.
  */
 
-import type { ReactNode } from 'react'
-import { Check, Hammer, Lock } from 'lucide-react'
-
 import { cn } from '@/lib/utils'
-import {
-  capabilityStatusLabel,
-  type CapabilityStatus,
-  type ConsumptionState,
-} from '@shared/ai-intelligence-core'
+import type { ConsumptionState } from '@shared/ai-intelligence-core'
 
-const STATUS_ICON: Record<CapabilityStatus, React.ComponentType<{ className?: string }>> = {
-  live: Check,
-  'in-progress': Hammer,
-  'coming-soon': Lock,
-}
-
-// Deliberately muted for everything that is not yet usable: a capability that is
-// still being built should read as calm and intentional, never as a warning.
-const STATUS_CLASS: Record<CapabilityStatus, string> = {
-  live: 'border-border bg-background text-foreground',
-  'in-progress': 'border-primary/30 bg-primary/10 text-primary',
-  'coming-soon': 'border-border bg-muted text-muted-foreground',
-}
-
-export function StatusChip({
-  status,
-  size = 'default',
-  className,
-}: {
-  status: CapabilityStatus
-  size?: 'sm' | 'default'
-  className?: string
-}) {
-  const Icon = STATUS_ICON[status]
-
-  return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium whitespace-nowrap',
-        size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs',
-        STATUS_CLASS[status],
-        className,
-      )}
-    >
-      <Icon className="size-3 shrink-0" aria-hidden="true" />
-      {capabilityStatusLabel(status)}
-    </span>
-  )
-}
+export { PointList, SectionCard, StatusChip } from '@/components/shared/console-ui'
 
 const CONSUMPTION: Record<ConsumptionState, { label: string; className: string }> = {
   // Never colour alone: each state is named, so the table reads the same to someone
@@ -94,38 +58,5 @@ export function ConsumptionPill({ state }: { state: ConsumptionState }) {
     >
       {label}
     </span>
-  )
-}
-
-/** One titled block of a capability page. */
-export function SectionCard({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description?: string
-  children?: ReactNode
-}) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-5">
-      <h2 className="text-sm font-semibold text-card-foreground">{title}</h2>
-      {description && <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>}
-      {children && <div className="mt-3">{children}</div>}
-    </section>
-  )
-}
-
-/** A short list of points. */
-export function PointList({ points }: { points: readonly string[] }) {
-  return (
-    <ul className="space-y-2">
-      {points.map((point) => (
-        <li key={point} className="flex items-start gap-2 text-sm leading-6 text-muted-foreground">
-          <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-          <span>{point}</span>
-        </li>
-      ))}
-    </ul>
   )
 }

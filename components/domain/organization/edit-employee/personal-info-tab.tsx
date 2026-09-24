@@ -14,7 +14,10 @@ import {
   scheduleFromEmployee,
 } from '@/domain/organization/employee-directory-parts/attendance-grid';
 import type { ScheduleEntry } from '@/services/organization/employee-directory';
-import { User, MapPin, Building2, Clock, Wallet, AlertCircle, Loader2 } from "lucide-react";
+import { User, MapPin, Building2, Clock, Wallet, AlertCircle, Loader2, SlidersHorizontal } from "lucide-react";
+import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section';
+import { saveCustomFieldValues } from '@/lib/platform/custom-field-values';
+import { describePlatformError } from '@/lib/platform/client';
 
 interface PersonalInfoTabProps {
   employee: any;
@@ -105,10 +108,25 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  /*
+   * The organisation's own fields, kept here rather than inside the section so
+   * one "Save changes" writes the profile and these together. See
+   * `custom-fields-section.tsx` for why two save buttons was the wrong answer.
+   */
+  const [customValues, setCustomValues] = useState<Record<number, string | null>>({});
+  const [hasCustomFields, setHasCustomFields] = useState(false);
+  const employeeId = Number(employee?.id ?? 0);
+
   const sections = [
     { id: 'personal', label: 'Personal Details', icon: User },
     { id: 'address', label: 'Address', icon: MapPin },
     { id: 'reporting', label: 'Reporting', icon: Building2 },
+    // Only when this organisation has actually defined some. A permanent tab
+    // over an empty panel would be clutter on every employee record in the
+    // product, since most tenants define none.
+    ...(hasCustomFields
+      ? [{ id: 'custom', label: 'Additional Details', icon: SlidersHorizontal }]
+      : []),
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'deposit', label: 'Direct Deposit', icon: Wallet },
   ];
@@ -119,6 +137,27 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     setSaveError('');
     try {
       await onSave({ ...formData, schedule });
+
+      /*
+       * The custom fields go to their own endpoint, AFTER the profile.
+       *
+       * Order matters on failure: if the profile save throws, this never runs and
+       * nothing is half-written. If this throws, the profile HAS been saved, and
+       * the message below says so rather than implying the whole save failed —
+       * somebody who is told "nothing saved" and retries would otherwise be
+       * re-entering work that is already stored.
+       */
+      if (hasCustomFields && employeeId > 0) {
+        try {
+          await saveCustomFieldValues('tbluser', employeeId, customValues);
+        } catch (cause) {
+          setSaveError(
+            'The employee details were saved, but this organisation&rsquo;s own fields were not: '
+            + describePlatformError(cause, 'the request failed.')
+          );
+          return;
+        }
+      }
     } catch (cause) {
       /*
        * A failed save has to LOOK failed.
@@ -334,6 +373,35 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
                   <Input value={formData.reporting_method} onChange={(e) => handleChange('reporting_method', e.target.value)} placeholder="Reporting Method (e.g., Direct, Matrix)" />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/*
+            Rendered whenever the record has an id, and HIDDEN rather than
+            unmounted when another section is open.
+
+            Unmounting would discard anything typed here the moment somebody
+            clicked "Address" and back, and would refetch the definitions each
+            time. It is also what populates `hasCustomFields`, which decides
+            whether the tab appears at all — so it has to run before the tab is
+            first shown.
+          */}
+          {employeeId > 0 && (
+            <div className={activeSection === 'custom' ? 'space-y-4' : 'hidden'}>
+              <h3 className="border-b pb-2 text-lg font-semibold text-foreground">
+                Additional Details
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Fields this organisation added to the employee record, configured under Platform
+                Services &rsaquo; Fields Configuration.
+              </p>
+              <CustomFieldsSection
+                recordTable="tbluser"
+                recordId={employeeId}
+                values={customValues}
+                onChange={setCustomValues}
+                onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+              />
             </div>
           )}
 
