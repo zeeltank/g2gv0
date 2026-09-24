@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/core'
+import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { getDeviceId } from '@/lib/device-id'
 
@@ -295,6 +295,66 @@ export const accountService = {
    */
   logout: (context: LaravelContext) =>
     apiClient.post<{ status: boolean; message: string }>('/account/logout', params(context)),
+
+  /* ── your own documents ────────────────────────────────────────────────── */
+
+  /**
+   * The documents on your own personnel record.
+   *
+   * No id parameter, like every other call in this file: the server resolves the
+   * subject from the token. The route this replaces took the user id from the URL
+   * and the TENANT from the request body with no role gate, so any employee could
+   * file a document against anybody in any organisation.
+   */
+  documents: (context: LaravelContext) =>
+    apiClient.get<{
+      status: number
+      data: {
+        id: number
+        document_title: string | null
+        document_type: string | null
+        file_name: string | null
+        mime_type: string | null
+        file_size: number | null
+        created_at: string | null
+      }[]
+      document_types: { id: number; document_type: string }[]
+    }>('/account/documents', params(context)),
+
+  /**
+   * Upload one. Multipart, because a file cannot go in a JSON body.
+   *
+   * The field is named `document` to match the server. That pairing is the whole
+   * reason this product lost every file it was given for months: the old form
+   * sent `file`, the old controller checked `document`, and the mismatch meant
+   * nothing was ever written while the screen reported success.
+   */
+  uploadDocument: (context: LaravelContext, file: File, title: string, typeId: number) => {
+    const body = new FormData()
+    const auth = params(context)
+
+    Object.entries(auth).forEach(([key, value]) => body.append(key, String(value)))
+    body.append('document', file)
+    body.append('document_title', title)
+    body.append('document_type_id', String(typeId))
+
+    return apiClient.postForm<{ status: number; message?: string }>('/account/documents', body)
+  },
+
+  /** Remove one of yours. Soft, so an administrator can restore it. */
+  deleteDocument: (context: LaravelContext, id: number) =>
+    apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
+
+  /**
+   * Where to fetch a document from.
+   *
+   * A URL rather than a fetch, because the browser downloads it. It goes through
+   * this application rather than to the object store: the bytes are served only
+   * after the same permission check the list uses, which is what stops a guessed
+   * key reading somebody's ID proof.
+   */
+  documentDownloadUrl: (context: LaravelContext, id: number) =>
+    buildApiUrl(`/account/documents/${id}/download`, params(context)),
 
   /* ── two-step verification ─────────────────────────────────────────────── */
 

@@ -25,7 +25,17 @@ export type DirectoryEmployee = {
   full_name: string | null
   email: string | null
   mobile: string | null
+  /** The stored FILENAME. Not servable on its own - see `image_url`. */
   image: string | null
+  /**
+   * The photo, as a URL the browser can actually load.
+   *
+   * Built server-side, because the filename alone (`41_a8Kd.jpg`) is meaningless
+   * to a browser: it resolves against this app's own origin and 404s, which is
+   * exactly what the directory did for every employee who had a photo. Which
+   * bucket and folder avatars live in is the API's business, not a screen's.
+   */
+  image_url: string | null
   employee_no: string | null
   employee_id: string | null
   department_id: number | null

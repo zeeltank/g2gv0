@@ -1241,7 +1241,18 @@ export function DepartmentList({ role }: { role?: Role }) {
       >
         <SheetContent
           side="right"
-          className="flex h-full w-[95vw] flex-col gap-0 border-l border-border/80 p-0 sm:max-w-2xl"
+          /*
+           * WIDER, IN STEPS.
+           *
+           * This was `sm:max-w-2xl` - 672px - and the drawer holds six tabs,
+           * including a job-role list carrying a name, a category, a headcount and
+           * now two actions per row. At that ceiling those rows wrapped.
+           *
+           * Stepped rather than one larger fixed value: 5xl is comfortable on a
+           * wide monitor, and the same 5xl on a 1280px laptop would cover the
+           * screen this drawer is meant to sit beside.
+           */
+          className="flex h-full w-[95vw] flex-col gap-0 border-l border-border/80 p-0 sm:max-w-3xl lg:max-w-5xl"
         >
           <SheetTitle className="sr-only">
             {detailDept ? `${detailDept.name} details` : 'Department details'}

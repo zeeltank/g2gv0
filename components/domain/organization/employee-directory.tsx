@@ -1,5 +1,6 @@
 'use client'
 
+import { EmployeeAvatar } from '@/components/domain/organization/employee-avatar'
 import * as React from 'react'
 import { lazy, Suspense } from 'react'
 import {
@@ -72,7 +73,10 @@ function toEmployee(row: DirectoryEmployee): Employee {
     jobRole: row.jobrole ?? '',
     designation: row.jobrole ?? '',
     address: [row.city, row.state].filter(Boolean).join(', '),
-    image: row.image?.trim() ? row.image : '',
+    // `image_url`, not `image`. The latter is a bare filename and was being put
+    // straight into a `src`, which is why the directory showed broken images
+    // rather than photos.
+    image: row.image_url?.trim() ? row.image_url : '',
     occupation: row.department_name ?? '',
     status: Number(row.status) === 1 ? 'Active' : 'Inactive',
     lastActivity: '',
@@ -298,14 +302,7 @@ export function EmployeeDirectory() {
       header: 'Employee',
       render: (_, row) => (
         <div className="flex items-center gap-3">
-          {row.image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- External URLs may not work with next/image
-            <img src={row.image} alt={row.full_name} className="size-10 rounded-full border border-border object-cover" />
-          ) : (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
-              <User className="size-5" />
-            </div>
-          )}
+          <EmployeeAvatar src={row.image} name={row.full_name} className="size-10" />
           <div className="flex flex-col">
             <span className="font-semibold text-foreground">{row.full_name}</span>
             <span className="text-xs text-muted-foreground">{row.email || '—'}</span>
