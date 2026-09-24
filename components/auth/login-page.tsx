@@ -320,9 +320,22 @@ export function LoginPage() {
         same seam, see the comment on the diagonal-panel technique above.
       */}
       <div
-        className="g2g-auth-diagonal absolute inset-y-0 left-0 hidden w-[52%] overflow-hidden bg-brand-navy lg:block xl:w-[50%]"
+        className="g2g-auth-diagonal absolute inset-y-0 left-0 z-10 hidden w-[52%] overflow-hidden bg-brand-navy lg:block xl:w-[50%]"
         aria-hidden="true"
       >
+        {/*
+          `z-10` here is a real fix, not decoration: `<main>` below has no
+          explicit width, so its box spans the full viewport even though
+          padding visually confines its content to the right column —
+          `document.elementFromPoint` over this panel resolved to `<main>`,
+          not this div, because a later same-stacking-level sibling paints
+          on top by DOM order regardless of what's visibly underneath. This
+          panel's box only spans its own ~52% column, so raising it above
+          `<main>` cannot shadow anything `<main>` actually shows — the form
+          lives entirely in the other ~48-50%. Without this, `pauseOnHover`
+          below is unreachable by a real cursor: mouseenter never reaches
+          the spiral at all, `<main>`'s empty padding area catches it first.
+        */}
         <SpiralGallery className="h-full w-full" />
       </div>
 
