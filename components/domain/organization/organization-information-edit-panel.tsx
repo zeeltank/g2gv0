@@ -24,6 +24,8 @@ type OrganizationData = {
   registrationNo: string
   gstNo: string
   panNo: string
+  /** UDYAM-XX-00-0000000. A new column; nothing in either repo held this before. */
+  udyamNumber: string
   website: string
   companyDescription: string
   email: string
@@ -56,6 +58,10 @@ type OrganizationData = {
 
 interface OrganizationInformationEditPanelProps {
   data: OrganizationData
+  /** Industries from `s_industries`, via the API. Empty until the fetch lands. */
+  industries?: string[]
+  /** Legal forms, from `OrganizationProfileController::ORGANISATION_TYPES`. */
+  organisationTypes?: string[]
   /**
    * The logo already stored, so the editor shows what is there rather than a
    * monogram beside a button reading "Upload New Logo".
@@ -83,11 +89,34 @@ function ReadField({ label, value }: { label: string; value: ReactNode }) {
 
 export function OrganizationInformationEditPanel({
   data,
+  industries,
+  organisationTypes,
   storedLogoUrl,
   onCancel,
   onSave,
 }: OrganizationInformationEditPanelProps) {
   const [org, setOrg] = useState(data)
+
+  /*
+   * THE STORED VALUE IS ALWAYS AN OPTION, even when it is not in the list.
+   *
+   * `school_setup.institute_type` is free text and has collected values the
+   * taxonomy does not contain - one live organisation holds the literal string
+   * "50". Offering only the canonical list would mean opening the editor to fix
+   * an address and silently changing the industry to whatever sorts first.
+   *
+   * So: the current value first when it is not already present, then the real
+   * list. Nothing is lost by opening a form.
+   */
+  const toOptions = (values: string[], current: string) => {
+    const seen = values.filter(Boolean)
+    const list = current && !seen.includes(current) ? [current, ...seen] : seen
+
+    return list.map((value) => ({ value, label: value }))
+  }
+
+  const industryOptions = toOptions(industries ?? [], org.industryType)
+  const organisationTypeOptions = toOptions(organisationTypes ?? [], org.organizationType)
 
   /*
    * ═══════════════════════════════════════════════════════════════════════════
@@ -361,12 +390,16 @@ export function OrganizationInformationEditPanel({
                 id="ind"
                 value={org.industryType}
                 onChange={(value) => updateField('industryType', value)}
-                options={[
-                  { value: org.industryType, label: org.industryType },
-                  { value: 'Manufacturing', label: 'Manufacturing' },
-                  { value: 'Healthcare', label: 'Healthcare' },
-                  { value: 'Finance', label: 'Finance' },
-                ]}
+                /*
+                 * FROM THE DATABASE, not three hardcoded strings.
+                 *
+                 * This offered Manufacturing / Healthcare / Finance, with the
+                 * stored value injected as a fourth so it survived a save. Meanwhile
+                 * `s_industries` has existed all along - 43 industries, a global
+                 * taxonomy, served by a live token-authenticated `GET /industries` -
+                 * and no frontend code had ever called it.
+                 */
+                options={industryOptions}
               />
             </FormField>
             <FormField label="Organization Type" htmlFor="ot">
@@ -374,12 +407,13 @@ export function OrganizationInformationEditPanel({
                 id="ot"
                 value={org.organizationType}
                 onChange={(value) => updateField('organizationType', value)}
-                options={[
-                  { value: 'Private Limited', label: 'Private Limited' },
-                  { value: 'Public Limited', label: 'Public Limited' },
-                  { value: 'LLP', label: 'LLP' },
-                  { value: 'Partnership', label: 'Partnership' },
-                ]}
+                /*
+                 * Also from the server. These four were hardcoded AND the chosen
+                 * value was thrown away on save - there was no column to write it
+                 * to until now, so every organisation rendered "Private Limited"
+                 * whatever was picked.
+                 */
+                options={organisationTypeOptions}
               />
             </FormField>
             <FormField label="Website" htmlFor="web">

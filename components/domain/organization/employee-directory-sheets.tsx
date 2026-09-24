@@ -1,7 +1,8 @@
 'use client'
 
+import { EmployeeAvatar } from '@/components/domain/organization/employee-avatar'
 import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
-import { Briefcase, User, Loader2 } from 'lucide-react'
+import { Briefcase, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
@@ -670,14 +671,13 @@ function EmployeeOverviewSheet({
         <div className="flex h-full flex-col bg-background">
           <div className="flex items-center justify-between border-b bg-surface px-6 py-5">
             <div className="flex items-center gap-4">
-              {mergedEmployee.image ? (
-                // eslint-disable-next-line @next/next/no-img-element -- External URLs may not work with next/image
-                <img src={mergedEmployee.image} alt={mergedEmployee.full_name} className="size-14 rounded-full border-2 border-background object-cover shadow-sm" />
-              ) : (
-                <div className="flex size-14 items-center justify-center rounded-full border-2 border-background bg-primary/10 text-primary shadow-sm">
-                  <User className="size-6" />
-                </div>
-              )}
+              {/* The same control the list row uses, so the drawer and the row
+                  that opened it can never disagree about somebody's photo. */}
+              <EmployeeAvatar
+                src={mergedEmployee.image}
+                name={mergedEmployee.full_name}
+                className="size-14 border-2 border-background text-sm shadow-sm"
+              />
               <div>
                 <h2 className="text-xl font-bold text-foreground">{mergedEmployee.full_name}</h2>
                 <p className="text-sm font-medium text-muted-foreground">{mergedEmployee.jobRole} {mergedEmployee.department_name ? `• ${mergedEmployee.department_name}` : ''}</p>
