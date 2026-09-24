@@ -15,6 +15,7 @@ import {
   type LeaveOptionsData,
   type LeaveBalanceReportData,
   type LeaveRegisterRow,
+  type LeaveReportCatalog,
   type LeaveReportFilters,
   type LeaveReportSummaryData,
   type LeaveRequestDetail,
@@ -247,6 +248,49 @@ export function useLeaveOptions(departmentId?: string) {
   }, [load])
 
   return { loading, error, options, retry: load }
+}
+
+/**
+ * Which leave reports exist, from the server.
+ *
+ * The catalogue was a module-level constant in the Leave Reports screen, so
+ * adding or renaming a report needed a frontend deploy, and the category counts
+ * derived from it were computed once with an empty dependency array - frozen at
+ * 3 / 2 / 1 regardless of the tab or the search box, while the "Showing X of Y"
+ * line on the same card used the real number.
+ *
+ * Returns null rather than an empty list on failure, so the caller can tell
+ * "the server has no reports" from "we could not ask" and fall back to the
+ * definitions this build ships with.
+ */
+export function useLeaveReportCatalog() {
+  const resolveContext = useLaravelContext()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [catalog, setCatalog] = useState<LeaveReportCatalog | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await leaveService.getReportCatalog(resolveContext())
+      setCatalog(response.data ?? null)
+    } catch (loadError) {
+      setError(toMessage(loadError, 'Failed to load the report catalog.'))
+      setCatalog(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [resolveContext])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      load()
+    })
+  }, [load])
+
+  return { loading, error, catalog, retry: load }
 }
 
 /* ------------------------------------------------------------------ *

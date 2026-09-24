@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   PayrollPageShell,
   PayrollTableSkeleton,
+  csvText,
   downloadCsv,
 } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { useBankWiseReport } from '@/hooks/use-bank-wise-report'
@@ -71,7 +72,9 @@ export default function PayrollBankReportPage() {
         row.bankName,
         // Forced to text so a spreadsheet does not turn a long account number
         // into scientific notation - which would silently corrupt a transfer file.
-        row.accountNo ? `="${row.accountNo}"` : '',
+        // Was a hand-rolled ="..." here. Same technique, now the shared one,
+        // so every export in the module forces text the same way.
+        row.accountNo ? csvText(row.accountNo) : '',
         row.ifsc,
         row.netPay.toFixed(2),
         row.payable ? 'Yes' : 'Missing bank details',

@@ -497,7 +497,17 @@ export function GtgAppShell({
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
               <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
-                <div className="w-full min-h-full p-6">
+                {/*
+                  @container/content. The sidebar is compensated with
+                  padding-left on the wrapper above, but Tailwind's sm/md/lg/xl
+                  breakpoints key off VIEWPORT width - so expanding the sidebar
+                  removes 188px from every page while the page's grid keeps the
+                  same column count, and cards that fit at "lg" no longer do.
+                  Naming this element as a container lets a screen ask how much
+                  room it ACTUALLY has, via @2xl/content: and friends. The
+                  careers and assessment pages already work this way.
+                */}
+                <div className="@container/content w-full min-h-full p-6">
                   {children ?? (
                     <>
                       <GtgBreadcrumbFromContext />

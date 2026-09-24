@@ -23,7 +23,10 @@ export function LeaveQuickActionsCard({ actions, onAction }: LeaveQuickActionsCa
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      {/* Bounded like its siblings: this list is static today, but the card
+          sits in the same stretch grid, so an added action would lengthen
+          every card in the row, not just this one. */}
+      <CardContent className="g2g-scrollbar max-h-[18rem] space-y-2 overflow-y-auto">
         {actions.map((action) => {
           const Icon = iconByName[action.icon]
 
