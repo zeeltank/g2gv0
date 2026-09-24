@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronRight, ChevronDown, X } from 'lucide-react'
+import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { type ActiveNav } from '@/hooks/use-navigation'
 import { findNodePath, type NavModule, type NavNode } from '@/lib/gtg-navigation'
 import { IconButton } from '@/components/ui/icon-button'
@@ -191,6 +191,19 @@ export function GtgSidebar({
     setDesktopExpandedIds(module.id === active.moduleId ? activePathIds(module, active) : new Set())
     onCollapsedChange?.(false)
   }, [active, clearFlyout, onCollapsedChange])
+
+  /**
+   * The explicit toggle, as opposed to the implicit collapses/expansions
+   * elsewhere in this file (clicking a module while collapsed expands it;
+   * clicking outside an overlaying rail collapses it, per F-201). This one
+   * always applies regardless of viewport width — a deliberate click on a
+   * dedicated button is a request either way, not something that should be
+   * width-gated the way an incidental outside click is.
+   */
+  const handleToggleCollapsed = useCallback(() => {
+    clearFlyout()
+    onCollapsedChange?.(!collapsed)
+  }, [clearFlyout, collapsed, onCollapsedChange])
 
   const handleModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
@@ -539,6 +552,39 @@ export function GtgSidebar({
             })}
           </div>
         </nav>
+
+        {/*
+          Collapse/expand — the only explicit control for it; everything
+          else that changes `collapsed` is a side effect of some other
+          click (a module, or clicking outside an overlaying rail). Pinned
+          to the bottom because `nav` above is `flex-1` and takes all the
+          remaining height on its own.
+        */}
+        <div
+          className={cn(
+            'flex h-14 shrink-0 items-center border-t border-sidebar-border',
+            collapsed ? 'justify-center px-2' : 'px-3',
+          )}
+        >
+          <button
+            type="button"
+            onClick={handleToggleCollapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'flex items-center cursor-pointer rounded-md text-sm font-medium text-sidebar-foreground transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-ring',
+              collapsed ? 'size-10 justify-center' : 'h-10 w-full gap-3 px-2',
+            )}
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              {collapsed ? (
+                <PanelLeftOpen className="size-5" aria-hidden="true" />
+              ) : (
+                <PanelLeftClose className="size-5" aria-hidden="true" />
+              )}
+            </span>
+            {!collapsed && <span className="flex-1 truncate text-left">Collapse</span>}
+          </button>
+        </div>
       </aside>
 
       {/* Mobile off-canvas drawer (<md) */}
