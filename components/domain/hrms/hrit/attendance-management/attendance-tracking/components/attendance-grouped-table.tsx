@@ -34,6 +34,17 @@ export interface GroupedRecord {
   workingHours?: string
   lateBy?: string
   earlyBy?: string
+  /*
+   * The day counts departmentwiseAttendanceReportCreate has always returned and
+   * this table has never shown. They were being folded into two composite
+   * strings - "12/22 days" and "3 days" - which is fine to glance at and
+   * useless to sort, filter or export. HR asking "who has the most half-days
+   * this quarter" could not answer it from the screen that holds the number.
+   */
+  halfDays?: number
+  workingDays?: number
+  holidays?: number
+  weekOffs?: number
   recentRecords?: DrillDownRecord[]
 }
 
@@ -43,6 +54,11 @@ interface AttendanceGroupedTableProps {
   searchValue: string
   onSearchChange: (value: string) => void
   onView?: (record: GroupedRecord) => void
+  /**
+   * "YYYY-MM" the drill-down drawer should load. Passed down rather than
+   * derived here, because the report's range lives on the page.
+   */
+  month?: string | null
   className?: string
 }
 
@@ -60,6 +76,7 @@ export function AttendanceGroupedTable({
   searchValue,
   onSearchChange,
   onView,
+  month,
   className,
 }: AttendanceGroupedTableProps) {
   const [sortBy, setSortBy] = React.useState<string>('')
@@ -141,13 +158,25 @@ export function AttendanceGroupedTable({
           { id: 'status', label: 'Status' },
         ]
       case 'employee':
+        /*
+         * The full row. Present / Absent / Half Day / Late / Working Days were
+         * all in the response and none were on screen - two of them squashed
+         * into the "12/22 days" and "3 days" strings, the rest discarded. Each
+         * is its own sortable column now, which is what "show any employee's
+         * report with more detail" actually requires.
+         */
         return [
           { id: 'employee', label: 'Employee' },   // F-176
           { id: 'employeeId', label: 'Employee ID' },
-          { id: 'date', label: 'Date' },
           { id: 'department', label: 'Department' },
-          { id: 'workingHours', label: 'Working Hours' },
-          { id: 'lateBy', label: 'Late By' },
+          { id: 'present', label: 'Present' },
+          { id: 'absent', label: 'Absent' },
+          { id: 'halfDays', label: 'Half Day' },
+          { id: 'late', label: 'Late' },
+          { id: 'holidays', label: 'Holidays' },
+          { id: 'weekOffs', label: 'Week Off' },
+          { id: 'workingDays', label: 'Working Days' },
+          { id: 'attendancePercentage', label: 'Attendance %' },
           { id: 'status', label: 'Status' },
         ]
       // F-175. `case 'date'` was here. It is gone with the Group By option that
@@ -281,6 +310,13 @@ export function AttendanceGroupedTable({
         onOpenChange={(val) => !val && setDrillDown(null)}
         record={drillDown as DrillDownRecord}
         recentRecords={drillDown?.recentRecords ?? []}
+        /*
+          Only an employee row has a person to fetch for. A department roll-up
+          passes null and the drawer keeps its existing summary behaviour
+          instead of requesting a month for nobody.
+        */
+        employeeUserId={groupBy === 'employee' ? drillDown?.id ?? null : null}
+        month={month ?? null}
       />
     </Card>
   )

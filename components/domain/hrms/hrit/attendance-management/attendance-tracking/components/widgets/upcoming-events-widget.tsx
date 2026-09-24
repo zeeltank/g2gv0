@@ -47,7 +47,7 @@ export function UpcomingEventsWidget({ events, loading, onViewCalendar }: Upcomi
   }
 
   return (
-    <Card className="flex h-full flex-col rounded-xl border-border bg-card shadow-sm">
+    <Card className="flex h-full max-h-[26rem] flex-col rounded-xl border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 px-5 pb-4 pt-5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600">
           <CalendarDays className="size-5" />
@@ -56,7 +56,7 @@ export function UpcomingEventsWidget({ events, loading, onViewCalendar }: Upcomi
           Upcoming Events
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-between px-3 pb-3">
+      <CardContent className="g2g-scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto px-3 pb-3">
         <div className="flex flex-col">
           {/*
             F-194. The only widget in this row without one. Its two neighbours
@@ -73,11 +73,21 @@ export function UpcomingEventsWidget({ events, loading, onViewCalendar }: Upcomi
           {events.map((event) => (
             <div
               key={event.id}
-              className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
+              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
             >
-              <div className="flex flex-col">
+              {/*
+                min-w-0 + truncate. Without both, a long holiday name wraps to
+                as many lines as it likes: this row is already three lines tall
+                where its neighbours are one, and in a CSS grid where every card
+                is h-full, the tallest card sets the height of all five. One
+                verbose holiday therefore stretched the entire row. The sibling
+                widget my-requests-widget already truncates; this one did not.
+              */}
+              <div className="flex min-w-0 flex-col">
                 <span className="text-sm font-bold text-foreground">{formatEventDate(event.date)}</span>
-                <span className="text-sm font-medium text-muted-foreground">{event.title}</span>
+                <span className="truncate text-sm font-medium text-muted-foreground" title={event.title}>
+                  {event.title}
+                </span>
                 <span className="text-xs font-medium text-muted-foreground">{getDayOfWeek(event.date)}</span>
               </div>
               {event.type === 'leave' && (

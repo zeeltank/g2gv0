@@ -423,6 +423,25 @@ export interface LeaveBalanceReportData {
   }[]
 }
 
+export interface LeaveReportCatalogEntry {
+  id: string
+  title: string
+  description: string
+  category: string
+  /** The API route that produces it, for tracing a report back to its source. */
+  endpoint: string
+}
+
+export interface LeaveReportCatalogCategory {
+  name: string
+  count: number
+}
+
+export interface LeaveReportCatalog {
+  reports: LeaveReportCatalogEntry[]
+  categories: LeaveReportCatalogCategory[]
+}
+
 export interface LeaveReportFilters {
   fromDate?: string
   toDate?: string
@@ -619,6 +638,24 @@ export const leaveService = {
       ...withLaravelParams(context),
       ...(reason ? { reason } : {}),
     }),
+
+  /**
+   * Which reports exist, and how many are in each category.
+   *
+   * The list used to be a module-level constant in the frontend, and the counts
+   * beside it were derived from that constant inside a useMemo with an empty
+   * dependency array - so they were frozen at 3/2/1 and contradicted the
+   * "Showing X of Y" line rendered on the same card. Both now come from the
+   * server, computed from one list, so they cannot disagree.
+   *
+   * Only the DATA comes back: icon and tone stay in the frontend, because they
+   * are React components and a colour, not facts about a report.
+   */
+  getReportCatalog: (context: LaravelContext) =>
+    apiClient.get<LeaveApiResponse<LeaveReportCatalog>>(
+      '/leave/reports/catalog',
+      withLaravelParams(context),
+    ),
 
   // Reports
   getReportSummary: (context: LaravelContext, filters?: LeaveReportFilters) =>

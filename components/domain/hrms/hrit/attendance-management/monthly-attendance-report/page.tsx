@@ -6,11 +6,12 @@ import { AlertTriangle, Download, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { MonthPicker } from '@/components/ui/month-picker'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { GtgPageHeader } from '@/components/shell/gtg-page-header'
-import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
+import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { useMonthlyAttendance } from '@/hooks/use-monthly-attendance'
 import { useAuth } from '@/hooks/use-auth'
 import { HR_ADMIN_ROLES, ROLE_GROUPS } from '@/types/role'
@@ -39,9 +40,11 @@ export default function MonthlyAttendanceReportPage() {
     setMonth,
     employeeId,
     setEmployeeId,
+    departmentId,
+    setDepartmentId,
+    departments,
     employees,
     employeesError,
-    months,
     loading,
     error,
     summary,
@@ -82,7 +85,27 @@ export default function MonthlyAttendanceReportPage() {
     }))
   }, [employees, canReadOthers, user?.id])
 
-  const monthLabel = months.find((item) => item.value === loadedFor?.month)?.label ?? loadedFor?.month
+  /* The staff code, for the printed header - a report naming only "Priya S" is
+     ambiguous in an organisation with two of them. */
+  const employeeNumber = React.useMemo(
+    () => employees.find((row) => String(row.id) === String(loadedFor?.employeeId))?.employee_no ?? '',
+    [employees, loadedFor?.employeeId],
+  )
+
+  /*
+   * Formatted, not looked up. This used to search the 18-entry dropdown list,
+   * which was fine while that list was the only way to pick a month - now the
+   * picker can reach any month, and one outside those eighteen would have been
+   * printed as the raw "2025-09" on screen and at the top of the printout.
+   */
+  const monthLabel = React.useMemo(() => {
+    const match = /^(\d{4})-(\d{2})$/.exec(loadedFor?.month ?? '')
+    if (!match) return loadedFor?.month
+    return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString('en-GB', {
+      month: 'long',
+      year: 'numeric',
+    })
+  }, [loadedFor?.month])
 
   const dirty =
     loadedFor !== null && (loadedFor.month !== month || loadedFor.employeeId !== employeeId)
@@ -91,17 +114,25 @@ export default function MonthlyAttendanceReportPage() {
     if (!loadedFor) return
     downloadCsv(
       `attendance-${employeeName || loadedFor.employeeId}-${loadedFor.month}.csv`,
-      ['Date', 'Day', 'Status', 'Punch In', 'Punch Out', 'Working Hours', 'Late', 'Shift', 'Leave', 'Holiday'],
+      ['Date', 'Day', 'Status', 'Punch In', 'Punch Out', 'Working Hours', 'Late', 'Shift', 'Leave', 'Leave Reason', 'Holiday'],
+      /*
+       * csvText on every date, clock time and duration. Excel converts a bare
+       * 2025-09-01 to a date serial and then renders ###### as soon as the
+       * column is narrower than the result - which is what turned this export
+       * into a sheet of hashes. Same for 09:15:00 and the HH:MM working-hours
+       * duration, which it reads as times of day.
+       */
       days.map((day) => [
-        day.date,
+        csvText(day.date),
         day.day_name,
         statusLabel(day.status),
-        day.punchin_time ?? '',
-        day.punchout_time ?? '',
-        day.working_hours ?? '',
+        csvText(day.punchin_time ?? ''),
+        csvText(day.punchout_time ?? ''),
+        csvText(day.working_hours ?? ''),
         day.is_late ? 'Yes' : '',
-        day.shift_time ?? '',
-        day.leave?.type ?? '',
+        csvText(day.shift_time ?? ''),
+        day.leave?.leave_type ?? '',
+        day.leave?.reason ?? '',
         day.holiday_name ?? '',
       ]),
     )
@@ -135,7 +166,27 @@ export default function MonthlyAttendanceReportPage() {
       <div className="flex flex-col gap-4 px-4 pb-4 sm:px-0 sm:pb-0 sm:gap-5 md:gap-6">
         <div className="rounded-xl border border-border bg-card p-4 print:hidden">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5 sm:col-span-2">
+            {/*
+              Department narrows the employee picker. /attendance/employees has
+              always taken a department_id; the hook simply never sent one, so
+              this screen offered one flat list of the whole organisation.
+              Hidden from anyone who can only see themselves - a filter over a
+              list of one is noise.
+            */}
+            {canReadOthers && (
+              <div className="space-y-1.5">
+                <Label htmlFor="mar-department">Department</Label>
+                <Select
+                  id="mar-department"
+                  value={departmentId}
+                  onChange={setDepartmentId}
+                  options={[{ value: 'all', label: 'All departments' }, ...departments]}
+                  placeholder="All departments"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
               <Label htmlFor="mar-employee" required>
                 Employee
               </Label>
@@ -152,12 +203,12 @@ export default function MonthlyAttendanceReportPage() {
               <Label htmlFor="mar-month" required>
                 Month
               </Label>
-              <Select
-                id="mar-month"
-                value={month}
-                onChange={setMonth}
-                options={months}
-              />
+              {/*
+                A month picker rather than an 18-entry dropdown. The dropdown
+                could only reach the last eighteen months; a year that fell off
+                the end was unreachable from this screen at all.
+              */}
+              <MonthPicker id="mar-month" value={month} onChange={setMonth} />
             </div>
 
             <div className="flex items-end">
@@ -214,8 +265,32 @@ export default function MonthlyAttendanceReportPage() {
           </div>
         ) : (
           <>
+            {/*
+              THE PRINTED REPORT'S OWN HEADING.
+              window.print() with the old stylesheet hid `header` wholesale,
+              which took the page title with it, so the printout began with a
+              bare table and identified nobody: no employee, no period, no
+              organisation, no date it was produced. That is what made it read
+              as a screenshot of a screen rather than a report.
+              Hidden on screen, shown only on paper.
+            */}
+            <div className="hidden print:mb-4 print:block">
+              <h1 className="text-lg font-bold">Monthly Attendance Report</h1>
+              <p className="mt-0.5 text-sm">
+                <span className="font-semibold">{employeeName || 'Employee'}</span>
+                {employeeNumber ? ` (${employeeNumber})` : ''} &mdash; {monthLabel}
+              </p>
+              <p className="mt-0.5 text-xs">
+                Printed {new Date().toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
+
             {summary && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8 print:grid-cols-4 print:gap-2">
                 <SummaryCard label="Working days" value={summary.working_days} />
                 <SummaryCard label="Present" value={summary.present_days} tone="success" />
                 <SummaryCard label="Absent" value={summary.absent_days} tone="destructive" />
@@ -227,11 +302,8 @@ export default function MonthlyAttendanceReportPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="mar-print-area overflow-x-auto rounded-xl border border-border bg-card print:overflow-visible">
               <table className="w-full min-w-[840px] border-collapse text-sm">
-                <caption className="hidden p-4 text-left text-base font-semibold print:table-caption">
-                  {employeeName} — {monthLabel}
-                </caption>
                 <thead>
                   <tr className="border-b border-border bg-muted/40 text-left">
                     <th scope="col" className="px-4 py-3 font-semibold">Date</th>
@@ -279,6 +351,10 @@ export default function MonthlyAttendanceReportPage() {
 
       {/* F-99. Print emits the report, not the application shell. */}
       <style jsx global>{`
+        @page {
+          size: A4 portrait;
+          margin: 14mm;
+        }
         @media print {
           body {
             background: #fff;
@@ -289,16 +365,35 @@ export default function MonthlyAttendanceReportPage() {
           .print\\:hidden {
             display: none !important;
           }
+          /*
+            The table lives in an overflow-x-auto wrapper so it can scroll on a
+            narrow screen. On paper that same wrapper CLIPS everything past the
+            page width - the right-hand columns simply do not print. Releasing
+            the overflow is what makes the export field-wise rather than
+            whatever happened to be visible.
+          */
+          .mar-print-area {
+            overflow: visible !important;
+            border: none !important;
+          }
           table {
             width: 100% !important;
             min-width: 0 !important;
-            font-size: 10pt;
+            font-size: 9pt;
           }
+          /* Repeat the column headings on every page, not just the first. */
           thead {
             display: table-header-group;
           }
+          tfoot {
+            display: table-footer-group;
+          }
           tr {
             break-inside: avoid;
+          }
+          th,
+          td {
+            padding: 4pt 6pt !important;
           }
         }
       `}</style>
@@ -371,7 +466,7 @@ function statusVariant(status: string): 'success' | 'error' | 'warning' | 'inact
 function note(day: MonthlyAttendanceDay) {
   if (day.holiday_name) return day.holiday_name
   if (day.leave) {
-    const parts = [day.leave.type, day.leave.reason].filter(
+    const parts = [day.leave.leave_type, day.leave.reason].filter(
       (part) => part && String(part).trim() !== '',
     )
     return parts.length > 0 ? parts.join(' — ') : 'On leave'

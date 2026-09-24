@@ -55,7 +55,9 @@ export function RecentLeaveRequests({ requests, onView, onViewAll }: RecentLeave
         </Button>
       </CardHeader>
 
-      <CardContent className="p-0">
+      {/* One row per request, uncapped, in an h-full card - the tallest card
+          in a CSS grid sets the height of the whole row. */}
+      <CardContent className="g2g-scrollbar max-h-[22rem] overflow-y-auto p-0">
         {/*
           F-194. With no requests this rendered a seven-column table HEADER and
           nothing under it - the emptiest shape on the dashboard, and the one

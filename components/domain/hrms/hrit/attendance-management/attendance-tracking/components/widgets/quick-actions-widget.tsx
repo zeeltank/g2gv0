@@ -32,7 +32,7 @@ export function QuickActionsWidget({ actions, loading }: QuickActionsWidgetProps
   }
 
   return (
-    <Card className="flex h-full flex-col rounded-xl border-border bg-card shadow-sm">
+    <Card className="flex h-full max-h-[26rem] flex-col rounded-xl border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 px-5 pb-4 pt-5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning/10 text-warning">
           <Zap className="size-5" />
@@ -41,7 +41,7 @@ export function QuickActionsWidget({ actions, loading }: QuickActionsWidgetProps
           Quick Actions
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 px-3 pb-3">
+      <CardContent className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <div className="flex flex-col">
           {actions.map((action) => {
             const Icon = action.icon

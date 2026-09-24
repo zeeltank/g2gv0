@@ -68,7 +68,15 @@ export interface MonthlyAttendanceDay {
   is_late: boolean
   /** The rostered start time for that weekday, or null on a non-working day. */
   shift_time: string | null
-  leave: { type?: string | null; day_type?: string | number | null; reason?: string | null } | null
+  /**
+   * The server's own keys. `leave_type`, NOT `type` - AttendanceApiController
+   * builds this map with 'leave_type' => $leave->leave_type_name, and the
+   * interface declared `type`, so every consumer read undefined. The CSV's
+   * Leave column has therefore always exported blank, and the on-screen Note
+   * column fell back to the bare word "On leave". Nothing errored; the data
+   * was simply never there.
+   */
+  leave: { leave_id?: number | null; leave_type?: string | null; day_type?: string | number | null; reason?: string | null } | null
   holiday_name: string | null
 }
 
@@ -387,7 +395,13 @@ export const hrmsService = {
    */
   // Attendance
   /** /api/attendance/kpi - the employee filter is only honoured by this route. */
-  getAttendanceKpis: (context: LaravelContext, params?: Pick<AttendanceWeeklyParams, 'departmentId' | 'employeeId'>) =>
+  /**
+   * The date range is now sent. It used to be deliberately withheld - the
+   * signature accepted only department and employee - because the endpoint
+   * hardcoded Carbon::today() and ignored it. So every range the screen offered
+   * returned today's number under the selected period's label.
+   */
+  getAttendanceKpis: (context: LaravelContext, params?: AttendanceWeeklyParams) =>
     apiClient.get<AttendanceKpiResponse>('/attendance/kpi', attendanceParams(context, params)),
   /** /api/attendance/weekly-summary - as above, /attendance-weekly ignores employee_id. */
   getAttendanceWeeklySummary: (context: LaravelContext, params?: AttendanceWeeklyParams) =>
