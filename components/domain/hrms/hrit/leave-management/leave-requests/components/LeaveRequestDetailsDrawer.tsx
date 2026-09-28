@@ -8,11 +8,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Spinner } from '@/components/ui/spinner'
 import { AttendanceTabs } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-tabs'
-import { Check, X, MessageSquare, Paperclip, History, Send } from 'lucide-react'
+import { Check, X, MessageSquare, Paperclip, History, Send, Loader2 } from 'lucide-react'
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave-dashboard'
 import type { LeaveRequestDetail, LeaveStatus } from '@/services/hrms'
 import { Input } from '@/components/ui/input'
 import { ApprovalChain } from './ApprovalChain'
+import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
+import { describePlatformError } from '@/lib/platform/client'
 
 interface LeaveRequestDetailsDrawerProps {
   open: boolean
@@ -45,7 +48,7 @@ const statusLabelMap: Record<LeaveRequestStatus, string> = {
   approved_lwp: 'Approved LWP',
 }
 
-const tabItems = [
+const BASE_TAB_ITEMS = [
   { id: 'overview', label: 'Overview' },
   { id: 'timeline', label: 'Timeline' },
   { id: 'comments', label: 'Comments' },
@@ -100,12 +103,31 @@ export function LeaveRequestDetailsDrawer({
     'withdraw' | 'cancel' | 'approver-cancel' | null
   >(null)
 
+  /*
+   * This organisation's own fields on the leave request, configured under
+   * Platform Services > Fields Configuration. Mirrors the employee record's
+   * "Additional Details" tab — same component, same allowlisted table pattern
+   * (hrms_emp_leaves) — but with its OWN Save button rather than folding into a
+   * parent save, because this drawer has no single unified save: Approve/Reject/
+   * Send Back are the record's real "save" actions, and custom fields are
+   * supplementary metadata that should persist independently of a decision.
+   */
+  const [customValues, setCustomValues] = React.useState<Record<number, string | null>>({})
+  const [hasCustomFields, setHasCustomFields] = React.useState(false)
+  const [savingCustom, setSavingCustom] = React.useState(false)
+  const [customNotice, setCustomNotice] = React.useState<string | null>(null)
+
+  const tabItems = hasCustomFields
+    ? [...BASE_TAB_ITEMS, { id: 'custom', label: 'Additional Details' }]
+    : BASE_TAB_ITEMS
+
   // Reset on close in the handler rather than an effect, so no cascading render.
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setActiveTab('overview')
       setRemark('')
       setConfirming(null)
+      setCustomNotice(null)
     }
     onOpenChange(next)
   }
@@ -124,6 +146,20 @@ export function LeaveRequestDetailsDrawer({
 
   const decide = (status: LeaveStatus) => {
     onDecision?.(requestId, status, remark.trim() ? { hrRemarks: remark.trim() } : undefined)
+  }
+
+  const saveCustomFields = async () => {
+    setSavingCustom(true)
+    setCustomNotice(null)
+
+    try {
+      await saveCustomFieldValues('hrms_emp_leaves', requestId, customValues)
+      setCustomNotice('Saved.')
+    } catch (cause: unknown) {
+      setCustomNotice(describePlatformError(cause, 'Could not save these fields.'))
+    } finally {
+      setSavingCustom(false)
+    }
   }
 
   /*
@@ -439,6 +475,38 @@ export function LeaveRequestDetailsDrawer({
               ))}
             </div>
           )}
+
+          {/*
+            Always mounted (hidden, not unmounted, when another tab is active) —
+            the same reasoning as the employee record's identical pattern: this is
+            what populates hasCustomFields, which decides whether the "Additional
+            Details" tab button appears at all, so it has to run before that tab
+            can be clicked.
+          */}
+          <div className={activeTab === 'custom' ? 'space-y-4' : 'hidden'}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Additional Details
+            </h3>
+            <CustomFieldsSection
+              recordTable="hrms_emp_leaves"
+              recordId={requestId}
+              values={customValues}
+              onChange={setCustomValues}
+              onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+            />
+
+            {hasCustomFields && (
+              <div className="flex items-center gap-3 pt-2">
+                <Button size="sm" disabled={savingCustom} onClick={saveCustomFields}>
+                  {savingCustom && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  Save
+                </Button>
+                {customNotice && (
+                  <span className="text-xs text-muted-foreground">{customNotice}</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {request.status === 'pending' && onDecision && (
