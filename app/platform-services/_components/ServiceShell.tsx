@@ -38,7 +38,10 @@ export function ServiceShell({ slug, children }: { slug: string; children?: Reac
       title={service.name}
       description={service.purpose}
       icon={
-        <PlatformServiceIcon slug={service.slug} className="size-6 shrink-0 text-indigo-300" />
+        <PlatformServiceIcon
+          slug={service.slug}
+          className="size-6 shrink-0 text-indigo-600 dark:text-indigo-300"
+        />
       }
       status={<StatusChip status={service.status} />}
       activeSlug={service.slug}
@@ -52,7 +55,7 @@ export function ServiceShell({ slug, children }: { slug: string; children?: Reac
         isRealScreen ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-white/20"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/20"
           >
             Open {service.name}
             <ArrowUpRight className="size-4" />

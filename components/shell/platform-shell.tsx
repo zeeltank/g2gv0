@@ -17,13 +17,20 @@
  * section, not something inherited from the app shell. Removing it here is enough to make
  * every built console use the space a wide monitor actually has.
  *
- * ── THE BANNER IS THE VISUAL SIGNATURE ──────────────────────────────────────
+ * ── THE BANNER IS THE VISUAL SIGNATURE, AND IT FOLLOWS THE SITE'S THEME ─────
  *
  * Full width alone does not read as "a distinct area" — it reads as a normal page that
- * forgot to constrain itself. The dark gradient band, unique to this section, is what
- * makes Platform Services recognisable as its own control plane at a glance, the same way
+ * forgot to constrain itself. The gradient band, unique to this section, is what makes
+ * Platform Services recognisable as its own control plane at a glance, the same way
  * Settings and Organization already have their own visual identity elsewhere in the
  * product. Nothing else in the app uses this treatment.
+ *
+ * It is NOT hardcoded dark. The first version always rendered a near-black band — a
+ * light indigo tint in light mode, `dark:` overrides to the deeper gradient in dark mode
+ * — because a screen forcing a dark band onto somebody who has chosen the light theme
+ * reads as broken, not as a signature. Every colour below is a token (`text-foreground`,
+ * `border-border`, …) or a light/`dark:` pair for the same reason; nothing in this
+ * component hardcodes `text-white` the way the first version did.
  *
  * The band bleeds past `GtgPageShell`'s own `p-6` via negative margins so it reaches the
  * edges of the content area rather than floating inside it with a border on every side.
@@ -83,11 +90,11 @@ export function PlatformShell({
 }) {
   return (
     <div className="w-full">
-      <div className="-mx-6 -mt-6 border-b border-white/10 bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 px-6 pt-6 pb-6 text-slate-50 xl:-mx-10 xl:px-10 2xl:-mx-14 2xl:px-14">
+      <div className="-mx-6 -mt-6 border-b border-border bg-gradient-to-r from-indigo-50 via-white to-slate-50 px-6 pt-6 pb-6 dark:border-white/10 dark:from-indigo-950 dark:via-slate-900 dark:to-slate-950 xl:-mx-10 xl:px-10 2xl:-mx-14 2xl:px-14">
         {backHref && (
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 transition-colors hover:text-white"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
             {backLabel}
@@ -96,15 +103,15 @@ export function PlatformShell({
 
         <div className={cn('flex flex-wrap items-start justify-between gap-4', backHref && 'mt-3')}>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-widest text-indigo-300/80 uppercase">
+            <p className="text-[11px] font-semibold tracking-widest text-indigo-600 uppercase dark:text-indigo-300/80">
               {eyebrow}
             </p>
-            <h1 className="mt-1 flex items-center gap-2.5 text-2xl font-semibold text-white">
+            <h1 className="mt-1 flex items-center gap-2.5 text-2xl font-semibold text-foreground">
               {icon}
               {title}
             </h1>
             {description && (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{description}</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
             )}
           </div>
 
@@ -125,8 +132,8 @@ export function PlatformShell({
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                 item.slug === activeSlug
-                  ? 'bg-white/15 text-white'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
               {item.label}

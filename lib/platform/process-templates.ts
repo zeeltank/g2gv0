@@ -96,6 +96,20 @@ Trigger: A background check fails, or the role is cancelled before the start dat
 Completion: The candidate has been told, and no onboarding work remains open for them`,
   },
   {
+    key: 'talent.new_requisition',
+    module: 'talent',
+    name: 'Opening a new job requisition',
+    text: `Objective: Get a new role approved and live on the careers page
+Trigger: A hiring manager requests a new headcount
+
+1. Draft the job description (Hiring Manager)
+2. [approval] Approve the headcount and budget (Finance)
+3. [approval] Approve the final job posting (Talent Lead)
+4. Publish the role to the careers page (Recruiter)
+
+Completion: The role is live and accepting applications`,
+  },
+  {
     key: 'competency.certification_renewal',
     module: 'competency',
     name: 'Certification renewal reminder',
@@ -108,6 +122,104 @@ Trigger: A certification enters its renewal window
 4. Record the new certification once issued (HR)
 
 Completion: The certification is renewed, or a lapse has been formally accepted`,
+  },
+  {
+    key: 'competency.gap_remediation',
+    module: 'competency',
+    name: 'Closing a capability gap',
+    text: `Objective: Address a skill or knowledge gap flagged against an employee
+Trigger: A competency assessment or manager review raises a capability flag
+
+1. Confirm the gap with the employee's manager (Department Head)
+2. Assign the relevant learning or coaching (HR)
+3. [approval] Approve the remediation plan (Department Head)
+4. Re-assess once the plan is complete (HR)
+
+Completion: The flag is resolved, or a follow-up review date is recorded`,
+  },
+  {
+    key: 'lms.course_publishing',
+    module: 'lms',
+    name: 'Publishing a new course',
+    text: `Objective: Get a newly built course ready for learners
+Trigger: A course is drafted and content is uploaded
+
+1. Review the course content for accuracy (Subject Matter Expert)
+2. [approval] Approve the course for release (Learning Lead)
+3. Assign the course to the relevant audience (HR)
+4. Announce the course to enrolled learners (Notification)
+
+Completion: The course is live and the intended audience has been enrolled`,
+  },
+  {
+    key: 'lms.certificate_dispute',
+    module: 'lms',
+    name: 'Handling a disputed assessment result',
+    text: `Objective: Resolve a learner's dispute over an assessment or certificate result
+Trigger: A learner raises a dispute about a recorded score
+
+1. Record the dispute and the learner's reasoning (Learning Admin)
+2. Re-check the submission against the marking guide (Subject Matter Expert)
+3. [approval] Approve any change to the recorded result (Learning Lead)
+4. Notify the learner of the outcome (Notification)
+
+Completion: The result stands or is corrected, and the learner has been told`,
+  },
+  {
+    key: 'task.project_kickoff',
+    module: 'task',
+    name: 'Kicking off a new project',
+    text: `Objective: Get a new project from approval to its first tasks in flight
+Trigger: A project charter is proposed
+
+1. [approval] Approve the project charter and budget (Department Head)
+2. Assign a project owner (Department Head)
+3. Break the charter into the first set of tasks (Project Owner)
+4. Assign the first tasks to the team (Project Owner)
+
+Completion: The project exists, has an owner, and its first tasks are assigned`,
+  },
+  {
+    key: 'task.overdue_escalation',
+    module: 'task',
+    name: 'Escalating a significantly overdue task',
+    text: `Objective: Get a badly overdue task either completed or formally reassigned
+Trigger: A task passes a set number of days overdue with no update
+
+1. Contact the assignee for a status update (Project Owner)
+2. Record the reason for the delay (Project Owner)
+3. [approval] Approve reassignment or a revised due date (Department Head)
+4. Update the task with the agreed outcome (Project Owner)
+
+Completion: The task is progressing again, reassigned, or formally closed with a reason recorded`,
+  },
+  {
+    key: 'events.consumer_stalled',
+    module: 'events',
+    name: 'Investigating a stalled event consumer',
+    text: `Objective: Get a consumer that has stopped processing events moving again
+Trigger: The Event Bus console shows a consumer with a growing pending or failed count
+
+1. Check the Event Bus Failures tab for the error the consumer is reporting (Platform Admin)
+2. Confirm whether the underlying cause has since been fixed (Platform Admin)
+3. [approval] Approve replaying the affected events, for a projector-kind consumer only (Platform Admin)
+4. Confirm the pending count returns to normal (Platform Admin)
+
+Completion: The consumer is caught up, or the failure is understood and tracked`,
+  },
+  {
+    key: 'events.scheduled_task_failure',
+    module: 'events',
+    name: 'Responding to a failed scheduled task',
+    text: `Objective: Get a scheduled task that failed its last run back to healthy
+Trigger: The Scheduler console reports a task's last run as failed
+
+1. Read the failure detail on the Scheduler console (Platform Admin)
+2. Identify whether the cause is data, configuration, or an outage (Platform Admin)
+3. [approval] Approve the fix before re-running (Platform Admin)
+4. Run the task again and confirm it now succeeds (Platform Admin)
+
+Completion: The task's last run shows success, or the failure is escalated with detail attached`,
   },
 ]
 
