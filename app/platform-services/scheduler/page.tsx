@@ -24,7 +24,9 @@ import { Loader2 } from 'lucide-react'
 import { describePlatformError } from '@/lib/platform/client'
 import {
   fetchScheduledTasks,
+  runTaskNow,
   saveScheduleOverride,
+  type RunNowResult,
   type SchedulerPayload,
 } from '@/lib/platform/scheduler'
 
@@ -70,6 +72,35 @@ export default function SchedulerPage() {
   }, [])
 
   const [saving, setSaving] = useState<string | null>(null)
+  const [running, setRunning] = useState<string | null>(null)
+  const [runResults, setRunResults] = useState<Record<string, RunNowResult>>({})
+
+  /**
+   * Run one tenant-scoped task now, for this organisation.
+   *
+   * The result is kept per task_key rather than in one shared slot, so running task A
+   * does not blank out what task B's last manual run reported. `reload()` afterward is
+   * what makes the ledger writer's own effect visible — "Last run" below updates from
+   * the same row this action just wrote, not from a value this component invents.
+   */
+  const runNow = useCallback(async (taskKey: string) => {
+    setRunning(taskKey)
+    setRunResults((current) => {
+      const next = { ...current }
+      delete next[taskKey]
+      return next
+    })
+
+    try {
+      const result = await runTaskNow(taskKey)
+      setRunResults((current) => ({ ...current, [taskKey]: result }))
+      setToken((value) => value + 1)
+    } catch (cause: unknown) {
+      setError(describePlatformError(cause, 'The task could not be run.'))
+    } finally {
+      setRunning(null)
+    }
+  }, [])
 
   /**
    * Switch a task off for this organisation, or back on.
@@ -118,6 +149,21 @@ export default function SchedulerPage() {
               <RefreshButton onClick={reload} busy={loading} />
             </div>
 
+            {/* A page-level banner, in addition to the per-row red text below — the
+                summary line above already counts failures, but a count is easy to skim
+                past. This is the same `last_run_status === 'failed'` fact, said once,
+                prominently, rather than a second source of truth. */}
+            {data.ledger_installed && data.summary.failing > 0 && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm leading-6 text-destructive">
+                <span className="font-semibold">
+                  {data.summary.failing} scheduled task{data.summary.failing === 1 ? '' : 's'} failed
+                  {data.summary.failing === 1 ? ' its' : ' their'} last run.
+                </span>{' '}
+                See &ldquo;Last run&rdquo; below for which, and open a tenant-scoped one to run it
+                again now.
+              </div>
+            )}
+
             {/* The ledger notice leads, because without it every "Last run" cell below
                 is blank and a reader would reasonably conclude nothing has ever run. */}
             {!data.ledger_installed && (
@@ -143,7 +189,12 @@ export default function SchedulerPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {data.tasks.map((task) => (
-                    <tr key={task.key} className="transition-colors hover:bg-muted/40">
+                    <tr
+                      key={task.key}
+                      className={`transition-colors hover:bg-muted/40 ${
+                        task.last_run_status === 'failed' ? 'bg-destructive/5' : ''
+                      }`}
+                    >
                       <td className="px-3 py-3 align-top">
                         <p className="font-mono text-xs font-medium text-card-foreground">
                           {task.key}
@@ -182,7 +233,14 @@ export default function SchedulerPage() {
                         </div>
                       </td>
                       <td className="px-3 py-3 align-top">
-                        <TenantControl task={task} onToggle={toggle} busy={saving === task.task_key} />
+                        <TenantControl
+                          task={task}
+                          onToggle={toggle}
+                          busy={saving === task.task_key}
+                          onRunNow={runNow}
+                          running={task.task_key !== null && running === task.task_key}
+                          runResult={task.task_key ? runResults[task.task_key] : undefined}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -269,10 +327,16 @@ function TenantControl({
   task,
   onToggle,
   busy,
+  onRunNow,
+  running,
+  runResult,
 }: {
   task: SchedulerPayload['tasks'][number]
   onToggle: (task: SchedulerPayload['tasks'][number]) => void
   busy: boolean
+  onRunNow: (taskKey: string) => void
+  running: boolean
+  runResult: RunNowResult | undefined
 }) {
   if (!task.tenant_scoped) {
     return (
@@ -284,16 +348,34 @@ function TenantControl({
   }
 
   return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={() => onToggle(task)}
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-      >
-        {busy && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
-        {task.disabled_here ? 'Switch on' : 'Switch off'}
-      </button>
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => onToggle(task)}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+          {task.disabled_here ? 'Switch on' : 'Switch off'}
+        </button>
+
+        {/* Disabled here as well as tenant-scoped: a task switched off for this
+            organisation should not be runnable through the back door this button
+            would otherwise be. */}
+        {task.task_key && !task.disabled_here && (
+          <button
+            type="button"
+            onClick={() => onRunNow(task.task_key as string)}
+            disabled={running}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            title="Run this task now, for this organisation, and record it in the ledger below."
+          >
+            {running && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+            Run now
+          </button>
+        )}
+      </div>
 
       {task.disabled_here ? (
         <span className="block text-[11px] text-amber-600 dark:text-amber-400">
@@ -306,6 +388,23 @@ function TenantControl({
         </span>
       ) : (
         <span className="block text-[11px] text-muted-foreground">On, shipped schedule</span>
+      )}
+
+      {runResult && (
+        <div
+          className={`max-w-[16rem] rounded border px-2 py-1.5 text-[11px] leading-4 ${
+            runResult.ok
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <p className="font-medium">
+            {runResult.ok ? 'Ran successfully.' : `Failed (exit ${runResult.exit_code}).`}
+          </p>
+          {runResult.output && (
+            <p className="mt-0.5 line-clamp-3 font-mono opacity-90">{runResult.output}</p>
+          )}
+        </div>
       )}
     </div>
   )

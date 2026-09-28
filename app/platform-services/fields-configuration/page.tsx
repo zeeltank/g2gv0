@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, GripVertical, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { describePlatformError, PlatformApiError } from '@/lib/platform/client'
 import {
@@ -50,6 +50,9 @@ interface FieldForm {
   field_message: string
   required: boolean
   sort_order: number
+  min_value: string
+  max_value: string
+  validation_pattern: string
   options: FieldOption[]
 }
 
@@ -104,6 +107,9 @@ export default function FieldsConfigurationPage() {
       field_message: '',
       required: false,
       sort_order: (data?.rows.length ?? 0) + 1,
+      min_value: '',
+      max_value: '',
+      validation_pattern: '',
       options: [],
     })
   }
@@ -119,6 +125,9 @@ export default function FieldsConfigurationPage() {
       field_message: field.field_message ?? '',
       required: field.required,
       sort_order: field.sort_order,
+      min_value: field.min_value ?? '',
+      max_value: field.max_value ?? '',
+      validation_pattern: field.validation_pattern ?? '',
       options: field.options.map((option) => ({ ...option })),
     })
   }
@@ -138,6 +147,12 @@ export default function FieldsConfigurationPage() {
         field_message: form.field_message,
         required: form.required,
         sort_order: form.sort_order,
+        min_value: form.field_type === 'number' ? form.min_value : undefined,
+        max_value: form.field_type === 'number' ? form.max_value : undefined,
+        validation_pattern:
+          form.field_type === 'text' || form.field_type === 'textarea'
+            ? form.validation_pattern
+            : undefined,
         options: OPTION_FIELD_TYPES.includes(form.field_type) ? form.options : undefined,
       }
 
@@ -178,6 +193,74 @@ export default function FieldsConfigurationPage() {
   }
 
   const needsOptions = form !== null && OPTION_FIELD_TYPES.includes(form.field_type)
+
+  const [dragging, setDragging] = useState<number | null>(null)
+  const [reordering, setReordering] = useState(false)
+
+  /**
+   * Reorder by dragging, within one record's group only.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * WHY THIS NEVER TOUCHES A PLATFORM-WIDE ROW
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * A `common_to_all` field is not this organisation's to change — the same rule
+   * `field.editable` already enforces for edit and remove. Dragging one, or dropping
+   * onto one, would either try to write a row the server refuses (`ownRow()` requires
+   * `common_to_all = 0`) or silently renumber a field every OTHER organisation also
+   * sees. So the draggable set is `field.editable` rows only, grouped by `table_name`,
+   * and a platform-wide row sitting between two editable ones keeps its own
+   * `sort_order` untouched — only the editable rows around it are renumbered.
+   *
+   * There is no bulk-reorder endpoint. `updateCustomField` already accepts
+   * `sort_order`, and only the rows whose position actually changed are sent — one
+   * `PUT` per changed row, same shape `save()` above already uses.
+   */
+  const moveField = useCallback(
+    async (draggedId: number, targetId: number) => {
+      if (!data || draggedId === targetId) return
+
+      const dragged = data.rows.find((f) => f.id === draggedId)
+      const target = data.rows.find((f) => f.id === targetId)
+
+      if (!dragged || !target || !dragged.editable || !target.editable) return
+      if (dragged.table_name !== target.table_name) return
+
+      const group = data.rows
+        .filter((f) => f.table_name === dragged.table_name && f.editable)
+        .sort((a, b) => a.sort_order - b.sort_order)
+
+      const fromIndex = group.findIndex((f) => f.id === draggedId)
+      const toIndex = group.findIndex((f) => f.id === targetId)
+
+      if (fromIndex === -1 || toIndex === -1) return
+
+      const reordered = [...group]
+      const [moved] = reordered.splice(fromIndex, 1)
+      reordered.splice(toIndex, 0, moved)
+
+      const changes = reordered
+        .map((field, index) => ({ field, sort_order: index + 1 }))
+        .filter(({ field, sort_order }) => field.sort_order !== sort_order)
+
+      if (changes.length === 0) return
+
+      setReordering(true)
+
+      try {
+        await Promise.all(
+          changes.map(({ field, sort_order }) => updateCustomField(field.id, { sort_order })),
+        )
+        setNotice('Order saved.')
+        reload()
+      } catch (cause: unknown) {
+        setError(describePlatformError(cause, 'The new order could not be saved.'))
+      } finally {
+        setReordering(false)
+      }
+    },
+    [data, reload],
+  )
 
   return (
     <ServiceShell slug="fields-configuration">
@@ -331,6 +414,49 @@ export default function FieldsConfigurationPage() {
                     />
                   </label>
 
+                  {form.field_type === 'number' && (
+                    <>
+                      <label className="block">
+                        <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                          Minimum value
+                        </span>
+                        <input
+                          value={form.min_value}
+                          onChange={(event) => setForm({ ...form, min_value: event.target.value })}
+                          placeholder="No lower bound"
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                          Maximum value
+                        </span>
+                        <input
+                          value={form.max_value}
+                          onChange={(event) => setForm({ ...form, max_value: event.target.value })}
+                          placeholder="No upper bound"
+                          className={inputClass}
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  {(form.field_type === 'text' || form.field_type === 'textarea') && (
+                    <label className="block sm:col-span-2 lg:col-span-1">
+                      <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                        Pattern an answer must match (optional)
+                      </span>
+                      <input
+                        value={form.validation_pattern}
+                        onChange={(event) =>
+                          setForm({ ...form, validation_pattern: event.target.value })
+                        }
+                        placeholder="^[A-Z]{2}\d{4}$"
+                        className={`${inputClass} font-mono`}
+                      />
+                    </label>
+                  )}
+
                   <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
                     <input
                       type="checkbox"
@@ -393,18 +519,43 @@ export default function FieldsConfigurationPage() {
                   )}
 
                   {data.rows.map((field) => (
-                    <tr key={field.id} className="transition-colors hover:bg-muted/40">
+                    <tr
+                      key={field.id}
+                      draggable={field.editable && !reordering}
+                      onDragStart={() => setDragging(field.id)}
+                      onDragOver={(event) => {
+                        if (field.editable) event.preventDefault()
+                      }}
+                      onDrop={() => {
+                        if (dragging !== null) moveField(dragging, field.id)
+                        setDragging(null)
+                      }}
+                      onDragEnd={() => setDragging(null)}
+                      className={`transition-colors hover:bg-muted/40 ${
+                        dragging === field.id ? 'opacity-50' : ''
+                      }`}
+                    >
                       <td className="px-3 py-2.5 align-top">
-                        <p className="font-medium text-card-foreground">{field.field_label}</p>
-                        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                          {field.field_name}
-                        </p>
-                        {field.options.length > 0 && (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {field.options.length} option
-                            {field.options.length === 1 ? '' : 's'}
-                          </p>
-                        )}
+                        <div className="flex items-start gap-1.5">
+                          {field.editable && (
+                            <GripVertical
+                              className="mt-0.5 size-3.5 shrink-0 cursor-grab text-muted-foreground/50"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <div>
+                            <p className="font-medium text-card-foreground">{field.field_label}</p>
+                            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                              {field.field_name}
+                            </p>
+                            {field.options.length > 0 && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {field.options.length} option
+                                {field.options.length === 1 ? '' : 's'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 align-top text-xs text-muted-foreground">
                         {data.tables.find((t) => t.key === field.table_name)?.label ??

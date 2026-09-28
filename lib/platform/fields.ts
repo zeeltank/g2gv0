@@ -44,6 +44,11 @@ export interface CustomField {
   sort_order: number
   tab_sort_order: number | null
   file_size_max: string | null
+  /** `number` fields only. Null means no bound. */
+  min_value: string | null
+  max_value: string | null
+  /** `text`/`textarea` fields only, delimiter-free — the server wraps it before use. */
+  validation_pattern: string | null
   /** False for a platform-wide field. See the file note. */
   editable: boolean
   options: FieldOption[]
@@ -67,6 +72,9 @@ export interface FieldInput {
   required?: boolean
   sort_order?: number
   tab_sort_order?: number | null
+  min_value?: string
+  max_value?: string
+  validation_pattern?: string
   options?: FieldOption[]
 }
 

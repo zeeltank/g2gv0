@@ -38,7 +38,6 @@ import type { PlatformService } from './types'
  */
 const ROLE_PERMISSIONS = '/module/organizational-management/user-management/role-and-permissions'
 const TALENT_ONBOARDING = '/module/talent-management/onboarding'
-const LMS_GOVERNANCE = '/module/lms/administration/administration-and-governance'
 
 export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
@@ -107,13 +106,10 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Credentials and connection state are the same problem for every provider, and a per-module answer means a per-module place to leak one.',
     todayInG2g:
-      'LMS Administration & Governance manages lms_integrations — connect, disconnect, last sync, last error — and NangoController handles Google OAuth. It is LMS-scoped: no other module has a connector list.',
-    toBuild: [
-      'A registry covering providers outside LMS',
-      'One place to see connection health across modules',
-    ],
-    status: 'in-progress',
-    destination: { kind: 'existing-screen', accessLink: LMS_GOVERNANCE },
+      'One console over every declared provider: real env-backed status for Gemini/n8n/FCM, the honest Google OAuth stub, a summary of and link to LMS Administration & Governance (which still owns lms_integrations), and two genuinely new, configurable providers — SMTP email and an outbound webhook — backed by g2g_integration_credentials, an encrypted vault. "Test connection" makes a real SMTP handshake or a real signed HTTP POST; there is no provider here that fakes a result.',
+    toBuild: [],
+    status: 'live',
+    destination: { kind: 'own-route', href: '/platform-services/integration' },
     phase: 3,
   },
   {

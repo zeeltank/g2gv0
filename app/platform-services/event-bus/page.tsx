@@ -20,13 +20,18 @@
  *              which produce no ledger rows and are therefore invisible in the
  *              other three precisely when they are most wrong
  *
- * ── READ-ONLY, AND THAT IS DELIBERATE ───────────────────────────────────────
+ * ── ALMOST READ-ONLY: ONE NARROW, SAFE WRITE ────────────────────────────────
  *
- * No replay, no redrive. A projector is pure and re-running it is harmless; a reactor
- * enrols people on courses, issues certificates and sends notifications, so replaying
- * one does those things again. `events:project` and `events:react` are separate commands
- * for exactly that reason, and a button here would hand that distinction to whoever
- * clicks it.
+ * The Failures tab can Replay one event through one PROJECTOR-kind consumer — never a
+ * reactor. A projector is pure and re-running it is harmless (each one upserts keyed on
+ * the event, so replaying twice overwrites the same row rather than duplicating it); a
+ * reactor enrols people on courses, issues certificates and sends notifications, so
+ * replaying one does those things again. `events:project` and `events:react` are
+ * separate commands for exactly that reason. The button only appears when the catalogue
+ * explicitly vouches for that event's type against that consumer as a projector, AND
+ * the server independently refuses anything else — see `EventBusController::replay()`.
+ * This is a single-row, single-tenant write, not the estate-wide table rebuild
+ * `app/Services/Events/ReplayRunner.php` performs; the two must never be confused.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -40,11 +45,13 @@ import {
   fetchEventStream,
   fetchEventTypes,
   fetchFailures,
+  replayEvent,
   type ConsumerRow,
   type EventBusSummary,
   type EventCatalogue,
   type EventRow,
   type FailureRow,
+  type FailuresPage,
   type StreamFilters,
 } from '@/lib/platform/event-bus'
 
@@ -249,10 +256,26 @@ function StreamPanel() {
 
 function ConsumersPanel() {
   const { data, loading, error, reload } = usePanel<{ rows: ConsumerRow[] }>(fetchConsumers, [])
+  const [search, setSearch] = useState('')
+
+  /* Client-side, deliberately — there are at most a handful of declared consumers
+     (`fetchConsumers` returns the whole catalogue in one shot, unpaginated), so a
+     server round-trip to filter a list this size would be pure latency for no
+     benefit a filter over the array in the browser does not already give. */
+  const filtered = data
+    ? data.rows.filter((row) => row.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : []
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Filter by consumer name…"
+          aria-label="Filter consumers"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
         <RefreshButton onClick={reload} busy={loading} />
       </div>
 
@@ -262,7 +285,7 @@ function ConsumersPanel() {
 
       {data && (
         <div className="rounded-lg border border-border bg-card">
-          <ConsumerTable rows={data.rows} />
+          <ConsumerTable rows={filtered} />
         </div>
       )}
     </div>
@@ -271,15 +294,66 @@ function ConsumersPanel() {
 
 function FailuresPanel() {
   const [page, setPage] = useState(1)
-  const { data, loading, error, reload } = usePanel<
-    { rows: FailureRow[]; total: number; page: number; per_page: number; has_more: boolean }
-  >(() => fetchFailures(page, PER_PAGE), [page])
+  const [consumer, setConsumer] = useState('')
+  const [search, setSearch] = useState('')
+  const [replaying, setReplaying] = useState<number | null>(null)
+  const [replayNotice, setReplayNotice] = useState<string | null>(null)
+
+  const { data, loading, error, reload } = usePanel<FailuresPage>(
+    () => fetchFailures(page, PER_PAGE, consumer || undefined, search || undefined),
+    [page, consumer, search],
+  )
+
+  const runReplay = async (row: FailureRow) => {
+    if (!row.catalogue_consumer) return
+
+    setReplaying(row.id)
+    setReplayNotice(null)
+
+    try {
+      await replayEvent(row.event_id, row.catalogue_consumer)
+      setReplayNotice(`Replayed event #${row.event_id} for ${row.catalogue_consumer}.`)
+      reload()
+    } catch (cause: unknown) {
+      setReplayNotice(describePlatformError(cause, 'The replay failed.'))
+    } finally {
+      setReplaying(null)
+    }
+  }
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <RefreshButton onClick={reload} busy={loading} />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={consumer}
+          onChange={(event) => {
+            setPage(1)
+            setConsumer(event.target.value)
+          }}
+          placeholder="Consumer (exact, e.g. audit_log_projector)"
+          aria-label="Filter by consumer"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <input
+          value={search}
+          onChange={(event) => {
+            setPage(1)
+            setSearch(event.target.value)
+          }}
+          placeholder="Search the error message…"
+          aria-label="Search error text"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <div className="ml-auto">
+          <RefreshButton onClick={reload} busy={loading} />
+        </div>
       </div>
+
+      {replayNotice && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-foreground">
+          {replayNotice}
+        </div>
+      )}
 
       {error && !data && <PanelError message={error} onRetry={reload} />}
       {error && data && <StaleNotice message={error} onRetry={reload} />}
@@ -287,7 +361,12 @@ function FailuresPanel() {
 
       {data && (
         <div className="rounded-lg border border-border bg-card">
-          <FailureTable rows={data.rows} />
+          <FailureTable
+            rows={data.rows}
+            stuckAfter={data.stuck_after}
+            onReplay={runReplay}
+            replaying={replaying}
+          />
           <Pager page={data.page} perPage={data.per_page} total={data.total} onPage={setPage} />
         </div>
       )}

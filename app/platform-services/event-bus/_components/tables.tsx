@@ -8,6 +8,8 @@
  * "unknown versus zero" decision has already been made by the server.
  */
 
+import { Loader2, RotateCw } from 'lucide-react'
+
 import { eventLabel } from '@/lib/event-labels'
 import type {
   CatalogueConsumer,
@@ -206,9 +208,22 @@ export function ConsumerTable({ rows }: { rows: ConsumerRow[] }) {
   )
 }
 
-export function FailureTable({ rows }: { rows: FailureRow[] }) {
+export function FailureTable({
+  rows,
+  stuckAfter,
+  onReplay,
+  replaying,
+}: {
+  rows: FailureRow[]
+  stuckAfter: number
+  /** Absent means the caller has no replay capability wired up (kept optional so this
+      table still renders standalone). */
+  onReplay?: (row: FailureRow) => void
+  /** The delivery row id currently being replayed, so only that button spins. */
+  replaying?: number | null
+}) {
   return (
-    <Shell minWidth="min-w-[50rem]">
+    <Shell minWidth="min-w-[54rem]">
       <thead>
         <tr className="bg-muted/50">
           <Th>Consumer</Th>
@@ -216,11 +231,12 @@ export function FailureTable({ rows }: { rows: FailureRow[] }) {
           <Th>Attempts</Th>
           <Th>Error</Th>
           <Th>Occurred</Th>
+          <Th> </Th>
         </tr>
       </thead>
       <tbody className="divide-y divide-border">
         {rows.length === 0 && (
-          <EmptyRow colSpan={5}>No failed deliveries. Every event has reached its consumers.</EmptyRow>
+          <EmptyRow colSpan={6}>No failed deliveries. Every event has reached its consumers.</EmptyRow>
         )}
 
         {rows.map((row) => (
@@ -232,7 +248,20 @@ export function FailureTable({ rows }: { rows: FailureRow[] }) {
               {eventLabel(row.type)}
               <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{row.type}</p>
             </td>
-            <td className="px-3 py-2.5 align-top text-xs tabular-nums">{row.attempts}</td>
+            <td className="px-3 py-2.5 align-top text-xs tabular-nums">
+              {row.attempts}
+              {/* "Stuck", never "given up" — nothing in this product caps retries, so
+                  the sweep keeps trying this row regardless of what this badge says.
+                  It exists to say a human should look, not that the system has. */}
+              {row.stuck && (
+                <span
+                  className="ml-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400"
+                  title={`${row.attempts} attempts, at or past ${stuckAfter} — still being retried, but worth a look.`}
+                >
+                  Stuck
+                </span>
+              )}
+            </td>
             <td className="px-3 py-2.5 align-top">
               {/* The message the consumer reported, verbatim and wrapped rather than
                   truncated — it is the only thing on the row that says what to fix. */}
@@ -242,6 +271,28 @@ export function FailureTable({ rows }: { rows: FailureRow[] }) {
             </td>
             <td className="px-3 py-2.5 align-top text-xs whitespace-nowrap tabular-nums text-muted-foreground">
               {new Date(row.occurred_at).toLocaleString()}
+            </td>
+            <td className="px-3 py-2.5 align-top text-right">
+              {/* Only when the catalogue explicitly vouches for this (type, consumer)
+                  pair as a projector — see the reader's note on why this can be null
+                  even for a consumer that would technically handle it. The server
+                  re-checks the same thing independently either way. */}
+              {onReplay && row.kind === 'P' && row.catalogue_consumer && (
+                <button
+                  type="button"
+                  onClick={() => onReplay(row)}
+                  disabled={replaying === row.id}
+                  title="Re-run this projector for this one event. Safe to repeat — it overwrites the same row rather than duplicating it."
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {replaying === row.id ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <RotateCw className="size-3" />
+                  )}
+                  Replay
+                </button>
+              )}
             </td>
           </tr>
         ))}
