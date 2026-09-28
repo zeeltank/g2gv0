@@ -16,13 +16,17 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Network, RefreshCw, Info } from 'lucide-react'
+import { ExternalLink, Network, RefreshCw, Info, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
+import { ROLE_GROUPS } from '@/types/role'
+import { cn } from '@/lib/utils'
+import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
+import { capabilityExplorerAiStack } from '@/lib/ai-stack/capability-explorer'
 
 /** The hosted graph explorer. */
 const ONTOLOGY_ORIGIN = 'https://skill-ontology-neo4j.vercel.app'
@@ -34,6 +38,8 @@ export function CmTaxonomyOntology() {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const subInstituteId = context.subInstituteId
+  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
+  const [view, setView] = useState<'ontology' | 'ai-stack'>('ontology')
 
   // Bumped to force the iframe to remount on Reload.
   const [nonce, setNonce] = useState(0)
@@ -85,24 +91,56 @@ export function CmTaxonomyOntology() {
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setNonce((value) => value + 1)}
-            className="h-9 gap-2 rounded-lg font-semibold"
-          >
-            <RefreshCw className="h-4 w-4" /> Reload
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
-            className="h-9 gap-2 rounded-lg font-semibold"
-          >
-            <ExternalLink className="h-4 w-4" /> Open full screen
-          </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {isAdministrator && (
+            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/20 p-1">
+              <button
+                type="button"
+                onClick={() => setView('ontology')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
+                  view === 'ontology' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Explorer
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('ai-stack')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
+                  view === 'ai-stack' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Sparkles className="size-3.5" /> AI Stack
+              </button>
+            </div>
+          )}
+          {view === 'ontology' && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setNonce((value) => value + 1)}
+                className="h-9 gap-2 rounded-lg font-semibold"
+              >
+                <RefreshCw className="h-4 w-4" /> Reload
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
+                className="h-9 gap-2 rounded-lg font-semibold"
+              >
+                <ExternalLink className="h-4 w-4" /> Open full screen
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
+      {view === 'ai-stack' ? (
+        <AiStackTabs module={capabilityExplorerAiStack} />
+      ) : (
+      <>
       {/* The graph is a REFERENCE view: its adjacency comes from a hosted
           example dataset, not from this organisation's own role/competency
           mapping. Unlabelled, a user may reasonably read it as organisational
@@ -166,6 +204,8 @@ export function CmTaxonomyOntology() {
           className="h-[calc(100vh-19rem)] min-h-[520px] w-full border-0"
         />
       </div>
+      </>
+      )}
     </div>
   )
 }
