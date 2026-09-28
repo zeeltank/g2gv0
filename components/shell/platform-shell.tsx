@@ -51,7 +51,7 @@ export const PLATFORM_SECTION_LABEL: Record<string, string> = {
 const QUICK_NAV: { slug: string; label: string }[] = [
   { slug: 'workflow', label: 'Workflow' },
   { slug: 'scheduler', label: 'Scheduler' },
-  { slug: 'integrations', label: 'Integrations' },
+  { slug: 'integration', label: 'Integrations' },
   { slug: 'event-bus', label: 'Event Bus' },
   { slug: 'add-process', label: 'Add Process' },
   { slug: 'fields-configuration', label: 'Fields Configuration' },

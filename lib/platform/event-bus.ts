@@ -75,13 +75,35 @@ export interface ConsumerRow {
 
 export interface FailureRow {
   id: number
+  event_id: number
+  /** The LEDGER key (`audit_log_projector`) — what this row and the Consumers tab both show. */
   consumer: string
   attempts: number
+  /**
+   * `attempts >= stuck_after` — a DISPLAY threshold only. Nothing in this product caps
+   * retries; `events:project`/`events:react` keep retrying a failed delivery forever.
+   * This does not mean "given up", it means "failed enough times to be worth a human
+   * looking at it" — see `EventBusReader::failures()`'s note.
+   */
+  stuck: boolean
   last_error: string | null
   type: string
   entity_type: string
   entity_id: number | null
   occurred_at: string
+  /**
+   * The catalogue's CLASS name for this row's (type, consumer) pair — what
+   * `replayEvent()` must be called with, NOT `consumer` above. Null when the
+   * catalogue no longer explicitly declares this pairing, which correctly means
+   * Replay cannot be offered even if the class would technically handle it.
+   */
+  catalogue_consumer: string | null
+  /** 'P' | 'R' | null — Replay only ever makes sense for 'P'. */
+  kind: 'P' | 'R' | null
+}
+
+export interface FailuresPage extends PlatformPage<FailureRow> {
+  stuck_after: number
 }
 
 export interface CatalogueConsumer {
@@ -127,8 +149,13 @@ export function fetchConsumers(): Promise<{ rows: ConsumerRow[] }> {
   return platformRequest<{ rows: ConsumerRow[] }>('/events/consumers')
 }
 
-export function fetchFailures(page: number, limit = 25): Promise<PlatformPage<FailureRow>> {
-  return platformRequest<PlatformPage<FailureRow>>('/events/failures', { page, limit })
+export function fetchFailures(
+  page: number,
+  limit = 25,
+  consumer?: string,
+  q?: string,
+): Promise<FailuresPage> {
+  return platformRequest<FailuresPage>('/events/failures', { page, limit, consumer, q })
 }
 
 export function fetchEventCatalogue(): Promise<EventCatalogue> {
@@ -137,4 +164,17 @@ export function fetchEventCatalogue(): Promise<EventCatalogue> {
 
 export function fetchEventTypes(): Promise<{ event_types: string[] }> {
   return platformRequest<{ event_types: string[] }>('/events/options')
+}
+
+/**
+ * Re-run one projector for one event — the one write this read-only console makes, and
+ * scoped tightly: the server refuses anything but a projector-kind consumer of that
+ * event's own type, server-side, not just by this button only appearing for projectors.
+ * See `EventBusController::replay()`'s note.
+ */
+export function replayEvent(eventId: number, consumer: string): Promise<{ event_id: number; consumer: string }> {
+  return platformRequest<{ event_id: number; consumer: string }>('/events/replay', undefined, {
+    method: 'POST',
+    body: { event_id: eventId, consumer },
+  })
 }

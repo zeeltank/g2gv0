@@ -115,3 +115,24 @@ export interface ScheduleOverride {
 export function saveScheduleOverride(input: ScheduleOverride): Promise<unknown> {
   return platformRequest('/scheduler/tasks', undefined, { method: 'POST', body: input })
 }
+
+export interface RunNowResult {
+  task_key: string
+  exit_code: number
+  ok: boolean
+  /** The first 4000 characters of what the command printed, for this one run. */
+  output: string
+}
+
+/**
+ * Run a tenant-scoped task now, for this organisation.
+ *
+ * Refused server-side for the four estate-wide tasks — the same rule `saveScheduleOverride`
+ * already enforces, so the button below only ever appears where the call can succeed.
+ */
+export function runTaskNow(taskKey: string): Promise<RunNowResult> {
+  return platformRequest<RunNowResult>('/scheduler/tasks/run', undefined, {
+    method: 'POST',
+    body: { task_key: taskKey },
+  })
+}

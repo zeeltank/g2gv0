@@ -21,6 +21,11 @@ export interface CustomFieldEntry {
   field_message: string | null
   required: boolean
   sort_order: number
+  /** `number` fields only. Null means no bound. */
+  min_value: string | null
+  max_value: string | null
+  /** `text`/`textarea` fields only, delimiter-free — see the migration's note. */
+  validation_pattern: string | null
   options: { display_text: string; display_value: string }[]
   /** Null means unanswered. */
   value: string | null
@@ -40,6 +45,12 @@ export interface SaveResult {
    * Reported rather than swallowed so the screen does not claim a full save.
    */
   ignored: number[]
+  /**
+   * Field id -> why that answer was not stored, e.g. "Below the minimum of 5." The
+   * field keeps whatever value it had before — same reasoning as `ignored`, just for
+   * a value that named a real field and failed that field's own rule.
+   */
+  invalid: Record<number, string>
 }
 
 export function fetchCustomFieldForm(

@@ -50,6 +50,12 @@ export interface ProcessRow {
   spec: ProcessSpec
   /** What this process has actually raised. */
   published_tasks: number
+  /**
+   * Of those, how many are done — joined through to the real `task` table's own
+   * status. Null (not 0) when nothing has been published yet: "0 of 0" reads as a
+   * stalled process, and this one just has not been raised.
+   */
+  completed_tasks: number | null
   created_at: string | null
   created_by: string | null
   updated_at: string | null
@@ -74,10 +80,32 @@ export function fetchProcesses(): Promise<{ rows: ProcessRow[] }> {
   return platformRequest<{ rows: ProcessRow[] }>('/process')
 }
 
+export interface ProcessTaskRow {
+  task_id: number
+  task_ref: string
+  title: string
+  assignee_id: number | null
+  created_at: string | null
+  completed: boolean
+}
+
 export function fetchProcess(
   id: number,
-): Promise<{ process: ProcessRow; tasks: { task_id: number; task_ref: string; title: string }[] }> {
+): Promise<{ process: ProcessRow; tasks: ProcessTaskRow[] }> {
   return platformRequest(`/process/${id}`)
+}
+
+export interface ProcessVersion {
+  id: number
+  source_text: string
+  spec: ProcessSpec
+  changed_by: string | null
+  created_at: string | null
+}
+
+/** The state each row held BEFORE the edit that produced it — see the migration's note. */
+export function fetchProcessHistory(id: number): Promise<{ versions: ProcessVersion[] }> {
+  return platformRequest<{ versions: ProcessVersion[] }>(`/process/${id}/history`)
 }
 
 export function createProcess(input: {

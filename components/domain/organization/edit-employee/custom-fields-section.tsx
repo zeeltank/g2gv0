@@ -193,6 +193,21 @@ export function CustomFieldsSection({
                 type={field.field_type === 'number' ? 'number' : 'text'}
                 value={value}
                 onChange={(event) => set(field.id, event.target.value || null)}
+                // Native, real-time feedback for the rule the server also enforces —
+                // see `FieldConfigController::validateField()` and
+                // `CustomFieldValues::invalidReason()` for the authoritative check this
+                // is a convenience in front of, not a replacement for.
+                {...(field.field_type === 'number'
+                  ? {
+                      min: field.min_value ?? undefined,
+                      max: field.max_value ?? undefined,
+                    }
+                  : {
+                      pattern: field.validation_pattern ?? undefined,
+                      title: field.validation_pattern
+                        ? `Must match: ${field.validation_pattern}`
+                        : undefined,
+                    })}
               />
             )}
 

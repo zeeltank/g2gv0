@@ -32,10 +32,13 @@ import {
   createProcess,
   deleteProcess,
   fetchProcesses,
+  fetchProcessHistory,
   publishProcess,
   type ProcessRow,
   type ProcessSpec,
+  type ProcessVersion,
 } from '@/lib/platform/process'
+import { templatesForModule } from '@/lib/platform/process-templates'
 import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
 import { employeeDirectoryService } from '@/services/organization/employee-directory'
 import { useLaravelContext } from '@/hooks/use-agentic'
@@ -248,6 +251,33 @@ function ProcessBuilder({
         </label>
       </div>
 
+      {/* Templates for the module currently selected — reduces the blank-page start
+          every process used to have, without changing what "Read it" does: a template
+          is exactly the text the textarea would otherwise hold, run through the same
+          parser as anything pasted by hand. */}
+      {templatesForModule(form.module).length > 0 && (
+        <div className="mt-3">
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            Start from a template
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {templatesForModule(form.module).map((template) => (
+              <button
+                key={template.key}
+                type="button"
+                onClick={() => {
+                  setForm({ ...form, text: template.text })
+                  setSpec(null)
+                }}
+                className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                {template.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <label className="mt-3 block">
         <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
           The procedure
@@ -383,6 +413,31 @@ function ProcessList({
   onPublished: (message: string) => void
 }) {
   const [open, setOpen] = useState<number | null>(null)
+  const [historyFor, setHistoryFor] = useState<number | null>(null)
+  const [historyVersions, setHistoryVersions] = useState<ProcessVersion[] | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+
+  const toggleHistory = async (row: ProcessRow) => {
+    if (historyFor === row.id) {
+      setHistoryFor(null)
+      return
+    }
+
+    setHistoryFor(row.id)
+    setHistoryVersions(null)
+    setHistoryError(null)
+    setHistoryLoading(true)
+
+    try {
+      const { versions } = await fetchProcessHistory(row.id)
+      setHistoryVersions(versions)
+    } catch (cause: unknown) {
+      setHistoryError(describePlatformError(cause, 'The history could not be loaded.'))
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   if (rows.length === 0) {
     return (
@@ -409,17 +464,60 @@ function ProcessList({
               </span>
             </button>
 
-            {/* What it has ACTUALLY raised, which is the thing K-12 forgets. */}
+            {/* What it has ACTUALLY raised, which is the thing K-12 forgets — and now
+                how much of that is actually done, joined through to the real task
+                table rather than a status this document keeps on its own. */}
             {row.status === 'published' ? (
               <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                {row.published_tasks} task{row.published_tasks === 1 ? '' : 's'} raised
+                {row.completed_tasks ?? 0} of {row.published_tasks} task
+                {row.published_tasks === 1 ? '' : 's'} done
               </span>
             ) : (
               <span className="shrink-0 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground">
                 Draft — nothing raised
               </span>
             )}
+
+            <button
+              type="button"
+              onClick={() => toggleHistory(row)}
+              className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-muted"
+            >
+              History
+            </button>
           </div>
+
+          {historyFor === row.id && (
+            <div className="border-t border-border bg-muted/20 px-4 py-3">
+              {historyLoading && (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" />
+                  Loading history…
+                </p>
+              )}
+              {historyError && <p className="text-[11px] text-destructive">{historyError}</p>}
+              {historyVersions && historyVersions.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  No prior edits recorded — this is the only version.
+                </p>
+              )}
+              {historyVersions && historyVersions.length > 0 && (
+                <ul className="space-y-2">
+                  {historyVersions.map((version) => (
+                    <li key={version.id} className="rounded-md border border-border bg-card p-2.5">
+                      <p className="text-[11px] text-muted-foreground">
+                        {version.created_at ? new Date(version.created_at).toLocaleString() : '—'}
+                        {version.changed_by && ` · ${version.changed_by}`}
+                      </p>
+                      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-5 text-foreground">
+                        {version.source_text}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {open === row.id && (
             <PublishPanel row={row} onDeleted={onDeleted} onPublished={onPublished} />

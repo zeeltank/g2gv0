@@ -27,14 +27,18 @@ import {
   createWorkflow,
   deleteWorkflow,
   fetchPlatformRegistry,
+  fetchWorkflowHistory,
   fetchWorkflowPoints,
+  simulateWorkflow,
   updateWorkflow,
   type PlatformRegistryPayload,
+  type SimulationResult,
   type WorkflowChain,
   type WorkflowPayload,
   type WorkflowPoint,
   type WorkflowStatus,
   type WorkflowStep,
+  type WorkflowVersion,
 } from '@/lib/platform/workflow'
 import { StatusChip } from '@/components/shared/console-ui'
 
@@ -68,6 +72,65 @@ export default function WorkflowPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  /** Sample field=value pairs for the Preview panel. Field names are free text —
+      the frontend does not know which fields a workflow point's condition can name;
+      only the backend's context resolver does. See `simulateWorkflow`'s note. */
+  const [previewFields, setPreviewFields] = useState<{ field: string; value: string }[]>([
+    { field: '', value: '' },
+  ])
+  const [previewResult, setPreviewResult] = useState<SimulationResult | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  const runPreview = async () => {
+    if (!form) return
+
+    const context: Record<string, number> = {}
+    for (const { field, value } of previewFields) {
+      const key = field.trim()
+      if (key === '' || value.trim() === '' || Number.isNaN(Number(value))) continue
+      context[key] = Number(value)
+    }
+
+    setPreviewLoading(true)
+    setPreviewError(null)
+
+    try {
+      const result = await simulateWorkflow(form.flow_key, context)
+      setPreviewResult(result)
+    } catch (cause: unknown) {
+      setPreviewError(describePlatformError(cause, 'The preview could not be run.'))
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const [historyFor, setHistoryFor] = useState<number | null>(null)
+  const [historyVersions, setHistoryVersions] = useState<WorkflowVersion[] | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+
+  const openHistory = async (chain: WorkflowChain) => {
+    if (historyFor === chain.id) {
+      setHistoryFor(null)
+      return
+    }
+
+    setHistoryFor(chain.id)
+    setHistoryVersions(null)
+    setHistoryError(null)
+    setHistoryLoading(true)
+
+    try {
+      const { versions } = await fetchWorkflowHistory(chain.id)
+      setHistoryVersions(versions)
+    } catch (cause: unknown) {
+      setHistoryError(describePlatformError(cause, 'The history could not be loaded.'))
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -110,8 +173,15 @@ export default function WorkflowPage() {
     })
   }
 
+  const resetPreview = () => {
+    setPreviewFields([{ field: '', value: '' }])
+    setPreviewResult(null)
+    setPreviewError(null)
+  }
+
   const startNew = (point: WorkflowPoint) => {
     setFormError(null)
+    resetPreview()
     setForm({
       id: null,
       flow_key: point.key,
@@ -127,6 +197,7 @@ export default function WorkflowPage() {
 
   const startEdit = (chain: WorkflowChain) => {
     setFormError(null)
+    resetPreview()
     setForm({
       id: chain.id,
       flow_key: chain.flow_key,
@@ -314,6 +385,113 @@ export default function WorkflowPage() {
                   onChange={(steps) => setForm({ ...form, steps })}
                 />
 
+                {/* PREVIEW. This is what makes `condition` trustworthy to write: it
+                    calls the exact same selection rule a real request would hit, with
+                    sample values typed in here rather than read off a stored row — see
+                    `simulateWorkflow`'s note on why it takes raw values instead of
+                    picking a real record. */}
+                <section className="mt-5 rounded-lg border border-border bg-background p-4">
+                  <h3 className="text-xs font-semibold text-card-foreground">
+                    Preview — which chain would apply?
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                    Type the field names your condition names (e.g.{' '}
+                    <span className="font-mono">leave_days</span>) and sample values, then test
+                    which of this point&rsquo;s ACTIVE, SAVED chains would govern a request with
+                    those values. Unsaved edits above are not part of the test.
+                  </p>
+
+                  <div className="mt-3 space-y-1.5">
+                    {previewFields.map((pair, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          value={pair.field}
+                          onChange={(event) =>
+                            setPreviewFields(
+                              previewFields.map((p, i) =>
+                                i === index ? { ...p, field: event.target.value } : p,
+                              ),
+                            )
+                          }
+                          placeholder="leave_days"
+                          className={`${inputClass} font-mono`}
+                        />
+                        <input
+                          value={pair.value}
+                          onChange={(event) =>
+                            setPreviewFields(
+                              previewFields.map((p, i) =>
+                                i === index ? { ...p, value: event.target.value } : p,
+                              ),
+                            )
+                          }
+                          placeholder="7"
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewFields(previewFields.filter((_, i) => i !== index))
+                          }
+                          aria-label="Remove value"
+                          className="shrink-0 rounded border border-border p-1.5 transition-colors hover:bg-muted"
+                        >
+                          <Trash2 className="size-3 text-destructive" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFields([...previewFields, { field: '', value: '' }])}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      <Plus className="size-3" />
+                      Add value
+                    </button>
+                    <button
+                      type="button"
+                      onClick={runPreview}
+                      disabled={previewLoading}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                    >
+                      {previewLoading && <Loader2 className="size-3 animate-spin" />}
+                      Test
+                    </button>
+                  </div>
+
+                  {previewError && (
+                    <p className="mt-2 text-[11px] text-destructive">{previewError}</p>
+                  )}
+
+                  {previewResult && (
+                    <div
+                      className={`mt-3 rounded-md border px-3 py-2 text-xs leading-5 ${
+                        previewResult.matched
+                          ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                          : 'border-border bg-muted/40 text-muted-foreground'
+                      }`}
+                    >
+                      {previewResult.matched && previewResult.workflow ? (
+                        <>
+                          <span className="font-medium">
+                            &ldquo;{previewResult.workflow.name}&rdquo;
+                          </span>{' '}
+                          would govern this — {previewResult.workflow.step_count} step
+                          {previewResult.workflow.step_count === 1 ? '' : 's'}
+                          {previewResult.workflow.total_sla_hours > 0 &&
+                            `, up to ${previewResult.workflow.total_sla_hours}h`}
+                          .
+                        </>
+                      ) : (
+                        <>No saved, active chain would govern this ({previewResult.reason}).</>
+                      )}
+                    </div>
+                  )}
+                </section>
+
                 <div className="mt-5 flex gap-2">
                   <button
                     type="button"
@@ -345,6 +523,11 @@ export default function WorkflowPage() {
                   onAdd={() => startNew(point)}
                   onEdit={startEdit}
                   onDelete={remove}
+                  onHistory={openHistory}
+                  historyFor={historyFor}
+                  historyVersions={historyVersions}
+                  historyLoading={historyLoading}
+                  historyError={historyError}
                 />
               ))}
             </div>
@@ -362,6 +545,11 @@ function PointRow({
   onAdd,
   onEdit,
   onDelete,
+  onHistory,
+  historyFor,
+  historyVersions,
+  historyLoading,
+  historyError,
 }: {
   point: WorkflowPoint
   expanded: boolean
@@ -369,6 +557,11 @@ function PointRow({
   onAdd: () => void
   onEdit: (chain: WorkflowChain) => void
   onDelete: (chain: WorkflowChain) => void
+  onHistory: (chain: WorkflowChain) => void
+  historyFor: number | null
+  historyVersions: WorkflowVersion[] | null
+  historyLoading: boolean
+  historyError: string | null
 }) {
   const governed = point.workflows.some((chain) => chain.status === 'active')
 
@@ -459,46 +652,85 @@ function PointRow({
               {point.workflows.map((chain) => (
                 <li
                   key={chain.id}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-border bg-card px-3 py-2"
+                  className="rounded-md border border-border bg-card px-3 py-2"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-card-foreground">{chain.name}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {chain.step_count} step{chain.step_count === 1 ? '' : 's'}
-                      {chain.total_sla_hours > 0 && ` — up to ${chain.total_sla_hours}h`}
-                      {chain.condition ? ` — when ${chain.condition}` : ' — always applies'}
-                    </p>
-                    {/* Why this chain is not the one in force. Without it, two
-                        identical-looking active chains differ only in an invisible
-                        precedence rule, and editing the wrong one changes nothing. */}
-                    {chain.ineffective_reason && (
-                      <p className="mt-1 text-[11px] leading-4 text-amber-600 dark:text-amber-400">
-                        {chain.ineffective_reason}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-card-foreground">{chain.name}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {chain.step_count} step{chain.step_count === 1 ? '' : 's'}
+                        {chain.total_sla_hours > 0 && ` — up to ${chain.total_sla_hours}h`}
+                        {chain.condition ? ` — when ${chain.condition}` : ' — always applies'}
                       </p>
-                    )}
+                      {/* Why this chain is not the one in force. Without it, two
+                          identical-looking active chains differ only in an invisible
+                          precedence rule, and editing the wrong one changes nothing. */}
+                      {chain.ineffective_reason && (
+                        <p className="mt-1 text-[11px] leading-4 text-amber-600 dark:text-amber-400">
+                          {chain.ineffective_reason}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <StatusChip
+                        status={chain.status === 'active' ? 'live' : 'coming-soon'}
+                        size="sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onHistory(chain)}
+                        className="rounded border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-muted"
+                      >
+                        History
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEdit(chain)}
+                        className="rounded border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-muted"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(chain)}
+                        aria-label={`Delete ${chain.name}`}
+                        className="rounded border border-border p-1 transition-colors hover:bg-muted"
+                      >
+                        <Trash2 className="size-3 text-destructive" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StatusChip
-                      status={chain.status === 'active' ? 'live' : 'coming-soon'}
-                      size="sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onEdit(chain)}
-                      className="rounded border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-muted"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(chain)}
-                      aria-label={`Delete ${chain.name}`}
-                      className="rounded border border-border p-1 transition-colors hover:bg-muted"
-                    >
-                      <Trash2 className="size-3 text-destructive" />
-                    </button>
-                  </div>
+                  {historyFor === chain.id && (
+                    <div className="mt-2 rounded-md border border-border bg-muted/30 p-2.5">
+                      {historyLoading && (
+                        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Loader2 className="size-3 animate-spin" />
+                          Loading history…
+                        </p>
+                      )}
+                      {historyError && (
+                        <p className="text-[11px] text-destructive">{historyError}</p>
+                      )}
+                      {historyVersions && historyVersions.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">No history recorded.</p>
+                      )}
+                      {historyVersions && historyVersions.length > 0 && (
+                        <ul className="space-y-1.5">
+                          {historyVersions.map((version) => (
+                            <li key={version.id} className="text-[11px] leading-4">
+                              <span className="text-muted-foreground">
+                                {version.created_at ? new Date(version.created_at).toLocaleString() : '—'}
+                                {version.changed_by && ` · ${version.changed_by}`}
+                              </span>
+                              <span className="block text-foreground">{version.summary}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

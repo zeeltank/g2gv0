@@ -165,3 +165,41 @@ export function updateWorkflow(id: number, input: WorkflowInput): Promise<{ work
 export function deleteWorkflow(id: number): Promise<{ deleted: number }> {
   return platformRequest<{ deleted: number }>(`/workflow/${id}`, undefined, { method: 'DELETE' })
 }
+
+export interface SimulationResult {
+  matched: boolean
+  /** 'selected' | 'no_active_chain' | 'no_matching_chain' | 'not_installed' */
+  reason: string
+  workflow: WorkflowChain | null
+}
+
+/**
+ * Which chain would govern `flow_key` right now, for hand-typed sample values.
+ *
+ * The same `WorkflowChainSelector::select()` every real decision uses — see the
+ * backend's own note on why this takes raw values rather than "simulate for record
+ * #4103": it works for every workflow point with no new code per point, this one
+ * included.
+ */
+export function simulateWorkflow(
+  flowKey: string,
+  context: Record<string, number>,
+): Promise<SimulationResult> {
+  return platformRequest<SimulationResult>('/workflow/simulate', undefined, {
+    method: 'POST',
+    body: { flow_key: flowKey, context },
+  })
+}
+
+export interface WorkflowVersion {
+  id: number
+  changed_by: string | null
+  created_at: string | null
+  snapshot: WorkflowChain
+  /** What changed since the previous version, in one sentence. */
+  summary: string
+}
+
+export function fetchWorkflowHistory(id: number): Promise<{ versions: WorkflowVersion[] }> {
+  return platformRequest<{ versions: WorkflowVersion[] }>(`/workflow/${id}/history`)
+}
