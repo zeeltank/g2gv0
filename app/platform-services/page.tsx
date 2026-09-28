@@ -28,31 +28,30 @@ import { PLATFORM_SERVICES, platformStatusCounts } from '@shared/platform-servic
 import { StatusChip } from '@/components/shared/console-ui'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
+import { PLATFORM_SECTION_LABEL, PlatformShell } from '@/components/shell/platform-shell'
 
-const SECTION_LABEL: Record<string, string> = {
-  services: 'Platform service',
-  setup: 'Setup & configuration',
-}
+const SECTION_LABEL = PLATFORM_SECTION_LABEL
 
 export default function PlatformServicesConsolePage() {
   const counts = platformStatusCounts()
   const resolve = usePlatformDestination()
 
   return (
-    <div className="mx-auto max-w-[1100px]">
-      <header>
-        <h1 className="text-2xl font-semibold text-foreground">Platform Services</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          The services this platform provides once and every module uses, and the screens an
-          administrator operates to configure this organisation. Each row says where its screen
-          is today — some are reached through the module navigation, some are their own page, and
-          the ones that are not built yet say so rather than showing an empty screen.
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          {PLATFORM_SERVICES.length} services — {counts.live} live, {counts['in-progress']} in
-          progress, {counts['coming-soon']} coming soon.
-        </p>
-      </header>
+    <PlatformShell
+      eyebrow="Control plane"
+      title="Platform Services"
+      description="The services this platform provides once and every module uses, and the screens an administrator operates to configure this organisation. Each row says where its screen is today — some are reached through the module navigation, some are their own page, and the ones that are not built yet say so rather than showing an empty screen."
+    >
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Total services" value={PLATFORM_SERVICES.length} />
+        <StatTile label="Live" value={counts.live} tone="text-emerald-600 dark:text-emerald-400" />
+        <StatTile
+          label="In progress"
+          value={counts['in-progress']}
+          tone="text-amber-600 dark:text-amber-400"
+        />
+        <StatTile label="Coming soon" value={counts['coming-soon']} />
+      </div>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
@@ -123,6 +122,25 @@ export default function PlatformServicesConsolePage() {
           the endpoints behind them are administrator-only.
         </p>
       </section>
+    </PlatformShell>
+  )
+}
+
+function StatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone?: string
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`mt-1 text-2xl font-semibold tabular-nums ${tone ?? 'text-foreground'}`}>
+        {value}
+      </dd>
     </div>
   )
 }

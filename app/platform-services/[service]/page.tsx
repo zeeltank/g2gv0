@@ -19,9 +19,9 @@
 
 import { use } from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 
 import { getPlatformServiceBySlug } from '@shared/platform-services-core'
+import { PlatformShell } from '@/components/shell/platform-shell'
 
 import { ServiceDetail } from '../_components/ServiceDetail'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -36,19 +36,11 @@ export default function PlatformServicePage({
 
   if (!service) {
     return (
-      <div className="mx-auto max-w-[1100px]">
-        <Link
-          href="/platform-services"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" />
-          Platform Services
-        </Link>
-
+      <PlatformShell backHref="/platform-services" eyebrow="Platform Services" title="Not found">
         <div className="mt-6 rounded-lg border border-border bg-card p-6">
-          <h1 className="text-lg font-semibold text-foreground">
+          <p className="text-lg font-semibold text-foreground">
             There is no platform service called &ldquo;{slug}&rdquo;
-          </h1>
+          </p>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             It may have been renamed, or this link may predate it. The console lists every
             service the platform has.
@@ -60,7 +52,7 @@ export default function PlatformServicePage({
             Open Platform Services
           </Link>
         </div>
-      </div>
+      </PlatformShell>
     )
   }
 

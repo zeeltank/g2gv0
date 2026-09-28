@@ -200,6 +200,28 @@ function toUser(data: LaravelSessionData): User {
  * cookie with no `max-age`, and both browser stores scoped to the tab — so
  * closing the browser genuinely signs you out, which is what the words on the
  * checkbox have always promised.
+ *
+ * ── WHY THE COOKIE'S VALUE IS `1`, NOT THE SESSION ────────────────────────
+ *
+ * It used to be `encodeURIComponent(JSON.stringify(session))` — the full
+ * User object (org name, profile name, an avatar URL, a dozen more fields)
+ * re-encoded into a cookie on every login AND every `switchRole()`. Nobody
+ * ever read that value back: `proxy.ts:15` only calls `.has('gtg-session')`,
+ * and `getStoredSession()` below rehydrates from the MIRROR (localStorage /
+ * sessionStorage), never from the cookie. So it was pure weight, added to
+ * every single request to the app from then on — cookies ride along on
+ * everything, not just navigations.
+ *
+ * That's a real bug, not just untidiness: a real login payload (a long org
+ * name, a CDN avatar URL) plausibly runs 800-2500+ bytes once URI-encoded
+ * (every `{`, `"`, `:`, `/` in the JSON triples in size), on top of
+ * whatever session cookies the Laravel API sets via `credentials:
+ * 'include'` on the same login call (services/auth/index.ts). Enough
+ * accumulated cookie weight is exactly what produces a request a proxy or
+ * dev server rejects outright before any HTML comes back — a genuinely
+ * blank screen, fixed immediately by clearing cookies, because that's the
+ * only thing that actually removes the excess bytes. `proxy.ts` needs a
+ * presence check, not a payload, so that's now all this writes.
  */
 const REMEMBER_KEY = 'gtg-remember'
 const REMEMBERED_DAYS = 30
@@ -214,14 +236,15 @@ function readRememberChoice(): boolean {
 }
 
 /**
- * Write the session cookie `proxy.ts` routes on.
+ * Write the session cookie `proxy.ts` routes on — a presence marker, not a
+ * payload. See "WHY THE COOKIE'S VALUE IS `1`" above.
  *
  * `remember` is omitted by callers UPDATING an existing session rather than
  * creating one — `switchRole` — which then inherit the choice already made.
  * Without that, switching role mid-session would silently promote a
  * deliberately temporary sign-in to a thirty-day one.
  */
-function setSessionCookie(session: Session, remember?: boolean) {
+function setSessionCookie(remember?: boolean) {
   const keep = remember ?? readRememberChoice()
 
   if (remember !== undefined) {
@@ -236,9 +259,7 @@ function setSessionCookie(session: Session, remember?: boolean) {
   // No `max-age` at all makes it a session cookie: the browser drops it on exit.
   const lifetime = keep ? `; max-age=${60 * 60 * 24 * REMEMBERED_DAYS}` : ''
 
-  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
-    JSON.stringify(session)
-  )}; path=/${lifetime}; samesite=lax`
+  document.cookie = `${SESSION_COOKIE}=1; path=/${lifetime}; samesite=lax`
 }
 
 function clearSessionCookie() {
@@ -331,7 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // moment somebody actually makes the choice.
     storeSession(newSession, remember)
     requestSidebarFirstOpenExpansion()
-    setSessionCookie(newSession, remember)
+    setSessionCookie(remember)
   }
 
   /**
@@ -401,7 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(updated)
       // No `remember` argument — inherit the choice made at sign-in.
       storeSession(updated)
-      setSessionCookie(updated)
+      setSessionCookie()
     }
   }
 

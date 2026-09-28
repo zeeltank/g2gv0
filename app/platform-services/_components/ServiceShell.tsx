@@ -15,12 +15,13 @@
  */
 
 import Link from 'next/link'
-import { ArrowLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 
 import { getPlatformServiceBySlug } from '@shared/platform-services-core'
 import { StatusChip } from '@/components/shared/console-ui'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
+import { PLATFORM_SECTION_LABEL, PlatformShell } from '@/components/shell/platform-shell'
 
 export function ServiceShell({ slug, children }: { slug: string; children?: React.ReactNode }) {
   const service = getPlatformServiceBySlug(slug)
@@ -31,48 +32,35 @@ export function ServiceShell({ slug, children }: { slug: string; children?: Reac
   const { href, isRealScreen } = resolve(service)
 
   return (
-    <div className="mx-auto max-w-[1100px]">
-      <Link
-        href="/platform-services"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-3.5" />
-        Platform Services
-      </Link>
+    <PlatformShell
+      backHref="/platform-services"
+      eyebrow={PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services'}
+      title={service.name}
+      description={service.purpose}
+      icon={
+        <PlatformServiceIcon slug={service.slug} className="size-6 shrink-0 text-indigo-300" />
+      }
+      status={<StatusChip status={service.status} />}
+      activeSlug={service.slug}
+      /* A service whose screen is somewhere else says so at the top. Burying the link
+         under the description would make a working feature look like a plan.
 
-      <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2.5 text-2xl font-semibold text-foreground">
-            <PlatformServiceIcon
-              slug={service.slug}
-              className="size-6 shrink-0 text-muted-foreground"
-            />
-            {service.name}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {service.purpose}
-          </p>
-        </div>
-        <StatusChip status={service.status} />
-      </header>
-
-      {/* A service whose screen is somewhere else says so at the top. Burying the link
-          under the description would make a working feature look like a plan.
-
-          `isRealScreen` is false when the access link did not resolve for this profile,
-          so somebody without rights to the screen gets no button rather than a button
-          that answers 404 — or worse, one that quietly opens the dashboard. */}
-      {isRealScreen && (
-        <Link
-          href={href}
-          className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
-        >
-          Open {service.name}
-          <ArrowUpRight className="size-4" />
-        </Link>
-      )}
-
+         `isRealScreen` is false when the access link did not resolve for this profile,
+         so somebody without rights to the screen gets no button rather than a button
+         that answers 404 — or worse, one that quietly opens the dashboard. */
+      actions={
+        isRealScreen ? (
+          <Link
+            href={href}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-white/20"
+          >
+            Open {service.name}
+            <ArrowUpRight className="size-4" />
+          </Link>
+        ) : undefined
+      }
+    >
       {children}
-    </div>
+    </PlatformShell>
   )
 }
