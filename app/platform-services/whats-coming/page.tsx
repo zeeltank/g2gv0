@@ -31,11 +31,11 @@
  */
 
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 
 import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
 import { PLATFORM_SERVICES } from '@shared/platform-services-core'
 import { StatusChip, type ConsoleStatus } from '@/components/shared/console-ui'
+import { PlatformShell } from '@/components/shell/platform-shell'
 
 interface RoadmapRow {
   key: string
@@ -74,29 +74,17 @@ export default function WhatsComingPage() {
   const total = services.length + capabilities.length
 
   return (
-    <div className="mx-auto max-w-[1100px]">
-      <Link
-        href="/platform-services"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-3.5" />
-        Platform Services
-      </Link>
-
-      <header className="mt-3">
-        <h1 className="text-2xl font-semibold text-foreground">What&rsquo;s Coming</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Everything across the platform services and the AI capabilities that is not finished
-          yet. This list is not maintained by hand — it is every record that its own screen also
-          reports as unbuilt, so the two cannot disagree. Open any row to read what exists in
-          this organisation today and what is still missing.
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          {total === 0
-            ? 'Nothing outstanding — every service and capability is live.'
-            : `${total} in progress or planned.`}
-        </p>
-      </header>
+    <PlatformShell
+      backHref="/platform-services"
+      eyebrow="Roadmap"
+      title="What’s Coming"
+      description="Everything across the platform services and the AI capabilities that is not finished yet. This list is not maintained by hand — it is every record that its own screen also reports as unbuilt, so the two cannot disagree. Open any row to read what exists in this organisation today and what is still missing."
+    >
+      <p className="mt-3 text-sm text-muted-foreground">
+        {total === 0
+          ? 'Nothing outstanding — every service and capability is live.'
+          : `${total} in progress or planned.`}
+      </p>
 
       <RoadmapSection
         title="Platform services"
@@ -105,11 +93,11 @@ export default function WhatsComingPage() {
       />
 
       <RoadmapSection
-        title="AI &amp; Intelligence"
+        title="AI & Intelligence"
         blurb="Capabilities the platform serves once and every module calls."
         rows={capabilities}
       />
-    </div>
+    </PlatformShell>
   )
 }
 

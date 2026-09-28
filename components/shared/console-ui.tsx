@@ -100,18 +100,32 @@ export function StatusChip({
   )
 }
 
-/** One titled block of a console page. */
+/**
+ * One titled block of a console page.
+ *
+ * `span` opts a card into taking more than one column of a `PlatformGrid` — without it
+ * every card defaults to the narrowest slot, and a full-width page buys nothing but wider
+ * gutters between narrow cards.
+ */
 export function SectionCard({
   title,
   description,
   children,
+  span,
 }: {
   title: string
   description?: string
   children?: ReactNode
+  span?: 2 | 'full'
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
+    <section
+      className={cn(
+        'rounded-lg border border-border bg-card p-5',
+        span === 2 && 'xl:col-span-2',
+        span === 'full' && 'xl:col-span-2 2xl:col-span-3',
+      )}
+    >
       <h2 className="text-sm font-semibold text-card-foreground">{title}</h2>
       {description && <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>}
       {children && <div className="mt-3">{children}</div>}
