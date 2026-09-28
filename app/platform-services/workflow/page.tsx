@@ -54,6 +54,8 @@ interface ChainForm {
   condition: string
   status: WorkflowStatus
   steps: DraftStep[]
+  on_reject: 'return_to_requester' | 'close'
+  notify_requester: boolean
 }
 
 const inputClass =
@@ -192,6 +194,8 @@ export default function WorkflowPage() {
       // records the moment somebody experiments.
       status: 'draft',
       steps: point.suggested_steps.length > 0 ? point.suggested_steps.map(toDraft) : [emptyStep()],
+      on_reject: 'return_to_requester',
+      notify_requester: true,
     })
   }
 
@@ -206,6 +210,8 @@ export default function WorkflowPage() {
       condition: chain.condition,
       status: chain.status,
       steps: chain.steps.map(toDraft),
+      on_reject: chain.on_reject,
+      notify_requester: chain.notify_requester,
     })
   }
 
@@ -223,6 +229,8 @@ export default function WorkflowPage() {
         condition: form.condition,
         status: form.status,
         steps: form.steps,
+        on_reject: form.on_reject,
+        notify_requester: form.notify_requester,
       }
 
       if (form.id === null) {
@@ -373,6 +381,39 @@ export default function WorkflowPage() {
                       className={inputClass}
                     />
                   </label>
+
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                      If rejected
+                    </span>
+                    <select
+                      value={form.on_reject}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          on_reject: event.target.value as ChainForm['on_reject'],
+                        })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="return_to_requester">Return to the requester</option>
+                      <option value="close">Close it — nothing further happens</option>
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-2 self-end pb-1.5">
+                    <input
+                      type="checkbox"
+                      checked={form.notify_requester}
+                      onChange={(event) =>
+                        setForm({ ...form, notify_requester: event.target.checked })
+                      }
+                      className="size-4 rounded border-border"
+                    />
+                    <span className="text-xs text-foreground">
+                      Notify the requester at each decision
+                    </span>
+                  </label>
                 </div>
 
                 <h3 className="mt-5 mb-2 text-xs font-semibold text-card-foreground">
@@ -513,23 +554,40 @@ export default function WorkflowPage() {
               </section>
             )}
 
-            <div className="space-y-2">
-              {data.points.map((point) => (
-                <PointRow
-                  key={point.key}
-                  point={point}
-                  expanded={open.has(point.key)}
-                  onToggle={() => toggle(point.key)}
-                  onAdd={() => startNew(point)}
-                  onEdit={startEdit}
-                  onDelete={remove}
-                  onHistory={openHistory}
-                  historyFor={historyFor}
-                  historyVersions={historyVersions}
-                  historyLoading={historyLoading}
-                  historyError={historyError}
-                />
-              ))}
+            <div className="space-y-5">
+              {orderedModuleKeys(data.points, registry?.modules ?? []).map((moduleKey) => {
+                const modulePoints = data.points.filter((point) => point.module === moduleKey)
+
+                return (
+                  <div key={moduleKey}>
+                    <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                      {moduleLabel(moduleKey, registry?.modules ?? [])}{' '}
+                      <span className="font-normal normal-case text-muted-foreground/70">
+                        ({modulePoints.length})
+                      </span>
+                    </h3>
+
+                    <div className="space-y-2">
+                      {modulePoints.map((point) => (
+                        <PointRow
+                          key={point.key}
+                          point={point}
+                          expanded={open.has(point.key)}
+                          onToggle={() => toggle(point.key)}
+                          onAdd={() => startNew(point)}
+                          onEdit={startEdit}
+                          onDelete={remove}
+                          onHistory={openHistory}
+                          historyFor={historyFor}
+                          historyVersions={historyVersions}
+                          historyLoading={historyLoading}
+                          historyError={historyError}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </>
         )}
@@ -739,6 +797,24 @@ function PointRow({
       )}
     </div>
   )
+}
+
+/** A point's module, labelled from the registry — matching Add Process's own grouping. */
+function moduleLabel(key: string, modules: PlatformRegistryPayload['modules']): string {
+  return modules.find((m) => m.key === key)?.label ?? key
+}
+
+/** Modules that actually have a declared point, in the registry's own order. */
+function orderedModuleKeys(
+  points: WorkflowPoint[],
+  modules: PlatformRegistryPayload['modules'],
+): string[] {
+  return [
+    ...modules.map((m) => m.key).filter((key) => points.some((p) => p.module === key)),
+    ...Array.from(new Set(points.map((p) => p.module))).filter(
+      (key) => !modules.some((m) => m.key === key),
+    ),
+  ]
 }
 
 /**
