@@ -85,7 +85,7 @@ function aiUrl(path: string): string {
 
 export async function aiRequest<T>(
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   body?: unknown,
 ): Promise<T> {
   const session = readSession()

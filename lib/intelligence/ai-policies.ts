@@ -38,9 +38,18 @@ export interface AiPolicyScopeTarget {
   label: string
 }
 
+/** One `ai_modules` row a policy can be scoped to. The id is looked up, never hardcoded. */
+export interface AiPolicyModuleOption {
+  id: number
+  key: string
+  label: string
+}
+
 export interface AiPolicyRow {
   id: number
   sub_institute_id: number | null
+  /** A platform worked example (shown with an "example" pill by the module AI Stack). */
+  is_example?: number
   /** A shared baseline policy. Visible to every organisation, editable by none. */
   is_platform: boolean
   editable: boolean
@@ -74,6 +83,8 @@ export interface AiPolicyOptions {
    * nothing.
    */
   scope_targets: Record<string, AiPolicyScopeTarget[]>
+  /** The same modules with their key — what the module AI Stack scopes a new policy by. */
+  modules: AiPolicyModuleOption[]
 }
 
 export interface AiPolicyIndex {
@@ -119,7 +130,15 @@ export function createAiPolicy(payload: AiPolicyPayload): Promise<{ policy: AiPo
   return aiRequest('/policies', 'POST', payload)
 }
 
-export function updateAiPolicy(id: number, payload: AiPolicyPayload): Promise<{ policy: AiPolicyRow }> {
+/**
+ * Save an edit. `action` is `forked` when the policy was a shared platform one — the
+ * save then wrote this organisation its own copy, which takes precedence, and left the
+ * platform row intact for everyone else.
+ */
+export function updateAiPolicy(
+  id: number,
+  payload: AiPolicyPayload,
+): Promise<{ policy: AiPolicyRow; action?: 'updated' | 'forked'; forked_from?: number }> {
   return aiRequest(`/policies/${id}`, 'PUT', payload)
 }
 

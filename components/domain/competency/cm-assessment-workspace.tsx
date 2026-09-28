@@ -46,6 +46,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useAssessmentWorkspace } from '@/hooks/use-assessment-workspace'
+import { useAuth } from '@/hooks/use-auth'
+import { ROLE_GROUPS } from '@/types/role'
+import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
+import { lmsAssessmentsAiStack } from '@/lib/ai-stack/lms-assessments'
 import { CmCandidateAssessments } from './cm-candidate-assessments'
 // AI generation, review and publish. Mounted on the Campaigns tab because that
 // is where an HR user already comes to create an assessment — a separate menu
@@ -58,6 +62,8 @@ import type { CampaignDetailTab } from './campaign-detail-tabs'
 
 export function CmAssessmentWorkspace() {
   const [activeTab, setActiveTab] = useState('campaigns')
+  const { user } = useAuth()
+  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
   // Frameworks come from the studio hook so the picker offers exactly what
   // Framework & Role Mapping publishes.
   const { frameworks } = useCompetencyStudio()
@@ -311,7 +317,9 @@ export function CmAssessmentWorkspace() {
           ['calibration', 'Calibration'],
           ['approvals', 'Approvals'],
           ['closed', 'Closed Cycles'],
-        ] as const).map(([id, tab]) => {
+          // Administrator-only, matching /api/ai/* itself (profile:admin).
+          ...(isAdministrator ? [['ai-stack', 'AI Stack']] : []),
+        ] as [string, string][]).map(([id, tab]) => {
           const isActive = id === activeTab
           return (
             <button
@@ -334,6 +342,7 @@ export function CmAssessmentWorkspace() {
           invitation needs an exam template for the job role, and there was no
           screen to create one. */}
       {activeTab === 'candidates' && <CmCandidateAssessments />}
+      {activeTab === 'ai-stack' && <AiStackTabs module={lmsAssessmentsAiStack} />}
 
       {/* Main Studio Area */}
       {activeTab === 'campaigns' && (

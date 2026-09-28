@@ -49,13 +49,36 @@ export interface TemplateVariable {
 }
 
 /**
- * What a template is.
+ * What a template is — the same two kinds as LMS_K12.
  *
- * `prompt` only in G2G — see the note on the backend's `TemplateCatalog`. The union
- * is kept as a union rather than collapsed to a string literal so adding `report`
- * later is a one-word change here instead of a refactor.
+ * `prompt` is sent to a model, which writes prose. `report` is an HTML layout whose
+ * `<<placeholders>>` are filled by substitution from rows a read-only data source
+ * returned (hp_erp's ModuleDataSourceCatalog) — no model touches the figures.
  */
-export type TemplateKind = 'prompt'
+export type TemplateKind = 'prompt' | 'report'
+
+/** A read-only data source a report layout can draw its rows from. */
+export interface TemplateDataSource {
+  name: string
+  module: string
+  label: string
+  description: string
+  arguments: Array<{ key: string; type: string; description: string; required: boolean }>
+}
+
+/** A placeholder a report layout may use. `row` ones repeat inside a rows block. */
+export interface ReportPlaceholder {
+  key: string
+  label: string
+  scope: 'report' | 'row'
+}
+
+export interface TemplateBranding {
+  /** The organisation's own name, from its Organization Profile. Null when it has set none. */
+  institute_name: string | null
+  logo_url: string | null
+  sub_institute_id: number | string | null
+}
 
 export interface AiTemplateRow {
   id: number
@@ -65,6 +88,10 @@ export interface AiTemplateRow {
   module_key: string
   module_label: string
   kind: TemplateKind
+  /** Report layouts only. */
+  html_layout: string | null
+  data_source: string | null
+  data_arguments: Record<string, unknown>
   domain: string
   category: string | null
   version: number
@@ -110,6 +137,11 @@ export interface AiTemplateOptions {
   kinds: TemplateKind[]
   output_formats: string[]
   categories: string[]
+  /** The signed-in organisation's own name and logo. Never hardcoded by a caller. */
+  branding: TemplateBranding
+  /** Read-only data sources a report layout can bind to. */
+  data_sources: TemplateDataSource[]
+  report_placeholders: ReportPlaceholder[]
 }
 
 export interface AiTemplateIndex {
@@ -128,6 +160,10 @@ export interface AiTemplatePayload {
   kind?: TemplateKind
   /** Save for every organisation rather than only the signed-in one. */
   shared?: boolean
+  /** Report only — required by the API when `kind` is 'report'. */
+  html_layout?: string | null
+  data_source?: string | null
+  data_arguments?: Record<string, unknown>
   domain?: string | null
   category?: string | null
   status: string
@@ -192,6 +228,8 @@ export function previewTemplate(input: {
   system_prompt?: string | null
   user_prompt: string
   values?: Record<string, string>
+  /** The module the sample values should be shaped like. */
+  module_key?: string
 }): Promise<TemplatePreview> {
   return aiRequest<TemplatePreview>('/templates/preview', 'POST', input)
 }

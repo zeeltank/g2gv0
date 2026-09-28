@@ -41,6 +41,10 @@ import { CourseCompetencyInlinePanel } from '@/domain/competency/course-competen
 import { CourseAudiencePanel } from './course-audience-panel'
 import { AiCourseSheet } from '@/domain/lms/catalog/ai-course-sheet'
 import { MultiSelect } from '@/domain/lms/shared/multi-select'
+import { useAuth } from '@/hooks/use-auth'
+import { ROLE_GROUPS } from '@/types/role'
+import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
+import { lmsCourseBuilderAiStack } from '@/lib/ai-stack/lms-course-builder'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -102,6 +106,10 @@ const VALIDITY_OPTIONS = [
 export function CreateCoursePage() {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
+  const { user } = useAuth()
+  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
+  /** Which half of this screen is showing — the course wizard, or the AI Stack that configures the AI it uses. */
+  const [view, setView] = useState<'wizard' | 'ai-stack'>('wizard')
 
   /*
    * ?course_id=N opens an existing course for editing.
@@ -246,21 +254,59 @@ export function CreateCoursePage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="gap-2 font-semibold shadow-sm"
-            disabled={saving}
-            onClick={() => void saveDraft()}
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save as Draft
-          </Button>
-          <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={handleCancel}>
-            Cancel
-          </Button>
+          {/*
+            Administrator-only, matching /api/ai/* itself (profile:admin) — an author
+            without that role would see a toggle whose every fetch 403s, which is
+            worse than not offering it. This is the ONE new element the wizard gained;
+            everything below still renders exactly as it did before this file changed.
+          */}
+          {isAdministrator && (
+            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/20 p-1">
+              <button
+                type="button"
+                onClick={() => setView('wizard')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
+                  view === 'wizard' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Course Wizard
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('ai-stack')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
+                  view === 'ai-stack' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Sparkles className="size-3.5" /> AI Stack
+              </button>
+            </div>
+          )}
+          {view === 'wizard' && (
+            <>
+              <Button
+                variant="outline"
+                className="gap-2 font-semibold shadow-sm"
+                disabled={saving}
+                onClick={() => void saveDraft()}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                Save as Draft
+              </Button>
+              <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={handleCancel}>
+                Cancel
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
+      {view === 'ai-stack' ? (
+        <AiStackTabs module={lmsCourseBuilderAiStack} />
+      ) : (
+      <>
       {/* Stepper */}
       <Card className="mb-6 overflow-hidden rounded-xl border-border/80 bg-card shadow-sm">
         <CardContent className="p-0">
@@ -1754,6 +1800,8 @@ export function CreateCoursePage() {
           </Card>
         </div>
       </div>
+      </>
+      )}
 
       {/*
         * The SAME Build-with-AI form the catalogue opens.
