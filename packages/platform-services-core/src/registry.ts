@@ -160,12 +160,9 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Ten projectors and reactors run off one event stream. When one stalls, every screen downstream of it goes quietly stale, and nothing currently reports that.',
     todayInG2g:
-      'g2g_event and g2g_event_delivery hold a real event store with a per-consumer delivery ledger. EventCatalogue names every event and its consumers. Nothing reads any of it back.',
-    toBuild: [
-      'Read endpoints over the store, the delivery ledger and the catalogue',
-      'A console with honest KPI tiles — unavailable rather than zero',
-    ],
-    status: 'in-progress',
+      'g2g_event and g2g_event_delivery hold a real event store with a per-consumer delivery ledger, read back by seven endpoints (summary, stream, consumers, failures, catalogue, options, and a scoped replay for stuck projectors). The console has four real tabs — Stream, Consumers, Failures, Catalogue — plus honest KPI tiles: unavailable is shown as unavailable, never a fabricated zero. "Last drain pass" reads TaskRunLedger\'s own run history for events:project, the same ledger the Scheduler console shows.',
+    toBuild: [],
+    status: 'live',
     destination: { kind: 'own-route', href: '/platform-services/event-bus' },
     phase: 2,
   },
