@@ -10,6 +10,7 @@ import { useAppPreferences } from '@/components/providers/preferences-provider'
 import { rememberLastVisited } from '@/lib/last-visited'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
+import { PlatformServicesSubheader } from '@/components/shell/platform-services-subheader'
 import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
@@ -263,6 +264,25 @@ export function GtgAppShell({
       window.open(path, '_blank', 'noopener,noreferrer')
       return
     }
+
+    /*
+     * A full navigation when only the search params are changing. See the
+     * identical, directly-verified note in `gtg-page-shell.tsx`'s own
+     * `handleNavSelect` — `router.push()` to a URL sharing the current
+     * pathname (differing only by e.g. `?module=`) was confirmed to be a
+     * silent no-op in production for the Platform Services consoles this
+     * shell can also reach; a full navigation always works. An ordinary
+     * cross-route click (a different pathname) is unaffected.
+     */
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : null
+    const nextPathname = path.split('?')[0]
+
+    if (currentPathname !== null && currentPathname === nextPathname) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate: router.push() is the no-op being worked around here, confirmed directly (see the note above).
+      window.location.href = path
+      return
+    }
+
     setActive(next)
     router.push(path)
   }
@@ -429,6 +449,44 @@ export function GtgAppShell({
   }
   const [toolbarOpen, setToolbarOpen] = useState(false)
   const toolbarButtonRef = useRef<HTMLButtonElement>(null)
+  const [subheaderOpen, setSubheaderOpen] = useState(false)
+  const subheaderButtonRef = useRef<HTMLButtonElement>(null)
+  const subheaderPanelRef = useRef<HTMLDivElement>(null)
+
+  /*
+   * Click-outside and Escape close it, matching `gtg-user-menu.tsx`'s own
+   * pattern — the established template for a disclosure control in this
+   * codebase — rather than inventing a third way to dismiss a panel.
+   * Escape returns focus to the trigger, the same reason that menu does it:
+   * someone who opened this with the keyboard needs a way out that isn't
+   * "tab through every link in the strip".
+   */
+  useEffect(() => {
+    if (!subheaderOpen) return
+
+    function onClick(event: MouseEvent) {
+      const target = event.target as Node
+      if (
+        subheaderPanelRef.current && !subheaderPanelRef.current.contains(target) &&
+        subheaderButtonRef.current && !subheaderButtonRef.current.contains(target)
+      ) {
+        setSubheaderOpen(false)
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      setSubheaderOpen(false)
+      subheaderButtonRef.current?.focus()
+    }
+
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [subheaderOpen])
 
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
@@ -492,7 +550,13 @@ export function GtgAppShell({
           toolbarOpen={toolbarOpen}
           onToolbarToggle={() => setToolbarOpen((open) => !open)}
           toolbarButtonRef={toolbarButtonRef}
+          subheaderOpen={subheaderOpen}
+          onSubheaderToggle={() => setSubheaderOpen((open) => !open)}
+          subheaderButtonRef={subheaderButtonRef}
         />
+        <div ref={subheaderPanelRef}>
+          <PlatformServicesSubheader open={subheaderOpen} />
+        </div>
         <BreadcrumbItemsProvider items={breadcrumbItems}>
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
