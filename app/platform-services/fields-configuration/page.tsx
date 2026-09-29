@@ -20,7 +20,8 @@
  * is the honest path precisely because it makes that loss visible.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Check, GripVertical, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { describePlatformError, PlatformApiError } from '@/lib/platform/client'
@@ -60,6 +61,17 @@ const inputClass =
   'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
 
 export default function FieldsConfigurationPage() {
+  return (
+    <Suspense fallback={null}>
+      <FieldsConfigurationConsole />
+    </Suspense>
+  )
+}
+
+function FieldsConfigurationConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
+  const moduleKey = useSearchParams().get('module')
+
   const [data, setData] = useState<FieldsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +85,7 @@ export default function FieldsConfigurationPage() {
   useEffect(() => {
     let cancelled = false
 
-    fetchCustomFields()
+    fetchCustomFields(moduleKey ?? undefined)
       .then((next) => {
         if (cancelled) return
         setData(next)
@@ -89,7 +101,7 @@ export default function FieldsConfigurationPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, moduleKey])
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -292,16 +304,28 @@ export default function FieldsConfigurationPage() {
               </p>
               <div className="flex gap-2">
                 <RefreshButton onClick={reload} busy={loading} />
-                <button
-                  type="button"
-                  onClick={startNew}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-                >
-                  <Plus className="size-3.5" />
-                  Add field
-                </button>
+                {data.tables.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={startNew}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    <Plus className="size-3.5" />
+                    Add field
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — the server only returned
+                this module's allowlisted tables. No tables for a real module
+                (Talent, LMS, Capability and Task management declare none today)
+                is the honest empty state, not an error. */}
+            {moduleKey && data.tables.length === 0 && (
+              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                No record in this module is allowlisted for custom fields yet.
+              </p>
+            )}
 
             {form && (
               <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -497,6 +521,7 @@ export default function FieldsConfigurationPage() {
               </section>
             )}
 
+            {(!moduleKey || data.tables.length > 0) && (
             <div className="overflow-x-auto rounded-lg border border-border bg-card">
               <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
                 <thead>
@@ -605,6 +630,7 @@ export default function FieldsConfigurationPage() {
                 </tbody>
               </table>
             </div>
+            )}
           </>
         )}
       </div>

@@ -33,7 +33,8 @@
  * and finding that out after publishing is finding out too late.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AlertTriangle, Check, CirclePlus, Loader2, Trash2 } from 'lucide-react'
 
 import { describePlatformError, PlatformApiError } from '@/lib/platform/client'
@@ -175,6 +176,19 @@ function TaskAssignments({
 }
 
 export default function AddProcessPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddProcessConsole />
+    </Suspense>
+  )
+}
+
+function AddProcessConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. Filtered
+      client-side (`fetchProcesses` has no server-side module filter — the saved
+      list is small enough per tenant that this costs nothing real). */
+  const moduleKey = useSearchParams().get('module')
+
   const [rows, setRows] = useState<ProcessRow[] | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -225,20 +239,27 @@ export default function AddProcessPage() {
           </div>
         )}
 
-        {rows && registry && (
+        {rows && registry && (() => {
+          const scopedRows = moduleKey ? rows.filter((r) => r.module === moduleKey) : rows
+
+          return (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                {rows.length} process{rows.length === 1 ? '' : 'es'}.
-                {rows.filter((r) => r.status === 'published').length > 0 &&
-                  ` ${rows.filter((r) => r.status === 'published').length} published.`}
+                {scopedRows.length} process{scopedRows.length === 1 ? '' : 'es'}.
+                {scopedRows.filter((r) => r.status === 'published').length > 0 &&
+                  ` ${scopedRows.filter((r) => r.status === 'published').length} published.`}
               </p>
               <div className="flex gap-2">
                 <RefreshButton onClick={reload} busy={loading} />
                 <button
                   type="button"
                   onClick={() =>
-                    setDraft({ name: '', module: registry.modules[0]?.key ?? '', text: EXAMPLE })
+                    setDraft({
+                      name: '',
+                      module: moduleKey ?? registry.modules[0]?.key ?? '',
+                      text: EXAMPLE,
+                    })
                   }
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
                 >
@@ -252,6 +273,7 @@ export default function AddProcessPage() {
               <ProcessBuilder
                 draft={draft}
                 modules={registry.modules}
+                lockedModule={moduleKey}
                 onCancel={() => setDraft(null)}
                 onSaved={(message) => {
                   setDraft(null)
@@ -261,8 +283,17 @@ export default function AddProcessPage() {
               />
             )}
 
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — filtered client-side above.
+                Zero for a real module is the honest empty state, not an error;
+                every one of G2G's modules has at least one template, though, so
+                this is really only ever "nothing SAVED here yet". */}
+            {moduleKey && scopedRows.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                No process has been saved for this module yet.
+              </p>
+            ) : (
             <ProcessList
-              rows={rows}
+              rows={scopedRows}
               modules={registry.modules}
               onDeleted={() => {
                 setNotice('Process deleted. Any tasks it raised are untouched.')
@@ -273,8 +304,10 @@ export default function AddProcessPage() {
                 reload()
               }}
             />
+            )}
           </>
-        )}
+          )
+        })()}
       </div>
     </ServiceShell>
   )
@@ -284,11 +317,16 @@ export default function AddProcessPage() {
 function ProcessBuilder({
   draft,
   modules,
+  lockedModule,
   onCancel,
   onSaved,
 }: {
   draft: { name: string; module: string; text: string }
   modules: PlatformRegistryPayload['modules']
+  /** Set from a decentralized tab's `?module=` — this process can only ever be for
+      that module, so the picker is fixed rather than offering a choice that would
+      just take somebody back to the central hub's process list. */
+  lockedModule?: string | null
   onCancel: () => void
   onSaved: (message: string) => void
 }) {
@@ -464,15 +502,18 @@ function ProcessBuilder({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Module</span>
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            Module{lockedModule && ' (this module’s own tab)'}
+          </span>
           <select
             value={form.module}
+            disabled={!!lockedModule}
             onChange={(event) => changeModule(event.target.value)}
             className={inputClass}
           >
-            {modules.map((module) => (
-              <option key={module.key} value={module.key}>
-                {module.label}
+            {modules.map((moduleOption) => (
+              <option key={moduleOption.key} value={moduleOption.key}>
+                {moduleOption.label}
               </option>
             ))}
           </select>

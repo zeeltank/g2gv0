@@ -55,8 +55,9 @@ export interface IntegrationProvider {
   updated_by?: string | null
 }
 
-export function fetchIntegrations(): Promise<{ providers: IntegrationProvider[] }> {
-  return platformRequest<{ providers: IntegrationProvider[] }>('/integrations')
+/** `module` narrows to one module's own providers — the decentralized Integration tab. */
+export function fetchIntegrations(module?: string): Promise<{ providers: IntegrationProvider[] }> {
+  return platformRequest<{ providers: IntegrationProvider[] }>('/integrations', { module })
 }
 
 /** `config` is field key -> value. Omit a `password` field (or send it empty) to

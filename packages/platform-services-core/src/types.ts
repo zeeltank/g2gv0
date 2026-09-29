@@ -86,6 +86,14 @@ export interface PlatformService {
   status: PlatformServiceStatus
   destination: PlatformDestination
   /**
+   * The registry module keys (from `config/platform_services.php`'s `modules`) whose own
+   * navigation also carries a scoped tab into this service, reached as
+   * `{destination.href}?module={key}` — the decentralized path, alongside this same
+   * service's central, unscoped one. Absent or empty for a service no module scopes
+   * (RBAC, Audit, Event Bus and the rest are platform-wide, not one module's).
+   */
+  decentralizedModules?: readonly string[]
+  /**
    * Which phase gives this service a working screen.
    *
    * This is what replaces LMS K-12's separate `lib/roadmap/registry.ts`. "What's Coming"

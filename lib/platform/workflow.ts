@@ -127,6 +127,8 @@ export interface RegistryOption {
   description?: string
   /** Approver types only: whether the step needs a role name or user id. */
   needs_value?: boolean
+  /** Custom field tables only: the module this table belongs to, or null if none. */
+  module?: string | null
 }
 
 export interface PlatformRegistryPayload {

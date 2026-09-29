@@ -39,6 +39,25 @@ import type { PlatformService } from './types'
 const ROLE_PERMISSIONS = '/module/organizational-management/user-management/role-and-permissions'
 const TALENT_ONBOARDING = '/module/talent-management/onboarding'
 
+/**
+ * The six modules with a real branch in `tblmenumaster_g2g` — `events` (the platform's
+ * own event-store module) has none, so it stays reachable only from the central hub
+ * above; that is a structural fact about the sidebar, not a choice made here.
+ *
+ * Round 3 decentralizes symmetrically: every one of these six gets a scoped tab into
+ * every decentralizable service below, even where that module has nothing configured
+ * for it yet — an honest empty state rather than a hidden tab, matching how this
+ * console already handles an unenforced workflow point.
+ */
+export const DECENTRALIZED_MODULES = [
+  'organization',
+  'hrms',
+  'talent',
+  'lms',
+  'competency',
+  'task',
+] as const
+
 export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.rbac',
@@ -76,6 +95,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     // approvals it does not. See the status note at the top of this file.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/workflow' },
+    decentralizedModules: DECENTRALIZED_MODULES,
     phase: 3,
   },
   {
@@ -94,6 +114,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     ],
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/scheduler' },
+    decentralizedModules: DECENTRALIZED_MODULES,
     phase: 2,
   },
   {
@@ -110,6 +131,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     toBuild: [],
     status: 'live',
     destination: { kind: 'own-route', href: '/platform-services/integration' },
+    decentralizedModules: DECENTRALIZED_MODULES,
     phase: 3,
   },
   {
@@ -186,6 +208,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     // four-step shape implies.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/add-process' },
+    decentralizedModules: DECENTRALIZED_MODULES,
     phase: 3,
   },
   {
@@ -207,6 +230,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     // claim an employee sees the field they just configured.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/fields-configuration' },
+    decentralizedModules: DECENTRALIZED_MODULES,
     phase: 3,
   },
   {

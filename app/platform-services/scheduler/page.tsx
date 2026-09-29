@@ -18,7 +18,9 @@
  * of mistake cannot hide here.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
 import { describePlatformError } from '@/lib/platform/client'
@@ -29,12 +31,25 @@ import {
   type RunNowResult,
   type SchedulerPayload,
 } from '@/lib/platform/scheduler'
+import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
 
 export default function SchedulerPage() {
+  return (
+    <Suspense fallback={null}>
+      <SchedulerConsole />
+    </Suspense>
+  )
+}
+
+function SchedulerConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
+  const moduleKey = useSearchParams().get('module')
+
   const [data, setData] = useState<SchedulerPayload | null>(null)
+  const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useState(0)
@@ -48,10 +63,11 @@ export default function SchedulerPage() {
   useEffect(() => {
     let cancelled = false
 
-    fetchScheduledTasks()
-      .then((next) => {
+    Promise.all([fetchScheduledTasks(moduleKey ?? undefined), fetchPlatformRegistry()])
+      .then(([next, reg]) => {
         if (cancelled) return
         setData(next)
+        setRegistry(reg)
         setError(null)
         setLoading(false)
       })
@@ -64,7 +80,7 @@ export default function SchedulerPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, moduleKey])
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -175,78 +191,60 @@ export default function SchedulerPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
-              <table className="w-full min-w-[54rem] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="bg-muted/50">
-                    <Th>Task</Th>
-                    <Th>Schedule</Th>
-                    <Th>Next run</Th>
-                    <Th>Last run</Th>
-                    <Th>Guards</Th>
-                    <Th>This organisation</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {data.tasks.map((task) => (
-                    <tr
-                      key={task.key}
-                      className={`transition-colors hover:bg-muted/40 ${
-                        task.last_run_status === 'failed' ? 'bg-destructive/5' : ''
-                      }`}
-                    >
-                      <td className="px-3 py-3 align-top">
-                        <p className="font-mono text-xs font-medium text-card-foreground">
-                          {task.key}
-                        </p>
-                        {task.description && (
-                          <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-                            {task.description}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        {/* The sentence is a convenience; the expression is the truth,
-                            so both are shown and the expression is never omitted. */}
-                        {task.describes && <p className="text-xs">{task.describes}</p>}
-                        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                          {task.expression}
-                        </p>
-                      </td>
-                      <td className="px-3 py-3 align-top text-xs whitespace-nowrap tabular-nums">
-                        {task.next_run_at ? (
-                          new Date(task.next_run_at).toLocaleString()
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — the server only returned
+                this module's tasks. Zero tasks for a real module (Talent and LMS
+                declare none today) is the honest empty state, not an error. */}
+            {moduleKey ? (
+              data.tasks.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  Nothing is scheduled for this module yet.
+                </p>
+              ) : (
+                <TaskTable
+                  tasks={data.tasks}
+                  saving={saving}
+                  onToggle={toggle}
+                  onRunNow={runNow}
+                  running={running}
+                  runResults={runResults}
+                />
+              )
+            ) : (
+              <div className="space-y-5">
+                {orderedTaskModuleKeys(data.tasks, registry?.modules ?? []).map((moduleKey) => {
+                  const moduleTasks = data.tasks.filter((task) => (task.module ?? '_uncatalogued') === moduleKey)
+
+                  return (
+                    <div key={moduleKey}>
+                      <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                        {moduleKey === '_uncatalogued' ? (
+                          <span>Not catalogued</span>
                         ) : (
-                          <span className="text-muted-foreground/60" title="The expression could not be parsed.">
-                            &mdash;
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 align-top text-xs whitespace-nowrap">
-                        <LastRun task={task} />
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <div className="flex flex-wrap gap-1">
-                          {task.without_overlapping && <Guard>no overlap</Guard>}
-                          {task.on_one_server && <Guard>one server</Guard>}
-                          {task.in_background && <Guard>background</Guard>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <TenantControl
-                          task={task}
-                          onToggle={toggle}
-                          busy={saving === task.task_key}
-                          onRunNow={runNow}
-                          running={task.task_key !== null && running === task.task_key}
-                          runResult={task.task_key ? runResults[task.task_key] : undefined}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <Link
+                            href={`/platform-services/scheduler?module=${moduleKey}`}
+                            className="hover:text-foreground hover:underline"
+                          >
+                            {taskModuleLabel(moduleKey, registry?.modules ?? [])}
+                          </Link>
+                        )}{' '}
+                        <span className="font-normal normal-case text-muted-foreground/70">
+                          ({moduleTasks.length})
+                        </span>
+                      </h3>
+
+                      <TaskTable
+                        tasks={moduleTasks}
+                        saving={saving}
+                        onToggle={toggle}
+                        onRunNow={runNow}
+                        running={running}
+                        runResults={runResults}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Estate-wide, and labelled as such. `jobs` and `failed_jobs` carry no
                 tenant column, so presenting these as this organisation's numbers would
@@ -311,6 +309,119 @@ function Th({ children }: { children: React.ReactNode }) {
       {children}
     </th>
   )
+}
+
+/** The table body, extracted so both the scoped (one module) and central (grouped by
+    module) views render identical rows rather than two copies of this markup. */
+function TaskTable({
+  tasks,
+  saving,
+  onToggle,
+  onRunNow,
+  running,
+  runResults,
+}: {
+  tasks: SchedulerPayload['tasks']
+  saving: string | null
+  onToggle: (task: SchedulerPayload['tasks'][number]) => void
+  onRunNow: (taskKey: string) => void
+  running: string | null
+  runResults: Record<string, RunNowResult>
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="w-full min-w-[54rem] border-collapse text-left text-sm">
+        <thead>
+          <tr className="bg-muted/50">
+            <Th>Task</Th>
+            <Th>Schedule</Th>
+            <Th>Next run</Th>
+            <Th>Last run</Th>
+            <Th>Guards</Th>
+            <Th>This organisation</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {tasks.map((task) => (
+            <tr
+              key={task.key}
+              className={`transition-colors hover:bg-muted/40 ${
+                task.last_run_status === 'failed' ? 'bg-destructive/5' : ''
+              }`}
+            >
+              <td className="px-3 py-3 align-top">
+                <p className="font-mono text-xs font-medium text-card-foreground">{task.key}</p>
+                {task.description && (
+                  <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                    {task.description}
+                  </p>
+                )}
+              </td>
+              <td className="px-3 py-3 align-top">
+                {/* The sentence is a convenience; the expression is the truth,
+                    so both are shown and the expression is never omitted. */}
+                {task.describes && <p className="text-xs">{task.describes}</p>}
+                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                  {task.expression}
+                </p>
+              </td>
+              <td className="px-3 py-3 align-top text-xs whitespace-nowrap tabular-nums">
+                {task.next_run_at ? (
+                  new Date(task.next_run_at).toLocaleString()
+                ) : (
+                  <span className="text-muted-foreground/60" title="The expression could not be parsed.">
+                    &mdash;
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-3 align-top text-xs whitespace-nowrap">
+                <LastRun task={task} />
+              </td>
+              <td className="px-3 py-3 align-top">
+                <div className="flex flex-wrap gap-1">
+                  {task.without_overlapping && <Guard>no overlap</Guard>}
+                  {task.on_one_server && <Guard>one server</Guard>}
+                  {task.in_background && <Guard>background</Guard>}
+                </div>
+              </td>
+              <td className="px-3 py-3 align-top">
+                <TenantControl
+                  task={task}
+                  onToggle={onToggle}
+                  busy={saving === task.task_key}
+                  onRunNow={onRunNow}
+                  running={task.task_key !== null && running === task.task_key}
+                  runResult={task.task_key ? runResults[task.task_key] : undefined}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** A task's module, labelled from the registry — matching Workflow's own grouping. */
+function taskModuleLabel(key: string, modules: PlatformRegistryPayload['modules']): string {
+  return modules.find((m) => m.key === key)?.label ?? key
+}
+
+/** Modules with at least one task, registry order, then any module the registry does not
+    declare, then `_uncatalogued` last for events the catalogue does not describe at all. */
+function orderedTaskModuleKeys(
+  tasks: SchedulerPayload['tasks'],
+  modules: PlatformRegistryPayload['modules'],
+): string[] {
+  const present = new Set(tasks.map((t) => t.module ?? '_uncatalogued'))
+
+  return [
+    ...modules.map((m) => m.key).filter((key) => present.has(key)),
+    ...Array.from(present).filter(
+      (key) => key !== '_uncatalogued' && !modules.some((m) => m.key === key),
+    ),
+    ...(present.has('_uncatalogued') ? ['_uncatalogued'] : []),
+  ]
 }
 
 /**

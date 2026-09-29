@@ -78,8 +78,9 @@ export interface FieldInput {
   options?: FieldOption[]
 }
 
-export function fetchCustomFields(): Promise<FieldsPayload> {
-  return platformRequest<FieldsPayload>('/fields')
+/** `module` narrows to one module's own tables — the decentralized Fields Configuration tab. */
+export function fetchCustomFields(module?: string): Promise<FieldsPayload> {
+  return platformRequest<FieldsPayload>('/fields', { module })
 }
 
 export function createCustomField(input: FieldInput): Promise<{ id: number }> {

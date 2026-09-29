@@ -19,7 +19,9 @@
  * counting drafts would produce exactly the flattering number that hides the gap.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Loader2, Plus, Trash2 } from 'lucide-react'
 
 import { describePlatformError, PlatformApiError } from '@/lib/platform/client'
@@ -62,6 +64,18 @@ const inputClass =
   'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export default function WorkflowPage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkflowConsole />
+    </Suspense>
+  )
+}
+
+function WorkflowConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. Absent on the
+      central hub, which browses every point across every module. */
+  const moduleKey = useSearchParams().get('module')
+
   const [data, setData] = useState<WorkflowPayload | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -137,7 +151,7 @@ export default function WorkflowPage() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([fetchWorkflowPoints(), fetchPlatformRegistry()])
+    Promise.all([fetchWorkflowPoints(moduleKey ?? undefined), fetchPlatformRegistry()])
       .then(([points, reg]) => {
         if (cancelled) return
         setData(points)
@@ -154,7 +168,7 @@ export default function WorkflowPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, moduleKey])
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -554,41 +568,78 @@ export default function WorkflowPage() {
               </section>
             )}
 
-            <div className="space-y-5">
-              {orderedModuleKeys(data.points, registry?.modules ?? []).map((moduleKey) => {
-                const modulePoints = data.points.filter((point) => point.module === moduleKey)
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED TO ONE MODULE — the server
+                only returned that module's points, so a module heading here would
+                repeat what the shell's own "back to {module}" link already says.
+                Zero points for a real module (e.g. Organisation, which declares
+                none today) is the honest empty state, not an error. */}
+            {moduleKey ? (
+              data.points.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  Nothing is configured for this module yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {data.points.map((point) => (
+                    <PointRow
+                      key={point.key}
+                      point={point}
+                      expanded={open.has(point.key)}
+                      onToggle={() => toggle(point.key)}
+                      onAdd={() => startNew(point)}
+                      onEdit={startEdit}
+                      onDelete={remove}
+                      onHistory={openHistory}
+                      historyFor={historyFor}
+                      historyVersions={historyVersions}
+                      historyLoading={historyLoading}
+                      historyError={historyError}
+                    />
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="space-y-5">
+                {orderedModuleKeys(data.points, registry?.modules ?? []).map((moduleKey) => {
+                  const modulePoints = data.points.filter((point) => point.module === moduleKey)
 
-                return (
-                  <div key={moduleKey}>
-                    <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-                      {moduleLabel(moduleKey, registry?.modules ?? [])}{' '}
-                      <span className="font-normal normal-case text-muted-foreground/70">
-                        ({modulePoints.length})
-                      </span>
-                    </h3>
+                  return (
+                    <div key={moduleKey}>
+                      <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                        <Link
+                          href={`/platform-services/workflow?module=${moduleKey}`}
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {moduleLabel(moduleKey, registry?.modules ?? [])}
+                        </Link>{' '}
+                        <span className="font-normal normal-case text-muted-foreground/70">
+                          ({modulePoints.length})
+                        </span>
+                      </h3>
 
-                    <div className="space-y-2">
-                      {modulePoints.map((point) => (
-                        <PointRow
-                          key={point.key}
-                          point={point}
-                          expanded={open.has(point.key)}
-                          onToggle={() => toggle(point.key)}
-                          onAdd={() => startNew(point)}
-                          onEdit={startEdit}
-                          onDelete={remove}
-                          onHistory={openHistory}
-                          historyFor={historyFor}
-                          historyVersions={historyVersions}
-                          historyLoading={historyLoading}
-                          historyError={historyError}
-                        />
-                      ))}
+                      <div className="space-y-2">
+                        {modulePoints.map((point) => (
+                          <PointRow
+                            key={point.key}
+                            point={point}
+                            expanded={open.has(point.key)}
+                            onToggle={() => toggle(point.key)}
+                            onAdd={() => startNew(point)}
+                            onEdit={startEdit}
+                            onDelete={remove}
+                            onHistory={openHistory}
+                            historyFor={historyFor}
+                            historyVersions={historyVersions}
+                            historyLoading={historyLoading}
+                            historyError={historyError}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

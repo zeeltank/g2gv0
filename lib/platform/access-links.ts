@@ -56,3 +56,33 @@ type _IntegrationMatches = AssertSame<
   '/module/lms/administration/administration-and-governance',
   typeof LMS_GOVERNANCE_ACCESS_LINK
 >
+
+/**
+ * Round 3 — decentralized navigation. Each registry module key's own landing page in
+ * `tblmenumaster_g2g`, for the "Back to {module}" link a scoped `?module=` console shows
+ * instead of "Back to Platform Services". Confirmed directly against the live table
+ * (`tblmenumaster_g2g` level-1 rows) rather than assumed — `events` has no row here on
+ * purpose, see `DECENTRALIZED_MODULES`'s own note in the registry package.
+ */
+export const MODULE_LANDING_HREF: Record<string, string> = {
+  organization: '/module/organizational-management',
+  hrms: '/module/hrit-solutions',
+  talent: '/module/talent-management',
+  lms: '/module/lms',
+  competency: '/module/capability-intelligence',
+  task: '/module/task-management',
+}
+
+/**
+ * The same six keys' labels, exactly as `config('platform_services.modules')` names
+ * them — restated here (rather than fetched) because `ServiceShell` renders before any
+ * console's own registry fetch resolves, and the back link needs a label immediately.
+ */
+export const MODULE_LABEL: Record<string, string> = {
+  organization: 'Organisation',
+  hrms: 'HRMS',
+  talent: 'Talent',
+  lms: 'Learning',
+  competency: 'Capability',
+  task: 'Task management',
+}
