@@ -42,7 +42,7 @@ import { ArrowLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { PLATFORM_SERVICES } from '@shared/platform-services-core'
-import { MODULE_LANDING_HREF } from '@/lib/platform/access-links'
+import { MODULE_LANDING_HREF, type DecentralizedModuleKey } from '@/lib/platform/access-links'
 
 /** The two groups a platform service belongs to — shared so no page re-declares it. */
 export const PLATFORM_SECTION_LABEL: Record<string, string> = {
@@ -95,7 +95,7 @@ export function PlatformShell({
    * consoles decentralized for the SAME module, each still `?module=`-scoped, plus one
    * explicit link back to this console's unscoped, central view.
    */
-  module?: { key: string; label: string } | null
+  module?: { key: DecentralizedModuleKey; label: string } | null
   children?: ReactNode
 }) {
   const effectiveBackHref = module ? (MODULE_LANDING_HREF[module.key] ?? backHref) : backHref

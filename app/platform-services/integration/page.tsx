@@ -41,6 +41,7 @@ import {
   type IntegrationProvider,
   type IntegrationStatus,
 } from '@/lib/platform/integrations'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -62,7 +63,8 @@ export default function IntegrationsPage() {
 
 function IntegrationsConsole() {
   /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
-  const moduleKey = useSearchParams().get('module')
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
 
   const [providers, setProviders] = useState<IntegrationProvider[] | null>(null)
   const [loading, setLoading] = useState(true)

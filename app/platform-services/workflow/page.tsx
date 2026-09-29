@@ -43,6 +43,7 @@ import {
   type WorkflowVersion,
 } from '@/lib/platform/workflow'
 import { StatusChip } from '@/components/shared/console-ui'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -74,7 +75,8 @@ export default function WorkflowPage() {
 function WorkflowConsole() {
   /** `?module=hrms` etc. — the decentralized tab, pinned to one module. Absent on the
       central hub, which browses every point across every module. */
-  const moduleKey = useSearchParams().get('module')
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
 
   const [data, setData] = useState<WorkflowPayload | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)

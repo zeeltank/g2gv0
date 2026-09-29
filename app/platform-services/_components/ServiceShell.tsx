@@ -23,7 +23,7 @@ import { getPlatformServiceBySlug } from '@shared/platform-services-core'
 import { StatusChip } from '@/components/shared/console-ui'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
-import { MODULE_LABEL } from '@/lib/platform/access-links'
+import { isDecentralizedModule, MODULE_LABEL } from '@/lib/platform/access-links'
 import { PLATFORM_SECTION_LABEL, PlatformShell } from '@/components/shell/platform-shell'
 
 /**
@@ -52,8 +52,7 @@ function ServiceShellContent({ slug, children }: { slug: string; children?: Reac
   // The decentralized seam: `?module=hrms` on any of the five scoped consoles' own
   // route means this render IS that module's own tab, not the central hub.
   const moduleKey = searchParams.get('module')
-  const scopeModule =
-    moduleKey && MODULE_LABEL[moduleKey] ? { key: moduleKey, label: MODULE_LABEL[moduleKey] } : null
+  const scopeModule = isDecentralizedModule(moduleKey) ? { key: moduleKey, label: MODULE_LABEL[moduleKey] } : null
 
   return (
     <PlatformShell

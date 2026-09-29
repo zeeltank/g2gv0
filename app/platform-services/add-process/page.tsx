@@ -52,6 +52,7 @@ import {
 } from '@/lib/platform/process'
 import { groupsForModule, type ProcessGroup } from '@/lib/platform/process-templates'
 import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 import { employeeDirectoryService } from '@/services/organization/employee-directory'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
@@ -187,7 +188,8 @@ function AddProcessConsole() {
   /** `?module=hrms` etc. — the decentralized tab, pinned to one module. Filtered
       client-side (`fetchProcesses` has no server-side module filter — the saved
       list is small enough per tenant that this costs nothing real). */
-  const moduleKey = useSearchParams().get('module')
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
 
   const [rows, setRows] = useState<ProcessRow[] | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
@@ -295,6 +297,7 @@ function AddProcessConsole() {
             <ProcessList
               rows={scopedRows}
               modules={registry.modules}
+              scoped={!!moduleKey}
               onDeleted={() => {
                 setNotice('Process deleted. Any tasks it raised are untouched.')
                 reload()
@@ -747,11 +750,16 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
 function ProcessList({
   rows,
   modules,
+  scoped,
   onDeleted,
   onPublished,
 }: {
   rows: ProcessRow[]
   modules: PlatformRegistryPayload['modules']
+  /** A decentralized tab is already pinned to one module — every row here is
+      already that module's own, so the heading below would just repeat what
+      the shell's own "back to {module}" link already says. */
+  scoped?: boolean
   onDeleted: () => void
   onPublished: (message: string) => void
 }) {
@@ -812,12 +820,14 @@ function ProcessList({
 
         return (
           <div key={moduleKey}>
-            <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-              {moduleLabel(moduleKey)}{' '}
-              <span className="font-normal normal-case text-muted-foreground/70">
-                ({moduleRows.length})
-              </span>
-            </h3>
+            {!scoped && (
+              <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                {moduleLabel(moduleKey)}{' '}
+                <span className="font-normal normal-case text-muted-foreground/70">
+                  ({moduleRows.length})
+                </span>
+              </h3>
+            )}
 
             <div className="space-y-2">
               {moduleRows.map((row) => (

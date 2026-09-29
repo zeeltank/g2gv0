@@ -36,6 +36,7 @@ import {
   type FieldsPayload,
   type FieldType,
 } from '@/lib/platform/fields'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -70,7 +71,8 @@ export default function FieldsConfigurationPage() {
 
 function FieldsConfigurationConsole() {
   /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
-  const moduleKey = useSearchParams().get('module')
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
 
   const [data, setData] = useState<FieldsPayload | null>(null)
   const [loading, setLoading] = useState(true)

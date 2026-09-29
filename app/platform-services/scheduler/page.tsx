@@ -32,6 +32,7 @@ import {
   type SchedulerPayload,
 } from '@/lib/platform/scheduler'
 import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -46,7 +47,8 @@ export default function SchedulerPage() {
 
 function SchedulerConsole() {
   /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
-  const moduleKey = useSearchParams().get('module')
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
 
   const [data, setData] = useState<SchedulerPayload | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
