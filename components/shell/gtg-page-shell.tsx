@@ -108,6 +108,36 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
       window.open(path, '_blank', 'noopener,noreferrer')
       return
     }
+
+    /*
+     * A FULL NAVIGATION, SPECIFICALLY WHEN THE PATHNAME ISN'T CHANGING.
+     *
+     * The Platform Services pages (Workflow, Scheduler, Add Process, Fields
+     * Configuration, Integration) are reached from six different sidebar
+     * rows, one per module, all pointing at the SAME pathname with a
+     * different `?module=`. `router.push()` to one of those from another —
+     * same pathname, different search params — proved to be a silent no-op
+     * in production: the URL bar never updated and the page kept the
+     * PREVIOUS module's content, verified directly (logged the computed
+     * path, confirmed `router.push` was called with the correct target, and
+     * confirmed `window.location` never changed across a full second
+     * afterward). Every one of these consoles renders itself entirely
+     * client-side after reading `?module=` via `useSearchParams()`, with no
+     * server-varying content Next can key a soft transition on for this
+     * exact pathname-only-differs-by-query case — a full navigation always
+     * works, confirmed the same way. Ordinary cross-route sidebar clicks
+     * (a different pathname) are unaffected and keep the fast client-side
+     * transition.
+     */
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : null
+    const nextPathname = path.split('?')[0]
+
+    if (currentPathname !== null && currentPathname === nextPathname) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate: router.push() is the no-op being worked around here, confirmed directly (see the note above).
+      window.location.href = path
+      return
+    }
+
     router.push(path)
   }, [router, getRoutePath])
 

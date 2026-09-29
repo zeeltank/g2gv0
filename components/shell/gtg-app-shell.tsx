@@ -263,6 +263,25 @@ export function GtgAppShell({
       window.open(path, '_blank', 'noopener,noreferrer')
       return
     }
+
+    /*
+     * A full navigation when only the search params are changing. See the
+     * identical, directly-verified note in `gtg-page-shell.tsx`'s own
+     * `handleNavSelect` — `router.push()` to a URL sharing the current
+     * pathname (differing only by e.g. `?module=`) was confirmed to be a
+     * silent no-op in production for the Platform Services consoles this
+     * shell can also reach; a full navigation always works. An ordinary
+     * cross-route click (a different pathname) is unaffected.
+     */
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : null
+    const nextPathname = path.split('?')[0]
+
+    if (currentPathname !== null && currentPathname === nextPathname) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate: router.push() is the no-op being worked around here, confirmed directly (see the note above).
+      window.location.href = path
+      return
+    }
+
     setActive(next)
     router.push(path)
   }
