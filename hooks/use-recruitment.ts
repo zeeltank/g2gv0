@@ -159,6 +159,7 @@ function mapOffer(offer: TalentOfferApi, candidates: Map<string, Candidate>, job
     status: status === 'accepted' ? 'Accepted' : status === 'rejected' ? 'Declined' : status === 'sent' ? 'Sent' : 'Draft',
     approvedBy: offer.reportmanager ? String(offer.reportmanager) : '—',
     sentOn: formatDate(offer.created_at),
+    approval: offer.approval ?? null,
   }
 }
 

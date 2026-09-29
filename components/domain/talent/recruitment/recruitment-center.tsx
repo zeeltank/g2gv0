@@ -1154,6 +1154,12 @@ export function RecruitmentCenter() {
                     >
                       {offer.status}
                     </StatusBadge>
+                    {offer.approval?.pending && (
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        Awaiting {offer.approval.step_name || offer.approval.approver_role || 'approval'}
+                        {offer.approval.of ? ` (step ${offer.approval.step} of ${offer.approval.of})` : ''}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu modal={false}>
@@ -1187,6 +1193,20 @@ export function RecruitmentCenter() {
                           description: 'The offer status will be changed to rejected.',
                           run: async () => { await recruitmentService.rejectOffer(offer.id); await refresh() },
                         })}>Reject offer</DropdownMenuItem>}
+                        {/* The internal sign-off talent.recruitment.offer declares - distinct
+                            from the candidate's own accept/reject above. Only shown when a
+                            real approval step is open; the backend still 403s anyone who
+                            isn't that step's approver regardless of what this menu shows. */}
+                        {offer.approval?.pending && <DropdownMenuItem onClick={() => setConfirmation({
+                          title: 'Approve this offer internally?',
+                          description: `Awaiting ${offer.approval?.step_name || offer.approval?.approver_role || 'approval'} (step ${offer.approval?.step} of ${offer.approval?.of}). Approving the final step sends the offer letter to the candidate.`,
+                          run: async () => { await recruitmentService.decideOffer(offer.id, 'approve'); await refresh() },
+                        })}>Approve internally</DropdownMenuItem>}
+                        {offer.approval?.pending && <DropdownMenuItem onClick={() => setConfirmation({
+                          title: 'Reject this offer internally?',
+                          description: 'The offer will not be sent to the candidate.',
+                          run: async () => { await recruitmentService.decideOffer(offer.id, 'reject'); await refresh() },
+                        })}>Reject internally</DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

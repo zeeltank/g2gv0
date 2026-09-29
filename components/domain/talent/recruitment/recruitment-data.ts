@@ -77,6 +77,8 @@ export interface Offer {
   status: OfferStatus
   approvedBy: string
   sentOn: string
+  /** The internal sign-off, when talent.recruitment.offer has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export const PIPELINE_STAGES: { id: CandidateStage; label: string; color: string }[] = [

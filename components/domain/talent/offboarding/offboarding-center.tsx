@@ -394,6 +394,25 @@ export function OffboardingCenter() {
     }
   }
 
+  /**
+   * The internal sign-off talent.offboarding.clearance declares, for
+   * closing a case a platform chain has gated. Only reachable when a real
+   * approval step is open (activeCaseDetails.approval?.pending) - the
+   * backend still 403s anyone who isn't that step's approver regardless of
+   * what this screen shows.
+   */
+  const handleDecideClosure = async (decision: 'approve' | 'reject') => {
+    if (!activeCaseId) return
+    try {
+      await offboardingService.decideClearance(context, activeCaseId, decision)
+      showBanner('success', decision === 'approve' ? 'Closure approved' : 'Closure rejected')
+      bumpRefresh()
+    } catch (err: any) {
+      console.error(err)
+      showBanner('error', 'Failed to record the closure decision')
+    }
+  }
+
   const handleClearanceToggle = async (taskId: string, newStatus: 'Pending' | 'Cleared' | 'N/A') => {
     if (!activeCaseId || !activeCaseDetails) return
     const tasks = activeCaseDetails.clearance_tasks || []
@@ -1810,18 +1829,51 @@ export function OffboardingCenter() {
                           <Receipt className="size-4 text-muted-foreground" /> Generate F&F
                         </Button>
 
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => setConfirmation({
-                            title: 'Close this exit case?',
-                            description: 'The case moves to Closed. Nothing on this screen reopens one, '
-                              + 'and any clearance still outstanding stays outstanding.',
-                            run: () => handleStatusTransition('Closed'),
-                          })}
-                        >
-                          <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
-                        </Button>
+                        {activeCaseDetails.approval?.pending ? (
+                          // talent.offboarding.clearance has an active chain for this
+                          // case - the sign-off replaces the direct close action.
+                          <div className="flex flex-col gap-1.5">
+                            <div className="text-[10px] text-muted-foreground px-1">
+                              Closure awaiting {activeCaseDetails.approval.step_name || activeCaseDetails.approval.approver_role || 'approval'}
+                              {activeCaseDetails.approval.of ? ` (step ${activeCaseDetails.approval.step} of ${activeCaseDetails.approval.of})` : ''}
+                            </div>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
+                              onClick={() => setConfirmation({
+                                title: 'Approve closing this exit case?',
+                                description: 'The case moves to Closed once this is the final approval step.',
+                                run: () => handleDecideClosure('approve'),
+                              })}
+                            >
+                              <CheckCircle2 className="size-4 text-muted-foreground" /> Approve Closure
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-[11px] h-10 gap-3 font-medium text-destructive hover:bg-destructive/5 border-destructive/30 bg-card"
+                              onClick={() => setConfirmation({
+                                title: 'Reject closing this exit case?',
+                                description: 'The case remains open at its current status.',
+                                run: () => handleDecideClosure('reject'),
+                              })}
+                            >
+                              <Trash2 className="size-4 text-destructive" /> Reject Closure
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
+                            onClick={() => setConfirmation({
+                              title: 'Close this exit case?',
+                              description: 'The case moves to Closed. Nothing on this screen reopens one, '
+                                + 'and any clearance still outstanding stays outstanding.',
+                              run: () => handleStatusTransition('Closed'),
+                            })}
+                          >
+                            <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
+                          </Button>
+                        )}
                       </div>
                       
                       <div className="mt-auto pt-4">
