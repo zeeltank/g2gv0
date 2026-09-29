@@ -28,6 +28,7 @@ import {
   fetchScheduledTasks,
   runTaskNow,
   saveScheduleOverride,
+  type CronFields,
   type RunNowResult,
   type SchedulerPayload,
 } from '@/lib/platform/scheduler'
@@ -150,6 +151,32 @@ function SchedulerConsole() {
     [],
   )
 
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+
+  /**
+   * Save a custom cron expression for this organisation.
+   *
+   * The five fields are validated server-side only (the same narrow grammar
+   * `cronFields()` in `SchedulerController` already enforces) — this just
+   * surfaces whatever the server says, rather than duplicating that regex
+   * here and risking the two disagreeing about what a valid field looks like.
+   */
+  const saveSchedule = useCallback(async (taskKey: string, schedule: CronFields) => {
+    setSaving(taskKey)
+    setScheduleError(null)
+
+    try {
+      await saveScheduleOverride({ task_key: taskKey, schedule })
+      setToken((value) => value + 1)
+      return true
+    } catch (cause: unknown) {
+      setScheduleError(describePlatformError(cause, 'The schedule could not be saved.'))
+      return false
+    } finally {
+      setSaving(null)
+    }
+  }, [])
+
   return (
     <ServiceShell slug="scheduler">
       <div className="mt-6 space-y-4">
@@ -166,6 +193,12 @@ function SchedulerConsole() {
               </p>
               <RefreshButton onClick={reload} busy={loading} />
             </div>
+
+            {scheduleError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {scheduleError}
+              </div>
+            )}
 
             {/* A page-level banner, in addition to the per-row red text below — the
                 summary line above already counts failures, but a count is easy to skim
@@ -207,6 +240,7 @@ function SchedulerConsole() {
                   saving={saving}
                   onToggle={toggle}
                   onRunNow={runNow}
+                  onSaveSchedule={saveSchedule}
                   running={running}
                   runResults={runResults}
                 />
@@ -239,6 +273,7 @@ function SchedulerConsole() {
                         saving={saving}
                         onToggle={toggle}
                         onRunNow={runNow}
+                        onSaveSchedule={saveSchedule}
                         running={running}
                         runResults={runResults}
                       />
@@ -320,6 +355,7 @@ function TaskTable({
   saving,
   onToggle,
   onRunNow,
+  onSaveSchedule,
   running,
   runResults,
 }: {
@@ -327,6 +363,7 @@ function TaskTable({
   saving: string | null
   onToggle: (task: SchedulerPayload['tasks'][number]) => void
   onRunNow: (taskKey: string) => void
+  onSaveSchedule: (taskKey: string, schedule: CronFields) => Promise<boolean>
   running: string | null
   runResults: Record<string, RunNowResult>
 }) {
@@ -392,6 +429,7 @@ function TaskTable({
                   onToggle={onToggle}
                   busy={saving === task.task_key}
                   onRunNow={onRunNow}
+                  onSaveSchedule={onSaveSchedule}
                   running={task.task_key !== null && running === task.task_key}
                   runResult={task.task_key ? runResults[task.task_key] : undefined}
                 />
@@ -441,6 +479,7 @@ function TenantControl({
   onToggle,
   busy,
   onRunNow,
+  onSaveSchedule,
   running,
   runResult,
 }: {
@@ -448,15 +487,33 @@ function TenantControl({
   onToggle: (task: SchedulerPayload['tasks'][number]) => void
   busy: boolean
   onRunNow: (taskKey: string) => void
+  onSaveSchedule: (taskKey: string, schedule: CronFields) => Promise<boolean>
   running: boolean
   runResult: RunNowResult | undefined
 }) {
+  const [editing, setEditing] = useState(false)
+
   if (!task.tenant_scoped) {
     return (
       <span className="block max-w-[14rem] text-[11px] leading-4 text-muted-foreground">
         Runs for the whole installation.{' '}
         {task.estate_reason && <span className="opacity-80">{task.estate_reason}</span>}
       </span>
+    )
+  }
+
+  if (editing && task.task_key) {
+    return (
+      <CronEditor
+        taskKey={task.task_key}
+        initial={task.schedule}
+        busy={busy}
+        onCancel={() => setEditing(false)}
+        onSave={async (schedule) => {
+          const ok = await onSaveSchedule(task.task_key as string, schedule)
+          if (ok) setEditing(false)
+        }}
+      />
     )
   }
 
@@ -486,6 +543,19 @@ function TenantControl({
           >
             {running && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
             Run now
+          </button>
+        )}
+
+        {/* Editing a disabled task's schedule is pointless — it would not run
+            anyway — so the button only appears when the task is actually on. */}
+        {task.task_key && !task.disabled_here && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            title="Set a custom minute/hour/day/month/day-of-week for this organisation."
+          >
+            Edit schedule
           </button>
         )}
       </div>
@@ -519,6 +589,89 @@ function TenantControl({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+const CRON_FIELDS: { key: keyof CronFields; label: string; placeholder: string }[] = [
+  { key: 'minute', label: 'Minute', placeholder: '*' },
+  { key: 'hour', label: 'Hour', placeholder: '*' },
+  { key: 'day', label: 'Day', placeholder: '*' },
+  { key: 'month', label: 'Month', placeholder: '*' },
+  { key: 'day_of_week', label: 'Day of week', placeholder: '*' },
+]
+
+/**
+ * The custom-cron form the console was missing — `SchedulerController::save()` has
+ * accepted `schedule.{minute,hour,day,month,day_of_week}` since Round 2, validated
+ * server-side against a narrow grammar (`*`, a number, a list, a range, or a step);
+ * this is the first UI that actually sends it. Every field starts pre-filled with the
+ * task's CURRENT effective expression (override where one exists, shipped otherwise),
+ * so an admin narrowing just the hour does not have to retype the other four blind.
+ */
+function CronEditor({
+  taskKey,
+  initial,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  taskKey: string
+  initial: CronFields
+  busy: boolean
+  onCancel: () => void
+  onSave: (schedule: CronFields) => void
+}) {
+  const [fields, setFields] = useState<CronFields>(initial)
+
+  const set = (key: keyof CronFields, value: string) => setFields((current) => ({ ...current, [key]: value }))
+
+  return (
+    <div className="w-[15rem] space-y-2 rounded-md border border-border bg-card p-2.5">
+      <p className="text-[11px] font-medium text-muted-foreground">
+        Custom schedule for <span className="font-mono">{taskKey}</span>
+      </p>
+
+      <div className="grid grid-cols-5 gap-1">
+        {CRON_FIELDS.map((field) => (
+          <label key={field.key} className="block">
+            <span className="mb-0.5 block text-center text-[9px] text-muted-foreground">
+              {field.label.slice(0, 3)}
+            </span>
+            <input
+              value={fields[field.key]}
+              onChange={(event) => set(field.key, event.target.value)}
+              placeholder={field.placeholder}
+              className="w-full rounded border border-border bg-background px-1 py-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+        ))}
+      </div>
+
+      <p className="text-[10px] leading-4 text-muted-foreground">
+        <span className="font-mono">*</span>, a number, a list (<span className="font-mono">1,15</span>), a
+        range (<span className="font-mono">1-5</span>), or a step (<span className="font-mono">*/10</span>).
+      </p>
+
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => onSave(fields)}
+          disabled={busy}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }

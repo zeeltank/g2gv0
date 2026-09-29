@@ -85,14 +85,14 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Four modules have each grown their own approval model, so "who signs this off" is answered in four shapes and can be asked in none.',
     todayInG2g:
-      'Eight approval points are declared in config/platform_services.php, and chains against them are stored in g2g_platform_workflows. The four older per-module paths still exist and are unchanged: Talent has talent_workflows, Leave has hrms_leave_workflow_settings with its hourly escalation job, Agentic has agentic_workflows, and Competency has its own mapping review.',
+      'Eight approval points are declared in config/platform_services.php, and chains against them are stored in g2g_platform_workflows. One of the eight — hrms.leave.approval — is genuinely enforced: LeaveApprovalWorkflow reads the configured chain and freezes it onto a real leave request when one is submitted. The other seven are declared and read by nothing yet. The four older per-module paths still exist and are unchanged: Talent has talent_workflows, Leave falls back to hrms_leave_workflow_settings only when no platform chain is configured, Agentic has agentic_workflows, and Competency has its own mapping review.',
     toBuild: [
-      'An engine that actually intercepts a record at a configured point — today a chain is a declaration, not yet an enforcement',
+      'Wiring the same interception pattern LeaveApprovalWorkflow already proves to the other seven declared points — the concept is proven, not missing; it is built for one point out of eight',
       'Migrating the four per-module paths onto these points, so there is one answer to "who signs this off" rather than five',
     ],
-    // IN PROGRESS, NOT LIVE. The designer works and the chains persist, but nothing
-    // consumes them yet — marking this `live` would claim the platform enforces
-    // approvals it does not. See the status note at the top of this file.
+    // IN PROGRESS, NOT LIVE. One of eight declared points is really enforced;
+    // presenting this as done for all eight would claim approvals the platform
+    // does not act on. See the status note at the top of this file.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/workflow' },
     decentralizedModules: DECENTRALIZED_MODULES,
@@ -108,11 +108,9 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Six commands drain the event store, recompute gates and escalate approvals. Nothing in the product shows that they exist, so a stalled one is invisible until somebody notices the symptom.',
     todayInG2g:
-      'The console reads Laravel’s live schedule, so a task added to routes/console.php appears without a code change here. Runs are recorded in g2g_platform_task_runs by a listener on the framework’s own scheduler events, which covers every task registered now and later. Next-run is computed on read; a task with no recorded run reports unknown rather than "never".',
-    toBuild: [
-      'Per-tenant enable and disable, and cron overrides — the schedule is currently the installation’s, the same for every organisation',
-    ],
-    status: 'in-progress',
+      'The console reads Laravel’s live schedule, so a task added to routes/console.php appears without a code change here. Runs are recorded in g2g_platform_task_runs by a listener on the framework’s own scheduler events, which covers every task registered now and later. Next-run is computed on read; a task with no recorded run reports unknown rather than "never". Two of the six tasks (leave:escalate, readiness:recompute) genuinely run per organisation — the other four drain the whole installation in one pass and correctly refuse a per-tenant override with the reason why, rather than accepting one silently. For those two, an organisation can switch the task off, run it now, and set a full custom cron expression (minute/hour/day/month/day-of-week), not just enable or disable.',
+    toBuild: [],
+    status: 'live',
     destination: { kind: 'own-route', href: '/platform-services/scheduler' },
     decentralizedModules: DECENTRALIZED_MODULES,
     phase: 2,
@@ -218,14 +216,12 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Every tenant needs a slightly different record, and a code change per tenant is not a product.',
     todayInG2g:
-      'tblcustom_fields and tblfields_data are managed through /api/platform/fields, scoped to the signed-in organisation. The record a field can be added to is checked against an allowlist in config/platform_services.php, and no DDL is run — values live in the existing key-value store rather than in a new column per field.',
-    toBuild: [
-      'Widening the allowlist beyond the employee record, once each additional record has been thought about',
-      'Rendering these fields on the forms themselves — this screen defines them; the forms do not read them yet',
-    ],
-    // The definitions are managed here; the forms do not render them yet. `live` would
-    // claim an employee sees the field they just configured.
-    status: 'in-progress',
+      'tblcustom_fields and tblfields_data are managed through /api/platform/fields, scoped to the signed-in organisation. The record a field can be added to is checked against an allowlist in config/platform_services.php (two today — the employee record and the leave request), and no DDL is run — values live in the existing key-value store rather than in a new column per field. Both allowlisted records render and save their fields for real: the employee edit form\'s Personal Info tab, and the leave request drawer\'s Additional Details tab.',
+    toBuild: [],
+    // Both allowlisted records — employee, leave request — have a real rendering
+    // surface with real save. A third record widening the allowlist with no
+    // rendering surface of its own would be the thing that reopens this.
+    status: 'live',
     destination: { kind: 'own-route', href: '/platform-services/fields-configuration' },
     decentralizedModules: DECENTRALIZED_MODULES,
     phase: 3,
