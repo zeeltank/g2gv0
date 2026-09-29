@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeaderBase } from '@/components/shell/gtg-header-base'
-import { PlatformServicesSubheader } from '@/components/shell/platform-services-subheader'
 import { BreadcrumbItemsProvider } from '@/components/shell/gtg-breadcrumb'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
@@ -85,40 +84,6 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
   const active = initialActive ?? DEFAULT_ACTIVE
   const items = breadcrumbItems ?? resolveBreadcrumb(active, modules)
 
-  const [subheaderOpen, setSubheaderOpen] = useState(false)
-  const subheaderButtonRef = useRef<HTMLButtonElement>(null)
-  const subheaderPanelRef = useRef<HTMLDivElement>(null)
-
-  // Click-outside and Escape close it — see the identical, fuller note in
-  // `gtg-app-shell.tsx`'s own copy of this effect (matches `gtg-user-menu.tsx`'s
-  // established pattern for a disclosure control in this codebase).
-  useEffect(() => {
-    if (!subheaderOpen) return
-
-    function onClick(event: MouseEvent) {
-      const target = event.target as Node
-      if (
-        subheaderPanelRef.current && !subheaderPanelRef.current.contains(target) &&
-        subheaderButtonRef.current && !subheaderButtonRef.current.contains(target)
-      ) {
-        setSubheaderOpen(false)
-      }
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      setSubheaderOpen(false)
-      subheaderButtonRef.current?.focus()
-    }
-
-    document.addEventListener('mousedown', onClick)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [subheaderOpen])
-
   useEffect(() => {
     if (consumeSidebarFirstOpenExpansion()) {
       queueMicrotask(() => {
@@ -193,15 +158,7 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
           sidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-[260px]',
         )}
       >
-        <GtgHeaderBase
-          onMenuClick={() => setMobileNavOpen(true)}
-          subheaderOpen={subheaderOpen}
-          onSubheaderToggle={() => setSubheaderOpen((open) => !open)}
-          subheaderButtonRef={subheaderButtonRef}
-        />
-        <div ref={subheaderPanelRef}>
-          <PlatformServicesSubheader open={subheaderOpen} />
-        </div>
+        <GtgHeaderBase onMenuClick={() => setMobileNavOpen(true)} />
         <BreadcrumbItemsProvider items={items}>
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <div className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">

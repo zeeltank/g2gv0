@@ -72,7 +72,6 @@ function ServiceShellContent({ slug, children }: { slug: string; children?: Reac
         />
       }
       status={<StatusChip status={service.status} />}
-      activeSlug={service.slug}
       /* A service whose screen is somewhere else says so at the top. Burying the link
          under the description would make a working feature look like a plan.
 
