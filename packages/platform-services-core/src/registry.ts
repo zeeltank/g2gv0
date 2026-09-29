@@ -85,14 +85,14 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Four modules have each grown their own approval model, so "who signs this off" is answered in four shapes and can be asked in none.',
     todayInG2g:
-      'Eight approval points are declared in config/platform_services.php, and chains against them are stored in g2g_platform_workflows. One of the eight — hrms.leave.approval — is genuinely enforced: LeaveApprovalWorkflow reads the configured chain and freezes it onto a real leave request when one is submitted. The other seven are declared and read by nothing yet. The four older per-module paths still exist and are unchanged: Talent has talent_workflows, Leave falls back to hrms_leave_workflow_settings only when no platform chain is configured, Agentic has agentic_workflows, and Competency has its own mapping review.',
+      'Eight approval points are declared in config/platform_services.php, and chains against them are stored in g2g_platform_workflows. Seven of the eight are genuinely enforced. hrms.leave.approval was first, its own LeaveApprovalWorkflow. Round 4 added a generic ApprovalEngine over a shared g2g_platform_approval_steps table and wired it to the other six real domains: attendance regularisation, task execution approval, competency mapping review, talent offers (a real fix rode along — offer creation no longer sends the letter itself; a chain holds it for a decision), offboarding case closure, and mobility transfer completion (paired with a real security fix — creating a transfer can no longer set its own status to Completed). One shared approvals:escalate sweep handles all six. The four older per-module paths still exist and are unchanged: Talent has talent_workflows, Leave falls back to hrms_leave_workflow_settings only when no platform chain is configured, Agentic has agentic_workflows, and Competency has its own mapping review path alongside the new one.',
     toBuild: [
-      'Wiring the same interception pattern LeaveApprovalWorkflow already proves to the other seven declared points — the concept is proven, not missing; it is built for one point out of eight',
+      'talent.recruitment.requisition has no enforcement because it has no real underlying object yet — job postings only carry a flat active/inactive toggle, not a pending requisition a chain could attach to. This needs a real feature built first, not wiring.',
       'Migrating the four per-module paths onto these points, so there is one answer to "who signs this off" rather than five',
     ],
-    // IN PROGRESS, NOT LIVE. One of eight declared points is really enforced;
-    // presenting this as done for all eight would claim approvals the platform
-    // does not act on. See the status note at the top of this file.
+    // IN PROGRESS, NOT LIVE. Seven of eight declared points are really
+    // enforced; the eighth has no feature to enforce yet, and the four legacy
+    // paths are unmigrated. See the status note at the top of this file.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/workflow' },
     decentralizedModules: DECENTRALIZED_MODULES,
