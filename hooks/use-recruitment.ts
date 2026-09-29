@@ -159,6 +159,7 @@ function mapOffer(offer: TalentOfferApi, candidates: Map<string, Candidate>, job
     status: status === 'accepted' ? 'Accepted' : status === 'rejected' ? 'Declined' : status === 'sent' ? 'Sent' : 'Draft',
     approvedBy: offer.reportmanager ? String(offer.reportmanager) : '—',
     sentOn: formatDate(offer.created_at),
+    approval: offer.approval ?? null,
   }
 }
 
@@ -280,9 +281,10 @@ export function useRecruitment() {
         id: String(row.id), title: row.title ?? 'Untitled requisition',
         department: row.department_name ?? row.department ?? '—', location: row.location ?? '—',
         headcount: row.positions ?? 0, filled: row.filled ?? 0,
-        status: row.status?.toLowerCase() === 'active' ? 'Open' : 'Closed',
+        status: row.status?.toLowerCase() === 'active' ? 'Open' : row.status?.toLowerCase() === 'requested' ? 'Pending' : 'Closed',
         createdBy: row.created_by ? String(row.created_by) : '—', createdOn: formatDate(row.created_at),
         priority: row.priority_level?.toLowerCase() === 'critical' ? 'Critical' : row.priority_level?.toLowerCase() === 'high' ? 'High' : row.priority_level?.toLowerCase() === 'low' ? 'Low' : 'Medium',
+        approval: row.approval ?? null,
         })),
         teamOverview: teamResult.data,
         pendingFeedbackCount: pendingFeedback.length,

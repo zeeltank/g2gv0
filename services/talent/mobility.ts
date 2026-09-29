@@ -63,6 +63,8 @@ export interface MobilityTransfer {
     designation: string | null
     image: string | null
   } | null
+  /** The internal sign-off, when talent.mobility.transfer has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export interface MobilityPromotion {
@@ -225,6 +227,19 @@ export const mobilityService = {
   },
   updateTransfer(id: number, data: { status: string; remarks?: string }) {
     return apiClient.put<{ status: number; data: MobilityTransfer }>(`/mobility/transfers/${id}`, { ...contextParams(), ...data })
+  },
+  /**
+   * The internal sign-off `talent.mobility.transfer` declares, for
+   * completing a transfer a platform chain has gated. Only does anything
+   * when a real approval step is open (transfer.approval?.pending) — the
+   * backend 403s anyone who isn't that step's approver regardless of what
+   * this screen shows.
+   */
+  decideTransfer(id: number, decision: 'approve' | 'reject', remarks?: string) {
+    return apiClient.post<{ status: number; message: string; data?: MobilityTransfer }>(
+      `/mobility/transfers/${id}/completion-decision`,
+      { ...contextParams(), decision, remarks },
+    )
   },
 
   getPromotions(filters?: Record<string, string>) {

@@ -14,27 +14,55 @@
  * what they put inside it. `CapabilityShell` does the same job for the AI console.
  */
 
+import { Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ArrowUpRight } from 'lucide-react'
 
 import { getPlatformServiceBySlug } from '@shared/platform-services-core'
 import { StatusChip } from '@/components/shared/console-ui'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
+import { isDecentralizedModule, MODULE_LABEL } from '@/lib/platform/access-links'
 import { PLATFORM_SECTION_LABEL, PlatformShell } from '@/components/shell/platform-shell'
 
-export function ServiceShell({ slug, children }: { slug: string; children?: React.ReactNode }) {
+/**
+ * `useSearchParams()` (read below, for the `?module=` decentralized seam) requires a
+ * Suspense boundary during static generation, or the build fails/opts every page using
+ * this shell out of static rendering. Wrapping it HERE, once, means none of the five-plus
+ * pages that render `<ServiceShell>` have to know that or add their own boundary.
+ */
+export function ServiceShell(props: { slug: string; children?: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <ServiceShellContent {...props} />
+    </Suspense>
+  )
+}
+
+function ServiceShellContent({ slug, children }: { slug: string; children?: React.ReactNode }) {
   const service = getPlatformServiceBySlug(slug)
   const resolve = usePlatformDestination()
+  const searchParams = useSearchParams()
 
   if (!service) return null
 
   const { href, isRealScreen } = resolve(service)
 
+  // The decentralized seam: `?module=hrms` on any of the five scoped consoles' own
+  // route means this render IS that module's own tab, not the central hub.
+  const moduleKey = searchParams.get('module')
+  const scopeModule = isDecentralizedModule(moduleKey) ? { key: moduleKey, label: MODULE_LABEL[moduleKey] } : null
+
   return (
     <PlatformShell
       backHref="/platform-services"
-      eyebrow={PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services'}
+      eyebrow={
+        scopeModule
+          ? `${scopeModule.label} · ${PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services'}`
+          : (PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services')
+      }
+      module={scopeModule}
       title={service.name}
       description={service.purpose}
       icon={

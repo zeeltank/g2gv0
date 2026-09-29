@@ -33,7 +33,8 @@
  * and finding that out after publishing is finding out too late.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AlertTriangle, Check, CirclePlus, Loader2, Trash2 } from 'lucide-react'
 
 import { describePlatformError, PlatformApiError } from '@/lib/platform/client'
@@ -51,6 +52,7 @@ import {
 } from '@/lib/platform/process'
 import { groupsForModule, type ProcessGroup } from '@/lib/platform/process-templates'
 import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 import { employeeDirectoryService } from '@/services/organization/employee-directory'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
@@ -175,6 +177,20 @@ function TaskAssignments({
 }
 
 export default function AddProcessPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddProcessConsole />
+    </Suspense>
+  )
+}
+
+function AddProcessConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. Filtered
+      client-side (`fetchProcesses` has no server-side module filter — the saved
+      list is small enough per tenant that this costs nothing real). */
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
+
   const [rows, setRows] = useState<ProcessRow[] | null>(null)
   const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -225,20 +241,27 @@ export default function AddProcessPage() {
           </div>
         )}
 
-        {rows && registry && (
+        {rows && registry && (() => {
+          const scopedRows = moduleKey ? rows.filter((r) => r.module === moduleKey) : rows
+
+          return (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                {rows.length} process{rows.length === 1 ? '' : 'es'}.
-                {rows.filter((r) => r.status === 'published').length > 0 &&
-                  ` ${rows.filter((r) => r.status === 'published').length} published.`}
+                {scopedRows.length} process{scopedRows.length === 1 ? '' : 'es'}.
+                {scopedRows.filter((r) => r.status === 'published').length > 0 &&
+                  ` ${scopedRows.filter((r) => r.status === 'published').length} published.`}
               </p>
               <div className="flex gap-2">
                 <RefreshButton onClick={reload} busy={loading} />
                 <button
                   type="button"
                   onClick={() =>
-                    setDraft({ name: '', module: registry.modules[0]?.key ?? '', text: EXAMPLE })
+                    setDraft({
+                      name: '',
+                      module: moduleKey ?? registry.modules[0]?.key ?? '',
+                      text: EXAMPLE,
+                    })
                   }
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
                 >
@@ -252,6 +275,8 @@ export default function AddProcessPage() {
               <ProcessBuilder
                 draft={draft}
                 modules={registry.modules}
+                workflows={registry.workflows}
+                lockedModule={moduleKey}
                 onCancel={() => setDraft(null)}
                 onSaved={(message) => {
                   setDraft(null)
@@ -261,9 +286,19 @@ export default function AddProcessPage() {
               />
             )}
 
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — filtered client-side above.
+                Zero for a real module is the honest empty state, not an error;
+                every one of G2G's modules has at least one template, though, so
+                this is really only ever "nothing SAVED here yet". */}
+            {moduleKey && scopedRows.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                No process has been saved for this module yet.
+              </p>
+            ) : (
             <ProcessList
-              rows={rows}
+              rows={scopedRows}
               modules={registry.modules}
+              scoped={!!moduleKey}
               onDeleted={() => {
                 setNotice('Process deleted. Any tasks it raised are untouched.')
                 reload()
@@ -273,8 +308,10 @@ export default function AddProcessPage() {
                 reload()
               }}
             />
+            )}
           </>
-        )}
+          )
+        })()}
       </div>
     </ServiceShell>
   )
@@ -284,11 +321,18 @@ export default function AddProcessPage() {
 function ProcessBuilder({
   draft,
   modules,
+  workflows,
+  lockedModule,
   onCancel,
   onSaved,
 }: {
   draft: { name: string; module: string; text: string }
   modules: PlatformRegistryPayload['modules']
+  workflows: PlatformRegistryPayload['workflows']
+  /** Set from a decentralized tab's `?module=` — this process can only ever be for
+      that module, so the picker is fixed rather than offering a choice that would
+      just take somebody back to the central hub's process list. */
+  lockedModule?: string | null
   onCancel: () => void
   onSaved: (message: string) => void
 }) {
@@ -464,15 +508,18 @@ function ProcessBuilder({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Module</span>
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            Module{lockedModule && ' (this module’s own tab)'}
+          </span>
           <select
             value={form.module}
+            disabled={!!lockedModule}
             onChange={(event) => changeModule(event.target.value)}
             className={inputClass}
           >
-            {modules.map((module) => (
-              <option key={module.key} value={module.key}>
-                {module.label}
+            {modules.map((moduleOption) => (
+              <option key={moduleOption.key} value={moduleOption.key}>
+                {moduleOption.label}
               </option>
             ))}
           </select>
@@ -589,7 +636,7 @@ function ProcessBuilder({
       {spec && (
         <div className="mt-5 space-y-5 border-t border-border pt-4">
           <ProcessReview spec={spec} />
-          <WorkflowReview spec={spec} />
+          <WorkflowReview spec={spec} workflows={workflows} />
 
           <div>
             <h3 className="text-xs font-semibold text-card-foreground">
@@ -642,15 +689,26 @@ function ProcessReview({ spec }: { spec: ProcessSpec }) {
 }
 
 /** Stage "3. Workflow" — the steps, which are sign-offs, and what could not be read. */
-function WorkflowReview({ spec }: { spec: ProcessSpec }) {
+function WorkflowReview({ spec, workflows }: { spec: ProcessSpec; workflows: PlatformRegistryPayload['workflows'] }) {
   return (
     <div>
       <h3 className="text-xs font-semibold text-card-foreground">3. Workflow</h3>
       <p className="mt-1 text-[11px] text-muted-foreground">
         Steps ({spec.steps.length}) — {spec.tasks.length} become tasks
       </p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Tag a sign-off step with a real Workflow point by naming its key —{' '}
+        <span className="font-mono">[approval:talent.recruitment.offer]</span>, for example — to
+        cross-reference it. This is a reference only: the step still just raises a task on
+        publish, the same as any other.
+      </p>
       <ul className="mt-2 space-y-1">
-        {spec.steps.map((step) => (
+        {spec.steps.map((step) => {
+          const taggedPoint = step.workflow_key
+            ? workflows.find((w) => w.key === step.workflow_key)
+            : null
+
+          return (
           <li key={step.order} className="flex items-start gap-2 text-xs">
             <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] tabular-nums text-muted-foreground">
               {step.order}
@@ -662,6 +720,18 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
                   sign-off
                 </span>
               )}
+              {/* A cross-reference only — this step still just raises a plain
+                  task on publish. Tagging it does not make it execute through
+                  the real Workflow point; it documents that it is the same
+                  real-world gate. */}
+              {taggedPoint && (
+                <span
+                  className="ml-1.5 rounded border border-border bg-muted/40 px-1 py-0.5 text-[10px] text-muted-foreground"
+                  title="Documents the same gate as this Workflow point — a reference only, not enforced through it."
+                >
+                  = {taggedPoint.label}
+                </span>
+              )}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
               {/* A step with no actor raises no task, and the row says so rather
@@ -669,7 +739,8 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
               {step.actor ?? <span className="text-muted-foreground/60">nobody named</span>}
             </span>
           </li>
-        ))}
+          )
+        })}
       </ul>
 
       {spec.issues.length > 0 && (
@@ -706,11 +777,16 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
 function ProcessList({
   rows,
   modules,
+  scoped,
   onDeleted,
   onPublished,
 }: {
   rows: ProcessRow[]
   modules: PlatformRegistryPayload['modules']
+  /** A decentralized tab is already pinned to one module — every row here is
+      already that module's own, so the heading below would just repeat what
+      the shell's own "back to {module}" link already says. */
+  scoped?: boolean
   onDeleted: () => void
   onPublished: (message: string) => void
 }) {
@@ -771,12 +847,14 @@ function ProcessList({
 
         return (
           <div key={moduleKey}>
-            <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-              {moduleLabel(moduleKey)}{' '}
-              <span className="font-normal normal-case text-muted-foreground/70">
-                ({moduleRows.length})
-              </span>
-            </h3>
+            {!scoped && (
+              <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                {moduleLabel(moduleKey)}{' '}
+                <span className="font-normal normal-case text-muted-foreground/70">
+                  ({moduleRows.length})
+                </span>
+              </h3>
+            )}
 
             <div className="space-y-2">
               {moduleRows.map((row) => (

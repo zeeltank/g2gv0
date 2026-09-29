@@ -677,6 +677,8 @@ export interface WorkspaceTask {
   /** Why it was sent back. Null on approval, and null on rejections recorded
    *  before the reason was captured. */
   approve_remarks: string | null
+  /** The chain this completed task is actually waiting on, when task.execution.approval has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
   created_at: string | null
   updated_at: string | null
   attachment: MyTaskAttachment | null

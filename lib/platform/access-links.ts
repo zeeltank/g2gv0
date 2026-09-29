@@ -24,6 +24,7 @@
  */
 
 import { ROLE_PERMISSIONS_ACCESS_LINK, TALENT_ONBOARDING_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { DECENTRALIZED_MODULES } from '@shared/platform-services-core'
 
 /** Fails to compile when the two strings are not identical. */
 type AssertSame<A extends B, B extends string> = A
@@ -56,3 +57,59 @@ type _IntegrationMatches = AssertSame<
   '/module/lms/administration/administration-and-governance',
   typeof LMS_GOVERNANCE_ACCESS_LINK
 >
+
+/**
+ * The one real type for "a module key decentralized navigation knows about" — derived
+ * from `DECENTRALIZED_MODULES`, not restated. `MODULE_LANDING_HREF` and `MODULE_LABEL`
+ * below are declared against this type rather than a loose `Record<string, string>`, so
+ * TypeScript's excess-property check does the enforcing: adding a module to
+ * `DECENTRALIZED_MODULES` without a matching entry here is a MISSING-key compile error,
+ * and a typo'd or leftover key here is an EXCESS-key one. Neither list can drift from the
+ * other silently — the exact failure mode `AssertSame` above exists to catch for access
+ * links, applied to a key-set instead of a single literal.
+ */
+export type DecentralizedModuleKey = (typeof DECENTRALIZED_MODULES)[number]
+
+/**
+ * Round 3 — decentralized navigation. Each registry module key's own landing page in
+ * `tblmenumaster_g2g`, for the "Back to {module}" link a scoped `?module=` console shows
+ * instead of "Back to Platform Services". Confirmed directly against the live table
+ * (`tblmenumaster_g2g` level-1 rows) rather than assumed — `events` has no row here on
+ * purpose, see `DECENTRALIZED_MODULES`'s own note in the registry package.
+ */
+export const MODULE_LANDING_HREF: Record<DecentralizedModuleKey, string> = {
+  organization: '/module/organizational-management',
+  hrms: '/module/hrit-solutions',
+  talent: '/module/talent-management',
+  lms: '/module/lms',
+  competency: '/module/capability-intelligence',
+  task: '/module/task-management',
+}
+
+/**
+ * The same six keys' labels, exactly as `config('platform_services.modules')` names
+ * them — restated here (rather than fetched) because `ServiceShell` renders before any
+ * console's own registry fetch resolves, and the back link needs a label immediately.
+ */
+export const MODULE_LABEL: Record<DecentralizedModuleKey, string> = {
+  organization: 'Organisation',
+  hrms: 'HRMS',
+  talent: 'Talent',
+  lms: 'Learning',
+  competency: 'Capability',
+  task: 'Task management',
+}
+
+/**
+ * The ONLY way any page should test whether a `?module=` value is a real,
+ * decentralizable module — never a bare truthiness check on the raw string.
+ *
+ * Before this, `ServiceShell` validated against `MODULE_LABEL` while all five console
+ * pages accepted any non-empty string as a scope — so `?module=bogus` rendered
+ * central-hub chrome (from `ServiceShell`'s fallback) over scoped, empty-state content
+ * (from the page treating the string as real). One shared guard, used everywhere,
+ * makes an unrecognized value fall back to the unscoped view consistently instead.
+ */
+export function isDecentralizedModule(key: string | null | undefined): key is DecentralizedModuleKey {
+  return key !== null && key !== undefined && key in MODULE_LABEL
+}

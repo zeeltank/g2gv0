@@ -8,7 +8,7 @@
 import { PLATFORM_SERVICES } from './registry'
 import type { PlatformService, PlatformServiceStatus } from './types'
 
-export { PLATFORM_SERVICES } from './registry'
+export { PLATFORM_SERVICES, DECENTRALIZED_MODULES } from './registry'
 export { PLATFORM_MENU_SECTION, servicesInSection } from './sections'
 export type { MenuColumn, MenuSectionLayout } from './sections'
 export type {

@@ -40,6 +40,8 @@ export interface ScheduledTask {
    * it cannot be overridden.
    */
   task_key: string | null
+  /** Null for an event the catalogue does not describe. */
+  module: string | null
   label: string | null
   /**
    * Whether THIS organisation can change the schedule.
@@ -96,8 +98,9 @@ export interface SchedulerPayload {
   }
 }
 
-export function fetchScheduledTasks(): Promise<SchedulerPayload> {
-  return platformRequest<SchedulerPayload>('/scheduler/tasks')
+/** `module` narrows to one module's own tasks — the decentralized Scheduler tab. */
+export function fetchScheduledTasks(module?: string): Promise<SchedulerPayload> {
+  return platformRequest<SchedulerPayload>('/scheduler/tasks', { module })
 }
 
 export interface ScheduleOverride {

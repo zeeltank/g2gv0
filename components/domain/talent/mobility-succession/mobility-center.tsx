@@ -685,6 +685,27 @@ export function MobilityCenter() {
     }
   }
 
+  /**
+   * The internal sign-off talent.mobility.transfer declares, for a
+   * completion a platform chain has gated. Only reachable when a real
+   * approval step is open (transfer.approval?.pending) - the backend still
+   * 403s anyone who isn't that step's approver regardless of what this
+   * screen shows.
+   */
+  const handleDecideTransfer = async (id: number, decision: 'approve' | 'reject') => {
+    try {
+      const res = await mobilityService.decideTransfer(id, decision)
+      if (res.status === 1) {
+        fetchListData()
+        loadFiltersAndOverview()
+      } else {
+        setActionFeedback({ kind: 'error', message: (res as any)?.message || 'That could not be saved.' })
+      }
+    } catch (err: any) {
+      setActionFeedback({ kind: 'error', message: err?.message || 'Failed to record the decision.' })
+    }
+  }
+
   // Record Promotion Submit
   const handleRecordPromotionSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2036,10 +2057,37 @@ export function MobilityCenter() {
                           >
                             {item.status}
                           </StatusBadge>
+                          {item.approval?.pending && (
+                            <div className="mt-1 text-[10px] text-muted-foreground">
+                              Awaiting {item.approval.step_name || item.approval.approver_role || 'approval'}
+                              {item.approval.of ? ` (step ${item.approval.step} of ${item.approval.of})` : ''}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs max-w-[150px] truncate">{item.remarks || '--'}</TableCell>
                         <TableCell className="text-right">
-                          {item.status === 'Pending' && (
+                          {item.status === 'Pending' && item.approval?.pending && (
+                            /* talent.mobility.transfer has an active chain - the sign-off
+                               replaces the direct "Complete" action for this transfer. */
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                className="h-7 text-[10px] px-2 bg-success hover:bg-success/90"
+                                onClick={() => handleDecideTransfer(item.id, 'approve')}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px] px-2 text-destructive"
+                                onClick={() => handleDecideTransfer(item.id, 'reject')}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                          {item.status === 'Pending' && !item.approval?.pending && (
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
                                 size="sm"

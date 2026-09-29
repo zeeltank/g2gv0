@@ -18,7 +18,9 @@
  * of mistake cannot hide here.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
 import { describePlatformError } from '@/lib/platform/client'
@@ -26,15 +28,31 @@ import {
   fetchScheduledTasks,
   runTaskNow,
   saveScheduleOverride,
+  type CronFields,
   type RunNowResult,
   type SchedulerPayload,
 } from '@/lib/platform/scheduler'
+import { fetchPlatformRegistry, type PlatformRegistryPayload } from '@/lib/platform/workflow'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
 
 export default function SchedulerPage() {
+  return (
+    <Suspense fallback={null}>
+      <SchedulerConsole />
+    </Suspense>
+  )
+}
+
+function SchedulerConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
+
   const [data, setData] = useState<SchedulerPayload | null>(null)
+  const [registry, setRegistry] = useState<PlatformRegistryPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useState(0)
@@ -48,10 +66,11 @@ export default function SchedulerPage() {
   useEffect(() => {
     let cancelled = false
 
-    fetchScheduledTasks()
-      .then((next) => {
+    Promise.all([fetchScheduledTasks(moduleKey ?? undefined), fetchPlatformRegistry()])
+      .then(([next, reg]) => {
         if (cancelled) return
         setData(next)
+        setRegistry(reg)
         setError(null)
         setLoading(false)
       })
@@ -64,7 +83,7 @@ export default function SchedulerPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, moduleKey])
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -132,6 +151,32 @@ export default function SchedulerPage() {
     [],
   )
 
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+
+  /**
+   * Save a custom cron expression for this organisation.
+   *
+   * The five fields are validated server-side only (the same narrow grammar
+   * `cronFields()` in `SchedulerController` already enforces) — this just
+   * surfaces whatever the server says, rather than duplicating that regex
+   * here and risking the two disagreeing about what a valid field looks like.
+   */
+  const saveSchedule = useCallback(async (taskKey: string, schedule: CronFields) => {
+    setSaving(taskKey)
+    setScheduleError(null)
+
+    try {
+      await saveScheduleOverride({ task_key: taskKey, schedule })
+      setToken((value) => value + 1)
+      return true
+    } catch (cause: unknown) {
+      setScheduleError(describePlatformError(cause, 'The schedule could not be saved.'))
+      return false
+    } finally {
+      setSaving(null)
+    }
+  }, [])
+
   return (
     <ServiceShell slug="scheduler">
       <div className="mt-6 space-y-4">
@@ -148,6 +193,12 @@ export default function SchedulerPage() {
               </p>
               <RefreshButton onClick={reload} busy={loading} />
             </div>
+
+            {scheduleError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {scheduleError}
+              </div>
+            )}
 
             {/* A page-level banner, in addition to the per-row red text below — the
                 summary line above already counts failures, but a count is easy to skim
@@ -175,78 +226,62 @@ export default function SchedulerPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
-              <table className="w-full min-w-[54rem] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="bg-muted/50">
-                    <Th>Task</Th>
-                    <Th>Schedule</Th>
-                    <Th>Next run</Th>
-                    <Th>Last run</Th>
-                    <Th>Guards</Th>
-                    <Th>This organisation</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {data.tasks.map((task) => (
-                    <tr
-                      key={task.key}
-                      className={`transition-colors hover:bg-muted/40 ${
-                        task.last_run_status === 'failed' ? 'bg-destructive/5' : ''
-                      }`}
-                    >
-                      <td className="px-3 py-3 align-top">
-                        <p className="font-mono text-xs font-medium text-card-foreground">
-                          {task.key}
-                        </p>
-                        {task.description && (
-                          <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-                            {task.description}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        {/* The sentence is a convenience; the expression is the truth,
-                            so both are shown and the expression is never omitted. */}
-                        {task.describes && <p className="text-xs">{task.describes}</p>}
-                        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                          {task.expression}
-                        </p>
-                      </td>
-                      <td className="px-3 py-3 align-top text-xs whitespace-nowrap tabular-nums">
-                        {task.next_run_at ? (
-                          new Date(task.next_run_at).toLocaleString()
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — the server only returned
+                this module's tasks. Zero tasks for a real module (Talent and LMS
+                declare none today) is the honest empty state, not an error. */}
+            {moduleKey ? (
+              data.tasks.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  Nothing is scheduled for this module yet.
+                </p>
+              ) : (
+                <TaskTable
+                  tasks={data.tasks}
+                  saving={saving}
+                  onToggle={toggle}
+                  onRunNow={runNow}
+                  onSaveSchedule={saveSchedule}
+                  running={running}
+                  runResults={runResults}
+                />
+              )
+            ) : (
+              <div className="space-y-5">
+                {orderedTaskModuleKeys(data.tasks, registry?.modules ?? []).map((moduleKey) => {
+                  const moduleTasks = data.tasks.filter((task) => (task.module ?? '_uncatalogued') === moduleKey)
+
+                  return (
+                    <div key={moduleKey}>
+                      <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+                        {moduleKey === '_uncatalogued' ? (
+                          <span>Not catalogued</span>
                         ) : (
-                          <span className="text-muted-foreground/60" title="The expression could not be parsed.">
-                            &mdash;
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 align-top text-xs whitespace-nowrap">
-                        <LastRun task={task} />
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <div className="flex flex-wrap gap-1">
-                          {task.without_overlapping && <Guard>no overlap</Guard>}
-                          {task.on_one_server && <Guard>one server</Guard>}
-                          {task.in_background && <Guard>background</Guard>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 align-top">
-                        <TenantControl
-                          task={task}
-                          onToggle={toggle}
-                          busy={saving === task.task_key}
-                          onRunNow={runNow}
-                          running={task.task_key !== null && running === task.task_key}
-                          runResult={task.task_key ? runResults[task.task_key] : undefined}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <Link
+                            href={`/platform-services/scheduler?module=${moduleKey}`}
+                            className="hover:text-foreground hover:underline"
+                          >
+                            {taskModuleLabel(moduleKey, registry?.modules ?? [])}
+                          </Link>
+                        )}{' '}
+                        <span className="font-normal normal-case text-muted-foreground/70">
+                          ({moduleTasks.length})
+                        </span>
+                      </h3>
+
+                      <TaskTable
+                        tasks={moduleTasks}
+                        saving={saving}
+                        onToggle={toggle}
+                        onRunNow={runNow}
+                        onSaveSchedule={saveSchedule}
+                        running={running}
+                        runResults={runResults}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Estate-wide, and labelled as such. `jobs` and `failed_jobs` carry no
                 tenant column, so presenting these as this organisation's numbers would
@@ -313,6 +348,122 @@ function Th({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** The table body, extracted so both the scoped (one module) and central (grouped by
+    module) views render identical rows rather than two copies of this markup. */
+function TaskTable({
+  tasks,
+  saving,
+  onToggle,
+  onRunNow,
+  onSaveSchedule,
+  running,
+  runResults,
+}: {
+  tasks: SchedulerPayload['tasks']
+  saving: string | null
+  onToggle: (task: SchedulerPayload['tasks'][number]) => void
+  onRunNow: (taskKey: string) => void
+  onSaveSchedule: (taskKey: string, schedule: CronFields) => Promise<boolean>
+  running: string | null
+  runResults: Record<string, RunNowResult>
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="w-full min-w-[54rem] border-collapse text-left text-sm">
+        <thead>
+          <tr className="bg-muted/50">
+            <Th>Task</Th>
+            <Th>Schedule</Th>
+            <Th>Next run</Th>
+            <Th>Last run</Th>
+            <Th>Guards</Th>
+            <Th>This organisation</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {tasks.map((task) => (
+            <tr
+              key={task.key}
+              className={`transition-colors hover:bg-muted/40 ${
+                task.last_run_status === 'failed' ? 'bg-destructive/5' : ''
+              }`}
+            >
+              <td className="px-3 py-3 align-top">
+                <p className="font-mono text-xs font-medium text-card-foreground">{task.key}</p>
+                {task.description && (
+                  <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                    {task.description}
+                  </p>
+                )}
+              </td>
+              <td className="px-3 py-3 align-top">
+                {/* The sentence is a convenience; the expression is the truth,
+                    so both are shown and the expression is never omitted. */}
+                {task.describes && <p className="text-xs">{task.describes}</p>}
+                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                  {task.expression}
+                </p>
+              </td>
+              <td className="px-3 py-3 align-top text-xs whitespace-nowrap tabular-nums">
+                {task.next_run_at ? (
+                  new Date(task.next_run_at).toLocaleString()
+                ) : (
+                  <span className="text-muted-foreground/60" title="The expression could not be parsed.">
+                    &mdash;
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-3 align-top text-xs whitespace-nowrap">
+                <LastRun task={task} />
+              </td>
+              <td className="px-3 py-3 align-top">
+                <div className="flex flex-wrap gap-1">
+                  {task.without_overlapping && <Guard>no overlap</Guard>}
+                  {task.on_one_server && <Guard>one server</Guard>}
+                  {task.in_background && <Guard>background</Guard>}
+                </div>
+              </td>
+              <td className="px-3 py-3 align-top">
+                <TenantControl
+                  task={task}
+                  onToggle={onToggle}
+                  busy={saving === task.task_key}
+                  onRunNow={onRunNow}
+                  onSaveSchedule={onSaveSchedule}
+                  running={task.task_key !== null && running === task.task_key}
+                  runResult={task.task_key ? runResults[task.task_key] : undefined}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** A task's module, labelled from the registry — matching Workflow's own grouping. */
+function taskModuleLabel(key: string, modules: PlatformRegistryPayload['modules']): string {
+  return modules.find((m) => m.key === key)?.label ?? key
+}
+
+/** Modules with at least one task, registry order, then any module the registry does not
+    declare, then `_uncatalogued` last for events the catalogue does not describe at all. */
+function orderedTaskModuleKeys(
+  tasks: SchedulerPayload['tasks'],
+  modules: PlatformRegistryPayload['modules'],
+): string[] {
+  const present = new Set(tasks.map((t) => t.module ?? '_uncatalogued'))
+
+  return [
+    ...modules.map((m) => m.key).filter((key) => present.has(key)),
+    ...Array.from(present).filter(
+      (key) => key !== '_uncatalogued' && !modules.some((m) => m.key === key),
+    ),
+    ...(present.has('_uncatalogued') ? ['_uncatalogued'] : []),
+  ]
+}
+
 /**
  * Whether this organisation can change a task, and the control if it can.
  *
@@ -328,6 +479,7 @@ function TenantControl({
   onToggle,
   busy,
   onRunNow,
+  onSaveSchedule,
   running,
   runResult,
 }: {
@@ -335,15 +487,33 @@ function TenantControl({
   onToggle: (task: SchedulerPayload['tasks'][number]) => void
   busy: boolean
   onRunNow: (taskKey: string) => void
+  onSaveSchedule: (taskKey: string, schedule: CronFields) => Promise<boolean>
   running: boolean
   runResult: RunNowResult | undefined
 }) {
+  const [editing, setEditing] = useState(false)
+
   if (!task.tenant_scoped) {
     return (
       <span className="block max-w-[14rem] text-[11px] leading-4 text-muted-foreground">
         Runs for the whole installation.{' '}
         {task.estate_reason && <span className="opacity-80">{task.estate_reason}</span>}
       </span>
+    )
+  }
+
+  if (editing && task.task_key) {
+    return (
+      <CronEditor
+        taskKey={task.task_key}
+        initial={task.schedule}
+        busy={busy}
+        onCancel={() => setEditing(false)}
+        onSave={async (schedule) => {
+          const ok = await onSaveSchedule(task.task_key as string, schedule)
+          if (ok) setEditing(false)
+        }}
+      />
     )
   }
 
@@ -373,6 +543,19 @@ function TenantControl({
           >
             {running && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
             Run now
+          </button>
+        )}
+
+        {/* Editing a disabled task's schedule is pointless — it would not run
+            anyway — so the button only appears when the task is actually on. */}
+        {task.task_key && !task.disabled_here && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            title="Set a custom minute/hour/day/month/day-of-week for this organisation."
+          >
+            Edit schedule
           </button>
         )}
       </div>
@@ -406,6 +589,89 @@ function TenantControl({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+const CRON_FIELDS: { key: keyof CronFields; label: string; placeholder: string }[] = [
+  { key: 'minute', label: 'Minute', placeholder: '*' },
+  { key: 'hour', label: 'Hour', placeholder: '*' },
+  { key: 'day', label: 'Day', placeholder: '*' },
+  { key: 'month', label: 'Month', placeholder: '*' },
+  { key: 'day_of_week', label: 'Day of week', placeholder: '*' },
+]
+
+/**
+ * The custom-cron form the console was missing — `SchedulerController::save()` has
+ * accepted `schedule.{minute,hour,day,month,day_of_week}` since Round 2, validated
+ * server-side against a narrow grammar (`*`, a number, a list, a range, or a step);
+ * this is the first UI that actually sends it. Every field starts pre-filled with the
+ * task's CURRENT effective expression (override where one exists, shipped otherwise),
+ * so an admin narrowing just the hour does not have to retype the other four blind.
+ */
+function CronEditor({
+  taskKey,
+  initial,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  taskKey: string
+  initial: CronFields
+  busy: boolean
+  onCancel: () => void
+  onSave: (schedule: CronFields) => void
+}) {
+  const [fields, setFields] = useState<CronFields>(initial)
+
+  const set = (key: keyof CronFields, value: string) => setFields((current) => ({ ...current, [key]: value }))
+
+  return (
+    <div className="w-[15rem] space-y-2 rounded-md border border-border bg-card p-2.5">
+      <p className="text-[11px] font-medium text-muted-foreground">
+        Custom schedule for <span className="font-mono">{taskKey}</span>
+      </p>
+
+      <div className="grid grid-cols-5 gap-1">
+        {CRON_FIELDS.map((field) => (
+          <label key={field.key} className="block">
+            <span className="mb-0.5 block text-center text-[9px] text-muted-foreground">
+              {field.label.slice(0, 3)}
+            </span>
+            <input
+              value={fields[field.key]}
+              onChange={(event) => set(field.key, event.target.value)}
+              placeholder={field.placeholder}
+              className="w-full rounded border border-border bg-background px-1 py-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+        ))}
+      </div>
+
+      <p className="text-[10px] leading-4 text-muted-foreground">
+        <span className="font-mono">*</span>, a number, a list (<span className="font-mono">1,15</span>), a
+        range (<span className="font-mono">1-5</span>), or a step (<span className="font-mono">*/10</span>).
+      </p>
+
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => onSave(fields)}
+          disabled={busy}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {busy && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }

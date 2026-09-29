@@ -94,6 +94,8 @@ export interface ExitCase {
   exit_interview_done?: boolean
   exit_interview_date?: string | null
   exit_interview_notes?: string
+  /** The internal sign-off, when talent.offboarding.clearance has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export interface OffbKPI {
@@ -225,6 +227,21 @@ export const offboardingService = {
   updateStatus(context: LaravelContext, id: string, status: string) {
     return apiClient.post<OffbResponse<ExitCase>>(`/offboarding/cases/${id}/status`, {
       status,
+      ...params(context)
+    })
+  },
+
+  /**
+   * The internal sign-off `talent.offboarding.clearance` declares, for
+   * closing a case a platform chain has gated. Only does anything when a
+   * real approval step is open (case.approval?.pending) — the backend
+   * 403s anyone who isn't that step's approver regardless of what this
+   * screen shows.
+   */
+  decideClearance(context: LaravelContext, id: string, decision: 'approve' | 'reject', note?: string) {
+    return apiClient.post<OffbResponse<ExitCase>>(`/offboarding/cases/${id}/closure-decision`, {
+      decision,
+      note,
       ...params(context)
     })
   },

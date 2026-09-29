@@ -25,7 +25,8 @@
  * the K12 defect this project has spent this whole engagement removing.
  */
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AlertTriangle, Check, ExternalLink, Loader2, Trash2, X } from 'lucide-react'
 
 import { SectionCard, StatusChip, type ConsoleStatus } from '@/components/shared/console-ui'
@@ -40,6 +41,7 @@ import {
   type IntegrationProvider,
   type IntegrationStatus,
 } from '@/lib/platform/integrations'
+import { isDecentralizedModule } from '@/lib/platform/access-links'
 
 import { PanelError, PanelLoading, RefreshButton } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
@@ -52,6 +54,18 @@ const KIND_LABEL: Record<IntegrationProvider['kind'], string> = {
 }
 
 export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <IntegrationsConsole />
+    </Suspense>
+  )
+}
+
+function IntegrationsConsole() {
+  /** `?module=hrms` etc. — the decentralized tab, pinned to one module. */
+  const rawModuleKey = useSearchParams().get('module')
+  const moduleKey = isDecentralizedModule(rawModuleKey) ? rawModuleKey : null
+
   const [providers, setProviders] = useState<IntegrationProvider[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +74,7 @@ export default function IntegrationsPage() {
   useEffect(() => {
     let cancelled = false
 
-    fetchIntegrations()
+    fetchIntegrations(moduleKey ?? undefined)
       .then((result) => {
         if (cancelled) return
         setProviders(result.providers)
@@ -76,7 +90,7 @@ export default function IntegrationsPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, moduleKey])
 
   const reload = () => {
     setLoading(true)
@@ -99,11 +113,21 @@ export default function IntegrationsPage() {
               <RefreshButton onClick={reload} busy={loading} />
             </div>
 
-            <PlatformGrid>
-              {providers.map((provider) => (
-                <ProviderCard key={provider.key} provider={provider} onChanged={reload} />
-              ))}
-            </PlatformGrid>
+            {/* A DECENTRALIZED TAB IS ALREADY PINNED — the server only returned
+                this module's providers. Zero for a real module (Organisation,
+                HRMS, Talent and Capability declare none today) is the honest
+                empty state, not an error. */}
+            {moduleKey && providers.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                Nothing is connected for this module yet.
+              </p>
+            ) : (
+              <PlatformGrid>
+                {providers.map((provider) => (
+                  <ProviderCard key={provider.key} provider={provider} onChanged={reload} />
+                ))}
+              </PlatformGrid>
+            )}
           </>
         )}
       </div>

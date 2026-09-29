@@ -433,6 +433,8 @@ export interface MappingReview {
   note: string | null
   submitted_at: string | null
   reviewed_at: string | null
+  /** The chain this pending review is actually waiting on, when competency.assessment.review has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export interface ReviewCounts {
