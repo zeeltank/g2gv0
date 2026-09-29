@@ -327,6 +327,8 @@ export interface RegularisationRow {
   reviewer_comment: string | null
   reviewed_at: string | null
   submitted_at: string | null
+  /** The chain this pending request is actually waiting on, when hrms.attendance.regularisation has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export interface RegularisationListResponse {

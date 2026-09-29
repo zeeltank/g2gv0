@@ -1289,6 +1289,12 @@ export function CmFrameworkMapping() {
                       </div>
                       <StatusBadge status={item.status} size="sm" />
                     </div>
+                    {item.approval?.pending && (
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Awaiting {item.approval.step_name || item.approval.approver_role || 'approval'}
+                        {item.approval.of ? ` (step ${item.approval.step} of ${item.approval.of})` : ''}
+                      </p>
+                    )}
                     <div className="bg-muted/50 rounded-lg p-3 mb-4 flex-1 space-y-2">
                       <RowKV k="Mapped By" v={item.submitted_by_name || 'System'} />
                       <RowKV k="Submitted" v={item.submitted_at || '—'} />

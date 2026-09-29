@@ -144,6 +144,13 @@ export function RegularisationQueue({ onDecided }: { onDecided?: () => void }) {
                 </StatusBadge>
               </div>
 
+              {row.approval?.pending && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Awaiting {row.approval.step_name || row.approval.approver_role || 'approval'}
+                  {row.approval.of ? ` (step ${row.approval.step} of ${row.approval.of})` : ''}
+                </p>
+              )}
+
               <p className="mt-1 text-sm font-medium text-foreground">{row.day}</p>
 
               {/* The before and after, so the decision is made on evidence. */}
