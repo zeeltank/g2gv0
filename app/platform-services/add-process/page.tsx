@@ -275,6 +275,7 @@ function AddProcessConsole() {
               <ProcessBuilder
                 draft={draft}
                 modules={registry.modules}
+                workflows={registry.workflows}
                 lockedModule={moduleKey}
                 onCancel={() => setDraft(null)}
                 onSaved={(message) => {
@@ -320,12 +321,14 @@ function AddProcessConsole() {
 function ProcessBuilder({
   draft,
   modules,
+  workflows,
   lockedModule,
   onCancel,
   onSaved,
 }: {
   draft: { name: string; module: string; text: string }
   modules: PlatformRegistryPayload['modules']
+  workflows: PlatformRegistryPayload['workflows']
   /** Set from a decentralized tab's `?module=` — this process can only ever be for
       that module, so the picker is fixed rather than offering a choice that would
       just take somebody back to the central hub's process list. */
@@ -633,7 +636,7 @@ function ProcessBuilder({
       {spec && (
         <div className="mt-5 space-y-5 border-t border-border pt-4">
           <ProcessReview spec={spec} />
-          <WorkflowReview spec={spec} />
+          <WorkflowReview spec={spec} workflows={workflows} />
 
           <div>
             <h3 className="text-xs font-semibold text-card-foreground">
@@ -686,15 +689,26 @@ function ProcessReview({ spec }: { spec: ProcessSpec }) {
 }
 
 /** Stage "3. Workflow" — the steps, which are sign-offs, and what could not be read. */
-function WorkflowReview({ spec }: { spec: ProcessSpec }) {
+function WorkflowReview({ spec, workflows }: { spec: ProcessSpec; workflows: PlatformRegistryPayload['workflows'] }) {
   return (
     <div>
       <h3 className="text-xs font-semibold text-card-foreground">3. Workflow</h3>
       <p className="mt-1 text-[11px] text-muted-foreground">
         Steps ({spec.steps.length}) — {spec.tasks.length} become tasks
       </p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Tag a sign-off step with a real Workflow point by naming its key —{' '}
+        <span className="font-mono">[approval:talent.recruitment.offer]</span>, for example — to
+        cross-reference it. This is a reference only: the step still just raises a task on
+        publish, the same as any other.
+      </p>
       <ul className="mt-2 space-y-1">
-        {spec.steps.map((step) => (
+        {spec.steps.map((step) => {
+          const taggedPoint = step.workflow_key
+            ? workflows.find((w) => w.key === step.workflow_key)
+            : null
+
+          return (
           <li key={step.order} className="flex items-start gap-2 text-xs">
             <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] tabular-nums text-muted-foreground">
               {step.order}
@@ -706,6 +720,18 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
                   sign-off
                 </span>
               )}
+              {/* A cross-reference only — this step still just raises a plain
+                  task on publish. Tagging it does not make it execute through
+                  the real Workflow point; it documents that it is the same
+                  real-world gate. */}
+              {taggedPoint && (
+                <span
+                  className="ml-1.5 rounded border border-border bg-muted/40 px-1 py-0.5 text-[10px] text-muted-foreground"
+                  title="Documents the same gate as this Workflow point — a reference only, not enforced through it."
+                >
+                  = {taggedPoint.label}
+                </span>
+              )}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
               {/* A step with no actor raises no task, and the row says so rather
@@ -713,7 +739,8 @@ function WorkflowReview({ spec }: { spec: ProcessSpec }) {
               {step.actor ?? <span className="text-muted-foreground/60">nobody named</span>}
             </span>
           </li>
-        ))}
+          )
+        })}
       </ul>
 
       {spec.issues.length > 0 && (

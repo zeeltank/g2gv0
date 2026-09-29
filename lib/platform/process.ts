@@ -19,6 +19,8 @@ export interface ProcessStep {
   actor: string | null
   /** Marked with `[approval]` in the procedure text. */
   is_approval: boolean
+  /** Set from `[approval:flow.key]` when the key matches a real Workflow point. */
+  workflow_key: string | null
 }
 
 export interface DerivedTask {
@@ -27,6 +29,8 @@ export interface DerivedTask {
   title: string
   actor: string
   is_approval: boolean
+  /** Which of the 8 real Workflow points this step documents the same gate as, if tagged — a cross-reference only, no execution semantics. */
+  workflow_key: string | null
   due_in_days: number
 }
 
