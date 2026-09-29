@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { ChevronRight, ChevronDown, X } from 'lucide-react'
 import { type ActiveNav } from '@/hooks/use-navigation'
 import { findNodePath, type NavModule, type NavNode } from '@/lib/gtg-navigation'
 import { IconButton } from '@/components/ui/icon-button'
@@ -193,17 +193,18 @@ export function GtgSidebar({
   }, [active, clearFlyout, onCollapsedChange])
 
   /**
-   * The explicit toggle, as opposed to the implicit collapses/expansions
+   * The explicit close, as opposed to the implicit collapses/expansions
    * elsewhere in this file (clicking a module while collapsed expands it;
    * clicking outside an overlaying rail collapses it, per F-201). This one
    * always applies regardless of viewport width — a deliberate click on a
    * dedicated button is a request either way, not something that should be
-   * width-gated the way an incidental outside click is.
+   * width-gated the way an incidental outside click is. Only rendered while
+   * the rail is open, so there's nothing to toggle — it always collapses.
    */
-  const handleToggleCollapsed = useCallback(() => {
+  const handleCloseSidebar = useCallback(() => {
     clearFlyout()
-    onCollapsedChange?.(!collapsed)
-  }, [clearFlyout, collapsed, onCollapsedChange])
+    onCollapsedChange?.(true)
+  }, [clearFlyout, onCollapsedChange])
 
   const handleModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
@@ -464,10 +465,25 @@ export function GtgSidebar({
         <div
           className={cn(
             'flex h-12 shrink-0 items-center border-sidebar-border px-4',
-            collapsed && 'justify-center px-0',
+            collapsed ? 'justify-center px-0' : 'justify-between',
           )}
         >
           <GtgBrandMark collapsed={collapsed} />
+          {/* Only while open — closing is the one explicit control for
+              `collapsed`; everything else that changes it is a side effect
+              of some other click (a module, or clicking outside an
+              overlaying rail). Nothing to show this while already
+              collapsed, since there'd be nothing left to close. */}
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={handleCloseSidebar}
+              aria-label="Close sidebar"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 pt-2 pb-4" : "px-3 py-3")}>
@@ -553,38 +569,6 @@ export function GtgSidebar({
           </div>
         </nav>
 
-        {/*
-          Collapse/expand — the only explicit control for it; everything
-          else that changes `collapsed` is a side effect of some other
-          click (a module, or clicking outside an overlaying rail). Pinned
-          to the bottom because `nav` above is `flex-1` and takes all the
-          remaining height on its own.
-        */}
-        <div
-          className={cn(
-            'flex h-14 shrink-0 items-center border-t border-sidebar-border',
-            collapsed ? 'justify-center px-2' : 'px-3',
-          )}
-        >
-          <button
-            type="button"
-            onClick={handleToggleCollapsed}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={cn(
-              'flex items-center cursor-pointer rounded-md text-sm font-medium text-sidebar-foreground transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-ring',
-              collapsed ? 'size-10 justify-center' : 'h-10 w-full gap-3 px-2',
-            )}
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-              {collapsed ? (
-                <PanelLeftOpen className="size-5" aria-hidden="true" />
-              ) : (
-                <PanelLeftClose className="size-5" aria-hidden="true" />
-              )}
-            </span>
-            {!collapsed && <span className="flex-1 truncate text-left">Collapse</span>}
-          </button>
-        </div>
       </aside>
 
       {/* Mobile off-canvas drawer (<md) */}

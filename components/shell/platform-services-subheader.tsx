@@ -1,88 +1,141 @@
 'use client'
 
 /**
- * The navbar-attached, module-scoped Platform Services strip.
+ * The navbar's Platform Services toggle — a floating dropdown, not a bar.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * A SECOND, FASTER WAY IN — NOT A REPLACEMENT
+ * REVISION: FLOATING, NOT PUSH-DOWN — AND SELF-CONTAINED, NOT SPLIT ACROSS SHELLS
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * The sidebar already carries one "Platform Services" row per module, landing
- * on that module's Workflow console with a tab strip to the other four. This
- * is additive: a toggle on the navbar itself, reachable without first
- * navigating into a module's own sidebar section.
+ * The first version of this put the trigger in the header and the panel as a
+ * flex sibling in `GtgAppShell`/`GtgPageShell`, sitting in normal document
+ * flow so it pushed page content down — built that way because the request at
+ * the time was explicitly "page go little down". Seeing it built, the actual
+ * ask was corrected: a floating panel, copying K12's own "Master"/"AI Stack"
+ * style — `position: fixed`-shaped, a rounded card with a border and shadow,
+ * not a full-width bar in flow. This version does that, and — since the
+ * trigger and the panel now genuinely belong together — folds both into ONE
+ * component, the same shape `gtg-user-menu.tsx` already uses for the account
+ * menu (a `relative` wrapper, an `absolute right-0 top-full` panel). That
+ * also removes the three-prop threading (`subheaderOpen`/`onSubheaderToggle`/
+ * `subheaderButtonRef`) the split version needed across two shells and two
+ * headers, and the duplicated outside-click/Escape wiring in each shell.
  *
- * ── WHY THIS SITS IN NORMAL DOCUMENT FLOW, NOT AN OVERLAY ───────────────────
+ * No transition on the panel itself, matching K12's own Master panel — it
+ * mounts and unmounts, it does not animate open. (No animation library in
+ * either codebase.)
  *
- * Checked directly against LMS K12's own "Level 3" reference before building
- * this: its outer bar sits in normal flow under the header, which is what
- * pushes page content down when it mounts — its INNER "Master" panel (and,
- * separately, its "AI Stack" card) are `position: fixed`, portaled overlays
- * with no transition, floating over content rather than moving it. This
- * component copies the outer bar's behaviour, not either overlay's.
+ * ── CLOSES ON NAVIGATION, NOT JUST OUTSIDE-CLICK/ESCAPE ──────────────────────
  *
- * `GtgAppShell`/`GtgPageShell` render this conditionally between the header
- * and `<main>` — an ordinary flex sibling, so mounting/collapsing it grows or
- * shrinks the space `<main>` gets, exactly the "page goes down a little"
- * effect asked for. The open/close transition itself is a plain CSS
- * `grid-template-rows` 0fr/1fr animation on an always-mounted wrapper (no
- * animation library in this codebase or K12's), so the row's real height is
- * never needed up front and nothing pops.
+ * The first version left it open after clicking one of its own links, since
+ * the shells that rendered it never unmount on a client-side route change —
+ * reported directly. Rather than an effect that calls `setState` on every
+ * `pathname` change (flagged by this codebase's own purity rule, and a real
+ * cascading-render smell besides), the callers key this component on the
+ * current pathname (`gtg-header.tsx`/`gtg-header-base.tsx`) — a route change
+ * remounts it, which resets `open` to its initial `false` for free.
+ *
+ * ── NO LONGER DUPLICATES `PlatformShell`'s OWN QUICK-NAV ─────────────────────
+ *
+ * Every one of the 5 console pages used to render its own near-identical tab
+ * strip (`PlatformShell`'s `quickNav`) — once this toggle existed anywhere in
+ * the app, a page showing both was showing the same switcher twice. That
+ * strip is removed from `PlatformShell`; this toggle is the one place that
+ * navigation lives now, including the "Browse every module" link that strip
+ * used to carry.
  *
  * ── SCOPED TO THE SAME 5 CONSOLES THE SIDEBAR ALREADY OFFERS ────────────────
  *
- * Reuses `OWN_ROUTE_SERVICES` and the identical `?module=` href construction
- * `PlatformShell`'s own quick-nav strip already uses — not re-derived here,
- * so the two can't drift. Event Bus and What's Coming are deliberately not
- * in this list: neither has a real per-module concept (confirmed by reading
- * their actual data — Event Bus's consumers are mostly cross-cutting across
- * several modules, and What's Coming's gaps are prose per SERVICE, not per
- * module), so scoping either here would mean inventing something fake.
+ * Event Bus and What's Coming are deliberately not in this list: neither has
+ * a real per-module concept (confirmed by reading their actual data — Event
+ * Bus's consumers are mostly cross-cutting across several modules, and
+ * What's Coming's gaps are prose per SERVICE, not per module), so scoping
+ * either here would mean inventing something fake.
  */
 
-import { Suspense } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { ChevronDown } from 'lucide-react'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { MODULE_LABEL } from '@/lib/platform/access-links'
 import { useCurrentPlatformModule } from '@/hooks/use-current-platform-module'
 import { OWN_ROUTE_SERVICES } from '@/components/shell/platform-shell'
 import { cn } from '@/lib/utils'
 
-export function PlatformServicesSubheader({ open }: { open: boolean }) {
-  return (
-    <div
-      id="platform-services-subheader"
-      aria-hidden={!open}
-      className="grid shrink-0 transition-[grid-template-rows] duration-200 ease-out"
-      style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
-    >
-      <div className="overflow-hidden">
-        {/* `useSearchParams()` (inside useCurrentPlatformModule) needs a
-            Suspense boundary — the same requirement ServiceShell already
-            satisfies for the sidebar-scoped consoles this mirrors. */}
-        <Suspense fallback={null}>
-          <PlatformServicesSubheaderContent inert={!open} />
-        </Suspense>
-      </div>
-    </div>
-  )
-}
-
-/*
- * The 5 consoles this panel offers — Event Bus and What's Coming are
- * `own-route` too but carry no `decentralizedModules` (neither has a real
- * per-module concept — see the module docblock), so they're excluded here
- * unconditionally, not just when a module is resolved. The bug this fixes:
- * filtering only in the scoped branch left the unscoped (dashboard, etc.)
- * view showing all 7 own-route services instead of these 5.
- */
 const DECENTRALIZABLE_SERVICES = OWN_ROUTE_SERVICES.filter(
   (service) => service.decentralizedModules !== undefined,
 )
 
-function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
-  const pathname = usePathname()
+export function PlatformServicesSubheader() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Outside-click and Escape close it — the exact pattern `gtg-user-menu.tsx`
+  // already establishes for a disclosure control in this codebase, Escape
+  // included returning focus to the trigger.
+  useEffect(() => {
+    function onClick(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      setOpen((wasOpen) => {
+        if (wasOpen) triggerRef.current?.focus()
+        return false
+      })
+    }
+
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-label="Toggle platform services"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          'flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring',
+          open && 'bg-secondary text-secondary-foreground',
+        )}
+      >
+        <ChevronDown
+          className={cn('size-5 transition-transform duration-200', open && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Platform services"
+          className="absolute right-0 top-full z-50 mt-2 w-[min(30rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lg"
+        >
+          <Suspense fallback={null}>
+            <PlatformServicesPanelContent onNavigate={() => setOpen(false)} />
+          </Suspense>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PlatformServicesPanelContent({ onNavigate }: { onNavigate: () => void }) {
   const moduleKey = useCurrentPlatformModule()
 
   const items = moduleKey
@@ -90,40 +143,38 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
     : DECENTRALIZABLE_SERVICES
 
   return (
-    <nav
-      aria-label="Platform services"
-      // Collapsed content is still in the DOM for the height transition,
-      // so it must not be reachable by keyboard or a screen reader while closed.
-      inert={inert}
-      className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5 md:px-6"
-    >
-      <span className="shrink-0 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+    <>
+      <p className="mb-3 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
         {moduleKey ? MODULE_LABEL[moduleKey] : 'Platform Services'}
-      </span>
+      </p>
 
-      {items.map((service) => {
-        const href = moduleKey
-          ? `${service.destination.href}?module=${moduleKey}`
-          : service.destination.href
-        const isActive = pathname === service.destination.href
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {items.map((service) => {
+          const href = moduleKey
+            ? `${service.destination.href}?module=${moduleKey}`
+            : service.destination.href
 
-        return (
-          <Link
-            key={service.slug}
-            href={href}
-            aria-current={isActive ? 'page' : undefined}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-          >
-            <PlatformServiceIcon slug={service.slug} className="size-3.5" />
-            {service.name}
-          </Link>
-        )
-      })}
-    </nav>
+          return (
+            <Link
+              key={service.slug}
+              href={href}
+              onClick={onNavigate}
+              className="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-left text-sm font-semibold text-muted-foreground shadow-xs transition-all outline-none hover:border-muted-foreground/30 hover:bg-muted/60 hover:text-foreground hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <PlatformServiceIcon slug={service.slug} className="size-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{service.name}</span>
+            </Link>
+          )
+        })}
+      </div>
+
+      <Link
+        href="/platform-services"
+        onClick={onNavigate}
+        className="mt-3 inline-block text-xs font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300"
+      >
+        Browse every module →
+      </Link>
+    </>
   )
 }

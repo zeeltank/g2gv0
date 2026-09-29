@@ -74,7 +74,6 @@ export function PlatformShell({
   icon,
   status,
   actions,
-  activeSlug,
   module,
   children,
 }: {
@@ -86,24 +85,19 @@ export function PlatformShell({
   icon?: ReactNode
   status?: ReactNode
   actions?: ReactNode
-  /** Slug of the console this page IS, so the quick-nav can mark it current rather than a link to itself. */
-  activeSlug?: string
   /**
    * Set when this page is a decentralized, module-scoped view (`?module=` present) — the
    * seam between the centralized hub and each module's own navigation. Swaps the back
-   * link to that module's own landing page, and narrows the quick-nav to the OTHER
-   * consoles decentralized for the SAME module, each still `?module=`-scoped, plus one
-   * explicit link back to this console's unscoped, central view.
+   * link to that module's own landing page. Switching between this module's OTHER
+   * consoles is the navbar's own Platform Services toggle's job now
+   * (`components/shell/platform-services-subheader.tsx`) — this component no longer
+   * renders that navigation itself, to avoid the two disagreeing or duplicating.
    */
   module?: { key: DecentralizedModuleKey; label: string } | null
   children?: ReactNode
 }) {
   const effectiveBackHref = module ? (MODULE_LANDING_HREF[module.key] ?? backHref) : backHref
   const effectiveBackLabel = module ? module.label : backLabel
-
-  const quickNav = module
-    ? OWN_ROUTE_SERVICES.filter((service) => service.decentralizedModules?.includes(module.key))
-    : OWN_ROUTE_SERVICES
 
   return (
     <div className="w-full">
@@ -139,34 +133,6 @@ export function PlatformShell({
             </div>
           )}
         </div>
-
-        <nav className="mt-5 flex flex-wrap items-center gap-1.5" aria-label="Platform Services consoles">
-          {quickNav.map((service) => (
-            <Link
-              key={service.slug}
-              href={module ? `${service.destination.href}?module=${module.key}` : service.destination.href}
-              aria-current={service.slug === activeSlug ? 'page' : undefined}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                service.slug === activeSlug
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-            >
-              {service.name}
-            </Link>
-          ))}
-
-          {/* The seam back to the unscoped view — this SAME console, every module. */}
-          {module && activeSlug && (
-            <Link
-              href={`/platform-services/${activeSlug}`}
-              className="ml-1 text-xs font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300"
-            >
-              Browse every module →
-            </Link>
-          )}
-        </nav>
       </div>
 
       {children}
