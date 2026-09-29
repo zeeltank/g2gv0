@@ -1,7 +1,7 @@
 'use client'
 
 import { type RefObject } from 'react'
-import { LayoutGrid, Menu } from 'lucide-react'
+import { ChevronDown, LayoutGrid, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GtgNavSearch } from '@/components/shell/gtg-nav-search'
 import { NotificationsMenu } from '@/components/shell/notifications-menu'
@@ -16,6 +16,9 @@ export function GtgHeader({
   toolbarOpen,
   onToolbarToggle,
   toolbarButtonRef,
+  subheaderOpen,
+  onSubheaderToggle,
+  subheaderButtonRef,
 }: {
   agentOpen?: boolean
   onAgentOpenChange?: (open: boolean) => void
@@ -24,6 +27,9 @@ export function GtgHeader({
   toolbarOpen?: boolean
   onToolbarToggle?: () => void
   toolbarButtonRef?: RefObject<HTMLButtonElement | null>
+  subheaderOpen?: boolean
+  onSubheaderToggle?: () => void
+  subheaderButtonRef?: RefObject<HTMLButtonElement | null>
 } = {}) {
   return (
     <header
@@ -42,6 +48,26 @@ export function GtgHeader({
       <GtgNavSearch />
 
       <div className="ml-auto flex items-center gap-2">
+        {onSubheaderToggle && (
+          <button
+            ref={subheaderButtonRef}
+            type="button"
+            onClick={onSubheaderToggle}
+            aria-label="Toggle platform services"
+            aria-haspopup="true"
+            aria-expanded={subheaderOpen}
+            aria-controls="platform-services-subheader"
+            className={cn(
+              'flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring',
+              subheaderOpen && 'bg-secondary text-secondary-foreground',
+            )}
+          >
+            <ChevronDown
+              className={cn('size-5 transition-transform duration-200', subheaderOpen && 'rotate-180')}
+              aria-hidden="true"
+            />
+          </button>
+        )}
         <NotificationsMenu />
         <AgentButton
           agentOpen={agentOpen}

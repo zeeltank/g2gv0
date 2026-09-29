@@ -60,7 +60,7 @@ export const PLATFORM_SECTION_LABEL: Record<string, string> = {
  * navigation or are not built yet, and a quick-nav strip listing destinations that are not
  * "another console in this control plane" would misrepresent what switching does.
  */
-const OWN_ROUTE_SERVICES = PLATFORM_SERVICES.filter(
+export const OWN_ROUTE_SERVICES = PLATFORM_SERVICES.filter(
   (service): service is typeof service & { destination: { kind: 'own-route'; href: string } } =>
     service.destination.kind === 'own-route',
 )
