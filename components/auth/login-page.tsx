@@ -131,7 +131,25 @@ export function LoginPage() {
 
       if (!isLaravelContextReady(context)) return '/dashboard'
 
-      const me = await accountService.me(context)
+      /*
+       * A SLOW RESPONSE MUST NOT BE THE REASON SOMEBODY CANNOT GET IN.
+       *
+       * The comment below already covers this call REJECTING (network error,
+       * 4xx/5xx) — the catch swallows it and falls back to '/dashboard'. It
+       * did nothing for this call simply never SETTLING: the session is
+       * already fully committed by this point (login() has stored the token
+       * and set the auth cookie), but router.push below is only reached once
+       * this promise resolves, and apiClient's fetch carries no timeout of
+       * its own. A stalled response here left the screen looking stuck on
+       * /login with a spinning button, even though a manual refresh proved
+       * the sign-in had already succeeded. Racing it against a short timeout
+       * — falling into the same existing fallback below — closes that gap
+       * without changing what this call is for.
+       */
+      const me = await Promise.race([
+        accountService.me(context),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timed out reading landing page preference.')), 2500)),
+      ])
 
       if (me.data.preferences.landing_page === 'last-visited') {
         return readLastVisited() ?? '/dashboard'
