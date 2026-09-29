@@ -909,11 +909,17 @@ export function RecruitmentCenter() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      variant={req.status === 'Open' ? 'active' : 'inactive'}
+                      variant={req.status === 'Open' ? 'active' : req.status === 'Pending' ? 'pending' : 'inactive'}
                       size="sm"
                     >
                       {req.status}
                     </StatusBadge>
+                    {req.approval?.pending && (
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        Awaiting {req.approval.step_name || req.approval.approver_role || 'approval'}
+                        {req.approval.of ? ` (step ${req.approval.step} of ${req.approval.of})` : ''}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <StatusBadge
@@ -952,6 +958,28 @@ export function RecruitmentCenter() {
                         >
                           Edit requisition
                         </DropdownMenuItem>
+                        {/* The internal sign-off talent.recruitment.requisition declares.
+                            Only shown when a real approval step is open; the backend still
+                            403s anyone who isn't that step's approver regardless of what
+                            this menu shows. */}
+                        {req.approval?.pending && (
+                          <DropdownMenuItem onSelect={() => setConfirmation({
+                            title: 'Approve this requisition?',
+                            description: `Awaiting ${req.approval?.step_name || req.approval?.approver_role || 'approval'} (step ${req.approval?.step} of ${req.approval?.of}). Approving the final step publishes the posting.`,
+                            run: async () => { await recruitmentService.decideRequisition(req.id, 'approve'); await refresh() },
+                          })}>
+                            Approve requisition
+                          </DropdownMenuItem>
+                        )}
+                        {req.approval?.pending && (
+                          <DropdownMenuItem onSelect={() => setConfirmation({
+                            title: 'Reject this requisition?',
+                            description: 'The posting will not be published.',
+                            run: async () => { await recruitmentService.decideRequisition(req.id, 'reject'); await refresh() },
+                          })}>
+                            Reject requisition
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

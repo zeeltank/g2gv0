@@ -262,6 +262,19 @@ export const recruitmentService = {
       ...params, page, limit, sortBy: 'age', order: 'desc',
     }, { headers: bearerHeaders() })
   },
+  /**
+   * The internal sign-off `talent.recruitment.requisition` declares, for a
+   * posting a platform chain has gated before it can go live. Only does
+   * anything when a real approval step is open (requisition.approval?.pending)
+   * — the backend 403s anyone who isn't that step's approver regardless of
+   * what this screen shows.
+   */
+  decideRequisition(id: LaravelId, decision: 'approve' | 'reject', remarks?: string) {
+    return apiClient.post<{ status: number; message: string; data?: JobPostingApi }>(
+      `/job-postings/${id}/decision`,
+      { decision, remarks, ...contextParams() },
+    )
+  },
   getFunnel() {
     const params = contextParams()
     return apiClient.post<FunnelResponse>('/talent-acquisition/funnel', params, { headers: bearerHeaders() })

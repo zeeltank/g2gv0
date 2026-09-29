@@ -181,6 +181,7 @@ export interface RequisitionApi {
   priority_level?: string | null
   created_by?: string | number | null
   created_at?: string | null
+  approval?: ApprovalStepStatus | null
 }
 
 export interface RequisitionPage {
