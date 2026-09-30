@@ -120,6 +120,17 @@ export function DocumentViewer({
     }
   }, [open, documentId, kind])
 
+  /**
+   * Hand the blob to a new tab.
+   *
+   * The URL is deliberately NOT revoked here: the tab needs it to stay alive,
+   * and it is released when the dialog closes along with the preview's own.
+   */
+  const openInTab = () => {
+    if (!blob) return
+    window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer')
+  }
+
   const save = () => {
     if (!blob) return
     const url = URL.createObjectURL(blob)
@@ -134,7 +145,15 @@ export function DocumentViewer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl flex-col">
+      {/*
+        EXPLICIT SIZE, not flex-1 against a max-height.
+        DialogContent's own base classes are `grid ... max-w-lg`. tailwind-merge
+        lets `flex` and `max-w-5xl` win, but a flex child with `flex-1` inside a
+        parent that has only a MAX height has no definite height to take a
+        fraction of - so the preview area collapsed and the dialog rendered as a
+        small empty box. The body gets a real height instead.
+      */}
+      <DialogContent className="flex h-[85vh] w-[calc(100%-2rem)] max-w-5xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle className="truncate">{title || 'Document'}</DialogTitle>
           <DialogDescription>
@@ -142,30 +161,51 @@ export function DocumentViewer({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30">
+        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30 [&>iframe]:block">
           {loading ? (
-            <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               Opening…
             </div>
           ) : error ? (
-            <div className="flex h-72 flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <FileText className="size-10 text-destructive" aria-hidden="true" />
               <p className="text-sm text-destructive">{error}</p>
             </div>
           ) : kind === 'pdf' && objectUrl ? (
-            <iframe src={objectUrl} title={title || 'Document'} className="h-[65vh] w-full" />
+            <iframe
+              src={objectUrl}
+              title={title || 'Document'}
+              // h-full, not a vh fraction: the parent now HAS a height, and a
+              // viewport fraction inside a sized box either overflows it or
+              // leaves a gap depending on the window.
+              className="h-full w-full border-0"
+            />
           ) : kind === 'image' && objectUrl ? (
-            <div className="flex justify-center p-4">
+            <div className="flex h-full items-center justify-center p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={objectUrl} alt={title || 'Document'} className="max-h-[65vh] max-w-full" />
+              <img
+                src={objectUrl}
+                alt={title || 'Document'}
+                className="max-h-full max-w-full object-contain"
+              />
             </div>
           ) : (
-            <div className="flex h-72 flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <FileText className="size-10 text-muted-foreground" aria-hidden="true" />
               <p className="text-sm text-muted-foreground">
-                This file type cannot be shown here. Download it to open it.
+                This file type cannot be previewed here. Download it to open it.
               </p>
+              {/*
+                An escape hatch that does not depend on the browser rendering
+                the type inline. The blob is already in memory, so this costs
+                nothing and works for anything the browser can open in a tab.
+              */}
+              {blob && (
+                <Button variant="outline" size="sm" onClick={openInTab}>
+                  Open in a new tab
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -173,6 +213,15 @@ export function DocumentViewer({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
+          </Button>
+          {/*
+            Always offered, not only for types we decline to preview. If the
+            browser cannot render something inline the panel goes blank, and a
+            blank panel with no way forward is what made this feature look
+            broken in the first place. The blob is already in memory.
+          */}
+          <Button variant="outline" onClick={openInTab} disabled={!blob}>
+            Open in a new tab
           </Button>
           <Button onClick={save} disabled={!blob}>
             <Download className="mr-2 size-4" />
