@@ -23,12 +23,7 @@ import {
   UserPlus,
   ChevronRight,
   Settings,
-  Sparkles,
 } from 'lucide-react'
-import { useAuth } from '@/hooks/use-auth'
-import { ROLE_GROUPS } from '@/types/role'
-import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
-import { talentRecruitmentAiStack } from '@/lib/ai-stack/talent-recruitment'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -124,7 +119,7 @@ function getStageVariant(stage: CandidateStage): 'default' | 'active' | 'inactiv
 // -------------------------------------------------------------------
 // Tab type
 // -------------------------------------------------------------------
-type MainTab = 'requisitions' | 'job-openings' | 'candidates' | 'interviews' | 'offers' | 'ai-stack'
+type MainTab = 'requisitions' | 'job-openings' | 'candidates' | 'interviews' | 'offers'
 type CandidateView = 'kanban' | 'table' | 'calendar'
 
 /**
@@ -175,8 +170,6 @@ export function RecruitmentCenter() {
   const [activeTab, setActiveTab] = useState<MainTab>(
     () => readDeepLinkTab(searchParams.get('tab')) ?? 'candidates',
   )
-  const { user } = useAuth()
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
   const [candidateView, setCandidateView] = useState<CandidateView>('kanban')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedJob, setSelectedJob] = useState('')
@@ -265,8 +258,6 @@ export function RecruitmentCenter() {
     { id: 'candidates', label: 'Candidates' },
     { id: 'interviews', label: 'Interviews' },
     { id: 'offers', label: 'Offers' },
-    // Administrator-only, matching /api/ai/* itself (profile:admin).
-    ...(isAdministrator ? [{ id: 'ai-stack' as const, label: 'AI Stack' }] : []),
   ]
 
   // Filtered candidates
@@ -402,7 +393,7 @@ export function RecruitmentCenter() {
         </div>
       </div>
 
-      {activeTab !== 'candidates' && activeTab !== 'ai-stack' && (
+      {activeTab !== 'candidates' && (
         <div className="mb-4 flex items-center gap-2">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1244,8 +1235,6 @@ export function RecruitmentCenter() {
           </Table>
         </div>
       )}
-
-      {activeTab === 'ai-stack' && <AiStackTabs module={talentRecruitmentAiStack} />}
 
       <RecruitmentActionDrawer action={activeAction} jobs={jobs} candidates={candidates} selectedJob={selectedJobRecord} selectedInterview={selectedInterviewRecord} selectedOffer={selectedOfferRecord} preselectedCandidate={interviewCandidate} onClose={() => { setActiveAction(null); setSelectedJobRecord(null); setSelectedInterviewRecord(null); setSelectedOfferRecord(null); setInterviewCandidate(null) }} onSaved={refresh} onEditJob={() => setActiveAction('job-edit')} />
       <InterviewToolsDrawer open={Boolean(interviewTool)} mode={interviewTool ?? 'panels'} interviewId={decisionInterviewId} jobs={jobs} candidates={candidates} onClose={() => { setInterviewTool(null); setDecisionInterviewId(null) }} onSaved={refresh} />

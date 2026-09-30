@@ -133,6 +133,26 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     phase: 3,
   },
   {
+    id: 'platform.ai-stack',
+    slug: 'ai-stack',
+    name: 'AI Stack',
+    section: 'services',
+    icon: 'Sparkles',
+    purpose: 'Configure, run and audit a module’s AI — policies, models, prompts, templates, knowledge, automations, usage, guardrails and activity — in one place.',
+    whyCentral:
+      'The nine tabs are the same for every module and only the data differs. Mounting them inside individual screens meant a module without a hand-wired stack had no AI Stack at all, and the ones that did had it in a different place from the rest.',
+    todayInG2g:
+      'One AI Stack per top-level module, keyed by its own ai_modules row, reached from the Platform Services bar at /platform-services/ai-stack?module=… and available for every module whether or not any of its screens ever had a stack. Every tab reads that module’s own rows: ai_policies, ai_templates, ai_module_model_bindings, ai_conversations, ai_audit_logs and the agentic_agents it owns. The read-only data sources behind Knowledge Base, Templates and Automations are the module’s and its screens’, taken from ModuleDataSourceCatalog through the menu tree.',
+    toBuild: [
+      'Models and Usage & Cost stay empty until an AI provider credential exists on the environment — there is no key configured to meter',
+      'Rows saved earlier against a single screen’s stack (a screen-level policy or template) are not shown in the module-wide view',
+    ],
+    status: 'live',
+    destination: { kind: 'own-route', href: '/platform-services/ai-stack' },
+    decentralizedModules: DECENTRALIZED_MODULES,
+    phase: 3,
+  },
+  {
     id: 'platform.audit',
     slug: 'audit',
     name: 'Audit',

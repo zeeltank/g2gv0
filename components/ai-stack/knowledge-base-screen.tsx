@@ -31,6 +31,18 @@
  * the real tool through the existing `/api/mcp/tools/call` proxy, as the signed-in user,
  * and reports what came back. It reads; it writes nothing.
  *
+ * WHY THE WORKED EXAMPLE SITS ABOVE THE INVENTORY
+ *
+ * Check needs somebody who already knows which source to press. The example above the
+ * table needs nothing: it calls one of THIS MODULE'S OWN sources on arrival and shows the
+ * real rows that came back, so the tab opens on evidence rather than on an inventory of
+ * possibility.
+ *
+ * It is handed `sources` — the same list the table below prints, already filtered on this
+ * module's key — and never the whole catalogue. There is therefore no code path by which
+ * it can read a module that is not this one, and an empty result is reported as an empty
+ * result rather than filled in with anything.
+ *
  * NOTHING IS SEEDED INTO THIS TAB. There is no sample document and no fabricated policy.
  * An estate that has indexed nothing is told exactly that, because a knowledge base padded
  * with invented material is worse than an empty one — it looks authoritative and it is not.
@@ -48,7 +60,9 @@ import {
   type TemplateDataSource,
 } from '@/lib/intelligence/ai-templates';
 import { readModuleWorkspaceSession } from '@/lib/module-ai/module-ai-stack';
+import { summariseMcpPayload } from '@/lib/ai-stack/mcp-payload';
 
+import { AiStackModuleExample } from './module-example';
 import {
   AiStackCard,
   AiStackCardHeading,
@@ -120,7 +134,7 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
 
   /** This module's sources only. This screen never lists another module's tools. */
   const sources = useMemo<TemplateDataSource[]>(
-    () => (options?.data_sources ?? []).filter((source) => source.module === module.key),
+    () => (options?.data_sources ?? []).filter((source) => source.module === module.key || source.rolls_up_to === module.key),
     [options, module.key],
   );
 
@@ -238,6 +252,8 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
         Every source below is read-only by construction — the backend filters the catalogue on each tool&apos;s own
         annotation, so a tool that changes a {module.record} record cannot appear here or be bound to a template.
       </AiStackHint>
+
+      <AiStackModuleExample module={module} sources={sources} />
 
       {sources.length === 0 ? (
         <AiStackEmpty icon={Database} title={`No ${module.label} knowledge sources registered`}>
@@ -380,70 +396,4 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
       </AiStackCard>
     </section>
   );
-}
-
-/**
- * Turn an MCP envelope into a row count and a short sentence.
- *
- * Deliberately defensive rather than typed: different tools return their payload under
- * different keys, and this only has to say "it answered, with this much". A shape it does
- * not recognise reports as answered with no count, which is honest — better than claiming
- * zero rows because the count was somewhere else.
- *
- * `count` is read BEFORE any array, and that ordering matters. Every tool in this platform
- * reports `count` as the whole result set before its own limit, while the array beside it
- * is the page. Finding the array first would report a fifty-row page of eight hundred
- * records as "50 rows", which is the number this tab exists to stop people believing.
- */
-function summariseMcpPayload(payload: Record<string, unknown> | null): { rows: number | null; detail: string } {
-  if (!payload) return { rows: null, detail: '' };
-
-  const result = payload.result as Record<string, unknown> | undefined;
-  const data = payload.data as Record<string, unknown> | undefined;
-
-  const error = payload.error ?? result?.error;
-  if (typeof error === 'string' && error.trim()) return { rows: null, detail: error };
-
-  for (const source of [payload, data, result]) {
-    const count = source?.count ?? source?.total;
-    if (typeof count === 'number') {
-      const list = firstList(source);
-      return {
-        rows: count,
-        detail: list && list.length !== count ? `${list.length} shown` : '',
-      };
-    }
-  }
-
-  for (const source of [payload, data, result]) {
-    const list = firstList(source);
-    if (list) {
-      const first = list[0];
-      const keys = first && typeof first === 'object' ? Object.keys(first as object).slice(0, 4) : [];
-      return { rows: list.length, detail: keys.length ? keys.join(', ') : '' };
-    }
-  }
-
-  return { rows: null, detail: '' };
-}
-
-/**
- * The longest array of objects in a payload.
- *
- * A payload often carries several arrays — a list of rows beside a list of unresolved
- * filters. The longest is the answer; the others describe the query, and picking one of
- * those is how a check reports the number of search terms it used.
- */
-function firstList(source: Record<string, unknown> | undefined): unknown[] | null {
-  if (!source) return null;
-
-  let best: unknown[] | null = null;
-
-  for (const value of Object.values(source)) {
-    if (!Array.isArray(value) || value.length === 0) continue;
-    if (typeof value[0] !== 'object' || value[0] === null) continue;
-    if (!best || value.length > best.length) best = value;
-  }
-
-  return best;
 }

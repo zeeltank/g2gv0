@@ -24,7 +24,6 @@ import {
   MessageSquare,
   PlayCircle,
   Send,
-  Sparkles,
   StickyNote,
   Trash2,
   X,
@@ -54,9 +53,7 @@ import type {
   LearningCourseSummary,
   LearningNote,
 } from '@/services/lms'
-import { isHrAdmin, ROLE_GROUPS } from '@/types/role'
-import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
-import { lmsMyLearningAiStack } from '@/lib/ai-stack/lms-my-learning'
+import { isHrAdmin } from '@/types/role'
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -906,7 +903,6 @@ export function LearningDeliveryWorkspace() {
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = isHrAdmin(user?.role)
   const canAuthor = canModerate
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
   const [activeTab, setActiveTab] = useState('learn')
 
   /**
@@ -970,8 +966,6 @@ export function LearningDeliveryWorkspace() {
     { id: 'assessments', label: 'Assessments', icon: ClipboardCheck },
     { id: 'notes', label: 'Notes', icon: StickyNote },
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
-    // Administrator-only, matching /api/ai/* itself (profile:admin).
-    ...(isAdministrator ? [{ id: 'ai-stack', label: 'AI Stack', icon: Sparkles }] : []),
   ]
 
   return (
@@ -1284,8 +1278,6 @@ export function LearningDeliveryWorkspace() {
                   onDelete={(id) => void deleteDiscussion(id)}
                 />
               )}
-
-              {activeTab === 'ai-stack' && <AiStackTabs module={lmsMyLearningAiStack} />}
             </>
           )}
         </div>

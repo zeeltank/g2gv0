@@ -192,7 +192,7 @@ export function AiStackTemplatesScreen({ module }: { module: AiStackModule }) {
 
   /** This module's data sources only — this screen never offers another module's tools. */
   const sources = useMemo(
-    () => (options?.data_sources ?? []).filter((source) => source.module === module.key),
+    () => (options?.data_sources ?? []).filter((source) => source.module === module.key || source.rolls_up_to === module.key),
     [options, module.key],
   );
 

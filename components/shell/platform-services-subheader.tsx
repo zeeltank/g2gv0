@@ -48,6 +48,22 @@
  * Bus's consumers are mostly cross-cutting across several modules, and
  * What's Coming's gaps are prose per SERVICE, not per module), so scoping
  * either here would mean inventing something fake.
+ *
+ * ── THE AI STACK LINK IS THE MODULE'S OWN PAGE, NOT A SCOPED HUB ────────────
+ *
+ * Pressing AI Stack from inside a module used to land on
+ * `/platform-services/ai-stack?module=<key>`, which then asked which module
+ * to show — the module had been named already, by being there.
+ *
+ * So the AI Stack entry resolves the module from the live menu tree and goes to
+ * `/module/{moduleId}/ai-stack`, a route that cannot be ambiguous about its
+ * module because the module is in the path. The other five consoles keep
+ * `?module=`, which is still how a module-scoped console marks its own scope
+ * and is untouched here.
+ *
+ * `useCurrentPlatformModule()` is still consulted first, so a link that is
+ * already module-scoped by query string keeps resolving exactly as it did.
+ * Only the case where the URL carries no scope at all is added.
  */
 
 import { Suspense } from 'react'
@@ -56,6 +72,7 @@ import { usePathname } from 'next/navigation'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { MODULE_LABEL } from '@/lib/platform/access-links'
 import { useCurrentPlatformModule } from '@/hooks/use-current-platform-module'
+import { useActiveModule } from '@/hooks/use-active-module'
 import { OWN_ROUTE_SERVICES } from '@/components/shell/platform-shell'
 import { cn } from '@/lib/utils'
 
@@ -85,11 +102,22 @@ export function PlatformServicesSubheader({ open }: { open: boolean }) {
 
 function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
   const pathname = usePathname()
-  const moduleKey = useCurrentPlatformModule()
+  const scopedByQuery = useCurrentPlatformModule()
+
+  /*
+   * The module this screen is inside, from the live menu tree, and the page its AI Stack
+   * lives on. `moduleId` is null wherever the URL carries no module scope at all — the
+   * centralised `/platform-services/*` routes — and the link below then falls back to the
+   * behaviour that was already there.
+   */
+  const { moduleId, platformKey } = useActiveModule()
+  const moduleKey = scopedByQuery ?? platformKey
 
   const items = moduleKey
     ? DECENTRALIZABLE_SERVICES.filter((service) => service.decentralizedModules?.includes(moduleKey))
     : DECENTRALIZABLE_SERVICES
+
+  const moduleAiStackHref = moduleId ? `/module/${moduleId}/ai-stack` : null
 
   return (
     <nav
@@ -108,10 +136,20 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
 
       <div className="flex flex-wrap items-center gap-2">
         {items.map((service) => {
-          const href = moduleKey
-            ? `${service.destination.href}?module=${moduleKey}`
-            : service.destination.href
-          const isActive = pathname === service.destination.href
+          /*
+            The AI Stack, and only the AI Stack, goes to the module's own page when the
+            URL identifies one. Every other console keeps `?module=`, which is the scope
+            mechanism all five of them already read.
+          */
+          const isModuleAiStack = service.slug === 'ai-stack' && moduleAiStackHref !== null
+          const href = isModuleAiStack
+            ? moduleAiStackHref
+            : moduleKey
+              ? `${service.destination.href}?module=${moduleKey}`
+              : service.destination.href
+          const isActive = isModuleAiStack
+            ? pathname === moduleAiStackHref
+            : pathname === service.destination.href
 
           return (
             <Link

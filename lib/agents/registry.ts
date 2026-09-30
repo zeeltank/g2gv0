@@ -48,6 +48,14 @@ export interface AgentTool {
 export const SHARED_MODULE = 'shared';
 
 export const AGENT_MODULES: AgentModule[] = [
+  // The six top-level modules — the Centralized AI Stack (Platform Services). Each owns
+  // every tool of the screens beneath it; see ROLLS_UP_TO.
+  { key: 'organizational_management', label: 'Organisation', description: 'Organizational Management' },
+  { key: 'hrit_management', label: 'HRMS', description: 'HRIT Management' },
+  { key: 'talent_management', label: 'Talent', description: 'Talent Management' },
+  { key: 'lms', label: 'Learning', description: 'LMS' },
+  { key: 'capability_intelligence', label: 'Capability', description: 'Capability Intelligence' },
+  { key: 'task_management', label: 'Task management', description: 'Task Management' },
   { key: 'lms_course_builder', label: 'Course Builder', description: 'LMS › Administration › Course Builder' },
   { key: 'lms_assessments', label: 'Assessments', description: 'LMS › Assessments' },
   { key: 'lms_my_learning', label: 'My Learning', description: 'LMS › Learning › My Learning' },
@@ -59,7 +67,64 @@ export const AGENT_MODULES: AgentModule[] = [
   { key: 'task_my_tasks', label: 'My Tasks', description: 'Task Management › My Tasks' },
 ];
 
+/**
+ * Which top-level module each screen-level module sits under — the menu tree
+ * (`tblmenumaster_g2g` parents) as hp_erp's `ModuleDataSourceCatalog` reports it in each
+ * source's `rolls_up_to`. A top-level module's tools are its own plus its screens'.
+ */
+export const ROLLS_UP_TO: Record<string, AgentModuleKey> = {
+  lms_course_builder: 'lms',
+  lms_assessments: 'lms',
+  lms_my_learning: 'lms',
+  lms_learning_catalog: 'lms',
+  capability_library: 'capability_intelligence',
+  capability_explorer: 'capability_intelligence',
+  talent_recruitment: 'talent_management',
+  talent_administration: 'talent_management',
+  task_my_tasks: 'task_management',
+};
+
 export const AGENT_TOOLS: AgentTool[] = [
+  {
+    key: 'organization.employees',
+    label: 'Employees',
+    description: 'Reads employees with job title, department, reporting manager, join date and status — no pay, bank or ID fields. Changes nothing.',
+    module: 'organizational_management',
+    risk: 'read',
+    kind: 'mcp',
+    available: true,
+    exampleInput: { department_id: null, status: null, limit: 50 },
+  },
+  {
+    key: 'organization.departments',
+    label: 'Departments',
+    description: 'Reads departments with code, parent, head and employee count. Changes nothing.',
+    module: 'organizational_management',
+    risk: 'read',
+    kind: 'mcp',
+    available: true,
+    exampleInput: { status: null, limit: 50 },
+  },
+  {
+    key: 'hrms.leave_requests',
+    label: 'Leave requests',
+    description: 'Reads leave requests with employee, leave type, dates, days charged and status. Changes nothing.',
+    module: 'hrit_management',
+    risk: 'read',
+    kind: 'mcp',
+    available: true,
+    exampleInput: { user_id: null, status: 'pending', from_date: null, limit: 50 },
+  },
+  {
+    key: 'hrms.attendance',
+    label: 'Attendance',
+    description: 'Reads daily punch-in and punch-out records with work mode and status. Changes nothing.',
+    module: 'hrit_management',
+    risk: 'read',
+    kind: 'mcp',
+    available: true,
+    exampleInput: { user_id: null, from_date: null, limit: 50 },
+  },
   {
     key: 'lms.course_builder',
     label: 'Courses — build status',
@@ -187,7 +252,9 @@ export function rbacModuleKey(module: AgentModuleKey): string {
 
 /** Tools a Create Agent form may offer for one module: the module's own plus shared. */
 export function toolsForModule(module: AgentModuleKey): AgentTool[] {
-  return AGENT_TOOLS.filter((tool) => tool.module === module || tool.module === SHARED_MODULE);
+  return AGENT_TOOLS.filter(
+    (tool) => tool.module === module || ROLLS_UP_TO[tool.module] === module || tool.module === SHARED_MODULE,
+  );
 }
 
 export function findTool(key: string): AgentTool | undefined {
