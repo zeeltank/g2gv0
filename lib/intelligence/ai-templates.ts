@@ -61,6 +61,8 @@ export type TemplateKind = 'prompt' | 'report'
 export interface TemplateDataSource {
   name: string
   module: string
+  /** The top-level module the source's screen sits under, or null when it is a top-level module's own. */
+  rolls_up_to?: string | null
   label: string
   description: string
   arguments: Array<{ key: string; type: string; description: string; required: boolean }>

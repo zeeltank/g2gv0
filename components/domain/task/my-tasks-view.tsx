@@ -11,12 +11,7 @@ import {
   ListChecks,
   Plus,
   Search,
-  Sparkles,
 } from 'lucide-react'
-import { useAuth } from '@/hooks/use-auth'
-import { ROLE_GROUPS } from '@/types/role'
-import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
-import { taskMyTasksAiStack } from '@/lib/ai-stack/task-my-tasks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
@@ -82,9 +77,7 @@ export function MyTasksView() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [view, setView] = useState<'list' | 'board' | 'ai-stack'>('list')
-  const { user } = useAuth()
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
+  const [view, setView] = useState<'list' | 'board'>('list')
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -262,19 +255,11 @@ export function MyTasksView() {
           <Button variant="ghost" size="icon" aria-label="Board view" onClick={() => setView('board')} className={view === 'board' ? 'bg-background text-primary shadow-sm' : ''}>
             <LayoutGrid className="size-4" />
           </Button>
-          {/* Administrator-only, matching /api/ai/* itself (profile:admin). */}
-          {isAdministrator && (
-            <Button variant="ghost" size="sm" aria-label="AI Stack" onClick={() => setView('ai-stack')} className={cn('gap-1.5 text-xs font-bold', view === 'ai-stack' ? 'bg-background text-primary shadow-sm' : '')}>
-              <Sparkles className="size-4" /> AI Stack
-            </Button>
-          )}
         </div>
       </div>
 
       <div className="min-h-0 flex-1">
-        {view === 'ai-stack' ? (
-          <AiStackTabs module={taskMyTasksAiStack} />
-        ) : loading ? (
+        {loading ? (
           <div className="flex h-64 items-center justify-center rounded-xl border"><Spinner /></div>
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center">
@@ -289,7 +274,7 @@ export function MyTasksView() {
         )}
       </div>
 
-      {view !== 'ai-stack' && !loading && !error && pagination.total > 0 && (
+      {!loading && !error && pagination.total > 0 && (
         <div className="flex items-center justify-between border-t pt-3 text-sm">
           <span className="text-muted-foreground">{pagination.total} task{pagination.total === 1 ? '' : 's'}</span>
           <div className="flex items-center gap-3">

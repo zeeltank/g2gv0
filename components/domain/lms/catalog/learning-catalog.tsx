@@ -59,9 +59,7 @@ import { LMS_COURSE_BUILDER_ACCESS_LINK } from '@/lib/gtg-navigation'
 import type { CatalogCourse, CatalogSortBy } from '@/services/lms'
 import { CourseDetailsSheet } from './course-details-sheet'
 import { CourseFormSheet, type CourseFormMode } from './course-form-sheet'
-import { isHrAdmin, ROLE_GROUPS } from '@/types/role'
-import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
-import { lmsLearningCatalogAiStack } from '@/lib/ai-stack/lms-learning-catalog'
+import { isHrAdmin } from '@/types/role'
 import { AiCourseSheet } from './ai-course-sheet'
 import { CourseCardGrid } from './course-card-grid'
 
@@ -168,7 +166,6 @@ export function LearningCatalog() {
    * every role can browse, and every role can enrol.
    */
   const canAuthor = isHrAdmin(user?.role)
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
 
   const [enrollingId, setEnrollingId] = useState<number | null>(null)
   const [enrolMessage, setEnrolMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -176,7 +173,7 @@ export function LearningCatalog() {
    * Browse is the default for everyone, including admins - the catalogue's job
    * is to be browsed. Manage is the table, and only authors can reach it.
    */
-  const [view, setView] = useState<'browse' | 'manage' | 'ai-stack'>('browse')
+  const [view, setView] = useState<'browse' | 'manage'>('browse')
   /*
    * Which courses this viewer is already in, so a card can say "In My
    * Learning" rather than offering to enrol them a second time. Read once;
@@ -518,7 +515,7 @@ export function LearningCatalog() {
               anything to do in the other view. */}
           {canAuthor && (
             <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5 text-xs font-medium">
-              {(['browse', 'manage', ...(isAdministrator ? ['ai-stack'] as const : [])] as const).map((value) => (
+              {(['browse', 'manage'] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -530,7 +527,7 @@ export function LearningCatalog() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {value === 'ai-stack' ? 'AI Stack' : value}
+                  {value}
                 </button>
               ))}
             </div>
@@ -773,9 +770,7 @@ export function LearningCatalog() {
         </div>
       )}
 
-      {view === 'ai-stack' ? (
-        <AiStackTabs module={lmsLearningCatalogAiStack} />
-      ) : view === 'browse' ? (
+      {view === 'browse' ? (
         <div className="flex-1">
           {loading ? (
             <div className="grid grid-cols-1 gap-4 @2xl/catalog:grid-cols-2 @5xl/catalog:grid-cols-3">

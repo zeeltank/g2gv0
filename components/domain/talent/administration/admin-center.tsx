@@ -18,12 +18,7 @@ import {
   ChevronDown,
   ArrowRight,
   Loader2,
-  Sparkles,
 } from 'lucide-react'
-import { useAuth } from '@/hooks/use-auth'
-import { ROLE_GROUPS } from '@/types/role'
-import { AiStackTabs } from '@/components/ai-stack/ai-stack-host'
-import { talentAdministrationAiStack } from '@/lib/ai-stack/talent-administration'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -54,8 +49,6 @@ import {
 
 export function AdminCenter() {
   const [activeTab, setActiveTab] = useState('workflows')
-  const { user } = useAuth()
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null)
   
@@ -337,8 +330,6 @@ export function AdminCenter() {
             { id: 'integrations', label: 'Integrations', icon: Plug },
             { id: 'configuration', label: 'Configuration', icon: Settings },
             { id: 'audit', label: 'Audit & Compliance', icon: ShieldCheck },
-            // Administrator-only, matching /api/ai/* itself (profile:admin).
-            ...(isAdministrator ? [{ id: 'ai-stack', label: 'AI Stack', icon: Sparkles }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -359,11 +350,7 @@ export function AdminCenter() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-        {activeTab === 'ai-stack' ? (
-          <div className="p-6">
-            <AiStackTabs module={talentAdministrationAiStack} />
-          </div>
-        ) : activeTab === 'workflows' ? (
+        {activeTab === 'workflows' ? (
           <div className="flex flex-col gap-6 max-w-[1400px]">
             <Card className="shadow-sm overflow-hidden border-border/60">
               <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
