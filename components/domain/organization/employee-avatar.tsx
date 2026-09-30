@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,6 +43,23 @@ export function EmployeeAvatar({
   className?: string
 }) {
   const [failed, setFailed] = useState(false)
+
+  /*
+   * RESET ON A NEW src.
+   *
+   * `failed` used to be set once and never cleared: no effect keyed on `src`,
+   * no `key` at any call site. So the first load error made this component show
+   * initials for the rest of its life, even when a good URL arrived a moment
+   * later - which is exactly what happened in the Employee Directory drawer,
+   * where the first render has a servable URL and the second briefly had a bare
+   * filename. One 404 and the photo was gone until the drawer was closed and
+   * reopened.
+   *
+   * A src that changes is a new question; the old answer should not survive it.
+   */
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
 
   const initials = (name ?? '')
     .split(/\s+/)

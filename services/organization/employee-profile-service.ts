@@ -44,15 +44,23 @@ export async function updateEmployeeProfile(
   return webClient.post(`/user/add_user/${id}`, payload, { params })
 }
 
-export async function uploadEmployeeDocument(
-  id: string | number,
-  formData: FormData,
-  context?: LaravelContext
-): Promise<{ status?: string | number; message?: string }> {
-  const ctx = context || getLaravelContext()
-  const params = withLaravelParams(ctx)
-  return webClient.post(`/user/user_document/${id}`, formData, { params })
-}
+/*
+ * `uploadEmployeeDocument` was here, posting to /user/user_document/{id}.
+ *
+ * REMOVED RATHER THAN LEFT UNUSED. That route writes the object PUBLIC into
+ * `public/hp_staff_document/` - the same folder the self-service upload writes
+ * PRIVATE - records no file_path, mime_type or file_size, and takes
+ * sub_institute_id from the request body rather than the token. Two writers
+ * disagreeing about visibility in one folder is why a download worked or failed
+ * depending on which screen had filed the document.
+ *
+ * Uploads now go through accountService.uploadEmployeeDocument ->
+ * POST /api/employees-management/{id}/documents, which is the same filer the
+ * employee's own screen uses. An orphaned helper that still wrote files world-
+ * readable is precisely what the next person would have reached for.
+ *
+ * The Laravel route itself stays for the Blade screens that still post to it.
+ */
 
 export async function fetchCompetencyProfile(
   id: string | number,

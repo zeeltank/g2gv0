@@ -11,6 +11,9 @@ export interface PlatformServicesAccessResult {
   modules: PlatformServicesAccess['modules']
   eventBus: boolean
   audit: boolean
+  platformAdministration: boolean
+  whatsComing: boolean
+  ai: PlatformServicesAccess['ai']
   /** At least one of the six module rows — what the unscoped backend calls (e.g. `/api/platform/registry`) also grant on. */
   anyModule: boolean
   loading: boolean
@@ -25,10 +28,26 @@ const EMPTY_MODULES: PlatformServicesAccess['modules'] = {
   task: false,
 }
 
+const EMPTY_AI: PlatformServicesAccess['ai'] = {
+  providers: false,
+  models: false,
+  prompts: false,
+  policies: false,
+  agents: false,
+  conversational: false,
+  knowledge_rag: false,
+  recommendations: false,
+  knowledge_graph: false,
+  evaluation: false,
+  usage_cost: false,
+  audit: false,
+}
+
 /**
- * What the signed-in user can actually reach in Platform Services, from the
- * same tblgroupwise_rights_g2g rows routes/platform.php's `platformright`
- * middleware enforces server-side — not a hardcoded role check. Mirrors
+ * What the signed-in user can actually reach in Platform Services AND AI &
+ * Intelligence, from the same tblgroupwise_rights_g2g rows
+ * routes/platform.php's and routes/ai.php's `platformright` middleware
+ * enforce server-side — not a hardcoded role check. Mirrors
  * useSidebarNavigation's own react-query pattern (same staleTime, same
  * context-derived query key) since it's fetching the same kind of
  * caller-scoped, server-filtered permission data.
@@ -53,6 +72,9 @@ export function usePlatformServicesAccess(): PlatformServicesAccessResult {
       modules,
       eventBus: data?.event_bus ?? false,
       audit: data?.audit ?? false,
+      platformAdministration: data?.platform_administration ?? false,
+      whatsComing: data?.whats_coming ?? false,
+      ai: data?.ai ?? EMPTY_AI,
       anyModule: Object.values(modules).some(Boolean),
       loading: ready && query.isLoading,
     }

@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Download, FileText, Loader2, Trash2, Upload } from 'lucide-react'
+import { Download, Eye, FileText, Loader2, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
-import { accountService } from '@/services/account'
+import { accountService, type AccountDocument } from '@/services/account'
+import { DocumentViewer } from '@/components/shared/business/document-viewer'
 import { ConfirmDialog, Field, SectionBlock, SectionEmpty, SectionSkeleton } from './section-primitives'
 
 /**
@@ -48,6 +49,29 @@ export function ProfileDocumentsBlock() {
   const [title, setTitle] = useState('')
   const [typeId, setTypeId] = useState('')
   const [uploading, setUploading] = useState(false)
+
+  const [viewing, setViewing] = useState<AccountDocument | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  /** The bytes, with the credential in a header rather than in the URL. */
+  const download = async (row: AccountDocument) => {
+    setDownloadingId(row.id)
+    try {
+      const blob = await accountService.fetchDocument(row.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = row.file_name || row.document_title || 'document'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'That document could not be downloaded.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -214,18 +238,42 @@ export function ProfileDocumentsBlock() {
                   </div>
 
                   {/*
-                    A plain link, not a fetch. The endpoint streams the file through
-                    this application, so the permission check applies to reading the
-                    BYTES and not only to listing them — the old scheme built a
-                    bucket URL in the browser, which anybody could guess.
+                    Opens in a panel rather than a tab. The file is private, so
+                    an <iframe> or a bucket link cannot read it — the bytes are
+                    fetched with the token in a header and shown as a blob.
                   */}
-                  <a
-                    href={accountService.documentDownloadUrl(resolveContext(), row.id)}
-                    className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-xs"
+                    onClick={() => setViewing(row)}
+                    aria-label={`View ${row.document_title ?? 'document'}`}
                   >
-                    <Download className="size-3.5" aria-hidden="true" />
-                    Download
-                  </a>
+                    <Eye className="mr-1 size-3.5" aria-hidden="true" />
+                    View
+                  </Button>
+
+                  {/*
+                    FETCHED, not linked. This was an <a href> to
+                    documentDownloadUrl(), which puts the Sanctum token in the
+                    query string — and a URL is not a private place: it lands in
+                    browser history, access logs and Referer headers, and a
+                    harvested token is a working credential for the whole API,
+                    not just this one document. The header carries it instead.
+                  */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-xs"
+                    disabled={downloadingId !== null}
+                    onClick={() => void download(row)}
+                    aria-label={`Download ${row.document_title ?? 'document'}`}
+                  >
+                    <Download className="mr-1 size-3.5" aria-hidden="true" />
+                    {downloadingId === row.id ? 'Preparing…' : 'Download'}
+                  </Button>
 
                   <Button
                     type="button"
@@ -243,6 +291,17 @@ export function ProfileDocumentsBlock() {
           )}
         </>
       )}
+
+      <DocumentViewer
+        open={viewing !== null}
+        onOpenChange={(next) => {
+          if (!next) setViewing(null)
+        }}
+        documentId={viewing?.id ?? null}
+        title={viewing?.document_title ?? ''}
+        mimeType={viewing?.mime_type}
+        fileName={viewing?.file_name}
+      />
 
       <ConfirmDialog
         open={pendingDelete !== null}
