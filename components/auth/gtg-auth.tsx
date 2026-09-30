@@ -281,13 +281,17 @@ function clearSessionCookie() {
 }
 
 /**
- * Fixes an already-stored `gtg-session` cookie left oversized by code from
- * before it became presence-only (see "WHY THE COOKIE'S VALUE IS `1`"
- * above). A remembered sign-in can carry that old cookie for up to 30 days
- * without ever calling login() again, so this can't wait for the next
- * sign-in — it runs on every mount and is a no-op once already `1`.
+ * Ensures the `gtg-session` presence cookie exists and is the correct size.
+ * 
+ * Fixes two issues:
+ * 1. An already-stored `gtg-session` cookie left oversized by code from
+ *    before it became presence-only.
+ * 2. A missing `gtg-session` cookie when the user is still fully authenticated
+ *    in localStorage. Without this, the client hard-navigates to /dashboard, 
+ *    proxy.ts rejects it for lacking the cookie, returning to /login and causing 
+ *    an infinite redirect loop.
  */
-function repairOversizedSessionCookie() {
+function ensureSessionCookiePresence() {
   if (typeof document === 'undefined') return
 
   // Guarded like everything else this mount effect calls (see
@@ -295,11 +299,11 @@ function repairOversizedSessionCookie() {
   // to resolve, so a throw here must not be allowed to propagate either.
   try {
     const match = document.cookie.match(/(?:^|;\s*)gtg-session=([^;]*)/)
-    if (!match || match[1] === '1') return
+    
+    // If the cookie exists and is exactly '1', nothing to fix
+    if (match && match[1] === '1') return
 
-    // Mirrors getStoredSession()'s own self-heal test below: rewrite to the
-    // minimal form if there's a real session behind it, otherwise this is
-    // stale garbage with nothing worth preserving — clear it outright.
+    // If it's missing or oversized, check the real session and self-heal the cookie
     if (readLaravelSession()) {
       setSessionCookie()
     } else {
@@ -328,10 +332,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // avoids a hydration mismatch and the blank-page-after-refresh problem.
   //
   // The repair runs first, and outside the microtask — a remembered sign-in
-  // may not hit login() again for weeks, so an oversized cookie left by
-  // pre-fix code has to be caught on ordinary mounts, not just at sign-in.
+  // may not hit login() again for weeks, so an oversized or missing cookie
+  // has to be caught on ordinary mounts, not just at sign-in.
   useEffect(() => {
-    repairOversizedSessionCookie()
+    ensureSessionCookiePresence()
     queueMicrotask(() => {
       setSession(getStoredSession())
     })
