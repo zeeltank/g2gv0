@@ -82,7 +82,7 @@ export const MODULE_LANDING_HREF: Record<DecentralizedModuleKey, string> = {
   hrms: '/module/hrit-solutions',
   talent: '/module/talent-management',
   lms: '/module/lms',
-  competency: '/module/capability-intelligence',
+  competency: '/module/capability-intelligence/dashboard',
   task: '/module/task-management',
 }
 
