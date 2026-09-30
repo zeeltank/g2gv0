@@ -21,8 +21,8 @@ import { PLATFORM_MENU_SECTION } from '@shared/platform-services-core'
 import { platformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
 import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
-import { ROLE_GROUPS } from '@/types/role'
 import type { PlatformService } from '@shared/platform-services-core'
+import type { AiCapability } from '@shared/ai-intelligence-core'
 
 /**
  * THE AVATAR MENU — one implementation, where there were two.
@@ -203,25 +203,29 @@ export function GtgUserMenu() {
    * nobody could open one until rights rows had been written for every profile on the
    * estate.
    *
-   * AI & INTELLIGENCE STAYS ADMINISTRATOR-ONLY, AND THE SERVER AGREES
+   * NEITHER SECTION IS GATED BY A HARDCODED ROLE CHECK ANY MORE
    *
-   * `routes/ai.php` is behind `profile:admin` — unchanged, out of scope for the
-   * Platform Services rights work below — so a non-administrator who reached one of
-   * these would meet a 403 on every panel. Hiding the entry is the courtesy; the gate
-   * is the middleware. Doing only the first would be the mistake `RequireProfile`'s
-   * own note calls out — hiding a button is not a control.
+   * Both used to be — Platform Services shared this file's old
+   * `isAdministrator` boolean, and AI & Intelligence had its own
+   * `profile:admin` gate on `routes/ai.php`'s whole route group. Both were
+   * the same defect: an admin screen built so admins could decide who gets
+   * to use these consoles was itself hardcoded to admins-only. Every entry
+   * in both sections is now filtered individually by
+   * `usePlatformServicesAccess()`, the same tblgroupwise_rights_g2g rows
+   * the API actually enforces via `platformright` (routes/platform.php and
+   * routes/ai.php alike) — what appears here is exactly what will not 403.
    *
-   * PLATFORM SERVICES IS NO LONGER GATED BY THIS CHECK
+   * CENTRALIZATION: A SECTION WITH NOTHING VISIBLE DOES NOT RENDER AT ALL
    *
-   * It used to share `isAdministrator` too, which meant an admin screen built so
-   * admins could decide who gets to use these consoles was itself hardcoded to
-   * admins-only — the same defect `routes/platform.php` had server-side. Each entry
-   * below is now filtered by `usePlatformServicesAccess()`, the same
-   * tblgroupwise_rights_g2g rows the API actually enforces via `platformright`, so
-   * what appears here is exactly what will not 403.
+   * An employee with zero grants in a section should not see that
+   * section's heading over an empty list — they should not see the
+   * dropdown entry for it at all. Both sections are only pushed into
+   * `sections` below when at least one of their columns still has items
+   * after filtering. An administrator (seeded view rights on every row by
+   * the migrations that created them) sees both sections in full, same as
+   * before — nothing here treats administrators specially; they simply
+   * hold every grant.
    */
-  const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
-
   const resolveService = usePlatformDestination()
   const access = usePlatformServicesAccess()
 
@@ -245,11 +249,29 @@ export function GtgUserMenu() {
         case 'audit':
           return access.audit
         case 'platform-administration':
+          return access.platformAdministration
         case 'whats-coming':
-          // Pure registry reads, no privileged API calls — always visible.
-          return true
+          return access.whatsComing
         default:
           return false
+      }
+    }
+
+    const isCapabilityVisible = (capability: AiCapability): boolean => {
+      switch (capability.id) {
+        case 'ai.providers': return access.ai.providers
+        case 'ai.models': return access.ai.models
+        case 'ai.prompts': return access.ai.prompts
+        case 'ai.policies': return access.ai.policies
+        case 'ai.agents': return access.ai.agents
+        case 'ai.conversational': return access.ai.conversational
+        case 'ai.knowledge-rag': return access.ai.knowledge_rag
+        case 'ai.recommendations': return access.ai.recommendations
+        case 'ai.knowledge-graph': return access.ai.knowledge_graph
+        case 'ai.evaluation': return access.ai.evaluation
+        case 'ai.usage-cost': return access.ai.usage_cost
+        case 'ai.audit': return access.ai.audit
+        default: return false
       }
     }
 
@@ -281,45 +303,47 @@ export function GtgUserMenu() {
       // label over nothing.
       .filter((column) => column.items.length > 0)
 
-    // platform-administration and whats-coming are always visible (see the
-    // switch above), so platformColumns always has at least one entry.
-    const sections: MenuSection[] = [
+    const aiColumns = [
       {
+        items: AI_CAPABILITIES.filter(isCapabilityVisible).map((capability) => ({
+          id: capability.id,
+          label: capability.name,
+          icon: undefined,
+          href: `/ai/${capability.slug}`,
+          badge:
+            capability.status === 'live'
+              ? undefined
+              : capability.status === 'in-progress'
+                ? 'WIP'
+                : 'Soon',
+        })),
+      },
+    ].filter((column) => column.items.length > 0)
+
+    const sections: MenuSection[] = []
+
+    if (platformColumns.length > 0) {
+      sections.push({
         id: PLATFORM_MENU_SECTION.id,
         label: PLATFORM_MENU_SECTION.label,
         href: PLATFORM_MENU_SECTION.href,
         span: PLATFORM_MENU_SECTION.span,
         columns: platformColumns,
-      },
-    ]
+      })
+    }
 
-    if (isAdministrator) {
+    if (aiColumns.length > 0) {
       sections.push({
         id: 'ai-intelligence',
         label: 'AI & Intelligence',
         href: '/ai',
         span: 1,
-        columns: [
-          {
-            items: AI_CAPABILITIES.map((capability) => ({
-              id: capability.id,
-              label: capability.name,
-              icon: undefined,
-              href: `/ai/${capability.slug}`,
-              badge:
-                capability.status === 'live'
-                  ? undefined
-                  : capability.status === 'in-progress'
-                    ? 'WIP'
-                    : 'Soon',
-            })),
-          },
-        ],
+        columns: aiColumns,
       })
     }
 
     return sections
-  }, [isAdministrator, resolveService, access])
+  }, [resolveService, access])
 
   const accountItems = [
     { id: 'profile', label: 'My Profile', icon: User, href: '/settings?s=profile' },
