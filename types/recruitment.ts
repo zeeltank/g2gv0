@@ -288,7 +288,14 @@ export interface FeedbackPayload {
   areas_of_concern?: string
   additional_comments?: string
   notes?: string
-  status?: 'draft' | 'submitted' | 'approved' | 'rejected'
+  /**
+   * The column is enum('draft','submitted','approved','rejected','Hired').
+   * 'Hired' was missing here and holds the majority of rows - 69 of 124 on
+   * the app database, 70 of 124 on live. Capitalised because that is how it
+   * is stored; the inconsistent casing is the column's, not something a type
+   * can fix.
+   */
+  status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'Hired'
 }
 
 export interface InterviewerApi {

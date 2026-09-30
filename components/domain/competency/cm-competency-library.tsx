@@ -136,10 +136,27 @@ function statusDisplay(value: string | null | undefined): string {
  */
 const LIFECYCLE_VALUES = ['active', 'draft', 'published'] as const
 
+/**
+ * The wire value for "never submitted for review".
+ *
+ * A named sentinel, not an empty string: this filter's "off" value is already
+ * 'all', and a second empty-ish value is indistinguishable from "no filter"
+ * once it reaches the server - which is exactly how this state stayed
+ * unreachable. CompetencyLibraryCrudController has the matching branch.
+ */
+const NOT_SUBMITTED_VALUE = 'not_submitted'
+
 const STATUS_FILTER_OPTIONS = [
   { label: 'All Statuses', value: 'all' },
   ...LIFECYCLE_VALUES.map((s) => ({ label: s.charAt(0).toUpperCase() + s.slice(1), value: s })),
   ...STATUS_VALUES.map((s) => ({ label: statusDisplay(s), value: s })),
+  /*
+   * The 9th state the table has always rendered and the filter never offered.
+   * statusLabel() returns 'Not submitted' for a null approve_status, and null is
+   * the default on create, CSV import, clone and restore - all 231 competencies.
+   * The most common status was the one that could not be filtered to.
+   */
+  { label: NOT_SUBMITTED, value: NOT_SUBMITTED_VALUE },
 ]
 
 

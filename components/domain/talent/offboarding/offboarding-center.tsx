@@ -166,7 +166,21 @@ export function OffboardingCenter() {
 
   const bumpRefresh = () => setRefreshTrigger(prev => prev + 1)
 
-  const activeFiltersCount = (departmentFilter ? 1 : 0) + (reasonFilter ? 1 : 0) + (exitTypeFilter ? 1 : 0)
+  /*
+   * Counts every filter that is actually narrowing the list.
+   *
+   * It used to omit `searchQuery` and `statusFilter`, so the Filters badge
+   * disagreed with the Clear Filters button below - which does clear all five.
+   * A badge reading "2" over a list narrowed five ways is worse than no badge.
+   *
+   * `statusFilter`'s "off" value is the string 'All', not '' like the others.
+   */
+  const activeFiltersCount =
+    (departmentFilter ? 1 : 0) +
+    (reasonFilter ? 1 : 0) +
+    (exitTypeFilter ? 1 : 0) +
+    (searchQuery ? 1 : 0) +
+    (statusFilter && statusFilter !== 'All' ? 1 : 0)
 
   const showBanner = (type: 'success' | 'error', message: string) => {
     setBanner({ type, message })
@@ -699,13 +713,33 @@ export function OffboardingCenter() {
             </>
           )}
           {overview?.kpis.map((kpi) => {
-            // Determine filter matching
-            let isSelected = false
-            if (kpi.title === 'Notice Period' && statusFilter === 'Notice Period') isSelected = true
-            if (kpi.title === 'Clearance Pending' && statusFilter === 'Clearance') isSelected = true
-            if (kpi.title === 'Exit Interviews' && statusFilter === 'Exit Interview') isSelected = true
-            if (kpi.title === 'Closed' && statusFilter === 'Closed') isSelected = true
-            if (kpi.title === 'Resignations' && exitTypeFilter === 'voluntary') isSelected = true
+            /*
+             * KEYED ON kpi.id, NOT kpi.title.
+             *
+             * This matched on the DISPLAY TEXT the server happens to send -
+             * 'Notice Period', 'Clearance Pending' - so renaming a KPI label
+             * server-side would have silently stopped these cards filtering,
+             * with no error anywhere. A display string is not a key, which is
+             * the same lesson cm-assessment-workspace records having already
+             * learned.
+             *
+             * The backend has been sending stable ids all along
+             * (OffboardingController:71-114: total-exits, resignations,
+             * notice-period, clearance-pending, exit-interviews, closed) and
+             * this component was already using kpi.id as its React key two
+             * lines below.
+             */
+            const statusForKpi: Record<string, string> = {
+              'notice-period': 'Notice Period',
+              'clearance-pending': 'Clearance',
+              'exit-interviews': 'Exit Interview',
+              closed: 'Closed',
+            }
+
+            const mappedStatus = statusForKpi[kpi.id]
+            const isSelected = mappedStatus
+              ? statusFilter === mappedStatus
+              : kpi.id === 'resignations' && exitTypeFilter === 'voluntary'
 
             return (
               <Card 
@@ -715,12 +749,14 @@ export function OffboardingCenter() {
                   isSelected && "border-2 border-primary bg-primary/5"
                 )}
                 onClick={() => {
-                  if (kpi.title === 'Notice Period') setStatusFilter(statusFilter === 'Notice Period' ? 'All' : 'Notice Period')
-                  else if (kpi.title === 'Clearance Pending') setStatusFilter(statusFilter === 'Clearance' ? 'All' : 'Clearance')
-                  else if (kpi.title === 'Exit Interviews') setStatusFilter(statusFilter === 'Exit Interview' ? 'All' : 'Exit Interview')
-                  else if (kpi.title === 'Closed') setStatusFilter(statusFilter === 'Closed' ? 'All' : 'Closed')
-                  else if (kpi.title === 'Resignations') setExitTypeFilter(exitTypeFilter === 'voluntary' ? '' : 'voluntary')
-                  else setStatusFilter('All')
+                  if (mappedStatus) {
+                    setStatusFilter(statusFilter === mappedStatus ? 'All' : mappedStatus)
+                  } else if (kpi.id === 'resignations') {
+                    setExitTypeFilter(exitTypeFilter === 'voluntary' ? '' : 'voluntary')
+                  } else {
+                    // 'total-exits' and anything the server adds later: clear.
+                    setStatusFilter('All')
+                  }
                 }}
               >
                 <CardContent className="p-4 flex flex-col h-full gap-2 relative">
