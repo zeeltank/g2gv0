@@ -1,0 +1,109 @@
+/*
+ * KNOWN NEGATIVES — correct code that a rule once flagged anyway.
+ *
+ * Named .tsx.txt so the build, eslint and the ordinary scan never see it.
+ *
+ * ── WHY A NEGATIVE FIXTURE EXISTS AT ALL ────────────────────────────────────
+ *
+ * known-positives.tsx.txt proves the rules still FIRE. It cannot catch the
+ * opposite failure, and the opposite failure is worse: a rule that reports
+ * correct code trains everyone to ignore the report, and then the real findings
+ * go unread too. `unreachable-view` did exactly that on
+ * cm-libraries-taxonomy.tsx:54 — see the case below.
+ *
+ * Every block here must produce ZERO findings. --self-test asserts it.
+ */
+
+import React, { useState } from 'react'
+import { cn } from '@/lib/utils'
+
+/*
+ * CASE 1 — a two-state toggle whose render tests the OTHER value.
+ *
+ * `view === 'library'` appears only inside cn(), because the render is written
+ * as `view === 'ai-stack' ? <A/> : <B/>`. `unreachable-view` concluded that
+ * setting 'library' changed styling only — but the else branch is what renders
+ * the library, so 'library' is reachable by negation. Reachability by negation
+ * is still reachability.
+ */
+export function BinaryToggle() {
+  const [view, setView] = useState<'library' | 'ai-stack'>('library')
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setView('library')}
+        className={cn('px-3 py-1.5', view === 'library' ? 'bg-card' : 'text-muted-foreground')}
+      >
+        Library
+      </button>
+      <button
+        type="button"
+        onClick={() => setView('ai-stack')}
+        className={cn('px-3 py-1.5', view === 'ai-stack' ? 'bg-card' : 'text-muted-foreground')}
+      >
+        AI Stack
+      </button>
+
+      {view === 'ai-stack' ? <span>AI Stack panel</span> : <span>Library panel</span>}
+    </div>
+  )
+}
+
+/*
+ * CASE 2 — a field inside a submitting form.
+ *
+ * Read on submit, not per keystroke. `defaultValue` says so explicitly, so
+ * `unwired-input` must stay silent.
+ */
+export function SubmittingForm() {
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+      }}
+    >
+      <input defaultValue="Ada" name="first_name" />
+      <button type="submit">Save</button>
+    </form>
+  )
+}
+
+/*
+ * CASE 3 — a genuinely fixed vocabulary as a literal option list.
+ *
+ * `literal-in-map` is about options that DESCRIBE DATA. Employment type is a
+ * closed vocabulary; deriving it from the rows on screen would be worse,
+ * because an empty table would empty the filter.
+ */
+const EMPLOYMENT_TYPES = [
+  { label: 'Full time', value: 'full_time' },
+  { label: 'Part time', value: 'part_time' },
+]
+
+export function FixedVocabulary({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select value={value} onChange={(event) => onChange(event.target.value)}>
+      {EMPLOYMENT_TYPES.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/*
+ * CASE 4 — an honestly disabled control.
+ *
+ * One option, `disabled`, and an aria-label saying why. This is the pattern to
+ * copy when a filter has no backing master, and it must not be reported.
+ */
+export function HonestlyDisabled() {
+  return (
+    <select disabled aria-label="Business unit is not configured for this organisation" value="all">
+      <option value="all">Business Unit: All</option>
+    </select>
+  )
+}

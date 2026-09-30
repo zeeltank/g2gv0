@@ -21,6 +21,20 @@ const CmEmployeeProfiles = createLazyComponent(() => import('@/domain/competency
 const CmDevelopmentCareer = createLazyComponent(() => import('@/domain/competency/cm-development-career').then((m) => ({ default: m.CmDevelopmentCareer })))
 const CmCertifications = createLazyComponent(() => import('@/domain/competency/cm-certifications').then((m) => ({ default: m.CmCertifications })))
 
+// The employee's own half of certifications. A separate component from
+// CmCertifications on purpose: that one is the HR surface and can create, edit,
+// verify, revoke and delete anyone's records, so an employee who was granted it
+// to see their own certificate also got edit on a colleague's. This one calls
+// an endpoint that takes no subject parameter.
+const MyCertifications = createLazyComponent(() => import('@/domain/competency/my-certifications').then((m) => ({ default: m.MyCertifications })))
+
+// The employee's own capability - their role's competencies, their own ratings,
+// their progress and their assessment. A complete route container that was
+// exported from the competency barrel and mounted in no content map, so nothing
+// could render it. CmMyCapability and CmSelfRatingPanel are its CHILDREN, not
+// separate screens.
+const CmMyCapabilityScreen = createLazyComponent(() => import('@/domain/competency/cm-my-capability-screen').then((m) => ({ default: m.CmMyCapabilityScreen })))
+
 // The organisation's record of people actually improving - the only outcome
 // screen in a module that is otherwise entirely forward-looking.
 const CapabilityProgressRecord = createLazyComponent(() => import('@/domain/talent/development/capability-progress-record').then((m) => ({ default: m.CapabilityProgressRecord })))
@@ -39,6 +53,15 @@ export const M3_CONTENT: ContentRoute[] = [
   { accessLink: '/module/talent-management/employee-profiles', submenuId: '156', component: CmEmployeeProfiles }, // Employee Profiles
   { accessLink: '/module/talent-management/development-and-career-paths', submenuId: '157', component: CmDevelopmentCareer }, // Development & Career Paths
   { accessLink: '/module/talent-management/certifications', submenuId: '158', component: CmCertifications }, // Certifications
+  // submenuId 401 is PINNED in the migration, not returned by an auto-increment:
+  // the two databases were at different max ids (app 367, live 337), so an
+  // auto-increment would have given this screen a different id per environment
+  // and this fallback would point at different screens.
+  { accessLink: '/module/talent-management/my-certifications', submenuId: '401', component: MyCertifications }, // My Certifications
+  // 404, not 402: 402 and 403 were taken by Event Bus and Audit between writing
+  // the migration and running it, and a pinned id that differs per environment
+  // makes this fallback point at different screens.
+  { accessLink: '/module/talent-management/my-capability', submenuId: '404', component: CmMyCapabilityScreen }, // My Capability
   // submenuId 303 is what the INSERT returned on both databases - verified, not
   // computed. content-map-m2.ts records why MAX(id)+1 is the trap here: a
   // mismatch is silent, rendering the sidebar row straight onto "under

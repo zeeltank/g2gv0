@@ -74,6 +74,14 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   'cm-employee-profiles': EVERYONE,
   'cm-development-career': EVERYONE,
   'cm-certifications': EVERYONE,
+  // Read-only, own data, over an endpoint with no subject parameter - the one
+  // screen in this module where EVERYONE is structurally safe rather than
+  // merely permitted.
+  'my-certifications': EVERYONE,
+  // The employee's own capability. Same structural safety: the gap endpoint is
+  // guarded by competencySubject(), and my-capability/my-rating take no subject
+  // parameter at all.
+  'my-capability': EVERYONE,
   'cm-audit': REPORTING,
 
   // M7 — Agentic AI
