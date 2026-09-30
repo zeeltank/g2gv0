@@ -20,7 +20,9 @@ import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
 import { PLATFORM_MENU_SECTION } from '@shared/platform-services-core'
 import { platformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
+import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
 import { ROLE_GROUPS } from '@/types/role'
+import type { PlatformService } from '@shared/platform-services-core'
 
 /**
  * THE AVATAR MENU — one implementation, where there were two.
@@ -201,34 +203,67 @@ export function GtgUserMenu() {
    * nobody could open one until rights rows had been written for every profile on the
    * estate.
    *
-   * ADMINISTRATORS ONLY, AND THE SERVER AGREES
+   * AI & INTELLIGENCE STAYS ADMINISTRATOR-ONLY, AND THE SERVER AGREES
    *
-   * `routes/ai.php` is behind `profile:admin`, and the platform endpoints are too, so a
-   * non-administrator who reached one of these would meet a 403 on every panel. Hiding
-   * the entry is the courtesy; the gate is the middleware. Doing only the first would be
-   * the mistake `RequireProfile`'s own note calls out — hiding a button is not a control.
+   * `routes/ai.php` is behind `profile:admin` — unchanged, out of scope for the
+   * Platform Services rights work below — so a non-administrator who reached one of
+   * these would meet a 403 on every panel. Hiding the entry is the courtesy; the gate
+   * is the middleware. Doing only the first would be the mistake `RequireProfile`'s
+   * own note calls out — hiding a button is not a control.
+   *
+   * PLATFORM SERVICES IS NO LONGER GATED BY THIS CHECK
+   *
+   * It used to share `isAdministrator` too, which meant an admin screen built so
+   * admins could decide who gets to use these consoles was itself hardcoded to
+   * admins-only — the same defect `routes/platform.php` had server-side. Each entry
+   * below is now filtered by `usePlatformServicesAccess()`, the same
+   * tblgroupwise_rights_g2g rows the API actually enforces via `platformright`, so
+   * what appears here is exactly what will not 403.
    */
   const isAdministrator = !!user && ROLE_GROUPS.admin.includes(user.role)
 
   const resolveService = usePlatformDestination()
+  const access = usePlatformServicesAccess()
 
   const sections = useMemo<MenuSection[]>(() => {
-    if (!isAdministrator) return []
+    const isServiceVisible = (service: PlatformService): boolean => {
+      switch (service.slug) {
+        case 'rbac':
+        case 'mobile-app-rights':
+        case 'onboarding':
+          // Ride real, never-hidden menu rows (Role & Permissions / Talent
+          // Onboarding) — already correctly rights-gated, no change needed.
+          return resolveService(service).isRealScreen
+        case 'workflow':
+        case 'scheduler':
+        case 'integration':
+        case 'add-process':
+        case 'fields-configuration':
+          return access.anyModule
+        case 'event-bus':
+          return access.eventBus
+        case 'audit':
+          return access.audit
+        case 'platform-administration':
+        case 'whats-coming':
+          // Pure registry reads, no privileged API calls — always visible.
+          return true
+        default:
+          return false
+      }
+    }
 
-    return [
-      {
-        id: PLATFORM_MENU_SECTION.id,
-        label: PLATFORM_MENU_SECTION.label,
-        href: PLATFORM_MENU_SECTION.href,
-        span: PLATFORM_MENU_SECTION.span,
-        columns: PLATFORM_MENU_SECTION.columns.map((column) => ({
-          label: column.label,
-          items: column.items.map((service) => ({
+    const platformColumns = PLATFORM_MENU_SECTION.columns
+      .map((column) => ({
+        label: column.label,
+        items: column.items
+          .filter(isServiceVisible)
+          .map((service) => ({
             id: service.id,
             label: service.name,
             icon: platformServiceIcon(service.slug),
             /*
-             * Resolved here so an administrator reaches the real screen in one click.
+             * Resolved here so the caller reaches the real screen in one click.
              * A service whose screen lives in the module tree resolves against THIS
              * user's own menu, and one they have no rights to falls back to the
              * service's page — which explains it — rather than to a 404.
@@ -241,9 +276,25 @@ export function GtgUserMenu() {
                   ? 'WIP'
                   : 'Soon',
           })),
-        })),
-      },
+      }))
+      // A column every one of whose items is filtered out would render a bare
+      // label over nothing.
+      .filter((column) => column.items.length > 0)
+
+    // platform-administration and whats-coming are always visible (see the
+    // switch above), so platformColumns always has at least one entry.
+    const sections: MenuSection[] = [
       {
+        id: PLATFORM_MENU_SECTION.id,
+        label: PLATFORM_MENU_SECTION.label,
+        href: PLATFORM_MENU_SECTION.href,
+        span: PLATFORM_MENU_SECTION.span,
+        columns: platformColumns,
+      },
+    ]
+
+    if (isAdministrator) {
+      sections.push({
         id: 'ai-intelligence',
         label: 'AI & Intelligence',
         href: '/ai',
@@ -264,9 +315,11 @@ export function GtgUserMenu() {
             })),
           },
         ],
-      },
-    ]
-  }, [isAdministrator, resolveService])
+      })
+    }
+
+    return sections
+  }, [isAdministrator, resolveService, access])
 
   const accountItems = [
     { id: 'profile', label: 'My Profile', icon: User, href: '/settings?s=profile' },
