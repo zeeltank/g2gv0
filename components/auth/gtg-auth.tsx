@@ -123,26 +123,40 @@ function getInitialSession(): Session {
 function getStoredSession(): Session {
   const signedOut: Session = { user: null, isAuthenticated: false, isLoading: false }
 
-  // Both stores: an un-remembered sign-in deliberately writes to the
-  // tab-scoped one (see storeSession below). localStorage first, since that's
-  // where a remembered session lives.
-  const stored =
-    localStorage.getItem(SESSION_COOKIE) ?? sessionStorage.getItem(SESSION_COOKIE)
-  if (!stored) {
-    return signedOut
-  }
-
-  // A restored user without its Laravel token cannot talk to the ERP, so treat
-  // that half-state as signed out rather than rendering a shell that 401s. The
-  // routing cookie has to go too, or middleware.ts would bounce /login -> /dashboard.
-  if (!readLaravelSession()) {
-    localStorage.removeItem(SESSION_COOKIE)
-    sessionStorage.removeItem(SESSION_COOKIE)
-    clearSessionCookie()
-    return signedOut
-  }
-
+  /*
+   * The whole body is guarded, not just the JSON.parse below — this is what
+   * resolves `isLoading` from true to false in AuthProvider's mount effect,
+   * and every protected route renders `null` while it's true (see
+   * protected-layout.tsx). A storage read/write throwing here — a browser
+   * restricting or evicting site storage for an origin that's gone unused
+   * for a while is a real, documented case, not a hypothetical one — used to
+   * leave `isLoading` stuck at true forever, with nothing to catch it: this
+   * runs above app/error.tsx's boundary, which only wraps the root layout's
+   * children, not AuthProvider itself. Signed-out is the same safe fallback
+   * `readLaravelSession()` already uses when it can't verify a session — not
+   * "assume authenticated," which would be the wrong direction to fail in.
+   */
   try {
+    // Both stores: an un-remembered sign-in deliberately writes to the
+    // tab-scoped one (see storeSession below). localStorage first, since
+    // that's where a remembered session lives.
+    const stored =
+      localStorage.getItem(SESSION_COOKIE) ?? sessionStorage.getItem(SESSION_COOKIE)
+    if (!stored) {
+      return signedOut
+    }
+
+    // A restored user without its Laravel token cannot talk to the ERP, so
+    // treat that half-state as signed out rather than rendering a shell that
+    // 401s. The routing cookie has to go too, or proxy.ts would bounce
+    // /login -> /dashboard.
+    if (!readLaravelSession()) {
+      localStorage.removeItem(SESSION_COOKIE)
+      sessionStorage.removeItem(SESSION_COOKIE)
+      clearSessionCookie()
+      return signedOut
+    }
+
     return normalizeSession(JSON.parse(stored)) ?? signedOut
   } catch {
     return signedOut
@@ -266,6 +280,36 @@ function clearSessionCookie() {
   document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax`
 }
 
+/**
+ * Fixes an already-stored `gtg-session` cookie left oversized by code from
+ * before it became presence-only (see "WHY THE COOKIE'S VALUE IS `1`"
+ * above). A remembered sign-in can carry that old cookie for up to 30 days
+ * without ever calling login() again, so this can't wait for the next
+ * sign-in — it runs on every mount and is a no-op once already `1`.
+ */
+function repairOversizedSessionCookie() {
+  if (typeof document === 'undefined') return
+
+  // Guarded like everything else this mount effect calls (see
+  // getStoredSession() above) — this runs before isLoading has any chance
+  // to resolve, so a throw here must not be allowed to propagate either.
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)gtg-session=([^;]*)/)
+    if (!match || match[1] === '1') return
+
+    // Mirrors getStoredSession()'s own self-heal test below: rewrite to the
+    // minimal form if there's a real session behind it, otherwise this is
+    // stale garbage with nothing worth preserving — clear it outright.
+    if (readLaravelSession()) {
+      setSessionCookie()
+    } else {
+      clearSessionCookie()
+    }
+  } catch {
+    // Nothing to repair if we can't even read the cookie safely.
+  }
+}
+
 /** The session mirror, in the store matching the "keep me signed in" choice. */
 function storeSession(session: Session, remember?: boolean) {
   const keep = remember ?? readRememberChoice()
@@ -282,7 +326,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Restore the persisted session AFTER mount. This keeps the initial render
   // identical on the server and the client (both start "loading"), which
   // avoids a hydration mismatch and the blank-page-after-refresh problem.
+  //
+  // The repair runs first, and outside the microtask — a remembered sign-in
+  // may not hit login() again for weeks, so an oversized cookie left by
+  // pre-fix code has to be caught on ordinary mounts, not just at sign-in.
   useEffect(() => {
+    repairOversizedSessionCookie()
     queueMicrotask(() => {
       setSession(getStoredSession())
     })

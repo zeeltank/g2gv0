@@ -51,9 +51,26 @@ export interface LaravelSessionData {
 export function readLaravelSession(): LaravelSessionData | null {
   if (typeof window === 'undefined') return null
 
-  const raw =
-    window.localStorage.getItem(LARAVEL_SESSION_KEY) ??
-    window.sessionStorage.getItem(LARAVEL_SESSION_KEY)
+  /*
+   * A browser with site data blocked or evicted is not a reason to render
+   * nothing — the same principle theme-provider.tsx's readStoredHint()
+   * already applies. This one used to only wrap the JSON.parse below, not
+   * the storage read itself: `AuthProvider`'s mount effect calls this
+   * (via getStoredSession()) to resolve `isLoading` from true to false, and
+   * every protected route renders `null` while it's true. An unguarded
+   * throw here — e.g. a browser restricting storage for an origin that
+   * hasn't been visited in a while, which is exactly the "worked
+   * yesterday, blank today" pattern this was traced from — left every
+   * page permanently blank with nothing to catch it: this runs above
+   * app/error.tsx's boundary, which only wraps the root layout's children,
+   * not AuthProvider itself.
+   */
+  let raw: string | null
+  try {
+    raw = window.localStorage.getItem(LARAVEL_SESSION_KEY) ?? window.sessionStorage.getItem(LARAVEL_SESSION_KEY)
+  } catch {
+    return null
+  }
 
   if (!raw) return null
 
