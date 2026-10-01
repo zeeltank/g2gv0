@@ -176,10 +176,10 @@ export function ProductProfileDialog({
                 <Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
               </Field>
               <div className="grid gap-4 @lg:grid-cols-2">
-                <Field label="Problems it solves *" hint="Provide this or the main features.">
+                <Field label={`Problems it solves ${!form.problems_solved.trim() && !form.features.trim() ? '*' : ''}`} hint="Provide this or the main features.">
                   <Textarea rows={3} value={form.problems_solved} onChange={(e) => set('problems_solved', e.target.value)} />
                 </Field>
-                <Field label="Main features and capabilities">
+                <Field label={`Main features and capabilities ${!form.problems_solved.trim() && !form.features.trim() ? '*' : ''}`}>
                   <Textarea rows={3} value={form.features} onChange={(e) => set('features', e.target.value)} />
                 </Field>
               </div>
@@ -188,7 +188,7 @@ export function ProductProfileDialog({
             <fieldset className="space-y-4 border-t border-border/60 pt-6">
               <legend className="mb-3 text-sm font-semibold text-foreground">Target customers</legend>
               <div className="grid gap-4 @lg:grid-cols-2">
-                <Field label="Target industries" hint="Comma separated. Needed if no keywords.">
+                <Field label={`Target industries ${!form.keywords.trim() && !form.target_industries.trim() ? '*' : ''}`} hint="Comma separated. Needed if no keywords.">
                   <Input value={form.target_industries} onChange={(e) => set('target_industries', e.target.value)} />
                 </Field>
                 <Field label="Target company types" hint="e.g. manufacturers, SaaS">
@@ -209,7 +209,7 @@ export function ProductProfileDialog({
             <fieldset className="space-y-4 border-t border-border/60 pt-6">
               <legend className="mb-3 text-sm font-semibold text-foreground">Research focus</legend>
               <div className="grid gap-4 @lg:grid-cols-2">
-                <Field label="Search keywords / topics" hint="Comma separated. Needed if no industries.">
+                <Field label={`Search keywords / topics ${!form.keywords.trim() && !form.target_industries.trim() ? '*' : ''}`} hint="Comma separated. Needed if no industries.">
                   <Input value={form.keywords} onChange={(e) => set('keywords', e.target.value)} />
                 </Field>
                 <Field label="Excluded industries / company types">
