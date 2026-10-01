@@ -345,7 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     second?: SecondFactor,
-    remember = false,
+    remember = true,
   ) => {
     // Mirrors authController::index - both fields are `required|string` there.
     if (!email.trim()) {
