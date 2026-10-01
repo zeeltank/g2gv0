@@ -32,6 +32,25 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/opportunities',
+        destination: '/signals',
+        permanent: false,
+      },
+      {
+        source: '/opportunities/:path*',
+        destination: '/signals',
+        permanent: false,
+      },
+      {
+        source: '/ingestion-engine',
+        destination: '/ingestion',
+        permanent: false,
+      },
+    ]
+  },
 }
 
 export default nextConfig
