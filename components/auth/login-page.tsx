@@ -62,7 +62,13 @@ import { readLastVisited } from '@/lib/last-visited'
 export function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { login, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated) {
+      window.location.href = '/dashboard'
+    }
+  }, [isAuthLoading, isAuthenticated])
 
   /*
    * ALWAYS LIGHT — see the file header for why this needs two mechanisms.
