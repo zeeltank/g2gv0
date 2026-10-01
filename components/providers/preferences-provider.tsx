@@ -41,7 +41,7 @@ import { useTheme } from '@/components/providers/theme-provider'
 
 /** Mirrors `UserPreferences::DEFAULTS` on the server. */
 const DEFAULTS: AccountPreferences = {
-  theme: 'system',
+  theme: 'light',
   sidebar_collapsed: true,
   density: 'comfortable',
   locale: 'en-GB',
