@@ -92,7 +92,7 @@ interface CardDef {
 }
 
 /** The KASA tabs share one shape, so they share one card set. */
-const KASA_IDS = ['knowledge', 'ability', 'attitude', 'behaviour'] as const
+const KASA_IDS = ['knowledge', 'ability', 'skill', 'attitude', 'behaviour'] as const
 
 function cardsFor(config: LibraryTabConfig): CardDef[] {
   const noun = config.singular
@@ -137,7 +137,7 @@ function cardsFor(config: LibraryTabConfig): CardDef[] {
     return [
       { id: 'details', label: `${noun} Details`, icon: Info, hint: 'Every recorded field' },
       { id: 'cwf', label: 'Work Functions & Tasks', icon: Gauge, hint: 'Critical work functions and key tasks' },
-      { id: 'skills', label: 'Competencies (Skills)', icon: Zap, hint: 'Technical, functional and soft skills' },
+      { id: 'skills', label: 'Competency', icon: Zap, hint: 'Technical, functional and soft skills' },
       { id: 'competencies', label: 'KASA Attributes', icon: Layers, hint: 'Knowledge, ability, attitude, behaviour' },
     ]
   }
@@ -574,7 +574,7 @@ function JobrolePanels({ active, detail }: { active: string; detail: JobroleDeta
                   )}
                   {s.kasa && (
                     <div className="mt-4 space-y-3 border-t border-border/50 pt-3">
-                      {(['knowledge', 'ability', 'attitude', 'behaviour'] as const).map((k) => {
+                      {(['knowledge', 'ability', 'skill', 'attitude', 'behaviour'] as const).map((k) => {
                         const items = s.kasa?.[k] as unknown as MappedAttribute[]
                         if (!items || items.length === 0) return null
                         return (
