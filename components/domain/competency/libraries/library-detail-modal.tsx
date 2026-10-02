@@ -53,12 +53,20 @@ import { cn } from '@/lib/utils'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { skillDetailService } from '@/services/competency/skill-detail'
+import { competencyLibrariesService } from '@/services/competency/libraries'
 import type {
   ClassificationItem,
   KasaUsage,
   ProficiencyGroup,
   SkillDetailResponse,
 } from '@/services/competency/skill-detail'
+import type {
+  JobroleDetail,
+  JobroleTaskLink,
+  JobroleSkillLink,
+  MappedAttribute,
+  KasaTabId,
+} from '@/services/competency/libraries'
 import type { LibraryRow } from '@/services/competency/libraries'
 import type { LibraryTabConfig } from './library-config'
 import { CourseBuilderPanel } from './course-builder-panel'
@@ -124,6 +132,16 @@ function cardsFor(config: LibraryTabConfig): CardDef[] {
     ]
   }
 
+  // Job Role — the three sections the old frontend showed in its popup.
+  if (config.id === 'jobrole') {
+    return [
+      { id: 'details', label: `${noun} Details`, icon: Info, hint: 'Every recorded field' },
+      { id: 'cwf', label: 'Work Functions & Tasks', icon: Gauge, hint: 'Critical work functions and key tasks' },
+      { id: 'skills', label: 'Skills', icon: Zap, hint: 'Technical, functional and soft skills' },
+      { id: 'competencies', label: 'Competencies', icon: Layers, hint: 'Knowledge, ability, attitude, behaviour' },
+    ]
+  }
+
   return [{ id: 'details', label: `${noun} Details`, icon: Info, hint: 'Every recorded field' }]
 }
 
@@ -140,13 +158,15 @@ export function LibraryDetailModal({
   const cards = useMemo(() => cardsFor(config), [config])
   const isSkill = config.id === 'skill'
   const isKasa = (KASA_IDS as readonly string[]).includes(config.id)
+  const isJobrole = config.id === 'jobrole'
 
   const [active, setActive] = useState(
     initialSection && cards.some((card) => card.id === initialSection) ? initialSection : 'details',
   )
   const [skill, setSkill] = useState<SkillDetailResponse | null>(null)
   const [usage, setUsage] = useState<KasaUsage | null>(null)
-  const [loading, setLoading] = useState(isSkill || isKasa)
+  const [jobroleDetail, setJobroleDetail] = useState<JobroleDetail | null>(null)
+  const [loading, setLoading] = useState(isSkill || isKasa || isJobrole)
   const [error, setError] = useState<string | null>(null)
 
   const rowId = Number(row.id)
@@ -155,7 +175,7 @@ export function LibraryDetailModal({
   const load = useCallback(async () => {
     const context = resolveContext()
     if (!isLaravelContextReady(context)) return
-    if (!isSkill && !isKasa) return
+    if (!isSkill && !isKasa && !isJobrole) return
 
     setLoading(true)
     setError(null)
@@ -163,6 +183,9 @@ export function LibraryDetailModal({
     try {
       if (isSkill) {
         setSkill(await skillDetailService.get(context, rowId))
+      } else if (isJobrole) {
+        const response = await competencyLibrariesService.get<JobroleDetail>(context, 'jobrole', rowId)
+        setJobroleDetail(response.data)
       } else {
         const response = await skillDetailService.kasaUsage(context, config.id, rowId)
         setUsage(response.data)
@@ -172,7 +195,7 @@ export function LibraryDetailModal({
     } finally {
       setLoading(false)
     }
-  }, [resolveContext, rowId, config.id, isSkill, isKasa])
+  }, [resolveContext, rowId, config.id, isSkill, isKasa, isJobrole])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -374,6 +397,8 @@ export function LibraryDetailModal({
                 <Skeleton className="h-24 w-full rounded-xl" />
                 <Skeleton className="h-40 w-full rounded-xl" />
               </div>
+            ) : isJobrole ? (
+              <JobrolePanels active={active} detail={jobroleDetail} />
             ) : isSkill ? (
               <SkillPanels active={active} data={skill} />
             ) : (
@@ -468,6 +493,140 @@ function FieldValue({ value }: { value: unknown }) {
   }
 
   return <span className="whitespace-pre-wrap">{text}</span>
+}
+
+/* ------------------------------------------------------------------ *
+ * Job role panels — CWF/Tasks, Skills, Competencies (KASA)
+ * Mirrors the three sections the old frontend showed in JobDescriptionModal.
+ * ------------------------------------------------------------------ */
+
+function JobrolePanels({ active, detail }: { active: string; detail: JobroleDetail | null }) {
+  if (active === 'cwf') {
+    const tasks = detail?.tasks ?? []
+    if (tasks.length === 0) return <Empty message="No critical work functions or tasks have been mapped to this role yet." />
+
+    // Group by critical_work_function
+    const grouped = tasks.reduce<Record<string, JobroleTaskLink[]>>((acc, t) => {
+      const fn = t.critical_work_function?.trim() || 'General Tasks'
+      if (!acc[fn]) acc[fn] = []
+      acc[fn].push(t)
+      return acc
+    }, {})
+
+    return (
+      <div className="space-y-5">
+        {Object.entries(grouped).map(([fn, fnTasks]) => (
+          <div key={fn} className="overflow-hidden rounded-xl border border-border">
+            <div className="border-b border-border bg-primary/[0.08] px-4 py-3">
+              <h3 className="text-sm font-bold text-foreground">{fn}</h3>
+            </div>
+            <ul className="divide-y divide-border">
+              {fnTasks.map((t) => (
+                <li key={t.id} className="flex items-start gap-3 px-4 py-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground">{t.task}</p>
+                    {(t.task_type || t.task_category) && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {[t.task_type, t.task_category].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (active === 'skills') {
+    const skills = detail?.skills ?? []
+    if (skills.length === 0) return <Empty message="No competencies (skills) have been mapped to this role yet." />
+
+    // Group by type (Technical Skills / Functional Skills / Generic / etc.)
+    const grouped = skills.reduce<Record<string, JobroleSkillLink[]>>((acc, s) => {
+      const cat = s.type?.trim() || 'Other Skills'
+      if (!acc[cat]) acc[cat] = []
+      acc[cat].push(s)
+      return acc
+    }, {})
+
+    return (
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([cat, catSkills]) => (
+          <div key={cat}>
+            <h3 className="mb-3 text-base font-bold text-primary">{cat}</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {catSkills.map((s) => (
+                <div key={s.id} className="rounded-xl border border-border bg-card/40 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-bold text-foreground">{s.skill}</p>
+                    {s.proficiency_level && (
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                        Level {s.proficiency_level}
+                      </span>
+                    )}
+                  </div>
+                  {s.proficiency_description && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">{s.proficiency_description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (active === 'competencies') {
+    const kasa = detail?.kasa as Record<KasaTabId, MappedAttribute[]> | null | undefined
+    const sections: { key: KasaTabId; label: string }[] = [
+      { key: 'knowledge', label: 'Knowledge' },
+      { key: 'ability', label: 'Ability' },
+      { key: 'attitude', label: 'Attitude' },
+      { key: 'behaviour', label: 'Behaviour' },
+    ]
+
+    const hasAny = kasa && sections.some(({ key }) => (kasa[key]?.length ?? 0) > 0)
+    if (!hasAny) return <Empty message="No competency items (knowledge, ability, attitude, behaviour) have been mapped to this role yet." />
+
+    return (
+      <div className="space-y-6">
+        {sections.map(({ key, label }) => {
+          const items: MappedAttribute[] = kasa?.[key] ?? []
+          return (
+            <div key={key}>
+              <h3 className="mb-3 text-base font-bold text-foreground">{label}</h3>
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No {label.toLowerCase()} items.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {items.map((item) => (
+                    <li key={item.id} className="rounded-xl border border-border bg-card/40 p-3.5">
+                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                      {(item.category || item.sub_category) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {[item.category, item.sub_category].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                      {item.description && (
+                        <p className="mt-1.5 text-xs text-muted-foreground">{item.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return null
 }
 
 /* ------------------------------------------------------------------ *
@@ -740,3 +899,5 @@ function asList(value: unknown): string[] | null {
     return null
   }
 }
+
+
