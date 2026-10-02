@@ -572,6 +572,49 @@ function JobrolePanels({ active, detail }: { active: string; detail: JobroleDeta
                   {s.proficiency_description && (
                     <p className="mt-1.5 text-xs text-muted-foreground">{s.proficiency_description}</p>
                   )}
+                  {s.kasa && (
+                    <div className="mt-4 space-y-3 border-t border-border/50 pt-3">
+                      {(['knowledge', 'ability', 'attitude', 'behaviour'] as const).map((k) => {
+                        const items = s.kasa?.[k] as unknown as MappedAttribute[]
+                        if (!items || items.length === 0) return null
+                        return (
+                          <div key={k} className="mt-3">
+                            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                              {k}
+                            </p>
+                            <ul className="flex flex-col gap-2">
+                              {items.map((item) => (
+                                <li key={item.id} className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
+                                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                    {k === 'knowledge' ? (
+                                      <BookOpen className="size-4" />
+                                    ) : k === 'ability' ? (
+                                      <Wrench className="size-4" />
+                                    ) : k === 'attitude' ? (
+                                      <Sparkles className="size-4" />
+                                    ) : (
+                                      <Target className="size-4" />
+                                    )}
+                                  </span>
+                                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                    <span className="text-sm font-medium text-foreground">{item.title}</span>
+                                    {(item.category || item.sub_category) && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {[item.category, item.sub_category].filter(Boolean).join(' · ')}
+                                      </span>
+                                    )}
+                                    {item.description && (
+                                      <span className="mt-1 text-xs text-muted-foreground">{item.description}</span>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -603,18 +646,31 @@ function JobrolePanels({ active, detail }: { active: string; detail: JobroleDeta
               {items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No {label.toLowerCase()} items.</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="flex flex-col gap-2">
                   {items.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-border bg-card/40 p-3.5">
-                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                      {(item.category || item.sub_category) && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {[item.category, item.sub_category].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
-                      {item.description && (
-                        <p className="mt-1.5 text-xs text-muted-foreground">{item.description}</p>
-                      )}
+                    <li key={item.id} className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
+                      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        {key === 'knowledge' ? (
+                          <BookOpen className="size-4" />
+                        ) : key === 'ability' ? (
+                          <Wrench className="size-4" />
+                        ) : key === 'attitude' ? (
+                          <Sparkles className="size-4" />
+                        ) : (
+                          <Target className="size-4" />
+                        )}
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-foreground">{item.title}</span>
+                        {(item.category || item.sub_category) && (
+                          <span className="text-xs text-muted-foreground">
+                            {[item.category, item.sub_category].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                        {item.description && (
+                          <span className="mt-1 text-xs text-muted-foreground">{item.description}</span>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
