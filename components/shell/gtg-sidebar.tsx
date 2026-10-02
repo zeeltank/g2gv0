@@ -468,7 +468,18 @@ export function GtgSidebar({
             collapsed ? 'justify-center px-0' : 'justify-between',
           )}
         >
-          <GtgBrandMark collapsed={collapsed} />
+          {collapsed ? (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange?.(false)}
+              className="flex cursor-pointer items-center justify-center rounded-md outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Expand sidebar"
+            >
+              <GtgBrandMark collapsed={collapsed} />
+            </button>
+          ) : (
+            <GtgBrandMark collapsed={collapsed} />
+          )}
           {/* Only while open — closing is the one explicit control for
               `collapsed`; everything else that changes it is a side effect
               of some other click (a module, or clicking outside an
