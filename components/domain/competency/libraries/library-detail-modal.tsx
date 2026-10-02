@@ -137,8 +137,8 @@ function cardsFor(config: LibraryTabConfig): CardDef[] {
     return [
       { id: 'details', label: `${noun} Details`, icon: Info, hint: 'Every recorded field' },
       { id: 'cwf', label: 'Work Functions & Tasks', icon: Gauge, hint: 'Critical work functions and key tasks' },
-      { id: 'skills', label: 'Skills', icon: Zap, hint: 'Technical, functional and soft skills' },
-      { id: 'competencies', label: 'Competencies', icon: Layers, hint: 'Knowledge, ability, attitude, behaviour' },
+      { id: 'skills', label: 'Competencies (Skills)', icon: Zap, hint: 'Technical, functional and soft skills' },
+      { id: 'competencies', label: 'KASA Attributes', icon: Layers, hint: 'Knowledge, ability, attitude, behaviour' },
     ]
   }
 
@@ -899,5 +899,6 @@ function asList(value: unknown): string[] | null {
     return null
   }
 }
+
 
 
