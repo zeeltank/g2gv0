@@ -209,7 +209,7 @@ function CoursePicker({
                 <div className="flex items-start gap-3">
                   <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
                     {course.display_image && course.display_image !== '/' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={course.display_image} alt="" className="size-full object-cover" />
                     ) : (
                       <ImageIcon className="size-5 text-muted-foreground/40" />
@@ -311,7 +311,7 @@ function LessonViewer({
 
   if (kind === 'image') {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+       
       <img src={src} alt={lesson.title ?? ''} className="w-full rounded-xl border border-border/60" />
     )
   }

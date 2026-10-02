@@ -462,6 +462,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         }
       }
 
+      // eslint-disable-next-line react-hooks/immutability
       poll(runId, attempt + 1)
     }, POLL_MS)
   }, [context, load, loadStatus, storageKey])
@@ -597,9 +598,14 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
           </dl>
         </Surface>
 
-        {req && !req.profile_complete && (
-          <Notice tone="warning" action={<Button size="sm" onClick={() => setProfileOpen(true)}>Set up profile</Button>}>
-            Daily company research needs a completed product and target-customer profile. No results are generated from an empty profile.
+        {req && (!req.profile_complete || !req.search_configured || !req.ai_configured) && !running && (
+          <Notice tone="warning" action={<Button size="sm" onClick={() => {
+            if (!req.profile_complete) setProfileOpen(true)
+            else setProvidersOpen(true)
+          }}>Set up</Button>}>
+            {!req.profile_complete ? `Profile is incomplete. Still needed: ${(req.profile_missing || []).map(m => m.replace(/_/g, ' ')).join(', ')}.` :
+             !req.search_configured ? 'Search provider is not configured. Set up the SIGNALS_SEARCH_DRIVER environment variable.' :
+             'AI provider is not configured. Save a credential in the AI Providers screen or environment.'}
           </Notice>
         )}
         {latest && (latest.status === 'failed' || latest.queries_failed > 0) && !running && !notice && (
