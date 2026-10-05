@@ -691,6 +691,15 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={providersOpen} onOpenChange={setProvidersOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>AI &amp; web search connectivity</DialogTitle><DialogDescription>Shows which AI and search providers are configured, and lets you run a real test call.</DialogDescription></DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <ProviderStatusPanel context={context} canTest onChanged={() => { void loadStatus() }} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ProductProfileDialog open={profileOpen} context={context} onOpenChange={setProfileOpen} onSaved={() => { void loadStatus(); setNotice({ tone: 'info', text: 'Product profile saved.' }) }} />
 
       <BusinessOpportunityMatchingModal
