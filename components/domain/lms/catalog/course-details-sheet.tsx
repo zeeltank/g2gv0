@@ -119,7 +119,7 @@ export function CourseDetailsSheet({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
           <div className="flex h-40 w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/50">
             {shown.display_image && shown.display_image !== '/' ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={shown.display_image} alt="" className="size-full object-cover" />
             ) : (
               <ImageIcon className="size-10 text-muted-foreground/30" />

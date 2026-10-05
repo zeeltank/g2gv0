@@ -163,7 +163,7 @@ export function MyLearningWidget({
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
                     {course.display_image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img
                         src={course.display_image}
                         alt=""

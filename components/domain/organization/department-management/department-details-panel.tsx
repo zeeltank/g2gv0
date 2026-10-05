@@ -23,6 +23,7 @@ import { DepartmentJobRolesPanel } from './department-job-roles-panel'
 import { SopsTab } from './sops-tab'
 import { PoliciesTab } from './policies-tab'
 import { RulesTab } from './rules-tab'
+import { SignalsHub } from './signals-hub'
 
 /**
  * Display code for a department.
@@ -111,6 +112,7 @@ const DETAIL_TABS = [
   { id: 'sops', label: 'SOPs' },
   { id: 'policies', label: 'Policies' },
   { id: 'rules', label: 'Rules' },
+  { id: 'signals', label: 'Signals' },
 ]
 
 
@@ -387,6 +389,10 @@ export function DepartmentDetailsPanel({
 
         {activeTab === 'rules' && (
           <RulesTab department={department} context={context} canManage={canManage} />
+        )}
+
+        {activeTab === 'signals' && (
+          <SignalsHub key={department.id} department={department} context={context} canManage={canManage} />
         )}
       </div>
     </aside>
