@@ -268,8 +268,19 @@ export function DocumentLibraryView() {
       )}
 
       <Surface className="p-4">
+        {/*
+          One row, deliberately - every control here narrows the same list,
+          so they read as one instrument rather than a stack of unrelated
+          fields. `Select`'s own root wrapper is hardcoded `w-full` (its
+          `className` prop only reaches the inner trigger button, not the
+          sizing wrapper around it), so each select is wrapped in its own
+          width-constrained `div` here rather than relying on a width passed
+          to `Select` itself - otherwise each one claims the full row width
+          and pushes every sibling onto its own line, which is the bug this
+          replaces.
+        */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-0 flex-1 basis-64">
+          <div className="relative min-w-[14rem] flex-1 basis-64">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
@@ -284,21 +295,24 @@ export function DocumentLibraryView() {
             />
           </div>
 
-          <Select
-            value={category}
-            onChange={setCategory}
-            className="w-40"
-            options={[
-              { value: '', label: 'All categories' },
-              { value: 'personnel', label: 'Personal' },
-              { value: 'organization', label: 'Organisation' },
-            ]}
-          />
+          <div className="w-40 shrink-0">
+            <Select
+              value={category}
+              onChange={setCategory}
+              options={[
+                { value: '', label: 'All categories' },
+                { value: 'personnel', label: 'Personal' },
+                { value: 'organization', label: 'Organisation' },
+              ]}
+            />
+          </div>
 
-          <Select value={documentType} onChange={setDocumentType} className="w-48" options={typeOptions} />
+          <div className="w-48 shrink-0">
+            <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
+          </div>
 
           {/* Only mine / everything I may see — see this component's docblock. */}
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
             <button
               type="button"
               onClick={() => setScope('mine')}
@@ -315,7 +329,7 @@ export function DocumentLibraryView() {
             </button>
           </div>
 
-          <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
             <button
               type="button"
               onClick={() => setViewMode('grid')}
