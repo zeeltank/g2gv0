@@ -1,7 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Download, Eye, FileClock, History, Link2, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import {
+  AlertTriangle,
+  Download,
+  Eye,
+  FileClock,
+  History,
+  Link2,
+  Loader2,
+  RotateCcw,
+  Upload,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useAuth } from '@/hooks/use-auth'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import {
   accountService,
@@ -20,7 +31,7 @@ import {
   type RelatedDocument,
 } from '@/services/account'
 
-type Tab = 'details' | 'activity' | 'related'
+type Tab = 'details' | 'versions' | 'activity' | 'related'
 
 export interface DocumentDetailDialogProps {
   documentId: number | null
@@ -36,9 +47,10 @@ export interface DocumentDetailDialogProps {
  * out for weight: AI classification detail, warnings, version/audit history,
  * and other documents like this one. Mirrors LMS K-12's own
  * `DocumentDetailPanel` (details/versions/related/audit tabs over the same
- * kind of record) adapted to this app's own data — read-only here rather
- * than also offering a "restore an old version" action, which K-12 has and
- * this does not yet.
+ * kind of record) adapted to this app's own data — including K-12's "upload
+ * a new version" / "restore an old one" actions, owner-gated the same way
+ * `DELETE /account/documents/{id}` already is (the server re-checks
+ * ownership on every version write regardless of what this UI shows).
  */
 export function DocumentDetailDialog({
   documentId,
@@ -49,6 +61,9 @@ export function DocumentDetailDialog({
   downloading,
 }: DocumentDetailDialogProps) {
   const resolveContext = useLaravelContext()
+  const { user } = useAuth()
+  const myId = user?.id ? Number(user.id) : null
+
   const [tab, setTab] = useState<Tab>('details')
   const [detail, setDetail] = useState<DocumentDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,6 +74,28 @@ export function DocumentDetailDialog({
   const [related, setRelated] = useState<RelatedDocument[] | null>(null)
   const [relatedLoading, setRelatedLoading] = useState(false)
 
+  const [versionBusyId, setVersionBusyId] = useState<number | 'uploading' | null>(null)
+  const [versionNotice, setVersionNotice] = useState<string | null>(null)
+  const versionFileInput = useRef<HTMLInputElement>(null)
+
+  const isOwner = myId !== null && detail?.owner_id === myId
+
+  const fetchDetail = () =>
+    documentId !== null
+      ? accountService
+          .getDocument(resolveContext(), documentId)
+          .then((response) => setDetail(response.data))
+          .catch(() => {})
+      : Promise.resolve()
+
+  const fetchHistory = () =>
+    documentId !== null
+      ? accountService
+          .getDocumentHistory(resolveContext(), documentId)
+          .then((response) => setHistory(response.data))
+          .catch(() => {})
+      : Promise.resolve()
+
   useEffect(() => {
     if (documentId === null) return
 
@@ -68,6 +105,7 @@ export function DocumentDetailDialog({
     setRelated(null)
     setError(null)
     setLoading(true)
+    setVersionNotice(null)
 
     accountService
       .getDocument(resolveContext(), documentId)
@@ -78,7 +116,7 @@ export function DocumentDetailDialog({
   }, [documentId])
 
   useEffect(() => {
-    if (documentId === null || tab !== 'activity' || history !== null) return
+    if (documentId === null || (tab !== 'activity' && tab !== 'versions') || history !== null) return
 
     setHistoryLoading(true)
     accountService
@@ -88,6 +126,61 @@ export function DocumentDetailDialog({
       .finally(() => setHistoryLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, tab])
+
+  /**
+   * After a version action, the pipeline re-runs for the new content (see
+   * `writeNewVersion()`'s docblock) — poll briefly so the AI confidence/
+   * summary on the Details tab catches up once classification finishes,
+   * the same signal the big upload progress bar reads, just without its UI.
+   */
+  const pollAfterVersionChange = async () => {
+    await Promise.all([fetchDetail(), fetchHistory()])
+
+    for (let i = 0; i < 6; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      const response = await accountService.getDocument(resolveContext(), documentId!).catch(() => null)
+      if (!response) break
+      setDetail(response.data)
+      if (response.data.processing_step === 'done' || response.data.processing_step === 'failed') break
+    }
+  }
+
+  const handleUploadVersion = async (file: File) => {
+    if (documentId === null) return
+
+    setVersionBusyId('uploading')
+    setVersionNotice(null)
+    try {
+      await accountService.uploadDocumentVersion(resolveContext(), documentId, file)
+      setVersionNotice('New version uploaded.')
+      await pollAfterVersionChange()
+    } catch (caught) {
+      setVersionNotice(caught instanceof Error ? caught.message : 'That version could not be uploaded.')
+    } finally {
+      setVersionBusyId(null)
+      if (versionFileInput.current) versionFileInput.current.value = ''
+    }
+  }
+
+  const handleRestore = async (entry: DocumentHistoryEntry) => {
+    if (documentId === null) return
+
+    setVersionBusyId(entry.id)
+    setVersionNotice(null)
+    try {
+      const response = await accountService.restoreDocumentVersion(resolveContext(), documentId, entry.id)
+      if (response.status === 1) {
+        setVersionNotice(`Restored version ${entry.version_number}.`)
+        await pollAfterVersionChange()
+      } else {
+        setVersionNotice(response.message ?? 'That version could not be restored.')
+      }
+    } catch (caught) {
+      setVersionNotice(caught instanceof Error ? caught.message : 'That version could not be restored.')
+    } finally {
+      setVersionBusyId(null)
+    }
+  }
 
   useEffect(() => {
     if (documentId === null || tab !== 'related' || related !== null) return
@@ -134,6 +227,7 @@ export function DocumentDetailDialog({
           {(
             [
               { key: 'details', label: 'Details' },
+              { key: 'versions', label: 'Versions' },
               { key: 'activity', label: 'Activity' },
               { key: 'related', label: 'Related' },
             ] as const
@@ -163,6 +257,19 @@ export function DocumentDetailDialog({
             <p className="text-sm text-destructive">{error ?? 'That document could not be opened.'}</p>
           ) : tab === 'details' ? (
             <DetailsTab detail={detail} typeLabel={typeLabel} warnings={warnings} keywords={keywords} />
+          ) : tab === 'versions' ? (
+            <VersionsTab
+              loading={historyLoading}
+              entries={(history ?? []).filter((e) => e.entry_type === 'version')}
+              currentVersion={detail.current_version}
+              canManage={isOwner}
+              busyId={versionBusyId}
+              notice={versionNotice}
+              fileInputRef={versionFileInput}
+              onRestore={handleRestore}
+              onPickFile={() => versionFileInput.current?.click()}
+              onFileSelected={(file) => void handleUploadVersion(file)}
+            />
           ) : tab === 'activity' ? (
             <ActivityTab loading={historyLoading} entries={history ?? []} />
           ) : (
@@ -284,6 +391,140 @@ function readableWarning(warning: string): string {
   if (warning === 'file_missing_for_ocr') return 'The file could not be found for OCR.'
 
   return warning.replace(/_/g, ' ')
+}
+
+function formatSize(bytes: number | null): string | null {
+  if (!bytes || bytes <= 0) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
+ * K-12 parity: upload a new version, or make an older one current again.
+ * The restore itself writes a NEW version row (see the endpoint's own
+ * docblock) — nothing in `entries` is ever edited or removed by this UI,
+ * only added to, matching the append-only table it reads from.
+ */
+function VersionsTab({
+  loading,
+  entries,
+  currentVersion,
+  canManage,
+  busyId,
+  notice,
+  fileInputRef,
+  onRestore,
+  onPickFile,
+  onFileSelected,
+}: {
+  loading: boolean
+  entries: DocumentHistoryEntry[]
+  currentVersion: number | null
+  canManage: boolean
+  busyId: number | 'uploading' | null
+  notice: string | null
+  fileInputRef: RefObject<HTMLInputElement | null>
+  onRestore: (entry: DocumentHistoryEntry) => void
+  onPickFile: () => void
+  onFileSelected: (file: File) => void
+}) {
+  return (
+    <div className="space-y-3">
+      {canManage && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border p-2.5">
+          <p className="text-xs text-muted-foreground">Replace this file, keeping every earlier version.</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busyId !== null}
+            onClick={onPickFile}
+          >
+            {busyId === 'uploading' ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
+            )}
+            Upload new version
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="sr-only"
+            aria-label="Choose a new version to upload"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFileSelected(file)
+            }}
+          />
+        </div>
+      )}
+
+      {notice && <p className="text-xs text-foreground">{notice}</p>}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading…
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">No version history yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {entries.map((entry) => {
+            const isCurrent = entry.version_number === currentVersion
+            const size = formatSize(entry.size)
+
+            return (
+              <li
+                key={entry.id}
+                className={`flex items-start gap-3 rounded-lg border p-2.5 ${isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
+              >
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <FileClock className="size-3.5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-sm text-foreground">
+                    Version {entry.version_number ?? '—'}
+                    {isCurrent && (
+                      <Badge variant="muted" className="text-[10px] uppercase tracking-wide">
+                        Current
+                      </Badge>
+                    )}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[entry.original_file_name, size, entry.change_note].filter(Boolean).join(' · ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {[entry.actor_name ?? 'System', formatDateTime(entry.created_at)].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                {canManage && !isCurrent && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    disabled={busyId !== null}
+                    onClick={() => onRestore(entry)}
+                  >
+                    {busyId === entry.id ? (
+                      <Loader2 className="mr-1 size-3 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <RotateCcw className="mr-1 size-3" aria-hidden="true" />
+                    )}
+                    Restore
+                  </Button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 function ActivityTab({ loading, entries }: { loading: boolean; entries: DocumentHistoryEntry[] }) {

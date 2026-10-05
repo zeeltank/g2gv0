@@ -302,6 +302,7 @@ export type DocumentProcessingStep =
 export interface DocumentDetail extends AccountDocument {
   owner_id: number | null
   department_id: number | null
+  current_version: number | null
   subject: string | null
   summary: string | null
   confidence: string | null
@@ -320,6 +321,8 @@ export interface DocumentHistoryEntry {
   version_number: number | null
   storage_path: string | null
   size: number | null
+  mime_type: string | null
+  original_file_name: string | null
   change_note: string | null
   action: string | null
   details: string | null
@@ -519,6 +522,29 @@ export const accountService = {
   /** Remove one of yours. Soft, so an administrator can restore it. */
   deleteDocument: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
+
+  /**
+   * Upload a new version of one of mine — same multipart shape as
+   * `uploadDocument`, field named `document` for the same reason. The old
+   * file is kept (see `document_library_history`'s docblock), not replaced.
+   */
+  uploadDocumentVersion: (context: LaravelContext, id: number, file: File, changeNote?: string) => {
+    const body = new FormData()
+    const auth = params(context)
+
+    Object.entries(auth).forEach(([key, value]) => body.append(key, String(value)))
+    body.append('document', file)
+    if (changeNote) body.append('change_note', changeNote)
+
+    return apiClient.postForm<{ status: number; message?: string }>(`/account/documents/${id}/versions`, body)
+  },
+
+  /** Make an older version of mine current again. Writes a new version row rather than rewriting history — see the endpoint's own docblock. */
+  restoreDocumentVersion: (context: LaravelContext, id: number, historyId: number) =>
+    apiClient.post<{ status: number; message?: string }>(
+      `/account/documents/${id}/versions/${historyId}/restore`,
+      params(context),
+    ),
 
   /**
    * Where to fetch a document from.

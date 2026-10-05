@@ -434,6 +434,32 @@
   }
 }
 
+/* A moving highlight sweeping across the document-upload progress bar's
+   fill, so it reads as "actively working" even between real backend polls —
+   not just a static block that happens to be wider than before. Applied via
+   an arbitrary Tailwind value on the fill itself. */
+@keyframes g2g-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* A soft pulsing glow on whichever step of the upload pipeline is currently
+   running, so the active step reads as "live" at a glance, not just via its
+   spinner icon. */
+@keyframes g2g-step-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+}
+
 /*
  * ════════════════════════════════════════════════════════════════════════════
  * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY

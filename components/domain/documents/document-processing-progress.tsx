@@ -156,12 +156,20 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         Uploaded — now reading, checking and classifying its content so it’s searchable.
       </p>
 
-      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. */}
-      <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-muted">
+      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. A moving highlight sweeps across the fill (g2g-progress-shimmer, globals.css) so it reads as "working" between polls, not just wider than before. */}
+      <div className="mt-5 h-2.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+          className="relative h-full overflow-hidden rounded-full bg-primary transition-[width] duration-500 ease-out"
           style={{ width: `${percent}%` }}
-        />
+        >
+          {!finished && (
+            <span
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              style={{ animation: 'g2g-progress-shimmer 1.3s ease-in-out infinite' }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
       <p className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground">{percent}%</p>
 
@@ -181,6 +189,7 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
                       ? 'border-primary text-primary'
                       : 'border-border text-muted-foreground/50'
                 }`}
+                style={active ? { animation: 'g2g-step-glow 1.6s ease-in-out infinite' } : undefined}
               >
                 {complete ? (
                   <Check className="size-3.5" aria-hidden="true" />
