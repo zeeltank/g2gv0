@@ -57,7 +57,10 @@ export interface DocumentCardGridProps {
   documents: DocumentSearchHit[]
   typeLabel: (key: string | null) => string | null
   downloadingId: number | null
+  /** The eye icon — a quick inline preview. */
   onOpen: (doc: DocumentSearchHit) => void
+  /** Clicking the card body — the full detail panel (classification, versions, related, activity log). */
+  onOpenDetails: (doc: DocumentSearchHit) => void
   onDownload: (doc: DocumentSearchHit) => void
   onDelete?: (doc: DocumentSearchHit) => void
   /** Only the owner (or an elevated caller, which the server already filtered for) may delete from here. */
@@ -69,6 +72,7 @@ export function DocumentCardGrid({
   typeLabel,
   downloadingId,
   onOpen,
+  onOpenDetails,
   onDownload,
   onDelete,
   canDelete,
@@ -94,7 +98,7 @@ export function DocumentCardGrid({
               <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/40">
                 <button
                   type="button"
-                  onClick={() => onOpen(doc)}
+                  onClick={() => onOpenDetails(doc)}
                   className="flex flex-1 flex-col items-start gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <span className="flex w-full items-start justify-between gap-2">
