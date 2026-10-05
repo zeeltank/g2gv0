@@ -73,9 +73,16 @@ function mapOrgProfile(data?: LaravelOrgDetail) {
     code: data?.cin ?? '',
     registrationNumber: data?.cin ?? '',
     industry: data?.industry ?? '',
-    // Not a stored column either, but unlike fax/founded it is a fixed fact
-    // about how these tenants are constituted rather than a borrowed value.
-    organizationType: 'Private Limited',
+    /*
+     * A REAL COLUMN NOW, not the constant 'Private Limited'.
+     *
+     * That constant rendered as a badge at the top of this page for every tenant
+     * on the platform - twelve organisations all asserted to be Private Limited -
+     * while the edit panel offered a dropdown whose value was discarded on save.
+     * Blank means "not stated", which is honest; it does not mean Private Limited.
+     */
+    organizationType: data?.organization_type ?? '',
+    udyamNumber: data?.udyam_registration_no ?? '',
     website: data?.website ?? '',
     email: data?.email ?? '',
     phone: `${data?.country_code ?? ''} ${data?.mobile_no ?? ''}`.trim(),
@@ -254,6 +261,17 @@ export function OrganizationInformation({ role }: { role?: Role }) {
   const [identity, setIdentity] = useState<OrganizationIdentity>()
   /** Set when the stored logo will not load, so the monogram takes over. */
   const [logoBroken, setLogoBroken] = useState(false)
+  /*
+   * The dropdown options, from the server rather than hardcoded in this file.
+   *
+   * Industries come from `s_industries` via an endpoint that has existed the
+   * whole time with no caller; the legal forms come back with the profile
+   * itself. Both default to empty and the edit panel prepends whatever is
+   * currently stored, so a slow or failed fetch narrows the choice rather than
+   * losing the value.
+   */
+  const [industries, setIndustries] = useState<string[]>([])
+  const [organisationTypes, setOrganisationTypes] = useState<string[]>([])
   /**
    * The organisation's real departments, for the structure preview.
    *
@@ -262,7 +280,9 @@ export function OrganizationInformation({ role }: { role?: Role }) {
    * picture of a company that does not exist, on a screen titled "Organization
    * Structure".
    */
-  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([])
+  const [departments, setDepartments] = useState<
+    { id: number; name: string; parentId: number | null; head: string; employees: number }[]
+  >([])
   /** The Add Sister Company dialog, and whether a save is in flight. */
   const [addingSister, setAddingSister] = useState(false)
   const [savingSister, setSavingSister] = useState(false)
@@ -278,6 +298,27 @@ export function OrganizationInformation({ role }: { role?: Role }) {
 
         setOrgData(response.org_data?.[0])
         setIdentity(response.identity)
+        setOrganisationTypes(response.organisation_types ?? [])
+
+        /*
+         * The industry taxonomy, fetched once. Failures are swallowed to an empty
+         * list on purpose: the edit panel prepends whatever is currently stored,
+         * so a failed fetch narrows the dropdown to the present value rather than
+         * blocking the screen or losing it.
+         */
+        organizationService
+          .getIndustries(context)
+          .then((industryResponse) => {
+            if (!activeRef.active) return
+
+            setIndustries(
+              (industryResponse.data ?? [])
+                .map((row) => (row.industries ?? '').trim())
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b)),
+            )
+          })
+          .catch(() => {})
         // A newly loaded logo deserves a fresh attempt; without this, one failed
         // load would keep the monogram for the rest of the session.
         setLogoBroken(false)
@@ -316,9 +357,28 @@ export function OrganizationInformation({ role }: { role?: Role }) {
           // `departments` is the flat ordered list; `main_departments` is the
           // tree's top level and is always present.
           const rows = response.departments ?? response.main_departments ?? []
+
+          /*
+           * KEEP THE HEAD AND THE HEADCOUNT.
+           *
+           * This used to map to `{ id, name }` and discard everything else - on a
+           * card titled "Organization Structure". The response already carries,
+           * per department: `head_name` (resolved to a full name by the server),
+           * `employee_count` (a live subquery against tbluser), `parent_id`, and a
+           * ready-made two-level tree.
+           *
+           * So the screen was making a request, receiving an org chart, and
+           * rendering a row of name-only chips truncated at eight.
+           */
           setDepartments(
             rows
-              .map((row) => ({ id: Number(row.id), name: String(row.department ?? '') }))
+              .map((row) => ({
+                id: Number(row.id),
+                name: String(row.department ?? ''),
+                parentId: row.parent_id === null || row.parent_id === undefined ? null : Number(row.parent_id),
+                head: (row.head_name ?? '').trim(),
+                employees: Number(row.employee_count ?? 0),
+              }))
               .filter((row) => row.name !== ''),
           )
         })
@@ -350,6 +410,7 @@ export function OrganizationInformation({ role }: { role?: Role }) {
     registrationNo: org.registrationNumber,
     gstNo: orgData?.gstin ?? '',
     panNo: orgData?.pan ?? '',
+    udyamNumber: orgData?.udyam_registration_no ?? '',
     website: org.website,
     companyDescription: '',
     email: org.email,
@@ -394,6 +455,9 @@ export function OrganizationInformation({ role }: { role?: Role }) {
     postalCode: string
     country: string
     workingDays: string[]
+    /** The legal form, now a real column rather than a discarded dropdown. */
+    organizationType: string
+    udyamNumber: string
     logoFile?: File
   }) {
     try {
@@ -411,7 +475,22 @@ export function OrganizationInformation({ role }: { role?: Role }) {
           data.country,
         ].filter(Boolean).join(', '),
         industry: data.industryType,
-        employee_count: String(org.totalEmployees),
+        /*
+         * `employee_count` IS NO LONGER SENT, and that is the fix rather than an
+         * omission.
+         *
+         * This was `String(org.totalEmployees)`. `totalEmployees` was null for
+         * every organisation - nothing on the screen could set it - so every save
+         * wrote the literal four-character string "null" into the column. The next
+         * load parsed it as NaN and showed a dash, so the field re-poisoned itself
+         * on each submit and could never recover.
+         *
+         * The headcount is now COUNTED by the server from staff records, so there
+         * is nothing here to send. The old column is left alone for any caller
+         * still reading it.
+         */
+        organization_type: data.organizationType,
+        udyam_registration_no: data.udyamNumber,
         work_week: data.workingDays.join(','),
         mobile_no: data.phone,
         country_code: '+91',
@@ -518,6 +597,8 @@ export function OrganizationInformation({ role }: { role?: Role }) {
         */}
         <LazyOrganizationInformationEditPanel
           data={editData}
+          industries={industries}
+          organisationTypes={organisationTypes}
           storedLogoUrl={identity?.logo_url ?? null}
           onCancel={() => setEditing(false)}
           onSave={saveOrganization}
@@ -534,6 +615,21 @@ export function OrganizationInformation({ role }: { role?: Role }) {
    * that have no statutory record yet.
    */
   const logoUrl = logoBroken ? null : (identity?.logo_url ?? null)
+
+  /*
+   * The tree, derived here rather than asking for it.
+   *
+   * `main_departments` / `sub_departments` come back from the API already
+   * shaped, but the flat `departments` list is what this screen receives, and a
+   * parent that is missing from the list (soft-deleted, or outside the page)
+   * would orphan its children. Treating "no parent, or a parent I cannot see" as
+   * top-level means every department is rendered exactly once.
+   */
+  const byId = new Set(departments.map((department) => department.id))
+  const topLevel = departments.filter(
+    (department) => department.parentId === null || !byId.has(department.parentId),
+  )
+  const childrenOf = (id: number) => departments.filter((department) => department.parentId === id)
   const sisters = orgData?.sistersOrg ?? orgData?.sisters_org ?? []
   // Up to three initials from the organisation's own name.
   const initials = org.name
@@ -649,9 +745,19 @@ export function OrganizationInformation({ role }: { role?: Role }) {
                 * "Founded" is gone. org_details has no such column, so that
                 * field could only ever have shown the fixture's date.
                 */}
+              {/*
+                COUNTED BY THE SERVER, not read from a typed band.
+                `identity.employee_count` is the same definition four other
+                controllers use - active, not deleted - so this agrees with the
+                dashboard instead of contradicting it.
+              */}
               <ViewReadField
                 label="Total Employees"
-                value={org.totalEmployees === null ? '' : org.totalEmployees.toLocaleString()}
+                value={
+                  identity?.employee_count === undefined || identity?.employee_count === null
+                    ? ''
+                    : identity.employee_count.toLocaleString()
+                }
               />
             </div>
           </div>
@@ -664,8 +770,22 @@ export function OrganizationInformation({ role }: { role?: Role }) {
         >
           <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
             <ViewReadField label="Company Name" value={org.name} />
-            <ViewReadField label="Company Code" value={org.code} />
-            <ViewReadField label="Registration Number" value={org.registrationNumber} />
+            {/*
+              "Company Code" is gone, and that is a fix rather than a removal.
+              It and "Registration Number" were BOTH bound to `org_details.cin`,
+              so the screen showed one value under two labels and editing either
+              overwrote the other. CIN is the registration number; there was never
+              a second thing to show.
+            */}
+            <ViewReadField label="Registration Number (CIN)" value={org.registrationNumber} />
+            {/*
+              GSTIN and PAN were stored, validated and round-tripped through the
+              edit panel - and rendered NOWHERE. An organisation could not see its
+              own tax numbers on its own profile.
+            */}
+            <ViewReadField label="GSTIN" value={orgData?.gstin ?? ''} />
+            <ViewReadField label="PAN" value={orgData?.pan ?? ''} />
+            <ViewReadField label="Udyam Registration" value={orgData?.udyam_registration_no ?? ''} />
             <ViewReadField label="Industry" value={org.industry} />
             <ViewReadField label="Organization Type" value={org.organizationType} />
             <ViewReadField
@@ -806,22 +926,55 @@ export function OrganizationInformation({ role }: { role?: Role }) {
             </p>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                {departments.slice(0, 8).map((department) => (
-                  <div
-                    key={department.id}
-                    className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs"
-                  >
-                    <Network className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {department.name}
+              {/*
+                ══════════════════════════════════════════════════════════════
+                THE STRUCTURE, RATHER THAN EIGHT NAMES
+                ══════════════════════════════════════════════════════════════
+
+                This rendered up to eight name-only chips and truncated the rest
+                with "and N more" — on a card titled "Organization Structure".
+                Everything below was ALREADY in the response it fetches and was
+                being thrown away in the mapper: the parent/child relationship,
+                each department's head, and a live headcount per department.
+
+                So: top-level departments as rows, their children nested under
+                them, each with who runs it and how many people are in it. No
+                truncation — a structure with a quarter of it hidden is not one,
+                and twelve is not a large number of departments.
+              */}
+              <div className="w-full space-y-2">
+                {topLevel.map((department) => (
+                  <div key={department.id} className="rounded-md border border-border bg-card shadow-xs">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+                      <Network className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="text-sm font-semibold text-foreground">{department.name}</span>
+                      {/* Blank stays blank. "No head" is a claim; an absent line is not. */}
+                      {department.head && (
+                        <span className="text-xs text-muted-foreground">led by {department.head}</span>
+                      )}
+                      <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {department.employees} {department.employees === 1 ? 'person' : 'people'}
+                      </span>
+                    </div>
+
+                    {childrenOf(department.id).length > 0 && (
+                      <div className="space-y-1 border-t border-border px-3 py-2 pl-9">
+                        {childrenOf(department.id).map((child) => (
+                          <div key={child.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="text-sm text-foreground">{child.name}</span>
+                            {child.head && (
+                              <span className="text-xs text-muted-foreground">led by {child.head}</span>
+                            )}
+                            <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                              {child.employees} {child.employees === 1 ? 'person' : 'people'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              {departments.length > 8 && (
-                <p className="text-xs text-muted-foreground">
-                  and {departments.length - 8} more
-                </p>
-              )}
               <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
                 <Building2 className="size-3.5" aria-hidden="true" />
                 Full interactive view available under Department Management.

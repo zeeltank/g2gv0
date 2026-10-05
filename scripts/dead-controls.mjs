@@ -77,8 +77,19 @@ function walk(dir, out = []) {
  */
 const FIXTURE = 'scripts/dead-controls.fixtures/known-positives.tsx.txt'
 
+/*
+ * The other half of the self-test: correct code that a rule once flagged.
+ *
+ * known-positives proves the rules still fire. It cannot catch the opposite
+ * failure, and the opposite failure is worse - a rule that reports correct code
+ * trains everyone to ignore the report, and then the real findings go unread
+ * too. `unreachable-view` did that to a two-state toggle whose render tested
+ * the other value. Every block in this file must produce ZERO findings.
+ */
+const NEGATIVE_FIXTURE = 'scripts/dead-controls.fixtures/known-negatives.tsx.txt'
+
 const files = selfTest
-  ? [join(ROOT, FIXTURE)]
+  ? [join(ROOT, FIXTURE), join(ROOT, NEGATIVE_FIXTURE)]
   : explicit.length
     ? explicit.map((f) => join(ROOT, f))
     : SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))
@@ -186,6 +197,30 @@ function insideSubmittingForm(src, index) {
   return /onSubmit\s*=/.test(openingTag(src, formOpen))
 }
 
+/**
+ * Is this comparison inside a className value or a cn() call?
+ *
+ * The distinction matters: `<span className="...">{type === 'all' ? ...}` has a
+ * className on the same LINE, but the comparison renders TEXT, which is a
+ * genuine read. So walk back to the nearest unbalanced opening bracket and ask
+ * what introduced it.
+ */
+function isStylingContext(src, at) {
+  let depth = 0
+  for (let i = at - 1; i >= 0 && at - i < 600; i--) {
+    const ch = src[i]
+    if (ch === '}' || ch === ')') depth++
+    else if (ch === '{' || ch === '(') {
+      if (depth === 0) {
+        const intro = src.slice(Math.max(0, i - 24), i)
+        return /className\s*=\s*$|\bcn$/.test(intro)
+      }
+      depth--
+    }
+  }
+  return false
+}
+
 for (const file of files) {
   const src = readFileSync(file, 'utf8')
 
@@ -244,6 +279,7 @@ for (const file of files) {
    */
   const MODES = /set(\w+)\(\s*'([a-z_-]+)'\s*\)/g
   const seen = new Set()
+
   for (const m of src.matchAll(MODES)) {
     if (inComment(src, m.index)) continue
     const [, name, mode] = m
@@ -267,23 +303,39 @@ for (const file of files) {
      * which is a genuine read. Walk back to the nearest unbalanced opening
      * bracket and ask what introduced it.
      */
-    const stylingOnly = comparisons.every((c) => {
-      let depth = 0
-      for (let i = c.index - 1; i >= 0 && c.index - i < 600; i--) {
-        const ch = src[i]
-        if (ch === '}' || ch === ')') depth++
-        else if (ch === '{' || ch === '(') {
-          if (depth === 0) {
-            const intro = src.slice(Math.max(0, i - 24), i)
-            return /className\s*=\s*$|\bcn$/.test(intro)
-          }
-          depth--
-        }
-      }
-      return false
-    })
+    const stylingOnly = comparisons.every((c) => isStylingContext(src, c.index))
 
-    if (stylingOnly) {
+    /*
+     * ── THE BINARY-TOGGLE EXEMPTION ─────────────────────────────────────────
+     *
+     * A two-state toggle usually renders with ONE test and an else:
+     *
+     *     {view === 'ai-stack' ? <AiStack/> : <Library/>}
+     *
+     * so `view === 'library'` appears only inside cn() for the pill styling,
+     * and this rule fired on it - while setting 'library' plainly does change
+     * what renders, through the else branch. That was a false positive on
+     * cm-libraries-taxonomy.tsx:54, and a scanner that cries wolf gets ignored,
+     * which costs more than the rule earns.
+     *
+     * So: if ANY OTHER literal compared against this same variable is read in a
+     * non-styling context, the variable demonstrably drives rendering, and a
+     * styling-only comparison for this one value proves nothing. Reachability
+     * by negation is still reachability.
+     */
+    /*
+     * A regex LITERAL, then filtered in JS - not a dynamic RegExp built from a
+     * template literal. `new RegExp(`\b${v}\s*===...`)` looks right and is not:
+     * inside a template literal `\b` is the BACKSPACE character and `\s` is
+     * just "s", so the pattern silently matches nothing and this exemption
+     * never applies. It has to be `\\b` there, and a rule that fails open by
+     * one backslash is not worth the cleverness.
+     */
+    const drivesRender = [...src.matchAll(/\b([A-Za-z_$][\w$]*)\s*===\s*'([^']+)'/g)].some(
+      (c) => c[1] === stateVar && c[2] !== mode && !isStylingContext(src, c.index),
+    )
+
+    if (stylingOnly && !drivesRender) {
       add(file, lineOf(src, m.index), 'unreachable-view', `${stateVar} = '${mode}'`,
         `${stateVar} can be set to '${mode}', but every comparison is styling only`)
     }
@@ -457,13 +509,27 @@ if (selfTest) {
     console.log(`  ${hits.length ? 'caught ' : 'MISSED '} ${kind.padEnd(20)} ${hits.length} hit(s)`)
   }
 
+  // The negative half: correct code must produce nothing at all.
+  const falsePositives = findings.filter((f) => f.file.endsWith('known-negatives.tsx.txt'))
+
+  console.log(
+    `  ${falsePositives.length === 0 ? 'clean  ' : 'FLAGGED'} known-negatives     ${falsePositives.length} false positive(s)`,
+  )
+
   if (missing.length) {
     console.log('\nSELF-TEST FAILED - these rules no longer catch their known positive:')
     for (const kind of missing) console.log(`  ${kind}`)
     process.exit(1)
   }
+
+  if (falsePositives.length) {
+    console.log('\nSELF-TEST FAILED - these rules now report correct code:')
+    for (const f of falsePositives) console.log(`  ${f.line}  ${f.kind}  ${f.control}`)
+    process.exit(1)
+  }
+
   console.log(`
-Self-test passed: all ${MUST_FIRE.length} rules still catch a known positive.`)
+Self-test passed: all ${MUST_FIRE.length} rules still catch a known positive, and none flags the known negatives.`)
   process.exit(0)
 }
 

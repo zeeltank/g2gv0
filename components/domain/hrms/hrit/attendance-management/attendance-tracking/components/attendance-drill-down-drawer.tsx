@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { X, TrendingUp, TrendingDown, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useEmployeeDayDetail } from '@/hooks/use-employee-day-detail'
+import type { MonthlyAttendanceDay } from '@/services/hrms'
 
 export interface DrillDownRecord {
   id: string
@@ -34,7 +36,40 @@ export interface AttendanceDrillDownDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   record: DrillDownRecord | null
+  /**
+   * The fallback rows, used only when this drawer has no employee to fetch for
+   * (a department roll-up). For an employee row the drawer loads the real
+   * month itself — see useEmployeeDayDetail for why the old slice-the-
+   * early-going-list approach could not work.
+   */
   recentRecords: DrillDownRecord[]
+  /** tbluser.id of the employee this row is about, when it is about one. */
+  employeeUserId?: string | number | null
+  /** "YYYY-MM" the report is showing. */
+  month?: string | null
+}
+
+/**
+ * A day from the monthly report, in the shape this drawer renders.
+ *
+ * The status vocabulary is wider on the server (leave, holiday, weekend,
+ * incomplete) than the three tones the drawer knows, so anything that is not
+ * plainly present or late is shown as absent with its real label kept in the
+ * date column's title. Losing the distinction silently would be worse.
+ */
+function toDrillDownRow(day: MonthlyAttendanceDay): DrillDownRecord {
+  const status: DrillDownRecord['status'] =
+    day.status === 'present' ? (day.is_late ? 'late' : 'present') : 'absent'
+
+  return {
+    id: day.date,
+    date: day.date,
+    punchIn: day.punchin_time ?? undefined,
+    punchOut: day.punchout_time ?? undefined,
+    workingHours: day.working_hours ?? undefined,
+    lateBy: day.is_late ? 'Late' : undefined,
+    status,
+  }
 }
 
 function getStatusBadgeTone(status: string) {
@@ -51,7 +86,21 @@ export function AttendanceDrillDownDrawer({
   onOpenChange,
   record,
   recentRecords,
+  employeeUserId,
+  month,
 }: AttendanceDrillDownDrawerProps) {
+  /*
+   * BEFORE the early return, because hooks cannot be conditional. The hook
+   * itself no-ops when employeeUserId or month is null, which is the department
+   * roll-up case, so a department drawer costs no request.
+   */
+  const detail = useEmployeeDayDetail(open ? employeeUserId ?? null : null, month ?? null)
+
+  const rows: DrillDownRecord[] =
+    employeeUserId && detail.days.length > 0
+      ? detail.days.map(toDrillDownRow)
+      : recentRecords
+
   if (!record) return null
 
   return (
@@ -120,12 +169,28 @@ export function AttendanceDrillDownDrawer({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Recent Attendance Records</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {employeeUserId ? 'Attendance by day' : 'Recent Attendance Records'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                {recentRecords.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No recent records</p>
+                {detail.loading ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">Loading the month…</p>
+                ) : detail.error ? (
+                  /*
+                    A failed fetch is never rendered as "no records". The old
+                    table could only ever say the latter, whatever had happened.
+                  */
+                  <p className="py-6 text-center text-sm text-destructive">
+                    {detail.error} This is a problem loading the records, not a month without any.
+                  </p>
+                ) : rows.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {employeeUserId
+                      ? 'No attendance recorded for this employee in this month.'
+                      : 'No recent records'}
+                  </p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -138,7 +203,7 @@ export function AttendanceDrillDownDrawer({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {recentRecords.map((r) => (
+                      {rows.map((r) => (
                         <TableRow key={r.id}>
                           <TableCell className="font-medium">{r.date}</TableCell>
                           <TableCell>{r.punchIn ?? '--'}</TableCell>

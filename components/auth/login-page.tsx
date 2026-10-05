@@ -62,7 +62,13 @@ import { readLastVisited } from '@/lib/last-visited'
 export function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { login, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated) {
+      window.location.href = '/dashboard'
+    }
+  }, [isAuthLoading, isAuthenticated])
 
   /*
    * ALWAYS LIGHT — see the file header for why this needs two mechanisms.
@@ -131,7 +137,25 @@ export function LoginPage() {
 
       if (!isLaravelContextReady(context)) return '/dashboard'
 
-      const me = await accountService.me(context)
+      /*
+       * A SLOW RESPONSE MUST NOT BE THE REASON SOMEBODY CANNOT GET IN.
+       *
+       * The comment below already covers this call REJECTING (network error,
+       * 4xx/5xx) — the catch swallows it and falls back to '/dashboard'. It
+       * did nothing for this call simply never SETTLING: the session is
+       * already fully committed by this point (login() has stored the token
+       * and set the auth cookie), but router.push below is only reached once
+       * this promise resolves, and apiClient's fetch carries no timeout of
+       * its own. A stalled response here left the screen looking stuck on
+       * /login with a spinning button, even though a manual refresh proved
+       * the sign-in had already succeeded. Racing it against a short timeout
+       * — falling into the same existing fallback below — closes that gap
+       * without changing what this call is for.
+       */
+      const me = await Promise.race([
+        accountService.me(context),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timed out reading landing page preference.')), 2500)),
+      ])
 
       if (me.data.preferences.landing_page === 'last-visited') {
         return readLastVisited() ?? '/dashboard'
@@ -145,7 +169,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -320,9 +344,22 @@ export function LoginPage() {
         same seam, see the comment on the diagonal-panel technique above.
       */}
       <div
-        className="g2g-auth-diagonal absolute inset-y-0 left-0 hidden w-[52%] overflow-hidden bg-brand-navy lg:block xl:w-[50%]"
+        className="g2g-auth-diagonal absolute inset-y-0 left-0 z-10 hidden w-[52%] overflow-hidden bg-brand-navy lg:block xl:w-[50%]"
         aria-hidden="true"
       >
+        {/*
+          `z-10` here is a real fix, not decoration: `<main>` below has no
+          explicit width, so its box spans the full viewport even though
+          padding visually confines its content to the right column —
+          `document.elementFromPoint` over this panel resolved to `<main>`,
+          not this div, because a later same-stacking-level sibling paints
+          on top by DOM order regardless of what's visibly underneath. This
+          panel's box only spans its own ~52% column, so raising it above
+          `<main>` cannot shadow anything `<main>` actually shows — the form
+          lives entirely in the other ~48-50%. Without this, `pauseOnHover`
+          below is unreachable by a real cursor: mouseenter never reaches
+          the spiral at all, `<main>`'s empty padding area catches it first.
+        */}
         <SpiralGallery className="h-full w-full" />
       </div>
 

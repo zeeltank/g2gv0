@@ -16,7 +16,10 @@ export function UpcomingLeaveCard({ leaves }: UpcomingLeaveCardProps) {
         <CardTitle>Upcoming Leaves</CardTitle>
         <CardDescription>Approved leave plans coming up soon</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      {/* NOTE: this component is exported from the barrel but mounted nowhere.
+          Bounded anyway rather than left as a trap for whoever mounts it -
+          it shares the h-full + uncapped map shape the other cards had. */}
+      <CardContent className="g2g-scrollbar max-h-[18rem] space-y-3 overflow-y-auto">
         {leaves.map((leave) => (
           <div key={leave.id} className="rounded-lg border border-border p-3 transition-colors hover:bg-surface-muted">
             <div className="flex items-start justify-between gap-3">

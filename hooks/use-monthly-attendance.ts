@@ -55,6 +55,16 @@ export function useMonthlyAttendance() {
   const [month, setMonth] = useState(() => monthKey(new Date()))
   const [employeeId, setEmployeeId] = useState<string>('')
 
+  /*
+   * The department filter. /attendance/employees has ALWAYS accepted a
+   * department_id - hrmsService.getAttendanceEmployees takes one as its second
+   * argument - and this hook simply never passed it, so the screen offered a
+   * flat list of every employee in the organisation and no way to narrow it.
+   * Nothing new is needed on the server.
+   */
+  const [departmentId, setDepartmentId] = useState<string>('all')
+  const [departments, setDepartments] = useState<Array<{ value: string; label: string }>>([])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [employees, setEmployees] = useState<AttendanceEmployeeOption[]>([])
@@ -67,12 +77,41 @@ export function useMonthlyAttendance() {
   // an empty list with no error would read as an organisation with no staff.
   const [employeesError, setEmployeesError] = useState<string | null>(null)
 
+  // The department list, once. Its own failure leaves the filter empty rather
+  // than blocking the screen - an employee picker still works unfiltered.
   useEffect(() => {
     if (authLoading || !user) return
     let cancelled = false
 
     hrmsService
-      .getAttendanceEmployees(getLaravelContext(user))
+      .getAttendanceReportIndex(getLaravelContext(user))
+      .then((response) => {
+        if (cancelled) return
+        const raw = response.departments
+        const list: Array<{ value: string; label: string }> = Array.isArray(raw)
+          ? raw.map((entry) =>
+              typeof entry === 'string'
+                ? { value: entry, label: entry }
+                : { value: String(entry.value ?? ''), label: String(entry.label ?? '') },
+            )
+          : Object.entries(raw ?? {}).map(([value, label]) => ({ value, label: String(label) }))
+        setDepartments(list.filter((entry) => entry.value !== '' && entry.label !== ''))
+      })
+      .catch(() => {
+        if (!cancelled) setDepartments([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, user])
+
+  useEffect(() => {
+    if (authLoading || !user) return
+    let cancelled = false
+
+    hrmsService
+      .getAttendanceEmployees(getLaravelContext(user), departmentId)
       .then((response) => {
         if (cancelled) return
         setEmployees(response.employees ?? [])
@@ -91,7 +130,7 @@ export function useMonthlyAttendance() {
     return () => {
       cancelled = true
     }
-  }, [authLoading, user])
+  }, [authLoading, user, departmentId])
 
   const load = useCallback(
     async (next?: { month?: string; employeeId?: string }) => {
@@ -141,6 +180,9 @@ export function useMonthlyAttendance() {
     setMonth,
     employeeId,
     setEmployeeId,
+    departmentId,
+    setDepartmentId,
+    departments,
     employees,
     employeesError,
     months: recentMonths(),

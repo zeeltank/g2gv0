@@ -27,14 +27,14 @@ const iconToneClass: Record<string, string> = {
 export function LeaveBalanceSnapshotCard({ balances, onViewAll }: LeaveBalanceSnapshotCardProps) {
   return (
     <Card className="h-full">
-      <CardHeader  className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base">Leave Balance Snapshot</CardTitle>
-        <Button variant="link" className="h-auto px-0 text-xs font-semibold" onClick={onViewAll}>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1 space-y-0 pb-3">
+        <CardTitle className="min-w-0 truncate text-base">Leave Balance Snapshot</CardTitle>
+        <Button variant="link" className="h-auto shrink-0 px-0 text-xs font-semibold" onClick={onViewAll}>
           View all
           <ArrowRight className="size-3.5" />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="g2g-scrollbar max-h-[18rem] space-y-4 overflow-y-auto">
         {/*
           F-194. This card used to .map() straight into its body, so an empty
           dataset rendered a heading above whitespace. On a newly-configured

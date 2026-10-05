@@ -18,6 +18,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile'
 import type { Profile } from '@/types/profile'
 import { BankCard } from '@/components/profile/cards/bank-card'
 import { Field, SaveButton, SectionBlock, SectionHint } from './section-primitives'
+import { ProfileDocumentsBlock } from './profile-documents-block'
 
 /**
  * THE FIRST SELF-SERVICE WRITE IN THIS PRODUCT.
@@ -673,6 +674,14 @@ export function ProfileSection({
           <BankCard profile={bankProfile} />
         </SectionBlock>
       )}
+
+      {/*
+        OUTSIDE THE SAVE FLOW, deliberately.
+        Documents commit the moment they are uploaded, unlike the photo above,
+        which is staged with the rest of the form. Holding a file until somebody
+        presses Save on an unrelated form is how it gets lost by navigating away.
+      */}
+      <ProfileDocumentsBlock />
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-5">
         {attempted && !valid && (

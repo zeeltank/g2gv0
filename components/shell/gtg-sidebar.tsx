@@ -192,6 +192,20 @@ export function GtgSidebar({
     onCollapsedChange?.(false)
   }, [active, clearFlyout, onCollapsedChange])
 
+  /**
+   * The explicit close, as opposed to the implicit collapses/expansions
+   * elsewhere in this file (clicking a module while collapsed expands it;
+   * clicking outside an overlaying rail collapses it, per F-201). This one
+   * always applies regardless of viewport width — a deliberate click on a
+   * dedicated button is a request either way, not something that should be
+   * width-gated the way an incidental outside click is. Only rendered while
+   * the rail is open, so there's nothing to toggle — it always collapses.
+   */
+  const handleCloseSidebar = useCallback(() => {
+    clearFlyout()
+    onCollapsedChange?.(true)
+  }, [clearFlyout, onCollapsedChange])
+
   const handleModuleClick = useCallback((module: NavModule) => {
     if (module.standalone) {
       clearFlyout()
@@ -451,10 +465,36 @@ export function GtgSidebar({
         <div
           className={cn(
             'flex h-12 shrink-0 items-center border-sidebar-border px-4',
-            collapsed && 'justify-center px-0',
+            collapsed ? 'justify-center px-0' : 'justify-between',
           )}
         >
-          <GtgBrandMark collapsed={collapsed} />
+          {collapsed ? (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange?.(false)}
+              className="flex cursor-pointer items-center justify-center rounded-md outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Expand sidebar"
+            >
+              <GtgBrandMark collapsed={collapsed} />
+            </button>
+          ) : (
+            <GtgBrandMark collapsed={collapsed} />
+          )}
+          {/* Only while open — closing is the one explicit control for
+              `collapsed`; everything else that changes it is a side effect
+              of some other click (a module, or clicking outside an
+              overlaying rail). Nothing to show this while already
+              collapsed, since there'd be nothing left to close. */}
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={handleCloseSidebar}
+              aria-label="Close sidebar"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <nav className={cn("g2g-page-scroll g2g-scrollbar flex-1", collapsed ? "px-2 pt-2 pb-4" : "px-3 py-3")}>
@@ -539,6 +579,7 @@ export function GtgSidebar({
             })}
           </div>
         </nav>
+
       </aside>
 
       {/* Mobile off-canvas drawer (<md) */}

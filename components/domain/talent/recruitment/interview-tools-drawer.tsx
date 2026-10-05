@@ -139,7 +139,18 @@ export function InterviewToolsDrawer({ open, mode, interviewId, candidates, jobs
   const visibleFeedback = feedbackRows.filter((row) => {
     const term = feedbackSearch.trim().toLowerCase()
     const matchesSearch = !term || `${row.candidate_name ?? ''} ${row.job_title ?? ''} ${row.panel_name ?? ''} ${row.recommendation ?? ''}`.toLowerCase().includes(term)
-    return matchesSearch && (!feedbackStatus || row.status === feedbackStatus)
+    /*
+     * `?? 'draft'` so this agrees with the badge.
+     *
+     * The badge rendered `row.status ?? 'submitted'` while this compared the
+     * raw column, so a null-status row DISPLAYED as Submitted and then
+     * vanished when you filtered for Submitted. Corrected towards 'draft'
+     * rather than 'submitted', because 'draft' is what the server actually
+     * defaults to (feedbackController:175, and the column default).
+     */
+    const status = row.status ?? 'draft'
+
+    return matchesSearch && (!feedbackStatus || status === feedbackStatus)
   })
 
   const interviewerName = (id: string) => {
@@ -350,6 +361,16 @@ export function InterviewToolsDrawer({ open, mode, interviewId, candidates, jobs
                   { label: 'All statuses', value: '' }, { label: 'Submitted', value: 'submitted' },
                   { label: 'Approved', value: 'approved' }, { label: 'Draft', value: 'draft' },
                   { label: 'Rejected', value: 'rejected' },
+                  /*
+                   * 'Hired' is here because it is the MAJORITY of the data.
+                   * talent_evaluation_form.status is
+                   * enum('draft','submitted','approved','rejected','Hired') and
+                   * 'Hired' holds 69 of 124 rows on the app database, 70 of 124
+                   * on live - measured. It was absent from this list, from the TS
+                   * union and from both validation rules, so the most common
+                   * outcome was the one value that could not be filtered to.
+                   */
+                  { label: 'Hired', value: 'Hired' },
                 ]} />
               </div>
               {visibleFeedback.map((row) => {
@@ -360,7 +381,7 @@ export function InterviewToolsDrawer({ open, mode, interviewId, candidates, jobs
                     <div>
                       <p className="font-semibold">{row.candidate_name ?? `Candidate ${row.candidate_id}`}</p>
                       <p className="text-xs text-muted-foreground">{row.job_title ?? `Job ${row.job_id}`} · {row.panel_name ?? `Panel ${row.panel_id}`}</p>
-                      <div className="mt-2 flex gap-1"><Badge variant="secondary">{row.status ?? 'submitted'}</Badge>{row.recommendation && <Badge variant="outline">{row.recommendation}</Badge>}</div>
+                      <div className="mt-2 flex gap-1"><Badge variant="secondary">{row.status ?? 'draft'}</Badge>{row.recommendation && <Badge variant="outline">{row.recommendation}</Badge>}</div>
                     </div>
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" aria-label="Edit feedback" onClick={() => {

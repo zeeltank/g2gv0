@@ -123,26 +123,40 @@ function getInitialSession(): Session {
 function getStoredSession(): Session {
   const signedOut: Session = { user: null, isAuthenticated: false, isLoading: false }
 
-  // Both stores: an un-remembered sign-in deliberately writes to the
-  // tab-scoped one (see storeSession below). localStorage first, since that's
-  // where a remembered session lives.
-  const stored =
-    localStorage.getItem(SESSION_COOKIE) ?? sessionStorage.getItem(SESSION_COOKIE)
-  if (!stored) {
-    return signedOut
-  }
-
-  // A restored user without its Laravel token cannot talk to the ERP, so treat
-  // that half-state as signed out rather than rendering a shell that 401s. The
-  // routing cookie has to go too, or middleware.ts would bounce /login -> /dashboard.
-  if (!readLaravelSession()) {
-    localStorage.removeItem(SESSION_COOKIE)
-    sessionStorage.removeItem(SESSION_COOKIE)
-    clearSessionCookie()
-    return signedOut
-  }
-
+  /*
+   * The whole body is guarded, not just the JSON.parse below — this is what
+   * resolves `isLoading` from true to false in AuthProvider's mount effect,
+   * and every protected route renders `null` while it's true (see
+   * protected-layout.tsx). A storage read/write throwing here — a browser
+   * restricting or evicting site storage for an origin that's gone unused
+   * for a while is a real, documented case, not a hypothetical one — used to
+   * leave `isLoading` stuck at true forever, with nothing to catch it: this
+   * runs above app/error.tsx's boundary, which only wraps the root layout's
+   * children, not AuthProvider itself. Signed-out is the same safe fallback
+   * `readLaravelSession()` already uses when it can't verify a session — not
+   * "assume authenticated," which would be the wrong direction to fail in.
+   */
   try {
+    // Both stores: an un-remembered sign-in deliberately writes to the
+    // tab-scoped one (see storeSession below). localStorage first, since
+    // that's where a remembered session lives.
+    const stored =
+      localStorage.getItem(SESSION_COOKIE) ?? sessionStorage.getItem(SESSION_COOKIE)
+    if (!stored) {
+      return signedOut
+    }
+
+    // A restored user without its Laravel token cannot talk to the ERP, so
+    // treat that half-state as signed out rather than rendering a shell that
+    // 401s. The routing cookie has to go too, or proxy.ts would bounce
+    // /login -> /dashboard.
+    if (!readLaravelSession()) {
+      localStorage.removeItem(SESSION_COOKIE)
+      sessionStorage.removeItem(SESSION_COOKIE)
+      clearSessionCookie()
+      return signedOut
+    }
+
     return normalizeSession(JSON.parse(stored)) ?? signedOut
   } catch {
     return signedOut
@@ -200,6 +214,28 @@ function toUser(data: LaravelSessionData): User {
  * cookie with no `max-age`, and both browser stores scoped to the tab — so
  * closing the browser genuinely signs you out, which is what the words on the
  * checkbox have always promised.
+ *
+ * ── WHY THE COOKIE'S VALUE IS `1`, NOT THE SESSION ────────────────────────
+ *
+ * It used to be `encodeURIComponent(JSON.stringify(session))` — the full
+ * User object (org name, profile name, an avatar URL, a dozen more fields)
+ * re-encoded into a cookie on every login AND every `switchRole()`. Nobody
+ * ever read that value back: `proxy.ts:15` only calls `.has('gtg-session')`,
+ * and `getStoredSession()` below rehydrates from the MIRROR (localStorage /
+ * sessionStorage), never from the cookie. So it was pure weight, added to
+ * every single request to the app from then on — cookies ride along on
+ * everything, not just navigations.
+ *
+ * That's a real bug, not just untidiness: a real login payload (a long org
+ * name, a CDN avatar URL) plausibly runs 800-2500+ bytes once URI-encoded
+ * (every `{`, `"`, `:`, `/` in the JSON triples in size), on top of
+ * whatever session cookies the Laravel API sets via `credentials:
+ * 'include'` on the same login call (services/auth/index.ts). Enough
+ * accumulated cookie weight is exactly what produces a request a proxy or
+ * dev server rejects outright before any HTML comes back — a genuinely
+ * blank screen, fixed immediately by clearing cookies, because that's the
+ * only thing that actually removes the excess bytes. `proxy.ts` needs a
+ * presence check, not a payload, so that's now all this writes.
  */
 const REMEMBER_KEY = 'gtg-remember'
 const REMEMBERED_DAYS = 30
@@ -214,14 +250,15 @@ function readRememberChoice(): boolean {
 }
 
 /**
- * Write the session cookie `proxy.ts` routes on.
+ * Write the session cookie `proxy.ts` routes on — a presence marker, not a
+ * payload. See "WHY THE COOKIE'S VALUE IS `1`" above.
  *
  * `remember` is omitted by callers UPDATING an existing session rather than
  * creating one — `switchRole` — which then inherit the choice already made.
  * Without that, switching role mid-session would silently promote a
  * deliberately temporary sign-in to a thirty-day one.
  */
-function setSessionCookie(session: Session, remember?: boolean) {
+function setSessionCookie(remember?: boolean) {
   const keep = remember ?? readRememberChoice()
 
   if (remember !== undefined) {
@@ -236,13 +273,45 @@ function setSessionCookie(session: Session, remember?: boolean) {
   // No `max-age` at all makes it a session cookie: the browser drops it on exit.
   const lifetime = keep ? `; max-age=${60 * 60 * 24 * REMEMBERED_DAYS}` : ''
 
-  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
-    JSON.stringify(session)
-  )}; path=/${lifetime}; samesite=lax`
+  document.cookie = `${SESSION_COOKIE}=1; path=/${lifetime}; samesite=lax`
 }
 
 function clearSessionCookie() {
   document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax`
+}
+
+/**
+ * Ensures the `gtg-session` presence cookie exists and is the correct size.
+ * 
+ * Fixes two issues:
+ * 1. An already-stored `gtg-session` cookie left oversized by code from
+ *    before it became presence-only.
+ * 2. A missing `gtg-session` cookie when the user is still fully authenticated
+ *    in localStorage. Without this, the client hard-navigates to /dashboard, 
+ *    proxy.ts rejects it for lacking the cookie, returning to /login and causing 
+ *    an infinite redirect loop.
+ */
+function ensureSessionCookiePresence() {
+  if (typeof document === 'undefined') return
+
+  // Guarded like everything else this mount effect calls (see
+  // getStoredSession() above) — this runs before isLoading has any chance
+  // to resolve, so a throw here must not be allowed to propagate either.
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)gtg-session=([^;]*)/)
+    
+    // If the cookie exists and is exactly '1', nothing to fix
+    if (match && match[1] === '1') return
+
+    // If it's missing or oversized, check the real session and self-heal the cookie
+    if (readLaravelSession()) {
+      setSessionCookie()
+    } else {
+      clearSessionCookie()
+    }
+  } catch {
+    // Nothing to repair if we can't even read the cookie safely.
+  }
 }
 
 /** The session mirror, in the store matching the "keep me signed in" choice. */
@@ -261,7 +330,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Restore the persisted session AFTER mount. This keeps the initial render
   // identical on the server and the client (both start "loading"), which
   // avoids a hydration mismatch and the blank-page-after-refresh problem.
+  //
+  // The repair runs first, and outside the microtask — a remembered sign-in
+  // may not hit login() again for weeks, so an oversized or missing cookie
+  // has to be caught on ordinary mounts, not just at sign-in.
   useEffect(() => {
+    ensureSessionCookiePresence()
     queueMicrotask(() => {
       setSession(getStoredSession())
     })
@@ -271,7 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     second?: SecondFactor,
-    remember = false,
+    remember = true,
   ) => {
     // Mirrors authController::index - both fields are `required|string` there.
     if (!email.trim()) {
@@ -331,7 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // moment somebody actually makes the choice.
     storeSession(newSession, remember)
     requestSidebarFirstOpenExpansion()
-    setSessionCookie(newSession, remember)
+    setSessionCookie(remember)
   }
 
   /**
@@ -401,7 +475,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(updated)
       // No `remember` argument — inherit the choice made at sign-in.
       storeSession(updated)
-      setSessionCookie(updated)
+      setSessionCookie()
     }
   }
 

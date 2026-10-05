@@ -7,7 +7,7 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { useLeaveOptions, useLeaveReports } from '@/hooks/use-leave'
+import { useLeaveOptions, useLeaveReportCatalog, useLeaveReports } from '@/hooks/use-leave'
 
 import {
   categories,
@@ -15,11 +15,13 @@ import {
   defaultFilters,
   reports,
   type ReportCategory,
+  type ReportDefinition,
   type ReportFilters,
 } from './services/leave-reports-data'
 import {
   ReportCatalogSection,
   ReportPreviewSection,
+  ReportInsightsSection,
   ReportsSidebar,
   TabButton,
   toDepartmentSlices,
@@ -90,6 +92,56 @@ function toInput(date: Date) {
 
 export default function LeaveReportsPage() {
   const searchParams = useSearchParams()
+  /*
+   * THE CATALOGUE COMES FROM THE SERVER NOW.
+   *
+   * It was a module-level constant, so adding or renaming a report meant a
+   * frontend deploy, and there was no way for the API and the screen to
+   * disagree loudly when they drifted - the screen would simply keep offering a
+   * report the backend had stopped producing.
+   *
+   * Only the DATA is fetched. `icon` and `tone` stay local, matched by id:
+   * they are a React component and a colour, not facts about a report, and
+   * serialising a Lucide icon through JSON is not a thing worth inventing.
+   *
+   * The local constant remains the fallback. A catalogue that fails to load
+   * should degrade to the three reports this build knows about, not to an empty
+   * screen that implies the organisation has no reports.
+   */
+  const { catalog } = useLeaveReportCatalog()
+
+  /*
+   * The server's list, wearing this build's presentation.
+   *
+   * Only the DATA is fetched: `icon` and `tone` stay local, matched by id -
+   * they are a React component and a colour, not facts about a report, and
+   * serialising a Lucide icon through JSON is not worth inventing. A report the
+   * server knows and this build does not still renders, neutrally styled,
+   * rather than disappearing.
+   */
+  const serverReports = useMemo(() => {
+    const entries = catalog?.reports ?? []
+    if (entries.length === 0) return null
+
+    const byId = new Map(reports.map((report) => [report.id, report]))
+
+    return entries.map((entry): ReportDefinition => {
+      const local = byId.get(entry.id)
+      return {
+        id: entry.id,
+        title: entry.title,
+        description: entry.description,
+        category: entry.category as ReportDefinition['category'],
+        icon: local?.icon ?? Search,
+        tone: local?.tone ?? 'bg-muted text-muted-foreground',
+        saved: local?.saved,
+      }
+    })
+  }, [catalog])
+
+  /** The server's list where we have it, this build's where we do not. */
+  const catalogReports = serverReports ?? reports
+
   const [activeTab, setActiveTab] = useState<'catalog' | 'saved'>('catalog')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<ReportCategory>('All Reports')
@@ -147,7 +199,8 @@ export default function LeaveReportsPage() {
   const { loading, error, summary, register, balance, loaded, retry } = useLeaveReports(apiFilters)
   const { options } = useLeaveOptions()
 
-  const selectedReport = reports.find((report) => report.id === selectedReportId) ?? reports[0]
+  const selectedReport =
+    catalogReports.find((report) => report.id === selectedReportId) ?? catalogReports[0]
 
   const rows = useMemo(() => summary?.rows ?? [], [summary])
   const totals = summary?.totals
@@ -183,7 +236,7 @@ export default function LeaveReportsPage() {
   const filteredReports = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
 
-    return reports.filter((report) => {
+    return catalogReports.filter((report) => {
       const matchesTab = activeTab === 'catalog' || savedIds.has(report.id)
       const matchesCategory = category === 'All Reports' || report.category === category
       const matchesQuery =
@@ -194,17 +247,44 @@ export default function LeaveReportsPage() {
 
       return matchesTab && matchesCategory && matchesQuery
     })
-  }, [activeTab, category, query, savedIds])
+  }, [activeTab, category, query, savedIds, catalogReports])
 
+  /*
+   * COUNTED OVER WHAT THE USER IS ACTUALLY LOOKING AT.
+   *
+   * This reduced over the module-level `reports` constant inside a useMemo with
+   * an EMPTY dependency array, so it was frozen at 3 / 2 / 1 for the life of the
+   * page. It ignored the search box and it ignored the active tab - so on "My
+   * Reports" the rail claimed three reports while the grid showed one, and the
+   * "Showing X of Y" line a few pixels away used the real filtered count. Two
+   * numbers on the same card, disagreeing.
+   *
+   * Now it counts the same set the grid renders, minus the category filter -
+   * a category's own count must not collapse to zero the moment you select a
+   * different category.
+   */
   const categoryCounts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const inScope = catalogReports.filter((report) => {
+      const matchesTab = activeTab === 'catalog' || savedIds.has(report.id)
+      const matchesQuery =
+        !normalizedQuery ||
+        report.title.toLowerCase().includes(normalizedQuery) ||
+        report.description.toLowerCase().includes(normalizedQuery) ||
+        report.category.toLowerCase().includes(normalizedQuery)
+
+      return matchesTab && matchesQuery
+    })
+
     return categories.reduce<Record<ReportCategory, number>>((acc, current) => {
       acc[current] =
         current === 'All Reports'
-          ? reports.length
-          : reports.filter((report) => report.category === current).length
+          ? inScope.length
+          : inScope.filter((report) => report.category === current).length
       return acc
     }, {} as Record<ReportCategory, number>)
-  }, [])
+  }, [activeTab, query, savedIds, catalogReports])
 
   function toggleSaved(reportId: string) {
     setSavedIds((current) => {
@@ -379,7 +459,33 @@ export default function LeaveReportsPage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+      {/*
+        ONE COLUMN, IN READING ORDER: filters, then the catalogue, then the
+        report, then the insights about it.
+
+        This was a two-column grid with a 330px rail holding the filters AND the
+        Report Insights card. Below xl the grid collapsed to one column and the
+        insights - which describe the metrics at the top of the preview - landed
+        last, at the very bottom of the page, a full screen away from what they
+        were commenting on.
+      */}
+      <div className="flex flex-col gap-4">
+        <ReportsSidebar
+          loaded={loaded}
+          approved={approved}
+          cancelled={cancelled}
+          departmentBreakdown={departmentSlices}
+          filterOptions={filterOptions}
+          filters={filters}
+          rejected={rejected}
+          topLeaveType={topLeaveType}
+          totalRequests={totalRequests}
+          onApplyFilters={applyFilters}
+          onRefresh={retry}
+          onFilterChange={updateFilter}
+          onResetFilters={resetFilters}
+        />
+
         <div className="flex min-w-0 flex-col gap-4">
           <ReportCatalogSection
             activeTab={activeTab}
@@ -419,23 +525,18 @@ export default function LeaveReportsPage() {
             onExportCsv={exportCsv}
             onSaveToggle={toggleSaved}
           />
-        </div>
 
-        <ReportsSidebar
+          {/* Directly under the metrics it describes. */}
+          <ReportInsightsSection
             loaded={loaded}
-          approved={approved}
-          cancelled={cancelled}
-          departmentBreakdown={departmentSlices}
-          filterOptions={filterOptions}
-          filters={filters}
-          rejected={rejected}
-          topLeaveType={topLeaveType}
-          totalRequests={totalRequests}
-          onApplyFilters={applyFilters}
-          onRefresh={retry}
-          onFilterChange={updateFilter}
-          onResetFilters={resetFilters}
-        />
+            approved={approved}
+            cancelled={cancelled}
+            departmentBreakdown={departmentSlices}
+            rejected={rejected}
+            topLeaveType={topLeaveType}
+            totalRequests={totalRequests}
+          />
+        </div>
       </div>
 
       {/*

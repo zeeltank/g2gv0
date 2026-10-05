@@ -494,7 +494,12 @@ function TaskApprovals({ tasks, onSelect, onDecision }: {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <button onClick={() => onSelect(task)} className="flex min-w-0 items-center gap-4 text-left">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/5 text-xs font-bold text-primary">{task.assignee.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
-          <span className="min-w-0"><span className="flex flex-wrap items-center gap-3"><strong className="truncate text-base">{task.title}</strong><span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">TSK-{task.id}</span></span><span className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"><span className="text-primary">●</span><span>{task.project}</span><span className="flex items-center gap-1"><CalendarDays className="size-3.5" />Submitted {formatShortDate(task.updated_at?.slice(0, 10) ?? task.due_date)}</span></span>{task.approve_status === 'rejected' && (
+          <span className="min-w-0"><span className="flex flex-wrap items-center gap-3"><strong className="truncate text-base">{task.title}</strong><span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">TSK-{task.id}</span></span><span className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"><span className="text-primary">●</span><span>{task.project}</span><span className="flex items-center gap-1"><CalendarDays className="size-3.5" />Submitted {formatShortDate(task.updated_at?.slice(0, 10) ?? task.due_date)}</span>{task.approval?.pending && (
+            <span className="rounded-lg bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Awaiting {task.approval.step_name || task.approval.approver_role || 'approval'}
+              {task.approval.of ? ` (step ${task.approval.step} of ${task.approval.of})` : ''}
+            </span>
+          )}</span>{task.approve_status === 'rejected' && (
             /* THE REASON, ON THE CARD. Capturing it at rejection is only half
                the job — an approver reviewing the rework queue needs to see why
                it was sent back without opening each one. Rejections recorded

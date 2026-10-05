@@ -311,7 +311,7 @@ export function CmAssessmentWorkspace() {
           ['calibration', 'Calibration'],
           ['approvals', 'Approvals'],
           ['closed', 'Closed Cycles'],
-        ] as const).map(([id, tab]) => {
+        ] as [string, string][]).map(([id, tab]) => {
           const isActive = id === activeTab
           return (
             <button

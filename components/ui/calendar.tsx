@@ -42,23 +42,41 @@ function Calendar({
         month_caption: "flex h-9 items-center justify-center px-9",
         caption_label: "text-sm font-medium",
 
-        // Full-width bar sitting over the caption row: previous on the left,
-        // next on the right. z-10 keeps the buttons clickable above the label.
-        nav: "absolute inset-x-0 top-0 z-10 flex h-9 items-center justify-between px-1",
+        /*
+         * Full-width bar sitting over the caption row: previous on the left,
+         * next on the right.
+         *
+         * `pointer-events-none` is load-bearing. This bar spans the whole width
+         * with `justify-between`, so its entire MIDDLE is empty - and, without
+         * this, still hit-testable above the caption beneath it. When
+         * captionLayout is a dropdown variant, the month and year <select>s live
+         * in exactly that middle, and every click meant for them landed on this
+         * div instead. The selects were rendered, styled and correctly wired;
+         * they simply never received a pointer event, so the month and year
+         * pickers appeared dead on all 22 DatePicker call sites.
+         *
+         * The chevrons take the events back individually below. The earlier
+         * comment here ("z-10 keeps the buttons clickable above the label") was
+         * written before the dropdown layout existed and describes only the
+         * chevron case.
+         */
+        nav: "pointer-events-none absolute inset-x-0 top-0 z-10 flex h-9 items-center justify-between px-1",
 
         button_previous: cn(
           buttonVariants({ variant: "outline", size: "icon" }),
-          "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
+          "pointer-events-auto h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
         ),
 
         button_next: cn(
           buttonVariants({ variant: "outline", size: "icon" }),
-          "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
+          "pointer-events-auto h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
         ),
 
         // Month / year dropdowns, used when captionLayout is a dropdown variant.
         dropdowns: "flex items-center justify-center gap-2 text-sm font-medium",
-        dropdown_root: "relative inline-flex items-center rounded-md border border-input px-2 py-1 hover:bg-accent",
+        // z-20 puts the dropdown above the nav bar's z-10 rather than relying on
+        // paint order, so the fix holds even if the nav is restyled later.
+        dropdown_root: "relative z-20 inline-flex items-center rounded-md border border-input px-2 py-1 hover:bg-accent",
         // The native select is laid over its label so it stays keyboard and
         // pointer accessible while the styled label shows through.
         dropdown: "absolute inset-0 h-full w-full cursor-pointer opacity-0",

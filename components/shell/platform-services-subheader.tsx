@@ -1,0 +1,186 @@
+'use client'
+
+/**
+ * The navbar's Platform Services strip — a full-width bar, in normal
+ * document flow, toggled from the navbar.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THIRD REVISION — BACK TO PUSH-DOWN, AND STAYS OPEN ACROSS NAVIGATION
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Two earlier shapes, both corrected after being seen live:
+ *  1. Push-down, full-width — the original build.
+ *  2. A compact floating card (matching K12's "Master"/"AI Stack" panels) —
+ *     built after that was explicitly requested, then reverted: the actual
+ *     ask was K12's OUTER bar shape (full length, like its "FEES" strip),
+ *     not either of K12's own floating overlays.
+ *
+ * This is (1) again, full width, sitting between the header and `<main>` in
+ * `GtgAppShell`/`GtgPageShell` — mounting/collapsing it is what pushes page
+ * content down, the same "page goes down a little" effect asked for from
+ * the start.
+ *
+ * ── OPEN STATE SURVIVES NAVIGATION, ON PURPOSE ───────────────────────────────
+ *
+ * The previous revision remounted this component on every `pathname` change
+ * specifically to auto-close it — which closed it on EVERY navigation,
+ * including a click on one of its own links to switch between, say, Workflow
+ * and Scheduler. Reported directly: it should stay open while moving between
+ * these consoles, closing only on an explicit user action (the toggle
+ * button, an outside click, or Escape) — never because the route changed.
+ * So `open` lives in `GtgAppShell`/`GtgPageShell` (passed down as a prop),
+ * the same place `sidebarCollapsed`/`toolbarOpen` already live, both of
+ * which already survive navigation for the same reason: those shells mount
+ * once and persist across client-side route changes.
+ *
+ * ── NO LONGER DUPLICATES `PlatformShell`'s OWN QUICK-NAV ─────────────────────
+ *
+ * Every one of the 5 console pages used to render its own near-identical tab
+ * strip (`PlatformShell`'s `quickNav`) — showing this bar there too would be
+ * the same switcher twice. That strip is removed from `PlatformShell`; this
+ * bar is the one place that navigation lives now, including the "Browse
+ * every module" link that strip used to carry.
+ *
+ * ── SCOPED TO THE SAME 5 CONSOLES THE SIDEBAR ALREADY OFFERS ────────────────
+ *
+ * Event Bus and What's Coming are deliberately not in this list: neither has
+ * a real per-module concept (confirmed by reading their actual data — Event
+ * Bus's consumers are mostly cross-cutting across several modules, and
+ * What's Coming's gaps are prose per SERVICE, not per module), so scoping
+ * either here would mean inventing something fake.
+ *
+ * ── THE AI STACK LINK IS THE MODULE'S OWN PAGE, NOT A SCOPED HUB ────────────
+ *
+ * Pressing AI Stack from inside a module used to land on
+ * `/platform-services/ai-stack?module=<key>`, which then asked which module
+ * to show — the module had been named already, by being there.
+ *
+ * So the AI Stack entry resolves the module from the live menu tree and goes to
+ * `/module/{moduleId}/ai-stack`, a route that cannot be ambiguous about its
+ * module because the module is in the path. The other five consoles keep
+ * `?module=`, which is still how a module-scoped console marks its own scope
+ * and is untouched here.
+ *
+ * `useCurrentPlatformModule()` is still consulted first, so a link that is
+ * already module-scoped by query string keeps resolving exactly as it did.
+ * Only the case where the URL carries no scope at all is added.
+ */
+
+import { Suspense } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { PlatformServiceIcon } from '@/lib/platform/icons'
+import { MODULE_LABEL } from '@/lib/platform/access-links'
+import { useCurrentPlatformModule } from '@/hooks/use-current-platform-module'
+import { useActiveModule } from '@/hooks/use-active-module'
+import { OWN_ROUTE_SERVICES } from '@/components/shell/platform-shell'
+import { cn } from '@/lib/utils'
+
+const DECENTRALIZABLE_SERVICES = OWN_ROUTE_SERVICES.filter(
+  (service) => service.decentralizedModules !== undefined,
+)
+
+export function PlatformServicesSubheader({ open }: { open: boolean }) {
+  return (
+    <div
+      id="platform-services-subheader"
+      aria-hidden={!open}
+      className="grid shrink-0 transition-[grid-template-rows] duration-200 ease-out"
+      style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+    >
+      <div className="overflow-hidden">
+        {/* `useSearchParams()` (inside useCurrentPlatformModule) needs a
+            Suspense boundary — the same requirement ServiceShell already
+            satisfies for the sidebar-scoped consoles this mirrors. */}
+        <Suspense fallback={null}>
+          <PlatformServicesSubheaderContent inert={!open} />
+        </Suspense>
+      </div>
+    </div>
+  )
+}
+
+function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
+  const pathname = usePathname()
+  const scopedByQuery = useCurrentPlatformModule()
+
+  /*
+   * The module this screen is inside, from the live menu tree, and the page its AI Stack
+   * lives on. `moduleId` is null wherever the URL carries no module scope at all — the
+   * centralised `/platform-services/*` routes — and the link below then falls back to the
+   * behaviour that was already there.
+   */
+  const { moduleId, platformKey } = useActiveModule()
+  const moduleKey = scopedByQuery ?? platformKey
+
+  const items = moduleKey
+    ? DECENTRALIZABLE_SERVICES.filter((service) => service.decentralizedModules?.includes(moduleKey))
+    : DECENTRALIZABLE_SERVICES
+
+  const moduleAiStackHref = moduleId ? `/module/${moduleId}/ai-stack` : null
+
+  return (
+    <nav
+      aria-label="Platform services"
+      // Collapsed content is still in the DOM for the height transition,
+      // so it must not be reachable by keyboard or a screen reader while closed.
+      inert={inert}
+      className="flex flex-wrap items-center gap-3 border-b border-border bg-gradient-to-r from-surface-muted/70 via-card to-card px-5 py-3.5 md:px-7"
+    >
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold tracking-widest text-primary uppercase">
+        <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+        {moduleKey ? MODULE_LABEL[moduleKey] : 'Platform Services'}
+      </span>
+
+      <div className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {items.map((service) => {
+          /*
+            The AI Stack, and only the AI Stack, goes to the module's own page when the
+            URL identifies one. Every other console keeps `?module=`, which is the scope
+            mechanism all five of them already read.
+          */
+          const isModuleAiStack = service.slug === 'ai-stack' && moduleAiStackHref !== null
+          const href = isModuleAiStack
+            ? moduleAiStackHref
+            : moduleKey
+              ? `${service.destination.href}?module=${moduleKey}`
+              : service.destination.href
+          const isActive = isModuleAiStack
+            ? pathname === moduleAiStackHref
+            : pathname === service.destination.href
+
+          return (
+            <Link
+              key={service.slug}
+              href={href}
+              aria-current={isActive ? 'page' : undefined}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150',
+                isActive
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <PlatformServiceIcon slug={service.slug} className="size-4" />
+              {service.name}
+            </Link>
+          )
+        })}
+      </div>
+
+      <div className="ml-auto h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+
+      <Link
+        href="/platform-services"
+        className="group inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+      >
+        Browse every module
+        <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">
+          →
+        </span>
+      </Link>
+    </nav>
+  )
+}

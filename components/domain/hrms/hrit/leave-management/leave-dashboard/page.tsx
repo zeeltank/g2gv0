@@ -103,7 +103,7 @@ function DashboardSkeleton() {
         <Skeleton className="h-80 rounded-2xl" />
         <Skeleton className="h-80 rounded-2xl" />
       </div>
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-6 @2xl/content:grid-cols-2 @5xl/content:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-64 rounded-2xl" />
         ))}
@@ -275,7 +275,8 @@ export default function DashboardPage() {
         </Suspense>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      {/* Container breakpoints - see the note on Attendance Tracking's grid. */}
+      <section className="grid gap-6 @2xl/content:grid-cols-2 @5xl/content:grid-cols-4">
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
           <PendingApprovalsCard
             requests={pendingRequests}

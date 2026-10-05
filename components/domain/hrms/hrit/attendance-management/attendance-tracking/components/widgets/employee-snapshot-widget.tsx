@@ -66,7 +66,7 @@ export function EmployeeSnapshotWidget({
   }
 
   return (
-    <Card className="flex h-full flex-col rounded-xl border-border bg-card shadow-sm">
+    <Card className="flex h-full max-h-[26rem] flex-col rounded-xl border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 px-5 pb-4 pt-5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           <User className="size-5" />
@@ -75,7 +75,7 @@ export function EmployeeSnapshotWidget({
           Employee Snapshot
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-between space-y-5 px-5 pb-5">
+      <CardContent className="g2g-scrollbar flex min-h-0 flex-1 flex-col justify-between space-y-5 overflow-y-auto px-5 pb-5">
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Leave Balance

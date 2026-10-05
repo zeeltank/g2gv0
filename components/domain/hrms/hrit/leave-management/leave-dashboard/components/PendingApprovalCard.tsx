@@ -26,14 +26,23 @@ export function PendingApprovalsCard({
 }: PendingApprovalsCardProps) {
   return (
     <Card className="h-full rounded-2xl">
-      <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="text-base font-semibold">
+      {/*
+        flex-wrap + min-w-0 + truncate, and gap so a wrapped button clears the
+        title. The sidebar is compensated with padding-left on the content
+        wrapper, but Tailwind's breakpoints key off VIEWPORT width - so
+        expanding it takes 188px out of the row while the grid happily keeps its
+        column count. At xl:grid-cols-4 that is roughly 225px per card, and a
+        CardHeader's p-6 leaves under 180px for a title and a button that were
+        sharing one no-wrap row. LeaveQuickActionsCard already does it this way.
+      */}
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1 pb-4">
+        <CardTitle className="min-w-0 truncate text-base font-semibold">
           Pending Approvals
         </CardTitle>
 
         <Button
           variant="link"
-          className="h-auto p-0 text-sm font-semibold text-primary"
+          className="h-auto shrink-0 p-0 text-sm font-semibold text-primary"
           onClick={onViewAll}
         >
           View all ({requests.length})

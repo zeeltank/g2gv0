@@ -63,7 +63,7 @@ function summarizeDirectToolData(result: unknown) {
     ) {
       const nested = record.data as Record<string, unknown>;
       const nestedSummary = Object.entries(nested)
-        .filter(([, value]) => Array.isArray(value))
+        .filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
         .map(([key, value]) => `${key}: ${value.length}`)
         .slice(0, 3)
         .join(", ");

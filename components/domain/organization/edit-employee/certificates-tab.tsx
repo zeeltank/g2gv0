@@ -34,6 +34,10 @@ export function CertificatesTab({ employeeId }: { employeeId: number | null }) {
   const [certificates, setCertificates] = useState<LearningCertificate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** Which row's Verify is in flight, so its button can be disabled. */
+  const [verifyingId, setVerifyingId] = useState<number | null>(null)
+  /** The last verification answer, shown on the row it belongs to. */
+  const [verification, setVerification] = useState<{ id: number; ok: boolean; message: string } | null>(null)
 
   const load = useCallback(async () => {
     const context = getLaravelContext(user)
@@ -68,6 +72,72 @@ export function CertificatesTab({ employeeId }: { employeeId: number | null }) {
       void load()
     })
   }, [load])
+
+  /**
+   * The rendered PDF.
+   *
+   * `downloadUrl()` builds an ABSOLUTE url against the API host and carries the
+   * context in the query string, which is what makes this work at all: a
+   * download navigation sends no Authorization header, and the endpoint
+   * requires a token. The previous relative path resolved against the Next
+   * origin and 404'd.
+   *
+   * The endpoint is also already ownership-guarded - LmsLearningController
+   * :1692-1697 scopes to the tenant for an authoring profile and to the
+   * caller's own rows otherwise - so this button cannot fetch a certificate the
+   * signed-in user should not see.
+   */
+  const onDownload = useCallback(
+    (certificate: LearningCertificate) => {
+      const context = getLaravelContext(user)
+
+      if (!isLaravelContextReady(context)) {
+        setVerification({ id: certificate.id, ok: false, message: 'Your session is not ready yet. Reload and try again.' })
+        return
+      }
+
+      window.open(lmsCertificateService.downloadUrl(context, certificate.id), '_blank', 'noopener')
+    },
+    [user],
+  )
+
+  /**
+   * Verification, shown inline rather than in a new tab.
+   *
+   * The endpoint is public and returns JSON, not a page - there is no
+   * /verify/certificate route in this app, which is why the old button 404'd.
+   * Opening raw JSON at an HR user would be a poor answer to "is this genuine",
+   * so the answer is rendered on the row instead.
+   */
+  const onVerify = useCallback(async (certificate: LearningCertificate) => {
+    if (!certificate.verification_code) return
+
+    setVerifyingId(certificate.id)
+    try {
+      const response = await lmsCertificateService.verify(certificate.verification_code)
+      const parts = [
+        response.valid ? 'Genuine' : 'Not verified',
+        response.data?.learner_name ?? null,
+        response.data?.is_superseded ? 'superseded by a reissue' : null,
+        response.data?.is_expired ? 'expired' : null,
+      ].filter(Boolean)
+
+      setVerification({
+        id: certificate.id,
+        ok: Boolean(response.valid),
+        message: parts.join(' · ') || response.message || 'No verification detail returned.',
+      })
+    } catch (verifyError) {
+      setVerification({
+        id: certificate.id,
+        ok: false,
+        message:
+          verifyError instanceof Error ? verifyError.message : 'Could not reach the verification service.',
+      })
+    } finally {
+      setVerifyingId(null)
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -138,6 +208,19 @@ export function CertificatesTab({ employeeId }: { employeeId: number | null }) {
                   {new Date(certificate.expires_at).toLocaleDateString()}
                 </span>
               )}
+
+              {/* The Verify answer, on the row it was asked about. */}
+              {verification?.id === certificate.id && (
+                <span
+                  className={
+                    verification.ok
+                      ? 'text-xs font-semibold text-primary'
+                      : 'text-xs font-semibold text-destructive'
+                  }
+                >
+                  {verification.message}
+                </span>
+              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
@@ -149,18 +232,20 @@ export function CertificatesTab({ employeeId }: { employeeId: number | null }) {
                 {expired ? 'Expired' : (certificate.status ?? 'issued')}
               </StatusBadge>
 
+              {/*
+                * Both of these used to be hand-written relative paths -
+                * `/api/lms/learning/certificates/{id}/download` and
+                * `/verify/certificate/{code}` - which resolve against the NEXT
+                * origin, where neither route exists. Both 404'd. The endpoints
+                * are on Laravel, and lmsCertificateService already knew how to
+                * reach them; this screen just was not asking it.
+                */}
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label={`Download ${certificate.certificate_number}`}
                 className="size-8 text-muted-foreground"
-                onClick={() =>
-                  window.open(
-                    `/api/lms/learning/certificates/${certificate.id}/download`,
-                    '_blank',
-                    'noopener',
-                  )
-                }
+                onClick={() => onDownload(certificate)}
               >
                 <Download className="size-4" />
               </Button>
@@ -171,13 +256,8 @@ export function CertificatesTab({ employeeId }: { employeeId: number | null }) {
                   size="icon"
                   aria-label="Verify this certificate"
                   className="size-8 text-muted-foreground"
-                  onClick={() =>
-                    window.open(
-                      `/verify/certificate/${certificate.verification_code}`,
-                      '_blank',
-                      'noopener',
-                    )
-                  }
+                  disabled={verifyingId === certificate.id}
+                  onClick={() => onVerify(certificate)}
                 >
                   <ExternalLink className="size-4" />
                 </Button>

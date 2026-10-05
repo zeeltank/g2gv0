@@ -375,7 +375,7 @@ export function LearningCatalog() {
         <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/50 bg-muted">
             {row.display_image && row.display_image !== '/' ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={row.display_image} alt="" className="size-full object-cover" />
             ) : (
               <ImageIcon className="size-5 text-muted-foreground/50" />

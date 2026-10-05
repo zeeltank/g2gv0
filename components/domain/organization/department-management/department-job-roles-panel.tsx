@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Briefcase, ExternalLink, Merge, RefreshCw, Search, Users } from 'lucide-react'
+import { Briefcase, ExternalLink, Loader2, Merge, Plus, RefreshCw, Search, Trash2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,14 @@ import { organizationService, type DepartmentJobRole } from '@/services/organiza
 import { useRouter } from 'next/navigation'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { CAPABILITY_LIBRARY_ACCESS_LINK } from '@/lib/gtg-navigation'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { JobRoleMergeDialog } from './job-role-merge-dialog'
 
 /**
@@ -73,6 +81,33 @@ export function DepartmentJobRolesPanel({
   const [isMerging, setIsMerging] = useState(false)
   const [notice, setNotice] = useState('')
 
+  /*
+   * ADDING A ROLE, IN PLACE.
+   *
+   * The only way to create one used to be "Create in Library", which navigates
+   * out of Department Management entirely with no department pre-filled. Worse,
+   * that form sends the department by NAME and the server resolves it at write
+   * time - so on a tenant with two departments of the same name the role lands
+   * with a NULL `department_id` and never appears in this drawer at all.
+   *
+   * Creating here sends the id we already have, so that cannot happen. The link
+   * out stays for everything else the Library form offers.
+   */
+  const [adding, setAdding] = useState(false)
+  const [newRole, setNewRole] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+
+  /*
+   * DELETING ONE.
+   *
+   * `pendingDelete` holds the role awaiting confirmation and, once the impact
+   * call returns, who holds it. The server refuses a held role with 409 on its
+   * own - this is so the dialog can say so BEFORE the click rather than after.
+   */
+  const [pendingDelete, setPendingDelete] = useState<DepartmentJobRole | null>(null)
+  const [impact, setImpact] = useState<{ holders: number; holder_names: string[]; can_delete: boolean } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const load = useCallback(async () => {
     setIsLoading(true)
     setError('')
@@ -86,6 +121,70 @@ export function DepartmentJobRolesPanel({
       setIsLoading(false)
     }
   }, [context, department.id])
+
+  async function createRole() {
+    const name = newRole.trim()
+
+    if (!name || isSaving) return
+
+    setIsSaving(true)
+    setNotice('')
+
+    try {
+      await organizationService.createDepartmentJobRole(context, department.id, { jobrole: name })
+      setNewRole('')
+      setAdding(false)
+      setNotice(`"${name}" added to ${department.name}.`)
+      await load()
+    } catch (cause) {
+      // The server's own sentence where there is one - a duplicate name is the
+      // common failure and it says exactly that.
+      setNotice(cause instanceof Error ? cause.message : 'That job role could not be added.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  /** Open the confirmation, and ask what deleting would cost while it opens. */
+  async function askToDelete(role: DepartmentJobRole) {
+    setNotice('')
+    setPendingDelete(role)
+    setImpact(null)
+
+    try {
+      const response = await organizationService.getJobRoleDeleteImpact(context, role.id)
+      setImpact(response.data ?? null)
+    } catch {
+      /*
+       * Left null deliberately. The dialog then offers the delete without a
+       * count, and the SERVER still refuses a held role with 409 - so a failed
+       * preview costs a worse message, never a wrong outcome.
+       */
+    }
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete || isDeleting) return
+
+    setIsDeleting(true)
+    setNotice('')
+
+    try {
+      await organizationService.deleteJobRole(context, pendingDelete.id)
+      setNotice(`"${pendingDelete.jobrole}" was removed from ${department.name}.`)
+      setPendingDelete(null)
+      setImpact(null)
+      await load()
+    } catch (cause) {
+      // A 409 lands here, and its message names who holds the role. That is the
+      // one useful thing in the whole exchange, so it is shown rather than
+      // replaced with something generic.
+      setNotice(cause instanceof Error ? cause.message : 'That job role could not be deleted.')
+      setPendingDelete(null)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -145,6 +244,14 @@ export function DepartmentJobRolesPanel({
             Refresh
           </Button>
           {canManage && (
+            <Button type="button" size="sm" onClick={() => { setNotice(''); setAdding((open) => !open) }}>
+              <Plus className="size-3.5" aria-hidden="true" />
+              Add role
+            </Button>
+          )}
+          {canManage && (
+            /* Kept, but demoted to the secondary action: the Library form offers
+               far more fields than a name, and this is still the way to them. */
             <Button type="button" variant="outline" size="sm" onClick={openLibrary}>
               <ExternalLink className="size-3.5" aria-hidden="true" />
               Create in Library
@@ -152,6 +259,40 @@ export function DepartmentJobRolesPanel({
           )}
         </div>
       </div>
+
+      {adding && canManage && (
+        <form
+          className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2"
+          onSubmit={(event) => { event.preventDefault(); void createRole() }}
+        >
+          <Input
+            autoFocus
+            value={newRole}
+            onChange={(event) => setNewRole(event.target.value)}
+            placeholder={`New job role in ${department.name}`}
+            maxLength={191}
+            className="h-9 min-w-48 flex-1"
+          />
+          <Button type="submit" size="sm" disabled={!newRole.trim() || isSaving}>
+            {isSaving && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+            {isSaving ? 'Adding…' : 'Add'}
+          </Button>
+          <Button
+            type="button" variant="ghost" size="sm"
+            onClick={() => { setAdding(false); setNewRole('') }}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+          {/* Only the name is asked for. Everything else the Library form offers
+              is optional, and demanding it here would make adding one role a
+              form-filling exercise - which is what drove people out to the
+              Library screen in the first place. */}
+          <p className="w-full text-xs text-muted-foreground">
+            Just the name for now. The rest can be filled in from Capability Library.
+          </p>
+        </form>
+      )}
 
       {roles.length > 4 && (
         <div className="relative">
@@ -182,7 +323,14 @@ export function DepartmentJobRolesPanel({
       {!isLoading && !error && visible.length > 0 && (
         <div className="overflow-hidden rounded-md border border-border">
           {visible.map((role) => {
-            const held = employeeCountByRole?.[String(role.id)] ?? 0
+            /*
+             * The row's own count first. `employeeCountByRole` was the original
+             * design and NEITHER parent has ever passed it - so this badge was
+             * dead code on every screen that renders this panel. The list endpoint
+             * now serves the number per role, which is one query instead of a prop
+             * two components would have to thread through and keep in step.
+             */
+            const held = role.employee_count ?? employeeCountByRole?.[String(role.id)] ?? 0
             return (
               <div
                 key={role.id}
@@ -197,7 +345,7 @@ export function DepartmentJobRolesPanel({
                     </p>
                   )}
                 </div>
-                {employeeCountByRole && (
+                {(role.employee_count !== undefined || employeeCountByRole) && (
                   <span
                     className="inline-flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
                     title={`${held} employee${held === 1 ? '' : 's'} hold this role`}
@@ -215,6 +363,17 @@ export function DepartmentJobRolesPanel({
                   >
                     <Merge className="size-3.5" aria-hidden="true" />
                     Merge
+                  </Button>
+                )}
+                {canManage && (
+                  <Button
+                    type="button" variant="ghost" size="sm"
+                    className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => void askToDelete(role)}
+                    title={`Delete ${role.jobrole}`}
+                    aria-label={`Delete ${role.jobrole}`}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
                   </Button>
                 )}
               </div>
@@ -238,6 +397,80 @@ export function DepartmentJobRolesPanel({
         onCancel={() => setMergeRole(null)}
         onMerge={(payload) => void confirmMerge(payload)}
       />
+
+      {/*
+        ══════════════════════════════════════════════════════════════════════
+        DELETING A ROLE, WITH THE CONSEQUENCE STATED FIRST
+        ══════════════════════════════════════════════════════════════════════
+
+        The server refuses a role that people hold, with 409, and names them. So
+        this dialog is not the guard - it is the courtesy: saying so before the
+        click rather than after it.
+
+        Three states, and the middle one is why the impact call exists:
+          impact null          still asking, or the ask failed. Offer the delete
+                               anyway; the server still refuses correctly.
+          holders > 0          refuse here too, and name them
+          holders === 0        confirm as normal
+      */}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => { if (!open) { setPendingDelete(null); setImpact(null) } }}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {impact && !impact.can_delete
+                ? `"${pendingDelete?.jobrole}" is in use`
+                : `Delete "${pendingDelete?.jobrole}"?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {impact === null && 'Checking whether anybody holds this role…'}
+
+              {impact && !impact.can_delete && (
+                <>
+                  {impact.holders === 1
+                    ? '1 person holds this job role, so it cannot be deleted. '
+                    : `${impact.holders} people hold this job role, so it cannot be deleted. `}
+                  Move {impact.holders === 1 ? 'them' : 'them'} to another role first
+                  {impact.holder_names.length > 0 && (
+                    <> — {impact.holder_names.join(', ')}
+                    {impact.holders > impact.holder_names.length &&
+                      ` and ${impact.holders - impact.holder_names.length} more`}</>
+                  )}
+                  .
+                </>
+              )}
+
+              {impact?.can_delete &&
+                `Nobody holds this role, so nothing on anybody's profile changes. It is removed from ${department.name} and can be restored by an administrator.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => { setPendingDelete(null); setImpact(null) }}
+              disabled={isDeleting}
+            >
+              {impact && !impact.can_delete ? 'Close' : 'Cancel'}
+            </Button>
+            {/* Hidden outright when the role is held: an enabled-looking button
+                that always fails is worse than no button. */}
+            {(impact === null || impact.can_delete) && (
+              <Button
+                variant="destructive"
+                className="w-full sm:w-auto"
+                onClick={() => void confirmDelete()}
+                disabled={isDeleting}
+              >
+                {isDeleting && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                {isDeleting ? 'Deleting…' : 'Delete role'}
+              </Button>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

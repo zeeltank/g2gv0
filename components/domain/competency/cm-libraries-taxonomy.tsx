@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useLibraryMeta } from '@/hooks/use-competency-libraries'
@@ -32,13 +31,16 @@ export function CmLibrariesTaxonomy() {
   return (
     <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Capability</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The building blocks every competency is assembled from: job roles, tasks, and the knowledge, ability, behaviour and attitude items behind them.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Capability</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The building blocks every competency is assembled from: job roles, tasks, and the knowledge, ability, behaviour and attitude items behind them.
+          </p>
+        </div>
       </div>
 
+      <>
       {/* Tab strip */}
       <div
         className="g2g-scrollbar -mx-1 flex gap-1 overflow-x-auto border-b border-border px-1"
@@ -87,6 +89,7 @@ export function CmLibrariesTaxonomy() {
       {/* Only the active tab is mounted, so switching tabs never leaves eight
           list requests in flight. */}
       <LibraryTab key={activeTab} config={config} meta={meta} active />
+      </>
     </div>
   )
 }

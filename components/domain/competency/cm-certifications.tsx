@@ -742,12 +742,27 @@ export function CmCertifications() {
     return {}
   }, [activeTab, user?.id])
 
+  /*
+   * What the Expiry filter is actually set to.
+   *
+   * The Expiring Soon and Expired tabs are presets over this same filter, so
+   * the two can disagree. They used to be applied by spreading `tabParams`
+   * last, which meant that on those two tabs the Expiry dropdown accepted a
+   * choice, displayed it, and was then silently overwritten - a control that
+   * visibly does nothing. The tab now supplies the DEFAULT and an explicit
+   * choice wins, and the dropdown below reads this value so it always shows
+   * the window the list is really using.
+   */
+  const effectiveExpiry = expiryFilter === ALL ? (tabParams.expiry_window ?? ALL) : expiryFilter
+
   const params: CertificationListParams = useMemo(
     () => ({
+      // Spread FIRST so the explicit keys below can override a tab preset.
+      ...tabParams,
       search: search || undefined,
       status: statusFilter === ALL ? undefined : statusFilter,
       compliance: complianceFilter === ALL ? undefined : complianceFilter,
-      expiry_window: expiryFilter === ALL ? undefined : expiryFilter,
+      expiry_window: effectiveExpiry === ALL ? undefined : effectiveExpiry,
       department_id: departmentFilter === ALL ? undefined : departmentFilter,
       certification_type: typeFilter === ALL ? undefined : typeFilter,
       issuing_body: issuerFilter === ALL ? undefined : issuerFilter,
@@ -760,14 +775,13 @@ export function CmCertifications() {
       per_page: Number(perPage),
       // Set when opened from a competency's detail panel.
       competency_id: competencyId ?? undefined,
-      ...tabParams,
     }),
     [
       competencyId,
       search,
       statusFilter,
       complianceFilter,
-      expiryFilter,
+      effectiveExpiry,
       departmentFilter,
       typeFilter,
       issuerFilter,
@@ -974,7 +988,7 @@ export function CmCertifications() {
           value={metrics?.total ?? null}
           hint="All certifications"
           loading={metricsLoading}
-          active={complianceFilter === ALL && expiryFilter === ALL && verificationFilter === ALL}
+          active={complianceFilter === ALL && effectiveExpiry === ALL && verificationFilter === ALL}
           onClick={() => {
             setComplianceFilter(ALL)
             setExpiryFilter(ALL)
@@ -1002,9 +1016,9 @@ export function CmCertifications() {
           value={metrics?.expiring_soon ?? null}
           hint={`Within ${metrics?.expiring_window_days ?? 60} days`}
           loading={metricsLoading}
-          active={expiryFilter === '60'}
+          active={effectiveExpiry === '60'}
           onClick={() => {
-            setExpiryFilter(expiryFilter === '60' ? ALL : '60')
+            setExpiryFilter(effectiveExpiry === '60' ? ALL : '60')
             resetPage()
           }}
         />
@@ -1015,9 +1029,9 @@ export function CmCertifications() {
           value={metrics?.expired ?? null}
           hint="Require attention"
           loading={metricsLoading}
-          active={expiryFilter === 'expired'}
+          active={effectiveExpiry === 'expired'}
           onClick={() => {
-            setExpiryFilter(expiryFilter === 'expired' ? ALL : 'expired')
+            setExpiryFilter(effectiveExpiry === 'expired' ? ALL : 'expired')
             resetPage()
           }}
         />
@@ -1070,7 +1084,7 @@ export function CmCertifications() {
             className="h-10 bg-background w-40"
           />
           <Select
-            value={expiryFilter}
+            value={effectiveExpiry}
             onChange={(value) => {
               setExpiryFilter(value)
               resetPage()

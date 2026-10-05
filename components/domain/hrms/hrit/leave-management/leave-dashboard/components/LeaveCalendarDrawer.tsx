@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/sheet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { EmployeeLeave } from '@/types/leave-dashboard'
 
 interface LeaveCalendarDrawerProps {
@@ -37,13 +39,35 @@ export function LeaveCalendarDrawer({
    * to parse. The prop is gone.
    */
   const today = new Date()
-  const year = today.getFullYear()
-  const month = today.getMonth() + 1
+
+  /*
+   * A MONTH YOU CAN ACTUALLY CHANGE.
+   *
+   * The fix described above removed a hardcoded June 2026 and derived the month
+   * from new Date() - but it never added a way to leave that month, so this
+   * calendar was hard-locked to today's. No state, no handlers, no controls:
+   * "the month selector and the year selector do not work" was literally true
+   * here, because neither existed.
+   *
+   * It opens on the current month, which is the right default, and now moves.
+   */
+  const [cursor, setCursor] = React.useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+
+  const year = cursor.getFullYear()
+  const month = cursor.getMonth() + 1
   const days = getDaysInMonth(year, month)
   const monthLabel = new Intl.DateTimeFormat('en-US', {
     month: 'long',
     year: 'numeric',
-  }).format(today)
+  }).format(cursor)
+
+  const shiftMonth = (delta: number) =>
+    setCursor((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1))
+
+  const isCurrentMonth =
+    year === today.getFullYear() && month === today.getMonth() + 1
+
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -56,6 +80,46 @@ export function LeaveCalendarDrawer({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+          {/*
+            Previous / next, the month named between them, and a way back to
+            today - because once a calendar can move, getting home again has to
+            be one click rather than counting back.
+          */}
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 shrink-0"
+              aria-label={`Previous month, ${new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month - 2, 1))}`}
+              onClick={() => shiftMonth(-1)}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-semibold text-foreground">{monthLabel}</span>
+              {!isCurrentMonth && (
+                <Button
+                  variant="link"
+                  className="h-auto shrink-0 px-0 text-xs"
+                  onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}
+                >
+                  Today
+                </Button>
+              )}
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 shrink-0"
+              aria-label={`Next month, ${new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month, 1))}`}
+              onClick={() => shiftMonth(1)}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+
           <div className="grid grid-cols-7 gap-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
@@ -79,7 +143,9 @@ export function LeaveCalendarDrawer({
               return (
                 <div
                   key={day}
-                  className="aspect-square flex items-center justify-center rounded-lg border border-border text-sm relative"
+                  className={`aspect-square flex items-center justify-center rounded-lg border text-sm relative ${
+                    dateStr === todayKey ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
                 >
                   <span className={leavesOnDay.length > 0 ? 'text-primary font-medium' : 'text-muted-foreground'}>{day}</span>
                   {leavesOnDay.length > 0 && (

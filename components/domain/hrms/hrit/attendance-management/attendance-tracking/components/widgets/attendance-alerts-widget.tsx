@@ -46,7 +46,7 @@ export function AttendanceAlertsWidget({ alerts, loading, onAlertClick }: Attend
   }
 
   return (
-    <Card className="flex h-full flex-col rounded-xl border-border bg-card shadow-sm">
+    <Card className="flex h-full max-h-[26rem] flex-col rounded-xl border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 px-5 pb-4 pt-5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive">
           <AlertTriangle className="size-5" />
@@ -55,7 +55,7 @@ export function AttendanceAlertsWidget({ alerts, loading, onAlertClick }: Attend
           Attendance Alerts
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 px-3 pb-3">
+      <CardContent className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <div className="flex flex-col">
           {alerts.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">

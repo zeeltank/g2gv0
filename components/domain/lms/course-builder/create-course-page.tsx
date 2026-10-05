@@ -246,21 +246,24 @@ export function CreateCoursePage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="gap-2 font-semibold shadow-sm"
-            disabled={saving}
-            onClick={() => void saveDraft()}
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save as Draft
-          </Button>
-          <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={handleCancel}>
-            Cancel
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              className="gap-2 font-semibold shadow-sm"
+              disabled={saving}
+              onClick={() => void saveDraft()}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              Save as Draft
+            </Button>
+            <Button variant="outline" className="gap-2 font-semibold shadow-sm" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </>
         </div>
       </div>
 
+      <>
       {/* Stepper */}
       <Card className="mb-6 overflow-hidden rounded-xl border-border/80 bg-card shadow-sm">
         <CardContent className="p-0">
@@ -1754,6 +1757,7 @@ export function CreateCoursePage() {
           </Card>
         </div>
       </div>
+      </>
 
       {/*
         * The SAME Build-with-AI form the catalogue opens.

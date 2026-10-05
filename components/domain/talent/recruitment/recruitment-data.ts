@@ -1,5 +1,5 @@
 export type CandidateStage = 'Applied' | 'Screened' | 'Assessment' | 'Interview' | 'Offer' | 'Hired' | 'Rejected'
-export type RequisitionStatus = 'Open' | 'Closed'
+export type RequisitionStatus = 'Open' | 'Pending' | 'Closed'
 export type JobStatus = 'Open' | 'Closed'
 export type InterviewStatus = 'Scheduled' | 'Completed' | 'Cancelled'
 export type OfferStatus = 'Draft' | 'Sent' | 'Accepted' | 'Declined'
@@ -42,6 +42,8 @@ export interface Requisition {
   createdBy: string
   createdOn: string
   priority: 'Critical' | 'High' | 'Medium' | 'Low'
+  /** The internal sign-off, when talent.recruitment.requisition has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export interface JobOpening {
@@ -77,6 +79,8 @@ export interface Offer {
   status: OfferStatus
   approvedBy: string
   sentOn: string
+  /** The internal sign-off, when talent.recruitment.offer has an active chain. */
+  approval?: { pending: boolean; step_name: string | null; approver_role: string | null; step: number | null; of: number | null } | null
 }
 
 export const PIPELINE_STAGES: { id: CandidateStage; label: string; color: string }[] = [

@@ -85,24 +85,27 @@ export function CmTaxonomyOntology() {
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setNonce((value) => value + 1)}
-            className="h-9 gap-2 rounded-lg font-semibold"
-          >
-            <RefreshCw className="h-4 w-4" /> Reload
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
-            className="h-9 gap-2 rounded-lg font-semibold"
-          >
-            <ExternalLink className="h-4 w-4" /> Open full screen
-          </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setNonce((value) => value + 1)}
+              className="h-9 gap-2 rounded-lg font-semibold"
+            >
+              <RefreshCw className="h-4 w-4" /> Reload
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
+              className="h-9 gap-2 rounded-lg font-semibold"
+            >
+              <ExternalLink className="h-4 w-4" /> Open full screen
+            </Button>
+          </>
         </div>
       </div>
 
+      <>
       {/* The graph is a REFERENCE view: its adjacency comes from a hosted
           example dataset, not from this organisation's own role/competency
           mapping. Unlabelled, a user may reasonably read it as organisational
@@ -166,6 +169,7 @@ export function CmTaxonomyOntology() {
           className="h-[calc(100vh-19rem)] min-h-[520px] w-full border-0"
         />
       </div>
+      </>
     </div>
   )
 }

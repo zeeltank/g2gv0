@@ -115,13 +115,49 @@ export function saveBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * A cell a spreadsheet must NOT reinterpret.
+ *
+ * "######" in an exported report is Excel saying "this column is too narrow for
+ * the value I decided this was". Give it a bare 2025-09-01 and it converts the
+ * string to a date serial with a date format attached; the moment the column is
+ * narrower than the rendered date, every cell shows ###### and the user sees a
+ * report full of hashes where the dates were. A duration like 07:30 gets the
+ * same treatment as a clock time.
+ *
+ * Wrapping as ="..." is the one form Excel, LibreOffice and Google Sheets all
+ * agree means "this is text, leave it alone".
+ *
+ * Use it for dates, times, durations, and any identifier with leading zeros -
+ * an employee number like 007 is otherwise silently exported as 7.
+ */
+export interface CsvText {
+  csvText: string
+}
+
+export type CsvValue = string | number | CsvText
+
+export function csvText(value: string | number | null | undefined): CsvText {
+  return { csvText: String(value ?? '') }
+}
+
+function isCsvText(value: CsvValue): value is CsvText {
+  return typeof value === 'object' && value !== null && 'csvText' in value
+}
+
 /** Client-side CSV export - the project ships no spreadsheet dependency. */
-export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number>>) {
-  const escape = (value: string | number) => {
+export function downloadCsv(filename: string, headers: string[], rows: Array<Array<CsvValue>>) {
+  const escape = (value: CsvValue) => {
+    if (isCsvText(value)) {
+      // Doubled quotes first for the ="..." itself, then the whole thing is
+      // quoted for the CSV, so the cell arrives as ="2025-09-01".
+      return `"=""${value.csvText.replace(/"/g, '""')}"""`
+    }
+
     const text = String(value ?? '')
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
   }
 
   const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')
-  saveBlob(filename, new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' }))
+  saveBlob(filename, new Blob([`﻿${'$'}{csv}`], { type: 'text/csv;charset=utf-8;' }))
 }

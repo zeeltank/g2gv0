@@ -29,7 +29,7 @@ import {
 
 import { useRouter } from 'next/navigation'
 import { useAttendance, workModeLabel, type WorkMode } from '@/hooks/use-attendance'
-import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
+import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getGreeting } from '@/lib/greeting'
 import { Button } from '@/components/ui/button'
@@ -261,11 +261,13 @@ export function AttendanceDashboard() {
             `my-timesheet-${new Date().toISOString().slice(0, 7)}.csv`,
             ['Date', 'Day', 'Punch In', 'Punch Out', 'Total Hours', 'Status', 'Work Mode'],
             attendanceHistory.map((record) => [
-              record.date,
+              // See the note in payroll-shell's csvText: bare dates and
+              // HH:MM durations are what produced "######" in these exports.
+              csvText(record.date),
               record.day,
-              record.punchIn ?? '',
-              record.punchOut ?? '',
-              record.totalHours ?? '',
+              csvText(record.punchIn ?? ''),
+              csvText(record.punchOut ?? ''),
+              csvText(record.totalHours ?? ''),
               record.status ? statusLabelMap[record.status] : 'Unknown',
               workModeLabel(record.workMode),
             ]),
@@ -332,7 +334,14 @@ export function AttendanceDashboard() {
         onPunch={punch}
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/*
+        Container breakpoints, not viewport ones. Five columns need real room:
+        at 1024px viewport with the sidebar expanded each card was about 130px
+        wide, which is why titles and buttons collided. @2xl/@4xl/@6xl measure
+        what this section actually has, so the count drops when the sidebar
+        opens instead of only when the window shrinks.
+      */}
+      <section className="grid gap-4 @2xl/content:grid-cols-2 @4xl/content:grid-cols-3 @6xl/content:grid-cols-5">
         <Suspense fallback={widgetFallback}>
           <EmployeeSnapshotWidget
             leaveBalance={leaveBalance}

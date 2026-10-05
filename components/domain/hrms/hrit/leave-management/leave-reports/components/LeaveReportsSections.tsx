@@ -202,7 +202,14 @@ export function ReportCatalogSection({
     <Card className="overflow-hidden rounded-lg">
       <CardHeader className="flex-row items-start justify-between gap-4 border-b border-border p-4">
         <div>
-          <CardTitle className="text-base">Report Catalog</CardTitle>
+          {/*
+            The heading follows the tab. Switching to "My Reports" narrowed the
+            list but left this card still headed "Report Catalog", so the two
+            tabs looked like the same screen with fewer rows and no explanation.
+          */}
+          <CardTitle className="text-base">
+            {activeTab === 'saved' ? 'My Saved Reports' : 'Report Catalog'}
+          </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose a report to view, customize and export.
           </p>
@@ -540,7 +547,16 @@ export function ReportsSidebar({
   onResetFilters,
 }: ReportsSidebarProps) {
   return (
-    <aside className="flex flex-col gap-4">
+    /*
+     * A FULL-WIDTH BAR, not a rail.
+     *
+     * These seven controls were stacked one per row inside a 330px column fixed
+     * by the page grid, so the filter panel was taller than the report it
+     * filtered and "Apply" sat below the fold. They are the same controls; only
+     * the container and the flow direction changed. The grid wraps, so a narrow
+     * window still gets a sensible stack without a breakpoint fighting it.
+     */
+    <section className="flex flex-col gap-4">
       <Card className="rounded-lg">
         <CardHeader className="flex-row items-center justify-between p-4 pb-2">
           <CardTitle className="text-base">Filters</CardTitle>
@@ -548,18 +564,23 @@ export function ReportsSidebar({
             Reset
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4 p-4">
-          <FilterSelect label="Date Range" value={filters.dateRange} onChange={(value) => onFilterChange('dateRange', value)} options={selectOptions.dateRange} />
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <Input type="date" value={filters.startDate} onChange={(event) => onFilterChange('startDate', event.target.value)} className="h-9" />
-            <span className="text-muted-foreground">-</span>
-            <Input type="date" value={filters.endDate} onChange={(event) => onFilterChange('endDate', event.target.value)} className="h-9" />
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <FilterSelect label="Date Range" value={filters.dateRange} onChange={(value) => onFilterChange('dateRange', value)} options={selectOptions.dateRange} />
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Period</span>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Input type="date" value={filters.startDate} onChange={(event) => onFilterChange('startDate', event.target.value)} className="h-9" />
+                <span className="text-muted-foreground">-</span>
+                <Input type="date" value={filters.endDate} onChange={(event) => onFilterChange('endDate', event.target.value)} className="h-9" />
+              </div>
+            </div>
+            <FilterSelect label="Leave Type" value={filters.leaveType} onChange={(value) => onFilterChange('leaveType', value)} options={filterOptions.leaveType} />
+            <FilterSelect label="Department" value={filters.department} onChange={(value) => onFilterChange('department', value)} options={filterOptions.department} />
+            <FilterSelect label="Employee" value={filters.employee} onChange={(value) => onFilterChange('employee', value)} options={filterOptions.employee} />
+            <FilterSelect label="Status" value={filters.status} onChange={(value) => onFilterChange('status', value)} options={filterOptions.status} />
+            <FilterSelect label="Employee Status" value={filters.employeeStatus} onChange={(value) => onFilterChange('employeeStatus', value)} options={selectOptions.employeeStatus} />
           </div>
-          <FilterSelect label="Leave Type" value={filters.leaveType} onChange={(value) => onFilterChange('leaveType', value)} options={filterOptions.leaveType} />
-          <FilterSelect label="Department" value={filters.department} onChange={(value) => onFilterChange('department', value)} options={filterOptions.department} />
-          <FilterSelect label="Employee" value={filters.employee} onChange={(value) => onFilterChange('employee', value)} options={filterOptions.employee} />
-          <FilterSelect label="Status" value={filters.status} onChange={(value) => onFilterChange('status', value)} options={filterOptions.status} />
-          <FilterSelect label="Employee Status" value={filters.employeeStatus} onChange={(value) => onFilterChange('employeeStatus', value)} options={selectOptions.employeeStatus} />
 
           {/* "Include Subordinate Data" was here. It ticked, it updated local
               state, and it stopped there: apiFilters never carried it,
@@ -573,76 +594,14 @@ export function ReportsSidebar({
               every other filter on the panel. It comes back the day the API
               accepts the parameter. */}
 
-          <Button className="h-10 w-full" onClick={onApplyFilters}>
-            Apply Filters
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-lg">
-        <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-base">Report Insights</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5 p-4">
-          {/*
-            F-189. Insights are sentences, which is exactly why they must not be
-            generated from a failed fetch. "No leave was taken in the selected
-            period" and "Approval rate is 0%" read as findings; produced by a
-            500 they are simply untrue, and they sat beside an Export button.
-          */}
-          {loaded ? (
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <Insight>Approval rate is {pct(approved, totalRequests)} for the selected period.</Insight>
-              {topLeaveType ? (
-                <Insight>
-                  Maximum leaves taken are {topLeaveType.leave_type} ({topLeaveType.days.toFixed(1)} days).
-                </Insight>
-              ) : (
-                <Insight>No leave was taken in the selected period.</Insight>
-              )}
-              <Insight>{rejected} requests were rejected.</Insight>
-              <Insight>{cancelled} requests were cancelled.</Insight>
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Insights appear once the report loads. Nothing can be said about this period until it
-              does.
-            </p>
-          )}
-
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Top Departments by Leave Requests</h3>
-            {departmentBreakdown.length === 0 ? (
-              <p className="mt-3 text-xs text-muted-foreground">No department data for this period.</p>
-            ) : (
-              <div className="mt-3 grid grid-cols-[120px_1fr] items-center gap-3">
-                <div className="h-[120px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={departmentBreakdown} dataKey="value" innerRadius={34} outerRadius={58} paddingAngle={2}>
-                        {departmentBreakdown.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value}%`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="space-y-2">
-                  {departmentBreakdown.map((item) => (
-                    <div key={item.name} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-xs">
-                      <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="truncate text-muted-foreground">{item.name}</span>
-                      <span className="font-medium text-foreground">{item.value}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="mt-4 flex justify-end">
+            <Button className="h-10 px-8" onClick={onApplyFilters}>
+              Apply Filters
+            </Button>
           </div>
         </CardContent>
       </Card>
-    </aside>
+    </section>
   )
 }
 
@@ -757,5 +716,90 @@ function Insight({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * What the numbers above actually say.
+ *
+ * This was the second card inside the 330px filter rail. Below the xl
+ * breakpoint that grid collapsed to a single column, so a block commenting on
+ * the preview's metrics was rendered LAST - after the catalogue, after the
+ * report, at the bottom of the page. It reads as a footnote to something a
+ * screen away. Mounted directly under the preview instead.
+ */
+export function ReportInsightsSection({
+  approved,
+  cancelled,
+  departmentBreakdown,
+  rejected,
+  topLeaveType,
+  totalRequests,
+  loaded = true,
+}: Pick<
+  ReportsSidebarProps,
+  'approved' | 'cancelled' | 'departmentBreakdown' | 'rejected' | 'topLeaveType' | 'totalRequests' | 'loaded'
+>) {
+  return (
+    <Card className="rounded-lg">
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">Report Insights</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5 p-4">
+        {/*
+          F-189. Insights are sentences, which is exactly why they must not be
+          generated from a failed fetch. "No leave was taken in the selected
+          period" and "Approval rate is 0%" read as findings; produced by a
+          500 they are simply untrue, and they sat beside an Export button.
+        */}
+        {loaded ? (
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <Insight>Approval rate is {pct(approved, totalRequests)} for the selected period.</Insight>
+            {topLeaveType ? (
+              <Insight>
+                Maximum leaves taken are {topLeaveType.leave_type} ({topLeaveType.days.toFixed(1)} days).
+              </Insight>
+            ) : (
+              <Insight>No leave was taken in the selected period.</Insight>
+            )}
+            <Insight>{rejected} requests were rejected.</Insight>
+            <Insight>{cancelled} requests were cancelled.</Insight>
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Insights appear once the report loads. Nothing can be said about this period until it
+            does.
+          </p>
+        )}
 
-
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Top Departments by Leave Requests</h3>
+          {departmentBreakdown.length === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">No department data for this period.</p>
+          ) : (
+            <div className="mt-3 grid grid-cols-[120px_1fr] items-center gap-3">
+              <div className="h-[120px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={departmentBreakdown} dataKey="value" innerRadius={34} outerRadius={58} paddingAngle={2}>
+                      {departmentBreakdown.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2">
+                {departmentBreakdown.map((item) => (
+                  <div key={item.name} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-xs">
+                    <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="truncate text-muted-foreground">{item.name}</span>
+                    <span className="font-medium text-foreground">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

@@ -147,15 +147,63 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * revoking it is supposed to mean. /dashboard itself stays reachable by URL,
    * so this removes the link, not the page.
    */
-  const modules = useMemo(
-    () => buildModuleTree(query.data?.data ?? []),
-    [query.data],
-  )
+  const modules = useMemo(() => {
+    const fromDb = buildModuleTree(query.data?.data ?? [])
 
-  // `${moduleId}:${menuId}:${submenuId}` -> access_link, and the reverse lookup.
-  // ActiveNav only carries 3 ids, so for a node deeper than module->menu->submenu,
-  // menuId is its immediate parent and submenuId is the node itself — the tree
-  // itself (walked via findNodePath) is what actually carries full depth.
+    const signalsModule: NavModule = {
+      id: 'signals',
+      label: 'Signals',
+      short: 'Signals',
+      icon: 'mdi mdi-radar',
+      accessLink: '/signals',
+      children: [],
+      standalone: true,
+    }
+
+    const ingestionModule: NavModule = {
+      id: 'ingestion',
+      label: 'Ingestion Engine',
+      short: 'Ingestion',
+      icon: 'mdi mdi-cloud-upload-outline',
+      accessLink: '/ingestion',
+      children: [],
+      standalone: true,
+    }
+
+    const portfolioModule: NavModule = {
+      id: 'portfolio',
+      label: 'Product Portfolio',
+      short: 'Portfolio',
+      icon: 'mdi mdi-briefcase-outline',
+      accessLink: '/portfolio',
+      children: [],
+      standalone: true,
+    }
+
+    const partnersModule: NavModule = {
+      id: 'partners',
+      label: 'Partner Network',
+      short: 'Partners',
+      icon: 'mdi mdi-handshake-outline',
+      accessLink: '/partners',
+      children: [],
+      standalone: true,
+    }
+
+    const hasSignals = fromDb.some((m) => m.accessLink === '/signals' || m.id === 'signals')
+    const hasIngestion = fromDb.some((m) => m.accessLink === '/ingestion' || m.id === 'ingestion')
+    const hasPortfolio = fromDb.some((m) => m.accessLink === '/portfolio' || m.id === 'portfolio')
+    const hasPartners = fromDb.some((m) => m.accessLink === '/partners' || m.id === 'partners')
+
+    const extra: NavModule[] = []
+    if (!hasSignals) extra.push(signalsModule)
+    if (!hasIngestion) extra.push(ingestionModule)
+    if (!hasPortfolio) extra.push(portfolioModule)
+    if (!hasPartners) extra.push(partnersModule)
+
+    return [...fromDb, ...extra]
+  }, [query.data])
+
   const { pathByKey, keyByPath } = useMemo(() => {
     const pathByKey = new Map<string, string>()
     const keyByPath = new Map<string, ActiveNav>()
@@ -184,30 +232,31 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return { pathByKey, keyByPath }
   }, [modules])
 
-  /**
-   * Where a nav selection goes, or NULL when nothing is mapped to it.
-   *
-   * It used to answer '/dashboard' for anything it could not resolve, and that
-   * default is what hid every bug in this file: a sidebar click built from the
-   * wrong key did not fail, it quietly opened the dashboard — which looks enough
-   * like working software that nobody investigates. Returning null makes a miss
-   * something the caller has to handle.
-   *
-   * The `if (active.moduleId === 'm0') return '/dashboard'` short-circuit is gone
-   * with it. 'm0' was the hardcoded HOME_MODULE's id; that module no longer
-   * exists, so the id matched no row in the sidebar and nothing highlighted —
-   * including on /dashboard itself. The dashboard is an ordinary menu row now
-   * and resolves through the same lookup as everything else.
-   */
   const getRoutePath = (active: ActiveNav): string | null => {
     return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
   }
 
   const parseRoutePath = (pathname: string): ActiveNav | null => {
+    if (pathname.startsWith('/signals')) {
+      return { moduleId: 'signals', menuId: 'signals', submenuId: 'signals' }
+    }
+    if (pathname.startsWith('/ingestion')) {
+      return { moduleId: 'ingestion', menuId: 'ingestion', submenuId: 'ingestion' }
+    }
+    if (pathname.startsWith('/portfolio')) {
+      return { moduleId: 'portfolio', menuId: 'portfolio', submenuId: 'portfolio' }
+    }
+    if (pathname.startsWith('/partners')) {
+      return { moduleId: 'partners', menuId: 'partners', submenuId: 'partners' }
+    }
     return keyByPath.get(pathname) ?? null
   }
 
   const resolveAccessLink = (accessLink: string): string => {
+    if (accessLink === '/signals') return '/signals'
+    if (accessLink === '/ingestion') return '/ingestion'
+    if (accessLink === '/portfolio') return '/portfolio'
+    if (accessLink === '/partners') return '/partners'
     return getRouteByAccessLink(modules, accessLink) ?? '/dashboard'
   }
 

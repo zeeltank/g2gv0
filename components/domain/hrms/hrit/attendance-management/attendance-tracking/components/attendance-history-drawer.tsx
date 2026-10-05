@@ -15,7 +15,7 @@ import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
+import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import type { AttendanceRecord, AttendanceStatus } from '@/domain/hrms/hrit/attendance-management/types'
 
 interface AttendanceHistoryDrawerProps {
@@ -64,11 +64,13 @@ export function AttendanceHistoryDrawer({
       `attendance-history-${new Date().toISOString().slice(0, 10)}.csv`,
       ['Date', 'Day', 'Punch In', 'Punch Out', 'Total Hours', 'Status'],
       filteredRecords.map((record) => [
-        String(record.date ?? ''),
+        // Dates and clock times as text: a bare 2025-09-01 becomes a date
+        // serial in Excel and renders ###### the moment the column is narrow.
+        csvText(record.date ?? ''),
         String(record.day ?? ''),
-        String(record.punchIn ?? ''),
-        String(record.punchOut ?? ''),
-        String(record.totalHours ?? ''),
+        csvText(record.punchIn ?? ''),
+        csvText(record.punchOut ?? ''),
+        csvText(record.totalHours ?? ''),
         String(record.status ?? ''),
       ]),
     )

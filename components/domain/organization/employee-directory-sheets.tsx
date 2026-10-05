@@ -1,14 +1,14 @@
 'use client'
 
+import { EmployeeAvatar } from '@/components/domain/organization/employee-avatar'
 import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
-import { Briefcase, User, Loader2 } from 'lucide-react'
+import { Briefcase, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import type { Employee } from '@/types/employee'
 import {
   fetchEmployeeProfile,
-  uploadEmployeeDocument,
   fetchKasbaRatings,
   type KasbaRatingResponse,
   type KasbaRatingItem,
@@ -488,18 +488,14 @@ function EmployeeOverviewSheet({
     }
   }
 
-  const handleUploadDocument = async (formData: FormData) => {
-    if (!employee?.id) return
-    setNotice('')
-    try {
-      await uploadEmployeeDocument(employee.id, formData)
-      await loadData()
-      setNotice('Document uploaded.')
-    } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'The document could not be uploaded.')
-      throw cause
-    }
-  }
+  /*
+   * `handleUploadDocument` was here, and it posted to /user/user_document/{id}
+   * - the legacy route that writes the object PUBLIC, records no file_path and
+   * takes the tenant from the request body. UploadDocTab files through
+   * /api/employees-management/{id}/documents now, so this was dead; it is
+   * removed rather than left, because a prop still wired to it is an invitation
+   * to restore the public write by accident.
+   */
 
   /**
    * Save one KASBA rating.
@@ -662,6 +658,22 @@ function EmployeeOverviewSheet({
       : employee.full_name,
     jobRole: profileData?.data?.userJobrole || employee.jobRole,
     department_name: profileData?.data?.userDepartment || employee.department_name,
+    /*
+     * THE PHOTO THAT FLASHED AND VANISHED.
+     *
+     * The spread above takes `image` from the DETAIL payload, which is the bare
+     * stored filename - tbluserController returns the raw column and mints no
+     * URL. The list row it overwrites already holds a servable one: the mapper
+     * at employee-directory.tsx:79 sets `image` from `image_url`, minted by
+     * EmployeeDirectoryController::avatarUrl().
+     *
+     * So the first render painted the photo, the fetch completed, and the
+     * re-render replaced a working URL with a filename that resolves against
+     * this application's own origin and 404s. Keeping the list row's value is
+     * the whole fix; EmployeeAvatar's docblock states the contract - "a
+     * servable URL, never the stored filename".
+     */
+    image: employee.image || '',
   }
 
   return (
@@ -670,14 +682,13 @@ function EmployeeOverviewSheet({
         <div className="flex h-full flex-col bg-background">
           <div className="flex items-center justify-between border-b bg-surface px-6 py-5">
             <div className="flex items-center gap-4">
-              {mergedEmployee.image ? (
-                // eslint-disable-next-line @next/next/no-img-element -- External URLs may not work with next/image
-                <img src={mergedEmployee.image} alt={mergedEmployee.full_name} className="size-14 rounded-full border-2 border-background object-cover shadow-sm" />
-              ) : (
-                <div className="flex size-14 items-center justify-center rounded-full border-2 border-background bg-primary/10 text-primary shadow-sm">
-                  <User className="size-6" />
-                </div>
-              )}
+              {/* The same control the list row uses, so the drawer and the row
+                  that opened it can never disagree about somebody's photo. */}
+              <EmployeeAvatar
+                src={mergedEmployee.image}
+                name={mergedEmployee.full_name}
+                className="size-14 border-2 border-background text-sm shadow-sm"
+              />
               <div>
                 <h2 className="text-xl font-bold text-foreground">{mergedEmployee.full_name}</h2>
                 <p className="text-sm font-medium text-muted-foreground">{mergedEmployee.jobRole} {mergedEmployee.department_name ? `• ${mergedEmployee.department_name}` : ''}</p>
@@ -745,11 +756,14 @@ function EmployeeOverviewSheet({
                   * and those ids would have been posted as document_type_id,
                   * pointing at whatever happens to occupy them.
                   */}
+                {/*
+                  The tab fetches its own list and files its own uploads, from
+                  the same endpoints the employee's own screen uses - so the two
+                  screens cannot disagree about one person's documents, which
+                  they previously did.
+                */}
                 <UploadDocTab
                   employee={mergedEmployee}
-                  documentTypes={profileData?.documentTypeLists ?? []}
-                  documentLists={profileData?.documentLists || []}
-                  onUpload={handleUploadDocument}
                 />
               </Suspense>
             )}

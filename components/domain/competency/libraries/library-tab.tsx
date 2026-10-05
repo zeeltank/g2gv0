@@ -377,11 +377,30 @@ export function LibraryTab({ config, meta, active }: LibraryTabProps) {
     ]
   }, [meta.proficiency_levels, proficiency])
 
+  /*
+   * The three enum members, plus the unset state the table renders.
+   *
+   * s_users_skills.approve_status is enum('Approved','Pending','Cancelled')
+   * NULL, so these three ARE the whole domain - unlike the six derived lists
+   * above, a literal is correct here and deriving from the rows on screen would
+   * empty the dropdown whenever the table was empty.
+   *
+   * What was missing is the NULL state: a row nobody has submitted for review
+   * renders in the table and had no option to match it. `not_submitted` is the
+   * same sentinel cm-competency-library uses for its equivalent state, so the
+   * two screens speak one vocabulary; LibraryController has the branch.
+   *
+   * 'Rejected' is deliberately absent. It is not a member of this enum - the
+   * claim that it was cited SkillMatchingController, which reads
+   * `task.approve_status`, a different table - so offering it would be exactly
+   * the "a filter that can never match" bug being fixed elsewhere in this pass.
+   */
   const statusOptions = [
     { label: 'All Statuses', value: ALL },
     { label: 'Approved', value: 'Approved' },
     { label: 'Pending', value: 'Pending' },
     { label: 'Cancelled', value: 'Cancelled' },
+    { label: 'Not submitted', value: 'not_submitted' },
   ]
 
   // Scoped to the selected role, so the two dropdowns always agree.

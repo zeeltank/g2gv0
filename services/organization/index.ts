@@ -20,6 +20,16 @@ export type LaravelOrgDetail = {
   cin?: string | null
   gstin?: string | null
   pan?: string | null
+  /**
+   * The legal form: Private Limited, LLP, Partnership and so on.
+   *
+   * A real column since 2026_09_24. Before that the screen declared it as the
+   * constant 'Private Limited' and rendered that for all twelve organisations,
+   * while the edit dropdown's value was silently discarded on save.
+   */
+  organization_type?: string | null
+  /** UDYAM-XX-00-0000000. Nothing in either repository held this before. */
+  udyam_registration_no?: string | null
   registered_address?: string | null
   industry?: string | null
   employee_count?: string | null
@@ -67,6 +77,19 @@ export type OrganizationIdentity = {
    * link that 404s.
    */
   careers_slug: string | null
+  /**
+   * Active employees, COUNTED by the server on every load.
+   *
+   * Not `org_details.employee_count`, which is a free-text band somebody typed
+   * once: it was wrong for every organisation that had one (Scholar Clone holds
+   * 12 people and said "1-10"), NULL for the other seven, and the screen wrote
+   * the literal string "null" into it on every save - so the field could never
+   * recover once saved even a single time.
+   *
+   * Same definition the dashboards use (active, not soft-deleted), so the two
+   * cannot disagree.
+   */
+  employee_count?: number | null
 }
 
 export type OrganizationProfileResponse = {
@@ -78,6 +101,14 @@ export type OrganizationProfileResponse = {
   org_data?: LaravelOrgDetail[]
   /** Absent only if the server predates this field. */
   identity?: OrganizationIdentity
+  /**
+   * The legal forms an organisation may be, from the server.
+   *
+   * Served with the profile rather than from a lookup table: these are a closed,
+   * country-level set that changes with company law, not tenant data. The screen
+   * used to hardcode four of them and discard whichever was chosen.
+   */
+  organisation_types?: string[]
 }
 
 /**
@@ -164,6 +195,14 @@ export type DepartmentRule = DepartmentContentRecord & {
 export type DepartmentJobRole = {
   id: number
   jobrole: string
+  /**
+   * How many people hold this role, served with the list.
+   *
+   * The drawer has always rendered a badge for this and never had the number, so
+   * the badge never appeared. It is also what tells somebody whether a role is
+   * safe to delete before they try.
+   */
+  employee_count?: number
   description?: string | null
   jobrole_category?: string | null
   department_id?: number | null
@@ -346,6 +385,7 @@ export const organizationService = {
         profile: LaravelOrgDetail | null
         sister_companies?: LaravelSisterOrg[]
         identity?: OrganizationIdentity
+        organisation_types?: string[]
       }
     }>('/organization/profile', withLaravelParams(context))
 
@@ -359,16 +399,75 @@ export const organizationService = {
         ? [{ ...profile, sisters_org: response.data?.sister_companies ?? [] }]
         : [],
       identity: response.data?.identity,
+      organisation_types: response.data?.organisation_types,
     }
   },
 
+  /**
+   * Save the organisation's profile, through the API.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THE READ WAS MIGRATED AND THE WRITE WAS LEFT BEHIND
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * This posted to `/settings/organization_data` - the legacy WEB route - while
+   * the read had already moved to the API. Two controllers, two behaviours, on
+   * one screen:
+   *
+   *   - The legacy `store()` writes EVERY column unconditionally from the request,
+   *     so any field the payload omits is written NULL. The screen worked around
+   *     that by resending the entire record on every save, which is why a single
+   *     edit posts thirty fields.
+   *   - Its 422 branch calls `->first()->first()` on a string, so ANY validation
+   *     failure is a 500 rather than a message. Nobody could ever be told that a
+   *     website URL was malformed; they got a server error.
+   *   - It is gated `hrit.role:admin`, so HR can read this screen and their save
+   *     takes a stricter path than the one designed for it.
+   *
+   * `OrganizationProfileController::save()` has existed the whole time -
+   * transactional, validated per field, sister companies handled inside the
+   * transaction - and nothing called it.
+   *
+   * Still multipart, because the logo is a file and a file cannot go in a JSON
+   * body. Same endpoint as the read, so the two cannot drift again.
+   */
+  /**
+   * The industries an organisation can be classified as.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THIS ENDPOINT HAS EXISTED THE WHOLE TIME WITH NO CALLER
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * `s_industries` is a 43-row global taxonomy - industry, department,
+   * sub-department - and `GET /industries` has served it, token-authenticated,
+   * since before this screen was written. A search of the frontend for it finds
+   * one hit, in a static catalogue file, and no call site.
+   *
+   * So the organisation profile hardcoded three options and injected the stored
+   * value as a fourth to stop a save wiping it. An organisation whose real
+   * industry is "Information Technology" saw a dropdown reading
+   * [Information Technology, Manufacturing, Healthcare, Finance].
+   *
+   * The precedent for fixing it is already in this repository: the Build-with-AI
+   * course form had the same problem and now calls `/lms/ai/scope-options`.
+   */
+  getIndustries: (context: LaravelContext) =>
+    apiClient.get<{ data?: { industries?: string | null }[] }>(
+      '/industries',
+      departmentParams(context),
+    ),
+
   saveOrganizationProfile: (context: LaravelContext, data: Record<string, string | File | undefined>) => {
     const formData = new FormData()
-    Object.entries(withLaravelParams(context, { formType: 'organization_details' })).forEach(([key, value]) => {
+    Object.entries(withLaravelParams(context)).forEach(([key, value]) => {
       appendDefined(formData, key, value)
     })
     Object.entries(data).forEach(([key, value]) => appendDefined(formData, key, value))
-    return ensureLaravelSuccess(webClient.postForm<LaravelStatusResponse>('/settings/organization_data', formData))
+
+    return apiClient.postForm<{ status: boolean; message?: string }>(
+      '/organization/profile',
+      formData,
+    )
   },
 
   getDepartmentsManagement: (context: LaravelContext) =>
@@ -543,6 +642,58 @@ export const organizationService = {
    * collisions decide which proficiency level the surviving role requires, so
    * a preview without a target hides the actual decision.
    */
+  /**
+   * Create a job role INSIDE a department.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * WHY THIS SENDS department_id AND THE LIBRARY FORM DOES NOT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Capability Library sends the department by NAME, and the server resolves it
+   * to an id at write time - leaving `department_id` NULL when the name matches
+   * nothing or matches more than one thing. Live has 557 ambiguous
+   * (tenant, name) department groups covering 1,120 rows.
+   *
+   * A role that lands with a NULL `department_id` then never appears in this
+   * drawer at all, because the drawer lists by `department_id`. It is created,
+   * it exists, and it is invisible exactly where somebody went looking for it.
+   *
+   * Creating from the drawer cannot hit that: the id is the thing we already have.
+   */
+  createDepartmentJobRole: (
+    context: LaravelContext,
+    departmentId: string,
+    payload: { jobrole: string; description?: string; jobrole_category?: string },
+  ) =>
+    apiClient.post<{ status: number; message?: string; data?: DepartmentJobRole }>(
+      '/competency/library/jobroles',
+      { ...departmentParams(context), department_id: departmentId, ...payload },
+    ),
+
+  /**
+   * What deleting a job role would cost — asked before the dialog opens.
+   *
+   * The delete refuses on its own when somebody holds the role; this is what lets
+   * the dialog say so beforehand rather than after the click.
+   */
+  getJobRoleDeleteImpact: (context: LaravelContext, jobRoleId: number) =>
+    apiClient.get<{
+      status: number
+      data?: { id: number; holders: number; holder_names: string[]; can_delete: boolean }
+    }>(`/competency/library/jobroles/${jobRoleId}/impact`, departmentParams(context)),
+
+  /**
+   * Delete a job role. Soft, and refused with 409 when people hold it.
+   *
+   * The 409 is not an error to swallow — its body names the holders, and that is
+   * the only actionable thing in the whole interaction.
+   */
+  deleteJobRole: (context: LaravelContext, jobRoleId: number) =>
+    apiClient.delete<{ status: number; message?: string }>(
+      `/competency/library/jobroles/${jobRoleId}`,
+      departmentParams(context),
+    ),
+
   getJobRoleMergeImpact: (context: LaravelContext, jobRoleId: string, targetJobRoleId: string) =>
     apiClient.get<{ status?: number; message?: string; data?: JobRoleMergeImpact }>(
       `/competency/library/jobroles/${jobRoleId}/merge-impact`,

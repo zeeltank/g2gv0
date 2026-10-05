@@ -51,6 +51,12 @@
       "@shared/ai-intelligence-core/*": [
         "./packages/ai-intelligence-core/src/*"
       ],
+      "@shared/platform-services-core": [
+        "./packages/platform-services-core/src/index.ts"
+      ],
+      "@shared/platform-services-core/*": [
+        "./packages/platform-services-core/src/*"
+      ],
       "@shared/conversational-ai-core": [
         "./packages/conversational-ai-core/src/index.ts"
       ],

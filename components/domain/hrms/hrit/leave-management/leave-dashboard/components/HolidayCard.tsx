@@ -14,27 +14,33 @@ interface HolidayCardProps {
 export function HolidayCard({ holidays, onViewAll }: HolidayCardProps) {
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-start justify-between pb-3">
-        <div className="flex flex-col">
-          <CardTitle className="text-base">
+      {/*
+        The description has no truncation, so at a narrow column it wrapped and
+        shoved the button sideways into the title. min-w-0 lets the text block
+        actually shrink; flex-wrap lets the button drop to its own line rather
+        than overlapping when there is genuinely no room.
+      */}
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-3">
+        <div className="flex min-w-0 flex-col">
+          <CardTitle className="truncate text-base">
             Upcoming Holidays
           </CardTitle>
 
-          <CardDescription>
+          <CardDescription className="truncate">
             Company holidays scheduled ahead
           </CardDescription>
         </div>
 
         <Button
           variant="link"
-          className="h-auto px-0 text-xs font-semibold"
+          className="h-auto shrink-0 px-0 text-xs font-semibold"
           onClick={onViewAll}
         >
           View all
           <ArrowRight className="ml-1 size-3.5" />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="g2g-scrollbar max-h-[18rem] space-y-3 overflow-y-auto">
         {/*
           F-194. This card used to .map() straight into its body, so an empty
           dataset rendered a heading above whitespace. On a newly-configured

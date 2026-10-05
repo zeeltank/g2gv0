@@ -31,7 +31,7 @@ export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWid
   }
 
   return (
-    <Card className="flex h-full flex-col rounded-xl border-border bg-card shadow-sm">
+    <Card className="flex h-full max-h-[26rem] flex-col rounded-xl border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 px-5 pb-4 pt-5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           <FileText className="size-5" />
@@ -40,7 +40,7 @@ export function MyRequestsWidget({ requests, loading, onViewAll }: MyRequestsWid
           My Requests
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-between px-3 pb-3">
+      <CardContent className="g2g-scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto px-3 pb-3">
         <div className="flex flex-col">
           {requests.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">

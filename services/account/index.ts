@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/core'
+import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { getDeviceId } from '@/lib/device-id'
 
@@ -216,6 +216,32 @@ function params(context: LaravelContext) {
   }
 }
 
+/** One row on a personnel record. */
+export interface AccountDocument {
+  id: number
+  document_title: string | null
+  /** Resolved through a LEFT join, so it is null where the type row is missing. */
+  document_type: string | null
+  file_name: string | null
+  mime_type: string | null
+  file_size: number | null
+  created_at: string | null
+}
+
+/**
+ * The same shape for your own documents and for an employee's.
+ *
+ * Named and shared deliberately: the two lists used to come from two different
+ * queries with different joins, which is how the employee and HR ended up
+ * seeing different documents for the same person. One type, one endpoint
+ * family, one answer.
+ */
+export interface AccountDocumentsResponse {
+  status: number
+  data: AccountDocument[]
+  document_types: { id: number; document_type: string }[]
+}
+
 export const accountService = {
   me: (context: LaravelContext) => apiClient.get<AccountMe>('/account/me', params(context)),
 
@@ -295,6 +321,110 @@ export const accountService = {
    */
   logout: (context: LaravelContext) =>
     apiClient.post<{ status: boolean; message: string }>('/account/logout', params(context)),
+
+  /* ── your own documents ────────────────────────────────────────────────── */
+
+  /**
+   * The documents on your own personnel record.
+   *
+   * No id parameter, like every other call in this file: the server resolves the
+   * subject from the token. The route this replaces took the user id from the URL
+   * and the TENANT from the request body with no role gate, so any employee could
+   * file a document against anybody in any organisation.
+   */
+  documents: (context: LaravelContext) =>
+    apiClient.get<AccountDocumentsResponse>('/account/documents', params(context)),
+
+  /**
+   * Upload one. Multipart, because a file cannot go in a JSON body.
+   *
+   * The field is named `document` to match the server. That pairing is the whole
+   * reason this product lost every file it was given for months: the old form
+   * sent `file`, the old controller checked `document`, and the mismatch meant
+   * nothing was ever written while the screen reported success.
+   */
+  uploadDocument: (context: LaravelContext, file: File, title: string, typeId: number) => {
+    const body = new FormData()
+    const auth = params(context)
+
+    Object.entries(auth).forEach(([key, value]) => body.append(key, String(value)))
+    body.append('document', file)
+    body.append('document_title', title)
+    body.append('document_type_id', String(typeId))
+
+    return apiClient.postForm<{ status: number; message?: string }>('/account/documents', body)
+  },
+
+  /** Remove one of yours. Soft, so an administrator can restore it. */
+  deleteDocument: (context: LaravelContext, id: number) =>
+    apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
+
+  /**
+   * Where to fetch a document from.
+   *
+   * A URL rather than a fetch, because the browser downloads it. It goes through
+   * this application rather than to the object store: the bytes are served only
+   * after the same permission check the list uses, which is what stops a guessed
+   * key reading somebody's ID proof.
+   */
+  documentDownloadUrl: (context: LaravelContext, id: number) =>
+    buildApiUrl(`/account/documents/${id}/download`, params(context)),
+
+  /**
+   * The document's BYTES, fetched with the token in the Authorization header.
+   *
+   * `documentDownloadUrl` above puts the token in the query string, because a
+   * browser following an `<a href>` sends no headers. That works, and it is why
+   * it is still here - but a URL is not a private place: it is written to access
+   * logs, browser history and proxy logs, and leaks through Referer on any
+   * outbound link. A harvested Sanctum token is a working credential for the
+   * whole API, not just the one document it was meant to fetch.
+   *
+   * Fetching gives three things the URL cannot: the credential stays in a
+   * header, a refusal arrives as readable JSON instead of a blank tab, and the
+   * bytes can be handed to an inline viewer as a blob - which is the only way to
+   * preview an authenticated file at all, since an <iframe> sends no header
+   * either.
+   */
+  fetchDocument: (id: number) => apiClient.getBlob(`/account/documents/${id}/download`),
+
+  /* ── somebody else's documents: HR, for an employee ────────────────────── */
+
+  /**
+   * One employee's documents, for HR.
+   *
+   * This endpoint existed and nothing called it. The Employee Directory read a
+   * different query instead - an INNER join with no soft-delete filter - so the
+   * employee and HR could see different lists for the same person, and did:
+   * payslips pointing at a type row that does not exist vanished for HR, and a
+   * document the employee deleted stayed on the HR screen for ever.
+   */
+  employeeDocuments: (context: LaravelContext, employeeId: number) =>
+    apiClient.get<AccountDocumentsResponse>(
+      `/employees-management/${employeeId}/documents`,
+      params(context),
+    ),
+
+  /** File a document FOR an employee. Recorded as filed by the HR user. */
+  uploadEmployeeDocument: (employeeId: number, body: FormData) =>
+    apiClient.postForm<{ status: number; message?: string; data?: { id: number } }>(
+      `/employees-management/${employeeId}/documents`,
+      body,
+    ),
+
+  /**
+   * Remove an employee's document.
+   *
+   * Not `DELETE /account/documents/{id}` - that one is owner-only by design, and
+   * widening it would have let any employee delete another's by guessing an id.
+   * This route is gated by role AND by an employee-in-my-tenant check, because
+   * an HR manager is HR for one organisation, not for all twelve.
+   */
+  deleteEmployeeDocument: (context: LaravelContext, employeeId: number, documentId: number) =>
+    apiClient.delete<{ status: number; message?: string }>(
+      `/employees-management/${employeeId}/documents/${documentId}`,
+      params(context),
+    ),
 
   /* ── two-step verification ─────────────────────────────────────────────── */
 

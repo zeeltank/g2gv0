@@ -38,7 +38,7 @@ import {
   type DrillDownRecord,
 } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-drill-down-drawer'
 // One CSV writer for the whole module - the payroll screens already had it.
-import { downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
+import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 
 
 type ViewTab = { id: ViewTabId; label: string }
@@ -281,7 +281,16 @@ export function AttendanceReportsPage() {
   }, [])
   const [viewMode, setViewMode] = React.useState<ViewTabId>('table-focus')
   const [dateRange, setDateRange] = React.useState({ from: initialDate, to: initialDate })
-  const [groupBy, setGroupBy] = React.useState('organization')
+  /*
+   * Employee, not organization.
+   *
+   * The per-employee rows were already built - departmentAttendanceReportCreate
+   * returns one row per tbluser.id and the 'employee' branch of groupedTableData
+   * renders them - but the screen opened on 'organization', which folds them
+   * into department totals. So the detail HR needs was one dropdown away and
+   * nothing said so. Department grouping is still there, one click away.
+   */
+  const [groupBy, setGroupBy] = React.useState('employee')
   const [department, setDepartment] = React.useState('all')
   const [employee, setEmployee] = React.useState('all')
   const [quickFilter, setQuickFilter] = React.useState('custom')
@@ -443,8 +452,17 @@ export function AttendanceReportsPage() {
         `attendance-daily-${appliedFilters.from}-to-${appliedFilters.to}.csv`,
         ['Employee', 'Employee ID', 'Department', 'Date', 'Punch In', 'Punch Out', 'Expected Out', 'Early By', 'Status'],
         earlyGoingData.map((row) => [
-          row.employee, row.employeeId, row.department, row.date,
-          row.punchIn, row.punchOut, row.expectedOut, row.earlyBy, row.status,
+          row.employee,
+          // Employee numbers with leading zeros survive as text; 007 otherwise
+          // exports as 7.
+          csvText(row.employeeId),
+          row.department,
+          csvText(row.date),
+          csvText(row.punchIn),
+          csvText(row.punchOut),
+          csvText(row.expectedOut),
+          row.earlyBy,
+          row.status,
         ]),
       )
       return
@@ -452,15 +470,30 @@ export function AttendanceReportsPage() {
 
     downloadCsv(
       `attendance-${groupBy}-${appliedFilters.from}-to-${appliedFilters.to}.csv`,
-      ['Group', 'Department', 'Employee', 'Employees', 'Present', 'Absent', 'Late', 'Attendance %'],
+      /*
+       * The export follows the table. It carried eight columns while the
+       * employee view now shows twelve, so half of what HR could see on screen
+       * could not leave it - and an export that is quietly narrower than the
+       * report it came from is how people stop trusting exports.
+       */
+      [
+        'Group', 'Department', 'Employee', 'Employee ID', 'Employees',
+        'Present', 'Absent', 'Half Day', 'Late', 'Holidays', 'Week Off',
+        'Working Days', 'Attendance %',
+      ],
       groupedTableData.map((row) => [
         groupBy,
         row.department ?? '',
         row.employee ?? '',
+        csvText(row.employeeId ?? ''),
         row.employees ?? '',
         row.present ?? '',
         row.absent ?? '',
+        row.halfDays ?? '',
         row.late ?? '',
+        row.holidays ?? '',
+        row.weekOffs ?? '',
+        row.workingDays ?? '',
         row.attendancePercentage ?? '',
       ]),
     )
@@ -558,7 +591,15 @@ export function AttendanceReportsPage() {
          * only what actually failed.
          */
         const results = await Promise.allSettled([
-          hrmsService.getAttendanceKpis(context, { departmentId, employeeId }),
+          hrmsService.getAttendanceKpis(context, {
+            // The range was not sent here, because the endpoint hardcoded today
+            // and discarded it. It honours it now, so the KPI row finally
+            // describes the period the filter says it does.
+            fromDate: appliedFilters.from,
+            toDate: appliedFilters.to,
+            departmentId,
+            employeeId,
+          }),
           hrmsService.getAttendanceWeeklySummary(context, {
             fromDate: appliedFilters.from,
             toDate: appliedFilters.to,
@@ -686,6 +727,12 @@ export function AttendanceReportsPage() {
           present,
           absent,
           late,
+          // Carried through rather than dropped: the response has had these all
+          // along and the table simply never asked for them.
+          halfDays: toNumber(record.half_day),
+          workingDays,
+          holidays: toNumber(record.total_holidays),
+          weekOffs: toNumber(record.weekday_off),
           status: absent > present ? 'absent' : late > 0 ? 'late' : 'present',
           attendancePercentage: workingDays > 0 ? Math.round((present / workingDays) * 100) : 0,
           recentRecords: earlyGoingData.filter((item) => item.employeeId === record.employee_no || item.id === String(record.user_id)).slice(0, 5),
@@ -986,6 +1033,8 @@ export function AttendanceReportsPage() {
         groupBy={groupBy}
         searchValue={search}
         onSearchChange={setSearch}
+        /* The month the drill-down should load: the end of the applied range. */
+        month={(appliedFilters.to || appliedFilters.from || '').slice(0, 7) || null}
         className="sm:col-span-2"
       />
     </div>

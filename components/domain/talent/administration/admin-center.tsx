@@ -17,7 +17,7 @@ import {
   X,
   ChevronDown,
   ArrowRight,
-  Loader2
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,6 +74,23 @@ export function AdminCenter() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [module, setModule] = useState('all')
+  /*
+   * Modules the rows have actually contained.
+   *
+   * The options here were a fixed list offering Onboarding and Performance,
+   * and AdminWorkflowController's registry yields only Recruitment,
+   * Offboarding and Mobility - so 2 of 5 choices returned an empty table that
+   * read as "no workflows found" rather than "this module has no workflow
+   * points". The controller's own docblock had already conceded the point.
+   *
+   * This ACCUMULATES rather than replacing, because the list is filtered
+   * server-side: deriving it from the current rows would shrink the dropdown
+   * to the one module already selected and strand the user there. Same
+   * reasoning as the audit-event filter 180 lines below, which this screen
+   * got right first - its comment reads "A fixed list would offer filters
+   * that can never match."
+   */
+  const [seenModules, setSeenModules] = useState<string[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
 
@@ -157,6 +174,12 @@ export function AdminCenter() {
       })
       if (res.status === 1) {
         setWorkflows(res.data)
+        setSeenModules((known) => {
+          const merged = new Set(known)
+          res.data.forEach((row) => { if (row.module) merged.add(row.module) })
+
+          return merged.size === known.length ? known : Array.from(merged).sort()
+        })
         setSummary(res.summary ?? null)
         setTotalPages(res.pagination.last_page)
         setTotalItems(res.pagination.total)
@@ -345,13 +368,14 @@ export function AdminCenter() {
                       value={module}
                       onChange={(val: string) => { setModule(val); setPage(1); }} 
                       options={[
-                        {label: 'All Modules', value: 'all'},
-                        {label: 'Recruitment', value: 'Recruitment'},
-                        {label: 'Onboarding', value: 'Onboarding'},
-                        {label: 'Performance', value: 'Performance'},
-                        {label: 'Mobility', value: 'Mobility'},
-                        {label: 'Offboarding', value: 'Offboarding'}
-                      ]} 
+                        { label: 'All Modules', value: 'all' },
+                        // Only modules that have produced a workflow point, plus
+                        // whatever is currently selected so a live selection can
+                        // never disappear out from under the user.
+                        ...Array.from(new Set([...seenModules, ...(module !== 'all' ? [module] : [])]))
+                          .sort()
+                          .map((name) => ({ label: name, value: name })),
+                      ]}
                       size="sm" 
                     />
                   </div>

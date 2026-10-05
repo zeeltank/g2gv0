@@ -138,6 +138,19 @@ export interface InterviewApi {
   additional_notes?: string | null
 }
 
+/**
+ * A draft offer's internal sign-off, when a platform approval chain is
+ * active for `talent.recruitment.offer` — null for every offer with no
+ * chain configured, which is most of them.
+ */
+export interface ApprovalStepStatus {
+  pending: boolean
+  step_name: string | null
+  approver_role: string | null
+  step: number | null
+  of: number | null
+}
+
 export interface TalentOfferApi {
   id: LaravelId
   application_id: LaravelId
@@ -153,6 +166,7 @@ export interface TalentOfferApi {
   created_at?: string | null
   updated_at?: string | null
   offer_letter_url?: string | null
+  approval?: ApprovalStepStatus | null
 }
 
 export interface RequisitionApi {
@@ -167,6 +181,7 @@ export interface RequisitionApi {
   priority_level?: string | null
   created_by?: string | number | null
   created_at?: string | null
+  approval?: ApprovalStepStatus | null
 }
 
 export interface RequisitionPage {
@@ -273,7 +288,14 @@ export interface FeedbackPayload {
   areas_of_concern?: string
   additional_comments?: string
   notes?: string
-  status?: 'draft' | 'submitted' | 'approved' | 'rejected'
+  /**
+   * The column is enum('draft','submitted','approved','rejected','Hired').
+   * 'Hired' was missing here and holds the majority of rows - 69 of 124 on
+   * the app database, 70 of 124 on live. Capitalised because that is how it
+   * is stored; the inconsistent casing is the column's, not something a type
+   * can fix.
+   */
+  status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'Hired'
 }
 
 export interface InterviewerApi {

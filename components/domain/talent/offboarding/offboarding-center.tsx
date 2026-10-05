@@ -166,7 +166,21 @@ export function OffboardingCenter() {
 
   const bumpRefresh = () => setRefreshTrigger(prev => prev + 1)
 
-  const activeFiltersCount = (departmentFilter ? 1 : 0) + (reasonFilter ? 1 : 0) + (exitTypeFilter ? 1 : 0)
+  /*
+   * Counts every filter that is actually narrowing the list.
+   *
+   * It used to omit `searchQuery` and `statusFilter`, so the Filters badge
+   * disagreed with the Clear Filters button below - which does clear all five.
+   * A badge reading "2" over a list narrowed five ways is worse than no badge.
+   *
+   * `statusFilter`'s "off" value is the string 'All', not '' like the others.
+   */
+  const activeFiltersCount =
+    (departmentFilter ? 1 : 0) +
+    (reasonFilter ? 1 : 0) +
+    (exitTypeFilter ? 1 : 0) +
+    (searchQuery ? 1 : 0) +
+    (statusFilter && statusFilter !== 'All' ? 1 : 0)
 
   const showBanner = (type: 'success' | 'error', message: string) => {
     setBanner({ type, message })
@@ -391,6 +405,25 @@ export function OffboardingCenter() {
     } catch (err: any) {
       console.error(err)
       showBanner('error', `Failed to transition status to ${newStatus}`)
+    }
+  }
+
+  /**
+   * The internal sign-off talent.offboarding.clearance declares, for
+   * closing a case a platform chain has gated. Only reachable when a real
+   * approval step is open (activeCaseDetails.approval?.pending) - the
+   * backend still 403s anyone who isn't that step's approver regardless of
+   * what this screen shows.
+   */
+  const handleDecideClosure = async (decision: 'approve' | 'reject') => {
+    if (!activeCaseId) return
+    try {
+      await offboardingService.decideClearance(context, activeCaseId, decision)
+      showBanner('success', decision === 'approve' ? 'Closure approved' : 'Closure rejected')
+      bumpRefresh()
+    } catch (err: any) {
+      console.error(err)
+      showBanner('error', 'Failed to record the closure decision')
     }
   }
 
@@ -680,13 +713,33 @@ export function OffboardingCenter() {
             </>
           )}
           {overview?.kpis.map((kpi) => {
-            // Determine filter matching
-            let isSelected = false
-            if (kpi.title === 'Notice Period' && statusFilter === 'Notice Period') isSelected = true
-            if (kpi.title === 'Clearance Pending' && statusFilter === 'Clearance') isSelected = true
-            if (kpi.title === 'Exit Interviews' && statusFilter === 'Exit Interview') isSelected = true
-            if (kpi.title === 'Closed' && statusFilter === 'Closed') isSelected = true
-            if (kpi.title === 'Resignations' && exitTypeFilter === 'voluntary') isSelected = true
+            /*
+             * KEYED ON kpi.id, NOT kpi.title.
+             *
+             * This matched on the DISPLAY TEXT the server happens to send -
+             * 'Notice Period', 'Clearance Pending' - so renaming a KPI label
+             * server-side would have silently stopped these cards filtering,
+             * with no error anywhere. A display string is not a key, which is
+             * the same lesson cm-assessment-workspace records having already
+             * learned.
+             *
+             * The backend has been sending stable ids all along
+             * (OffboardingController:71-114: total-exits, resignations,
+             * notice-period, clearance-pending, exit-interviews, closed) and
+             * this component was already using kpi.id as its React key two
+             * lines below.
+             */
+            const statusForKpi: Record<string, string> = {
+              'notice-period': 'Notice Period',
+              'clearance-pending': 'Clearance',
+              'exit-interviews': 'Exit Interview',
+              closed: 'Closed',
+            }
+
+            const mappedStatus = statusForKpi[kpi.id]
+            const isSelected = mappedStatus
+              ? statusFilter === mappedStatus
+              : kpi.id === 'resignations' && exitTypeFilter === 'voluntary'
 
             return (
               <Card 
@@ -696,12 +749,14 @@ export function OffboardingCenter() {
                   isSelected && "border-2 border-primary bg-primary/5"
                 )}
                 onClick={() => {
-                  if (kpi.title === 'Notice Period') setStatusFilter(statusFilter === 'Notice Period' ? 'All' : 'Notice Period')
-                  else if (kpi.title === 'Clearance Pending') setStatusFilter(statusFilter === 'Clearance' ? 'All' : 'Clearance')
-                  else if (kpi.title === 'Exit Interviews') setStatusFilter(statusFilter === 'Exit Interview' ? 'All' : 'Exit Interview')
-                  else if (kpi.title === 'Closed') setStatusFilter(statusFilter === 'Closed' ? 'All' : 'Closed')
-                  else if (kpi.title === 'Resignations') setExitTypeFilter(exitTypeFilter === 'voluntary' ? '' : 'voluntary')
-                  else setStatusFilter('All')
+                  if (mappedStatus) {
+                    setStatusFilter(statusFilter === mappedStatus ? 'All' : mappedStatus)
+                  } else if (kpi.id === 'resignations') {
+                    setExitTypeFilter(exitTypeFilter === 'voluntary' ? '' : 'voluntary')
+                  } else {
+                    // 'total-exits' and anything the server adds later: clear.
+                    setStatusFilter('All')
+                  }
                 }}
               >
                 <CardContent className="p-4 flex flex-col h-full gap-2 relative">
@@ -1810,18 +1865,51 @@ export function OffboardingCenter() {
                           <Receipt className="size-4 text-muted-foreground" /> Generate F&F
                         </Button>
 
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
-                          onClick={() => setConfirmation({
-                            title: 'Close this exit case?',
-                            description: 'The case moves to Closed. Nothing on this screen reopens one, '
-                              + 'and any clearance still outstanding stays outstanding.',
-                            run: () => handleStatusTransition('Closed'),
-                          })}
-                        >
-                          <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
-                        </Button>
+                        {activeCaseDetails.approval?.pending ? (
+                          // talent.offboarding.clearance has an active chain for this
+                          // case - the sign-off replaces the direct close action.
+                          <div className="flex flex-col gap-1.5">
+                            <div className="text-[10px] text-muted-foreground px-1">
+                              Closure awaiting {activeCaseDetails.approval.step_name || activeCaseDetails.approval.approver_role || 'approval'}
+                              {activeCaseDetails.approval.of ? ` (step ${activeCaseDetails.approval.step} of ${activeCaseDetails.approval.of})` : ''}
+                            </div>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
+                              onClick={() => setConfirmation({
+                                title: 'Approve closing this exit case?',
+                                description: 'The case moves to Closed once this is the final approval step.',
+                                run: () => handleDecideClosure('approve'),
+                              })}
+                            >
+                              <CheckCircle2 className="size-4 text-muted-foreground" /> Approve Closure
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-[11px] h-10 gap-3 font-medium text-destructive hover:bg-destructive/5 border-destructive/30 bg-card"
+                              onClick={() => setConfirmation({
+                                title: 'Reject closing this exit case?',
+                                description: 'The case remains open at its current status.',
+                                run: () => handleDecideClosure('reject'),
+                              })}
+                            >
+                              <Trash2 className="size-4 text-destructive" /> Reject Closure
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-[11px] h-10 gap-3 font-medium bg-card border-border hover:bg-muted/10 shadow-sm"
+                            onClick={() => setConfirmation({
+                              title: 'Close this exit case?',
+                              description: 'The case moves to Closed. Nothing on this screen reopens one, '
+                                + 'and any clearance still outstanding stays outstanding.',
+                              run: () => handleStatusTransition('Closed'),
+                            })}
+                          >
+                            <CheckCircle2 className="size-4 text-muted-foreground" /> Close Exit Case
+                          </Button>
+                        )}
                       </div>
                       
                       <div className="mt-auto pt-4">

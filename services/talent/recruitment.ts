@@ -147,6 +147,19 @@ export const recruitmentService = {
     return apiClient.post<TalentItemResponse<TalentOfferApi>>(`/talent-offers/${id}/reject`, contextParams())
   },
   /**
+   * The internal sign-off `talent.recruitment.offer` declares — distinct
+   * from acceptOffer()/rejectOffer() above, which are the CANDIDATE's own
+   * answer. Only does anything when a real approval step is open for this
+   * offer (offer.approval?.pending); the backend 403s anyone who isn't the
+   * step's approver regardless of what this screen shows.
+   */
+  decideOffer(id: LaravelId, decision: 'approve' | 'reject', remarks?: string) {
+    return apiClient.post<{ status: number; message: string; data?: TalentOfferApi }>(
+      `/talent-offers/${id}/decision`,
+      { decision, remarks, ...contextParams() },
+    )
+  },
+  /**
    * The other half of the decision, and the point the hire becomes a person.
    *
    * The backend records the acceptance, creates the tbluser row from the
@@ -248,6 +261,19 @@ export const recruitmentService = {
     return apiClient.post<RequisitionPage>('/talent-acquisition/requisitions', {
       ...params, page, limit, sortBy: 'age', order: 'desc',
     }, { headers: bearerHeaders() })
+  },
+  /**
+   * The internal sign-off `talent.recruitment.requisition` declares, for a
+   * posting a platform chain has gated before it can go live. Only does
+   * anything when a real approval step is open (requisition.approval?.pending)
+   * — the backend 403s anyone who isn't that step's approver regardless of
+   * what this screen shows.
+   */
+  decideRequisition(id: LaravelId, decision: 'approve' | 'reject', remarks?: string) {
+    return apiClient.post<{ status: number; message: string; data?: JobPostingApi }>(
+      `/job-postings/${id}/decision`,
+      { decision, remarks, ...contextParams() },
+    )
   },
   getFunnel() {
     const params = contextParams()
