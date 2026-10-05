@@ -284,6 +284,71 @@ export interface DocumentSearchFilters {
   per_page?: number
 }
 
+/**
+ * The step `ProcessDocumentPipelineJob` is actually running right now, for a
+ * REAL (not simulated) staged progress indicator — see that job's own
+ * docblock. `null` before the job has started (or for a document that never
+ * needed it); `'done'`/`'failed'` are terminal.
+ */
+export type DocumentProcessingStep =
+  | 'ocr'
+  | 'checking_duplicates'
+  | 'classifying'
+  | 'done'
+  | 'failed'
+  | null
+
+/** The full row — everything the list/search views omit for weight (extracted_text itself is never sent). */
+export interface DocumentDetail extends AccountDocument {
+  owner_id: number | null
+  department_id: number | null
+  subject: string | null
+  summary: string | null
+  confidence: string | null
+  keywords: string | null
+  tags: string | null
+  warnings: string | null
+  processing_step: DocumentProcessingStep
+  processing_error: string | null
+  period_label: string | null
+}
+
+/** One row from `document_library_history` — a version or an audit entry, told apart by `entry_type`. */
+export interface DocumentHistoryEntry {
+  id: number
+  entry_type: 'version' | 'audit'
+  version_number: number | null
+  storage_path: string | null
+  size: number | null
+  change_note: string | null
+  action: string | null
+  details: string | null
+  ip_address: string | null
+  created_at: string | null
+  /** Null means SYSTEM — the pipeline did this, not a person. */
+  actor_name: string | null
+}
+
+/** One row from the global activity feed — `DocumentHistoryEntry`'s audit shape plus which document it was on. */
+export interface DocumentActivityEntry {
+  id: number
+  action: string | null
+  details: string | null
+  created_at: string | null
+  document_id: number
+  document_title: string | null
+  actor_name: string | null
+}
+
+export interface RelatedDocument {
+  id: number
+  title: string | null
+  original_file_name: string | null
+  document_type: string | null
+  tags: string | null
+  created_at: string | null
+}
+
 export const accountService = {
   me: (context: LaravelContext) => apiClient.get<AccountMe>('/account/me', params(context)),
 
@@ -428,6 +493,28 @@ export const accountService = {
           .map(([key, value]) => [key, String(value)]),
       ),
     }),
+
+  /**
+   * One document, in full — including `processing_step`. This is what the
+   * upload-progress poller and the detail panel both read; unlike
+   * `searchDocuments`, it does not require `processing_status === 'done'`,
+   * so a caller polling right after upload sees 'processing' and the live
+   * step rather than a 404 until the background job finishes.
+   */
+  getDocument: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: DocumentDetail }>(`/documents/${id}`, params(context)),
+
+  /** This document's own version + audit trail, newest first. */
+  getDocumentHistory: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: DocumentHistoryEntry[] }>(`/documents/${id}/history`, params(context)),
+
+  /** Every action recorded against any document this caller may see, newest first. */
+  getDocumentActivity: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: DocumentActivityEntry[] }>('/documents/activity', params(context)),
+
+  /** Other documents of the same type, in the same department, this caller may also see. */
+  getRelatedDocuments: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: RelatedDocument[] }>(`/documents/${id}/related`, params(context)),
 
   /** Remove one of yours. Soft, so an administrator can restore it. */
   deleteDocument: (context: LaravelContext, id: number) =>
