@@ -244,6 +244,8 @@ export function GtgUserMenu() {
         case 'add-process':
         case 'fields-configuration':
           return access.anyModule
+        case 'document-library':
+          return access.documentLibrary
         case 'event-bus':
           return access.eventBus
         case 'audit':

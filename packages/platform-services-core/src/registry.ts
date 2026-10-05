@@ -169,6 +169,22 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     phase: 1,
   },
   {
+    id: 'platform.document-library',
+    slug: 'document-library',
+    name: 'Document Library',
+    section: 'services',
+    icon: 'FileText',
+    purpose: 'Upload, search and browse every document across the organisation by what it says, not just its name.',
+    whyCentral:
+      'Onboarding documents, competency evidence, task attachments, offboarding paperwork and personnel records each had their own upload screen and no shared way to search what was actually written inside any of them.',
+    todayInG2g:
+      'document_library holds a MariaDB FULLTEXT index over every uploaded document’s extracted text, AI-classified via AiModelClient with a rule-based fallback. Onboarding, competency, task, offboarding and LMS-certificate documents are federated into the same index by source-system indexers that point back to their own storage and permission checks rather than migrating their files. Resumes and offer letters file themselves automatically on hire; Form 16 generates on demand.',
+    toBuild: [],
+    status: 'live',
+    destination: { kind: 'existing-route', href: '/documents' },
+    phase: 1,
+  },
+  {
     id: 'platform.event-bus',
     slug: 'event-bus',
     name: 'Event Bus',
