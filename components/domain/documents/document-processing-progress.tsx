@@ -26,6 +26,15 @@ import { useLaravelContext } from '@/hooks/use-agentic'
  * The OCR step is genuinely skipped in the UI when the document already had
  * extractable text (most PDFs/DOCX/text files) — the bar visibly jumps past
  * it rather than pretending every document goes through every stage.
+ *
+ * The one part that ISN'T purely backend-driven is the small "creep" added
+ * below: the number starts at a random 5-18% instead of a dead 0% (the
+ * upload itself already moved bytes before the server reported anything),
+ * and nudges forward on its own between polls so it never looks frozen.
+ * That creep is bounded — it always stops a few points short of the next
+ * real milestone and can only be pushed past that point by an actual
+ * `processing_step` change, so it can visually stall for a moment but can
+ * never fake-complete a stage the backend hasn't confirmed.
  */
 
 const STEPS: Array<{ key: Exclude<DocumentProcessingStep, null>; label: string; icon: typeof Upload }> = [
@@ -44,6 +53,8 @@ function stepIndex(step: DocumentProcessingStep): number {
 
 const POLL_MS = 1200
 const MAX_POLLS = 25 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
+const CREEP_MS = 450 // how often the bar nudges itself forward between real backend updates
+const CREEP_RESERVE = 6 // percentage points held back from the next real milestone, so the creep can never claim a stage finished before the backend says so
 
 export interface DocumentProcessingProgressProps {
   documentId: number
@@ -55,6 +66,10 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
   const resolveContext = useLaravelContext()
   const [step, setStep] = useState<DocumentProcessingStep>(null)
   const finishedRef = useRef(false)
+
+  // Starts alive, not dead at 0 — the upload request itself already moved
+  // bytes before the server reported a single pipeline stage.
+  const [displayPercent, setDisplayPercent] = useState(() => 5 + Math.random() * 13) // 5-18%
 
   useEffect(() => {
     let cancelled = false
@@ -101,8 +116,38 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
   }, [documentId])
 
   const index = stepIndex(step)
-  const percent = Math.round(((index + 1) / STEPS.length) * 100)
   const failed = step === 'failed'
+  const finished = step === 'done' || failed
+
+  // Real milestones from the backend: `floor` is guaranteed the instant the
+  // server reports this step; `ceiling` is the next one, not yet confirmed.
+  // The creep below moves from floor toward (ceiling - CREEP_RESERVE) on
+  // its own, but can't cross into "this stage is done" territory until the
+  // backend actually says so.
+  const floor = finished ? 100 : ((index + 1) / STEPS.length) * 100
+  const ceiling = finished ? 100 : Math.min(100, ((index + 2) / STEPS.length) * 100)
+  const creepCap = Math.max(floor, ceiling - CREEP_RESERVE)
+
+  // Jump up to the real floor the instant the backend confirms it (never
+  // backward) — the creep interval below takes over from there.
+  useEffect(() => {
+    setDisplayPercent((p) => Math.max(p, floor))
+  }, [floor])
+
+  useEffect(() => {
+    if (finished) {
+      setDisplayPercent(100)
+      return
+    }
+
+    const id = setInterval(() => {
+      setDisplayPercent((p) => Math.min(creepCap, p + Math.random() * 2.2))
+    }, CREEP_MS)
+
+    return () => clearInterval(id)
+  }, [creepCap, finished])
+
+  const percent = Math.round(displayPercent)
 
   return (
     <div className="py-6 text-center">
@@ -111,11 +156,11 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         Uploaded — now reading, checking and classifying its content so it’s searchable.
       </p>
 
-      {/* The bar: real width, driven by the backend's own step, animated only via a CSS transition on width change — not a timer. */}
+      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. */}
       <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
-          style={{ width: `${Math.max(8, percent)}%` }}
+          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+          style={{ width: `${percent}%` }}
         />
       </div>
       <p className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground">{percent}%</p>
