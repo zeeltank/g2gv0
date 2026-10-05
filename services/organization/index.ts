@@ -178,6 +178,119 @@ export type DepartmentRule = DepartmentContentRecord & {
   rule_definition?: string | null
 }
 
+/** One node on a process canvas. node_key is stable across saves - the canvas, edges and run history all address a step by it rather than its database id. */
+export type DepartmentProcessStep = {
+  id?: number
+  node_key: string
+  step_type: string
+  title: string
+  description?: string | null
+  assignee_type?: string | null
+  assignee_value?: string | null
+  sla_value?: number | null
+  sla_unit?: string | null
+  /** References into this department's own SOPs/Policies/Rules tabs. */
+  linked_sop_id?: number | null
+  linked_policy_id?: number | null
+  linked_rule_id?: number | null
+  config?: Record<string, unknown> | null
+  position_x?: number
+  position_y?: number
+  is_required?: boolean
+}
+
+/** A connection between two steps. `label` is what a decision/approval step's outgoing edges are chosen by at run time. */
+export type DepartmentProcessEdge = {
+  id?: number
+  source_node_key: string
+  target_node_key: string
+  label?: string | null
+  condition?: Record<string, unknown> | null
+  order?: number
+}
+
+export type DepartmentProcess = {
+  id: number
+  department_id: number
+  name: string
+  code?: string | null
+  category?: string | null
+  description?: string | null
+  status: 'draft' | 'active' | 'archived'
+  current_version: number
+  trigger_type: 'manual' | 'event' | 'scheduled'
+  created_at?: string | null
+  updated_at?: string | null
+  created_by_name?: string | null
+  updated_by_name?: string | null
+  step_count?: number
+  steps?: DepartmentProcessStep[]
+  edges?: DepartmentProcessEdge[]
+}
+
+export type DepartmentProcessCategory = { key: string; label: string; group: string }
+
+export type DepartmentProcessTemplates = {
+  step_types: Record<string, { label: string; color: string }>
+  categories: DepartmentProcessCategory[]
+  templates: Record<string, Array<{ type: string; title: string }>>
+}
+
+export type DepartmentProcessVersion = {
+  id: number
+  version_number: number
+  published_at?: string | null
+  published_by?: number | null
+  published_by_name?: string | null
+}
+
+export type DepartmentProcessRunStep = {
+  id: number
+  run_id: number
+  step_node_key: string
+  step_title_snapshot: string
+  step_type_snapshot: string
+  assignee_user_id?: number | null
+  assignee_name?: string | null
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled'
+  task_id?: number | null
+  due_at?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  completed_by?: number | null
+  outcome?: string | null
+  notes?: string | null
+}
+
+export type DepartmentProcessRunEvent = {
+  id: number
+  event_type: string
+  actor_user_id?: number | null
+  actor_name?: string | null
+  payload?: string | null
+  created_at: string
+}
+
+export type DepartmentProcessRun = {
+  id: number
+  process_id: number
+  process_name?: string | null
+  process_version: number
+  department_id: number
+  subject_type?: string | null
+  subject_id?: number | null
+  name?: string | null
+  status: 'running' | 'completed' | 'cancelled'
+  current_step_node_keys?: string | null
+  started_by?: number | null
+  started_at?: string | null
+  completed_at?: string | null
+  steps?: DepartmentProcessRunStep[]
+  events?: DepartmentProcessRunEvent[]
+  /** The pinned published version's full graph - every step, reached or not, so the monitor can draw the whole process. */
+  definition?: { steps: DepartmentProcessStep[]; edges: DepartmentProcessEdge[] }
+}
+
 /**
  * Result of a bulk employee move.
  *
@@ -839,6 +952,152 @@ export const organizationService = {
   deleteDepartmentRule: (context: LaravelContext, id: string) =>
     ensureLaravelSuccess(apiClient.delete<LaravelStatusResponse>(
       `/department-rules/${id}?${new URLSearchParams(departmentParams(context)).toString()}`,
+    )),
+
+  // -- Processes ----------------------------------------------------------
+  //
+  // The Process tab's builder: a department's own visual, versioned
+  // processes. SOPs/Policies/Rules above stay the record of truth for their
+  // content - a process step references one of them by id (linked_sop_id
+  // etc.) rather than duplicating it.
+
+  /** Step-type palette, category list and starter templates - the same fixed set for every tenant. */
+  getDepartmentProcessTemplates: (context: LaravelContext) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcessTemplates>>(
+      '/department-processes/templates',
+      departmentParams(context),
+    ),
+
+  getDepartmentProcesses: (
+    context: LaravelContext,
+    departmentId: string,
+    filters?: { status?: string; category?: string; search?: string },
+  ) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcess[]>>(
+      '/department-processes',
+      { ...departmentParams(context), department_id: departmentId, ...filters },
+    ),
+
+  /** Full graph (steps + edges) - what the canvas builder loads. */
+  getDepartmentProcess: (context: LaravelContext, id: string) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcess>>(
+      `/department-processes/${id}`,
+      departmentParams(context),
+    ),
+
+  /** Create (optionally from a template) or edit a process's meta fields. Steps/edges go through updateDepartmentProcessCanvas. */
+  saveDepartmentProcess: (
+    context: LaravelContext,
+    data: Record<string, unknown>,
+    id?: string,
+  ) => {
+    const query = new URLSearchParams(departmentParams(context)).toString()
+    return ensureLaravelSuccess(id
+      ? apiClient.put<LaravelStatusResponse<DepartmentProcess>>(`/department-processes/${id}?${query}`, data)
+      : apiClient.post<LaravelStatusResponse<DepartmentProcess>>(`/department-processes?${query}`, data))
+  },
+
+  deleteDepartmentProcess: (context: LaravelContext, id: string) =>
+    ensureLaravelSuccess(apiClient.delete<LaravelStatusResponse>(
+      `/department-processes/${id}?${new URLSearchParams(departmentParams(context)).toString()}`,
+    )),
+
+  duplicateDepartmentProcess: (context: LaravelContext, id: string) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcess>>(
+      `/department-processes/${id}/duplicate?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
+    )),
+
+  /** Replaces the process's entire graph in one request - what the canvas editor autosaves. */
+  updateDepartmentProcessCanvas: (
+    context: LaravelContext,
+    id: string,
+    graph: { steps: DepartmentProcessStep[]; edges: DepartmentProcessEdge[] },
+  ) =>
+    ensureLaravelSuccess(apiClient.put<LaravelStatusResponse<DepartmentProcess>>(
+      `/department-processes/${id}/canvas?${new URLSearchParams(departmentParams(context)).toString()}`,
+      graph,
+    )),
+
+  publishDepartmentProcess: (context: LaravelContext, id: string) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcess>>(
+      `/department-processes/${id}/publish?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
+    )),
+
+  getDepartmentProcessHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcessVersion[]>>(
+      `/department-processes/${id}/history`,
+      departmentParams(context),
+    ),
+
+  restoreDepartmentProcessVersion: (context: LaravelContext, id: string, version: number) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcess>>(
+      `/department-processes/${id}/history/${version}/restore?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
+    )),
+
+  // -- Process runs ---------------------------------------------------------
+  //
+  // The execution engine: a launched, trackable instance of a published
+  // process. See DepartmentProcessRunController - a run always executes the
+  // published snapshot it started from, never the live (possibly mid-edit)
+  // canvas.
+
+  getDepartmentProcessRuns: (
+    context: LaravelContext,
+    filters: { processId?: string; departmentId?: string; status?: string },
+  ) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcessRun[]>>('/department-process-runs', {
+      ...departmentParams(context),
+      ...(filters.processId ? { process_id: filters.processId } : {}),
+      ...(filters.departmentId ? { department_id: filters.departmentId } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+    }),
+
+  getDepartmentProcessRun: (context: LaravelContext, runId: string) =>
+    apiClient.get<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-process-runs/${runId}`,
+      departmentParams(context),
+    ),
+
+  startDepartmentProcessRun: (
+    context: LaravelContext,
+    processId: string,
+    data: { name?: string; subject_type?: string; subject_id?: number; context?: Record<string, unknown> },
+  ) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-processes/${processId}/runs?${new URLSearchParams(departmentParams(context)).toString()}`,
+      data,
+    )),
+
+  cancelDepartmentProcessRun: (context: LaravelContext, runId: string) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-process-runs/${runId}/cancel?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
+    )),
+
+  claimProcessRunStep: (context: LaravelContext, runId: string, nodeKey: string) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-process-runs/${runId}/steps/${nodeKey}/claim?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
+    )),
+
+  completeProcessRunStep: (
+    context: LaravelContext,
+    runId: string,
+    nodeKey: string,
+    data: { outcome?: string; notes?: string } = {},
+  ) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-process-runs/${runId}/steps/${nodeKey}/complete?${new URLSearchParams(departmentParams(context)).toString()}`,
+      data,
+    )),
+
+  skipProcessRunStep: (context: LaravelContext, runId: string, nodeKey: string) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<DepartmentProcessRun>>(
+      `/department-process-runs/${runId}/steps/${nodeKey}/skip?${new URLSearchParams(departmentParams(context)).toString()}`,
+      {},
     )),
 
   getComplianceRecords: (context: LaravelContext) =>
