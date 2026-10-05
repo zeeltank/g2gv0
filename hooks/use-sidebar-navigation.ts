@@ -148,60 +148,10 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * so this removes the link, not the page.
    */
   const modules = useMemo(() => {
-    const fromDb = buildModuleTree(query.data?.data ?? [])
-
-    const signalsModule: NavModule = {
-      id: 'signals',
-      label: 'Signals',
-      short: 'Signals',
-      icon: 'mdi mdi-radar',
-      accessLink: '/signals',
-      children: [],
-      standalone: true,
-    }
-
-    const ingestionModule: NavModule = {
-      id: 'ingestion',
-      label: 'Ingestion Engine',
-      short: 'Ingestion',
-      icon: 'mdi mdi-cloud-upload-outline',
-      accessLink: '/ingestion',
-      children: [],
-      standalone: true,
-    }
-
-    const portfolioModule: NavModule = {
-      id: 'portfolio',
-      label: 'Product Portfolio',
-      short: 'Portfolio',
-      icon: 'mdi mdi-briefcase-outline',
-      accessLink: '/portfolio',
-      children: [],
-      standalone: true,
-    }
-
-    const partnersModule: NavModule = {
-      id: 'partners',
-      label: 'Partner Network',
-      short: 'Partners',
-      icon: 'mdi mdi-handshake-outline',
-      accessLink: '/partners',
-      children: [],
-      standalone: true,
-    }
-
-    const hasSignals = fromDb.some((m) => m.accessLink === '/signals' || m.id === 'signals')
-    const hasIngestion = fromDb.some((m) => m.accessLink === '/ingestion' || m.id === 'ingestion')
-    const hasPortfolio = fromDb.some((m) => m.accessLink === '/portfolio' || m.id === 'portfolio')
-    const hasPartners = fromDb.some((m) => m.accessLink === '/partners' || m.id === 'partners')
-
-    const extra: NavModule[] = []
-    if (!hasSignals) extra.push(signalsModule)
-    if (!hasIngestion) extra.push(ingestionModule)
-    if (!hasPortfolio) extra.push(portfolioModule)
-    if (!hasPartners) extra.push(partnersModule)
-
-    return [...fromDb, ...extra]
+    // Signals, Ingestion Engine, Product Portfolio and Partner Network used to be injected here as
+    // standalone sidebar links. They are intentionally no longer added; their routes and pages
+    // are untouched (see parseRoutePath below), and Intelligence Loop comes from the server menu.
+    return buildModuleTree(query.data?.data ?? [])
   }, [query.data])
 
   const { pathByKey, keyByPath } = useMemo(() => {
