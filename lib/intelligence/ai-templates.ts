@@ -196,8 +196,8 @@ export function fetchTemplateOptions(): Promise<AiTemplateOptions> {
 }
 
 /** Templates for one module. Omit `moduleKey` for every template the organisation can see. */
-export function fetchTemplates(moduleKey?: string | null): Promise<AiTemplateIndex> {
-  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}` : ''
+export function fetchTemplates(moduleKey?: string | null, options: { rollup?: boolean } = {}): Promise<AiTemplateIndex> {
+  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}${options.rollup ? '&rollup=1' : ''}` : ''
 
   return aiRequest<AiTemplateIndex>(`/templates${query}`)
 }

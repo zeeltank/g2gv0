@@ -103,7 +103,7 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchTemplateOptions(), fetchTemplates(module.key)])
+    Promise.all([fetchTemplateOptions(), fetchTemplates(module.key, { rollup: true })])
       .then(([nextOptions, index]) => {
         if (cancelled) return;
         setOptions(nextOptions);

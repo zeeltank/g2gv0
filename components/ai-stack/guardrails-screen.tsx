@@ -116,7 +116,7 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
         setLoading(false);
       });
 
-    fetchAiPolicies(module.key)
+    fetchAiPolicies(module.key, { rollup: true })
       .then((index) => {
         if (!cancelled) setPolicies(index.policies.filter((policy) => policy.status === 1));
       })
