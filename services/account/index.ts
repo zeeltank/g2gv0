@@ -216,16 +216,29 @@ function params(context: LaravelContext) {
   }
 }
 
-/** One row on a personnel record. */
+/** One row in the Document Library — personal, generated, or org-wide. */
 export interface AccountDocument {
   id: number
-  document_title: string | null
-  /** Resolved through a LEFT join, so it is null where the type row is missing. */
+  title: string | null
+  /** An open key from `document_types` below (e.g. "resume", "payslip") — look up its label there. */
   document_type: string | null
-  file_name: string | null
+  category: 'personnel' | 'organization' | null
+  original_file_name: string | null
   mime_type: string | null
-  file_size: number | null
+  size: number | null
+  visibility: 'private' | 'department' | 'organization' | null
+  /** 'done' is searchable/browsable. Earlier states only ever appear on the uploader's own list. */
+  processing_status: 'pending' | 'processing' | 'ready_for_review' | 'done' | 'failed' | null
+  /** Set when this row indexes a document that still lives in another feature's own table (see DocumentLibraryController). */
+  source_system: string | null
+  document_date: string | null
   created_at: string | null
+}
+
+/** key -> display label, grouped the way config/documents.php defines them. */
+export type DocumentTypeChoices = {
+  personnel: Record<string, string>
+  organization: Record<string, string>
 }
 
 /**
@@ -239,7 +252,36 @@ export interface AccountDocument {
 export interface AccountDocumentsResponse {
   status: number
   data: AccountDocument[]
-  document_types: { id: number; document_type: string }[]
+  document_types: DocumentTypeChoices
+}
+
+/** One search hit — AccountDocument plus a highlighted content excerpt when a query matched inside the file. */
+export interface DocumentSearchHit extends AccountDocument {
+  owner_id: number | null
+  department_id: number | null
+  tags: string | null
+  /** HTML with `<mark>` around the match — from the document's own content, not just its title. */
+  snippet: string | null
+}
+
+export interface DocumentSearchResponse {
+  status: number
+  data: DocumentSearchHit[]
+  meta: { total: number; page: number; per_page: number }
+  document_types: DocumentTypeChoices
+}
+
+export interface DocumentSearchFilters {
+  q?: string
+  category?: 'personnel' | 'organization'
+  document_type?: string
+  department_id?: number
+  source_system?: string
+  date_from?: string
+  date_to?: string
+  owner_id?: number
+  page?: number
+  per_page?: number
 }
 
 export const accountService = {
@@ -342,18 +384,50 @@ export const accountService = {
    * reason this product lost every file it was given for months: the old form
    * sent `file`, the old controller checked `document`, and the mismatch meant
    * nothing was ever written while the screen reported success.
+   *
+   * `documentType` is one of the keys in `document_types` (e.g. "resume",
+   * "certificate") — an open vocabulary the server defines in
+   * `config/documents.php`, not a foreign-key id a form has to look up first.
    */
-  uploadDocument: (context: LaravelContext, file: File, title: string, typeId: number) => {
+  uploadDocument: (
+    context: LaravelContext,
+    file: File,
+    title: string,
+    documentType: string,
+    options?: { category?: 'personnel' | 'organization'; visibility?: 'private' | 'department' | 'organization' },
+  ) => {
     const body = new FormData()
     const auth = params(context)
 
     Object.entries(auth).forEach(([key, value]) => body.append(key, String(value)))
     body.append('document', file)
-    body.append('document_title', title)
-    body.append('document_type_id', String(typeId))
+    body.append('title', title)
+    body.append('document_type', documentType)
+    if (options?.category) body.append('category', options.category)
+    if (options?.visibility) body.append('visibility', options.visibility)
 
-    return apiClient.postForm<{ status: number; message?: string }>('/account/documents', body)
+    return apiClient.postForm<{ status: number; message?: string; data?: { id: number } }>(
+      '/account/documents',
+      body,
+    )
   },
+
+  /**
+   * One search box over every document this caller may see — their own plus
+   * whatever HR/admin scope they hold. Matches on content, not just title:
+   * `extracted_text` is in the server's FULLTEXT index, so searching a word
+   * that only appears INSIDE a file still finds it, with a highlighted
+   * excerpt in `snippet`.
+   */
+  searchDocuments: (context: LaravelContext, filters: DocumentSearchFilters = {}) =>
+    apiClient.get<DocumentSearchResponse>('/documents', {
+      ...params(context),
+      ...Object.fromEntries(
+        Object.entries(filters)
+          .filter(([, value]) => value !== undefined && value !== '')
+          .map(([key, value]) => [key, String(value)]),
+      ),
+    }),
 
   /** Remove one of yours. Soft, so an administrator can restore it. */
   deleteDocument: (context: LaravelContext, id: number) =>
