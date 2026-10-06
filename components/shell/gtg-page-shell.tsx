@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeaderBase } from '@/components/shell/gtg-header-base'
+import PlatformServicesLauncher from '@/components/shell/gtg-platform-services-launcher'
 import { PlatformServicesSubheader } from '@/components/shell/platform-services-subheader'
 import { BreadcrumbItemsProvider } from '@/components/shell/gtg-breadcrumb'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
@@ -88,6 +89,9 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
   const [subheaderOpen, setSubheaderOpen] = useState(false)
   const subheaderButtonRef = useRef<HTMLButtonElement>(null)
   const subheaderPanelRef = useRef<HTMLDivElement>(null)
+
+  const [toolbarOpen, setToolbarOpen] = useState(false)
+  const toolbarButtonRef = useRef<HTMLButtonElement>(null)
 
   // Click-outside and Escape close it — see the identical, fuller note in
   // `gtg-app-shell.tsx`'s own copy of this effect. `open` deliberately does
@@ -200,6 +204,9 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
           subheaderOpen={subheaderOpen}
           onSubheaderToggle={() => setSubheaderOpen((open) => !open)}
           subheaderButtonRef={subheaderButtonRef}
+          toolbarOpen={toolbarOpen}
+          onToolbarToggle={() => setToolbarOpen((open) => !open)}
+          toolbarButtonRef={toolbarButtonRef}
         />
         <div ref={subheaderPanelRef}>
           <PlatformServicesSubheader open={subheaderOpen} />
@@ -215,6 +222,12 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
             </div>
           </div>
         </BreadcrumbItemsProvider>
+        <PlatformServicesLauncher
+          isAgentOpen={false}
+          open={toolbarOpen}
+          onOpenChange={setToolbarOpen}
+          triggerRef={toolbarButtonRef}
+        />
       </div>
     </div>
   )
