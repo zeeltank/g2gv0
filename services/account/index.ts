@@ -271,6 +271,14 @@ export interface DocumentSearchResponse {
   document_types: DocumentTypeChoices
 }
 
+/** One row in Trash — a soft-deleted document, still restorable until `purge_at`. */
+export interface TrashedDocument extends AccountDocument {
+  owner_id: number
+  deleted_at: string
+  /** Computed server-side from deleted_at + the retention window — not a stored column. */
+  purge_at: string
+}
+
 export interface DocumentSearchFilters {
   q?: string
   category?: 'personnel' | 'organization'
@@ -522,6 +530,25 @@ export const accountService = {
   /** Remove one of yours. Soft, so an administrator can restore it. */
   deleteDocument: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
+
+  /** My own trash — deleted but not yet purged. */
+  getTrash: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: TrashedDocument[] }>('/account/documents/trash', params(context)),
+
+  /** Every trashed document in the tenant — HR/admin only; a non-elevated caller gets a 403 from the route gate. */
+  getTrashVisible: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: TrashedDocument[] }>('/documents/trash', params(context)),
+
+  /** Undelete one of mine. */
+  restoreDocument: (context: LaravelContext, id: number) =>
+    apiClient.post<{ status: number; message?: string }>(`/account/documents/${id}/restore`, params(context)),
+
+  /** Undelete one of an employee's — HR/admin only. */
+  restoreEmployeeDocument: (context: LaravelContext, employeeId: number, id: number) =>
+    apiClient.post<{ status: number; message?: string }>(
+      `/employees-management/${employeeId}/documents/${id}/restore`,
+      params(context),
+    ),
 
   /**
    * Correct one of mine — title, type, category, subject. Owner-only, same

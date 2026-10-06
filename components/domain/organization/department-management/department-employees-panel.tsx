@@ -253,14 +253,14 @@ export function DepartmentEmployeesPanel({
 
       {canManage && (
         <div className="space-y-3 rounded-md border border-border p-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-row flex-wrap items-center gap-2">
             <SelectInput
               value={source}
               onChange={(value) => {
                 setSource(value as Source)
                 setSelected(new Set())
               }}
-              className="h-9 w-full sm:w-56"
+              className="h-9 w-56 shrink-0"
               options={[
                 { value: 'transfer', label: 'Transfer from a department' },
                 { value: 'unassigned', label: 'Employees with no department' },
@@ -270,7 +270,7 @@ export function DepartmentEmployeesPanel({
               <SelectInput
                 value={sourceDepartmentId}
                 onChange={setSourceDepartmentId}
-                className="h-9 w-full sm:w-64"
+                className="h-9 w-64 shrink-0"
                 options={[
                   { value: '', label: 'Select a department...' },
                   ...transferSources.map((d) => ({ value: d.id, label: d.name })),
