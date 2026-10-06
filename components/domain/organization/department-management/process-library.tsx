@@ -25,7 +25,6 @@ import { useProcessRuns } from './use-process-runs'
 import { ProcessMiniPreview } from './process-mini-preview'
 import { ProcessCanvasBuilder } from './process-canvas-builder'
 import { ProcessRunMonitor } from './process-run-monitor'
-import { ProcessSourcePanel } from './process-source-panel'
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'muted'> = {
   active: 'success',
@@ -386,15 +385,6 @@ export function ProcessLibrary({
 
   return (
     <div className="space-y-6 p-4">
-      <ProcessSourcePanel
-        department={department}
-        context={context}
-        categories={templates.categories}
-        stepTypes={templates.step_types}
-        canManage={canManage}
-        onProcessSaved={() => void reload()}
-      />
-
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-foreground">Processes ({items.length})</h3>
         {canManage && (
