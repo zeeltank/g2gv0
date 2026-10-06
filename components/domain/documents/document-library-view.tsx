@@ -49,6 +49,7 @@ import { DocumentFolderTree } from './document-folder-tree'
 import { assignFolderIds, type DiscoveredFile } from './document-folder-upload'
 import { DocumentProcessingProgress } from './document-processing-progress'
 import { DocumentBatchUploadProgress, type BatchFileState } from './document-batch-upload-progress'
+import { DocumentTableView } from './document-table-view'
 import { DocumentUploadDropzone } from './document-upload-dropzone'
 import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
@@ -919,64 +920,28 @@ export function DocumentLibraryView() {
           canManageFolder={canManageFolderClient}
         />
       ) : (
-        <Surface className="overflow-hidden">
-          <ul className="divide-y divide-border">
-            {currentSubfolders.map((folder) => (
-              <li key={`folder-${folder.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
-                <button
-                  type="button"
-                  onClick={() => setCurrentFolderId(folder.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  <FolderPlus className="size-4 shrink-0 text-amber-500" aria-hidden="true" />
-                  <span className="truncate text-sm font-medium text-foreground">{folder.name}</span>
-                </button>
-                {canManageFolderClient(folder) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setPendingDeleteFolder(folder)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </li>
-            ))}
-            {results.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
-              >
-                <button
-                  type="button"
-                  onClick={() => setDetailDoc(doc)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <p className="truncate text-sm font-medium text-foreground">{doc.title || 'Untitled'}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {[typeLabel(doc.document_type), doc.source_system ? `from ${doc.source_system}` : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </button>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => void download(doc)} disabled={downloadingId !== null}>
-                  Download
-                </Button>
-                {canDelete(doc) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setPendingDelete(doc)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Surface>
+        <DocumentTableView
+          documents={results}
+          typeLabel={typeLabel}
+          downloadingId={downloadingId}
+          onOpen={(doc) => setViewing(doc)}
+          onOpenDetails={(doc) => setDetailDoc(doc)}
+          onDownload={(doc) => void download(doc)}
+          onDelete={(doc) => setPendingDelete(doc)}
+          onMove={(doc) => {
+            setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
+            setMovingDoc(doc)
+          }}
+          canDelete={canDelete}
+          folders={currentSubfolders}
+          onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
+          onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+          onMoveFolder={(folder) => {
+            setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
+            setMovingFolder(folder)
+          }}
+          canManageFolder={canManageFolderClient}
+        />
       )}
 
           {scope !== 'trash' && !loading && !error && total > PER_PAGE && (
