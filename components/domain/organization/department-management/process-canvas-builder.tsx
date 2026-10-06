@@ -20,8 +20,7 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import dagre from '@dagrejs/dagre'
-import { History, LayoutGrid, PanelLeftClose, PanelLeftOpen, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { History, LayoutGrid, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,13 +48,8 @@ import type {
 } from '@/services/organization'
 import { ROLES } from '@/hooks/use-roles'
 import { ProcessStepNode, stepLabel, type ProcessStepNodeData } from './process-step-node'
-import { ProcessSourcePanel, type ConvertedStepForCanvas } from './process-source-panel'
 import { extractErrorMessages } from './use-department-processes'
-
-function genId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return 'n-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
+import { genId, tidyLayout } from './process-graph-utils'
 
 const ASSIGNEE_TYPES = [
   { value: '', label: 'Unassigned' },
@@ -74,30 +68,6 @@ const ROLE_OPTIONS = [{ value: '', label: 'Select a role...' }, ...ROLES.map((r)
 
 type LinkOption = { id: string; title: string }
 type LinkOptions = { sops: LinkOption[]; policies: LinkOption[]; rules: LinkOption[] }
-
-const TIDY_NODE_W = 200
-const TIDY_NODE_H = 70
-
-/** Re-arranges the current graph top-to-bottom with dagre - the "Tidy Layout" button's handler. */
-function tidyLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const graph = new dagre.graphlib.Graph()
-  graph.setDefaultEdgeLabel(() => ({}))
-  graph.setGraph({ rankdir: 'TB', nodesep: 48, ranksep: 80, marginx: 40, marginy: 40 })
-
-  nodes.forEach((n) => graph.setNode(n.id, { width: TIDY_NODE_W, height: TIDY_NODE_H }))
-  const known = new Set(nodes.map((n) => n.id))
-  edges.forEach((e) => {
-    if (known.has(e.source) && known.has(e.target)) graph.setEdge(e.source, e.target)
-  })
-
-  dagre.layout(graph)
-
-  return nodes.map((n) => {
-    const placed = graph.node(n.id)
-    if (!placed) return n
-    return { ...n, position: { x: placed.x - TIDY_NODE_W / 2, y: placed.y - TIDY_NODE_H / 2 } }
-  })
-}
 
 function buildInitialGraph(
   process: DepartmentProcess,
@@ -194,8 +164,6 @@ export function ProcessCanvasBuilder({
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [versions, setVersions] = useState<DepartmentProcessVersion[]>([])
-
-  const [showSourcePanel, setShowSourcePanel] = useState(true)
 
   const [linkOptions, setLinkOptions] = useState<LinkOptions>({ sops: [], policies: [], rules: [] })
   const [candidates, setCandidates] = useState<SearchableOption[]>([])
@@ -402,56 +370,6 @@ export function ProcessCanvasBuilder({
     window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
   }
 
-  function handleApplyFromSource(steps: ConvertedStepForCanvas[]) {
-    if (steps.length === 0) return
-
-    const startKey = genId()
-    const endKey = genId()
-    const stepKeys = steps.map(() => genId())
-    const chain = [startKey, ...stepKeys, endKey]
-
-    const makeNode = (id: string, stepType: string, title: string, extra: Partial<ProcessStepNodeData> = {}): Node => ({
-      id,
-      type: 'step',
-      position: { x: 0, y: 0 },
-      data: {
-        node_key: id,
-        step_type: stepType,
-        title,
-        is_required: true,
-        stepTypes: templates.step_types,
-        interactive: true,
-        ...extra,
-      } satisfies ProcessStepNodeData,
-    })
-
-    const newNodes: Node[] = [
-      makeNode(startKey, 'start', stepLabel('start', templates.step_types)),
-      ...steps.map((step, index) =>
-        makeNode(stepKeys[index], step.isApproval ? 'approval' : 'task', step.title, {
-          ...(step.actor ? { assignee_type: 'role', assignee_value: step.actor } : {}),
-        }),
-      ),
-      makeNode(endKey, 'end', stepLabel('end', templates.step_types)),
-    ]
-
-    const newEdges: Edge[] = chain.slice(0, -1).map((source, index) => ({
-      id: genId(),
-      source,
-      target: chain[index + 1],
-      type: 'smoothstep',
-      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-      style: { stroke: 'var(--primary)', strokeWidth: 2 },
-    }))
-
-    setNodes(tidyLayout(newNodes, newEdges))
-    setEdges(newEdges)
-    setSelectedNodeId(null)
-    setSelectedEdgeId(null)
-    markDirty()
-    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
-  }
-
   function handleClose() {
     if (isDirty) {
       setConfirmCloseOpen(true)
@@ -501,16 +419,6 @@ export function ProcessCanvasBuilder({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {canManage && (
-            <Button variant="outline" size="sm" onClick={() => setShowSourcePanel((v) => !v)}>
-              {showSourcePanel ? (
-                <PanelLeftClose className="size-4" aria-hidden="true" />
-              ) : (
-                <PanelLeftOpen className="size-4" aria-hidden="true" />
-              )}
-              {showSourcePanel ? 'Hide Source' : 'Convert from Text'}
-            </Button>
-          )}
           {canManage && (
             <Button variant="outline" size="sm" onClick={handleTidyLayout} disabled={nodes.length === 0}>
               <Wand2 className="size-4" aria-hidden="true" />
@@ -568,17 +476,6 @@ export function ProcessCanvasBuilder({
       )}
 
       <div className="flex min-h-0 flex-1">
-        {canManage && showSourcePanel && (
-          <div className="w-[440px] shrink-0 border-r border-border">
-            <ProcessSourcePanel
-              context={context}
-              categories={templates.categories}
-              hasExistingSteps={nodes.length > 0}
-              onApply={handleApplyFromSource}
-            />
-          </div>
-        )}
-
         {canManage && (
           <div className="w-44 shrink-0 overflow-y-auto border-r border-border p-2">
             <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
