@@ -21,7 +21,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from '@dagrejs/dagre'
-import { History, LayoutGrid, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { History, LayoutGrid, PanelLeftClose, PanelLeftOpen, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,6 +49,7 @@ import type {
 } from '@/services/organization'
 import { ROLES } from '@/hooks/use-roles'
 import { ProcessStepNode, stepLabel, type ProcessStepNodeData } from './process-step-node'
+import { ProcessSourcePanel, type ConvertedStepForCanvas } from './process-source-panel'
 import { extractErrorMessages } from './use-department-processes'
 
 function genId() {
@@ -193,6 +194,8 @@ export function ProcessCanvasBuilder({
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [versions, setVersions] = useState<DepartmentProcessVersion[]>([])
+
+  const [showSourcePanel, setShowSourcePanel] = useState(true)
 
   const [linkOptions, setLinkOptions] = useState<LinkOptions>({ sops: [], policies: [], rules: [] })
   const [candidates, setCandidates] = useState<SearchableOption[]>([])
@@ -399,6 +402,56 @@ export function ProcessCanvasBuilder({
     window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
   }
 
+  function handleApplyFromSource(steps: ConvertedStepForCanvas[]) {
+    if (steps.length === 0) return
+
+    const startKey = genId()
+    const endKey = genId()
+    const stepKeys = steps.map(() => genId())
+    const chain = [startKey, ...stepKeys, endKey]
+
+    const makeNode = (id: string, stepType: string, title: string, extra: Partial<ProcessStepNodeData> = {}): Node => ({
+      id,
+      type: 'step',
+      position: { x: 0, y: 0 },
+      data: {
+        node_key: id,
+        step_type: stepType,
+        title,
+        is_required: true,
+        stepTypes: templates.step_types,
+        interactive: true,
+        ...extra,
+      } satisfies ProcessStepNodeData,
+    })
+
+    const newNodes: Node[] = [
+      makeNode(startKey, 'start', stepLabel('start', templates.step_types)),
+      ...steps.map((step, index) =>
+        makeNode(stepKeys[index], step.isApproval ? 'approval' : 'task', step.title, {
+          ...(step.actor ? { assignee_type: 'role', assignee_value: step.actor } : {}),
+        }),
+      ),
+      makeNode(endKey, 'end', stepLabel('end', templates.step_types)),
+    ]
+
+    const newEdges: Edge[] = chain.slice(0, -1).map((source, index) => ({
+      id: genId(),
+      source,
+      target: chain[index + 1],
+      type: 'smoothstep',
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+      style: { stroke: 'var(--primary)', strokeWidth: 2 },
+    }))
+
+    setNodes(tidyLayout(newNodes, newEdges))
+    setEdges(newEdges)
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
+    markDirty()
+    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
+  }
+
   function handleClose() {
     if (isDirty) {
       setConfirmCloseOpen(true)
@@ -448,6 +501,16 @@ export function ProcessCanvasBuilder({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => setShowSourcePanel((v) => !v)}>
+              {showSourcePanel ? (
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              ) : (
+                <PanelLeftOpen className="size-4" aria-hidden="true" />
+              )}
+              {showSourcePanel ? 'Hide Source' : 'Convert from Text'}
+            </Button>
+          )}
           {canManage && (
             <Button variant="outline" size="sm" onClick={handleTidyLayout} disabled={nodes.length === 0}>
               <Wand2 className="size-4" aria-hidden="true" />
@@ -505,6 +568,17 @@ export function ProcessCanvasBuilder({
       )}
 
       <div className="flex min-h-0 flex-1">
+        {canManage && showSourcePanel && (
+          <div className="w-[440px] shrink-0 border-r border-border">
+            <ProcessSourcePanel
+              context={context}
+              categories={templates.categories}
+              hasExistingSteps={nodes.length > 0}
+              onApply={handleApplyFromSource}
+            />
+          </div>
+        )}
+
         {canManage && (
           <div className="w-44 shrink-0 overflow-y-auto border-r border-border p-2">
             <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

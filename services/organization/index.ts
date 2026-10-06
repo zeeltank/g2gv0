@@ -236,6 +236,36 @@ export type DepartmentProcessTemplates = {
   templates: Record<string, Array<{ type: string; title: string }>>
 }
 
+/** Mirrors ProcedureParser::step()'s return shape exactly, field for field. */
+export type ProcessConversionStep = {
+  text: string
+  actor: string | null
+  is_approval: boolean
+  workflow_key: string | null
+  order: number
+}
+
+/** Mirrors ProcedureParser::deriveTasks()'s return shape. */
+export type ProcessConversionTask = {
+  ref: string
+  title: string
+  actor: string
+  is_approval: boolean
+  workflow_key: string | null
+  due_in_days: number
+}
+
+/** Mirrors ProcedureParser::parse()'s return shape. */
+export type ProcessConversionSpec = {
+  name: string
+  objective: string | null
+  trigger: string | null
+  completion: string | null
+  steps: ProcessConversionStep[]
+  tasks: ProcessConversionTask[]
+  issues: string[]
+}
+
 export type DepartmentProcessVersion = {
   id: number
   version_number: number
@@ -967,6 +997,17 @@ export const organizationService = {
       '/department-processes/templates',
       departmentParams(context),
     ),
+
+  /**
+   * Read a pasted procedure into structure, without storing anything - the
+   * K12-style Source step's "Convert to process". Delegates server-side to
+   * the same ProcedureParser the module-wide Platform Services builder uses.
+   */
+  convertDepartmentProcessSource: (context: LaravelContext, data: { name?: string; source_text: string }) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<{ spec: ProcessConversionSpec }>>(
+      `/department-processes/convert-source?${new URLSearchParams(departmentParams(context)).toString()}`,
+      data,
+    )),
 
   getDepartmentProcesses: (
     context: LaravelContext,
