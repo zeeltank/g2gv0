@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import type { DocumentTypeChoices } from '@/services/account'
 import { documentTypeOptions, FieldLabel } from './documents-ui'
-import { distinctDirectoryPaths, filesFromDataTransfer, filesFromFileList, type DiscoveredFile } from './document-folder-upload'
+import { distinctDirectoryPaths, expandZipFiles, filesFromDataTransfer, filesFromFileList, type DiscoveredFile } from './document-folder-upload'
 
-const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.csv,.jpg,.jpeg,.png,.webp'
-const FORMATS = ['PDF', 'Word', 'Excel', 'Image', 'Text']
+const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.csv,.jpg,.jpeg,.png,.webp,.zip'
+const FORMATS = ['PDF', 'Word', 'Excel', 'Image', 'Text', 'Zip']
 
 export interface DocumentUploadDropzoneProps {
   types: DocumentTypeChoices
@@ -54,13 +54,24 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
   const [directoryPaths, setDirectoryPaths] = useState<string[]>([])
   const [documentType, setDocumentType] = useState('')
   const [customTypeLabel, setCustomTypeLabel] = useState('')
+  // True only while a dropped/picked .zip is being inflated client-side
+  // (expandZipFiles) — distinct from `uploading`, which covers the actual
+  // network phase afterward. Both disable the dropzone for the same reason:
+  // the file list isn't stable yet.
+  const [extracting, setExtracting] = useState(false)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const typeOptions: SearchableOption[] = documentTypeOptions(types)
+  const busy = uploading || extracting
 
   function setDiscovered(discovered: DiscoveredFile[]) {
-    setFiles(discovered)
-    setDirectoryPaths(distinctDirectoryPaths(discovered))
+    setExtracting(true)
+    void expandZipFiles(discovered)
+      .then((expanded) => {
+        setFiles(expanded)
+        setDirectoryPaths(distinctDirectoryPaths(expanded))
+      })
+      .finally(() => setExtracting(false))
   }
 
   async function submit() {

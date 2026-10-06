@@ -34,6 +34,7 @@ import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
 import { PLATFORM_MENU_SECTION } from '@shared/platform-services-core'
 import { platformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
+import { useCapabilityDestination } from '@/hooks/use-capability-destination'
 import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
 import type { PlatformService } from '@shared/platform-services-core'
 import type { AiCapability } from '@shared/ai-intelligence-core'
@@ -62,6 +63,7 @@ interface MenuSection {
 
 function useMenuSections(): MenuSection[] {
   const resolveService = usePlatformDestination()
+  const resolveCapability = useCapabilityDestination()
   const access = usePlatformServicesAccess()
 
   const isServiceVisible = (service: PlatformService): boolean => {
@@ -145,7 +147,13 @@ function useMenuSections(): MenuSection[] {
         id: capability.id,
         label: capability.name,
         icon: undefined,
-        href: `/ai/${capability.slug}`,
+        /*
+         * Resolved here so "Agent Management" reaches the real Agentic AI module in
+         * one click instead of the generic description page — the same reason
+         * platform services resolve through `resolveService` above rather than a
+         * hardcoded route.
+         */
+        href: resolveCapability(capability).href,
         badge:
           capability.status === 'live'
             ? undefined

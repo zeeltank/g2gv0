@@ -462,6 +462,84 @@
 
 /*
  * ════════════════════════════════════════════════════════════════════════════
+ * THE "BIG STREAMING" UPLOAD TREATMENT
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Three layers, each doing one job, all CSS-only (no animation library - the
+ * existing shimmer/glow above already prove this stack doesn't need one, and
+ * research into current upload-UI patterns turned up nothing a dependency
+ * would buy here that a wider gradient and a couple more keyframes don't):
+ *
+ *  1. g2g-stream-flow  - the fill itself: a wide diagonal multi-band gradient
+ *     that scrolls continuously, so a bar reads as "data is moving through
+ *     this" rather than "a block that happens to be getting wider."
+ *  2. g2g-particle-drift - small bright flecks riding the leading edge of an
+ *     active bar, moving faster than the stripe band for a layered sense of
+ *     motion rather than one flat sweep.
+ *  3. g2g-row-enter - batch-upload rows stagger in (via animation-delay set
+ *     per-row from its index) instead of all snapping into place at once.
+ *
+ * None of this touches WHAT is shown, only how it moves - the percentage
+ * driving these bars is still the same backend-confirmed-floor-plus-bounded-
+ * creep value from DocumentProcessingProgress's docblock, never a fake timer.
+ */
+@keyframes g2g-stream-flow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: -200% 0%;
+  }
+}
+
+@keyframes g2g-particle-drift {
+  /* `left`, not `transform: translateX()` - a percentage transform is
+     relative to the particle's OWN width, which wouldn't sweep it across the
+     bar at all. `left` is relative to the positioned parent, which is what
+     "drift across the whole bar" actually needs. */
+  0% {
+    left: -8%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 104%;
+    opacity: 0;
+  }
+}
+
+@keyframes g2g-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The big aggregate ring/number on the batch upload header - a slow, steady
+   breathing scale so the whole summary reads as alive while files are still
+   in flight, settling the instant the batch finishes (driven by the `done`
+   class, not a timeout). */
+@keyframes g2g-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
  * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY
  * ════════════════════════════════════════════════════════════════════════════
  *
