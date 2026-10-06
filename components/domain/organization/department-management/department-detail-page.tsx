@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  Activity,
   ArrowLeft,
   Building2,
   CalendarDays,
@@ -96,6 +97,42 @@ function Vital({
       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className="text-foreground">{children}</span>
     </span>
+  )
+}
+
+/** One labeled fact in the Overview tab's full details grid. */
+function DetailField({
+  icon: Icon,
+  label,
+  value,
+  action,
+  onAction,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+  action?: string
+  onAction?: () => void
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="size-4" aria-hidden="true" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
+        {action && onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            className="mt-0.5 text-xs font-semibold text-primary transition-colors hover:text-primary/80"
+          >
+            {action}
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -323,10 +360,38 @@ export function DepartmentDetailPage({
         })}
       </div>
 
-      <div>
+      <div className="space-y-4">
         {activeTab === 'overview' && (
-          <Card>
-            <CardContent className="space-y-5 p-5">
+          <>
+            <Card>
+              <CardContent className="p-5">
+                <h2 className="mb-4 text-base font-semibold tracking-tight text-foreground">Department Details</h2>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <DetailField
+                    icon={UserPlus}
+                    label="Department Head"
+                    value={department.hod ?? 'Unassigned'}
+                    action={canManage ? (department.hod ? 'Change HOD' : 'Assign HOD') : undefined}
+                    onAction={canManage ? () => setIsHodOpen(true) : undefined}
+                  />
+                  <DetailField
+                    icon={Folder}
+                    label="Parent Department"
+                    value={department.parent ?? 'Top-level department'}
+                    action={canManage ? 'Change Parent' : undefined}
+                    onAction={canManage ? () => setIsParentOpen(true) : undefined}
+                  />
+                  <DetailField icon={Building2} label="Department Code" value={departmentCode(department)} />
+                  <DetailField icon={Activity} label="Status" value={department.status} />
+                  <DetailField icon={Users} label="Total Employees" value={String(department.employees)} />
+                  <DetailField icon={CalendarDays} label="Created On" value={formatDate(department.created)} />
+                  <DetailField icon={RefreshCw} label="Last Updated" value={formatDate(department.updated)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="space-y-5 p-5">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold tracking-tight text-foreground">Description</h2>
                 {canManage && !isEditingDescription && (
@@ -376,8 +441,9 @@ export function DepartmentDetailPage({
                   {department.description || 'No description has been added for this department yet.'}
                 </p>
               )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {activeTab === 'employees' && (

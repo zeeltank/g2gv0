@@ -524,6 +524,18 @@ export const accountService = {
     apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
 
   /**
+   * Correct one of mine — title, type, category, subject. Owner-only, same
+   * as delete. Send only the fields that actually changed; the server
+   * no-ops (and skips the audit entry) on an empty diff.
+   */
+  updateDocument: (
+    context: LaravelContext,
+    id: number,
+    changes: Partial<{ title: string; document_type: string; category: 'personnel' | 'organization'; subject: string | null }>,
+  ) =>
+    apiClient.patch<{ status: number; message?: string }>(`/account/documents/${id}`, { ...params(context), ...changes }),
+
+  /**
    * Upload a new version of one of mine — same multipart shape as
    * `uploadDocument`, field named `document` for the same reason. The old
    * file is kept (see `document_library_history`'s docblock), not replaced.

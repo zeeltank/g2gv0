@@ -528,6 +528,7 @@ export function DocumentLibraryView() {
       <DocumentDetailDialog
         documentId={detailDoc?.id ?? null}
         typeLabel={typeLabel}
+        types={types}
         downloading={downloadingId !== null}
         onOpenChange={(open) => {
           if (!open) setDetailDoc(null)
