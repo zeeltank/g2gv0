@@ -934,7 +934,14 @@ export function DepartmentList({ role }: { role?: Role }) {
                   return (
                     <TableRow
                       key={department.id}
-                      onClick={() => selectDepartment(department.id)}
+                      onClick={() => {
+                        // Highlights the row (Move up/down's target) and opens
+                        // the full detail page - a click anywhere on the row
+                        // is "view this department", same as the Eye icon and
+                        // the row menu's "View Details" already do.
+                        selectDepartment(department.id)
+                        openDetails(department)
+                      }}
                       className={cn(
                         'cursor-pointer',
                         isSelected && 'bg-primary/10 hover:bg-primary/10',
