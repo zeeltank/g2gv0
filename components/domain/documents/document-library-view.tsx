@@ -344,20 +344,25 @@ export function DocumentLibraryView() {
     if (files.length === 1 && directoryPaths.length === 0) {
       setUploading(true)
       const file = files[0].file
-      const title = file.name.replace(/\.[^.]+$/, '')
+      // Display-only - the filename stem shown while this uploads/processes.
+      // The server gets an EMPTY title (not this), so it can record
+      // title_source='filename' and let AI improve it later; sending this
+      // string as the real title would wrongly mark it title_source='user'
+      // and block that improvement forever (see fileDocument()'s docblock).
+      const displayTitle = file.name.replace(/\.[^.]+$/, '')
 
       try {
-        const response = await accountService.uploadDocument(context, file, title, docType, {
+        const response = await accountService.uploadDocument(context, file, '', docType, {
           category: 'personnel',
           folderId: currentFolderId,
         })
         const id = response.data?.id
 
         if (id) {
-          setProcessingDoc({ id, fileName: file.name, title })
+          setProcessingDoc({ id, fileName: file.name, title: displayTitle })
         } else {
           setUploadOpen(false)
-          setNotice({ tone: 'info', text: `“${title}” was uploaded. It will appear in search shortly.` })
+          setNotice({ tone: 'info', text: `“${displayTitle}” was uploaded. It will appear in search shortly.` })
           setPage(1)
           await load()
         }
@@ -394,10 +399,11 @@ export function DocumentLibraryView() {
           current?.map((f) => (f.key === entry.relativePath ? { ...f, status: 'uploading' } : f)) ?? current,
         )
 
-        const title = entry.file.name.replace(/\.[^.]+$/, '')
-
         try {
-          await accountService.uploadDocument(context, entry.file, title, docType, {
+          // Empty title - same reasoning as the single-file branch above:
+          // the server's own filename fallback records title_source='filename',
+          // not 'user', so AI can still improve it afterward.
+          await accountService.uploadDocument(context, entry.file, '', docType, {
             category: 'personnel',
             folderId: entry.folderId,
           })
