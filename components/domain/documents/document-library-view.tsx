@@ -2,19 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  ChevronDown,
   ChevronRight,
   FileSearch,
   FileText,
   FolderPlus,
   Grid2x2,
+  Grid3x3,
+  LayoutGrid,
   List,
   Loader2,
   Plus,
   RotateCcw,
   Search,
+  Square,
   Trash2,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -43,7 +55,7 @@ import {
   type TrashedDocument,
 } from '@/services/account'
 import { myHrService } from '@/services/hrms/my-hr'
-import { DocumentCardGrid } from './document-card-grid'
+import { DocumentCardGrid, type GridCardSize } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
 import { DocumentFolderTree } from './document-folder-tree'
 import { assignFolderIds, type DiscoveredFile } from './document-folder-upload'
@@ -55,6 +67,15 @@ import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
 type ViewMode = 'grid' | 'list'
 type Scope = 'mine' | 'visible' | 'trash'
+
+/** The "View" menu's options — a File-Explorer-style icon-size ladder down to the table, each a real, wired mode (no Details pane / Content / Tiles entries carried over from that reference, since none of those have anything behind them here). */
+const VIEW_OPTIONS: Array<{ value: GridCardSize | 'list'; label: string; icon: typeof Grid2x2 }> = [
+  { value: 'xlarge', label: 'Extra large icons', icon: Square },
+  { value: 'large', label: 'Large icons', icon: Grid2x2 },
+  { value: 'medium', label: 'Medium icons', icon: Grid3x3 },
+  { value: 'small', label: 'Small icons', icon: LayoutGrid },
+  { value: 'list', label: 'List', icon: List },
+]
 
 const PER_PAGE = 24
 /** Mirrors config('documents.trash.purge_days') — cosmetic copy only, the server's own `purge_at` per row is authoritative. */
@@ -134,6 +155,7 @@ export function DocumentLibraryView() {
   const [documentType, setDocumentType] = useState('')
   const [scope, setScope] = useState<Scope>('mine')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [gridSize, setGridSize] = useState<GridCardSize>('large')
   const [page, setPage] = useState(1)
 
   const [results, setResults] = useState<DocumentSearchHit[]>([])
@@ -613,6 +635,36 @@ export function DocumentLibraryView() {
     }
   }
 
+  /** Double-click-to-rename on a document's name — same owner-only gate as move/delete (`updateDocument` is "Owner-only, same as delete" server-side). */
+  async function renameDocumentHandler(doc: DocumentSearchHit, title: string) {
+    const trimmed = title.trim()
+    if (!trimmed || trimmed === doc.title) return
+
+    try {
+      await accountService.updateDocument(resolveContext(), doc.id, { title: trimmed })
+      await load()
+    } catch (caught) {
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That document could not be renamed.' })
+    }
+  }
+
+  /** Double-click-to-rename on a folder's name — gated the same as move/delete (`canManageFolderClient`). */
+  async function renameFolderHandler(folder: DocumentFolderNode, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === folder.name) return
+
+    try {
+      const response = await accountService.renameFolder(resolveContext(), folder.id, trimmed)
+      if (response.status === 1) {
+        await loadFolderTree()
+      } else {
+        setNotice({ tone: 'error', text: response.message ?? 'That folder could not be renamed.' })
+      }
+    } catch (caught) {
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That folder could not be renamed.' })
+    }
+  }
+
   const canDelete = useCallback((doc: DocumentSearchHit) => myId !== null && doc.owner_id === myId, [myId])
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
 
@@ -717,59 +769,99 @@ export function DocumentLibraryView() {
             </>
           )}
 
-          {/* Only mine / everything I may see — see this component's docblock. */}
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
-            <button
-              type="button"
-              onClick={() => setScope('mine')}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scope === 'mine' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              My documents
-            </button>
-            <button
-              type="button"
-              onClick={() => setScope('visible')}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scope === 'visible' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Everything I can see
-            </button>
-            <button
-              type="button"
-              onClick={() => setScope('trash')}
-              className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scope === 'trash' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <Trash2 className="size-3" aria-hidden="true" />
-              Trash
-            </button>
-          </div>
-
-          <div className={`ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1 ${scope === 'trash' ? 'invisible' : ''}`}>
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              aria-label="Grid view"
-              className={`rounded-md p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <Grid2x2 className="size-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              aria-label="List view"
-              className={`rounded-md p-1.5 transition-colors ${viewMode === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <List className="size-4" aria-hidden="true" />
-            </button>
-          </div>
+          {/* Scope (My Drive / Shared with me / Bin) now lives in the left rail, Drive-style — see the sidebar below. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={`ml-auto shrink-0 gap-1.5 ${scope === 'trash' ? 'invisible' : ''}`}>
+                {(() => {
+                  const ActiveIcon = VIEW_OPTIONS.find((o) => o.value === (viewMode === 'list' ? 'list' : gridSize))?.icon ?? Grid2x2
+                  return <ActiveIcon className="size-4" aria-hidden="true" />
+                })()}
+                View
+                <ChevronDown className="size-3.5 opacity-60" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuRadioGroup
+                value={viewMode === 'list' ? 'list' : gridSize}
+                onValueChange={(value) => {
+                  if (value === 'list') {
+                    setViewMode('list')
+                  } else {
+                    setViewMode('grid')
+                    setGridSize(value as GridCardSize)
+                  }
+                }}
+              >
+                {VIEW_OPTIONS.map(({ value, label, icon: OptionIcon }) => (
+                  <DropdownMenuRadioItem key={value} value={value} className="gap-2">
+                    <OptionIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                    {label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </Surface>
 
       <div className="flex min-w-0 items-start gap-4">
-        {scope !== 'trash' && (
-          <Surface className="hidden w-56 shrink-0 p-2 @3xl/docs:block md:block">
-            <DocumentFolderTree nodes={folderTree} selectedId={currentFolderId} onSelect={setCurrentFolderId} />
-          </Surface>
-        )}
+        {/*
+          `sticky` + a viewport-relative `max-h`, not `self-stretch` to the
+          document list's own height — the list can run to many rows, and
+          stretching the rail to match it was pushing "Shared with me"/"Bin"
+          far down the page, off the first screen. Bounding this to the
+          viewport instead means the whole rail (tree AND its pinned footer)
+          is on-screen immediately, and stays put while the list scrolls.
+        */}
+        <Surface className="sticky top-4 hidden max-h-[calc(100vh-2rem)] w-64 shrink-0 flex-col p-2 @3xl/docs:flex md:flex">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <DocumentFolderTree
+              nodes={folderTree}
+              selectedId={scope === 'mine' ? currentFolderId : -1}
+              onSelect={(id) => {
+                setScope('mine')
+                setCurrentFolderId(id)
+              }}
+            />
+          </div>
+
+          {/* Pinned to the bottom of the rail, Explorer/Drive-style — a quick-nav footer, not part of the scrolling tree above. */}
+          <div className="mt-auto shrink-0 pt-2">
+            <div className="mb-2 border-t border-border" />
+            <ul className="space-y-0.5">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScope('visible')
+                    setCurrentFolderId(null)
+                  }}
+                  className={cn(
+                    'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors',
+                    scope === 'visible' ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+                  )}
+                >
+                  <Users className={cn('size-4 shrink-0', scope === 'visible' ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                  Shared with me
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setScope('trash')}
+                  className={cn(
+                    'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors',
+                    scope === 'trash' ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+                  )}
+                >
+                  <Trash2 className={cn('size-4 shrink-0', scope === 'trash' ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                  Bin
+                </button>
+              </li>
+            </ul>
+          </div>
+        </Surface>
 
         <div className="min-w-0 flex-1 space-y-4">
           {scope !== 'trash' && (
@@ -863,9 +955,9 @@ export function DocumentLibraryView() {
         )
       ) : loading ? (
         <div className="@container/docs">
-          <div className="grid grid-cols-1 gap-4 @lg/docs:grid-cols-2 @3xl/docs:grid-cols-3 @6xl/docs:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 rounded-xl" />
+              <Skeleton key={i} className="aspect-square rounded-xl" />
             ))}
           </div>
         </div>
@@ -901,6 +993,7 @@ export function DocumentLibraryView() {
           documents={results}
           typeLabel={typeLabel}
           downloadingId={downloadingId}
+          size={gridSize}
           onOpen={(doc) => setViewing(doc)}
           onOpenDetails={(doc) => setDetailDoc(doc)}
           onDownload={(doc) => void download(doc)}
@@ -909,6 +1002,7 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
             setMovingDoc(doc)
           }}
+          onRename={(doc, title) => void renameDocumentHandler(doc, title)}
           canDelete={canDelete}
           folders={currentSubfolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
@@ -917,6 +1011,7 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
             setMovingFolder(folder)
           }}
+          onRenameFolder={(folder, name) => void renameFolderHandler(folder, name)}
           canManageFolder={canManageFolderClient}
         />
       ) : (

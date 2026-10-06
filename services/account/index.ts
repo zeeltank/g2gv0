@@ -300,6 +300,7 @@ export interface DocumentFolder {
   name: string
   parent_id: number | null
   owner_id: number | null
+  department_id: number | null
   visibility: 'private' | 'department' | 'organization'
   sort_order: number
   created_at: string
@@ -311,6 +312,7 @@ export interface DocumentFolderNode {
   name: string
   parent_id: number | null
   owner_id: number | null
+  department_id: number | null
   visibility: 'private' | 'department' | 'organization'
   children: DocumentFolderNode[]
 }
@@ -578,16 +580,29 @@ export const accountService = {
       params(context),
     ),
 
-  /** One folder's direct contents — its subfolders and the documents inside it. parentId null/0 = root. */
-  listFolders: (context: LaravelContext, parentId: number | null) =>
+  /**
+   * One folder's direct contents — its subfolders and the documents inside
+   * it. parentId null/0 = root. `departmentId` is an ADVISORY narrowing
+   * filter, not a scope grant — the server's own ACL still governs what
+   * comes back regardless; pass it from the admin Department tab to see
+   * only that department's own folder space.
+   */
+  listFolders: (context: LaravelContext, parentId: number | null, departmentId?: number | null) =>
     apiClient.get<{ status: number; data: { folders: DocumentFolder[]; documents: DocumentSearchHit[] } }>(
       '/documents/folders',
-      { ...params(context), ...(parentId ? { parent_id: String(parentId) } : {}) },
+      {
+        ...params(context),
+        ...(parentId ? { parent_id: String(parentId) } : {}),
+        ...(departmentId ? { department_id: String(departmentId) } : {}),
+      },
     ),
 
-  /** The whole visible folder tree in one call, already nested server-side — for the left-rail browser. */
-  getFolderTree: (context: LaravelContext) =>
-    apiClient.get<{ status: number; data: DocumentFolderNode[] }>('/documents/folders/tree', params(context)),
+  /** The whole visible folder tree in one call, already nested server-side — for the left-rail browser. `departmentId` narrows the same way `listFolders` does. */
+  getFolderTree: (context: LaravelContext, departmentId?: number | null) =>
+    apiClient.get<{ status: number; data: DocumentFolderNode[] }>('/documents/folders/tree', {
+      ...params(context),
+      ...(departmentId ? { department_id: String(departmentId) } : {}),
+    }),
 
   createFolder: (context: LaravelContext, name: string, parentId?: number | null, visibility?: 'private' | 'department' | 'organization') =>
     apiClient.post<{ status: number; message?: string; data?: { id: number } }>('/documents/folders', {
@@ -620,6 +635,99 @@ export const accountService = {
       paths,
       ...(parentId ? { parent_id: parentId } : {}),
     }),
+
+  /* ── my department's documents (self-service) ──────────────────────────── */
+
+  /**
+   * "My Department Documents" — one department's shared space, scoped to
+   * the CALLER's own department, derived server-side only. There is no
+   * `department_id` parameter here on purpose: this endpoint cannot be
+   * pointed at a colleague's department by passing one, matching this
+   * product's established self-service shape (see
+   * `MyDepartmentDocumentsController`'s own docblock).
+   */
+  myDepartmentDocuments: (context: LaravelContext, filters: Omit<DocumentSearchFilters, 'department_id' | 'owner_id'> = {}) =>
+    apiClient.get<DocumentSearchResponse & { department_id: number | null }>('/account/department-documents', {
+      ...params(context),
+      ...Object.fromEntries(
+        Object.entries(filters)
+          .filter(([, value]) => value !== undefined && value !== '')
+          .map(([key, value]) => [key, String(value)]),
+      ),
+    }),
+
+  /** One folder's direct contents, within the caller's own department only. */
+  myDepartmentFolders: (context: LaravelContext, parentId: number | null) =>
+    apiClient.get<{ status: number; data: { folders: DocumentFolder[]; documents: DocumentSearchHit[] }; department_id: number | null }>(
+      '/account/department-documents/folders',
+      { ...params(context), ...(parentId ? { parent_id: String(parentId) } : {}) },
+    ),
+
+  /** The caller's own department's whole folder tree, nested server-side. */
+  myDepartmentFolderTree: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: DocumentFolderNode[]; department_id: number | null }>(
+      '/account/department-documents/folders/tree',
+      params(context),
+    ),
+
+  /* ── a department's documents (admin, via the Department Management tab) ─ */
+
+  /**
+   * File a document AS the caller, tagged to department `departmentId`
+   * regardless of the caller's own department — HR-elevated only on the
+   * server (`storeForDepartment()`). Same shape as `uploadDocument`, with
+   * the destination department fixed by the route rather than derived.
+   */
+  uploadDocumentForDepartment: (
+    context: LaravelContext,
+    departmentId: number,
+    file: File,
+    title: string,
+    documentType: string,
+    options?: { category?: 'personnel' | 'organization'; visibility?: 'private' | 'department' | 'organization'; folderId?: number | null },
+  ) => {
+    const body = new FormData()
+    const auth = params(context)
+
+    Object.entries(auth).forEach(([key, value]) => body.append(key, String(value)))
+    body.append('document', file)
+    body.append('title', title)
+    body.append('document_type', documentType)
+    if (options?.category) body.append('category', options.category)
+    if (options?.visibility) body.append('visibility', options.visibility)
+    if (options?.folderId) body.append('folder_id', String(options.folderId))
+
+    return apiClient.postForm<{ status: number; message?: string; data?: { id: number } }>(
+      `/departments-management/${departmentId}/documents`,
+      body,
+    )
+  },
+
+  /** Create a folder tagged to department `departmentId` regardless of the caller's own — the folder twin of `uploadDocumentForDepartment`. */
+  createFolderForDepartment: (
+    context: LaravelContext,
+    departmentId: number,
+    name: string,
+    parentId?: number | null,
+    visibility?: 'private' | 'department' | 'organization',
+  ) =>
+    apiClient.post<{ status: number; message?: string; data?: { id: number } }>(
+      `/departments-management/${departmentId}/documents/folders`,
+      { ...params(context), name, ...(parentId ? { parent_id: parentId } : {}), ...(visibility ? { visibility } : {}) },
+    ),
+
+  /** The resolve-path twin of `createFolderForDepartment` — for a recursive/zip folder upload from the admin Department tab. */
+  resolveFolderPathsForDepartment: (
+    context: LaravelContext,
+    departmentId: number,
+    paths: string[],
+    parentId?: number | null,
+    visibility?: 'private' | 'department' | 'organization',
+  ) =>
+    apiClient.post<{ status: number; data: Record<string, number> }>(
+      `/departments-management/${departmentId}/documents/folders/resolve-path`,
+      { ...params(context), paths, ...(parentId ? { parent_id: parentId } : {}), ...(visibility ? { visibility } : {}) },
+    ),
 
   /** Move a document already filed into (or out of) a folder. */
   moveDocument: (context: LaravelContext, id: number, folderId: number | null) =>

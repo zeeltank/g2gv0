@@ -3,10 +3,11 @@
 import { Download, Eye, FolderInput, Loader2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FileTypeIcon } from '@/components/ui/file-icon'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
-import { formatFileDate, formatFileSize, iconFor } from './documents-ui'
+import { formatFileDate, formatFileSize } from './documents-ui'
 
 /**
  * The Drive-style table list view (Name / Type / Size / Modified columns,
@@ -85,7 +86,7 @@ export function DocumentTableView({
                 </button>
               </TableCell>
               <TableCell className="hidden @lg/docs:table-cell text-sm text-muted-foreground">
-                {folder.visibility === 'organization' ? 'Organisation folder' : 'Private folder'}
+                {folder.visibility === 'organization' ? 'Organisation folder' : folder.visibility === 'department' ? 'Department folder' : 'Private folder'}
               </TableCell>
               <TableCell className="hidden @md/docs:table-cell text-sm text-muted-foreground">
                 {folder.children.length > 0 ? `${folder.children.length} subfolder${folder.children.length === 1 ? '' : 's'}` : '—'}
@@ -115,7 +116,6 @@ export function DocumentTableView({
           ))}
 
           {documents.map((doc) => {
-            const { Icon, tint } = iconFor(doc.mime_type, doc.original_file_name)
             const size = formatFileSize(doc.size)
             const date = formatFileDate(doc.document_date ?? doc.created_at)
             const label = typeLabel(doc.document_type)
@@ -125,8 +125,8 @@ export function DocumentTableView({
               <TableRow key={doc.id} className="group">
                 <TableCell>
                   <button type="button" onClick={() => onOpenDetails(doc)} className="flex min-w-0 items-center gap-3 text-left outline-none">
-                    <span className={`flex size-8 shrink-0 items-center justify-center rounded-md ${tint}`}>
-                      <Icon className="size-4" aria-hidden="true" />
+                    <span className="flex size-7 shrink-0 items-center justify-center">
+                      <FileTypeIcon mimeType={doc.mime_type} fileName={doc.original_file_name} className="h-full w-full" />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">{doc.title || 'Untitled'}</span>

@@ -2,12 +2,13 @@ import dagre from '@dagrejs/dagre'
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
 import type { ProcessStepNodeData } from './process-step-node'
 import { stepLabel } from './process-step-node'
-import type { DepartmentProcessEdge, DepartmentProcessStep, ProcessConversionStep } from '@/services/organization'
+import type { ProcessConversionStep } from '@/services/organization'
 
 /**
  * Shared between the canvas builder (ProcessCanvasBuilder - drag/drop, Tidy
- * Layout) and the K12-style converter panel (ProcessSourcePanel - "Save the
- * process" builds a linear graph from parsed steps). Kept in one place so
+ * Layout) and the K12-style converter panel (ProcessSourcePanel, via
+ * ProcessCanvasBuilder.handleApplyFromSource - real-time fills the canvas
+ * from parsed steps). Kept in one place so
  * the two never drift into two slightly different ideas of "a step
  * becomes a node."
  */
@@ -102,36 +103,4 @@ export function buildLinearGraph(
   }))
 
   return { nodes: tidyLayout(nodes, edges), edges }
-}
-
-/** A React Flow graph, flattened to the plain shape updateDepartmentProcessCanvas expects. */
-export function toApiGraph(nodes: Node[], edges: Edge[]): { steps: DepartmentProcessStep[]; edges: DepartmentProcessEdge[] } {
-  const steps: DepartmentProcessStep[] = nodes.map((n) => {
-    const d = n.data as ProcessStepNodeData
-    return {
-      node_key: d.node_key,
-      step_type: d.step_type,
-      title: d.title,
-      description: d.description ?? null,
-      assignee_type: d.assignee_type || null,
-      assignee_value: d.assignee_value || null,
-      sla_value: d.sla_value ?? null,
-      sla_unit: d.sla_unit ?? null,
-      linked_sop_id: d.linked_sop_id ?? null,
-      linked_policy_id: d.linked_policy_id ?? null,
-      linked_rule_id: d.linked_rule_id ?? null,
-      position_x: n.position.x,
-      position_y: n.position.y,
-      is_required: d.is_required ?? true,
-    }
-  })
-
-  const edgePayload: DepartmentProcessEdge[] = edges.map((e) => ({
-    source_node_key: e.source,
-    target_node_key: e.target,
-    label: typeof e.label === 'string' ? e.label : null,
-    order: 0,
-  }))
-
-  return { steps, edges: edgePayload }
 }
