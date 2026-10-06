@@ -89,8 +89,29 @@ function buildModuleTree(rawModules: SidebarMenuNode[]): NavModule[] {
   }))
 }
 
+/**
+ * Top-level modules kept out of the rendered sidebar list, by their stable
+ * `access_link` rather than a numeric id — dev and live have been observed to
+ * disagree on a row's id for the same menu_name/access_link (see the hide
+ * migrations' own matching style), so an id would silently target the wrong
+ * row on one host.
+ *
+ * This does NOT hide the screens themselves or touch any right: it only
+ * drops the entry from `sidebarModules` (what `<GtgSidebar>` renders).
+ * `modules` (full, unfiltered) is still what `resolveAccessLink` searches, so
+ * a deep link into one of these modules — e.g. "Agent Management" in the AI
+ * & Intelligence launcher, which resolves `/module/agentic-ai/agentic-library`
+ * — keeps working for whoever already has rights to it. Someone with no
+ * rights to the module still can't reach it either way; nothing about
+ * can_view enforcement changes.
+ */
+const SIDEBAR_HIDDEN_ACCESS_LINKS = new Set<string>(['/module/agentic-ai'])
+
 export interface SidebarNavigationResult {
+  /** Full tree, rights-filtered but otherwise complete — what resolution (resolveAccessLink, getRoutePath) reads. */
   modules: NavModule[]
+  /** `modules` minus `SIDEBAR_HIDDEN_ACCESS_LINKS` — what `<GtgSidebar>` should render. */
+  sidebarModules: NavModule[]
   loading: boolean
   error: string | null
   /** null when nothing is mapped — the caller must decline to navigate, not guess. */
@@ -154,6 +175,11 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return buildModuleTree(query.data?.data ?? [])
   }, [query.data])
 
+  const sidebarModules = useMemo(
+    () => modules.filter((module) => !SIDEBAR_HIDDEN_ACCESS_LINKS.has(module.accessLink ?? '')),
+    [modules],
+  )
+
   const { pathByKey, keyByPath } = useMemo(() => {
     const pathByKey = new Map<string, string>()
     const keyByPath = new Map<string, ActiveNav>()
@@ -212,6 +238,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
 
   return {
     modules,
+    sidebarModules,
     loading: ready && query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     getRoutePath,

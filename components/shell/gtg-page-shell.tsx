@@ -31,7 +31,7 @@ interface GtgPageShellProps {
 
 export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPageShellProps) {
   const router = useRouter()
-  const { modules, getRoutePath } = useSidebarNavigation()
+  const { modules, sidebarModules, getRoutePath } = useSidebarNavigation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   /*
@@ -187,7 +187,7 @@ export function GtgPageShell({ children, initialActive, breadcrumbItems }: GtgPa
       <GtgSidebar
         active={active}
         onSelect={handleNavSelect}
-        modules={modules}
+        modules={sidebarModules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}

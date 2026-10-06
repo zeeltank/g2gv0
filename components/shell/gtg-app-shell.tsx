@@ -191,7 +191,7 @@ export function GtgAppShell({
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
-  const { modules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
+  const { modules, sidebarModules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
   /*
    * ═══════════════════════════════════════════════════════════════════════
    * THE URL IS THE SOURCE OF TRUTH — NOT A DEFAULT SCREEN
@@ -511,7 +511,7 @@ export function GtgAppShell({
       <GtgSidebar
         active={resolvedActive}
         onSelect={handleNavSelect}
-        modules={modules}
+        modules={sidebarModules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
