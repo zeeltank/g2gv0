@@ -4,9 +4,10 @@ import { useRef, useState } from 'react'
 import { FolderUp, Loader2, Upload } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import type { DocumentTypeChoices } from '@/services/account'
-import { FieldLabel } from './documents-ui'
+import { documentTypeOptions, FieldLabel } from './documents-ui'
 import { distinctDirectoryPaths, filesFromDataTransfer, filesFromFileList, type DiscoveredFile } from './document-folder-upload'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.csv,.jpg,.jpeg,.png,.webp'
@@ -15,13 +16,13 @@ const FORMATS = ['PDF', 'Word', 'Excel', 'Image', 'Text']
 export interface DocumentUploadDropzoneProps {
   types: DocumentTypeChoices
   uploading: boolean
-  /** One call for the whole batch — a single file is just a batch of one; the caller decides whether that gets the full single-document progress view or the batch list. `directoryPaths` is empty for a flat multi-file pick, non-empty for a folder (what the caller resolves via `resolveFolderPaths` before uploading). */
+  /** One call for the whole batch — a single file is just a batch of one; the caller decides whether that gets the full single-document progress view or the batch list. `directoryPaths` is empty for a flat multi-file pick, non-empty for a folder (what the caller resolves via `resolveFolderPaths` before uploading). `documentType` may be '' — AI fills it in per file afterward, same as an unset title falls back to the filename. */
   onUpload: (files: DiscoveredFile[], documentType: string, directoryPaths: string[]) => Promise<void>
 }
 
 /**
  * Hand-rolled drag-and-drop (matches `ingestion-view.tsx`'s convention, not
- * `react-dropzone` — not a dependency here), now multi-file AND
+ * `react-dropzone` — not a dependency here), multi-file AND
  * recursive-folder aware.
  *
  * A single `<input>` cannot offer both "pick several files" and "pick a
@@ -31,24 +32,31 @@ export interface DocumentUploadDropzoneProps {
  * `filesFromDataTransfer()` (walks `FileSystemEntry` for a dropped folder,
  * falls back to flat files otherwise).
  *
- * Title is no longer a field here: with potentially many files of different
- * names, one shared title made no sense - each file defaults to its own
- * filename (same fallback the single-file version already used), exactly
- * how `fileDocument()` already treats an absent title. Document type stays
- * one shared required choice for the whole batch (Phase 5 relaxes this to
- * optional + AI-filled; until then every upload still needs one).
+ * ── "USER SHOULD ONLY CLICK UPLOAD" ──────────────────────────────────────────
+ *
+ * Title and type are BOTH optional now, matching `fileDocument()`'s relaxed
+ * validation: an unset title falls back to the filename, an unset type is
+ * filled in later by the classifier (AI, or the rule-based fallback) the
+ * same way it already fills one in when a human leaves it blank. The Type
+ * field here is a power-user override for the whole batch, not a
+ * requirement — picking files and clicking Upload is enough on its own.
+ *
+ * `SearchableSelect` (not the plain `Select`) because the type list is long
+ * enough to want typing-to-filter, same reason it's already used for the
+ * Details tab's own type editor. Choosing the literal "Other" key reveals a
+ * free-text label, which `submit()` sends AS the document_type itself (not
+ * the word "other") — valid because that column is an open string per its
+ * own docblock, not a locked vocabulary.
  */
 export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentUploadDropzoneProps) {
   const [dragging, setDragging] = useState(false)
   const [files, setFiles] = useState<DiscoveredFile[]>([])
   const [directoryPaths, setDirectoryPaths] = useState<string[]>([])
   const [documentType, setDocumentType] = useState('')
+  const [customTypeLabel, setCustomTypeLabel] = useState('')
   const folderInputRef = useRef<HTMLInputElement>(null)
 
-  const typeOptions = [
-    ...Object.entries(types.personnel).map(([value, label]) => ({ value, label })),
-    ...Object.entries(types.organization).map(([value, label]) => ({ value, label: `${label} (org)` })),
-  ]
+  const typeOptions: SearchableOption[] = documentTypeOptions(types)
 
   function setDiscovered(discovered: DiscoveredFile[]) {
     setFiles(discovered)
@@ -56,12 +64,15 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
   }
 
   async function submit() {
-    if (files.length === 0 || !documentType || uploading) return
+    if (files.length === 0 || uploading) return
 
-    await onUpload(files, documentType, directoryPaths)
+    const resolvedType = documentType === 'other' ? customTypeLabel.trim() : documentType
+
+    await onUpload(files, resolvedType, directoryPaths)
     setFiles([])
     setDirectoryPaths([])
     setDocumentType('')
+    setCustomTypeLabel('')
   }
 
   const summary =
@@ -137,20 +148,34 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
       </label>
 
       <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card p-4">
-        <FieldLabel label="Type">
-          <Select
+        <FieldLabel label="Type (optional — AI can work this out)">
+          <SearchableSelect
             value={documentType}
             onChange={setDocumentType}
-            placeholder={typeOptions.length === 0 ? 'No document types configured' : 'Choose a type for all of these'}
+            placeholder={typeOptions.length === 0 ? 'No document types configured' : 'Leave blank to let AI decide'}
             options={typeOptions}
             disabled={uploading || typeOptions.length === 0}
+            aria-label="Document type"
           />
         </FieldLabel>
+
+        {documentType === 'other' && (
+          <FieldLabel label="Describe the type">
+            <Input
+              value={customTypeLabel}
+              onChange={(e) => setCustomTypeLabel(e.target.value)}
+              placeholder="e.g. Vendor agreement"
+              maxLength={64}
+              disabled={uploading}
+            />
+          </FieldLabel>
+        )}
+
         <p className="text-xs text-muted-foreground">
-          Each file keeps its own name as its title. Applies to every file in this batch.
+          Each file keeps its own name as its title, and gets read and classified automatically. Pick a type here only if you want to set it yourself for every file in this batch.
         </p>
 
-        <Button type="button" onClick={() => void submit()} disabled={files.length === 0 || !documentType || uploading}>
+        <Button type="button" onClick={() => void submit()} disabled={files.length === 0 || uploading}>
           {uploading ? (
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           ) : (

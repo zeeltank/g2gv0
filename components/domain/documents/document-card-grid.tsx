@@ -73,6 +73,7 @@ export interface DocumentCardGridProps {
   folders?: DocumentFolderNode[]
   onOpenFolder?: (folder: DocumentFolderNode) => void
   onDeleteFolder?: (folder: DocumentFolderNode) => void
+  onMoveFolder?: (folder: DocumentFolderNode) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
 }
 
@@ -89,6 +90,7 @@ export function DocumentCardGrid({
   folders = [],
   onOpenFolder,
   onDeleteFolder,
+  onMoveFolder,
   canManageFolder,
 }: DocumentCardGridProps) {
   return (
@@ -118,8 +120,20 @@ export function DocumentCardGrid({
                   </p>
                 </div>
               </button>
-              {onDeleteFolder && canManageFolder?.(folder) && (
-                <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2">
+              {canManageFolder?.(folder) && (onMoveFolder || onDeleteFolder) && (
+                <div className="flex items-center justify-end gap-0.5 border-t border-border px-3 py-2">
+                  {onMoveFolder && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-xs"
+                      onClick={() => onMoveFolder(folder)}
+                      aria-label={`Move folder ${folder.name}`}
+                    >
+                      <FolderInput className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
+                  {onDeleteFolder && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -129,6 +143,7 @@ export function DocumentCardGrid({
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                   </Button>
+                  )}
                 </div>
               )}
             </article>

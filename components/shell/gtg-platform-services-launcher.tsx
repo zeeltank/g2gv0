@@ -171,7 +171,7 @@ function useMenuSections(): MenuSection[] {
   if (aiColumns.length > 0) {
     sections.push({
       id: 'ai-intelligence',
-      label: 'AI & Intelligence',
+      label: 'AI and insights',
       href: '/ai',
       span: 1,
       columns: aiColumns,
@@ -368,7 +368,7 @@ export default function PlatformServicesLauncher({
       <div
         role="dialog"
         aria-modal="false"
-        aria-label="Platform services and AI & Intelligence"
+        aria-label="Platform services and AI and insights"
         className="pointer-events-auto flex max-h-[85vh] w-[min(calc(100vw-1.5rem),18rem)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-xl sm:w-auto"
       >
         <div className="min-h-0 flex-1 overflow-y-auto p-3">

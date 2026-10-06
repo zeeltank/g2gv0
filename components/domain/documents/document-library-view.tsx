@@ -88,6 +88,11 @@ function flattenFolders(nodes: DocumentFolderNode[], depth = 0): Array<{ id: num
   ])
 }
 
+/** Every id under (not including) this node — client-side mirror of the server's own cycle guard, for filtering the move-folder picker's options, not a substitute for it. */
+function collectDescendantIds(node: DocumentFolderNode): number[] {
+  return node.children.flatMap((child) => [child.id, ...collectDescendantIds(child)])
+}
+
 /**
  * THE DOCUMENT LIBRARY — upload, browse, organise into folders, and search
  * by content.
@@ -163,6 +168,7 @@ export function DocumentLibraryView() {
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<DocumentFolderNode | null>(null)
   const [deletingFolder, setDeletingFolder] = useState(false)
   const [movingDoc, setMovingDoc] = useState<DocumentSearchHit | null>(null)
+  const [movingFolder, setMovingFolder] = useState<DocumentFolderNode | null>(null)
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('')
   const [moving, setMoving] = useState(false)
 
@@ -247,6 +253,20 @@ export function DocumentLibraryView() {
     () => (currentFolderId === null ? [] : (findFolderPath(folderTree, currentFolderId) ?? [])),
     [folderTree, currentFolderId],
   )
+  /** For moving a FOLDER: excludes the folder itself and its own descendants — picking one would be rejected by the server's cycle guard anyway, but filtering it out here means the picker never offers an obviously-invalid destination. */
+  const folderMoveOptions: SearchableOption[] = useMemo(() => {
+    if (!movingFolder) return []
+    const excluded = new Set(collectDescendantIds(movingFolder))
+    excluded.add(movingFolder.id)
+
+    return [
+      { value: '', label: 'Home (no folder)' },
+      ...flattenFolders(folderTree)
+        .filter((f) => !excluded.has(f.id))
+        .map((f) => ({ value: String(f.id), label: `${'— '.repeat(f.depth)}${f.name}` })),
+    ]
+  }, [folderTree, movingFolder])
+
   const folderOptions: SearchableOption[] = useMemo(
     () => [
       { value: '', label: 'Home (no folder)' },
@@ -344,20 +364,25 @@ export function DocumentLibraryView() {
     if (files.length === 1 && directoryPaths.length === 0) {
       setUploading(true)
       const file = files[0].file
-      const title = file.name.replace(/\.[^.]+$/, '')
+      // Display-only - the filename stem shown while this uploads/processes.
+      // The server gets an EMPTY title (not this), so it can record
+      // title_source='filename' and let AI improve it later; sending this
+      // string as the real title would wrongly mark it title_source='user'
+      // and block that improvement forever (see fileDocument()'s docblock).
+      const displayTitle = file.name.replace(/\.[^.]+$/, '')
 
       try {
-        const response = await accountService.uploadDocument(context, file, title, docType, {
+        const response = await accountService.uploadDocument(context, file, '', docType, {
           category: 'personnel',
           folderId: currentFolderId,
         })
         const id = response.data?.id
 
         if (id) {
-          setProcessingDoc({ id, fileName: file.name, title })
+          setProcessingDoc({ id, fileName: file.name, title: displayTitle })
         } else {
           setUploadOpen(false)
-          setNotice({ tone: 'info', text: `“${title}” was uploaded. It will appear in search shortly.` })
+          setNotice({ tone: 'info', text: `“${displayTitle}” was uploaded. It will appear in search shortly.` })
           setPage(1)
           await load()
         }
@@ -394,10 +419,11 @@ export function DocumentLibraryView() {
           current?.map((f) => (f.key === entry.relativePath ? { ...f, status: 'uploading' } : f)) ?? current,
         )
 
-        const title = entry.file.name.replace(/\.[^.]+$/, '')
-
         try {
-          await accountService.uploadDocument(context, entry.file, title, docType, {
+          // Empty title - same reasoning as the single-file branch above:
+          // the server's own filename fallback records title_source='filename',
+          // not 'user', so AI can still improve it afterward.
+          await accountService.uploadDocument(context, entry.file, '', docType, {
             category: 'personnel',
             folderId: entry.folderId,
           })
@@ -559,6 +585,28 @@ export function DocumentLibraryView() {
       await load()
     } catch (caught) {
       setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That document could not be moved.' })
+    } finally {
+      setMoving(false)
+    }
+  }
+
+  /** The server's move() endpoint has the real cycle guard (walks the proposed new parent's ancestor chain) - this is a convenience call, not a second implementation of that check. */
+  async function moveFolderHandler() {
+    if (!movingFolder || moving) return
+    setMoving(true)
+
+    try {
+      const targetId = moveTargetFolderId ? Number(moveTargetFolderId) : null
+      const response = await accountService.moveFolder(resolveContext(), movingFolder.id, targetId)
+      if (response.status === 1) {
+        setMovingFolder(null)
+        setNotice({ tone: 'info', text: `"${movingFolder.name}" was moved.` })
+        await loadFolderTree()
+      } else {
+        setNotice({ tone: 'error', text: response.message ?? 'That folder could not be moved.' })
+      }
+    } catch (caught) {
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That folder could not be moved.' })
     } finally {
       setMoving(false)
     }
@@ -864,6 +912,10 @@ export function DocumentLibraryView() {
           folders={currentSubfolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
           onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+          onMoveFolder={(folder) => {
+            setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
+            setMovingFolder(folder)
+          }}
           canManageFolder={canManageFolderClient}
         />
       ) : (
@@ -1006,20 +1058,28 @@ export function DocumentLibraryView() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={movingDoc !== null} onOpenChange={(open) => !open && setMovingDoc(null)}>
+      <Dialog
+        open={movingDoc !== null || movingFolder !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMovingDoc(null)
+            setMovingFolder(null)
+          }
+        }}
+      >
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm">
           <DialogHeader>
-            <DialogTitle>Move "{movingDoc?.title ?? 'document'}"</DialogTitle>
+            <DialogTitle>Move "{movingFolder?.name ?? movingDoc?.title ?? 'item'}"</DialogTitle>
             <DialogDescription>Choose where it should live.</DialogDescription>
           </DialogHeader>
           <SearchableSelect
-            options={folderOptions}
+            options={movingFolder ? folderMoveOptions : folderOptions}
             value={moveTargetFolderId}
             onChange={setMoveTargetFolderId}
             placeholder="Choose a folder"
             aria-label="Destination folder"
           />
-          <Button onClick={() => void moveDocumentHandler()} disabled={moving}>
+          <Button onClick={() => void (movingFolder ? moveFolderHandler() : moveDocumentHandler())} disabled={moving}>
             {moving ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
             Move
           </Button>

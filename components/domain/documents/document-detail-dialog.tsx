@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
+import { documentTypeOptions } from './documents-ui'
 import { useAuth } from '@/hooks/use-auth'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import {
@@ -410,10 +411,7 @@ function DetailsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, detail.id])
 
-  const typeOptions: SearchableOption[] = [
-    ...Object.entries(types.personnel).map(([value, label]) => ({ value, label, hint: 'Personal' })),
-    ...Object.entries(types.organization).map(([value, label]) => ({ value, label, hint: 'Organisation' })),
-  ]
+  const typeOptions: SearchableOption[] = documentTypeOptions(types)
 
   const submit = () => {
     const changes: Partial<{
