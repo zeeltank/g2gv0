@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FileSearch, FileText, Grid2x2, List, Loader2, Plus, Search } from 'lucide-react'
+import { FileSearch, FileText, Grid2x2, List, Loader2, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -17,11 +18,13 @@ import { DocumentViewer } from '@/components/shared/business/document-viewer'
 import { useAuth } from '@/hooks/use-auth'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
+import { isHrAdmin, isRole } from '@/types/role'
 import {
   accountService,
   type AccountDocument,
   type DocumentSearchHit,
   type DocumentTypeChoices,
+  type TrashedDocument,
 } from '@/services/account'
 import { myHrService } from '@/services/hrms/my-hr'
 import { DocumentCardGrid } from './document-card-grid'
@@ -31,9 +34,11 @@ import { DocumentUploadDropzone } from './document-upload-dropzone'
 import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
 type ViewMode = 'grid' | 'list'
-type Scope = 'mine' | 'visible'
+type Scope = 'mine' | 'visible' | 'trash'
 
 const PER_PAGE = 24
+/** Mirrors config('documents.trash.purge_days') — cosmetic copy only, the server's own `purge_at` per row is authoritative. */
+const TRASH_PURGE_DAYS = 30
 
 /**
  * THE DOCUMENT LIBRARY — upload, browse, and search by content.
@@ -86,6 +91,15 @@ export function DocumentLibraryView() {
   const [pendingDelete, setPendingDelete] = useState<DocumentSearchHit | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [trashResults, setTrashResults] = useState<TrashedDocument[]>([])
+  const [trashLoading, setTrashLoading] = useState(false)
+  const [trashError, setTrashError] = useState<string | null>(null)
+  const [trashEveryone, setTrashEveryone] = useState(false)
+  const [restoringId, setRestoringId] = useState<number | null>(null)
+
+  /** Cosmetic only — hides the "everyone's trash" toggle for a caller who almost certainly can't use it. The server's own profile:admin,hr gate is the real control (see trashVisible()'s docblock). */
+  const isElevated = isRole(user?.role) && isHrAdmin(user.role)
+
   // Debounced so every keystroke doesn't fire a request - same inline
   // pattern this codebase already uses (see ingestion-view.tsx).
   useEffect(() => {
@@ -98,6 +112,8 @@ export function DocumentLibraryView() {
   }, [debouncedQuery, category, documentType, scope])
 
   const load = useCallback(async () => {
+    if (scope === 'trash') return
+
     const context = resolveContext()
 
     if (!isLaravelContextReady(context)) {
@@ -133,6 +149,62 @@ export function DocumentLibraryView() {
       void load()
     })
   }, [load])
+
+  const loadTrash = useCallback(async () => {
+    const context = resolveContext()
+
+    if (!isLaravelContextReady(context)) {
+      setTrashLoading(false)
+      return
+    }
+
+    setTrashLoading(true)
+    setTrashError(null)
+
+    try {
+      const response = trashEveryone
+        ? await accountService.getTrashVisible(context)
+        : await accountService.getTrash(context)
+      setTrashResults(response.data ?? [])
+    } catch (caught) {
+      setTrashResults([])
+      setTrashError(caught instanceof Error ? caught.message : 'Trash could not be loaded.')
+    } finally {
+      setTrashLoading(false)
+    }
+  }, [resolveContext, trashEveryone])
+
+  useEffect(() => {
+    if (scope !== 'trash') return
+    queueMicrotask(() => {
+      void loadTrash()
+    })
+  }, [scope, loadTrash])
+
+  async function restoreFromTrash(doc: TrashedDocument) {
+    setRestoringId(doc.id)
+    try {
+      const response = myId !== null && doc.owner_id !== myId
+        ? await accountService.restoreEmployeeDocument(resolveContext(), doc.owner_id, doc.id)
+        : await accountService.restoreDocument(resolveContext(), doc.id)
+
+      if (response.status === 1) {
+        setNotice({ tone: 'info', text: `"${doc.title ?? 'Document'}" was restored.` })
+        await loadTrash()
+      } else {
+        setNotice({ tone: 'error', text: response.message ?? 'That document could not be restored.' })
+      }
+    } catch (caught) {
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That document could not be restored.' })
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  function daysUntil(dateString: string): number {
+    const ms = new Date(dateString.replace(' ', 'T')).getTime() - Date.now()
+    return Math.max(0, Math.ceil(ms / 86_400_000))
+  }
 
   const typeLabel = useCallback(
     (key: string | null) => (key ? (types.personnel[key] ?? types.organization[key] ?? key) : null),
@@ -315,36 +387,64 @@ export function DocumentLibraryView() {
           replaces.
         */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[14rem] flex-1 basis-64">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by title, or a word inside a document…"
-              aria-label="Search documents"
-              className="h-10 w-full rounded-lg border border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
-            />
-          </div>
+          {scope === 'trash' ? (
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">
+                Deleted documents stay here for {TRASH_PURGE_DAYS} days, then they're gone for good.
+              </p>
+              {isElevated && (
+                <div className="mt-2 flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setTrashEveryone(false)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!trashEveryone ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    My trash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTrashEveryone(true)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${trashEveryone ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Everyone's trash
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="relative min-w-[14rem] flex-1 basis-64">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by title, or a word inside a document…"
+                  aria-label="Search documents"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
+                />
+              </div>
 
-          <div className="w-40 shrink-0">
-            <Select
-              value={category}
-              onChange={setCategory}
-              options={[
-                { value: '', label: 'All categories' },
-                { value: 'personnel', label: 'Personal' },
-                { value: 'organization', label: 'Organisation' },
-              ]}
-            />
-          </div>
+              <div className="w-40 shrink-0">
+                <Select
+                  value={category}
+                  onChange={setCategory}
+                  options={[
+                    { value: '', label: 'All categories' },
+                    { value: 'personnel', label: 'Personal' },
+                    { value: 'organization', label: 'Organisation' },
+                  ]}
+                />
+              </div>
 
-          <div className="w-48 shrink-0">
-            <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
-          </div>
+              <div className="w-48 shrink-0">
+                <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
+              </div>
+            </>
+          )}
 
           {/* Only mine / everything I may see — see this component's docblock. */}
           <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
@@ -362,9 +462,17 @@ export function DocumentLibraryView() {
             >
               Everything I can see
             </button>
+            <button
+              type="button"
+              onClick={() => setScope('trash')}
+              className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scope === 'trash' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Trash2 className="size-3" aria-hidden="true" />
+              Trash
+            </button>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          <div className={`ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/40 p-1 ${scope === 'trash' ? 'invisible' : ''}`}>
             <button
               type="button"
               onClick={() => setViewMode('grid')}
@@ -385,7 +493,66 @@ export function DocumentLibraryView() {
         </div>
       </Surface>
 
-      {loading ? (
+      {scope === 'trash' ? (
+        trashLoading ? (
+          <Surface className="p-10 text-center">
+            <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" aria-hidden="true" />
+          </Surface>
+        ) : trashError ? (
+          <Surface className="p-10 text-center">
+            <p className="text-sm text-destructive">{trashError}</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => void loadTrash()}>
+              Retry
+            </Button>
+          </Surface>
+        ) : trashResults.length === 0 ? (
+          <Surface>
+            <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+              <Trash2 className="size-10 text-muted-foreground" aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-foreground">Trash is empty</h3>
+              <p className="max-w-xs text-sm text-muted-foreground">
+                {trashEveryone
+                  ? "Nothing deleted in the tenant right now."
+                  : "Documents you remove stay here until they're restored or purged."}
+              </p>
+            </div>
+          </Surface>
+        ) : (
+          <Surface className="overflow-hidden">
+            <ul className="divide-y divide-border">
+              {trashResults.map((doc) => (
+                <li key={doc.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{doc.title || 'Untitled'}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[typeLabel(doc.document_type), `deleted ${new Date(doc.deleted_at.replace(' ', 'T')).toLocaleDateString()}`]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+                  <Badge variant="warning" className="shrink-0 text-[10px] uppercase tracking-wide">
+                    Purges in {daysUntil(doc.purge_at)}d
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 text-xs"
+                    disabled={restoringId !== null}
+                    onClick={() => void restoreFromTrash(doc)}
+                  >
+                    {restoringId === doc.id ? (
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <RotateCcw className="mr-1.5 size-3.5" aria-hidden="true" />
+                    )}
+                    Restore
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Surface>
+        )
+      ) : loading ? (
         <div className="@container/docs">
           <div className="grid grid-cols-1 gap-4 @lg/docs:grid-cols-2 @3xl/docs:grid-cols-3 @6xl/docs:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -470,7 +637,7 @@ export function DocumentLibraryView() {
         </Surface>
       )}
 
-      {!loading && !error && total > PER_PAGE && (
+      {scope !== 'trash' && !loading && !error && total > PER_PAGE && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
             {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, total)} of {total}
