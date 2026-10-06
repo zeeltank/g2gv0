@@ -30,12 +30,12 @@ export function DocumentFolderTree({ nodes, selectedId, onSelect }: DocumentFold
           type="button"
           onClick={() => onSelect(null)}
           className={cn(
-            'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors',
-            selectedId === null ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+            'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm font-semibold transition-colors',
+            selectedId === null ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
           )}
         >
-          <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          Home
+          <Folder className={cn('size-4 shrink-0', selectedId === null ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+          My Drive
         </button>
       </li>
       {nodes.map((node) => (

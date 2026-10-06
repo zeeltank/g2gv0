@@ -1,28 +1,8 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, File, FileImage, FileSpreadsheet, FileText, Info } from 'lucide-react'
+import { AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DocumentTypeChoices } from '@/services/account'
 
-/** Icon + tint for a document's type, by mime/extension - shared by the card grid and the table view so the two never drift apart. */
-export function iconFor(mimeType: string | null, fileName: string | null) {
-  const mime = (mimeType ?? '').toLowerCase()
-  const ext = (fileName ?? '').split('.').pop()?.toLowerCase() ?? ''
-
-  if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return { Icon: FileImage, tint: 'text-violet-500 bg-violet-500/10' }
-  }
-  if (mime === 'application/pdf' || ext === 'pdf') {
-    return { Icon: FileText, tint: 'text-rose-500 bg-rose-500/10' }
-  }
-  if (['xls', 'xlsx', 'csv'].includes(ext)) {
-    return { Icon: FileSpreadsheet, tint: 'text-emerald-500 bg-emerald-500/10' }
-  }
-  if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) {
-    return { Icon: FileText, tint: 'text-sky-500 bg-sky-500/10' }
-  }
-
-  return { Icon: File, tint: 'text-muted-foreground bg-muted' }
-}
 
 export function formatFileSize(bytes: number | null) {
   if (!bytes || bytes <= 0) return null
