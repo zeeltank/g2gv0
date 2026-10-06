@@ -40,6 +40,8 @@ export const HOME_NAV: ActiveNav = {
  */
 export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organization-setup/organization-profile'
 export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
+/** Self-service - every employee's own department's shared documents. Must match the `access_link` seeded by database/migrations/2026_10_08_100100_add_my_department_documents_menu.php exactly. */
+export const MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK = '/module/organizational-management/organization-setup/my-department-documents'
 export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
 export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'

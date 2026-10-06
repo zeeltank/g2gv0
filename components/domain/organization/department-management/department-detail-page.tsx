@@ -40,6 +40,7 @@ import { DepartmentEmployeesPanel } from './department-employees-panel'
 import { DepartmentJobRolesPanel } from './department-job-roles-panel'
 import { ProcessTab } from './process-tab'
 import { SignalsHub } from './signals-hub'
+import { DepartmentDocumentsTab } from '@/domain/documents/department-documents-tab'
 
 /**
  * The full-page department detail view - what used to be a side drawer
@@ -80,6 +81,7 @@ const TABS = [
   { id: 'jobroles', label: 'Job Roles' },
   { id: 'process', label: 'Process' },
   { id: 'signals', label: 'Signals' },
+  { id: 'documents', label: 'Documents' },
 ]
 
 function Vital({
@@ -464,6 +466,10 @@ export function DepartmentDetailPage({
 
         {activeTab === 'signals' && (
           <SignalsHub key={department.id} department={department} context={context} canManage={canManage} />
+        )}
+
+        {activeTab === 'documents' && (
+          <DepartmentDocumentsTab department={department} context={context} canManage={canManage} />
         )}
       </div>
 
