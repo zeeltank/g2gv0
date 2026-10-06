@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, FileSearch, Loader2, Sparkles, Upload } from 'lucide-react'
 import { accountService, type DocumentProcessingStep } from '@/services/account'
 import { useLaravelContext } from '@/hooks/use-agentic'
+import { cn } from '@/lib/utils'
 
 /**
  * A REAL staged progress indicator for the upload→enrichment pipeline — not
@@ -156,22 +157,43 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         Uploaded — now reading, checking and classifying its content so it’s searchable.
       </p>
 
-      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. A moving highlight sweeps across the fill (g2g-progress-shimmer, globals.css) so it reads as "working" between polls, not just wider than before. */}
-      <div className="mt-5 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. Three motion layers while active, biggest first: a wide scrolling stripe band (g2g-stream-flow) for the "data is moving through this" read, the original cross-sweep highlight (g2g-progress-shimmer) on top of it, and a bright fleck riding the leading edge (g2g-particle-drift) — all in globals.css, none of them touch what percent is shown, only how it moves. */}
+      <div className="relative mt-5 h-4 w-full overflow-hidden rounded-full bg-muted">
         <div
           className="relative h-full overflow-hidden rounded-full bg-primary transition-[width] duration-500 ease-out"
           style={{ width: `${percent}%` }}
         >
           {!finished && (
-            <span
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-              style={{ animation: 'g2g-progress-shimmer 1.3s ease-in-out infinite' }}
-              aria-hidden="true"
-            />
+            <>
+              <span
+                className="absolute inset-0 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--primary)_60%,transparent)_0%,color-mix(in_oklab,white_35%,transparent)_12%,color-mix(in_oklab,var(--primary)_60%,transparent)_24%)] bg-[length:200%_100%]"
+                style={{ animation: 'g2g-stream-flow 2.4s linear infinite' }}
+                aria-hidden="true"
+              />
+              <span
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                style={{ animation: 'g2g-progress-shimmer 1.3s ease-in-out infinite' }}
+                aria-hidden="true"
+              />
+            </>
           )}
         </div>
+        {!finished && (
+          <span
+            className="absolute top-0 h-full w-2.5 rounded-full bg-white/90 shadow-[0_0_8px_2px_rgba(255,255,255,0.5)]"
+            style={{ animation: 'g2g-particle-drift 1.6s ease-in-out infinite' }}
+            aria-hidden="true"
+          />
+        )}
       </div>
-      <p className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground">{percent}%</p>
+      <p
+        className={cn(
+          'mt-1.5 text-right text-xs font-semibold tabular-nums text-muted-foreground',
+          !finished && 'motion-safe:[animation:g2g-breathe_2.4s_ease-in-out_infinite]',
+        )}
+      >
+        {percent}%
+      </p>
 
       <ol className="mt-5 space-y-2.5 text-left">
         {STEPS.map((s, i) => {

@@ -100,6 +100,75 @@ export function distinctDirectoryPaths(files: DiscoveredFile[]): string[] {
   return Array.from(dirs)
 }
 
+/**
+ * A dropped/picked `.zip` is expanded client-side into the same
+ * `DiscoveredFile[]` shape a dropped folder produces — the archive's own
+ * internal paths become `relativePath`, so everything downstream (folder
+ * resolution, per-file sequential upload) is identical code to the
+ * recursive-folder flow above. No new backend endpoint: this is "unzip,
+ * then it's just a folder upload."
+ *
+ * JSZip loads the whole archive into memory to read its central directory,
+ * which is the standard client-side approach and fine at the "a user drops
+ * one zip of documents" scale this is for — not meant for multi-GB archives.
+ * Directory entries (`entry.dir`) and macOS's `__MACOSX/` junk are skipped;
+ * everything else is inflated to a `File` so the rest of the pipeline never
+ * has to know it came from an archive instead of a real filesystem folder.
+ */
+export async function filesFromZip(zipFile: File): Promise<DiscoveredFile[]> {
+  const JSZip = (await import('jszip')).default
+  const archive = await JSZip.loadAsync(zipFile)
+  const out: DiscoveredFile[] = []
+
+  const entries = Object.values(archive.files).filter((entry) => !entry.dir && !entry.name.startsWith('__MACOSX/'))
+
+  for (const entry of entries) {
+    const blob = await entry.async('blob')
+    const name = entry.name.split('/').pop() || entry.name
+    out.push({ relativePath: entry.name, file: new File([blob], name, { lastModified: entry.date?.getTime() }) })
+  }
+
+  return out
+}
+
+/** True for anything the browser or the server would recognise as a zip archive by name or type. */
+export function isZipFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed'
+}
+
+/**
+ * Drop-in replacement for a raw discovered-file list that transparently
+ * inlines any `.zip` entries — a zip dropped alongside normal files, a zip
+ * nested inside a dropped folder, or just a zip on its own all come out the
+ * other end as plain files with no further handling required by the caller.
+ * Each zip's own contents are nested under `<its containing dir>/<zip name
+ * minus .zip>/...` so two zips with overlapping internal paths (e.g. both
+ * contain "Payroll/Jan.pdf") never collide, and so the archive's name is
+ * still visible as a folder in the resulting upload (matching what a user
+ * would expect from "unzip here").
+ */
+export async function expandZipFiles(files: DiscoveredFile[]): Promise<DiscoveredFile[]> {
+  const out: DiscoveredFile[] = []
+
+  for (const entry of files) {
+    if (!isZipFile(entry.file)) {
+      out.push(entry)
+      continue
+    }
+
+    const parts = entry.relativePath.split('/')
+    const zipName = parts.pop() as string
+    const prefix = [...parts, zipName.replace(/\.zip$/i, '')].join('/')
+    const inner = await filesFromZip(entry.file)
+
+    for (const innerEntry of inner) {
+      out.push({ relativePath: `${prefix}/${innerEntry.relativePath}`, file: innerEntry.file })
+    }
+  }
+
+  return out
+}
+
 /** Pairs each discovered file with the folder_id its containing directory resolved to (root-level files get `rootFolderId` directly — no lookup needed). */
 export function assignFolderIds(
   files: DiscoveredFile[],

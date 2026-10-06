@@ -7,13 +7,13 @@ import {
   FileImage,
   FileSpreadsheet,
   FileText,
-  Folder,
   FolderInput,
   Loader2,
   Trash2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { cn } from '@/lib/utils'
 import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
 import { HighlightedSnippet } from './highlighted-snippet'
@@ -110,8 +110,9 @@ export function DocumentCardGrid({
                 onClick={() => onOpenFolder?.(folder)}
                 className="flex flex-1 flex-col items-start gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg text-amber-500 bg-amber-500/10">
-                  <Folder className="size-5" aria-hidden="true" />
+                {/* FolderIcon3D (React Bits' open-source Folder, components/ui/folder-icon-3d.tsx) in place of a flat icon - lifts and peeks on hover for real. `interactive={false}` because this already sits inside the card's own <button>; nesting its default role="button" wrapper in there would be invalid markup and double-handle the click. Recolored to this product's own primary blue, not upstream's purple. The wrapper is sized to the component's own scaled (size=0.42) footprint - `scale()` doesn't shrink its 100x80px box, only what's painted in it (see the component's own docblock) - and left un-clipped so the hover lift/peek isn't cut off against the card's edge. */}
+                <span className="relative h-[34px] w-[42px] shrink-0 overflow-visible">
+                  <FolderIcon3D size={0.42} interactive={false} />
                 </span>
                 <div className="min-w-0 w-full">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">{folder.name}</h3>
