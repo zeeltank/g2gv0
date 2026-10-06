@@ -29,8 +29,7 @@ import {
 import { myHrService } from '@/services/hrms/my-hr'
 import { DocumentCardGrid } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
-import { DocumentProcessingProgress } from './document-processing-progress'
-import { DocumentUploadDropzone } from './document-upload-dropzone'
+import { DocumentUploadQueue } from './document-upload-queue'
 import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
 type ViewMode = 'grid' | 'list'
@@ -80,8 +79,6 @@ export function DocumentLibraryView() {
   const [error, setError] = useState<string | null>(null)
 
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [processingDoc, setProcessingDoc] = useState<{ id: number; fileName: string; title: string } | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [generatingForm16, setGeneratingForm16] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
 
@@ -220,57 +217,11 @@ export function DocumentLibraryView() {
     [types],
   )
 
-  async function upload(file: File, title: string, docType: string) {
-    const context = resolveContext()
-    setUploading(true)
-    setNotice(null)
-
-    try {
-      const response = await accountService.uploadDocument(context, file, title, docType, { category: 'personnel' })
-      const id = response.data?.id
-
-      /*
-       * The dialog does NOT close here. The upload itself has finished, but
-       * the document is still being read, OCR'd if needed, and classified -
-       * handing that off to DocumentProcessingProgress (which polls the
-       * real processing_step) is what gives the "something advanced is
-       * happening" feedback the plain spinner this replaced did not. If the
-       * server somehow returned no id, fall back to the old immediate-close
-       * behaviour rather than getting stuck with nothing to poll.
-       */
-      if (id) {
-        setProcessingDoc({ id, fileName: file.name, title })
-      } else {
-        setUploadOpen(false)
-        setNotice({ tone: 'info', text: `“${title}” was uploaded. It will appear in search shortly.` })
-        setPage(1)
-        await load()
-      }
-    } catch (caught) {
-      setNotice({
-        tone: 'error',
-        text: caught instanceof Error ? caught.message : 'That document could not be uploaded.',
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  function finishProcessing(outcome: { timedOut: boolean; failed: boolean }) {
-    const title = processingDoc?.title ?? 'Document'
-    setProcessingDoc(null)
-    setUploadOpen(false)
-    setNotice({
-      tone: outcome.failed ? 'error' : 'info',
-      text: outcome.failed
-        ? `“${title}” is filed and searchable by title, but automatic classification hit a snag.`
-        : outcome.timedOut
-          ? `“${title}” is filed and searchable. Classification is taking a little longer than usual and will finish in the background.`
-          : `“${title}” is filed, read, and classified — fully searchable now.`,
-    })
+  /** Called by the upload queue as files land, so the list behind the dialog stays current. */
+  const handleUploaded = useCallback(() => {
     setPage(1)
     void load()
-  }
+  }, [load])
 
   /** April-March, matching the server's own convention (MyHrController::leaveYear()). */
   function currentFinancialYear(): number {
@@ -653,31 +604,15 @@ export function DocumentLibraryView() {
         </div>
       )}
 
-      <Dialog
-        open={uploadOpen}
-        onOpenChange={(open) => {
-          setUploadOpen(open)
-          if (!open) setProcessingDoc(null)
-        }}
-      >
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{processingDoc ? 'Reading your document' : 'Upload a document'}</DialogTitle>
+            <DialogTitle>Upload documents</DialogTitle>
             <DialogDescription>
-              {processingDoc
-                ? 'This only takes a moment — you can close this and keep working, it finishes in the background.'
-                : 'PDF, Office, or an image. Its content becomes searchable automatically.'}
+              Drop files, a folder or a zip. Each one is read, classified and made searchable automatically. You can close this and keep working.
             </DialogDescription>
           </DialogHeader>
-          {processingDoc ? (
-            <DocumentProcessingProgress
-              documentId={processingDoc.id}
-              fileName={processingDoc.fileName}
-              onFinished={finishProcessing}
-            />
-          ) : (
-            <DocumentUploadDropzone types={types} uploading={uploading} onUpload={upload} />
-          )}
+          <DocumentUploadQueue onUploaded={handleUploaded} />
         </DialogContent>
       </Dialog>
 
