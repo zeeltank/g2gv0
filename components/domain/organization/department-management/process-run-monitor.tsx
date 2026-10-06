@@ -21,7 +21,7 @@ import { Notice } from './signals-ui'
 import type { Department } from '@/lib/gtg-org-data'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { organizationService } from '@/services/organization'
-import type { DepartmentProcessRun, DepartmentProcessTemplates } from '@/services/organization'
+import type { DepartmentProcessRun, DepartmentProcessRunStep, DepartmentProcessTemplates } from '@/services/organization'
 import { useProcessRun } from './use-process-runs'
 import { ProcessStepNode, type ProcessStepNodeData } from './process-step-node'
 
@@ -48,7 +48,10 @@ function humanizeEvent(type: string): string {
   return labels[type] ?? type
 }
 
-function buildRunGraph(run: DepartmentProcessRun, stepTypes: Record<string, { label: string; color: string }>) {
+function buildRunGraph(
+  run: DepartmentProcessRun,
+  stepTypes: Record<string, { label: string; color: string }>,
+): { nodes: Node[]; edges: Edge[]; runStepsByKey: Map<string, DepartmentProcessRunStep> } {
   const definition = run.definition ?? { steps: [], edges: [] }
   const runStepsByKey = new Map((run.steps ?? []).map((s) => [s.step_node_key, s]))
   const current = new Set<string>((run.steps ?? []).filter((s) => s.status === 'pending' || s.status === 'in_progress').map((s) => s.step_node_key))
@@ -152,7 +155,10 @@ export function ProcessRunMonitor({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
 
   const { nodes, edges, runStepsByKey } = useMemo(
-    () => (run ? buildRunGraph(run, templates.step_types) : { nodes: [], edges: [], runStepsByKey: new Map() }),
+    () =>
+      run
+        ? buildRunGraph(run, templates.step_types)
+        : { nodes: [] as Node[], edges: [] as Edge[], runStepsByKey: new Map<string, DepartmentProcessRunStep>() },
     [run, templates.step_types],
   )
 
