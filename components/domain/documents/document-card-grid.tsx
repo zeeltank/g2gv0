@@ -1,59 +1,13 @@
 'use client'
 
-import {
-  Download,
-  Eye,
-  File,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  FolderInput,
-  Loader2,
-  Trash2,
-} from 'lucide-react'
+import { Download, Eye, FolderInput, Loader2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { cn } from '@/lib/utils'
 import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
+import { formatFileDate, formatFileSize, iconFor } from './documents-ui'
 import { HighlightedSnippet } from './highlighted-snippet'
-
-function iconFor(mimeType: string | null, fileName: string | null) {
-  const mime = (mimeType ?? '').toLowerCase()
-  const ext = (fileName ?? '').split('.').pop()?.toLowerCase() ?? ''
-
-  if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return { Icon: FileImage, tint: 'text-violet-500 bg-violet-500/10' }
-  }
-  if (mime === 'application/pdf' || ext === 'pdf') {
-    return { Icon: FileText, tint: 'text-rose-500 bg-rose-500/10' }
-  }
-  if (['xls', 'xlsx', 'csv'].includes(ext)) {
-    return { Icon: FileSpreadsheet, tint: 'text-emerald-500 bg-emerald-500/10' }
-  }
-  if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) {
-    return { Icon: FileText, tint: 'text-sky-500 bg-sky-500/10' }
-  }
-
-  return { Icon: File, tint: 'text-muted-foreground bg-muted' }
-}
-
-function formatSize(bytes: number | null) {
-  if (!bytes || bytes <= 0) return null
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
 
 export interface DocumentCardGridProps {
   documents: DocumentSearchHit[]
@@ -108,11 +62,31 @@ export function DocumentCardGrid({
               <button
                 type="button"
                 onClick={() => onOpenFolder?.(folder)}
-                className="flex flex-1 flex-col items-start gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="flex flex-1 flex-col items-center gap-1 p-4 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                {/* FolderIcon3D (React Bits' open-source Folder, components/ui/folder-icon-3d.tsx) in place of a flat icon - lifts and peeks on hover for real. `interactive={false}` because this already sits inside the card's own <button>; nesting its default role="button" wrapper in there would be invalid markup and double-handle the click. Recolored to this product's own primary blue, not upstream's purple. The wrapper is sized to the component's own scaled (size=0.42) footprint - `scale()` doesn't shrink its 100x80px box, only what's painted in it (see the component's own docblock) - and left un-clipped so the hover lift/peek isn't cut off against the card's edge. */}
-                <span className="relative h-[34px] w-[42px] shrink-0 overflow-visible">
-                  <FolderIcon3D size={0.42} interactive={false} />
+                {/*
+                 * The folder IS the card's main visual here, not a small
+                 * badge next to a text label - a big flat folder box filling
+                 * most of the tile, the name underneath as a caption. Reuses
+                 * FolderIcon3D (components/ui/folder-icon-3d.tsx) at a much
+                 * larger scale instead of a separate asset - its resting
+                 * (non-hovered) state is already the flat solid silhouette
+                 * this calls for; `interactive={false}` for the same nested-
+                 * button reason as before.
+                 *
+                 * The wrapper's width/height are set to the EXACT scaled
+                 * footprint (100 * size, 80 * size) rather than left at the
+                 * component's own unscaled 100x80 box - `transform: scale()`
+                 * never shrinks the layout box, only what's painted inside
+                 * it (see the component's own docblock), so without this a
+                 * flex-centered parent would center the invisible full-size
+                 * box instead of the visually-scaled folder sitting flush in
+                 * its corner.
+                 */}
+                <span className="flex h-[150px] w-full shrink-0 items-center justify-center overflow-visible">
+                  <span className="relative h-[132px] w-[165px] overflow-visible">
+                    <FolderIcon3D size={1.65} interactive={false} />
+                  </span>
                 </span>
                 <div className="min-w-0 w-full">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">{folder.name}</h3>
@@ -152,8 +126,8 @@ export function DocumentCardGrid({
         ))}
         {documents.map((doc) => {
           const { Icon, tint } = iconFor(doc.mime_type, doc.original_file_name)
-          const size = formatSize(doc.size)
-          const date = formatDate(doc.document_date ?? doc.created_at)
+          const size = formatFileSize(doc.size)
+          const date = formatFileDate(doc.document_date ?? doc.created_at)
           const label = typeLabel(doc.document_type)
           const pending = doc.processing_status !== 'done'
 
