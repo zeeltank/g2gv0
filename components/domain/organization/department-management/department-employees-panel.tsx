@@ -254,28 +254,40 @@ export function DepartmentEmployeesPanel({
       {canManage && (
         <div className="space-y-3 rounded-md border border-border p-3">
           <div className="flex flex-row flex-wrap items-center gap-2">
-            <SelectInput
-              value={source}
-              onChange={(value) => {
-                setSource(value as Source)
-                setSelected(new Set())
-              }}
-              className="h-9 w-56 shrink-0"
-              options={[
-                { value: 'transfer', label: 'Transfer from a department' },
-                { value: 'unassigned', label: 'Employees with no department' },
-              ]}
-            />
-            {source === 'transfer' && (
+            {/*
+              * Select's own outer wrapper is a hardcoded `w-full` div - the
+              * `className` prop only ever reaches its inner trigger button,
+              * never that wrapper, so no width class passed to SelectInput
+              * can stop it claiming the whole row. Sizing a plain wrapper
+              * div around each one is what actually constrains the flex
+              * item, since `w-full` inside a `w-56` parent resolves to 224px.
+              */}
+            <div className="w-56 shrink-0">
               <SelectInput
-                value={sourceDepartmentId}
-                onChange={setSourceDepartmentId}
-                className="h-9 w-64 shrink-0"
+                value={source}
+                onChange={(value) => {
+                  setSource(value as Source)
+                  setSelected(new Set())
+                }}
+                className="h-9"
                 options={[
-                  { value: '', label: 'Select a department...' },
-                  ...transferSources.map((d) => ({ value: d.id, label: d.name })),
+                  { value: 'transfer', label: 'Transfer from a department' },
+                  { value: 'unassigned', label: 'Employees with no department' },
                 ]}
               />
+            </div>
+            {source === 'transfer' && (
+              <div className="w-64 shrink-0">
+                <SelectInput
+                  value={sourceDepartmentId}
+                  onChange={setSourceDepartmentId}
+                  className="h-9"
+                  options={[
+                    { value: '', label: 'Select a department...' },
+                    ...transferSources.map((d) => ({ value: d.id, label: d.name })),
+                  ]}
+                />
+              </div>
             )}
           </div>
 
