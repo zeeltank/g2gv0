@@ -47,7 +47,7 @@ import { MODULE_LANDING_HREF, type DecentralizedModuleKey } from '@/lib/platform
 /** The two groups a platform service belongs to — shared so no page re-declares it. */
 export const PLATFORM_SECTION_LABEL: Record<string, string> = {
   services: 'Platform service',
-  setup: 'Setup & configuration',
+  setup: 'Setup and configuration',
 }
 
 /**
@@ -67,7 +67,7 @@ export const OWN_ROUTE_SERVICES = PLATFORM_SERVICES.filter(
 
 export function PlatformShell({
   backHref,
-  backLabel = 'Platform Services',
+  backLabel = 'Platform services',
   eyebrow,
   title,
   description,

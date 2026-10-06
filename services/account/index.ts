@@ -288,8 +288,31 @@ export interface DocumentSearchFilters {
   date_from?: string
   date_to?: string
   owner_id?: number
+  /** Narrows to one folder's direct contents. 0 = root (folder_id IS NULL). Omit entirely to search unfiltered by folder, as before. */
+  folder_id?: number
   page?: number
   per_page?: number
+}
+
+/** One folder, flat (as returned by `listFolders`). */
+export interface DocumentFolder {
+  id: number
+  name: string
+  parent_id: number | null
+  owner_id: number | null
+  visibility: 'private' | 'department' | 'organization'
+  sort_order: number
+  created_at: string
+}
+
+/** One folder, nested (as returned by `getFolderTree` — the server already builds the tree, no client-side parent_id-walking needed). */
+export interface DocumentFolderNode {
+  id: number
+  name: string
+  parent_id: number | null
+  owner_id: number | null
+  visibility: 'private' | 'department' | 'organization'
+  children: DocumentFolderNode[]
 }
 
 /**
@@ -470,7 +493,11 @@ export const accountService = {
     file: File,
     title: string,
     documentType: string,
-    options?: { category?: 'personnel' | 'organization'; visibility?: 'private' | 'department' | 'organization' },
+    options?: {
+      category?: 'personnel' | 'organization'
+      visibility?: 'private' | 'department' | 'organization'
+      folderId?: number | null
+    },
   ) => {
     const body = new FormData()
     const auth = params(context)
@@ -481,6 +508,7 @@ export const accountService = {
     body.append('document_type', documentType)
     if (options?.category) body.append('category', options.category)
     if (options?.visibility) body.append('visibility', options.visibility)
+    if (options?.folderId) body.append('folder_id', String(options.folderId))
 
     return apiClient.postForm<{ status: number; message?: string; data?: { id: number } }>(
       '/account/documents',
@@ -549,6 +577,56 @@ export const accountService = {
       `/employees-management/${employeeId}/documents/${id}/restore`,
       params(context),
     ),
+
+  /** One folder's direct contents — its subfolders and the documents inside it. parentId null/0 = root. */
+  listFolders: (context: LaravelContext, parentId: number | null) =>
+    apiClient.get<{ status: number; data: { folders: DocumentFolder[]; documents: DocumentSearchHit[] } }>(
+      '/documents/folders',
+      { ...params(context), ...(parentId ? { parent_id: String(parentId) } : {}) },
+    ),
+
+  /** The whole visible folder tree in one call, already nested server-side — for the left-rail browser. */
+  getFolderTree: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: DocumentFolderNode[] }>('/documents/folders/tree', params(context)),
+
+  createFolder: (context: LaravelContext, name: string, parentId?: number | null, visibility?: 'private' | 'department' | 'organization') =>
+    apiClient.post<{ status: number; message?: string; data?: { id: number } }>('/documents/folders', {
+      ...params(context),
+      name,
+      ...(parentId ? { parent_id: parentId } : {}),
+      ...(visibility ? { visibility } : {}),
+    }),
+
+  renameFolder: (context: LaravelContext, id: number, name: string) =>
+    apiClient.patch<{ status: number; message?: string }>(`/documents/folders/${id}`, { ...params(context), name }),
+
+  moveFolder: (context: LaravelContext, id: number, parentId: number | null) =>
+    apiClient.post<{ status: number; message?: string }>(`/documents/folders/${id}/move`, {
+      ...params(context),
+      ...(parentId ? { parent_id: parentId } : {}),
+    }),
+
+  deleteFolder: (context: LaravelContext, id: number) =>
+    apiClient.delete<{ status: number; message?: string }>(`/documents/folders/${id}`, params(context)),
+
+  /**
+   * Find-or-create every segment of every relative path in one call —
+   * what makes a recursive folder upload one round trip instead of N
+   * sequential folder-creates. Returns {path -> folder_id}.
+   */
+  resolveFolderPaths: (context: LaravelContext, paths: string[], parentId?: number | null) =>
+    apiClient.post<{ status: number; data: Record<string, number> }>('/documents/folders/resolve-path', {
+      ...params(context),
+      paths,
+      ...(parentId ? { parent_id: parentId } : {}),
+    }),
+
+  /** Move a document already filed into (or out of) a folder. */
+  moveDocument: (context: LaravelContext, id: number, folderId: number | null) =>
+    apiClient.patch<{ status: number; message?: string }>(`/account/documents/${id}`, {
+      ...params(context),
+      folder_id: folderId ?? '',
+    }),
 
   /**
    * Correct one of mine — title, type, category, subject. Owner-only, same

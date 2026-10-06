@@ -7,13 +7,15 @@ import {
   FileImage,
   FileSpreadsheet,
   FileText,
+  Folder,
+  FolderInput,
   Loader2,
   Trash2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { DocumentSearchHit } from '@/services/account'
+import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
 import { HighlightedSnippet } from './highlighted-snippet'
 
 function iconFor(mimeType: string | null, fileName: string | null) {
@@ -63,8 +65,16 @@ export interface DocumentCardGridProps {
   onOpenDetails: (doc: DocumentSearchHit) => void
   onDownload: (doc: DocumentSearchHit) => void
   onDelete?: (doc: DocumentSearchHit) => void
+  /** Opens a folder picker for this document. Gated by `canDelete` too — same owner-only reasoning, not a new permission. */
+  onMove?: (doc: DocumentSearchHit) => void
   /** Only the owner (or an elevated caller, which the server already filtered for) may delete from here. */
   canDelete: (doc: DocumentSearchHit) => boolean
+  /** Subfolders of whatever's currently being browsed — rendered first, same card shape, Folder icon. Omit entirely outside a folder-aware view. */
+  folders?: DocumentFolderNode[]
+  onOpenFolder?: (folder: DocumentFolderNode) => void
+  onDeleteFolder?: (folder: DocumentFolderNode) => void
+  onMoveFolder?: (folder: DocumentFolderNode) => void
+  canManageFolder?: (folder: DocumentFolderNode) => boolean
 }
 
 export function DocumentCardGrid({
@@ -75,7 +85,13 @@ export function DocumentCardGrid({
   onOpenDetails,
   onDownload,
   onDelete,
+  onMove,
   canDelete,
+  folders = [],
+  onOpenFolder,
+  onDeleteFolder,
+  onMoveFolder,
+  canManageFolder,
 }: DocumentCardGridProps) {
   return (
     /*
@@ -86,6 +102,53 @@ export function DocumentCardGrid({
      */
     <div className="@container/docs">
       <ul className="grid grid-cols-1 gap-4 @lg/docs:grid-cols-2 @3xl/docs:grid-cols-3 @6xl/docs:grid-cols-4">
+        {folders.map((folder) => (
+          <li key={`folder-${folder.id}`}>
+            <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/40">
+              <button
+                type="button"
+                onClick={() => onOpenFolder?.(folder)}
+                className="flex flex-1 flex-col items-start gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg text-amber-500 bg-amber-500/10">
+                  <Folder className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 w-full">
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">{folder.name}</h3>
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                    {folder.visibility === 'organization' ? 'Organisation' : 'Private'}
+                  </p>
+                </div>
+              </button>
+              {canManageFolder?.(folder) && (onMoveFolder || onDeleteFolder) && (
+                <div className="flex items-center justify-end gap-0.5 border-t border-border px-3 py-2">
+                  {onMoveFolder && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-xs"
+                      onClick={() => onMoveFolder(folder)}
+                      aria-label={`Move folder ${folder.name}`}
+                    >
+                      <FolderInput className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
+                  {onDeleteFolder && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onDeleteFolder(folder)}
+                    aria-label={`Remove folder ${folder.name}`}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                  </Button>
+                  )}
+                </div>
+              )}
+            </article>
+          </li>
+        ))}
         {documents.map((doc) => {
           const { Icon, tint } = iconFor(doc.mime_type, doc.original_file_name)
           const size = formatSize(doc.size)
@@ -157,6 +220,17 @@ export function DocumentCardGrid({
                         <Download className="size-3.5" aria-hidden="true" />
                       )}
                     </Button>
+                    {onMove && canDelete(doc) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-1.5 text-xs"
+                        onClick={() => onMove(doc)}
+                        aria-label={`Move ${doc.title ?? 'document'}`}
+                      >
+                        <FolderInput className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
                     {onDelete && canDelete(doc) && (
                       <Button
                         variant="ghost"
