@@ -144,6 +144,12 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
           <FolderUp className="mr-1.5 size-3.5" aria-hidden="true" />
           Choose a folder
         </Button>
+        {/* The dialog this button opens shows the browser's own "Open"/"Select Folder" chrome,
+            not an "Upload" button — no web page can relabel that native dialog (see this
+            component's docblock). This line exists so that reads as expected, not as a bug. */}
+        <span className="text-xs text-muted-foreground">
+          Your browser&apos;s picker says &quot;Open&quot; or &quot;Select Folder&quot; — that&apos;s normal, just confirm your folder there.
+        </span>
         <input
           ref={folderInputRef}
           type="file"

@@ -262,6 +262,13 @@ export interface DocumentSearchHit extends AccountDocument {
   tags: string | null
   /** HTML with `<mark>` around the match — from the document's own content, not just its title. */
   snippet: string | null
+  /** Has the CALLING user starred this one — per-viewer, not a fact about the document itself (see the stars migration's own docblock). */
+  starred: boolean
+}
+
+/** One row from `/documents/recent` — a DocumentSearchHit plus when THIS caller last actually opened it. */
+export interface RecentDocumentHit extends DocumentSearchHit {
+  last_viewed_at: string
 }
 
 export interface DocumentSearchResponse {
@@ -557,6 +564,31 @@ export const accountService = {
   getRelatedDocuments: (context: LaravelContext, id: number) =>
     apiClient.get<{ status: number; data: RelatedDocument[] }>(`/documents/${id}/related`, params(context)),
 
+  /**
+   * Documents THIS caller has actually opened (preview or download — both
+   * route through the same download endpoint, see the server's own
+   * docblock), newest-viewed first. Zero new schema on the server: it reads
+   * back the existing `document_library_history` audit trail rather than
+   * tracking "recent" separately.
+   */
+  getRecentDocuments: (context: LaravelContext, limit?: number) =>
+    apiClient.get<{ status: number; data: RecentDocumentHit[] }>('/documents/recent', {
+      ...params(context),
+      ...(limit ? { limit: String(limit) } : {}),
+    }),
+
+  /** This caller's starred documents, newest-starred first — a Drive-style "Starred". */
+  getStarredDocuments: (context: LaravelContext) =>
+    apiClient.get<{ status: number; data: DocumentSearchHit[] }>('/documents/starred', params(context)),
+
+  /** Idempotent — starring an already-starred document is a no-op. You can star anything shared with you, same as Drive. */
+  starDocument: (context: LaravelContext, id: number) =>
+    apiClient.post<{ status: number; message?: string }>(`/documents/${id}/star`, params(context)),
+
+  /** Idempotent the same way. */
+  unstarDocument: (context: LaravelContext, id: number) =>
+    apiClient.delete<{ status: number; message?: string }>(`/documents/${id}/star`, params(context)),
+
   /** Remove one of yours. Soft, so an administrator can restore it. */
   deleteDocument: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: number; message?: string }>(`/account/documents/${id}`, params(context)),
@@ -620,6 +652,18 @@ export const accountService = {
       ...params(context),
       ...(parentId ? { parent_id: parentId } : {}),
     }),
+
+  /**
+   * Drive's "Make a copy" for a whole folder tree — recursive, independent
+   * storage objects for every document inside (see `DocumentDuplicator`'s
+   * own docblock on the server). Silently skips whatever the acting viewer
+   * can't see, rather than erroring on it.
+   */
+  duplicateFolder: (context: LaravelContext, id: number, destinationParentId?: number | null) =>
+    apiClient.post<{ status: number; message?: string; data?: { folder_id: number; folders_copied: number; documents_copied: number } }>(
+      `/documents/folders/${id}/duplicate`,
+      { ...params(context), ...(destinationParentId ? { destination_parent_id: destinationParentId } : {}) },
+    ),
 
   deleteFolder: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: number; message?: string }>(`/documents/folders/${id}`, params(context)),
@@ -734,6 +778,19 @@ export const accountService = {
     apiClient.patch<{ status: number; message?: string }>(`/account/documents/${id}`, {
       ...params(context),
       folder_id: folderId ?? '',
+    }),
+
+  /**
+   * Drive's "Make a copy" — an independent storage object, not a reference
+   * to the original. Gated on canView() server-side, not ownership: you can
+   * copy anything shared with you, same as starring. Always lands private
+   * regardless of the original's visibility (see `DocumentDuplicator`'s own
+   * docblock).
+   */
+  duplicateDocument: (context: LaravelContext, id: number, destinationFolderId?: number | null) =>
+    apiClient.post<{ status: number; message?: string; data?: { id: number } }>(`/account/documents/${id}/duplicate`, {
+      ...params(context),
+      ...(destinationFolderId ? { destination_folder_id: destinationFolderId } : {}),
     }),
 
   /**

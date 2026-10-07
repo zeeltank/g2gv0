@@ -1,9 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, Eye, FolderInput, FolderOpen, Loader2, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { FileTypeIcon } from '@/components/ui/file-icon'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { cn } from '@/lib/utils'
@@ -92,6 +99,16 @@ export interface DocumentCardGridProps {
   /** Double-click the name to rename. Gated by `canManageFolder`. */
   onRenameFolder?: (folder: DocumentFolderNode, name: string) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
+
+  /* ── cut/copy/paste, starring ──────────────────────────────────────────── */
+  onToggleStar?: (doc: DocumentSearchHit) => void
+  onCut?: (doc: DocumentSearchHit) => void
+  onCopy?: (doc: DocumentSearchHit) => void
+  onCutFolder?: (folder: DocumentFolderNode) => void
+  onCopyFolder?: (folder: DocumentFolderNode) => void
+  /** Shown as a "Paste" item at the top of a folder's own context menu, pasting INTO that folder — only when something is on the clipboard. */
+  hasClipboard?: boolean
+  onPasteIntoFolder?: (folder: DocumentFolderNode) => void
 }
 
 export function DocumentCardGrid({
@@ -111,6 +128,13 @@ export function DocumentCardGrid({
   onMoveFolder,
   onRenameFolder,
   canManageFolder,
+  onToggleStar,
+  onCut,
+  onCopy,
+  onCutFolder,
+  onCopyFolder,
+  hasClipboard,
+  onPasteIntoFolder,
 }: DocumentCardGridProps) {
   const cfg = SIZE_CONFIG[size]
   // Which tile's name is being edited right now, `folder-<id>` or `doc-<id>` — local UI state, the actual save round-trips through `onRename`/`onRenameFolder`.
@@ -204,16 +228,40 @@ export function DocumentCardGrid({
                     </div>
                   </div>
                 </ContextMenuTrigger>
-                <ContextMenuContent className="w-44">
+                <ContextMenuContent className="w-48">
+                  {hasClipboard && onPasteIntoFolder && canManage && (
+                    <>
+                      <ContextMenuItem onClick={() => onPasteIntoFolder(folder)}>
+                        <ClipboardPaste aria-hidden="true" />
+                        Paste
+                        <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                    </>
+                  )}
                   <ContextMenuItem onClick={() => onOpenFolder?.(folder)}>
                     <FolderOpen aria-hidden="true" />
                     Open
                   </ContextMenuItem>
-                  {canManage && (onMoveFolder || onDeleteFolder) && <ContextMenuSeparator />}
+                  {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
                   {canManage && onMoveFolder && (
                     <ContextMenuItem onClick={() => onMoveFolder(folder)}>
                       <FolderInput aria-hidden="true" />
                       Move
+                    </ContextMenuItem>
+                  )}
+                  {canManage && onCutFolder && (
+                    <ContextMenuItem onClick={() => onCutFolder(folder)}>
+                      <Scissors aria-hidden="true" />
+                      Cut
+                      <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {onCopyFolder && (
+                    <ContextMenuItem onClick={() => onCopyFolder(folder)}>
+                      <Copy aria-hidden="true" />
+                      Copy
+                      <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
                     </ContextMenuItem>
                   )}
                   {canManage && onDeleteFolder && (
@@ -244,6 +292,22 @@ export function DocumentCardGrid({
                 <Badge variant="muted" className="absolute right-2 top-2 z-10 text-[10px] uppercase tracking-wide">
                   {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}
                 </Badge>
+              )}
+              {onToggleStar && !pending && (
+                <button
+                  type="button"
+                  aria-label={doc.starred ? 'Unstar' : 'Star'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleStar(doc)
+                  }}
+                  className={cn(
+                    'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-colors hover:bg-muted/60',
+                    doc.starred ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-muted-foreground',
+                  )}
+                >
+                  <Star className={cn('size-3.5', doc.starred && 'fill-current')} aria-hidden="true" />
+                </button>
               )}
               <ContextMenu>
                 <ContextMenuTrigger asChild>
@@ -317,11 +381,25 @@ export function DocumentCardGrid({
                     {downloadingId === doc.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
                     Download
                   </ContextMenuItem>
-                  {(onMove || onDelete) && canModify && <ContextMenuSeparator />}
+                  {((onMove && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
                   {onMove && canModify && (
                     <ContextMenuItem onClick={() => onMove(doc)}>
                       <FolderInput aria-hidden="true" />
                       Move
+                    </ContextMenuItem>
+                  )}
+                  {onCut && canModify && (
+                    <ContextMenuItem onClick={() => onCut(doc)}>
+                      <Scissors aria-hidden="true" />
+                      Cut
+                      <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {onCopy && (
+                    <ContextMenuItem onClick={() => onCopy(doc)}>
+                      <Copy aria-hidden="true" />
+                      Copy
+                      <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
                     </ContextMenuItem>
                   )}
                   {onDelete && canModify && (

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, FileSearch, Loader2, Sparkles, Upload } from 'lucide-react'
 import { accountService, type DocumentProcessingStep } from '@/services/account'
 import { useLaravelContext } from '@/hooks/use-agentic'
-import { cn } from '@/lib/utils'
+import { GeneratingOrb } from '@/components/ui/generating-orb'
+import { DocumentProcessingSteps } from '@/components/domain/documents/document-processing-steps'
 
 /**
  * A REAL staged progress indicator for the upload→enrichment pipeline — not
@@ -55,7 +56,12 @@ function stepIndex(step: DocumentProcessingStep): number {
 const POLL_MS = 1200
 const MAX_POLLS = 25 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
 const CREEP_MS = 450 // how often the bar nudges itself forward between real backend updates
-const CREEP_RESERVE = 6 // percentage points held back from the next real milestone, so the creep can never claim a stage finished before the backend says so
+// 6 -> 10: now that the orb's continuous motion and the word-by-word step
+// label (see document-processing-steps.tsx) carry the "something is alive"
+// signal, the number itself can hold back a bit further and still not read
+// as stalled - its eventual real jump should land as "the backend told us
+// something new," not a last-second creep nudge.
+const CREEP_RESERVE = 10 // percentage points held back from the next real milestone, so the creep can never claim a stage finished before the backend says so
 
 export interface DocumentProcessingProgressProps {
   documentId: number
@@ -150,6 +156,12 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
 
   const percent = Math.round(displayPercent)
 
+  // The headline under the orb: the real step label once the backend has
+  // reported one, "Uploading" before that, "Ready" at the end - never a
+  // generic "Processing…" that would undercut the word-reveal's whole point
+  // of naming the actual stage.
+  const activeLabel = finished ? (failed ? 'Finished (with a snag)' : 'Ready') : index === -1 ? 'Uploading' : STEPS[index].label
+
   return (
     <div className="py-6 text-center">
       <p className="truncate text-sm font-medium text-foreground">{fileName}</p>
@@ -157,73 +169,40 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         Uploaded — now reading, checking and classifying its content so it’s searchable.
       </p>
 
-      {/* The bar: real width, driven by the backend's own step plus a bounded creep (see docblock), animated via a CSS transition on width change. Three motion layers while active, biggest first: a wide scrolling stripe band (g2g-stream-flow) for the "data is moving through this" read, the original cross-sweep highlight (g2g-progress-shimmer) on top of it, and a bright fleck riding the leading edge (g2g-particle-drift) — all in globals.css, none of them touch what percent is shown, only how it moves. */}
-      <div className="relative mt-5 h-4 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="relative h-full overflow-hidden rounded-full bg-primary transition-[width] duration-500 ease-out"
-          style={{ width: `${percent}%` }}
-        >
-          {!finished && (
-            <>
-              <span
-                className="absolute inset-0 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--primary)_60%,transparent)_0%,color-mix(in_oklab,white_35%,transparent)_12%,color-mix(in_oklab,var(--primary)_60%,transparent)_24%)] bg-[length:200%_100%]"
-                style={{ animation: 'g2g-stream-flow 2.4s linear infinite' }}
-                aria-hidden="true"
-              />
-              <span
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                style={{ animation: 'g2g-progress-shimmer 1.3s ease-in-out infinite' }}
-                aria-hidden="true"
-              />
-            </>
-          )}
-        </div>
-        {!finished && (
-          <span
-            className="absolute top-0 h-full w-2.5 rounded-full bg-white/90 shadow-[0_0_8px_2px_rgba(255,255,255,0.5)]"
-            style={{ animation: 'g2g-particle-drift 1.6s ease-in-out infinite' }}
-            aria-hidden="true"
-          />
-        )}
+      <div className="mt-5 flex flex-col items-center gap-3">
+        <GeneratingOrb percent={percent} text={`${percent}%`} size={120} active={!finished} />
+        <DocumentProcessingSteps label={activeLabel} />
       </div>
-      <p
-        className={cn(
-          'mt-1.5 text-right text-xs font-semibold tabular-nums text-muted-foreground',
-          !finished && 'motion-safe:[animation:g2g-breathe_2.4s_ease-in-out_infinite]',
-        )}
-      >
-        {percent}%
-      </p>
 
-      <ol className="mt-5 space-y-2.5 text-left">
+      {/* The checklist, de-emphasized below the orb now that the orb/label
+          above carry the primary "something is happening" signal - this
+          stays for "what's already done" detail, not as the main focus. */}
+      <ol className="mx-auto mt-5 max-w-xs space-y-2 text-left">
         {STEPS.map((s, i) => {
           const complete = i < index || (i === index && (step === 'done' || (failed && i === STEPS.length - 1)))
           const active = i === index && !complete
           const Icon = s.icon
 
           return (
-            <li key={s.key} className="flex items-center gap-3">
+            <li key={s.key} className="flex items-center gap-2.5">
               <span
-                className={`flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                className={`flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
                   complete
                     ? 'border-primary bg-primary text-primary-foreground'
                     : active
                       ? 'border-primary text-primary'
                       : 'border-border text-muted-foreground/50'
                 }`}
-                style={active ? { animation: 'g2g-step-glow 1.6s ease-in-out infinite' } : undefined}
               >
                 {complete ? (
-                  <Check className="size-3.5" aria-hidden="true" />
+                  <Check className="size-3" aria-hidden="true" />
                 ) : active ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Icon className="size-3.5" aria-hidden="true" />
+                  <Icon className="size-3" aria-hidden="true" />
                 )}
               </span>
-              <span
-                className={`text-sm ${complete ? 'text-foreground' : active ? 'font-medium text-foreground' : 'text-muted-foreground/60'}`}
-              >
+              <span className={`text-xs ${complete ? 'text-muted-foreground' : active ? 'font-medium text-foreground' : 'text-muted-foreground/50'}`}>
                 {s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
               </span>
             </li>

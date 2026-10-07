@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -eu
 
 if [ -z "${GH_READ_TOKEN:-}" ]; then

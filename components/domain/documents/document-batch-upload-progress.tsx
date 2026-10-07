@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, Check, FileClock, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { GeneratingOrb } from '@/components/ui/generating-orb'
 
 export interface BatchFileState {
   /** relativePath for a folder upload, or the filename for a flat multi-file one — stable per row across re-renders. */
@@ -81,39 +82,20 @@ export function DocumentBatchUploadProgress({ files }: { files: BatchFileState[]
   const overallPercent =
     files.length === 0 ? 0 : Math.round(files.reduce((sum, f) => sum + rowPercent(f), 0) / files.length)
 
-  const circumference = 2 * Math.PI * 26
-
   return (
     <div className="py-2">
-      {/* The big aggregate: a ring instead of a text line, breathing gently
-          while anything is still in flight (g2g-breathe, globals.css) so the
-          whole summary reads as alive, not just whatever's inside it. */}
-      <div
-        className={cn(
-          'mb-4 flex items-center gap-4 rounded-xl border border-border bg-muted/30 p-4',
-          !finished && 'motion-safe:[animation:g2g-breathe_3s_ease-in-out_infinite]',
-        )}
-      >
-        <div className="relative flex size-16 shrink-0 items-center justify-center" aria-hidden="true">
-          <svg viewBox="0 0 64 64" className="size-16 -rotate-90">
-            <circle cx="32" cy="32" r="26" fill="none" strokeWidth="6" className="stroke-muted" />
-            <circle
-              cx="32"
-              cy="32"
-              r="26"
-              fill="none"
-              strokeWidth="6"
-              strokeLinecap="round"
-              className={cn(
-                'transition-[stroke-dashoffset] duration-300 ease-out',
-                finished && failed > 0 ? 'stroke-destructive' : 'stroke-primary',
-              )}
-              strokeDasharray={circumference}
-              strokeDashoffset={circumference * (1 - overallPercent / 100)}
-            />
-          </svg>
-          <span className="absolute text-sm font-bold tabular-nums text-foreground">{overallPercent}%</span>
-        </div>
+      {/* The big aggregate: a GeneratingOrb instead of a ring - a strict
+          upgrade, same component the single-file DocumentProcessingProgress
+          uses, so a batch upload gets the identical "something is alive"
+          signal rather than a second bespoke motion treatment. */}
+      <div className="mb-4 flex items-center gap-4 rounded-xl border border-border bg-muted/30 p-4">
+        <GeneratingOrb
+          percent={overallPercent}
+          text={`${overallPercent}%`}
+          size={64}
+          active={!finished}
+          className={finished && failed > 0 ? 'opacity-70' : undefined}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">
             {finished
