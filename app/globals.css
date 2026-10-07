@@ -601,6 +601,22 @@
   }
 }
 
+/* Runs AFTER g2g-word-reveal finishes (see document-processing-steps.tsx's
+   per-word delay math) - a slow, tiny continuous bob so the label keeps
+   reading as "alive" the whole time a step is active, not just for the
+   quarter-second it took to reveal. Paired with each word's own reveal
+   delay so the wave keeps rippling left-to-right indefinitely instead of
+   every word bobbing in lockstep. */
+@keyframes g2g-word-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
 /*
  * ════════════════════════════════════════════════════════════════════════════
  * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY

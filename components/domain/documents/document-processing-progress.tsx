@@ -64,11 +64,33 @@ const CREEP_MS = 450 // how often the bar nudges itself forward between real bac
 const CREEP_RESERVE = 10 // percentage points held back from the next real milestone, so the creep can never claim a stage finished before the backend says so
 
 export interface DocumentProcessingProgressProps {
-  documentId: number
+  /**
+   * null for the brief window between the user clicking Upload and the
+   * server actually returning the new document's id - see this component's
+   * own "WHY documentId CAN BE null" note below. Polling only starts once
+   * this becomes a real number.
+   */
+  documentId: number | null
   fileName: string
   onFinished: (outcome: { timedOut: boolean; failed: boolean }) => void
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHY documentId CAN BE null
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The caller mounts this component the INSTANT the user clicks Upload, not
+ * after the upload request resolves - otherwise the dialog sits on the
+ * dropzone for however long the multipart upload itself takes (a real
+ * multi-second gap on an office document) before suddenly jumping to this
+ * screen, which read as broken. So `documentId` starts `null` and the orb
+ * below is already live (creeping through the same pre-first-step 0-19%
+ * band `index === -1` already produces) before the server has even
+ * acknowledged the file; the polling effect below simply does nothing until
+ * the caller re-renders with a real id, at which point it starts exactly as
+ * before.
+ */
 export function DocumentProcessingProgress({ documentId, fileName, onFinished }: DocumentProcessingProgressProps) {
   const resolveContext = useLaravelContext()
   const [step, setStep] = useState<DocumentProcessingStep>(null)
@@ -79,6 +101,8 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
   const [displayPercent, setDisplayPercent] = useState(() => 5 + Math.random() * 13) // 5-18%
 
   useEffect(() => {
+    if (documentId === null) return
+
     let cancelled = false
     let attempts = 0
 
@@ -202,9 +226,16 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
                   <Icon className="size-3" aria-hidden="true" />
                 )}
               </span>
-              <span className={`text-xs ${complete ? 'text-muted-foreground' : active ? 'font-medium text-foreground' : 'text-muted-foreground/50'}`}>
-                {s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
-              </span>
+              {active ? (
+                <DocumentProcessingSteps
+                  label={s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
+                  className="justify-start text-xs font-medium text-foreground"
+                />
+              ) : (
+                <span className={`text-xs ${complete ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                  {s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
+                </span>
+              )}
             </li>
           )
         })}

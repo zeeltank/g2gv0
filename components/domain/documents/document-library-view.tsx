@@ -186,7 +186,10 @@ export function DocumentLibraryView() {
   const [error, setError] = useState<string | null>(null)
 
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [processingDoc, setProcessingDoc] = useState<{ id: number; fileName: string; title: string } | null>(null)
+  // `id` starts null and is filled in once the upload request actually
+  // returns one - see upload()'s own comment on why the dialog switches to
+  // this screen BEFORE that response arrives, not after.
+  const [processingDoc, setProcessingDoc] = useState<{ id: number | null; fileName: string; title: string } | null>(null)
   const [batchFiles, setBatchFiles] = useState<BatchFileState[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [generatingForm16, setGeneratingForm16] = useState(false)
@@ -503,6 +506,18 @@ export function DocumentLibraryView() {
       // and block that improvement forever (see fileDocument()'s docblock).
       const displayTitle = file.name.replace(/\.[^.]+$/, '')
 
+      // Switch the dialog to the orb screen RIGHT NOW, before the upload
+      // request has even been sent - not after it resolves. The upload
+      // itself (a real multipart request) can take several seconds on an
+      // ordinary office document; leaving the dropzone on screen for that
+      // whole stretch and only switching once a response arrives is exactly
+      // the "nothing happens for 4-5s, then it suddenly jumps" gap this
+      // fixes. DocumentProcessingProgress accepts `id: null` for precisely
+      // this window (see its own docblock) - it shows the same live,
+      // creeping orb either way, it just doesn't start polling until the id
+      // below is filled in.
+      setProcessingDoc({ id: null, fileName: file.name, title: displayTitle })
+
       try {
         const response = await accountService.uploadDocument(context, file, '', docType, {
           category: 'personnel',
@@ -513,12 +528,14 @@ export function DocumentLibraryView() {
         if (id) {
           setProcessingDoc({ id, fileName: file.name, title: displayTitle })
         } else {
+          setProcessingDoc(null)
           setUploadOpen(false)
           setNotice({ tone: 'info', text: `“${displayTitle}” was uploaded. It will appear in search shortly.` })
           setPage(1)
           await load()
         }
       } catch (caught) {
+        setProcessingDoc(null)
         setNotice({
           tone: 'error',
           text: caught instanceof Error ? caught.message : 'That document could not be uploaded.',
