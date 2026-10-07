@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -127,6 +128,14 @@ export interface DocumentCardGridProps {
   /** Shown as a "Paste" item at the top of a folder's own context menu, pasting INTO that folder — only when something is on the clipboard. */
   hasClipboard?: boolean
   onPasteIntoFolder?: (folder: DocumentFolderNode) => void
+
+  /* ── multi-select, for bulk move/copy/delete ─────────────────────────────
+     Keyed the same way renamingKey is (`doc-<id>` / `folder-<id>`) so a
+     document and a folder can never collide on a shared numeric id. */
+  selectedKeys?: Set<string>
+  onToggleSelect?: (key: string) => void
+  /** True once anything is selected - keeps every checkbox visible (not just hover-revealed) so picking a second/third item doesn't require re-finding the first tile's edge. */
+  selectionActive?: boolean
 }
 
 export function DocumentCardGrid({
@@ -153,6 +162,9 @@ export function DocumentCardGrid({
   onCopyFolder,
   hasClipboard,
   onPasteIntoFolder,
+  selectedKeys,
+  onToggleSelect,
+  selectionActive,
 }: DocumentCardGridProps) {
   const cfg = SIZE_CONFIG[size]
   // Which tile's name is being edited right now, `folder-<id>` or `doc-<id>` — local UI state, the actual save round-trips through `onRename`/`onRenameFolder`.
@@ -187,7 +199,23 @@ export function DocumentCardGrid({
           const folderKey = `folder-${folder.id}`
           const isRenaming = renamingKey === folderKey
           return (
-            <li key={folderKey} className="aspect-square">
+            <li key={folderKey} className="group relative aspect-square">
+              {onToggleSelect && (
+                <div
+                  className={cn(
+                    'absolute left-1.5 top-1.5 z-10 transition-opacity',
+                    selectedKeys?.has(folderKey) || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    size="sm"
+                    checked={selectedKeys?.has(folderKey) ?? false}
+                    onCheckedChange={() => onToggleSelect(folderKey)}
+                    aria-label={`Select ${folder.name}`}
+                  />
+                </div>
+              )}
               <ContextMenu>
                 <ContextMenuTrigger asChild>
                   <div
@@ -200,7 +228,10 @@ export function DocumentCardGrid({
                         onOpenFolder?.(folder)
                       }
                     }}
-                    className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className={cn(
+                      'flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40',
+                      selectedKeys?.has(folderKey) && 'bg-primary/10 ring-2 ring-primary/50',
+                    )}
                   >
                     <span className="flex shrink-0 items-center justify-center overflow-visible" style={folderBoxStyle}>
                       <FolderIcon3D size={cfg.folderScale} interactive={false} />
@@ -305,11 +336,27 @@ export function DocumentCardGrid({
           const isRenaming = renamingKey === docKey
 
           return (
-            <li key={doc.id} className="relative aspect-square">
+            <li key={doc.id} className="group relative aspect-square">
               {pending && (
                 <Badge variant="muted" className="absolute right-2 top-2 z-10 text-[10px] uppercase tracking-wide">
                   {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}
                 </Badge>
+              )}
+              {onToggleSelect && (
+                <div
+                  className={cn(
+                    'absolute left-1.5 top-1.5 z-10 transition-opacity',
+                    selectedKeys?.has(docKey) || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    size="sm"
+                    checked={selectedKeys?.has(docKey) ?? false}
+                    onCheckedChange={() => onToggleSelect(docKey)}
+                    aria-label={`Select ${doc.title || 'document'}`}
+                  />
+                </div>
               )}
               {onToggleStar && !pending && (
                 <button
@@ -339,7 +386,10 @@ export function DocumentCardGrid({
                         onOpenDetails(doc)
                       }
                     }}
-                    className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className={cn(
+                      'flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40',
+                      selectedKeys?.has(docKey) && 'bg-primary/10 ring-2 ring-primary/50',
+                    )}
                   >
                     <span className="flex shrink-0 items-center justify-center overflow-visible" style={folderBoxStyle}>
                       <FileTypeIcon mimeType={doc.mime_type} fileName={doc.original_file_name} className="h-full w-full" />
