@@ -1,11 +1,12 @@
 'use client'
 
-import { Download, Eye, FolderInput, Loader2, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FileTypeIcon } from '@/components/ui/file-icon'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
 import { formatFileDate, formatFileSize } from './documents-ui'
 
@@ -15,14 +16,15 @@ import { formatFileDate, formatFileSize } from './documents-ui'
  * same props shape, switched to by the existing grid/list toggle in
  * `document-library-view.tsx`.
  *
- * Deliberately does NOT have a checkbox-select column or a star/favorite
- * column, even though the reference layout this was modeled on has both -
- * neither has a backend behind it in this app (no bulk-action endpoint, no
- * `starred` column on `document_library`), and a column that does nothing
- * when clicked is worse than not having it. An "Owner" column is skipped
- * for the same reason: search results carry `owner_id`, never a resolved
- * name, so a real name isn't available to show without a backend change
- * nobody asked for here.
+ * Still deliberately has no checkbox-select column or bulk-action row -
+ * there is no bulk-action endpoint in this app, and a column that does
+ * nothing when clicked is worse than not having it. The star column DID
+ * get added once starring shipped a real backend (document_library_stars) -
+ * unlike bulk-select, that one stopped being a feature with nothing behind
+ * it. An "Owner" column is still skipped for the same reason bulk-select
+ * is: search results carry `owner_id`, never a resolved name, so a real
+ * name isn't available to show without a backend change nobody asked for
+ * here.
  */
 
 export interface DocumentTableViewProps {
@@ -40,6 +42,15 @@ export interface DocumentTableViewProps {
   onDeleteFolder?: (folder: DocumentFolderNode) => void
   onMoveFolder?: (folder: DocumentFolderNode) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
+
+  /* ── cut/copy/paste, starring — same shape as DocumentCardGrid's own ────── */
+  onToggleStar?: (doc: DocumentSearchHit) => void
+  onCut?: (doc: DocumentSearchHit) => void
+  onCopy?: (doc: DocumentSearchHit) => void
+  onCutFolder?: (folder: DocumentFolderNode) => void
+  onCopyFolder?: (folder: DocumentFolderNode) => void
+  hasClipboard?: boolean
+  onPasteIntoFolder?: (folder: DocumentFolderNode) => void
 }
 
 export function DocumentTableView({
@@ -57,6 +68,13 @@ export function DocumentTableView({
   onDeleteFolder,
   onMoveFolder,
   canManageFolder,
+  onToggleStar,
+  onCut,
+  onCopy,
+  onCutFolder,
+  onCopyFolder,
+  hasClipboard,
+  onPasteIntoFolder,
 }: DocumentTableViewProps) {
   return (
     <div className="@container/docs overflow-x-auto rounded-xl border border-border bg-card">
@@ -94,9 +112,24 @@ export function DocumentTableView({
               <TableCell className="hidden @sm/docs:table-cell text-sm text-muted-foreground">—</TableCell>
               <TableCell className="text-right">
                 <span className="inline-flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  {hasClipboard && onPasteIntoFolder && canManageFolder?.(folder) && (
+                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onPasteIntoFolder(folder)} aria-label={`Paste into ${folder.name}`}>
+                      <ClipboardPaste className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
                   {canManageFolder?.(folder) && onMoveFolder && (
                     <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onMoveFolder(folder)} aria-label={`Move folder ${folder.name}`}>
                       <FolderInput className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
+                  {canManageFolder?.(folder) && onCutFolder && (
+                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCutFolder(folder)} aria-label={`Cut folder ${folder.name}`}>
+                      <Scissors className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
+                  {onCopyFolder && (
+                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCopyFolder(folder)} aria-label={`Copy folder ${folder.name}`}>
+                      <Copy className="size-3.5" aria-hidden="true" />
                     </Button>
                   )}
                   {canManageFolder?.(folder) && onDeleteFolder && (
@@ -143,6 +176,17 @@ export function DocumentTableView({
                 <TableCell className="hidden @sm/docs:table-cell text-sm text-muted-foreground">{date ?? '—'}</TableCell>
                 <TableCell className="text-right">
                   <span className="inline-flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    {onToggleStar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn('h-7 px-1.5', doc.starred && 'text-amber-500')}
+                        onClick={() => onToggleStar(doc)}
+                        aria-label={doc.starred ? `Unstar ${doc.title ?? 'document'}` : `Star ${doc.title ?? 'document'}`}
+                      >
+                        <Star className={cn('size-3.5', doc.starred && 'fill-current')} aria-hidden="true" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onOpen(doc)} aria-label={`View ${doc.title ?? 'document'}`}>
                       <Eye className="size-3.5" aria-hidden="true" />
                     </Button>
@@ -163,6 +207,16 @@ export function DocumentTableView({
                     {onMove && canDelete(doc) && (
                       <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onMove(doc)} aria-label={`Move ${doc.title ?? 'document'}`}>
                         <FolderInput className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
+                    {onCut && canDelete(doc) && (
+                      <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCut(doc)} aria-label={`Cut ${doc.title ?? 'document'}`}>
+                        <Scissors className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
+                    {onCopy && (
+                      <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCopy(doc)} aria-label={`Copy ${doc.title ?? 'document'}`}>
+                        <Copy className="size-3.5" aria-hidden="true" />
                       </Button>
                     )}
                     {onDelete && canDelete(doc) && (

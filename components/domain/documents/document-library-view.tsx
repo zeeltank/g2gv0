@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  ClipboardPaste,
+  Clock,
   FileSearch,
   FileText,
   FolderPlus,
@@ -16,6 +18,7 @@ import {
   RotateCcw,
   Search,
   Square,
+  Star,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -52,9 +55,12 @@ import {
   type DocumentFolderNode,
   type DocumentSearchHit,
   type DocumentTypeChoices,
+  type RecentDocumentHit,
   type TrashedDocument,
 } from '@/services/account'
 import { myHrService } from '@/services/hrms/my-hr'
+import { organizationService } from '@/services/organization'
+import { useDocumentClipboard } from '@/hooks/use-document-clipboard'
 import { DocumentCardGrid, type GridCardSize } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
 import { DocumentFolderTree } from './document-folder-tree'
@@ -66,7 +72,7 @@ import { DocumentUploadDropzone } from './document-upload-dropzone'
 import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
 type ViewMode = 'grid' | 'list'
-type Scope = 'mine' | 'visible' | 'trash'
+type Scope = 'mine' | 'visible' | 'trash' | 'recent' | 'starred'
 
 /** The "View" menu's options — a File-Explorer-style icon-size ladder down to the table, each a real, wired mode (no Details pane / Content / Tiles entries carried over from that reference, since none of those have anything behind them here). */
 const VIEW_OPTIONS: Array<{ value: GridCardSize | 'list'; label: string; icon: typeof Grid2x2 }> = [
@@ -154,6 +160,21 @@ export function DocumentLibraryView() {
   const [category, setCategory] = useState('')
   const [documentType, setDocumentType] = useState('')
   const [scope, setScope] = useState<Scope>('mine')
+
+  // Search power-up: date range, an elevated-only department filter, and a
+  // "search everywhere" escape hatch from the current folder - all only
+  // shown once a query is actually typed (see the filter row below), since
+  // none of them mean anything on a bare folder browse.
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [searchDepartmentId, setSearchDepartmentId] = useState('')
+  const [searchEverywhere, setSearchEverywhere] = useState(false)
+  const [departmentOptions, setDepartmentOptions] = useState<SearchableOption[]>([])
+
+  const [recentResults, setRecentResults] = useState<RecentDocumentHit[]>([])
+  const [starredResults, setStarredResults] = useState<DocumentSearchHit[]>([])
+
+  const clipboard = useDocumentClipboard()
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [gridSize, setGridSize] = useState<GridCardSize>('large')
   const [page, setPage] = useState(1)
@@ -207,10 +228,74 @@ export function DocumentLibraryView() {
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedQuery, category, documentType, scope, currentFolderId])
+  }, [debouncedQuery, category, documentType, scope, currentFolderId, dateFrom, dateTo, searchDepartmentId, searchEverywhere])
+
+  // The department filter is elevated-only - a non-elevated caller's
+  // visible set never crosses departments anyway (DocumentAccess already
+  // scopes it to their own), so the control would just be misleading noise
+  // for them. Loaded once, not per keystroke - this is a short, stable list.
+  useEffect(() => {
+    if (!isElevated) return
+    const context = resolveContext()
+    if (!isLaravelContextReady(context)) return
+
+    organizationService
+      .getDepartmentsManagement(context)
+      .then((response) => {
+        const list = response.departments ?? response.main_departments ?? []
+        setDepartmentOptions([
+          { value: '', label: 'All departments' },
+          ...list.map((d) => ({ value: String(d.id), label: d.department })),
+        ])
+      })
+      .catch(() => {
+        // The filter is a narrowing convenience, not load-bearing - it just stays empty on failure.
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isElevated])
 
   const load = useCallback(async () => {
     if (scope === 'trash') return
+
+    if (scope === 'recent') {
+      const context = resolveContext()
+      if (!isLaravelContextReady(context)) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await accountService.getRecentDocuments(context)
+        setRecentResults(response.data ?? [])
+      } catch (caught) {
+        setRecentResults([])
+        setError(caught instanceof Error ? caught.message : 'Recent documents could not be loaded.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    if (scope === 'starred') {
+      const context = resolveContext()
+      if (!isLaravelContextReady(context)) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await accountService.getStarredDocuments(context)
+        setStarredResults(response.data ?? [])
+      } catch (caught) {
+        setStarredResults([])
+        setError(caught instanceof Error ? caught.message : 'Starred documents could not be loaded.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
 
     const context = resolveContext()
 
@@ -222,13 +307,23 @@ export function DocumentLibraryView() {
     setLoading(true)
     setError(null)
 
+    // "Search everywhere" only means anything once a term is typed (same
+    // reasoning the filter row below hides it otherwise) - folder_id is
+    // omitted entirely (not set to 0) to search unfiltered by folder,
+    // per DocumentSearchService::applyFilters()'s own presence-not-
+    // truthiness convention for this field.
+    const everywhere = searchEverywhere && debouncedQuery !== ''
+
     try {
       const response = await accountService.searchDocuments(context, {
         q: debouncedQuery || undefined,
         category: (category as 'personnel' | 'organization') || undefined,
         document_type: documentType || undefined,
         owner_id: scope === 'mine' && myId ? myId : undefined,
-        folder_id: currentFolderId ?? 0,
+        folder_id: everywhere ? undefined : (currentFolderId ?? 0),
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        department_id: isElevated && searchDepartmentId ? Number(searchDepartmentId) : undefined,
         page,
         per_page: PER_PAGE,
       })
@@ -241,7 +336,21 @@ export function DocumentLibraryView() {
     } finally {
       setLoading(false)
     }
-  }, [resolveContext, debouncedQuery, category, documentType, scope, myId, currentFolderId, page])
+  }, [
+    resolveContext,
+    debouncedQuery,
+    category,
+    documentType,
+    scope,
+    myId,
+    currentFolderId,
+    page,
+    dateFrom,
+    dateTo,
+    searchDepartmentId,
+    searchEverywhere,
+    isElevated,
+  ])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -665,8 +774,103 @@ export function DocumentLibraryView() {
     }
   }
 
+  /** Optimistic — flips the flag everywhere this document might currently be shown, then confirms with the server; reverts (and shows a notice) only if that call actually fails. */
+  async function toggleStar(doc: DocumentSearchHit) {
+    const next = !doc.starred
+    const applyFlag = (flag: boolean) => (list: DocumentSearchHit[]) =>
+      list.map((d) => (d.id === doc.id ? { ...d, starred: flag } : d))
+
+    setResults(applyFlag(next))
+    setRecentResults((list) => applyFlag(next)(list) as RecentDocumentHit[])
+    setStarredResults((list) => (next ? list : list.filter((d) => d.id !== doc.id)))
+
+    try {
+      if (next) {
+        await accountService.starDocument(resolveContext(), doc.id)
+      } else {
+        await accountService.unstarDocument(resolveContext(), doc.id)
+      }
+    } catch (caught) {
+      setResults(applyFlag(doc.starred))
+      setRecentResults((list) => applyFlag(doc.starred)(list) as RecentDocumentHit[])
+      if (doc.starred) setStarredResults((list) => (list.some((d) => d.id === doc.id) ? list : [...list, doc]))
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That could not be updated.' })
+    }
+  }
+
+  /**
+   * Paste = move (cut) or duplicate (copy) into `destinationFolderId`
+   * (null = Home/root) — see `useDocumentClipboard`'s own docblock for why
+   * the clipboard itself is local to this one screen. Cleared after every
+   * paste, including a copy: unlike a desktop OS clipboard, this keeps the
+   * mental model simple (one paste per cut-or-copy) rather than quietly
+   * letting a stale copy get pasted again somewhere unexpected later.
+   */
+  async function pasteInto(destinationFolderId: number | null) {
+    const entry = clipboard.entry
+    if (!entry) return
+
+    try {
+      if (entry.kind === 'document') {
+        if (entry.mode === 'cut') {
+          await accountService.moveDocument(resolveContext(), entry.id, destinationFolderId)
+        } else {
+          await accountService.duplicateDocument(resolveContext(), entry.id, destinationFolderId)
+        }
+      } else if (entry.mode === 'cut') {
+        const response = await accountService.moveFolder(resolveContext(), entry.id, destinationFolderId)
+        if (response.status !== 1) {
+          setNotice({ tone: 'error', text: response.message ?? 'That folder could not be moved.' })
+          return
+        }
+      } else {
+        const response = await accountService.duplicateFolder(resolveContext(), entry.id, destinationFolderId)
+        if (response.status !== 1) {
+          setNotice({ tone: 'error', text: response.message ?? 'That folder could not be copied.' })
+          return
+        }
+      }
+
+      clipboard.clear()
+      setNotice({ tone: 'info', text: `"${entry.name}" was ${entry.mode === 'cut' ? 'moved' : 'copied'}.` })
+      await load()
+      await loadFolderTree()
+    } catch (caught) {
+      setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That could not be pasted.' })
+    }
+  }
+
+  // Global Ctrl+V - the one clipboard action a keyboard shortcut can mean
+  // unambiguously here. Cut/Copy stay mouse-driven (via each tile's own
+  // context menu): this screen has no multi-select model, so there is no
+  // well-defined "the selected item" for a keyboard shortcut to act on -
+  // but "paste into wherever I'm currently browsing" is always well-defined.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'v') return
+      if (!clipboard.entry) return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (scope !== 'mine') return
+
+      e.preventDefault()
+      void pasteInto(currentFolderId)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clipboard.entry, scope, currentFolderId])
+
   const canDelete = useCallback((doc: DocumentSearchHit) => myId !== null && doc.owner_id === myId, [myId])
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
+
+  // Recent/Starred are flat, caller-centric lists with no folder dimension
+  // (see the plan's own reasoning: same as Trash, a department filter or
+  // folder browse makes no sense on either) - so both the folders shown and
+  // the pagination controls below are skipped entirely for these two scopes.
+  const displayedResults = scope === 'recent' ? recentResults : scope === 'starred' ? starredResults : results
+  const displayedFolders = scope === 'recent' || scope === 'starred' ? [] : currentSubfolders
 
   return (
     <DocumentsPage>
@@ -733,6 +937,14 @@ export function DocumentLibraryView() {
                   </button>
                 </div>
               )}
+            </div>
+          ) : scope === 'recent' || scope === 'starred' ? (
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">
+                {scope === 'recent'
+                  ? 'Documents you have actually opened, newest first.'
+                  : 'Documents you have starred, newest-starred first.'}
+              </p>
             </div>
           ) : (
             <>
@@ -803,6 +1015,59 @@ export function DocumentLibraryView() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/*
+          The search power-up — date range, an elevated-only department
+          filter, and a "this folder / everywhere" toggle — only once a term
+          is actually typed, matching the automatic relevance-vs-newest sort
+          below (DocumentSearchService::search()'s own docblock): none of
+          these mean anything on a bare folder browse.
+        */}
+        {scope !== 'trash' && scope !== 'recent' && scope !== 'starred' && debouncedQuery !== '' && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>From</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Document date from"
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Document date to"
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+              />
+            </div>
+
+            {isElevated && departmentOptions.length > 0 && (
+              <div className="w-48 shrink-0">
+                <Select value={searchDepartmentId} onChange={setSearchDepartmentId} options={departmentOptions} />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setSearchEverywhere(false)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                This folder
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchEverywhere(true)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Everywhere
+              </button>
+            </div>
+          </div>
+        )}
       </Surface>
 
       <div className="flex min-w-0 items-start gap-4">
@@ -830,6 +1095,32 @@ export function DocumentLibraryView() {
           <div className="mt-auto shrink-0 pt-2">
             <div className="mb-2 border-t border-border" />
             <ul className="space-y-0.5">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setScope('recent')}
+                  className={cn(
+                    'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors',
+                    scope === 'recent' ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+                  )}
+                >
+                  <Clock className={cn('size-4 shrink-0', scope === 'recent' ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                  Recent
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setScope('starred')}
+                  className={cn(
+                    'flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors',
+                    scope === 'starred' ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+                  )}
+                >
+                  <Star className={cn('size-4 shrink-0', scope === 'starred' ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                  Starred
+                </button>
+              </li>
               <li>
                 <button
                   type="button"
@@ -864,7 +1155,7 @@ export function DocumentLibraryView() {
         </Surface>
 
         <div className="min-w-0 flex-1 space-y-4">
-          {scope !== 'trash' && (
+          {scope !== 'trash' && scope !== 'recent' && scope !== 'starred' && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="Folder path">
                 <button
@@ -887,10 +1178,18 @@ export function DocumentLibraryView() {
                   </span>
                 ))}
               </nav>
-              <Button variant="outline" size="sm" onClick={() => setNewFolderOpen(true)}>
-                <FolderPlus className="mr-1.5 size-3.5" aria-hidden="true" />
-                New folder
-              </Button>
+              <div className="flex items-center gap-2">
+                {scope === 'mine' && clipboard.entry && (
+                  <Button variant="outline" size="sm" onClick={() => void pasteInto(currentFolderId)}>
+                    <ClipboardPaste className="mr-1.5 size-3.5" aria-hidden="true" />
+                    Paste &quot;{clipboard.entry.name}&quot;
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setNewFolderOpen(true)}>
+                  <FolderPlus className="mr-1.5 size-3.5" aria-hidden="true" />
+                  New folder
+                </Button>
+              </div>
             </div>
           )}
 
@@ -968,19 +1267,35 @@ export function DocumentLibraryView() {
             Retry
           </Button>
         </Surface>
-      ) : results.length === 0 && currentSubfolders.length === 0 ? (
+      ) : displayedResults.length === 0 && displayedFolders.length === 0 ? (
         <Surface>
           <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-            <FileSearch className="size-10 text-muted-foreground" aria-hidden="true" />
+            {scope === 'recent' ? (
+              <Clock className="size-10 text-muted-foreground" aria-hidden="true" />
+            ) : scope === 'starred' ? (
+              <Star className="size-10 text-muted-foreground" aria-hidden="true" />
+            ) : (
+              <FileSearch className="size-10 text-muted-foreground" aria-hidden="true" />
+            )}
             <h3 className="text-lg font-semibold text-foreground">
-              {debouncedQuery ? `Nothing matches “${debouncedQuery}”` : 'Nothing here yet'}
+              {scope === 'recent'
+                ? "You haven't opened anything yet"
+                : scope === 'starred'
+                  ? 'Nothing starred yet'
+                  : debouncedQuery
+                    ? `Nothing matches “${debouncedQuery}”`
+                    : 'Nothing here yet'}
             </h3>
             <p className="max-w-xs text-sm text-muted-foreground">
-              {debouncedQuery
-                ? 'Try a different word, or check the filters above.'
-                : 'Upload your first document — a resume, a certificate, anything — and it becomes searchable by its contents, not just its name.'}
+              {scope === 'recent'
+                ? 'Documents you preview or download will show up here.'
+                : scope === 'starred'
+                  ? 'Star a document from its card or row to find it here quickly later.'
+                  : debouncedQuery
+                    ? 'Try a different word, or check the filters above.'
+                    : 'Upload your first document — a resume, a certificate, anything — and it becomes searchable by its contents, not just its name.'}
             </p>
-            {!debouncedQuery && (
+            {scope !== 'recent' && scope !== 'starred' && !debouncedQuery && (
               <Button className="mt-4" onClick={() => setUploadOpen(true)}>
                 <Plus className="mr-2 size-4" aria-hidden="true" />
                 Upload a document
@@ -990,7 +1305,7 @@ export function DocumentLibraryView() {
         </Surface>
       ) : viewMode === 'grid' ? (
         <DocumentCardGrid
-          documents={results}
+          documents={displayedResults}
           typeLabel={typeLabel}
           downloadingId={downloadingId}
           size={gridSize}
@@ -1004,7 +1319,7 @@ export function DocumentLibraryView() {
           }}
           onRename={(doc, title) => void renameDocumentHandler(doc, title)}
           canDelete={canDelete}
-          folders={currentSubfolders}
+          folders={displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
           onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
           onMoveFolder={(folder) => {
@@ -1013,10 +1328,17 @@ export function DocumentLibraryView() {
           }}
           onRenameFolder={(folder, name) => void renameFolderHandler(folder, name)}
           canManageFolder={canManageFolderClient}
+          onToggleStar={(doc) => void toggleStar(doc)}
+          onCut={(doc) => clipboard.cut('document', doc.id, doc.title ?? 'Document')}
+          onCopy={(doc) => clipboard.copy('document', doc.id, doc.title ?? 'Document')}
+          onCutFolder={(folder) => clipboard.cut('folder', folder.id, folder.name)}
+          onCopyFolder={(folder) => clipboard.copy('folder', folder.id, folder.name)}
+          hasClipboard={clipboard.entry !== null}
+          onPasteIntoFolder={(folder) => void pasteInto(folder.id)}
         />
       ) : (
         <DocumentTableView
-          documents={results}
+          documents={displayedResults}
           typeLabel={typeLabel}
           downloadingId={downloadingId}
           onOpen={(doc) => setViewing(doc)}
@@ -1028,7 +1350,7 @@ export function DocumentLibraryView() {
             setMovingDoc(doc)
           }}
           canDelete={canDelete}
-          folders={currentSubfolders}
+          folders={displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
           onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
           onMoveFolder={(folder) => {
@@ -1036,10 +1358,17 @@ export function DocumentLibraryView() {
             setMovingFolder(folder)
           }}
           canManageFolder={canManageFolderClient}
+          onToggleStar={(doc) => void toggleStar(doc)}
+          onCut={(doc) => clipboard.cut('document', doc.id, doc.title ?? 'Document')}
+          onCopy={(doc) => clipboard.copy('document', doc.id, doc.title ?? 'Document')}
+          onCutFolder={(folder) => clipboard.cut('folder', folder.id, folder.name)}
+          onCopyFolder={(folder) => clipboard.copy('folder', folder.id, folder.name)}
+          hasClipboard={clipboard.entry !== null}
+          onPasteIntoFolder={(folder) => void pasteInto(folder.id)}
         />
       )}
 
-          {scope !== 'trash' && !loading && !error && total > PER_PAGE && (
+          {scope !== 'trash' && scope !== 'recent' && scope !== 'starred' && !loading && !error && total > PER_PAGE && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
                 {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, total)} of {total}
