@@ -53,8 +53,19 @@ function stepIndex(step: DocumentProcessingStep): number {
   return i === -1 ? -1 : i // -1 = still at "Uploaded", before the job has reported anything
 }
 
-const POLL_MS = 1200
-const MAX_POLLS = 25 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
+// 1200 -> 500: ProcessDocumentPipelineJob (hp_erp) writes each real step
+// (ocr -> checking_duplicates -> classifying -> done) to the row as it goes,
+// but for a short/plain-text document the whole duplicate-check-plus-
+// classify sequence can finish in well under a second once the worker
+// picks the job up - at the old 1200ms interval, the poller's very next
+// check would just find 'done' already, having never landed inside that
+// narrow window to see (and animate) an intermediate step at all. Polling
+// more often doesn't change WHAT is shown, only raises the odds of actually
+// observing a real step the backend already reported - still never a timer
+// faking progress, see this file's own docblock above. MAX_POLLS raised to
+// hold the ~30s overall ceiling.
+const POLL_MS = 500
+const MAX_POLLS = 60 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
 const CREEP_MS = 450 // how often the bar nudges itself forward between real backend updates
 // 6 -> 10: now that the orb's continuous motion and the word-by-word step
 // label (see document-processing-steps.tsx) carry the "something is alive"
