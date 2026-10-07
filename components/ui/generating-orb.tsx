@@ -208,7 +208,19 @@ function useGradientOrbCanvas(canvasRef: React.RefObject<HTMLCanvasElement | nul
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const gl = canvas.getContext('webgl', { antialias: true, alpha: false }) as WebGLRenderingContext | null
+    // alpha: true (not false) - the source component rendered this full-
+    // screen on its own solid-black page, where an opaque backbuffer and a
+    // near-black clear color are invisible against that same black ground.
+    // Used here as a small icon on a white dialog instead, an opaque
+    // backbuffer paints every "background" pixel the shader computes (most
+    // of the orb - see its own draw() math, which treats black as one of
+    // its blend colors, not transparency) as a literal black disk. The
+    // shader already outputs correct premultiplied alpha
+    // (`col.rgb * col.a, col.a`) - it was built to composite onto
+    // whatever's behind it. A transparent context plus a transparent clear
+    // lets that alpha actually do its job: only the glow shows, the white
+    // dialog shows through everywhere the shader meant as "nothing here".
+    const gl = canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true }) as WebGLRenderingContext | null
     if (!gl) return // No WebGL support - the orb silently renders as an empty canvas; text overlay still carries the "working" signal.
 
     const program = gl.createProgram()
@@ -252,9 +264,12 @@ function useGradientOrbCanvas(canvasRef: React.RefObject<HTMLCanvasElement | nul
     const noiseScale = 0.65
     const innerRadius = 0.1
 
-    gl.clearColor(10 / 255, 10 / 255, 10 / 255, 1)
+    gl.clearColor(0, 0, 0, 0) // fully transparent, not near-black - see the context-creation comment above
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // ONE, not SRC_ALPHA, for the source factor - the shader's output is
+    // already premultiplied (col.rgb * col.a), so multiplying by SRC_ALPHA
+    // a second time here would double-apply it and darken every edge.
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     canvas.width = Math.round(size * dpr)

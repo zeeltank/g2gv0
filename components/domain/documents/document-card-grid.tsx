@@ -20,6 +20,24 @@ import { HighlightedSnippet } from './highlighted-snippet'
 export type GridCardSize = 'xlarge' | 'large' | 'medium' | 'small'
 
 /**
+ * `ContextMenu` and `Dialog` are two separate Radix primitives, each with
+ * their own document-level listeners and body-lock bookkeeping. A
+ * ContextMenuItem whose click handler closes the menu AND opens a Dialog
+ * (View, Move, Delete - anything that calls one of this file's dialog-
+ * opening callbacks) in the same synchronous event races their cleanup
+ * against the new dialog's setup: the context menu's own native
+ * `contextmenu` listener can be left attached-but-orphaned, silently
+ * swallowing every right-click afterward, on ANY tile, until the page
+ * reloads. Deferring the callback to the next tick lets the context menu
+ * finish closing first - the standard fix for this exact Radix
+ * interaction. Only wrap callbacks that open another dialog; Cut/Copy/
+ * Download/navigate don't need it.
+ */
+function deferToNextTick(fn: () => void) {
+  setTimeout(fn, 0)
+}
+
+/**
  * Every tile — folder or file — is forced to `aspect-square` so one
  * oversized folder can no longer stretch its whole grid row and leave the
  * file cards next to it half-empty (the bug the previous fixed-height
@@ -245,7 +263,7 @@ export function DocumentCardGrid({
                   </ContextMenuItem>
                   {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
                   {canManage && onMoveFolder && (
-                    <ContextMenuItem onClick={() => onMoveFolder(folder)}>
+                    <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
                       <FolderInput aria-hidden="true" />
                       Move
                     </ContextMenuItem>
@@ -267,7 +285,7 @@ export function DocumentCardGrid({
                   {canManage && onDeleteFolder && (
                     <ContextMenuItem
                       className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                      onClick={() => onDeleteFolder(folder)}
+                      onClick={() => deferToNextTick(() => onDeleteFolder(folder))}
                     >
                       <Trash2 aria-hidden="true" />
                       Delete
@@ -373,7 +391,7 @@ export function DocumentCardGrid({
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-44">
-                  <ContextMenuItem onClick={() => onOpen(doc)}>
+                  <ContextMenuItem onClick={() => deferToNextTick(() => onOpen(doc))}>
                     <Eye aria-hidden="true" />
                     View
                   </ContextMenuItem>
@@ -383,7 +401,7 @@ export function DocumentCardGrid({
                   </ContextMenuItem>
                   {((onMove && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
                   {onMove && canModify && (
-                    <ContextMenuItem onClick={() => onMove(doc)}>
+                    <ContextMenuItem onClick={() => deferToNextTick(() => onMove(doc))}>
                       <FolderInput aria-hidden="true" />
                       Move
                     </ContextMenuItem>
@@ -405,7 +423,7 @@ export function DocumentCardGrid({
                   {onDelete && canModify && (
                     <ContextMenuItem
                       className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                      onClick={() => onDelete(doc)}
+                      onClick={() => deferToNextTick(() => onDelete(doc))}
                     >
                       <Trash2 aria-hidden="true" />
                       Delete
