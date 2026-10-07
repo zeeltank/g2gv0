@@ -36,8 +36,47 @@ import { platformServiceIcon } from '@/lib/platform/icons'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
 import { useCapabilityDestination } from '@/hooks/use-capability-destination'
 import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import {
+  AG_AGENT_DASHBOARD_ACCESS_LINK,
+  AG_AGENT_LIBRARY_ACCESS_LINK,
+  AG_CREATE_AGENT_ACCESS_LINK,
+  AG_RUN_LOG_ACCESS_LINK,
+  AG_ANALYTICS_ACCESS_LINK,
+  AG_MULTI_AGENT_ACCESS_LINK,
+  AG_REFLECTION_ACCESS_LINK,
+} from '@/lib/gtg-navigation'
 import type { PlatformService } from '@shared/platform-services-core'
 import type { AiCapability } from '@shared/ai-intelligence-core'
+
+/**
+ * The seven Agentic AI screens, listed directly rather than as entries in the
+ * shared `AI_CAPABILITIES` registry — that registry is a cross-product
+ * capability catalog (purpose/whyCentral/solutions-consumption fields per
+ * row, shared with LMS K-12 and Enterprise Brain), and these are literal
+ * G2G module screens, not independent product capabilities. The single
+ * `ai.agents` ("Agent Management") registry entry stays as-is — it still
+ * backs `/ai/agents`'s description page and the roadmap — but is excluded
+ * from the flat AI capability list below and replaced here by this labeled
+ * sub-column of its real screens, the same shape "Setup and configuration"
+ * already uses under Platform services.
+ *
+ * No role check gates these: each is resolved per-screen against the
+ * signed-in profile's own rights on its (pre-existing) tblmenumaster_g2g
+ * row, exactly like RBAC/Onboarding/Mobile App Rights already are below. An
+ * employee who was never granted view rights on these rows won't see them
+ * here either — nothing new was seeded for this, so visibility is exactly
+ * whatever it already was when these screens lived in the sidebar.
+ */
+const AGENTIC_SCREENS = [
+  { id: 'agentic.dashboard', label: 'Agent Dashboard', accessLink: AG_AGENT_DASHBOARD_ACCESS_LINK },
+  { id: 'agentic.library', label: 'Agentic Library', accessLink: AG_AGENT_LIBRARY_ACCESS_LINK },
+  { id: 'agentic.create', label: 'Create Agent', accessLink: AG_CREATE_AGENT_ACCESS_LINK },
+  { id: 'agentic.runlog', label: 'Run Log', accessLink: AG_RUN_LOG_ACCESS_LINK },
+  { id: 'agentic.analytics', label: 'Analytics', accessLink: AG_ANALYTICS_ACCESS_LINK },
+  { id: 'agentic.multiagent', label: 'Multi-Agent', accessLink: AG_MULTI_AGENT_ACCESS_LINK },
+  { id: 'agentic.reflection', label: 'Reflection', accessLink: AG_REFLECTION_ACCESS_LINK },
+] as const
 
 interface MenuItem {
   id: string
@@ -65,6 +104,7 @@ function useMenuSections(): MenuSection[] {
   const resolveService = usePlatformDestination()
   const resolveCapability = useCapabilityDestination()
   const access = usePlatformServicesAccess()
+  const { resolveAccessLink } = useSidebarNavigation()
 
   const isServiceVisible = (service: PlatformService): boolean => {
     switch (service.slug) {
@@ -95,13 +135,15 @@ function useMenuSections(): MenuSection[] {
     }
   }
 
+  // ai.agents has no case here — it's filtered out of the input list before
+  // this runs (see the aiColumns block below) and resolved separately via
+  // AGENTIC_SCREENS instead.
   const isCapabilityVisible = (capability: AiCapability): boolean => {
     switch (capability.id) {
       case 'ai.providers': return access.ai.providers
       case 'ai.models': return access.ai.models
       case 'ai.prompts': return access.ai.prompts
       case 'ai.policies': return access.ai.policies
-      case 'ai.agents': return access.ai.agents
       case 'ai.conversational': return access.ai.conversational
       case 'ai.knowledge-rag': return access.ai.knowledge_rag
       case 'ai.recommendations': return access.ai.recommendations
@@ -143,23 +185,35 @@ function useMenuSections(): MenuSection[] {
 
   const aiColumns = [
     {
-      items: AI_CAPABILITIES.filter(isCapabilityVisible).map((capability) => ({
-        id: capability.id,
-        label: capability.name,
+      // ai.agents is excluded here — it's replaced by the labeled "Agent
+      // Management" column below, listing its real screens instead of the
+      // one generic description page.
+      items: AI_CAPABILITIES.filter((c) => c.id !== 'ai.agents')
+        .filter(isCapabilityVisible)
+        .map((capability) => ({
+          id: capability.id,
+          label: capability.name,
+          icon: undefined,
+          href: resolveCapability(capability).href,
+          badge:
+            capability.status === 'live'
+              ? undefined
+              : capability.status === 'in-progress'
+                ? 'WIP'
+                : 'Soon',
+        })),
+    },
+    {
+      label: 'Agent Management',
+      items: AGENTIC_SCREENS.filter((screen) => {
+        const resolved = resolveAccessLink(screen.accessLink)
+        return resolved !== '/dashboard'
+      }).map((screen) => ({
+        id: screen.id,
+        label: screen.label,
         icon: undefined,
-        /*
-         * Resolved here so "Agent Management" reaches the real Agentic AI module in
-         * one click instead of the generic description page — the same reason
-         * platform services resolve through `resolveService` above rather than a
-         * hardcoded route.
-         */
-        href: resolveCapability(capability).href,
-        badge:
-          capability.status === 'live'
-            ? undefined
-            : capability.status === 'in-progress'
-              ? 'WIP'
-              : 'Soon',
+        href: resolveAccessLink(screen.accessLink),
+        badge: undefined,
       })),
     },
   ].filter((column) => column.items.length > 0)
@@ -181,7 +235,7 @@ function useMenuSections(): MenuSection[] {
       id: 'ai-intelligence',
       label: 'AI and insights',
       href: '/ai',
-      span: 1,
+      span: aiColumns.length > 1 ? 2 : 1,
       columns: aiColumns,
     })
   }

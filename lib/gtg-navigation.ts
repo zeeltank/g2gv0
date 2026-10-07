@@ -115,10 +115,13 @@ export const TALENT_MOBILITY_ACCESS_LINK = '/module/talent-management/mobility-a
 export const TALENT_OFFBOARDING_ACCESS_LINK = '/module/talent-management/offboarding'
 export const TALENT_ADMINISTRATION_ACCESS_LINK = '/module/talent-management/administration'
 
+export const AG_AGENT_DASHBOARD_ACCESS_LINK = '/module/agentic-ai/agent-dashboard'
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
+export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
+export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
 
 export type BreadcrumbItem = {
   label: string
