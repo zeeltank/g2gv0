@@ -69,7 +69,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchModuleUsage(module.key)
+    fetchModuleUsage(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         setUsage(next);

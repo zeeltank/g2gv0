@@ -1,6 +1,6 @@
 'use client'
 
-import { Component, useState, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react'
+import { Component, useState, useEffect, useCallback, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
@@ -18,7 +18,18 @@ import type { Message as AgentMessage } from '@/components/shell/agent/agent-cha
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { isAiCoreEnabled } from '@/lib/ai-core/flag'
+import { isAiCoreEnabled, isModuleChatEnabled } from '@/lib/ai-core/flag'
+import { useActiveModule } from '@/hooks/use-active-module'
+import { askAssistant } from '@/lib/intelligence/ai-conversations'
+import { fetchPageContext } from '@/lib/intelligence/ai-workspace'
+import { readPage } from '@/lib/page-context/dom-snapshot'
+import { createG2gActionRegistry } from '@/lib/chat-actions/g2g/registry'
+import type { G2gActionApp } from '@/lib/chat-actions/g2g/actions'
+import { prefillFromMessage } from '@/lib/chat-actions/registry'
+import * as actionFlow from '@/lib/chat-actions/flow'
+import type { ActionContext, ActionInput, ChatActionDefinition, FlowState } from '@/lib/chat-actions/types'
+import { ChatActionsContext, type ChatActionsApi } from '@/components/shell/agent/chat-actions-context'
+import { usePageSnapshot } from '@/lib/page-context/use-page-snapshot'
 import type { G2gAiCore } from '@/lib/ai-core/runtime'
 import type { AppContext as AiCoreContext } from 'darshana-ai-core'
 import { accountService } from '@/services/account'
@@ -300,19 +311,197 @@ export function GtgAppShell({
    * their names") for this chat panel without persisting it anywhere.
    */
   const agentSessionIdRef = useRef<string>(`agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+  /*
+   * The module the user is inside, as an `ai_modules` key — or null when the route is not
+   * inside a module that has an AI Stack (or the flag is off). Resolved from the live menu
+   * tree, never defaulted: a chat opened outside a module must not pick up some module's data.
+   */
+  const { stack: activeAiStack } = useActiveModule()
+  const moduleChatKey = isModuleChatEnabled() ? (activeAiStack?.key ?? null) : null
   const agentOpenState = agentOpen ?? internalAgentOpen
   const setAgentOpen = useCallback((next: boolean) => {
     setInternalAgentOpen(next)
     onAgentOpenChange?.(next)
   }, [onAgentOpenChange])
 
+  /*
+   * The page the chat is opened on: the deepest menu node the sidebar resolved (a
+   * `tblmenumaster_g2g` id), with the route as a fallback. The backend turns it into the
+   * questions worth asking from that page - real data sources and curated suggestions for the
+   * module it belongs to, nothing from other modules. `null` until it answers, and `[]` if it
+   * cannot: the panel then shows no starter questions rather than the generic list.
+   */
+  const pageMenuId = active?.submenuId && /^\d+$/.test(active.submenuId) ? Number(active.submenuId) : null
+  // Stored with the page they were made for, so a previous page's questions can never be
+  // shown on the next one while its own are still loading.
+  const [pagePromptState, setPagePromptState] = useState<{ path: string; prompts: string[] } | null>(null)
+  const pagePrompts = pagePromptState?.path === pathname ? pagePromptState.prompts : null
+
+  /*
+   * What is actually on the page - heading, counts, filters, search text, selected rows, the
+   * rows of its tables - read from the content region while the chat is open. Any page gives
+   * one; none registers anything. The backend turns it into questions about that page.
+   */
+  const pageSnapshot = usePageSnapshot({
+    enabled: Boolean(moduleChatKey && agentOpenState),
+    getRoot: () => document.querySelector('[data-page-context-root]'),
+    watch: pathname,
+  })
+
+  useEffect(() => {
+    if (!moduleChatKey || !agentOpenState) return
+
+    let cancelled = false
+
+    fetchPageContext({ menuId: pageMenuId, route: pathname, pageData: pageSnapshot })
+      .then((context) => {
+        if (!cancelled) {
+          setPagePromptState({ path: pathname, prompts: context.suggestions.map((suggestion) => suggestion.prompt) })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPagePromptState({ path: pathname, prompts: [] })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [moduleChatKey, agentOpenState, pageMenuId, pathname, pageSnapshot])
+
   useEffect(() => {
     agentMessagesRef.current = agentMessages
   }, [agentMessages])
 
+  /*
+   * CHAT ACTIONS. What the assistant can do from the page the user is on - each one an action G2G
+   * already has, run through the same service the page's own button uses, as the signed-in user.
+   * The universal flow (lib/chat-actions/flow.ts) is what guarantees a write needs an explicit
+   * Confirm press and runs at most once; this block only holds the state and calls it.
+   */
+  const actionRegistry = useMemo(() => createG2gActionRegistry(), [])
+  const [actionFlows, setActionFlows] = useState<Record<string, { key: string; state: FlowState }>>({})
+  const actionFlowsRef = useRef(actionFlows)
+  const actionContextRef = useRef<ActionContext<G2gActionApp> | null>(null)
+
+  useEffect(() => {
+    // Always the latest page and session, read at the moment an action is proposed or confirmed.
+    actionContextRef.current = moduleChatKey
+      ? {
+          pathname,
+          menuId: pageMenuId,
+          moduleKey: moduleChatKey,
+          snapshot: pageSnapshot,
+          app: { laravel: getLaravelContext(user) },
+        }
+      : null
+  })
+
+  const availableActions = useMemo(() => {
+    if (!moduleChatKey) return []
+
+    return actionRegistry
+      .available({ pathname, menuId: pageMenuId, moduleKey: moduleChatKey, snapshot: null, app: { laravel: getLaravelContext(user) } })
+      .map(({ key, label, description }) => ({ key, label, description }))
+  }, [actionRegistry, moduleChatKey, pathname, pageMenuId, user])
+
+  const setFlow = useCallback((id: string, key: string, state: FlowState) => {
+    const next = { ...actionFlowsRef.current, [id]: { key, state } }
+    actionFlowsRef.current = next
+    setActionFlows(next)
+  }, [])
+
+  const startAction = useCallback(
+    (definition: ChatActionDefinition<G2gActionApp>, prefill: Record<string, string> = {}) => {
+      const id = `action-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+      setAgentOpen(true)
+      setAgentMessages((current) => [...current, { id, role: 'assistant', content: '', action: { key: definition.key } }])
+      setFlow(id, definition.key, actionFlow.start(definition, prefill))
+    },
+    [setAgentOpen, setFlow],
+  )
+
+  const chatActionsApi = useMemo<ChatActionsApi | null>(() => {
+    if (!moduleChatKey) return null
+
+    const definitionOf = (id: string) => {
+      const entry = actionFlowsRef.current[id]
+      const definition = entry ? actionRegistry.get(entry.key) : undefined
+      return entry && definition ? { entry, definition } : null
+    }
+
+    return {
+      available: availableActions,
+      start: (key) => {
+        const definition = actionRegistry.get(key)
+        if (definition) startAction(definition)
+      },
+      entry: (id) => {
+        const found = actionFlows[id]
+        const definition = found ? actionRegistry.get(found.key) : undefined
+        return found && definition ? { label: definition.label, inputs: definition.inputs, state: found.state } : null
+      },
+      loadOptions: async (input) => {
+        const context = actionContextRef.current
+        // The input came from this application's own definition, so it takes this application's context.
+        const options = (input as ActionInput<G2gActionApp>).options
+        return options && context ? options(context) : []
+      },
+      submit: (id, values, labels) => {
+        const found = definitionOf(id)
+        const context = actionContextRef.current
+        if (!found || !context) return
+        setFlow(id, found.entry.key, actionFlow.submit(found.entry.state, found.definition, values, context, labels))
+      },
+      edit: (id) => {
+        const found = definitionOf(id)
+        if (found) setFlow(id, found.entry.key, actionFlow.edit(found.entry.state))
+      },
+      cancel: (id) => {
+        const found = definitionOf(id)
+        if (found) setFlow(id, found.entry.key, actionFlow.cancel(found.entry.state))
+      },
+      confirm: (id) => {
+        const found = definitionOf(id)
+        const context = actionContextRef.current
+        if (!found || !context) return
+
+        // Read from the ref, not render state: a second click in the same tick must see the first.
+        const executing = actionFlow.beginExecution(found.entry.state)
+        if (!executing) return
+
+        setFlow(id, found.entry.key, executing)
+
+        found.definition
+          .execute(executing.values, context)
+          .catch((error: unknown) => ({
+            ok: false,
+            message: error instanceof Error ? error.message : 'The action failed.',
+          }))
+          .then((result) => {
+            setFlow(id, found.entry.key, actionFlow.finish(executing, result))
+
+            // Let the page behind the chat show what was just written.
+            if (result.ok) window.dispatchEvent(new CustomEvent('g2g:data-changed', { detail: { action: found.entry.key } }))
+          })
+      },
+    }
+  }, [moduleChatKey, actionRegistry, actionFlows, availableActions, setFlow, startAction])
+
   const handleAgentSendMessage = useCallback(async (message: string) => {
     const trimmed = message.trim()
     if (!trimmed) return
+
+    // A sentence that asks for an action THIS page offers opens the action flow - preview and
+    // Confirm - instead of going to the assistant. Anything else is an ordinary question.
+    const actionContext = actionContextRef.current
+    const requested = actionContext ? actionRegistry.match(trimmed, actionContext) : null
+
+    if (requested) {
+      setAgentMessages((current) => [...current, { id: `user-${Date.now()}`, role: 'user', content: trimmed }])
+      startAction(requested, prefillFromMessage(requested, trimmed))
+      return
+    }
 
     const userMessage: AgentMessage = {
       id: `user-${Date.now()}`,
@@ -328,6 +517,49 @@ export function GtgAppShell({
     setAgentLoading(true)
 
     try {
+      /**
+       * Module chat (flag `NEXT_PUBLIC_MODULE_CHAT_ENABLED`, default off).
+       *
+       * Opened inside a module that has an AI Stack, the question goes to the backend's
+       * `/ask` with that module's key: the server validates the key against `ai_modules`,
+       * enforces the module's active AI policies, and grounds the answer in that module's
+       * own data only. The other paths below answer from organisation-wide context and
+       * cannot apply policies, so they are not used while a module is open.
+       *
+       * One conversation per module: the key is part of the session key, so moving to
+       * another module starts a fresh, correctly-tagged transcript instead of continuing
+       * one that was opened under a different module.
+       */
+      if (moduleChatKey) {
+        const result = await askAssistant({
+          message: trimmed,
+          session_key: `${agentSessionIdRef.current}:${moduleChatKey}`,
+          module_key: moduleChatKey,
+          menu_id: pageMenuId ?? undefined,
+          // Read at the moment of asking, so the answer reflects the screen as it is now.
+          page_data: (() => {
+            const root = document.querySelector('[data-page-context-root]')
+            return root ? readPage(root) : undefined
+          })(),
+        })
+
+        // A refusal (policy) or a failure arrives as a 200 with no answer and a reason.
+        if (result.answer === null) {
+          throw new Error(result.error || 'The assistant could not answer.')
+        }
+
+        setAgentMessages((current) => [
+          ...current,
+          {
+            id: `assistant-${result.conversation_id}-${Date.now()}`,
+            role: 'assistant',
+            content: result.answer ?? '',
+            conversationType: 'module',
+          },
+        ])
+        return
+      }
+
       /**
        * Universal AI core path (flag `NEXT_PUBLIC_AI_CORE_ENABLED`, default off).
        *
@@ -457,7 +689,7 @@ export function GtgAppShell({
     } finally {
       setAgentLoading(false)
     }
-  }, [setAgentOpen, user])
+  }, [actionRegistry, moduleChatKey, pageMenuId, setAgentOpen, startAction, user])
 
   /*
    * A sentinel for "the URL has not resolved to a menu row yet".
@@ -610,7 +842,7 @@ export function GtgAppShell({
         <BreadcrumbItemsProvider items={breadcrumbItems}>
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-              <main className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
+              <main data-page-context-root className="g2g-page-scroll g2g-scrollbar flex-1 bg-background overflow-auto">
                 {/*
                   @container/content. The sidebar is compensated with
                   padding-left on the wrapper above, but Tailwind's sm/md/lg/xl
@@ -638,13 +870,16 @@ export function GtgAppShell({
               style={{ width: agentOpenState ? 'var(--agent-panel-width)' : '0px', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}>
               <div className="h-full">
                 {agentOpenState && (
+                  <ChatActionsContext.Provider value={chatActionsApi}>
                   <AgentPanel
+                    suggestedPrompts={moduleChatKey ? (pagePrompts ?? []) : undefined}
                     messages={agentMessages}
                     isLoading={agentLoading}
                     error={agentError}
                     onClose={() => setAgentOpen(false)}
                     onSendMessage={handleAgentSendMessage}
                   />
+                  </ChatActionsContext.Provider>
                 )}
               </div>
             </aside>
