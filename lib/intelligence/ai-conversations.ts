@@ -16,6 +16,8 @@
  */
 
 import { aiRequest } from './client'
+import type { ChatReport, ReportSuggestion, TemplateSuggestion } from './ai-chat-artifacts'
+import type { EvidenceItem, LifecycleStageRow, ProposedAction, Recommendation } from './ai-lifecycle'
 
 export interface ConversationSummary {
   id: number
@@ -71,6 +73,15 @@ export interface AskResult {
   policy_id?: number | null
   /** The registered module the answer was scoped to, or null for the organisation-wide assistant. */
   module_key?: string | null
+  /** Lifecycle additions - present only when the backend runs the twelve-stage lifecycle. */
+  intent?: string
+  trace?: LifecycleStageRow[]
+  evidence?: EvidenceItem[]
+  recommendations?: Recommendation[]
+  proposed_action?: ProposedAction | null
+  report?: ChatReport | null
+  report_suggestions?: ReportSuggestion[]
+  template_suggestions?: TemplateSuggestion[]
 }
 
 /** One fact the assistant was given about this organisation. */
@@ -87,6 +98,10 @@ export function askAssistant(input: {
   menu_id?: number
   /** What the browser read off the page, so the answer can refer to what the user is looking at. */
   page_data?: unknown
+  /** Actions the page offers (metadata only), so the lifecycle can recognise a request for one. */
+  available_actions?: Array<{ key: string; label: string; description: string; phrases: string[] }>
+  /** The AI Stack tab the chat is opened on, so the answer is grounded in what the tab shows. */
+  ai_stack_tab?: string
 }): Promise<AskResult> {
   return aiRequest<AskResult>('/ask', 'POST', input)
 }

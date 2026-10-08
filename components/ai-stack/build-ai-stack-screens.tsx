@@ -1,10 +1,12 @@
 'use client';
 
-import { BookMarked, Cpu, FileText, Gauge, History, ShieldAlert, SlidersHorizontal, Terminal, Workflow } from 'lucide-react';
+import { BookMarked, Cpu, FileText, Gauge, History, ShieldAlert, ShieldCheck, SlidersHorizontal, Terminal, Workflow } from 'lucide-react';
 
 import type { ModuleStaticScreen } from './ai-stack-host';
 
+import { AiStackWithExample } from './example-card';
 import { AiStackActivityScreen } from './activity-screen';
+import { AiStackApprovalsScreen } from './approvals-screen';
 import { AiStackAutomationsScreen } from './automations-screen';
 import { AiStackGuardrailsScreen } from './guardrails-screen';
 import { AiStackKnowledgeBaseScreen } from './knowledge-base-screen';
@@ -82,7 +84,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'policies',
       label: 'Policies',
       icon: SlidersHorizontal,
-      render: () => <AiStackPoliciesScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="policies">
+          <AiStackPoliciesScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live, and it writes — to this module's binding, never to the central tables.
@@ -90,7 +96,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'models',
       label: 'Models',
       icon: Cpu,
-      render: () => <AiStackModelsScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="models">
+          <AiStackModelsScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. `ai_templates` rows for this module with `kind = 'prompt'` — the other half
@@ -98,7 +108,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'prompts',
       label: 'Prompts',
       icon: Terminal,
-      render: () => <AiStackPromptsScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="prompts">
+          <AiStackPromptsScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. The module's own report layouts, and the place a report is built from one.
@@ -107,7 +121,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'templates',
       label: 'Templates',
       icon: FileText,
-      render: () => <AiStackTemplatesScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="templates">
+          <AiStackTemplatesScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. The read-only MCP tools the assistant draws on for this module, plus the
@@ -115,7 +133,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'knowledge-base',
       label: 'Knowledge Base',
       icon: BookMarked,
-      render: () => <AiStackKnowledgeBaseScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="knowledge-base">
+          <AiStackKnowledgeBaseScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. The bound agent, when the module has one — the same manifest the chatbot runs,
@@ -124,7 +146,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'automations',
       label: 'Automations',
       icon: Workflow,
-      render: () => <AiStackAutomationsScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="automations">
+          <AiStackAutomationsScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. Aggregated from ai_conversations.module_key, this module's generations and
@@ -132,7 +158,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'usage-cost',
       label: 'Usage & Cost',
       icon: Gauge,
-      render: () => <AiStackUsageCostScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="usage-cost">
+          <AiStackUsageCostScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. Reads the guardrails from the five places they are enforced, and lists the
@@ -140,7 +170,11 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'guardrails',
       label: 'Guardrails',
       icon: ShieldAlert,
-      render: () => <AiStackGuardrailsScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="guardrails">
+          <AiStackGuardrailsScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
     {
       // Live. The execution ledger: what ran in this module, which AI record it used, who
@@ -148,7 +182,23 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
       id: 'activity',
       label: 'Activity',
       icon: History,
-      render: () => <AiStackActivityScreen module={module} />,
+      render: () => (
+        <AiStackWithExample module={module} tab="activity">
+          <AiStackActivityScreen module={module} />
+        </AiStackWithExample>
+      ),
+    },
+    {
+      // Live. The approval ledger (`ai_action_requests`): every action the assistant proposed
+      // from this module's screens, its decision and its outcome.
+      id: 'approvals',
+      label: 'Approvals',
+      icon: ShieldCheck,
+      render: () => (
+        <AiStackWithExample module={module} tab="approvals">
+          <AiStackApprovalsScreen module={module} />
+        </AiStackWithExample>
+      ),
     },
   ];
 }

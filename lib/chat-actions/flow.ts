@@ -132,6 +132,47 @@ export function beginApprovedExecution(state: FlowState): Extract<FlowState, { p
   return { phase: 'executing', values: state.values, preview: state.preview, requestId: state.requestId }
 }
 
+/**
+ * Run an action and, when it defines one, check the outcome by reading it back.
+ *
+ * A thrown error, a failed execute and a failed verification all become a failed result with the
+ * reason; only an execute that succeeded AND (if defined) verified is reported as done. The
+ * verification message, when it has one, is appended so the user sees what was confirmed.
+ */
+export async function executeVerified<App>(
+  definition: ChatActionDefinition<App>,
+  values: ActionValues,
+  context: ActionContext<App>,
+): Promise<ActionResult> {
+  let result: ActionResult
+
+  try {
+    result = await definition.execute(values, context)
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : 'The action failed.' }
+  }
+
+  if (!result.ok || !definition.verify) return result
+
+  try {
+    const checked = await definition.verify(values, context, result)
+
+    return checked.ok
+      ? { ...result, message: checked.message ? `${result.message} ${checked.message}` : result.message }
+      : {
+          ...result,
+          ok: false,
+          message: `The action ran, but the result could not be confirmed: ${checked.message ?? 'the change was not found.'}`,
+        }
+  } catch (error) {
+    return {
+      ...result,
+      ok: false,
+      message: `The action ran, but the result could not be confirmed: ${error instanceof Error ? error.message : 'the check failed.'}`,
+    }
+  }
+}
+
 /** The result of an execution, as the state the card shows. */
 export function finish(
   state: Extract<FlowState, { phase: 'executing' }>,
