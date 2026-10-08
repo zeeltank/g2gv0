@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SuggestedPrompts } from './suggested-prompts'
+import { ActionCard } from './action-card'
+import { useChatActions } from './chat-actions-context'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { useVoiceInteraction } from '@/hooks/use-voice-interaction'
@@ -26,6 +28,8 @@ export interface Message {
   status?: string
   conversationType?: string
   tools?: string[]
+  /** Set when this message is a proposed action; the card renders it from the flow state. */
+  action?: { key: string }
 }
 
 const SUGGESTED_PROMPTS = [
@@ -38,6 +42,12 @@ const SUGGESTED_PROMPTS = [
 ]
 
 interface AgentChatProps {
+  /**
+   * Starter questions for the page the chat is opened on. Left undefined, the built-in list is
+   * shown; provided (even empty), ONLY these are shown - an empty list shows none rather than
+   * falling back to questions about other modules.
+   */
+  suggestedPrompts?: string[]
   messages: Message[]
   isLoading?: boolean
   error?: string | null
@@ -45,11 +55,13 @@ interface AgentChatProps {
 }
 
 export function AgentChat({
+  suggestedPrompts,
   messages,
   isLoading = false,
   error,
   onSendMessage,
 }: AgentChatProps) {
+  const chatActions = useChatActions()
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const {
@@ -106,18 +118,53 @@ export function AgentChat({
       <div className="min-h-0 flex-1 overflow-y-auto px-5">
         {messages.length === 0 ? (
           <div className="py-5">
+            {suggestedPrompts !== undefined && suggestedPrompts.length === 0 && (
+              <p className="text-xs leading-5 text-muted-foreground">
+                Questions about this page will appear here once it has loaded.
+              </p>
+            )}
             <SuggestedPrompts
-              prompts={SUGGESTED_PROMPTS}
+              prompts={suggestedPrompts ?? SUGGESTED_PROMPTS}
               onSelect={(prompt) => {
                 if (!isLoading) {
                   onSendMessage?.(prompt)
                 }
               }}
             />
+            {chatActions && chatActions.available.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-medium text-foreground">Actions on this page</p>
+                <div className="flex flex-col gap-1.5">
+                  {chatActions.available.map((action) => (
+                    <Button
+                      key={action.key}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      title={action.description}
+                      onClick={() => chatActions.start(action.key)}
+                      className="h-8 justify-start px-3 text-xs"
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4 py-5">
-            {messages.map((message) => (
+            {messages.map((message) =>
+              message.action ? (
+                <div key={message.id} className="flex gap-3">
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
+                    <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 max-w-[88%] flex-1">
+                    <ActionCard messageId={message.id} />
+                  </div>
+                </div>
+              ) : (
               <div
                 key={message.id}
                 className={cn(
@@ -171,7 +218,8 @@ export function AgentChat({
                   </div>
                 )}
               </div>
-            ))}
+              ),
+            )}
             {isLoading && (
               <div className="flex justify-start gap-3">
                 <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">

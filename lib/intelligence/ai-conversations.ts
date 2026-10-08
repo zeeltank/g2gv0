@@ -66,6 +66,11 @@ export interface AskResult {
    * not a fault. The screen uses it to choose between "add a key" and "try again".
    */
   configured?: boolean
+  /** True when an active AI policy refused the question; `policy_id` names it. */
+  refused?: boolean
+  policy_id?: number | null
+  /** The registered module the answer was scoped to, or null for the organisation-wide assistant. */
+  module_key?: string | null
 }
 
 /** One fact the assistant was given about this organisation. */
@@ -78,6 +83,10 @@ export function askAssistant(input: {
   message: string
   session_key?: string
   module_key?: string | null
+  /** The page the chat is opened on (a menu row id); the server reads its title itself. */
+  menu_id?: number
+  /** What the browser read off the page, so the answer can refer to what the user is looking at. */
+  page_data?: unknown
 }): Promise<AskResult> {
   return aiRequest<AskResult>('/ask', 'POST', input)
 }
