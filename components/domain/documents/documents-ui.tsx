@@ -1,6 +1,55 @@
 import type { ReactNode } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { DocumentTypeChoices } from '@/services/account'
+
+
+export function formatFileSize(bytes: number | null) {
+  if (!bytes || bytes <= 0) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export function formatFileDate(value: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/**
+ * `document_type` options from both buckets, deduped by key.
+ *
+ * `config/documents.php` gives both `personnel` and `organization` their
+ * own `'other' => 'Other'` entry - two distinct config keys, but the SAME
+ * document_type VALUE either way. Every options list built from both
+ * buckets must dedupe on that value: a searchable combobox keys its
+ * options by value (see `components/ui/searchable-select.tsx`), so two
+ * entries sharing one key is a real React duplicate-key bug (confirmed
+ * live - the dropdown rendered "Other" three times, not a harmless
+ * cosmetic repeat), not just a redundant-looking list.
+ */
+export function documentTypeOptions(types: DocumentTypeChoices): Array<{ value: string; label: string; hint?: string }> {
+  const seen = new Set<string>()
+  const options: Array<{ value: string; label: string; hint?: string }> = []
+
+  for (const [value, label] of Object.entries(types.personnel)) {
+    seen.add(value)
+    options.push({ value, label, hint: 'Personal' })
+  }
+
+  for (const [value, label] of Object.entries(types.organization)) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    options.push({ value, label, hint: 'Organisation' })
+  }
+
+  return options
+}
 
 /*
  * Document Library-scoped layout primitives, following the same rule the

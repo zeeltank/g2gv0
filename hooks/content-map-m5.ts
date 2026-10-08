@@ -29,6 +29,14 @@ const PayrollHistoryPage = createLazyComponent(() => import('@/domain/hrms/hrit/
 // F-171. Monthly Attendance Report - the most complete attendance endpoint in
 // the module, and the only one that resolves a weekend from an absence per day.
 const MonthlyAttendanceReportPage = createLazyComponent(() => import('@/domain/hrms/hrit/attendance-management/monthly-attendance-report/page').then((m) => ({ default: m.default })))
+
+// Phase 18. The HR attendance desk - menu 433, admin/hr only.
+//
+// Separate from Attendance Tracking (100) on purpose: that screen is an
+// employee's own month and everyone who can open it sees their own data. This
+// one shows everybody's and writes to it, so it needs its own menu row and its
+// own grant - a tab cannot express ownership.
+const ManageEmployeeAttendancePage = createLazyComponent(() => import('@/domain/hrms/hrit/attendance-management/manage-employee-attendance/page').then((m) => ({ default: m.default })))
 // F-172. Payroll Register - the only screen that puts the day counts next to
 // the pay, so "why is this person's pay low" is answered in one row.
 const PayrollRegisterPage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/payroll-register/page').then((m) => ({ default: m.default })))
@@ -41,6 +49,7 @@ export const M5_CONTENT: ContentRoute[] = [
   { accessLink: '/module/hrit-solutions/attendance-management/attendance-tracking', submenuId: '100', component: AttendanceDashboard }, // Attendance Tracking
   { accessLink: '/module/hrit-solutions/attendance-management/attendance-reports', submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
   { accessLink: '/module/hrit-solutions/attendance-management/monthly-attendance-report', submenuId: '309', component: MonthlyAttendanceReportPage }, // Monthly Attendance Report (F-171)
+  { accessLink: '/module/hrit-solutions/attendance-management/manage-employee-attendance', submenuId: '433', component: ManageEmployeeAttendancePage }, // Manage Employee Attendance (Phase 18)
   { accessLink: '/module/hrit-solutions/leave-management/leave-dashboard', submenuId: '102', component: LeaveManagementDashboard }, // Leave Dashboard
   { accessLink: '/module/hrit-solutions/leave-management/leave-requests', submenuId: '103', component: LeaveRequestsPage }, // Leave Requests
   { accessLink: '/module/hrit-solutions/leave-management/leave-reports', submenuId: '104', component: LeaveReportsPage }, // Leave Reports

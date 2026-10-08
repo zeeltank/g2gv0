@@ -219,6 +219,8 @@ export type DepartmentProcess = {
   status: 'draft' | 'active' | 'archived'
   current_version: number
   trigger_type: 'manual' | 'event' | 'scheduled'
+  /** Raw JSON string (longText column) - the converter's extra spec fields (preconditions/inputs/outputs/handoffs/business_rules/tasks) live under canvas_meta.tasks etc. Parse before use. */
+  canvas_meta?: string | null
   created_at?: string | null
   updated_at?: string | null
   created_by_name?: string | null
@@ -234,6 +236,83 @@ export type DepartmentProcessTemplates = {
   step_types: Record<string, { label: string; color: string }>
   categories: DepartmentProcessCategory[]
   templates: Record<string, Array<{ type: string; title: string }>>
+}
+
+export type ProcessConversionActorType = 'person' | 'ai' | 'person_ai'
+
+/** Mirrors DepartmentProcedureParser::step()'s return shape exactly, field for field. */
+export type ProcessConversionStep = {
+  actor: string | null
+  actor_type: ProcessConversionActorType
+  user_action: string | null
+  system_action: string
+  decision: string | null
+  result: string | null
+  is_approval: boolean
+  workflow_key: string | null
+  business_rules: string[]
+  order: number
+}
+
+export type ProcessConversionPrecondition = {
+  text: string
+  business_rules: string[]
+}
+
+export type ProcessConversionTaskCategory = 'readiness' | 'human_gate' | 'workflow_step' | 'handover'
+
+/** Mirrors DepartmentProcedureParser::deriveTasks()'s return shape. */
+export type ProcessConversionTask = {
+  ref: string
+  category: ProcessConversionTaskCategory
+  title: string
+  actor: string | null
+  business_rules: string[]
+  priority: 'High' | 'Medium' | 'Low'
+  due_in_days: number
+  kra: string
+  kpa: string
+  observed: string
+}
+
+export type ProcessConversionBusinessRule = {
+  code: string
+  rule_id: number
+  title: string
+  rule_definition: string | null
+  validation: string | null
+  applies_at: string | null
+  on_failure: string | null
+}
+
+/** Mirrors DepartmentProcedureParser::parse()'s return shape. */
+export type ProcessConversionSpec = {
+  name: string
+  objective: string | null
+  trigger: string | null
+  completion: string | null
+  preconditions: ProcessConversionPrecondition[]
+  inputs: string[]
+  outputs: string[]
+  handoffs: string[]
+  steps: ProcessConversionStep[]
+  business_rules: Record<string, ProcessConversionBusinessRule>
+  tasks: ProcessConversionTask[]
+  issues: string[]
+}
+
+export type ProcessConversionAiStatus = { reason: string; detail: string | null } | null
+
+export type ProcessConversionResult = {
+  spec: ProcessConversionSpec
+  source: 'deterministic' | 'ai'
+  ai_status: ProcessConversionAiStatus
+}
+
+export type ProcessTaskPublishResult = {
+  created: Array<{ ref: string; task_id: number }>
+  already_published: string[]
+  problems: string[]
 }
 
 export type DepartmentProcessVersion = {
@@ -967,6 +1046,26 @@ export const organizationService = {
       '/department-processes/templates',
       departmentParams(context),
     ),
+
+  /**
+   * Read a pasted procedure into structure, without storing anything - the
+   * K12-style Source step's "Convert to process". Delegates server-side to
+   * the same ProcedureParser the module-wide Platform Services builder uses.
+   */
+  convertDepartmentProcessSource: (
+    context: LaravelContext,
+    data: { department_id: string; name?: string; category?: string; source_text: string; use_ai?: boolean },
+  ) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<ProcessConversionResult>>(
+      `/department-processes/convert-source?${new URLSearchParams(departmentParams(context)).toString()}`,
+      data,
+    )),
+
+  publishDepartmentProcessTasks: (context: LaravelContext, id: string, assignments: Record<string, number>) =>
+    ensureLaravelSuccess(apiClient.post<LaravelStatusResponse<ProcessTaskPublishResult>>(
+      `/department-processes/${id}/tasks/publish?${new URLSearchParams(departmentParams(context)).toString()}`,
+      { assignments },
+    )),
 
   getDepartmentProcesses: (
     context: LaravelContext,

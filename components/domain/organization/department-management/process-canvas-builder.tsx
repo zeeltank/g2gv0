@@ -20,8 +20,7 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import dagre from '@dagrejs/dagre'
-import { History, LayoutGrid, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { History, LayoutGrid, PanelLeftClose, PanelLeftOpen, Save, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,11 +49,14 @@ import type {
 import { ROLES } from '@/hooks/use-roles'
 import { ProcessStepNode, stepLabel, type ProcessStepNodeData } from './process-step-node'
 import { extractErrorMessages } from './use-department-processes'
+import { genId, tidyLayout, buildLinearGraph } from './process-graph-utils'
+import { ProcessSourcePanel } from './process-source-panel'
+import type { ProcessConversionResult, ProcessConversionSpec } from '@/services/organization'
 
-function genId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return 'n-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
+type ConversionExtras = Pick<
+  ProcessConversionSpec,
+  'preconditions' | 'inputs' | 'outputs' | 'handoffs' | 'business_rules' | 'tasks'
+>
 
 const ASSIGNEE_TYPES = [
   { value: '', label: 'Unassigned' },
@@ -73,30 +75,6 @@ const ROLE_OPTIONS = [{ value: '', label: 'Select a role...' }, ...ROLES.map((r)
 
 type LinkOption = { id: string; title: string }
 type LinkOptions = { sops: LinkOption[]; policies: LinkOption[]; rules: LinkOption[] }
-
-const TIDY_NODE_W = 200
-const TIDY_NODE_H = 70
-
-/** Re-arranges the current graph top-to-bottom with dagre - the "Tidy Layout" button's handler. */
-function tidyLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const graph = new dagre.graphlib.Graph()
-  graph.setDefaultEdgeLabel(() => ({}))
-  graph.setGraph({ rankdir: 'TB', nodesep: 48, ranksep: 80, marginx: 40, marginy: 40 })
-
-  nodes.forEach((n) => graph.setNode(n.id, { width: TIDY_NODE_W, height: TIDY_NODE_H }))
-  const known = new Set(nodes.map((n) => n.id))
-  edges.forEach((e) => {
-    if (known.has(e.source) && known.has(e.target)) graph.setEdge(e.source, e.target)
-  })
-
-  dagre.layout(graph)
-
-  return nodes.map((n) => {
-    const placed = graph.node(n.id)
-    if (!placed) return n
-    return { ...n, position: { x: placed.x - TIDY_NODE_W / 2, y: placed.y - TIDY_NODE_H / 2 } }
-  })
-}
 
 function buildInitialGraph(
   process: DepartmentProcess,
@@ -193,6 +171,9 @@ export function ProcessCanvasBuilder({
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [versions, setVersions] = useState<DepartmentProcessVersion[]>([])
+
+  const [showSourcePanel, setShowSourcePanel] = useState(true)
+  const [conversionExtras, setConversionExtras] = useState<ConversionExtras | null>(null)
 
   const [linkOptions, setLinkOptions] = useState<LinkOptions>({ sops: [], policies: [], rules: [] })
   const [candidates, setCandidates] = useState<SearchableOption[]>([])
@@ -362,6 +343,16 @@ export function ProcessCanvasBuilder({
         steps,
         edges: edgePayload,
       })
+
+      // The converter's extra fields (preconditions/inputs/outputs/handoffs/
+      // business rule citations/task drafts) ride along in canvas_meta, a
+      // separate call because updateDepartmentProcessCanvas only ever
+      // touches steps/edges. Only sent when a conversion actually happened -
+      // a plain drag-and-drop edit has nothing here to save.
+      if (conversionExtras) {
+        await organizationService.saveDepartmentProcess(context, { canvas_meta: conversionExtras }, String(process.id))
+      }
+
       setIsDirty(false)
       if (!options.silent) setSuccessMessage('Draft saved.')
       return true
@@ -395,6 +386,43 @@ export function ProcessCanvasBuilder({
 
   function handleTidyLayout() {
     setNodes((nds) => tidyLayout(nds, edges))
+    markDirty()
+    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
+  }
+
+  /**
+   * The K12 panel's "real-time filling" - called the instant a conversion
+   * succeeds (not behind a separate Apply button), so the canvas on the
+   * right fills in as the Source section is worked. The panel itself gates
+   * this behind its own confirm-replace dialog when the canvas already has
+   * steps; by the time this runs that choice has already been made.
+   */
+  function handleApplyFromSource(result: ProcessConversionResult) {
+    const { spec } = result
+    if (spec.steps.length === 0) return
+
+    const graph = buildLinearGraph(
+      spec.steps.map((step) => ({
+        actor: step.actor,
+        actor_type: step.actor_type,
+        is_approval: step.is_approval,
+        title: step.user_action || step.system_action,
+      })),
+      templates.step_types,
+    )
+
+    setNodes(graph.nodes)
+    setEdges(graph.edges)
+    setConversionExtras({
+      preconditions: spec.preconditions,
+      inputs: spec.inputs,
+      outputs: spec.outputs,
+      handoffs: spec.handoffs,
+      business_rules: spec.business_rules,
+      tasks: spec.tasks,
+    })
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
     markDirty()
     window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.3, duration: 300 }))
   }
@@ -448,6 +476,16 @@ export function ProcessCanvasBuilder({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => setShowSourcePanel((v) => !v)}>
+              {showSourcePanel ? (
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              ) : (
+                <PanelLeftOpen className="size-4" aria-hidden="true" />
+              )}
+              {showSourcePanel ? 'Hide Source' : 'Convert from Text'}
+            </Button>
+          )}
           {canManage && (
             <Button variant="outline" size="sm" onClick={handleTidyLayout} disabled={nodes.length === 0}>
               <Wand2 className="size-4" aria-hidden="true" />
@@ -505,6 +543,21 @@ export function ProcessCanvasBuilder({
       )}
 
       <div className="flex min-h-0 flex-1">
+        {canManage && showSourcePanel && (
+          <div className="flex-[3] min-w-0 overflow-y-auto border-r border-border">
+            <ProcessSourcePanel
+              department={department}
+              context={context}
+              categories={templates.categories}
+              canManage={canManage}
+              hasExistingSteps={nodes.length > 0}
+              processId={String(process.id)}
+              canPublishTasks={!isDirty}
+              onApply={handleApplyFromSource}
+            />
+          </div>
+        )}
+
         {canManage && (
           <div className="w-44 shrink-0 overflow-y-auto border-r border-border p-2">
             <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -530,7 +583,7 @@ export function ProcessCanvasBuilder({
         )}
 
         <div
-          className="relative min-w-0 flex-1"
+          className={`relative min-w-0 ${canManage && showSourcePanel ? 'flex-[2]' : 'flex-1'}`}
           onDragOver={(event) => {
             event.preventDefault()
             event.dataTransfer.dropEffect = 'move'

@@ -251,6 +251,14 @@ export function CreateTaskModal({
     if (initialProjectId) setProjectId(initialProjectId)
     if (initialWorkstreamId) setWorkstreamId(initialWorkstreamId)
   }
+  /*
+   * Seeded for the life of this instance once set — `seed` never changes
+   * under a fixed `initialTitle`/key, so this stays true through every later
+   * department/role/employee pick. Used below to stop the "narrow the
+   * people" handlers from wiping the note somebody already wrote, the same
+   * protection `isEdit` already gets (see chooseAssignees).
+   */
+  const isBacklogSeed = seededFrom !== null
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTaskOption[]>([])
   const [employeeTasksLoading, setEmployeeTasksLoading] = useState(false)
@@ -622,7 +630,8 @@ export function CreateTaskModal({
 
   async function chooseJobRole(roleId: string) {
   setJobRole(roleId); setRoleEmployees([]); await chooseAssignees([])
-  setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription('')
+  setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId('')
+  if (!isBacklogSeed) { setTitle(''); setDescription('') }
   setTaskSearch(''); setTaskDropdownOpen(false);  if (!roleId) return
 
   /*
@@ -666,7 +675,12 @@ export function CreateTaskModal({
     // its !title.trim() check with nothing on screen explaining why. Custom is
     // the only workable mode for such a role, so land there rather than making
     // the user find the toggle.
-    setTitleSource(tasks.length ? 'catalogue' : 'custom')
+    //
+    // A backlog-seeded form is exempt: its title is already a free-typed note
+    // with no catalogue row behind it, so flipping to 'catalogue' here would
+    // swap the visible input out from under it and look exactly like the note
+    // had vanished, even though `title` state itself is untouched.
+    if (!isBacklogSeed) setTitleSource(tasks.length ? 'catalogue' : 'custom')
   } catch (reason) {
     setError(reason instanceof Error ? reason.message : 'Unable to load tasks for this job role.')
   } finally { setTaskTitlesLoading(false) }
@@ -694,7 +708,7 @@ export function CreateTaskModal({
      * wrote - so the edit keeps them, and only the person-specific parts
      * (the suggested observer) are re-fetched.
      */
-    if (!isEdit) { setSelectedTaskId(''); setTitle(''); setTaskSearch('') }
+    if (!isEdit && !isBacklogSeed) { setSelectedTaskId(''); setTitle(''); setTaskSearch('') }
     // THE CATALOGUE BELONGS TO THE ROLE, NOT THE ASSIGNEE.
     // Clearing it here is why picking a person emptied the task list and left
     // the form unsubmittable: the role's 33 tasks were fetched, then discarded
@@ -1172,7 +1186,7 @@ export function CreateTaskModal({
 
       <SectionGroup label="Assign to" hint="Department narrows the people; the role narrows the work.">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 @2xl/form:grid-cols-12">
-      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); setTitle(''); setDescription(''); setTaskSearch(''); setTaskDropdownOpen(false); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
+      <Field label="Department *"><Select value={department} onChange={(value) => { setDepartment(value); setJobRole(''); setRoleEmployees([]); setJobRoleTasks([]); setEmployeeTasks([]); setSelectedTaskId(''); if (!isBacklogSeed) { setTitle(''); setDescription('') }; setTaskSearch(''); setTaskDropdownOpen(false); void chooseAssignees([]) }} options={Object.keys(directory).map((value) => ({ value, label: value }))} /></Field>
       <Field label="Job Role"><Select value={jobRole} onChange={(value) => void chooseJobRole(value)} options={roles.map((role) => ({ value: role.id, label: role.name }))} disabled={!department} /></Field>
       {/* ASSIGN TO SITS DIRECTLY AFTER JOB ROLE. Department narrows the people,
           the role narrows the work, and the person is settled before the task so

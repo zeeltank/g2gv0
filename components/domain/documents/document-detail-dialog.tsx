@@ -3,14 +3,17 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import {
   AlertTriangle,
+  Check,
   Download,
   Eye,
   FileClock,
   History,
   Link2,
   Loader2,
+  Pencil,
   RotateCcw,
   Upload,
+  X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
+import { documentTypeOptions } from './documents-ui'
 import { useAuth } from '@/hooks/use-auth'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import {
@@ -28,6 +34,7 @@ import {
   type DocumentActivityEntry,
   type DocumentDetail,
   type DocumentHistoryEntry,
+  type DocumentTypeChoices,
   type RelatedDocument,
 } from '@/services/account'
 
@@ -36,6 +43,7 @@ type Tab = 'details' | 'versions' | 'activity' | 'related'
 export interface DocumentDetailDialogProps {
   documentId: number | null
   typeLabel: (key: string | null) => string | null
+  types: DocumentTypeChoices
   onOpenChange: (open: boolean) => void
   onPreview: () => void
   onDownload: () => void
@@ -55,6 +63,7 @@ export interface DocumentDetailDialogProps {
 export function DocumentDetailDialog({
   documentId,
   typeLabel,
+  types,
   onOpenChange,
   onPreview,
   onDownload,
@@ -77,6 +86,10 @@ export function DocumentDetailDialog({
   const [versionBusyId, setVersionBusyId] = useState<number | 'uploading' | null>(null)
   const [versionNotice, setVersionNotice] = useState<string | null>(null)
   const versionFileInput = useRef<HTMLInputElement>(null)
+
+  const [editing, setEditing] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const isOwner = myId !== null && detail?.owner_id === myId
 
@@ -106,6 +119,8 @@ export function DocumentDetailDialog({
     setError(null)
     setLoading(true)
     setVersionNotice(null)
+    setEditing(false)
+    setEditError(null)
 
     accountService
       .getDocument(resolveContext(), documentId)
@@ -179,6 +194,27 @@ export function DocumentDetailDialog({
       setVersionNotice(caught instanceof Error ? caught.message : 'That version could not be restored.')
     } finally {
       setVersionBusyId(null)
+    }
+  }
+
+  const handleSaveEdit = async (changes: Partial<{
+    title: string
+    document_type: string
+    category: 'personnel' | 'organization'
+    subject: string | null
+  }>) => {
+    if (documentId === null) return
+
+    setEditSaving(true)
+    setEditError(null)
+    try {
+      await accountService.updateDocument(resolveContext(), documentId, changes)
+      await fetchDetail()
+      setEditing(false)
+    } catch (caught) {
+      setEditError(caught instanceof Error ? caught.message : 'That could not be saved.')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -256,7 +292,26 @@ export function DocumentDetailDialog({
           ) : error || !detail ? (
             <p className="text-sm text-destructive">{error ?? 'That document could not be opened.'}</p>
           ) : tab === 'details' ? (
-            <DetailsTab detail={detail} typeLabel={typeLabel} warnings={warnings} keywords={keywords} />
+            <DetailsTab
+              detail={detail}
+              typeLabel={typeLabel}
+              types={types}
+              warnings={warnings}
+              keywords={keywords}
+              canEdit={isOwner}
+              editing={editing}
+              saving={editSaving}
+              error={editError}
+              onStartEdit={() => {
+                setEditError(null)
+                setEditing(true)
+              }}
+              onCancelEdit={() => {
+                setEditError(null)
+                setEditing(false)
+              }}
+              onSave={handleSaveEdit}
+            />
           ) : tab === 'versions' ? (
             <VersionsTab
               loading={historyLoading}
@@ -308,19 +363,107 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 function DetailsTab({
   detail,
   typeLabel,
+  types,
   warnings,
   keywords,
+  canEdit,
+  editing,
+  saving,
+  error,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
 }: {
   detail: DocumentDetail
   typeLabel: (key: string | null) => string | null
+  types: DocumentTypeChoices
   warnings: string[]
   keywords: string[]
+  canEdit: boolean
+  editing: boolean
+  saving: boolean
+  error: string | null
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSave: (changes: Partial<{
+    title: string
+    document_type: string
+    category: 'personnel' | 'organization'
+    subject: string | null
+  }>) => void
 }) {
   const sizeLabel = detail.size ? `${(detail.size / 1024).toFixed(1)} KB` : null
   const confidence = detail.confidence ? Math.round(parseFloat(detail.confidence) * 100) : null
 
+  const [titleDraft, setTitleDraft] = useState(detail.title ?? '')
+  const [typeDraft, setTypeDraft] = useState(detail.document_type ?? '')
+  const [categoryDraft, setCategoryDraft] = useState<'personnel' | 'organization'>(
+    detail.category === 'organization' ? 'organization' : 'personnel',
+  )
+  const [subjectDraft, setSubjectDraft] = useState(detail.subject ?? '')
+
+  useEffect(() => {
+    if (!editing) return
+    setTitleDraft(detail.title ?? '')
+    setTypeDraft(detail.document_type ?? '')
+    setCategoryDraft(detail.category === 'organization' ? 'organization' : 'personnel')
+    setSubjectDraft(detail.subject ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, detail.id])
+
+  const typeOptions: SearchableOption[] = documentTypeOptions(types)
+
+  const submit = () => {
+    const changes: Partial<{
+      title: string
+      document_type: string
+      category: 'personnel' | 'organization'
+      subject: string | null
+    }> = {}
+
+    if (titleDraft.trim() && titleDraft.trim() !== (detail.title ?? '')) changes.title = titleDraft.trim()
+    if (typeDraft && typeDraft !== (detail.document_type ?? '')) changes.document_type = typeDraft
+    if (categoryDraft !== detail.category) changes.category = categoryDraft
+    if (subjectDraft.trim() !== (detail.subject ?? '')) changes.subject = subjectDraft.trim() || null
+
+    if (Object.keys(changes).length === 0) {
+      onCancelEdit()
+      return
+    }
+
+    onSave(changes)
+  }
+
   return (
     <div className="space-y-5">
+      {canEdit && (
+        <div className="flex items-center justify-between">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" disabled={saving} onClick={submit}>
+                {saving ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Check className="mr-1.5 size-3.5" aria-hidden="true" />
+                )}
+                Save
+              </Button>
+              <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancelEdit}>
+                <X className="mr-1.5 size-3.5" aria-hidden="true" />
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={onStartEdit}>
+              <Pencil className="mr-1.5 size-3.5" aria-hidden="true" />
+              Edit
+            </Button>
+          )}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+
       {warnings.length > 0 && (
         <div className="space-y-1.5 rounded-lg border border-warning/30 bg-warning/10 p-3">
           {warnings.map((w, i) => (
@@ -332,27 +475,67 @@ function DetailsTab({
         </div>
       )}
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
-        <Fact label="Type">{typeLabel(detail.document_type) ?? '—'}</Fact>
-        <Fact label="Category">{detail.category === 'organization' ? 'Organisation' : 'Personal'}</Fact>
-        {detail.subject && <Fact label="Subject">{detail.subject}</Fact>}
-        {detail.period_label && <Fact label="Period">{detail.period_label}</Fact>}
-        <Fact label="Visibility">
-          <span className="capitalize">{detail.visibility ?? 'private'}</span>
-        </Fact>
-        {detail.source_system && <Fact label="Source">{detail.source_system}</Fact>}
-        {sizeLabel && <Fact label="Size">{sizeLabel}</Fact>}
-        {confidence !== null && (
-          <Fact label="AI confidence">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                <span className="block h-full rounded-full bg-primary" style={{ width: `${confidence}%` }} />
-              </span>
-              {confidence}%
-            </span>
+      {editing ? (
+        <div className="space-y-4">
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Title</label>
+            <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Type</label>
+            <SearchableSelect
+              options={typeOptions}
+              value={typeDraft}
+              onChange={setTypeDraft}
+              placeholder="Choose a type"
+              className="mt-1"
+              aria-label="Document type"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Category</label>
+            <div className="mt-1.5 flex gap-2">
+              {(['personnel', 'organization'] as const).map((c) => (
+                <Button
+                  key={c}
+                  type="button"
+                  variant={categoryDraft === c ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryDraft(c)}
+                >
+                  {c === 'organization' ? 'Organisation' : 'Personal'}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Subject</label>
+            <Input value={subjectDraft} onChange={(e) => setSubjectDraft(e.target.value)} className="mt-1" />
+          </div>
+        </div>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
+          <Fact label="Type">{typeLabel(detail.document_type) ?? '—'}</Fact>
+          <Fact label="Category">{detail.category === 'organization' ? 'Organisation' : 'Personal'}</Fact>
+          {detail.subject && <Fact label="Subject">{detail.subject}</Fact>}
+          {detail.period_label && <Fact label="Period">{detail.period_label}</Fact>}
+          <Fact label="Visibility">
+            <span className="capitalize">{detail.visibility ?? 'private'}</span>
           </Fact>
-        )}
-      </dl>
+          {detail.source_system && <Fact label="Source">{detail.source_system}</Fact>}
+          {sizeLabel && <Fact label="Size">{sizeLabel}</Fact>}
+          {confidence !== null && (
+            <Fact label="AI confidence">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full rounded-full bg-primary" style={{ width: `${confidence}%` }} />
+                </span>
+                {confidence}%
+              </span>
+            </Fact>
+          )}
+        </dl>
+      )}
 
       {detail.summary && (
         <div>
@@ -476,6 +659,9 @@ function VersionsTab({
           {entries.map((entry) => {
             const isCurrent = entry.version_number === currentVersion
             const size = formatSize(entry.size)
+            const restoredFrom = entry.change_note?.startsWith('Restored from version')
+              ? entry.change_note.replace('Restored from version', '').trim()
+              : null
 
             return (
               <li
@@ -493,9 +679,14 @@ function VersionsTab({
                         Current
                       </Badge>
                     )}
+                    {restoredFrom && (
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                        ↩ Restored from v{restoredFrom}
+                      </Badge>
+                    )}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[entry.original_file_name, size, entry.change_note].filter(Boolean).join(' · ')}
+                    {[entry.original_file_name, size, restoredFrom ? null : entry.change_note].filter(Boolean).join(' · ')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {[entry.actor_name ?? 'System', formatDateTime(entry.created_at)].filter(Boolean).join(' · ')}
@@ -575,6 +766,10 @@ function actionLabel(action: string | null): string {
     downloaded: 'Downloaded',
     deleted: 'Removed',
     classified: 'Classified by AI',
+    restored: 'Restored',
+    version_uploaded: 'New Version Uploaded',
+    updated: 'Details Updated',
+    restored_from_trash: 'Restored from Trash',
   }
 
   return labels[action] ?? action.replace(/_/g, ' ')
