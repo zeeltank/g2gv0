@@ -1,3 +1,12 @@
+export interface ReadinessLogEntry {
+  id: number
+  action: 'confirmed' | 'unconfirmed'
+  readiness_status: string | null
+  actor_id: number | null
+  note: string | null
+  created_at: string
+}
+
 export interface ProductOffer {
   id: number
   sub_institute_id?: number | null
@@ -12,6 +21,9 @@ export interface ProductOffer {
   deployment_model?: string | null
   readiness_status: string
   readiness_confirmed: boolean
+  /** Who confirmed readiness and when. Set only by the audited administrator action. */
+  readiness_confirmed_by?: number | null
+  readiness_confirmed_at?: string | null
   typical_deal_band?: string | null
   pricing_model?: string | null
   implementation_effort?: string | null
@@ -103,6 +115,10 @@ export interface PartnerEvaluation {
 export interface OfferMatchResult {
   offer: ProductOffer
   match_score: number
+  /** Need codes an imported signal carried that this offer solves (each adds to the score). */
+  matched_need_codes?: string[]
+  /** Readiness is reported, never scored. `is_deliverable` = confirmed by an administrator. */
+  is_deliverable?: boolean
   matched_needs: string[]
   matched_segments: string[]
   matched_signals: string[]

@@ -41,6 +41,7 @@ import { ProductProfileDialog } from './product-profile-dialog'
 import { ProviderStatusPanel } from './provider-status-panel'
 import { Fact, GroupHeading, Notice, SectionHeader, SignalsPage, StatTile, Surface } from './signals-ui'
 import { BusinessOpportunityMatchingModal } from './business-opportunity-matching-modal'
+import { ImportedChips, MarketDetail, MatchedOffers } from './market-evidence'
 
 const POLL_MS = 2500
 const POLL_MAX = 120
@@ -63,8 +64,16 @@ const STAGE_ORDER: Record<string, number> = {
   completed: 5,
 }
 
-type Filters = { search: string; category: string; kind: string; priority: string; qualification: string; reviewStatus: string; reportDate: string }
-const EMPTY: Filters = { search: '', category: '', kind: '', priority: '', qualification: '', reviewStatus: '', reportDate: '' }
+type Filters = {
+  search: string; category: string; kind: string; priority: string; qualification: string; reviewStatus: string; reportDate: string
+  /** '' = active signals (default); 'only' = the Expired view. */
+  expiry: '' | 'only'
+  claimLevel: string
+  businessFit: string
+  /** Sample rows are hidden unless this is on. */
+  includeSamples: boolean
+}
+const EMPTY: Filters = { search: '', category: '', kind: '', priority: '', qualification: '', reviewStatus: '', reportDate: '', expiry: '', claimLevel: '', businessFit: '', includeSamples: false }
 
 const PRIORITY_VARIANT = { High: 'destructive', Medium: 'warning', Low: 'muted' } as const
 
@@ -172,6 +181,7 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
           <Badge variant="navy">{o.category_label}</Badge>
           <Badge variant={PRIORITY_VARIANT[o.priority]}>{o.priority}</Badge>
           <QualBadge value={o.qualification} />
+          <ImportedChips o={o} />
           {o.review_status !== 'New' && <Badge variant="muted">{o.review_status}</Badge>}
           <span className="ml-auto text-xs text-muted-foreground">Found {fmt(o.first_discovered_at, false)}</span>
         </div>
@@ -213,6 +223,7 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
               </dd>
             </div>
           )}
+          <MatchedOffers offers={o.matched_offers} limit={3} />
         </dl>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
@@ -249,6 +260,7 @@ function OpportunityDetail({ o, busy, onAct, onMatch }: { o: Opportunity; busy: 
         <QualBadge value={o.qualification} />
         <Badge variant="muted">Confidence: {o.confidence}</Badge>
         <Badge variant="muted">{o.review_status}</Badge>
+        <ImportedChips o={o} />
       </div>
 
       <section className="space-y-1 rounded-lg bg-muted/50 p-4">
@@ -268,6 +280,8 @@ function OpportunityDetail({ o, busy, onAct, onMatch }: { o: Opportunity; busy: 
         <Fact label="Product fit">{o.product_fit}</Fact>
         <Fact label="Recommended next action">{o.recommended_action}</Fact>
       </dl>
+
+      <MarketDetail o={o} />
 
       <p className="text-xs leading-relaxed text-muted-foreground">
         This is an AI-assisted lead signal, not confirmed buying intent. Verify against the sources before acting. Nothing is sent to the company automatically.
@@ -394,6 +408,8 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         search: debounced || undefined, category: filters.category || undefined, kind: filters.kind || undefined, priority: filters.priority || undefined,
         qualification: filters.qualification || undefined, reviewStatus: filters.reviewStatus || undefined,
         reportDate: filters.reportDate || undefined, page,
+        expired: filters.expiry || undefined, includeSamples: filters.includeSamples,
+        claimLevel: filters.claimLevel || undefined, businessFit: filters.businessFit || undefined,
       })
       if (request === requestRef.current) setList(response)
     } catch (cause) {
@@ -401,7 +417,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
     } finally {
       if (request === requestRef.current) setLoading(false)
     }
-  }, [context, debounced, filters.category, filters.kind, filters.priority, filters.qualification, filters.reviewStatus, filters.reportDate, page])
+  }, [context, debounced, filters.category, filters.kind, filters.priority, filters.qualification, filters.reviewStatus, filters.reportDate, filters.expiry, filters.includeSamples, filters.claimLevel, filters.businessFit, page])
 
   const loadStatus = useCallback(async () => {
     try {
@@ -640,6 +656,16 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
             <SelectInput value={filters.qualification} onChange={(v) => set({ qualification: v })} options={[{ value: '', label: 'All qualifications' }, ...['New Opportunity', 'Needs Verification', 'Relevant Requirement Found', 'Monitoring'].map((q) => ({ value: q, label: q }))]} />
             <SelectInput value={filters.reviewStatus} onChange={(v) => set({ reviewStatus: v })} options={[{ value: '', label: 'All review states' }, ...['New', 'Reviewed', 'Follow-up', 'Dismissed'].map((q) => ({ value: q, label: q }))]} />
             <SelectInput value={filters.reportDate} onChange={(v) => set({ reportDate: v })} options={[{ value: '', label: 'All report dates' }, ...(list?.filters.report_dates ?? []).map((d) => ({ value: d, label: fmt(d, false) }))]} />
+            <SelectInput value={filters.claimLevel} onChange={(v) => set({ claimLevel: v })} options={[{ value: '', label: 'All evidence levels' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'inference', label: 'Inference' }, { value: 'hypothesis', label: 'Hypothesis' }]} />
+            <SelectInput value={filters.businessFit} onChange={(v) => set({ businessFit: v })} options={[{ value: '', label: 'All business fits' }, { value: 'eb', label: 'Enterprise Brain' }, { value: 'scholar', label: 'Scholar' }, { value: 'g2g', label: 'G2G' }, { value: 'multiple', label: 'Multiple' }]} />
+            <SelectInput value={filters.expiry} onChange={(v) => set({ expiry: v as Filters['expiry'] })} options={[{ value: '', label: 'Active signals' }, { value: 'only', label: `Expired (${list?.summary.expired ?? 0})` }]} />
+            {((list?.summary.samples ?? 0) > 0 || filters.includeSamples) && (
+              <label className="flex items-center gap-2 text-sm text-foreground @xl:col-span-2 @3xl:col-span-3">
+                <input type="checkbox" className="size-4 rounded border-border" checked={filters.includeSamples} onChange={(e) => set({ includeSamples: e.target.checked })} />
+                Include samples
+                <span className="text-xs text-muted-foreground">({list?.summary.samples ?? 0} sample signal{(list?.summary.samples ?? 0) === 1 ? '' : 's'}, hidden by default)</span>
+              </label>
+            )}
           </div>
         </Surface>
 
@@ -648,7 +674,9 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         ) : error ? (
           <ErrorState title="Could not load opportunities" description={error} retry={() => void load()} />
         ) : list && list.data.length === 0 ? (
-          active || list.summary.total > 0 ? (
+          filters.expiry === 'only' ? (
+            <EmptyState icon={<Search className="size-8" />} title="No expired signals" description="Signals that pass their closing date are kept here. None have expired yet." action={<Button variant="outline" onClick={() => set({ expiry: '' })}>Back to active signals</Button>} />
+          ) : active || list.summary.total > 0 ? (
             <EmptyState icon={<Search className="size-8" />} title="No opportunities match these filters" description="Try clearing a filter." action={<Button variant="outline" onClick={() => { setFilters(EMPTY); setPage(1) }}>Clear filters</Button>} />
           ) : (
             <EmptyState
@@ -656,7 +684,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
               title={running ? 'Researching companies…' : latest?.status === 'success' || latest?.status === 'partial' ? 'No qualifying opportunities found' : 'No opportunities yet'}
               description={running ? 'Searching public sources and qualifying findings. This can take a few minutes.'
                 : latest?.status === 'success' || latest?.status === 'partial' ? `The last research run reviewed ${latest.sources_found} sources across ${latest.companies_researched} companies, but found no company activity with enough confirmed evidence to qualify. All source records are preserved in the Report History.`
-                : blocked ? 'Complete the setup above, then research will run daily at the scheduled time.' : 'Research runs automatically at the scheduled time, or click Run Research Now.'}
+                : blocked ? 'Complete the setup above, then research will run daily at the scheduled time.' : 'No market signals yet. Research runs automatically at the scheduled time, or click Run Research Now. To load your own demand-side file, use Ingestion engine → Market signals.'}
             />
           )
         ) : (

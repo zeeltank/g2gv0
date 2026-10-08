@@ -48,6 +48,35 @@ export interface OpportunitySource {
   page_fetched?: boolean
 }
 
+/** How strongly the source supports the claim. A snippet or a blocked page can never be 'confirmed'. */
+export type ClaimLevel = 'confirmed' | 'inference' | 'hypothesis'
+/** What was actually read: the whole document, the page text, only a search snippet, or nothing (blocked). */
+export type FetchLevel = 'full_document' | 'page_text' | 'search_snippet' | 'blocked'
+export type PipelineStatus = 'NEW' | 'REVIEWING' | 'ENGAGED' | 'WON' | 'LOST' | 'ARCHIVED'
+
+/** An offer matched to a signal. `is_deliverable` is what the offer is NOW; readiness never changes the score. */
+export interface MatchedOffer {
+  offer_id: string
+  offer_name: string | null
+  match_score: number | null
+  matched_need_codes: string[]
+  readiness_status: string | null
+  readiness_at_match: string | null
+  is_deliverable: boolean
+  match_status: string | null
+}
+
+export interface MarketScores {
+  buying_signal: number | null
+  problem_fit: number | null
+  product_fit: number | null
+  accessibility: number | null
+  urgency: number | null
+  potential_value: number | null
+  evidence_quality: number | null
+  total: number
+}
+
 export interface Opportunity {
   id: number
   company_id: number
@@ -87,6 +116,50 @@ export interface Opportunity {
   review_notes?: string | null
   sources?: OpportunitySource[]
   reviewed_at?: string | null
+
+  // ── Imported (demand-side) signals. Null / absent on researched rows. ──
+  pipeline_status?: PipelineStatus
+  trigger_type?: string | null
+  trigger_summary?: string | null
+  reference_no?: string | null
+  source_url?: string | null
+  source_title?: string | null
+  expires_at?: string | null
+  /** Whole days until expiry (negative once expired); null when the signal has no expiry. */
+  days_left?: number | null
+  is_expired?: boolean
+  claim_level?: ClaimLevel | null
+  fetch_level?: FetchLevel | null
+  evidence_note?: string | null
+  business_fit?: 'eb' | 'scholar' | 'g2g' | 'multiple' | null
+  candidate_need_codes?: string[]
+  buyer_segment?: string | null
+  buyer_type?: string | null
+  buyer_state?: string | null
+  likely_problem?: string | null
+  likely_stakeholder?: string | null
+  what_we_could_sell?: string | null
+  entry_point?: string | null
+  scale?: string | null
+  estimated_value?: string | null
+  is_government_track?: boolean
+  partner_route_note?: string | null
+  soft_marketing_angle?: string | null
+  scores?: MarketScores | null
+  score_reasoning?: string | null
+  is_sample?: boolean
+  matched_offers?: MatchedOffer[]
+}
+
+/** Result of one structured market import (POST /signals/market/import). */
+export interface MarketImportResult {
+  scan_log_id: number | null
+  received: number
+  accepted: number
+  updated: number
+  duplicate: number
+  rejected: number
+  results: { index: number; outcome: string; reason_code?: string; reason?: string; id?: number }[]
 }
 
 export interface OpportunityListResponse {
@@ -102,8 +175,19 @@ export interface OpportunityListResponse {
     watchlist?: number
     market_intelligence?: number
     competitor_intelligence?: number
+    /** Hidden by default: shown under the Expired view / Include samples toggle. */
+    expired?: number
+    samples?: number
   }
-  filters: { categories: { value: string; label: string }[]; kinds: { value: string; label: string }[]; report_dates: string[] }
+  filters: {
+    categories: { value: string; label: string }[]
+    kinds: { value: string; label: string }[]
+    report_dates: string[]
+    claim_levels?: ClaimLevel[]
+    fetch_levels?: FetchLevel[]
+    business_fits?: string[]
+    pipeline_statuses?: PipelineStatus[]
+  }
 }
 
 export type ResearchStage = 'preparing' | 'searching' | 'collecting' | 'analyzing' | 'saving' | 'completed' | 'failed'
@@ -161,6 +245,13 @@ export interface OpportunityQuery {
   feedSection?: string
   reportDate?: string
   page?: number
+  /** 'hide' (default): active only. 'only': the Expired view. 'include': both. */
+  expired?: 'hide' | 'only' | 'include'
+  /** Sample rows never appear unless this is on. */
+  includeSamples?: boolean
+  claimLevel?: string
+  businessFit?: string
+  needCode?: string
 }
 
 export interface ProviderCheck {
@@ -347,7 +438,24 @@ export const opportunitiesService = {
     if (q.reviewStatus) params.review_status = q.reviewStatus
     if (q.feedSection) params.feed_section = q.feedSection
     if (q.reportDate) params.report_date = q.reportDate
+    if (q.expired && q.expired !== 'hide') params.expired = q.expired
+    if (q.includeSamples) params.include_samples = '1'
+    if (q.claimLevel) params.claim_level = q.claimLevel
+    if (q.businessFit) params.business_fit = q.businessFit
+    if (q.needCode) params.need_code = q.needCode
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
+  },
+
+  /**
+   * Structured demand-side import (JSON or CSV). Rejected rows come back with a reason and are kept
+   * server-side; `dryRun` validates without writing anything.
+   */
+  importMarket: (c: LaravelContext, file: File, opts: { dryRun?: boolean; label?: string } = {}) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (opts.label) form.append('source_label', opts.label)
+    if (opts.dryRun) form.append('dry_run', '1')
+    return apiClient.postForm<{ status: number; message: string; data: MarketImportResult }>(`/signals/market/import?${qs(c)}`, form)
   },
 
   get: (c: LaravelContext, id: number) => apiClient.get<{ status: number; data: Opportunity }>(`/signals/opportunities/${id}`, base(c)),
