@@ -13,3 +13,16 @@
 export function isAiCoreEnabled(): boolean {
   return process.env.NEXT_PUBLIC_AI_CORE_ENABLED === 'true';
 }
+
+/**
+ * The switch for module-scoped chat.
+ *
+ * ON: while the user is inside a module that has an AI Stack, the shell chat asks the
+ * backend's `/ask` with that module's key (validated server-side, policy-enforced, grounded
+ * in that module's data only). OFF (default): the chat behaves exactly as before.
+ *
+ * Same rollback as `isAiCoreEnabled`: unset it and rebuild.
+ */
+export function isModuleChatEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_MODULE_CHAT_ENABLED === 'true';
+}
