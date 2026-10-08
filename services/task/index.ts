@@ -8,7 +8,20 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import type {
   BacklogPayload,
   BacklogResponse,
+  CalendarEntriesResponse,
+  CalendarEvent,
+  CalendarEventPayload,
+  AttendeesResponse,
+  CalendarFeedsResponse,
+  CalendarSharesResponse,
+  IcsImportResult,
+  DueRemindersResponse,
   MyTask,
+  ReminderResponse,
+  ReminderSetting,
+  RecurrenceResponse,
+  RecurrenceSavedResponse,
+  RecurrenceScope,
   MyTaskDetailResponse,
   MyTaskPriority,
   MyTasksQuery,
@@ -197,6 +210,202 @@ export const taskService = {
       per_page: String(query.perPage ?? 20),
     }),
   /**
+   * The employee's own "jot this down" create path - title + an optional
+   * date, nothing else, always self-assigned. Deliberately not
+   * `createLegacyTask`'s shape (department/job-role/skills/KRA/KPA/observer)
+   * - that form is an assigner assigning work to someone else.
+   */
+  quickAddMyTask: (context: LaravelContext, title: string, dueDate?: string, extra?: {
+    description?: string; time_start?: string; time_end?: string; status?: string; priority?: string
+  }) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/my-tasks/quick', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      title, ...(dueDate ? { due_date: dueDate } : {}), ...extra,
+    }),
+
+  /* ── Calendar: tasks + events + milestones + checkpoints, merged ──── */
+
+  /** Everything date-bearing in one range. See CalendarEntry's own docblock. */
+  getCalendarEntries: (context: LaravelContext, params: { from: string; to: string }) =>
+    apiClient.get<CalendarEntriesResponse>('/task-management/calendar', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      from: params.from, to: params.to,
+    }),
+  createCalendarEvent: (context: LaravelContext, payload: CalendarEventPayload) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/calendar/events', {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  getCalendarEvent: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: 1; message: string; data: CalendarEvent }>(`/task-management/calendar/events/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  updateCalendarEvent: (context: LaravelContext, id: string, payload: Partial<CalendarEventPayload & { linked_type: string | null; linked_id: string | null }>) =>
+    apiClient.put<{ status: 1; message: string; data: CalendarEvent }>(`/task-management/calendar/events/${id}`, {
+      ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** Drag-reschedule: only the two timestamps move. */
+  rescheduleCalendarEvent: (context: LaravelContext, id: string, startAt: string, endAt: string) =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/calendar/events/${id}/reschedule`, {
+      start_at: startAt, end_at: endAt,
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /**
+   * Privileged-only server-side, even for your own event - see
+   * CalendarController's docblock. `scope` defaults to 'all' (the whole
+   * event, today's behaviour); pass 'this'/'this_and_future' when the event
+   * is part of a recurring series and the caller resolved a scope choice.
+   */
+  deleteCalendarEvent: (context: LaravelContext, id: string, scope: RecurrenceScope = 'all') =>
+    apiClient.delete<{ status: 1; message: string; data: { deleted_count: number } }>(`/task-management/calendar/events/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, scope,
+    }),
+
+  /* ── Recurrence (Phase 2): daily/weekly/monthly, eagerly materialized ── */
+
+  getTaskRecurrence: (context: LaravelContext, taskId: string) =>
+    apiClient.get<RecurrenceResponse>(`/task-management/workspace/${taskId}/recurrence`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  upsertTaskRecurrence: (context: LaravelContext, taskId: string, rule: { frequency: string; interval?: number; until?: string | null }) =>
+    apiClient.put<RecurrenceSavedResponse>(`/task-management/workspace/${taskId}/recurrence`, {
+      ...rule, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** Always 'all' server-side - there is no partial "stop repeating from here" without a delete. */
+  deleteTaskRecurrence: (context: LaravelContext, taskId: string) =>
+    apiClient.delete<{ status: 1; message: string; data: { deleted_count: number } }>(`/task-management/workspace/${taskId}/recurrence`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  getEventRecurrence: (context: LaravelContext, eventId: string) =>
+    apiClient.get<RecurrenceResponse>(`/task-management/calendar/events/${eventId}/recurrence`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  upsertEventRecurrence: (context: LaravelContext, eventId: string, rule: { frequency: string; interval?: number; until?: string | null }) =>
+    apiClient.put<RecurrenceSavedResponse>(`/task-management/calendar/events/${eventId}/recurrence`, {
+      ...rule, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deleteEventRecurrence: (context: LaravelContext, eventId: string) =>
+    apiClient.delete<{ status: 1; message: string; data: { deleted_count: number } }>(`/task-management/calendar/events/${eventId}/recurrence`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /* ── Reminders (Phase 3) ──────────────────────────────────────────── */
+
+  getTaskReminder: (context: LaravelContext, taskId: string) =>
+    apiClient.get<ReminderResponse>(`/task-management/workspace/${taskId}/reminder`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  upsertTaskReminder: (context: LaravelContext, taskId: string, minutesBefore: number) =>
+    apiClient.put<{ status: 1; message: string; data: { reminder: ReminderSetting } }>(`/task-management/workspace/${taskId}/reminder`, {
+      minutes_before: minutesBefore, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deleteTaskReminder: (context: LaravelContext, taskId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/workspace/${taskId}/reminder`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  getEventReminder: (context: LaravelContext, eventId: string) =>
+    apiClient.get<ReminderResponse>(`/task-management/calendar/events/${eventId}/reminder`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  upsertEventReminder: (context: LaravelContext, eventId: string, minutesBefore: number) =>
+    apiClient.put<{ status: 1; message: string; data: { reminder: ReminderSetting } }>(`/task-management/calendar/events/${eventId}/reminder`, {
+      minutes_before: minutesBefore, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deleteEventReminder: (context: LaravelContext, eventId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/calendar/events/${eventId}/reminder`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /** The polling surface behind useTaskReminders - everything due right now. */
+  getDueReminders: (context: LaravelContext) =>
+    apiClient.get<DueRemindersResponse>('/task-management/calendar/reminders/due', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  markReminderSeen: (context: LaravelContext, deliveryId: string) =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/calendar/reminders/${deliveryId}/seen`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  snoozeReminder: (context: LaravelContext, deliveryId: string, minutes: number) =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/calendar/reminders/${deliveryId}/snooze`, {
+      minutes, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /* ── Sharing & visibility (Phase 4) ──────────────────────────────── */
+
+  /** Whom I've granted access to — outgoing. */
+  getCalendarShares: (context: LaravelContext) =>
+    apiClient.get<CalendarSharesResponse>('/task-management/calendar/shares', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** `viewerUserId: 0` shares with everyone in the tenant. */
+  createCalendarShare: (context: LaravelContext, viewerUserId: string, canEdit = false, color?: string | null) =>
+    apiClient.post<{ status: 1; message: string }>('/task-management/calendar/shares', {
+      viewer_user_id: viewerUserId, can_edit: canEdit, color: color ?? undefined,
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  deleteCalendarShare: (context: LaravelContext, shareId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/calendar/shares/${shareId}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** Whose calendars I may overlay — incoming, for the feed toggle panel. */
+  getCalendarFeeds: (context: LaravelContext) =>
+    apiClient.get<CalendarFeedsResponse>('/task-management/calendar/feeds', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  updateTaskVisibility: (context: LaravelContext, taskId: string, visibility: 'PUBLIC' | 'PRIVATE') =>
+    apiClient.patch<{ status: 1; message: string; data: { visibility: string } }>(`/task-management/workspace/${taskId}/visibility`, {
+      visibility, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /* ── iCalendar + attendees (Phase 5) ─────────────────────────────── */
+
+  /** A download href, not a fetch — same pattern as auditLogsExportUrl. */
+  eventIcsUrl: (context: LaravelContext, eventId: string) =>
+    buildApiUrl(`/task-management/calendar/events/${eventId}/ics`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  calendarExportIcsUrl: (context: LaravelContext, from: string, to: string) =>
+    buildApiUrl('/task-management/calendar/export.ics', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, from, to,
+    }),
+  importIcs: (context: LaravelContext, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('token', context.token)
+    body.append('sub_institute_id', context.subInstituteId)
+    body.append('syear', context.syear)
+    return apiClient.postForm<{ status: 1; message: string; data: IcsImportResult }>('/task-management/calendar/import', body)
+  },
+  getEventAttendees: (context: LaravelContext, eventId: string) =>
+    apiClient.get<AttendeesResponse>(`/task-management/calendar/events/${eventId}/attendees`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  /** Exactly one of userId/externalEmail - the server rejects both absent. */
+  inviteAttendee: (context: LaravelContext, eventId: string, userId?: string, externalEmail?: string) =>
+    apiClient.post<{ status: 1; message: string; data: { attendee_id: string } }>(`/task-management/calendar/events/${eventId}/attendees`, {
+      ...(userId ? { user_id: userId } : {}), ...(externalEmail ? { external_email: externalEmail } : {}),
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+  removeAttendee: (context: LaravelContext, eventId: string, attendeeId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(`/task-management/calendar/events/${eventId}/attendees/${attendeeId}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
+
+  /**
+   * Scope-aware task delete over the MODERN endpoint
+   * (`/task-management/legacy-tasks/{id}`), not the old `/task/{id}` web
+   * route `deleteLegacyTask` below still uses. Same migration
+   * `updateLegacyTask` already made for edits (observer silently not saved,
+   * every edit stamping approval) - the old delete route has no scope
+   * concept at all and cannot gain one without becoming this.
+   */
+  deleteModernTask: (context: LaravelContext, id: string, scope: RecurrenceScope = 'all') =>
+    apiClient.delete<{ status: 1; message: string; data: { deleted_count: number } }>(`/task-management/legacy-tasks/${id}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, scope,
+    }),
+
+  /**
    * Deadline extensions for one task. The executor requests more time from
    * the task drawer; the owner decides on the same surface. Approval moves
    * the task's due date server-side.
@@ -291,11 +500,12 @@ export const taskService = {
       '/task-management/priorities',
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
     ),
-  createPriorityOption: (context: LaravelContext, payload: { name: string; sort_order?: number; sla_hours?: number }) =>
+  createPriorityOption: (context: LaravelContext, payload: { name: string; sort_order?: number; sla_hours?: number; color?: string }) =>
     apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/priorities', {
       ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
-  updatePriorityOption: (context: LaravelContext, id: string, payload: { name: string; sort_order?: number; sla_hours?: number; active?: boolean }) =>
+  /** Omitting `color` clears it on update - matches the status equivalent's own established behaviour, not independently "fixed" here. */
+  updatePriorityOption: (context: LaravelContext, id: string, payload: { name: string; sort_order?: number; sla_hours?: number; active?: boolean; color?: string }) =>
     apiClient.put<{ status: 1; message: string }>(`/task-management/priorities/${id}`, {
       ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
@@ -394,6 +604,28 @@ export const taskService = {
   decideWorkspaceTask: (context: LaravelContext, id: string, decision: 'approve' | 'reject', remarks = '') =>
     apiClient.patch<{ status: 1; message: string }>(`/task-management/workspace/${id}/approval`, {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, decision, remarks,
+    }),
+  /** Clones the task into a fresh PENDING one due today + the caller's follow_up_days preference. */
+  createFollowUpTask: (context: LaravelContext, id: string) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string; task_title: string; due_date: string } }>(
+      `/task-management/workspace/${id}/follow-up`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  /** Per-task result, since one batch can legally mix tasks the caller may and may not act on. */
+  bulkReassignTasks: (context: LaravelContext, taskIds: string[], assigneeId: string) =>
+    apiClient.post<{ status: 1; message: string; data: {
+      results: Array<{ task_id: string; ok: boolean; reason: string | null }>
+      summary: { succeeded: number; failed: number }
+    } }>('/task-management/workspace/bulk/reassign', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+      task_ids: taskIds, assignee_id: assigneeId,
+    }),
+  bulkDeleteTasks: (context: LaravelContext, taskIds: string[]) =>
+    apiClient.deleteWithBody<{ status: 1; message: string; data: {
+      results: Array<{ task_id: string; ok: boolean; reason: string | null }>
+      summary: { succeeded: number; failed: number }
+    } }>('/task-management/workspace/bulk', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, task_ids: taskIds,
     }),
   addWorkspaceComment: (context: LaravelContext, id: string, content: string) =>
     apiClient.post<{ status: 1; message: string; data: { id: string } }>(`/task-management/workspace/${id}/comments`, {
@@ -670,11 +902,12 @@ export const taskService = {
     }),
   // `perPage` exists for callers that need the whole list at once, such as a
   // project picker, rather than the 12-per-page project board.
-  getProjectRecords: (context: LaravelContext, params: { search?: string; status?: ProjectStatus; page?: number; perPage?: number } = {}) =>
+  getProjectRecords: (context: LaravelContext, params: { search?: string; status?: ProjectStatus; page?: number; perPage?: number; includeArchived?: boolean } = {}) =>
     apiClient.get<{ status: 1; message: string; data: { projects: ProjectRecord[]; pagination: TaskPagination } }>(
       '/task-management/projects',
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
         ...(params.search ? { search: params.search } : {}), ...(params.status ? { status: params.status } : {}),
+        ...(params.includeArchived ? { include_archived: '1' } : {}),
         page: String(params.page ?? 1), per_page: String(params.perPage ?? 12) },
     ),
   getProjectRecord: (context: LaravelContext, id: string) =>

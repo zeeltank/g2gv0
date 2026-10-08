@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, FileSearch, Loader2, Sparkles, Upload } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { accountService, type DocumentProcessingStep } from '@/services/account'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { GeneratingOrb } from '@/components/ui/generating-orb'
@@ -33,17 +33,30 @@ import { DocumentProcessingSteps } from '@/components/domain/documents/document-
  * below: the number starts at a random 5-18% instead of a dead 0% (the
  * upload itself already moved bytes before the server reported anything),
  * and nudges forward on its own between polls so it never looks frozen.
- * That creep is bounded — it always stops a few points short of the next
- * real milestone and can only be pushed past that point by an actual
- * `processing_step` change, so it can visually stall for a moment but can
- * never fake-complete a stage the backend hasn't confirmed.
+ *
+ * That creep used to be a hard per-milestone cap (stop a few points short of
+ * the next step, freeze there until the backend confirms it) - which is
+ * exactly the bug it looked like from the outside: a long queue-worker boot
+ * gap (see ProcessDocumentPipelineJob's own docblock) meant the number would
+ * climb to that cap and then go completely, visibly dead at whatever number
+ * it landed on - 15%, 20%, however far it got before hitting the wall. It's
+ * an asymptotic decay toward 99% now instead (`displayPercent + (99 -
+ * displayPercent) * CREEP_RATE` on every tick) - the same "approach but
+ * never arrive" idea `creepPercent()` in document-batch-upload-progress.tsx
+ * already uses for its own per-row bars, just reshaped to restart its
+ * approach from a higher floor each time the backend confirms a step rather
+ * than running off a single elapsed-time clock. There is always SOME motion
+ * on every tick, by construction, for as long as processing runs - it can
+ * only ever end by a real `processing_step` floor jump pulling it up (never
+ * backward) or by `finished` snapping it to 100, never by silently running
+ * out of room the way the old cap did.
  */
 
-const STEPS: Array<{ key: Exclude<DocumentProcessingStep, null>; label: string; icon: typeof Upload }> = [
-  { key: 'ocr', label: 'Reading text (OCR if it’s a scan)', icon: FileSearch },
-  { key: 'checking_duplicates', label: 'Checking for duplicates', icon: Copy },
-  { key: 'classifying', label: 'Classifying with AI', icon: Sparkles },
-  { key: 'done', label: 'Ready', icon: Check },
+const STEPS: Array<{ key: Exclude<DocumentProcessingStep, null>; label: string }> = [
+  { key: 'ocr', label: 'Reading text (OCR if it’s a scan)' },
+  { key: 'checking_duplicates', label: 'Checking for duplicates' },
+  { key: 'classifying', label: 'Classifying with AI' },
+  { key: 'done', label: 'Ready' },
 ]
 
 /** Index into STEPS for wherever the backend says we are right now. 'failed' still counts as finished — see ProcessDocumentPipelineJob's docblock: enrichment failing never blocks the document. */
@@ -67,12 +80,8 @@ function stepIndex(step: DocumentProcessingStep): number {
 const POLL_MS = 500
 const MAX_POLLS = 60 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
 const CREEP_MS = 450 // how often the bar nudges itself forward between real backend updates
-// 6 -> 10: now that the orb's continuous motion and the word-by-word step
-// label (see document-processing-steps.tsx) carry the "something is alive"
-// signal, the number itself can hold back a bit further and still not read
-// as stalled - its eventual real jump should land as "the backend told us
-// something new," not a last-second creep nudge.
-const CREEP_RESERVE = 10 // percentage points held back from the next real milestone, so the creep can never claim a stage finished before the backend says so
+const CREEP_CAP = 99 // never claims done on its own — only `finished` is allowed to reach 100
+const CREEP_RATE = 0.045 // fraction of the remaining distance to CREEP_CAP closed on each tick — always a positive step, so it can never go fully still
 
 export interface DocumentProcessingProgressProps {
   /**
@@ -96,11 +105,12 @@ export interface DocumentProcessingProgressProps {
  * dropzone for however long the multipart upload itself takes (a real
  * multi-second gap on an office document) before suddenly jumping to this
  * screen, which read as broken. So `documentId` starts `null` and the orb
- * below is already live (creeping through the same pre-first-step 0-19%
- * band `index === -1` already produces) before the server has even
- * acknowledged the file; the polling effect below simply does nothing until
- * the caller re-renders with a real id, at which point it starts exactly as
- * before.
+ * below is already live (creeping upward exactly as it does once polling
+ * starts, since `index === -1` behaves identically whether that's because
+ * polling hasn't started yet or because the server hasn't reported a step
+ * yet) before the server has even acknowledged the file; the polling effect
+ * below simply does nothing until the caller re-renders with a real id, at
+ * which point it starts exactly as before.
  */
 export function DocumentProcessingProgress({ documentId, fileName, onFinished }: DocumentProcessingProgressProps) {
   const resolveContext = useLaravelContext()
@@ -161,17 +171,12 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
   const failed = step === 'failed'
   const finished = step === 'done' || failed
 
-  // Real milestones from the backend: `floor` is guaranteed the instant the
-  // server reports this step; `ceiling` is the next one, not yet confirmed.
-  // The creep below moves from floor toward (ceiling - CREEP_RESERVE) on
-  // its own, but can't cross into "this stage is done" territory until the
-  // backend actually says so.
+  // A real milestone from the backend — guaranteed the instant the server
+  // reports this step. The creep interval below keeps closing the distance
+  // to CREEP_CAP on its own between milestones; this only ever pulls the
+  // number UP when real progress lands, never down.
   const floor = finished ? 100 : ((index + 1) / STEPS.length) * 100
-  const ceiling = finished ? 100 : Math.min(100, ((index + 2) / STEPS.length) * 100)
-  const creepCap = Math.max(floor, ceiling - CREEP_RESERVE)
 
-  // Jump up to the real floor the instant the backend confirms it (never
-  // backward) — the creep interval below takes over from there.
   useEffect(() => {
     setDisplayPercent((p) => Math.max(p, floor))
   }, [floor])
@@ -183,18 +188,21 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
     }
 
     const id = setInterval(() => {
-      setDisplayPercent((p) => Math.min(creepCap, p + Math.random() * 2.2))
+      setDisplayPercent((p) => {
+        const next = p + (CREEP_CAP - p) * CREEP_RATE
+        return next >= CREEP_CAP - 0.05 ? CREEP_CAP : next
+      })
     }, CREEP_MS)
 
     return () => clearInterval(id)
-  }, [creepCap, finished])
+  }, [finished])
 
   const percent = Math.round(displayPercent)
 
   // The headline under the orb: the real step label once the backend has
   // reported one, "Uploading" before that, "Ready" at the end - never a
-  // generic "Processing…" that would undercut the word-reveal's whole point
-  // of naming the actual stage.
+  // generic "Processing…" that would undercut the roll-in's whole point of
+  // naming the actual stage.
   const activeLabel = finished ? (failed ? 'Finished (with a snag)' : 'Ready') : index === -1 ? 'Uploading' : STEPS[index].label
 
   return (
@@ -204,47 +212,53 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         Uploaded — now reading, checking and classifying its content so it’s searchable.
       </p>
 
-      <div className="mt-5 flex flex-col items-center gap-3">
-        <GeneratingOrb percent={percent} text={`${percent}%`} size={120} active={!finished} />
-        <DocumentProcessingSteps label={activeLabel} />
+      <div className="mt-5 flex flex-col items-center gap-4">
+        <GeneratingOrb percent={percent} text={`${percent}%`} size={220} active={!finished} />
+        <DocumentProcessingSteps label={activeLabel} size="lg" />
       </div>
 
       {/* The checklist, de-emphasized below the orb now that the orb/label
           above carry the primary "something is happening" signal - this
-          stays for "what's already done" detail, not as the main focus. */}
-      <ol className="mx-auto mt-5 max-w-xs space-y-2 text-left">
+          stays for "what's already done" detail, not as the main focus.
+          Centered (not left-aligned), and no badge circle around each
+          row's icon any more - just a bare glyph, since a flat bordered
+          circle next to the orb's own moving, colorful rendering read as
+          mismatched. A spinning Loader2 (plain, no background) marks any
+          row that isn't done yet - pending or active alike, so "something
+          is turning" is literal and not just implied by text motion; a
+          static check replaces it the instant that row finishes. The
+          active row's own label gets the vivid looping color treatment
+          (DocumentProcessingSteps - see its own docblock) layered on its
+          roll-in entrance; a still-pending row's label shimmers in place
+          (g2g-text-shimmer); every not-yet-finished row also gently bobs
+          as a whole line (g2g-row-float), staggered per row by index so
+          the list reads as a soft wave, not everything moving in lockstep. */}
+      <ol className="mx-auto mt-6 max-w-sm space-y-3">
         {STEPS.map((s, i) => {
           const complete = i < index || (i === index && (step === 'done' || (failed && i === STEPS.length - 1)))
           const active = i === index && !complete
-          const Icon = s.icon
+          const label = s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label
 
           return (
-            <li key={s.key} className="flex items-center gap-2.5">
-              <span
-                className={`flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                  complete
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : active
-                      ? 'border-primary text-primary'
-                      : 'border-border text-muted-foreground/50'
-                }`}
-              >
-                {complete ? (
-                  <Check className="size-3" aria-hidden="true" />
-                ) : active ? (
-                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Icon className="size-3" aria-hidden="true" />
-                )}
-              </span>
-              {active ? (
-                <DocumentProcessingSteps
-                  label={s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
-                  className="justify-start text-xs font-medium text-foreground"
-                />
+            <li
+              key={s.key}
+              className={`flex items-center justify-center gap-2.5 ${complete ? '' : 'motion-safe:[animation:g2g-row-float_2.6s_ease-in-out_infinite]'}`}
+              style={complete ? undefined : { animationDelay: `${i * 160}ms` }}
+            >
+              {complete ? (
+                <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />
               ) : (
-                <span className={`text-xs ${complete ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
-                  {s.key === 'done' && failed ? 'Finished (enrichment hit a snag — the document is still filed and searchable by title)' : s.label}
+                <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
+              )}
+              {active ? (
+                <DocumentProcessingSteps label={label} size="sm" />
+              ) : complete ? (
+                <span className="text-xs text-muted-foreground">{label}</span>
+              ) : (
+                <span
+                  className="bg-clip-text text-xs text-transparent [background-image:linear-gradient(110deg,var(--muted-foreground)_35%,var(--foreground)_50%,var(--muted-foreground)_65%)] [background-size:250%_100%] motion-safe:[animation:g2g-text-shimmer_2.2s_linear_infinite]"
+                >
+                  {label}
                 </span>
               )}
             </li>

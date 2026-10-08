@@ -6,8 +6,10 @@ import {
   ChevronRight,
   ClipboardPaste,
   Clock,
+  Copy,
   FileSearch,
   FileText,
+  FolderInput,
   FolderPlus,
   Grid2x2,
   Grid3x3,
@@ -21,6 +23,7 @@ import {
   Star,
   Trash2,
   Users,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -86,6 +89,8 @@ const VIEW_OPTIONS: Array<{ value: GridCardSize | 'list'; label: string; icon: t
 const PER_PAGE = 24
 /** Mirrors config('documents.trash.purge_days') — cosmetic copy only, the server's own `purge_at` per row is authoritative. */
 const TRASH_PURGE_DAYS = 30
+/** A stable reference for "no folders here" (Recent/Starred) - see its one call site for why a fresh `[]` literal every render isn't good enough. */
+const EMPTY_FOLDERS: DocumentFolderNode[] = []
 
 /** Depth-first search over the server-built tree — no client-side tree-construction needed, see document-folder-tree.tsx's docblock. */
 function findFolderNode(nodes: DocumentFolderNode[], id: number): DocumentFolderNode | null {
@@ -219,6 +224,15 @@ export function DocumentLibraryView() {
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('')
   const [moving, setMoving] = useState(false)
 
+  // Multi-select, for bulk move/copy/delete — keyed `doc-<id>`/`folder-<id>`,
+  // the same disambiguation convention `renamingKey` already uses inside
+  // the grid/table components, so a document and a folder sharing a
+  // numeric id can never collide in the same Set.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+
   /** Cosmetic only — hides the "everyone's trash" toggle (and widens folder-manage) for a caller who almost certainly can't use the elevated path. The server's own gates are the real control. */
   const isElevated = isRole(user?.role) && isHrAdmin(user.role)
 
@@ -232,6 +246,22 @@ export function DocumentLibraryView() {
   useEffect(() => {
     setPage(1)
   }, [debouncedQuery, category, documentType, scope, currentFolderId, dateFrom, dateTo, searchDepartmentId, searchEverywhere])
+
+  // A selection only makes sense against the list it was made on - leaving
+  // the Bin open or Recent/Starred selected after navigating away would
+  // silently point a bulk action at items the viewer can no longer see.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [scope, currentFolderId, debouncedQuery])
+
+  function toggleSelected(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   // The department filter is elevated-only - a non-elevated caller's
   // visible set never crosses departments anyway (DocumentAccess already
@@ -859,9 +889,12 @@ export function DocumentLibraryView() {
 
   // Global Ctrl+V - the one clipboard action a keyboard shortcut can mean
   // unambiguously here. Cut/Copy stay mouse-driven (via each tile's own
-  // context menu): this screen has no multi-select model, so there is no
-  // well-defined "the selected item" for a keyboard shortcut to act on -
-  // but "paste into wherever I'm currently browsing" is always well-defined.
+  // context menu) even now that multi-select exists: the clipboard itself
+  // only ever holds one entry (see useDocumentClipboard's own docblock),
+  // and bulk Move/Copy/Delete already cover the multi-item case through
+  // their own direct buttons in the selection bar - "paste into wherever
+  // I'm currently browsing" is the one action that stays unambiguous
+  // regardless of how many things happen to be selected right now.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'v') return
@@ -887,7 +920,173 @@ export function DocumentLibraryView() {
   // folder browse makes no sense on either) - so both the folders shown and
   // the pagination controls below are skipped entirely for these two scopes.
   const displayedResults = scope === 'recent' ? recentResults : scope === 'starred' ? starredResults : results
-  const displayedFolders = scope === 'recent' || scope === 'starred' ? [] : currentSubfolders
+  // A stable empty-array reference, not a fresh `[]` literal each render -
+  // selectedFolders/bulkMoveFolderOptions below depend on this via useMemo,
+  // and a new literal every render would defeat that memoization in the
+  // Recent/Starred scopes.
+  const displayedFolders = scope === 'recent' || scope === 'starred' ? EMPTY_FOLDERS : currentSubfolders
+
+  const selectedDocs = useMemo(
+    () => displayedResults.filter((d) => selected.has(`doc-${d.id}`)),
+    [displayedResults, selected],
+  )
+  const selectedFolders = useMemo(
+    () => displayedFolders.filter((f) => selected.has(`folder-${f.id}`)),
+    [displayedFolders, selected],
+  )
+
+  /** Same shape as the single-folder `folderMoveOptions` above, generalized to exclude the union of every selected folder's own id and descendants — picking any of them as a bulk-move destination would be rejected by the server's cycle guard (or be a no-op) anyway. */
+  const bulkMoveFolderOptions: SearchableOption[] = useMemo(() => {
+    const excluded = new Set<number>()
+    for (const folder of selectedFolders) {
+      excluded.add(folder.id)
+      for (const id of collectDescendantIds(folder)) excluded.add(id)
+    }
+
+    return [
+      { value: '', label: 'Home (no folder)' },
+      ...flattenFolders(folderTree)
+        .filter((f) => !excluded.has(f.id))
+        .map((f) => ({ value: String(f.id), label: `${'— '.repeat(f.depth)}${f.name}` })),
+    ]
+  }, [folderTree, selectedFolders])
+
+  function selectAllVisible() {
+    const next = new Set<string>()
+    for (const d of displayedResults) next.add(`doc-${d.id}`)
+    for (const f of displayedFolders) next.add(`folder-${f.id}`)
+    setSelected(next)
+  }
+
+  function toggleSelectAllVisible() {
+    const totalVisible = displayedResults.length + displayedFolders.length
+    if (totalVisible > 0 && selected.size >= totalVisible) {
+      setSelected(new Set())
+    } else {
+      selectAllVisible()
+    }
+  }
+
+  /**
+   * Bulk move/copy/delete all deliberately reuse the existing SINGLE-item
+   * endpoints, one request per selected item, rather than adding dedicated
+   * bulk endpoints - this app has no bulk-action endpoint anywhere (see
+   * document-table-view.tsx's own docblock), and a selection is a handful
+   * to a few dozen items at most, well within what sequential single-item
+   * calls handle fine. Each item's own failure (e.g. a non-empty folder
+   * rejecting delete, or an item the caller doesn't own) is caught and
+   * counted rather than aborting the whole batch, then reported as one
+   * summary notice - the same "narrow what happened, never silently claim
+   * more succeeded than did" principle the rest of this screen follows.
+   */
+  async function bulkMove() {
+    if (bulkBusy) return
+    setBulkBusy(true)
+    const targetId = moveTargetFolderId ? Number(moveTargetFolderId) : null
+    let ok = 0
+    let failed = 0
+
+    for (const doc of selectedDocs) {
+      try {
+        await accountService.moveDocument(resolveContext(), doc.id, targetId)
+        ok++
+      } catch {
+        failed++
+      }
+    }
+    for (const folder of selectedFolders) {
+      try {
+        const response = await accountService.moveFolder(resolveContext(), folder.id, targetId)
+        if (response.status === 1) ok++
+        else failed++
+      } catch {
+        failed++
+      }
+    }
+
+    setBulkMoveOpen(false)
+    setSelected(new Set())
+    setBulkBusy(false)
+    setNotice({
+      tone: failed > 0 ? 'error' : 'info',
+      text: failed > 0 ? `Moved ${ok}; ${failed} could not be moved.` : `Moved ${ok} item${ok === 1 ? '' : 's'}.`,
+    })
+    await load()
+    await loadFolderTree()
+  }
+
+  async function bulkCopy() {
+    if (bulkBusy) return
+    setBulkBusy(true)
+    let ok = 0
+    let failed = 0
+
+    for (const doc of selectedDocs) {
+      try {
+        const response = await accountService.duplicateDocument(resolveContext(), doc.id, currentFolderId)
+        if (response.status === 1) ok++
+        else failed++
+      } catch {
+        failed++
+      }
+    }
+    for (const folder of selectedFolders) {
+      try {
+        const response = await accountService.duplicateFolder(resolveContext(), folder.id, currentFolderId)
+        if (response.status === 1) ok++
+        else failed++
+      } catch {
+        failed++
+      }
+    }
+
+    setSelected(new Set())
+    setBulkBusy(false)
+    setNotice({
+      tone: failed > 0 ? 'error' : 'info',
+      text: failed > 0 ? `Copied ${ok}; ${failed} could not be copied.` : `Copied ${ok} item${ok === 1 ? '' : 's'}.`,
+    })
+    await load()
+    await loadFolderTree()
+  }
+
+  async function bulkDelete() {
+    if (bulkBusy) return
+    setBulkBusy(true)
+    let ok = 0
+    let failed = 0
+
+    for (const doc of selectedDocs) {
+      try {
+        await accountService.deleteDocument(resolveContext(), doc.id)
+        ok++
+      } catch {
+        failed++
+      }
+    }
+    for (const folder of selectedFolders) {
+      try {
+        const response = await accountService.deleteFolder(resolveContext(), folder.id)
+        if (response.status === 1) ok++
+        else failed++
+      } catch {
+        failed++
+      }
+    }
+
+    setBulkDeleteOpen(false)
+    setSelected(new Set())
+    setBulkBusy(false)
+    setNotice({
+      tone: failed > 0 ? 'error' : 'info',
+      text:
+        failed > 0
+          ? `Removed ${ok}; ${failed} couldn't be removed (a folder must be empty first, and only the owner can remove a document).`
+          : `Removed ${ok} item${ok === 1 ? '' : 's'}.`,
+    })
+    await load()
+    await loadFolderTree()
+  }
 
   return (
     <DocumentsPage>
@@ -1172,6 +1371,53 @@ export function DocumentLibraryView() {
         </Surface>
 
         <div className="min-w-0 flex-1 space-y-4">
+          {scope !== 'trash' && selected.size > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  aria-label="Clear selection"
+                  className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+                <span className="text-sm font-medium text-foreground">{selected.size} selected</span>
+                <button type="button" onClick={selectAllVisible} className="text-xs text-primary hover:underline">
+                  Select all
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkBusy}
+                  onClick={() => {
+                    setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
+                    setBulkMoveOpen(true)
+                  }}
+                >
+                  <FolderInput className="mr-1.5 size-3.5" aria-hidden="true" />
+                  Move
+                </Button>
+                <Button variant="outline" size="sm" disabled={bulkBusy} onClick={() => void bulkCopy()}>
+                  {bulkBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" /> : <Copy className="mr-1.5 size-3.5" aria-hidden="true" />}
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkBusy}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="mr-1.5 size-3.5" aria-hidden="true" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+
           {scope !== 'trash' && scope !== 'recent' && scope !== 'starred' && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="Folder path">
@@ -1352,6 +1598,9 @@ export function DocumentLibraryView() {
           onCopyFolder={(folder) => clipboard.copy('folder', folder.id, folder.name)}
           hasClipboard={clipboard.entry !== null}
           onPasteIntoFolder={(folder) => void pasteInto(folder.id)}
+          selectedKeys={selected}
+          onToggleSelect={toggleSelected}
+          selectionActive={selected.size > 0}
         />
       ) : (
         <DocumentTableView
@@ -1382,6 +1631,9 @@ export function DocumentLibraryView() {
           onCopyFolder={(folder) => clipboard.copy('folder', folder.id, folder.name)}
           hasClipboard={clipboard.entry !== null}
           onPasteIntoFolder={(folder) => void pasteInto(folder.id)}
+          selectedKeys={selected}
+          onToggleSelect={toggleSelected}
+          onToggleSelectAll={toggleSelectAllVisible}
         />
       )}
 
@@ -1492,6 +1744,26 @@ export function DocumentLibraryView() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={bulkMoveOpen} onOpenChange={(open) => setBulkMoveOpen(open)}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move {selected.size} item{selected.size === 1 ? '' : 's'}</DialogTitle>
+            <DialogDescription>Choose where they should live.</DialogDescription>
+          </DialogHeader>
+          <SearchableSelect
+            options={bulkMoveFolderOptions}
+            value={moveTargetFolderId}
+            onChange={setMoveTargetFolderId}
+            placeholder="Choose a folder"
+            aria-label="Destination folder"
+          />
+          <Button onClick={() => void bulkMove()} disabled={bulkBusy}>
+            {bulkBusy ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : null}
+            Move
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       <DocumentViewer
         open={viewing !== null}
         onOpenChange={(next) => {
@@ -1541,6 +1813,16 @@ export function DocumentLibraryView() {
         confirmLabel="Remove it"
         busy={deletingFolder}
         onConfirm={() => void confirmDeleteFolder()}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => setBulkDeleteOpen(open)}
+        title={`Remove ${selected.size} item${selected.size === 1 ? '' : 's'}?`}
+        description="Documents are taken off your personnel record and can be restored from the bin; a folder must already be empty to be removed this way."
+        confirmLabel="Remove them"
+        busy={bulkBusy}
+        onConfirm={() => void bulkDelete()}
       />
     </DocumentsPage>
   )

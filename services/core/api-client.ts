@@ -241,6 +241,17 @@ class ApiClient {
   async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', params })
   }
+
+  /**
+   * DELETE with a JSON body, for the rare endpoint that needs to send more
+   * than scalar ids - e.g. an array of task ids to bulk-delete. `delete()`
+   * only carries `params` (a flat query string), which cannot express an
+   * array the way PHP's `task_ids[]=` convention would without hand-built
+   * query encoding; a real body is simpler and matches put()/patch() below.
+   */
+  async deleteWithBody<T>(endpoint: string, body: unknown): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', body })
+  }
 }
 
 export const apiClient = new ApiClient()
