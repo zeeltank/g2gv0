@@ -1,19 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarClock, CalendarDays, CheckCircle2, Clock, Edit2, FileText, Trash2, UserCircle2, Paperclip, Download} from 'lucide-react'
+import { Archive, Bell, CalendarClock, CalendarDays, CalendarPlus, CheckCircle2, Clock, Edit2, FileText, Lock, Repeat, Trash2, UserCircle2, Paperclip, Download} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Switch } from '@/components/ui/switch'
 import { PriorityBadge } from './priority-badge'
+import { TaskDutyContext } from './task-duty-context'
 import { TaskInstructionsPanel } from './task-instructions-panel'
 import { TaskDocumentsPanel } from './task-documents-panel'
 import { Spinner } from '@/components/ui/spinner'
 import { taskService } from '@/services/task'
 import { CreateTaskModal } from './create-task-modal'
+import { RecurrenceRulePicker } from './recurrence-rule-picker'
+import { RecurrenceScopeDialog } from './recurrence-scope-dialog'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import type { DeadlineExtension, MyTask, TaskStatus, TaskStatusOption } from '@/types/task-management'
+import type { DeadlineExtension, MyTask, RecurrenceRule, RecurrenceScope, TaskStatus, TaskStatusOption } from '@/types/task-management'
 
 /**
  * Shown until the tenant's own vocabulary arrives from /statuses. Custom
@@ -32,6 +37,22 @@ interface Props {
   open: boolean
   onClose: () => void
   onUpdated: () => void
+  /**
+   * Present only when opened from the Task Management Dashboard
+   * (task-workspace.tsx), which manages the whole tenant's tasks rather
+   * than one person's own work — the same reach the backend's
+   * canEditTask() already grants anyone above the Employee profile. `MyTask`
+   * (what this drawer fetches) carries no approval-chain fields at all;
+   * `WorkspaceTask` does, and the Dashboard already holds the row in memory
+   * for the task clicked, so approve/reject/archive are passed in rather
+   * than re-derived here.
+   */
+  dashboardContext?: {
+    approved: boolean
+    onApprove: () => void
+    onReject: () => void
+    onArchive: () => void
+  }
 }
 
 /**
@@ -47,7 +68,7 @@ function legacyOk(response: { status?: string | number; status_code?: string | n
   return Number(response.status ?? response.status_code) === 1
 }
 
-export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props) {
+export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated, dashboardContext }: Props) {
   const [task, setTask] = useState<MyTask | null>(null)
   const [status, setStatus] = useState<string>('PENDING')
   const [statusOptions, setStatusOptions] = useState(SYSTEM_STATUS_OPTIONS)
@@ -64,6 +85,18 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
   const [extDate, setExtDate] = useState('')
   const [extReason, setExtReason] = useState('')
   const [extBusy, setExtBusy] = useState(false)
+  // Recurrence: null while unknown/none, a rule once one is loaded or set up.
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null)
+  const [recurrenceBusy, setRecurrenceBusy] = useState(false)
+  const [editingRecurrence, setEditingRecurrence] = useState(false)
+  const [draftRecurrence, setDraftRecurrence] = useState<RecurrenceRule | null>({ frequency: 'weekly', interval: 1, until: null })
+  const [deleteScopeOpen, setDeleteScopeOpen] = useState(false)
+  // Reminder: null = none set, 0 is a legitimate "at the due time" value - so
+  // "no reminder" is represented by null, never by 0.
+  const [reminderMinutes, setReminderMinutes] = useState<number | null>(null)
+  const [reminderBusy, setReminderBusy] = useState(false)
+  const [visibilityBusy, setVisibilityBusy] = useState(false)
+  const [followUpBusy, setFollowUpBusy] = useState(false)
 
   useEffect(() => {
     if (!open || !taskId) return
@@ -109,6 +142,17 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
         setTask(response.data)
         setStatus(response.data.status_label || response.data.status)
         setRemarks(response.data.remarks ?? '')
+        setEditingRecurrence(false)
+        if (response.data.recurrence_id) {
+          taskService.getTaskRecurrence(context, id)
+            .then((recurrenceResponse) => { if (active) setRecurrence(recurrenceResponse.data.recurrence) })
+            .catch(() => { /* the drawer still works without the recurrence summary */ })
+        } else {
+          setRecurrence(null)
+        }
+        taskService.getTaskReminder(context, id)
+          .then((reminderResponse) => { if (active) setReminderMinutes(reminderResponse.data.reminder?.minutes_before ?? null) })
+          .catch(() => { /* the drawer still works without the reminder summary */ })
       })
       .catch((reason: unknown) => {
         if (active) setError(reason instanceof Error ? reason.message : 'Unable to load this task.')
@@ -145,16 +189,106 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
   }
 
 
-  async function deleteTask() {
-    if (!task || !window.confirm(`Delete "${task.title}"?`)) return
+  /** Part of a series — ask which occurrences, rather than assuming "all". */
+  function deleteTask() {
+    if (!task) return
+    if (task.recurrence_id) { setDeleteScopeOpen(true); return }
+    if (!window.confirm(`Delete "${task.title}"?`)) return
+    void deleteTaskWithScope('all')
+  }
+
+  async function deleteTaskWithScope(scope: RecurrenceScope) {
+    if (!task) return
+    setDeleteScopeOpen(false)
     setSaving(true); setError('')
     try {
-      const response = await taskService.deleteLegacyTask(getLaravelContext(), task.id)
+      const response = await taskService.deleteModernTask(getLaravelContext(), task.id, scope)
       if (!legacyOk(response)) throw new Error(response.message)
       onUpdated(); onClose()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to delete the task.')
     } finally { setSaving(false) }
+  }
+
+  async function saveRecurrence(rule: RecurrenceRule) {
+    if (!task) return
+    setRecurrenceBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.upsertTaskRecurrence(getLaravelContext(), task.id, rule)
+      setRecurrence(response.data.recurrence)
+      setTask({ ...task, recurrence_id: response.data.recurrence.task_id ?? task.id })
+      setEditingRecurrence(false)
+      setMessage(`${response.message} ${response.data.created_count} upcoming occurrence${response.data.created_count === 1 ? '' : 's'} created.`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to save the repeat schedule.')
+    } finally { setRecurrenceBusy(false) }
+  }
+
+  /** Hidden from everyone but you and anyone with elevated access — never masked, simply absent from their calendar. */
+  async function toggleVisibility() {
+    if (!task) return
+    const next = task.visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE'
+    setVisibilityBusy(true); setError('')
+    try {
+      await taskService.updateTaskVisibility(getLaravelContext(), task.id, next)
+      setTask({ ...task, visibility: next })
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to change visibility.')
+    } finally { setVisibilityBusy(false) }
+  }
+
+  /**
+   * Clones this task into a fresh PENDING one, due today + the caller's own
+   * follow_up_days preference. No schema link is kept between the two -
+   * only the new task's title prefix signals the relationship.
+   */
+  async function createFollowUp() {
+    if (!task) return
+    setFollowUpBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.createFollowUpTask(getLaravelContext(), task.id)
+      setMessage(`${response.message} "${response.data.task_title}" is due ${formatDate(response.data.due_date)}.`)
+      onUpdated()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to create a follow-up task.')
+    } finally { setFollowUpBusy(false) }
+  }
+
+  async function setReminder(minutes: number) {
+    if (!task) return
+    setReminderBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.upsertTaskReminder(getLaravelContext(), task.id, minutes)
+      setReminderMinutes(response.data.reminder.minutes_before)
+      setMessage(response.message)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to save the reminder.')
+    } finally { setReminderBusy(false) }
+  }
+
+  async function clearReminder() {
+    if (!task) return
+    setReminderBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.deleteTaskReminder(getLaravelContext(), task.id)
+      setReminderMinutes(null)
+      setMessage(response.message)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to remove the reminder.')
+    } finally { setReminderBusy(false) }
+  }
+
+  async function removeRecurrence() {
+    if (!task || !window.confirm('Stop this task from repeating? Past and already-created occurrences are unaffected.')) return
+    setRecurrenceBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.deleteTaskRecurrence(getLaravelContext(), task.id)
+      setRecurrence(null)
+      setTask({ ...task, recurrence_id: null })
+      setMessage(response.message)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to remove the repeat schedule.')
+    } finally { setRecurrenceBusy(false) }
   }
 
   async function refreshExtensions() {
@@ -199,6 +333,12 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
     } finally { setExtBusy(false) }
   }
 
+  // Edit/Delete/Private, normally gated to the task's own owner. From the
+  // Dashboard that gate would hide them on almost every task, since
+  // task-workspace.tsx manages the whole tenant, not the viewer's own work -
+  // dashboardContext's presence already proves that reach.
+  const canManage = Boolean(dashboardContext) || task?.owner_id === getLaravelContext().userId
+
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent side="right" className="w-full p-0 sm:max-w-[640px]">
@@ -214,7 +354,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
 
           {task && !loading && (
             <div className="space-y-6">
-              {task.owner_id === getLaravelContext().userId && (
+              {canManage && (
                 <div className="flex justify-end gap-2">
                   {/* ONE EDIT EXPERIENCE. This used to be five fields inline -
                       title, description, assignee, priority, due date - written
@@ -222,9 +362,43 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
                       here silently blanked its KRA, KPA, skills and monitoring
                       points. It now opens the same form the task was assigned
                       with, which can see and save all of them. */}
+                  <Button variant="outline" onClick={() => void createFollowUp()} disabled={followUpBusy}>
+                    <CalendarPlus className="mr-2 size-4" />{followUpBusy ? 'Creating…' : 'Create Follow-up'}
+                  </Button>
                   <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="mr-2 size-4" />Edit / Reassign</Button>
                   <Button variant="outline" className="text-destructive" onClick={() => void deleteTask()} disabled={saving}><Trash2 className="mr-2 size-4" />Delete</Button>
                 </div>
+              )}
+              {canManage && (
+                <div className="flex items-center justify-between rounded-xl border p-3">
+                  <Label htmlFor="task-private" className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <Lock className="size-4 text-muted-foreground" />Private
+                    <span className="font-normal text-muted-foreground">— hidden from everyone but you and elevated roles</span>
+                  </Label>
+                  <Switch id="task-private" checked={task.visibility === 'PRIVATE'} onChange={() => void toggleVisibility()} disabled={visibilityBusy} />
+                </div>
+              )}
+              {dashboardContext && (
+                <section className="space-y-3 rounded-xl border p-4">
+                  {/* WHETHER THIS TASK REACHES A PROCEDURE, AND WHETHER IT DOES
+                      NOT. Dashboard-only: My Tasks has no equivalent section,
+                      because an employee opening their own task already knows
+                      whether it came from one. */}
+                  <TaskDutyContext taskId={Number(taskId)} />
+                  {task.status === 'COMPLETED' && !dashboardContext.approved && (
+                    <div className="flex gap-2">
+                      <Button onClick={dashboardContext.onApprove}>Approve</Button>
+                      <Button variant="outline" onClick={dashboardContext.onReject}>Reject</Button>
+                    </div>
+                  )}
+                  {/* Archive is NOT ownership-gated, even here: the Dashboard
+                      manages the whole tenant's tasks, not one person's own. */}
+                  <div className="flex justify-end">
+                    <Button variant="outline" className="text-destructive" onClick={dashboardContext.onArchive}>
+                      <Archive className="mr-2 size-4" />Archive
+                    </Button>
+                  </div>
+                </section>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Info icon={UserCircle2} label="Assigned to" value={task.assignee} />
@@ -361,6 +535,61 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
               </section>
 
               <section className="space-y-3 rounded-xl border p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Repeat className="size-4" /> Repeat
+                </h3>
+                {recurrence ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Every {recurrence.interval} {recurrence.frequency}
+                      {recurrence.interval > 1 ? (recurrence.frequency === 'daily' ? 's' : recurrence.frequency === 'weekly' ? ' weeks' : ' months') : ''}
+                      {recurrence.until ? ` until ${formatDate(recurrence.until)}` : ', with no end date'}.
+                    </p>
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => void removeRecurrence()} disabled={recurrenceBusy}>
+                      Stop repeating
+                    </Button>
+                  </div>
+                ) : editingRecurrence ? (
+                  <div className="space-y-3">
+                    <RecurrenceRulePicker value={draftRecurrence} onChange={setDraftRecurrence} />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => draftRecurrence && void saveRecurrence(draftRecurrence)} disabled={recurrenceBusy || !draftRecurrence}>
+                        {recurrenceBusy ? 'Saving…' : 'Save'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingRecurrence(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setEditingRecurrence(true)}>Set up a repeat schedule</Button>
+                )}
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Bell className="size-4" /> Reminder
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={reminderMinutes === null ? 'none' : String(reminderMinutes)}
+                    onChange={(value) => {
+                      if (value === 'none') { void clearReminder(); return }
+                      void setReminder(Number(value))
+                    }}
+                    options={[
+                      { label: 'No reminder', value: 'none' },
+                      { label: '5 minutes before', value: '5' },
+                      { label: '30 minutes before', value: '30' },
+                      { label: '1 hour before', value: '60' },
+                      { label: '1 day before', value: '1440' },
+                      { label: '1 week before', value: '10080' },
+                    ]}
+                    className="flex-1"
+                  />
+                  {reminderBusy && <Spinner className="size-4" />}
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-4">
                 <h3 className="text-sm font-semibold">Update status</h3>
                 <Select
                   value={status}
@@ -393,6 +622,12 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated }: Props)
         // should show what was saved, not what was typed.
         void taskService.getMyTask(getLaravelContext(), task.id).then((refreshed) => setTask(refreshed.data)).catch(() => { /* the list behind is already refreshed */ })
       }} />}
+    <RecurrenceScopeDialog
+      open={deleteScopeOpen}
+      action="delete"
+      onChoose={(scope) => void deleteTaskWithScope(scope)}
+      onCancel={() => setDeleteScopeOpen(false)}
+    />
     </Sheet>
   )
 }

@@ -1,0 +1,80 @@
+/*
+ * FullCalendar's own CSS custom properties, mapped onto this app's theme
+ * tokens - scoped under .tm-calendar-grid so nothing here leaks into any
+ * other FullCalendar instance this app might ever add elsewhere.
+ */
+.tm-calendar-grid {
+  --fc-border-color: var(--border);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-page-bg-color: transparent;
+  --fc-today-bg-color: color-mix(in srgb, var(--primary) 7%, transparent);
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: inherit;
+  --fc-now-indicator-color: var(--destructive);
+}
+
+.tm-calendar-grid .fc {
+  font-family: inherit;
+}
+
+.tm-calendar-grid .fc .fc-toolbar {
+  /* This app's own header/toolbar (month-week-day buttons, date nav) drives
+     FullCalendar imperatively via a ref - FullCalendar's own toolbar is
+     never rendered (headerToolbar={false} on the component), so this rule
+     is a defensive backstop only. */
+  display: none;
+}
+
+.tm-calendar-grid .fc-daygrid-day-number,
+.tm-calendar-grid .fc-col-header-cell-cushion {
+  color: var(--foreground);
+}
+
+.tm-calendar-grid .fc-day-today .fc-daygrid-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* The whole point of a custom eventContent: FullCalendar's own padded,
+   bordered event box is reset to nothing, so the chip JSX rendered inside
+   eventContent is the entire visual rather than fighting it. */
+.tm-calendar-grid .fc-event {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 1px 2px;
+}
+
+.tm-calendar-grid .fc-event:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.tm-calendar-grid .fc-daygrid-event-harness {
+  margin-top: 1px;
+}
+
+.tm-calendar-grid .fc-timegrid-slot-label-cushion,
+.tm-calendar-grid .fc-timegrid-axis-cushion {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.tm-calendar-grid .fc-timegrid-now-indicator-line {
+  border-color: var(--destructive);
+}
+
+.tm-calendar-grid .fc-timegrid-now-indicator-arrow {
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
+
+.tm-calendar-grid a {
+  color: inherit;
+}

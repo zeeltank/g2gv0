@@ -338,6 +338,10 @@ export function DependenciesView() {
   const [reload, setReload] = useState(0)
   const [activeTab, setActiveTab] = useState<'map' | 'timeline' | 'workstream' | 'milestone'>('map')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  // Single-click an edge to edit it (double-click already deletes). Reuses
+  // the create dialog, seeded from the edge's own dependency — the same
+  // create-vs-edit duality the milestone dialog already has.
+  const [editingDependency, setEditingDependency] = useState<TaskDependency | null>(null)
   const [saving, setSaving] = useState(false)
   const [predecessor, setPredecessor] = useState('')
   const [successor, setSuccessor] = useState('')
@@ -354,6 +358,9 @@ export function DependenciesView() {
   const [formError, setFormError] = useState('')
   const [direction, setDirection] = useState<'LR' | 'TB'>('LR')
   const flowRef = useRef<ReactFlowInstance | null>(null)
+  // See the selectedProject effect below: true for exactly one run of that
+  // effect, right after openEditDependency seeds the form.
+  const seedingEditRef = useRef(false)
   const [applyingId, setApplyingId] = useState('')
   // Milestone CRUD. POST/PUT/DELETE existed on the server with nothing calling
   // them, so a milestone could only be created by writing to the database.
@@ -424,17 +431,34 @@ useEffect(() => {
     // Deferred so every setState (including the resets) lands after this
     // render rather than cascading out of the effect body.
     let active = true
+    // Captured once, synchronously, so it reflects THIS render's reason for
+    // selectedProject changing - openEditDependency sets the ref and the
+    // project in the same tick, and the flag must survive to the
+    // microtask below regardless of when it runs.
+    const isSeedingEdit = seedingEditRef.current
+    seedingEditRef.current = false
     queueMicrotask(() => {
       if (!active) return
       // CHANGING PROJECT INVALIDATES THE TASKS. It used to reset only the
       // workstream, so predecessor/successor kept ids from the previous
       // project and submit produced the very "two tasks from the same project"
       // 422 the filter exists to prevent.
-      setPredecessor(''); setSuccessor('')
-      if (!selectedProject) { setWorkstreams([]); setSelectedWorkstream(''); setWorkstreamsError(''); return }
+      //
+      // EXCEPT when seeding an edit: predecessor/successor/workstream were
+      // just populated FROM the dependency being edited, and this same
+      // project-change effect must not immediately wipe them out again.
+      if (!isSeedingEdit) { setPredecessor(''); setSuccessor('') }
+      if (!selectedProject) {
+        setWorkstreams([])
+        if (!isSeedingEdit) setSelectedWorkstream('')
+        setWorkstreamsError('')
+        return
+      }
       const context = getLaravelContext()
       if (!isLaravelContextReady(context)) { setWorkstreamsError('Session unavailable.'); return }
-      setWorkstreamsLoading(true); setSelectedWorkstream(''); setWorkstreamsError('')
+      setWorkstreamsLoading(true)
+      if (!isSeedingEdit) setSelectedWorkstream('')
+      setWorkstreamsError('')
       taskService.getWorkstreams(context, selectedProject)
         .then((response) => { if (active) setWorkstreams(response.data ?? []) })
         .catch((reason) => { if (active) setWorkstreamsError(reason instanceof Error ? reason.message : 'Unable to load workstreams.') })
@@ -551,6 +575,7 @@ useEffect(() => {
 
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target) return
+    setEditingDependency(null)
     setPredecessor(params.source); setSuccessor(params.target); setIsCreateModalOpen(true)
   }, [])
 
@@ -566,19 +591,44 @@ useEffect(() => {
     []
   )
 
-  const createDependency = async () => {
+  /** Seeds the create dialog from an existing dependency, for single-click edit. */
+  const openEditDependency = useCallback((dependency: TaskDependency) => {
+    setFormError('')
+    setEditingDependency(dependency)
+    seedingEditRef.current = true
+    setSelectedProject(dependency.project_id ?? '')
+    setSelectedWorkstream(dependency.workstream_id ?? '')
+    setPredecessor(dependency.predecessor.id)
+    setSuccessor(dependency.successor.id)
+    setDependencyType(dependency.type)
+    setLagDays(String(dependency.lag_days))
+    setNotes(dependency.notes ?? '')
+    setIsCreateModalOpen(true)
+  }, [])
+
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation()
+    const dependency = (edge.data as { dependency?: TaskDependency } | undefined)?.dependency
+    if (dependency) openEditDependency(dependency)
+  }, [openEditDependency])
+
+  const saveDependency = async () => {
     if (!predecessor || !successor) { setFormError('Select both a predecessor and a successor task.'); return }
     setSaving(true); setFormError('')
+    const payload = {
+      predecessor_task_id: predecessor, successor_task_id: successor,
+      dependency_type: dependencyType, lag_days: Number(lagDays) || 0, notes: notes || undefined,
+      project_id: selectedProject || undefined, workstream_id: selectedWorkstream || undefined,
+    }
     try {
-      const response = await taskService.createDependency(getLaravelContext(), {
-        predecessor_task_id: predecessor, successor_task_id: successor,
-        dependency_type: dependencyType, lag_days: Number(lagDays) || 0, notes: notes || undefined,
-        project_id: selectedProject || undefined, workstream_id: selectedWorkstream || undefined,
-      })
-      setMessage(response.message); setIsCreateModalOpen(false); setPredecessor(''); setSuccessor(''); setNotes(''); setLagDays('0')
+      const response = editingDependency
+        ? await taskService.updateDependency(getLaravelContext(), editingDependency.id, payload)
+        : await taskService.createDependency(getLaravelContext(), payload)
+      setMessage(response.message); setIsCreateModalOpen(false); setEditingDependency(null)
+      setPredecessor(''); setSuccessor(''); setNotes(''); setLagDays('0')
       setSelectedProject(''); setSelectedWorkstream(''); setWorkstreams([])
       setReload((value) => value + 1)
-    } catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Unable to create dependency.') }
+    } catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Unable to save that dependency.') }
     finally { setSaving(false) }
   }
 
@@ -590,6 +640,24 @@ useEffect(() => {
           name: milestone.name, description: milestone.description ?? '', target_date: milestone.target_date, status: milestone.status }
       : { project_id: '', workstream_id: '', name: '', description: '', target_date: '', status: 'UPCOMING' })
     setMilestoneModalOpen(true)
+  }
+
+  /**
+   * Re-reads JUST the milestone list, not the whole dependency graph.
+   *
+   * `setReload` re-runs `load()`, which refetches tasks/dependencies and
+   * rebuilds the React Flow graph — resetting the viewport (zoom/pan) every
+   * time a milestone was saved or deleted, even though nothing on the map
+   * tab changed. `getMilestones` is the lighter, purpose-built read this was
+   * always meant to use.
+   */
+  const refreshMilestones = async () => {
+    try {
+      const response = await taskService.getMilestones(getLaravelContext())
+      setData((prev) => ({ ...prev, milestones: response.data.milestones }))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to refresh milestones.')
+    }
   }
 
   const saveMilestone = async () => {
@@ -609,7 +677,8 @@ useEffect(() => {
       const response = editingMilestone
         ? await taskService.updateMilestone(getLaravelContext(), editingMilestone.id, payload)
         : await taskService.createMilestone(getLaravelContext(), payload)
-      setMessage(response.message); setMilestoneModalOpen(false); setReload((value) => value + 1)
+      setMessage(response.message); setMilestoneModalOpen(false)
+      await refreshMilestones()
     } catch (reason) {
       setMilestoneError(reason instanceof Error ? reason.message : 'Unable to save that milestone.')
     } finally { setMilestoneSaving(false) }
@@ -619,7 +688,8 @@ useEffect(() => {
     if (!window.confirm(`Delete the milestone "${milestone.name}"?`)) return
     try {
       const response = await taskService.deleteMilestone(getLaravelContext(), milestone.id)
-      setMessage(response.message); setReload((value) => value + 1)
+      setMessage(response.message)
+      await refreshMilestones()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to delete that milestone.')
     }
@@ -858,7 +928,7 @@ useEffect(() => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
+            <Button onClick={() => { setEditingDependency(null); setIsCreateModalOpen(true) }} className="gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
               <Plus className="h-4 w-4" /> Create Dependency
             </Button>
           </div>
@@ -1069,7 +1139,7 @@ useEffect(() => {
                     <p className="max-w-sm text-xs text-muted-foreground">
                       A dependency links two tasks in the same project — the predecessor has to move before the successor can. Create one to see the graph.
                     </p>
-                    <Button size="sm" onClick={() => setIsCreateModalOpen(true)} className="mt-1 gap-2"><Plus className="h-4 w-4" /> Create Dependency</Button>
+                    <Button size="sm" onClick={() => { setEditingDependency(null); setIsCreateModalOpen(true) }} className="mt-1 gap-2"><Plus className="h-4 w-4" /> Create Dependency</Button>
                   </div>
                 )}
                 {!loading && nodes.length > 0 && visibleNodeCount === 0 && (
@@ -1088,6 +1158,7 @@ useEffect(() => {
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
                   onConnect={onConnect}
+                  onEdgeClick={onEdgeClick}
                   onEdgeDoubleClick={onEdgeDoubleClick}
                   onInit={(instance) => { flowRef.current = instance }}
                   nodeTypes={nodeTypes}
@@ -1400,10 +1471,10 @@ useEffect(() => {
           sizing here is copied from create-project-modal.tsx, which solved the
           same problem in the same module.
           ───────────────────────────────────────────────────────────────── */}
-      <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) setFormError('') }}>
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) { setFormError(''); setEditingDependency(null) } }}>
         <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
-            <DialogTitle>Create Dependency</DialogTitle>
+            <DialogTitle>{editingDependency ? 'Edit Dependency' : 'Create Dependency'}</DialogTitle>
             <DialogDescription>Connect two tasks. Duplicate and cyclic relationships are rejected by the API.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 px-1">
@@ -1443,7 +1514,7 @@ useEffect(() => {
             </p>
             <label className="block space-y-1.5 text-sm font-medium"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-24 w-full resize-none rounded-lg border bg-background p-3 text-sm" /></label>
           </div>
-          <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button disabled={saving || !predecessor || !successor} onClick={() => void createDependency()}>{saving ? 'Creating…' : 'Create Dependency'}</Button></DialogFooter>
+          <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => { setIsCreateModalOpen(false); setEditingDependency(null) }}>Cancel</Button><Button disabled={saving || !predecessor || !successor} onClick={() => void saveDependency()}>{saving ? 'Saving…' : editingDependency ? 'Save Changes' : 'Create Dependency'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
