@@ -71,18 +71,23 @@ export function TaskCalendarView() {
   // My calendar vs team calendar — reuses task-workspace.tsx's existing
   // WorkspaceScope control and its already-working backend support, rather
   // than inventing a second access-control mechanism for the same question.
-  // Defaults to 'all', matching this screen's existing behaviour before this
-  // control existed (the backend's own default) — adding the selector must
-  // not narrow what anyone already saw.
-  const [viewScope, setViewScope] = useState<WorkspaceScope>('all')
+  // Defaults to 'mine', matching screenMode's own default below — a shared
+  // tenant-wide view as the FIRST thing anyone sees read as "where did
+  // everyone else's work come from" more than it read as useful context.
+  const [viewScope, setViewScope] = useState<WorkspaceScope>('mine')
   /**
    * My Calendar / Shared Calendar / List View - CRM's own three top-level
    * calendar modes. Not new routes (locked-in #2): My/Shared drive the same
    * viewScope + Feeds mechanism this screen already had, just surfaced as a
    * real, named switch instead of a generic scope dropdown; List is a new
    * flat table over the same already-fetched data.
+   *
+   * Defaults to 'my' (locked-in, per explicit request): a viewer lands on
+   * their own work first and opts into the shared/tenant-wide view, not the
+   * other way round - matching selectMyCalendar()'s own viewScope/feed
+   * state exactly, just set once up front instead of via a click.
    */
-  const [screenMode, setScreenMode] = useState<ScreenMode>('shared')
+  const [screenMode, setScreenMode] = useState<ScreenMode>('my')
   // How many the server says exist for this window, versus how many we hold.
   // A calendar that silently drops days is worse than one that admits it.
   const [totalInRange, setTotalInRange] = useState(0)
@@ -562,18 +567,20 @@ export function TaskCalendarView() {
     {/* Persistent left rail (whose calendars are overlaid) alongside the
         grid/list, mirroring document-library-view.tsx's own sidebar shape -
         replaces both the old "Calendars:" chip row and the Feeds overlay
-        panel's visibility section. Hidden in 'my' mode: selectMyCalendar
-        already hides every feed there, so the rail would show nothing but
-        unchecked rows. */}
+        panel's visibility section. Always rendered, even in 'my' mode
+        (9.11): every OTHER feed is hidden and inert there, so the sidebar
+        shows just the viewer's own row - which still needs to be reachable,
+        since that's where their own task_card_color picker lives now. */}
     <div className="flex min-w-0 items-start gap-4">
-      {screenMode !== 'my' && (
-        <CalendarSidebar
-          feeds={feeds}
-          hidden={hiddenFeedUserIds}
-          onToggle={toggleFeed}
-          dotClassFor={(userId) => feedColour(userId).dot}
-        />
-      )}
+      <CalendarSidebar
+        feeds={feeds}
+        hidden={hiddenFeedUserIds}
+        onToggle={toggleFeed}
+        dotClassFor={(userId) => feedColour(userId).dot}
+        viewerId={viewerId}
+        onMyColorChanged={() => void loadFeeds()}
+        selfOnly={screenMode === 'my'}
+      />
       <div className="min-w-0 flex-1">
         <Card><CardContent className="p-0">
           <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>

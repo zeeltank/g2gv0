@@ -11,7 +11,7 @@ import type { EventClickArg, EventContentArg, EventDropArg, EventInput } from '@
 import type { DateClickArg, EventResizeDoneArg } from '@fullcalendar/interaction'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { CalendarEntry, CalendarFeed, WorkspaceTask } from '@/types/task-management'
-import { mapEntryToEvent, mapTaskToEvent, type CalendarGridExtendedProps } from './calendar-event-mapping'
+import { contrastTextColor, mapEntryToEvent, mapTaskToEvent, type CalendarGridExtendedProps } from './calendar-event-mapping'
 import './task-calendar-grid.css'
 
 export type CalendarGridView = 'month' | 'week' | 'day'
@@ -171,7 +171,11 @@ function EventChip({ arg }: { arg: EventContentArg }) {
     <div
       title={props.hint}
       className={`flex w-full items-center gap-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs font-medium leading-snug ${props.fallbackClassName} ${props.settled ? 'line-through opacity-70' : ''} ${props.overdue ? 'ring-1 ring-inset ring-destructive/50' : ''}`}
-      style={props.accentColor ? { borderLeft: `3px solid ${props.accentColor}` } : undefined}
+      // A personal/share color overrides the project/feed-palette fill
+      // entirely (locked-in: "like CRM") - inline style wins over the
+      // fallbackClassName utilities above regardless of class order, so
+      // there's no need to also strip them out here.
+      style={props.accentColor ? { backgroundColor: props.accentColor, color: contrastTextColor(props.accentColor), borderColor: props.accentColor } : undefined}
     >
       {props.kind === 'MILESTONE' && <Flag className="size-3 shrink-0" />}
       {props.kind === 'CHECKPOINT' && <CircleDot className="size-3 shrink-0" />}
