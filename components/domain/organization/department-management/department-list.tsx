@@ -344,48 +344,6 @@ export function DepartmentList({ role }: { role?: Role }) {
     return () => window.removeEventListener('g2g:data-changed', onChanged)
   }, [loadDepartments])
 
-  /**
-   * What a scoped role (department head, reporting manager) may see.
-   *
-   * ── A FIXTURE WAS BEING USED AS AN AUTHORISATION RULE ────────────────────
-   *
-   * This filtered to departments literally NAMED 'Engineering':
-   *
-   *     departments.filter(d => d.name === 'Engineering' || d.parent === 'Engineering')
-   *
-   * a leftover from a deleted demo. Every organisation without a department of
-   * that exact name showed its department heads an empty list, and any
-   * organisation that happened to have one showed them a department they may
-   * have nothing to do with.
-   *
-   * The real rule is the one the data already expresses: a head sees the
-   * department they head, and everything under it. Descendants are walked to
-   * full depth rather than one level, because a sub-department's
-   * sub-department is still theirs.
-   */
-  const scopedDepts = useMemo(() => {
-    if (access !== 'scoped') return departments
-
-    const mine = departments.filter((d) => d.hodId !== null && d.hodId === user?.id)
-
-    if (mine.length === 0) return []
-
-    // Walk down by name, which is what `parent` holds on this mapped shape.
-    const owned = new Set(mine.map((d) => d.name))
-    let grew = true
-
-    while (grew) {
-      grew = false
-      for (const department of departments) {
-        if (department.parent && owned.has(department.parent) && !owned.has(department.name)) {
-          owned.add(department.name)
-          grew = true
-        }
-      }
-    }
-
-    return departments.filter((d) => owned.has(d.name))
-  }, [access, departments, user?.id])
   // What this role may see - see scopeDepartments()'s own docblock.
   const scopedDepts = useMemo(
     () => scopeDepartments(departments, access, user?.id),
