@@ -23,6 +23,7 @@ import {
   type DocumentSearchHit,
   type DocumentTypeChoices,
 } from '@/services/account'
+import { OPEN_DOCUMENT_EVENT } from '@/lib/page-entities/g2g/documents'
 import { myHrService } from '@/services/hrms/my-hr'
 import { DocumentCardGrid } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
@@ -269,6 +270,60 @@ export function DocumentLibraryView() {
       setDeleting(false)
     }
   }
+
+  /*
+   * OPEN ONE SPECIFIC DOCUMENT, ON REQUEST. The chat finds a document and asks the library to show
+   * exactly that one - by event when the library is already open, by `?open=<id>` when it had to
+   * navigate here. The document is fetched by its id through the same API the detail panel uses, so
+   * the server's own access check decides: a document the user may not see simply fails to open.
+   */
+  const openDocumentById = useCallback(
+    async (id: number) => {
+      // The session can still be loading when a deep link arrives; wait for it briefly.
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const context = resolveContext()
+
+        if (isLaravelContextReady(context)) {
+          try {
+            const response = await accountService.getDocument(context, id)
+            setViewing(response.data)
+          } catch (caught) {
+            setNotice({
+              tone: 'error',
+              text: caught instanceof Error ? caught.message : 'That document could not be opened.',
+            })
+          }
+          return
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+
+      setNotice({ tone: 'error', text: 'Your session is not ready yet, so that document could not be opened.' })
+    },
+    [resolveContext],
+  )
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: number }>).detail?.id
+      if (typeof id === 'number' && Number.isFinite(id)) void openDocumentById(id)
+    }
+
+    window.addEventListener(OPEN_DOCUMENT_EVENT, onOpen)
+
+    const requested = new URLSearchParams(window.location.search).get('open')
+    if (requested && /^\d+$/.test(requested)) {
+      // Deferred a tick: opening is asynchronous work, not part of this render.
+      queueMicrotask(() => void openDocumentById(Number(requested)))
+      // The request is consumed: a refresh must not reopen it.
+      const url = new URL(window.location.href)
+      url.searchParams.delete('open')
+      window.history.replaceState(null, '', url.toString())
+    }
+
+    return () => window.removeEventListener(OPEN_DOCUMENT_EVENT, onOpen)
+  }, [openDocumentById])
 
   const canDelete = useCallback((doc: DocumentSearchHit) => myId !== null && doc.owner_id === myId, [myId])
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
