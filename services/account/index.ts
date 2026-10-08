@@ -99,6 +99,9 @@ export type AccountPreferences = {
   pronouns: string
   about: string
 
+  /** Hex, or '' for "use the automatic per-project/per-feed palette". See the Task Calendar. */
+  task_card_color: string
+
   /* Who may see the parts of a person that are not work. */
   visible_mobile: Visibility
   visible_birthdate: Visibility

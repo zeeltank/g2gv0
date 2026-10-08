@@ -567,18 +567,20 @@ export function TaskCalendarView() {
     {/* Persistent left rail (whose calendars are overlaid) alongside the
         grid/list, mirroring document-library-view.tsx's own sidebar shape -
         replaces both the old "Calendars:" chip row and the Feeds overlay
-        panel's visibility section. Hidden in 'my' mode: selectMyCalendar
-        already hides every feed there, so the rail would show nothing but
-        unchecked rows. */}
+        panel's visibility section. Always rendered, even in 'my' mode
+        (9.11): every OTHER feed is hidden and inert there, so the sidebar
+        shows just the viewer's own row - which still needs to be reachable,
+        since that's where their own task_card_color picker lives now. */}
     <div className="flex min-w-0 items-start gap-4">
-      {screenMode !== 'my' && (
-        <CalendarSidebar
-          feeds={feeds}
-          hidden={hiddenFeedUserIds}
-          onToggle={toggleFeed}
-          dotClassFor={(userId) => feedColour(userId).dot}
-        />
-      )}
+      <CalendarSidebar
+        feeds={feeds}
+        hidden={hiddenFeedUserIds}
+        onToggle={toggleFeed}
+        dotClassFor={(userId) => feedColour(userId).dot}
+        viewerId={viewerId}
+        onMyColorChanged={() => void loadFeeds()}
+        selfOnly={screenMode === 'my'}
+      />
       <div className="min-w-0 flex-1">
         <Card><CardContent className="p-0">
           <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>

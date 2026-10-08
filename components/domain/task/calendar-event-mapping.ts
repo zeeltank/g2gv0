@@ -53,12 +53,14 @@ export interface CalendarGridExtendedProps {
   /** Tailwind chip classes - the only styling when no custom feed color applies. */
   fallbackClassName: string
   /**
-   * A per-feed custom hex (9.8), TASK/EVENT only. Rendered as a left-border
-   * accent over the fallback classes, never as a full background - this
-   * app's only other custom-hex usages (tm-priority-management.tsx,
-   * task-workspace.tsx's Grid columns) are all small accents/dots, never a
-   * full chip with body text on top, and there is no contrast-safe-text
-   * scheme anywhere in this codebase to reuse for that.
+   * A per-person custom hex (9.8, 9.11), TASK/EVENT only - a share color the
+   * owner picked for this viewer specifically, or failing that the owner's
+   * own task_card_color preference (CalendarFeed.color resolves both, see
+   * its own docblock). Rendered as the chip's FULL solid fill + border,
+   * overriding the project/feed-palette fallbackClassName entirely - paired
+   * with contrastTextColor() below rather than a flat white/black, since an
+   * employee's own pick is arbitrary and unreviewed, unlike the palette's
+   * theme tokens.
    */
   accentColor: string | null
   /** Raw status string - shown as-is on the milestone/checkpoint popover. */
@@ -211,4 +213,20 @@ function statusClassName(entry: CalendarEntry): string {
 function hintFor(title: string, where: string, start: Date, end: Date): string {
   const when = !isSameDay(start, end) ? ` (${format(start, 'd MMM')} - ${format(end, 'd MMM')})` : ''
   return `${where} - ${title}${when}`
+}
+
+/**
+ * Black or white, whichever reads on an ARBITRARY hex background - an
+ * employee's own `task_card_color` pick, unlike the PALETTE's theme tokens,
+ * is never reviewed for contrast ahead of time. Standard YIQ brightness
+ * split (perceived luminance, not a straight RGB average - the eye weighs
+ * green far more than blue), same threshold libraries like Chroma.js use.
+ */
+export function contrastTextColor(hex: string): string {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 128 ? '#000000' : '#ffffff'
 }

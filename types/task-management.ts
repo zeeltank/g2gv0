@@ -955,7 +955,7 @@ export interface CalendarSharesResponse {
 export interface CalendarFeed {
   user_id: string
   name: string
-  /** The color the owner picked for this viewer (or everyone), if any — null falls back to the automatic by-index palette. */
+  /** The color this owner shows as: a share color picked for this viewer specifically, else the owner's own tenant-wide task_card_color preference, else null (the automatic by-index palette). */
   color: string | null
 }
 
