@@ -8,10 +8,10 @@
  * a sandboxed frame with scripts disallowed (`allow-same-origin` only so Print can reach
  * it) and is never injected into this app's DOM.
  *
- * NOT PORTED: "Send". LMS_K12 emails each person in a report their own figures, resolved
- * through its student/guardian recipient model. G2G's report rows have no equivalent
- * recipient model, so there is no Send button rather than one that could email the wrong
- * people. Everything else on the page is here.
+ * SEND: G2G has no student/guardian recipient model (LMS_K12's per-person figures), so Send
+ * mails the whole report to real people of the organisation picked from the tenant's own user
+ * list, through the backend's mail gate. The button appears only when the backend says it can
+ * send for this caller (`can_send`), and the page shows the delivery history.
  *
  * The `/ai` layout wraps this page, so it is administrator-only like the rest of the AI
  * API it calls.
@@ -19,13 +19,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Check, Link2, Loader2, Pencil, Printer, RefreshCw, Save, X } from 'lucide-react';
+import { Check, Link2, Loader2, Pencil, Printer, RefreshCw, Save, Send, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TemplateHtmlEditor } from '@/components/ai-stack/adapters/template-html-editor';
 import { describeAiError } from '@/lib/intelligence/client';
 import { getAiReport, regenerateAiReport, saveAiReport, type AiReport } from '@/lib/intelligence/ai-reports';
+import { fetchReportDeliveries, type ReportDelivery } from '@/lib/intelligence/ai-chat-artifacts';
+import { SendReportDialog } from '@/components/shell/agent/send-report-dialog';
 
 const FRAME_STYLES = `
   @page { margin: 16mm; }
@@ -81,6 +83,42 @@ export default function AiReportPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftHtml, setDraftHtml] = useState('');
+  const [canSend, setCanSend] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [deliveries, setDeliveries] = useState<ReportDelivery[]>([]);
+
+  const loadDeliveries = useCallback(async () => {
+    if (malformedId) return;
+
+    try {
+      const data = await fetchReportDeliveries(reportId);
+      setCanSend(data.can_send);
+      setDeliveries(data.deliveries);
+    } catch {
+      // Sending is optional on this page; without the answer the button stays hidden.
+      setCanSend(false);
+    }
+  }, [reportId, malformedId]);
+
+  useEffect(() => {
+    if (malformedId) return;
+
+    let cancelled = false;
+
+    fetchReportDeliveries(reportId)
+      .then((data) => {
+        if (cancelled) return;
+        setCanSend(data.can_send);
+        setDeliveries(data.deliveries);
+      })
+      .catch(() => {
+        // Sending is optional on this page; without the answer the button stays hidden.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportId, malformedId]);
 
   useEffect(() => {
     if (malformedId) return;
@@ -165,6 +203,20 @@ export default function AiReportPage() {
     frame.print();
   }, []);
 
+  // `?print=1` (the chat's Print button) opens the print dialog once the report has rendered.
+  const autoPrinted = useRef(false);
+  useEffect(() => {
+    if (!report || editing || autoPrinted.current) return;
+    if (new URLSearchParams(window.location.search).get('print') !== '1') return;
+
+    const timer = window.setTimeout(() => {
+      autoPrinted.current = true;
+      print();
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [report, editing, print]);
+
   const copyLink = useCallback(async () => {
     setError(null);
 
@@ -234,6 +286,12 @@ export default function AiReportPage() {
                   <Link2 className="h-4 w-4" />
                   Copy link
                 </Button>
+                {canSend ? (
+                  <Button type="button" onClick={() => setSendOpen(true)} disabled={dirty}>
+                    <Send className="h-4 w-4" />
+                    Send
+                  </Button>
+                ) : null}
               </>
             )}
           </div>
@@ -281,6 +339,34 @@ export default function AiReportPage() {
             </div>
           )}
         </div>
+      ) : null}
+
+      {report ? (
+        <SendReportDialog
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          reportId={report.id}
+          title={report.title}
+          previewHref={`/ai/reports/${report.id}`}
+          onSent={() => void loadDeliveries()}
+        />
+      ) : null}
+
+      {!loading && report && deliveries.length > 0 ? (
+        <section className="rounded-lg border border-border bg-card p-4 text-sm">
+          <h2 className="mb-2 font-semibold">Delivery history</h2>
+          <ul className="space-y-1">
+            {deliveries.map((delivery) => (
+              <li key={delivery.id} className="flex flex-wrap gap-x-3">
+                <span>{delivery.recipient_name || delivery.recipient_email}</span>
+                <span className="text-muted-foreground">{delivery.recipient_email}</span>
+                <span className={delivery.status === 'failed' ? 'text-destructive' : ''}>{delivery.status}</span>
+                <span className="text-muted-foreground">{formatMoment(delivery.sent_at ?? delivery.created_at)}</span>
+                {delivery.error ? <span className="text-xs text-destructive">{delivery.error}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {!loading && !report && !error && !malformedId ? (

@@ -27,7 +27,7 @@ export interface PageContext {
   page: { id: number; title: string; breadcrumb: string[]; route: string | null } | null
   suggestions: PageSuggestion[]
   /** `page` when the questions come from what is on screen, `module` when only the module is known. */
-  scope?: 'page' | 'module' | 'none'
+  scope?: 'page' | 'module' | 'tab' | 'none'
 }
 
 export function fetchPageContext(input: {
@@ -35,10 +35,14 @@ export function fetchPageContext(input: {
   route?: string | null
   /** What the browser read off the page; the backend rebuilds and caps it before use. */
   pageData?: PageSnapshot | null
+  /** On a module's AI Stack: the module and the tab the user has open. */
+  aiStack?: { module: string; tab: string } | null
 }): Promise<PageContext> {
   return aiRequest<PageContext>('/workspace/context', 'POST', {
     menu_id: input.menuId ?? undefined,
     route: input.route ?? undefined,
     page_data: input.pageData ?? undefined,
+    ai_stack_module: input.aiStack?.module,
+    ai_stack_tab: input.aiStack?.tab,
   })
 }
