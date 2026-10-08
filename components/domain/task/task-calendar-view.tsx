@@ -99,6 +99,7 @@ export function TaskCalendarView() {
   const [createEventDate, setCreateEventDate] = useState<string | undefined>(undefined)
   const [selfTaskOpen, setSelfTaskOpen] = useState(false)
   const [selfTaskDate, setSelfTaskDate] = useState<string | undefined>(undefined)
+  const [selfTaskTime, setSelfTaskTime] = useState<string | undefined>(undefined)
   const [assignTaskOpen, setAssignTaskOpen] = useState(false)
   const [statusOptions, setStatusOptions] = useState<TaskStatusOption[]>([])
   // Whose calendars are overlaid — GET /calendar/feeds already resolves this
@@ -372,19 +373,29 @@ export function TaskCalendarView() {
    * So each entry now carries both: the washed `chip` for the block, and a
    * SOLID `dot` for the swatch. Slicing a class string to guess at a colour was
    * never going to hold.
+   *
+   * `solid` is the same SOLID colour as `dot`, now also used for the calendar
+   * grid's own task/event chips (locked-in: full fill + matching border, like
+   * CRM's project chips — not the washed `chip` tint). Pairing each solid fill
+   * with its matching `-foreground` token rather than a flat white/black is
+   * the one already-reviewed-for-contrast scheme in this codebase (see
+   * globals.css's measured white-on-success/warning/destructive ratios) — so
+   * success/warning read with dark text and primary/destructive with light,
+   * instead of re-deriving a contrast rule here.
    */
   const PALETTE = [
-    { chip: 'bg-primary/10 text-primary hover:bg-primary/20', dot: 'bg-primary' },
-    { chip: 'bg-success/10 text-success hover:bg-success/20', dot: 'bg-success' },
-    { chip: 'bg-warning/15 text-warning hover:bg-warning/25', dot: 'bg-warning' },
-    { chip: 'bg-destructive/10 text-destructive hover:bg-destructive/20', dot: 'bg-destructive' },
-    { chip: 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80', dot: 'bg-secondary-foreground' },
+    { chip: 'bg-primary/10 text-primary hover:bg-primary/20', dot: 'bg-primary', solid: 'bg-primary text-primary-foreground border border-primary hover:opacity-90' },
+    { chip: 'bg-success/10 text-success hover:bg-success/20', dot: 'bg-success', solid: 'bg-success text-success-foreground border border-success hover:opacity-90' },
+    { chip: 'bg-warning/15 text-warning hover:bg-warning/25', dot: 'bg-warning', solid: 'bg-warning text-warning-foreground border border-warning hover:opacity-90' },
+    { chip: 'bg-destructive/10 text-destructive hover:bg-destructive/20', dot: 'bg-destructive', solid: 'bg-destructive text-destructive-foreground border border-destructive hover:opacity-90' },
+    { chip: 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80', dot: 'bg-secondary-foreground', solid: 'bg-secondary-foreground text-background border border-secondary-foreground hover:opacity-90' },
   ]
 
   /** Standalone tasks stay deliberately uncoloured — that is what marks them out. */
   const NO_PROJECT = {
     chip: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-border',
     dot: 'bg-muted border border-dashed border-border',
+    solid: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-border',
   }
 
   const projectColour = (project: string | null) =>
@@ -589,7 +600,7 @@ export function TaskCalendarView() {
               // Self-logged work is the far more frequent reason to click a
               // bare day - "Add Event" (meetings) stays one click away in
               // the header for the less-frequent case, unchanged.
-              onEmptyDateClick={(dateStr) => { setSelfTaskDate(dateStr); setSelfTaskOpen(true) }}
+              onEmptyDateClick={(dateStr, timeStr) => { setSelfTaskDate(dateStr); setSelfTaskTime(timeStr); setSelfTaskOpen(true) }}
               onTaskReschedule={onTaskReschedule}
               onEventReschedule={onEventReschedule}
             />
@@ -629,6 +640,7 @@ export function TaskCalendarView() {
     <SelfTaskEntryModal
       isOpen={selfTaskOpen}
       initialDate={selfTaskDate}
+      initialTimeStart={selfTaskTime}
       statusOptions={statusOptions}
       onClose={() => setSelfTaskOpen(false)}
       onCreated={(text) => { setMessage(text); void load() }}

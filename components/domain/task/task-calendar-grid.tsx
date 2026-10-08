@@ -20,7 +20,7 @@ const FC_VIEW: Record<CalendarGridView, string> = {
   month: 'dayGridMonth', week: 'timeGridWeek', day: 'timeGridDay',
 }
 
-interface ColourClasses { chip: string; dot: string }
+interface ColourClasses { chip: string; dot: string; solid: string }
 
 interface Props {
   tasks: WorkspaceTask[]
@@ -34,7 +34,8 @@ interface Props {
   feedColour: (userId: string) => ColourClasses
   onTaskClick: (taskId: string) => void
   onEventClick: (eventId: string) => void
-  onEmptyDateClick: (dateStr: string) => void
+  /** `timeStr` ('HH:mm') is only present for a week/day-view click on a specific time slot - a month-view day cell has no time to give. */
+  onEmptyDateClick: (dateStr: string, timeStr?: string) => void
   /** Resolves to whether the move should stick - false reverts the drag/resize visually too, not just in state. */
   onTaskReschedule: (taskId: string, start: Date, end: Date) => Promise<boolean>
   onEventReschedule: (eventId: string, start: Date, end: Date, allDay: boolean) => Promise<boolean>
@@ -103,7 +104,9 @@ export function TaskCalendarGrid({
   }
 
   const handleDateClick = (arg: DateClickArg) => {
-    onEmptyDateClick(format(arg.date, 'yyyy-MM-dd'))
+    // arg.allDay is true for a dayGridMonth cell (no time of day to give) and
+    // false for a timeGridWeek/Day slot, which carries the actual time clicked.
+    onEmptyDateClick(format(arg.date, 'yyyy-MM-dd'), arg.allDay ? undefined : format(arg.date, 'HH:mm'))
   }
 
   const handleEventDrop = async (arg: EventDropArg) => {
