@@ -5,6 +5,7 @@ import { AgentChat, type Message } from './agent-chat'
 import { IconButton } from '@/components/ui/icon-button'
 
 interface AgentPanelProps {
+  suggestedPrompts?: string[]
   messages: Message[]
   isLoading?: boolean
   error?: string | null
@@ -13,6 +14,7 @@ interface AgentPanelProps {
 }
 
 export function AgentPanel({
+  suggestedPrompts,
   messages,
   isLoading,
   error,
@@ -49,6 +51,7 @@ export function AgentPanel({
       </div>
 
       <AgentChat
+        suggestedPrompts={suggestedPrompts}
         messages={messages}
         isLoading={isLoading}
         error={error}

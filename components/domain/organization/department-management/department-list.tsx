@@ -337,6 +337,13 @@ export function DepartmentList({ role }: { role?: Role }) {
     queueMicrotask(() => void loadDepartments())
   }, [loadDepartments])
 
+  // Something outside this screen - the chat assistant - changed the data: show it.
+  useEffect(() => {
+    const onChanged = () => void loadDepartments({ clearNotice: false })
+    window.addEventListener('g2g:data-changed', onChanged)
+    return () => window.removeEventListener('g2g:data-changed', onChanged)
+  }, [loadDepartments])
+
   // What this role may see - see scopeDepartments()'s own docblock.
   const scopedDepts = useMemo(
     () => scopeDepartments(departments, access, user?.id),

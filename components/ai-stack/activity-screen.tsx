@@ -77,7 +77,7 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchModuleActivity(module.key, { limit: PAGE, operation: operation || undefined })
+    fetchModuleActivity(module.key, { limit: PAGE, operation: operation || undefined, rollup: true })
       .then((next) => {
         if (cancelled) return;
         setActivity(next);
@@ -190,6 +190,7 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
                   'By',
                   'About',
                   'Reference',
+                  'Duration',
                   'Status',
                 ]}
               />
@@ -207,7 +208,10 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
                       <div className="text-xs font-medium text-slate-900">
                         {entry.operation_label ?? labelFor(entry.operation)}
                       </div>
-                      <div className="mt-0.5 font-mono text-[10px] text-slate-400">{entry.operation}</div>
+                      <div className="mt-0.5 font-mono text-[10px] text-slate-400">
+                        {entry.module && entry.module !== module.key ? `${entry.module} · ` : ''}
+                        {entry.operation}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5">
                       {entry.capability ? (
@@ -227,6 +231,9 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
                         (entry.subject_id ? `${entry.subject_entity_key ?? 'record'} ${entry.subject_id}` : '—')}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-[11px] text-slate-600">{entry.reference ?? '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-xs text-slate-700">
+                      {formatDuration(entry.duration_ms)}
+                    </td>
                     <td className="px-4 py-2.5">
                       <AiStackPill
                         tone={
@@ -259,6 +266,13 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
       {open && <EntryDetail entry={open} onClose={() => setOpen(null)} />}
     </section>
   );
+}
+
+/** A measured duration, or the fallback when the recorder did not measure one. Never a guess. */
+function formatDuration(ms: number | null | undefined, fallback = '—'): string {
+  if (ms === null || ms === undefined) return fallback;
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
 }
 
 /** The AI Stack records one entry names, or an honest dash. */
@@ -346,6 +360,17 @@ function EntryDetail({ entry, onClose }: { entry: AiModuleActivityEntry; onClose
               }
             />
             <Detail label="Reference" value={entry.reference ?? '—'} />
+            <Detail label="Duration" value={formatDuration(entry.duration_ms, 'Not measured')} />
+            <Detail
+              label="Knowledge graph"
+              value={
+                entry.knowledge_graph_used === true
+                  ? 'Used'
+                  : entry.knowledge_graph_used === false
+                    ? 'Not used'
+                    : 'Not measured'
+              }
+            />
           </dl>
 
           <div>
