@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns'
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, UserPlus, Users } from 'lucide-react'
+import { CalendarClock, ChevronLeft, ChevronRight, Download, Filter, MoreHorizontal, Plus, SlidersHorizontal, UserPlus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Select } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import type { CalendarEntry, CalendarEntryKind, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
@@ -16,8 +18,7 @@ import { CreateEventModal } from './create-event-modal'
 import { EventDetailsDrawer } from './event-details-drawer'
 import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { TaskReminderToast } from './task-reminder-toast'
-import { CalendarFeedTogglePanel } from './calendar-feed-toggle-panel'
-import { IcsExportButton } from './ics-export-button'
+import { CalendarSidebar } from './calendar-sidebar'
 import { IcsImportModal } from './ics-import-modal'
 import { TaskCalendarGrid, type CalendarGridView } from './task-calendar-grid'
 import { ActivityTypesPanel } from './activity-types-panel'
@@ -104,7 +105,6 @@ export function TaskCalendarView() {
   // to exactly who the viewer may see, so every row is a legitimate toggle.
   const [feeds, setFeeds] = useState<CalendarFeed[]>([])
   const [hiddenFeedUserIds, setHiddenFeedUserIds] = useState<Set<string>>(new Set())
-  const [feedPanelOpen, setFeedPanelOpen] = useState(false)
   const [icsImportOpen, setIcsImportOpen] = useState(false)
   // Activity Types: which of the four kinds are hidden on the grid - empty
   // by default, since 9.1 already made all four visible unconditionally and
@@ -407,51 +407,75 @@ export function TaskCalendarView() {
 
   const openTaskRow = tasks.find((task) => task.id === openTaskId) ?? null
 
+  const activeFilterCount = (screenMode === 'shared' && viewScope !== 'all' && viewScope !== 'mine' ? 1 : 0)
+    + (projectFilter ? 1 : 0) + (departmentFilter ? 1 : 0)
+
   return <div className="space-y-5">
     <TaskReminderToast />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-3xl font-bold tracking-tight">Task Calendar</h1><p className="text-sm text-muted-foreground">Deadlines across all visible projects and assignments.</p></div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-lg border p-0.5">
-          {([
-            { key: 'my' as const, label: 'My Calendar', onClick: selectMyCalendar },
-            { key: 'shared' as const, label: 'Shared Calendar', onClick: selectSharedCalendar },
-            { key: 'list' as const, label: 'List View', onClick: () => setScreenMode('list') },
-          ]).map(({ key, label, onClick }) => (
-            <button
-              key={key}
-              onClick={onClick}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                screenMode === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        {/* A 3-button pill group here cost as much width as "Shared Calendar"
+            has letters, three times over - a Select, matching the filters
+            right next to it, says the same thing in a fixed, narrow box. */}
+        <div className="w-40">
+          <Select
+            value={screenMode}
+            onChange={(value) => {
+              if (value === 'my') selectMyCalendar()
+              else if (value === 'shared') selectSharedCalendar()
+              else setScreenMode('list')
+            }}
+            options={[
+              { value: 'my', label: 'My Calendar' },
+              { value: 'shared', label: 'Shared Calendar' },
+              { value: 'list', label: 'List View' },
+            ]}
+          />
         </div>
-        {screenMode === 'shared' && (
-          <div className="w-44"><Select value={viewScope === 'mine' ? 'all' : viewScope} onChange={(value) => setViewScope(value as WorkspaceScope)} options={[
-            { value: 'all', label: 'All Tasks' }, { value: 'team', label: 'My Team' }, { value: 'department', label: 'My Department' },
-          ]} /></div>
-        )}
-        <div className="w-52"><Select value={projectFilter} onChange={setProjectFilter} options={[{ value: '', label: 'All projects' }, { value: '__none__', label: 'Not in a project' }, ...allProjects.map((project) => ({ value: project.id, label: project.name }))]} /></div>
-        {/* New capability beyond CRM parity - CRM itself has no department
-            concept at all. Filters the whole merged feed, not just tasks,
-            now that 8.5 put department_id on every kind's entries. */}
-        <div className="w-48"><Select value={departmentFilter} onChange={setDepartmentFilter} options={[{ value: '', label: 'All departments' }, ...allDepartments.map((department) => ({ value: department.id, label: department.name }))]} /></div>
+        {/* Scope/project/department were three separate select boxes sitting
+            side by side - the single heaviest contributor to the header
+            outgrowing one line. Consolidated into one icon button; a badge
+            shows how many are actually narrowed so nothing active goes
+            invisible just because the popover is closed. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Filters" className="relative">
+              <Filter className="size-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 space-y-3">
+            {screenMode === 'shared' && (
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-muted-foreground">Scope</label>
+                <Select value={viewScope === 'mine' ? 'all' : viewScope} onChange={(value) => setViewScope(value as WorkspaceScope)} options={[
+                  { value: 'all', label: 'All Tasks' }, { value: 'team', label: 'My Team' }, { value: 'department', label: 'My Department' },
+                ]} />
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-muted-foreground">Project</label>
+              <Select value={projectFilter} onChange={setProjectFilter} options={[{ value: '', label: 'All projects' }, { value: '__none__', label: 'Not in a project' }, ...allProjects.map((project) => ({ value: project.id, label: project.name }))]} />
+            </div>
+            {/* New capability beyond CRM parity - CRM itself has no department
+                concept at all. Filters the whole merged feed, not just tasks,
+                now that 8.5 put department_id on every kind's entries. */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-muted-foreground">Department</label>
+              <Select value={departmentFilter} onChange={setDepartmentFilter} options={[{ value: '', label: 'All departments' }, ...allDepartments.map((department) => ({ value: department.id, label: department.name }))]} />
+            </div>
+          </PopoverContent>
+        </Popover>
         {screenMode !== 'list' && (
-          <div className="flex items-center rounded-lg border p-0.5">
-            {(['month', 'week', 'day'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setView(mode)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-                  view === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
+          <div className="w-28">
+            <Select value={view} onChange={(value) => setView(value as CalendarGridView)} options={[
+              { value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'day', label: 'Day' },
+            ]} />
           </div>
         )}
         {/* The arrows step by whatever is on screen - a month, a week, a day -
@@ -459,30 +483,50 @@ export function TaskCalendarView() {
         <Button variant="outline" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
         <Button variant="outline" onClick={() => setMonth(view === 'month' ? startOfMonth(new Date()) : startOfDay(new Date()))}>Today</Button>
         <Button variant="outline" size="icon" onClick={() => step(1)}><ChevronRight className="size-4" /></Button>
+
+        {/* A visual break between navigation/filtering (left of here) and the
+            create actions (right of here) - kept as their own clearly
+            separate group rather than blended into the same cluster. */}
+        <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+
         <Button
           variant="outline"
           onClick={() => { setSelfTaskDate(format(new Date(), 'yyyy-MM-dd')); setSelfTaskOpen(true) }}
         >
           <Plus className="mr-2 size-4" />Add Task
         </Button>
-        {/* Deliberately a separate, clearly distinct control from "Add Task" -
-            that one is always self-assigned; this one opens the same
-            unchanged assign-to-someone-else form Task Management itself uses
-            (locked-in #5). */}
-        <Button variant="outline" onClick={() => setAssignTaskOpen(true)}>
-          <UserPlus className="mr-2 size-4" />Assign Task
-        </Button>
         <Button onClick={() => { setCreateEventDate(format(new Date(), 'yyyy-MM-dd')); setCreateEventOpen(true) }}>
           <CalendarClock className="mr-2 size-4" />Add Event
         </Button>
-        <Button variant="outline" onClick={() => setFeedPanelOpen(true)}>
-          <Users className="mr-2 size-4" />Feeds{hiddenFeedUserIds.size > 0 ? ` (${feeds.length - hiddenFeedUserIds.size}/${feeds.length})` : ''}
+        {/* A separate, clearly distinct control from "Add Task" - that one is
+            always self-assigned; this opens the same unchanged
+            assign-to-someone-else form Task Management itself uses
+            (locked-in #5). Visible here, not tucked into the overflow menu. */}
+        <Button variant="outline" onClick={() => setAssignTaskOpen(true)}>
+          <UserPlus className="mr-2 size-4" />Assign Task
         </Button>
-        <Button variant="outline" onClick={() => setActivityTypesOpen(true)}>
-          <SlidersHorizontal className="mr-2 size-4" />Activity Types{hiddenKinds.size > 0 ? ` (${4 - hiddenKinds.size}/4)` : ''}
-        </Button>
-        <IcsExportButton from={format(range.from, 'yyyy-MM-dd')} to={format(range.to, 'yyyy-MM-dd')} />
-        <Button variant="outline" onClick={() => setIcsImportOpen(true)}>Import .ics</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="More actions" className="relative">
+              <MoreHorizontal className="size-4" />
+              {hiddenKinds.size > 0 && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onSelect={() => setActivityTypesOpen(true)}>
+              <SlidersHorizontal />Activity Types{hiddenKinds.size > 0 ? ` (${4 - hiddenKinds.size}/4)` : ''}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href={taskService.calendarExportIcsUrl(getLaravelContext(), format(range.from, 'yyyy-MM-dd'), format(range.to, 'yyyy-MM-dd'))}>
+                <Download />Export .ics
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setIcsImportOpen(true)}>
+              <Upload />Import .ics
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
     {/* `danger` is not a token in this design system - globals.css defines
@@ -504,72 +548,66 @@ export function TaskCalendarView() {
         <Button variant="outline" size="sm" onClick={() => void loadFeeds()}>Try again</Button>
       </div>
     )}
-    {/* Shared Calendar's own feed toggles, inline - the Feeds button above
-        still opens the full side panel (sharing, "Can edit", etc.), but
-        whose calendars are currently overlaid should be visible on the
-        screen itself, not only behind a click. */}
-    {screenMode === 'shared' && feeds.length > 0 && (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 p-3">
-        <span className="text-xs font-semibold text-muted-foreground">Calendars:</span>
-        {feeds.map((feed) => {
-          const active = !hiddenFeedUserIds.has(feed.user_id)
-          return (
-            <button
-              key={feed.user_id}
-              type="button"
-              onClick={() => toggleFeed(feed.user_id)}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                active ? 'border-transparent bg-background shadow-sm' : 'border-dashed text-muted-foreground opacity-60'
-              }`}
-            >
-              <span
-                className={feed.color ? 'size-2 rounded-full' : `size-2 rounded-full ${feedColour(feed.user_id).dot}`}
-                style={feed.color ? { backgroundColor: feed.color } : undefined}
-              />{feed.name}
-            </button>
-          )
-        })}
-      </div>
-    )}
-    <Card><CardContent className="p-0">
-      <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>
-      {loading ? <div className="flex h-96 items-center justify-center"><Spinner /></div> : screenMode === 'list' ? (
-        <CalendarListView
-          tasks={visibleTasks}
-          entries={visibleEntries}
+    {/* Persistent left rail (whose calendars are overlaid) alongside the
+        grid/list, mirroring document-library-view.tsx's own sidebar shape -
+        replaces both the old "Calendars:" chip row and the Feeds overlay
+        panel's visibility section. Hidden in 'my' mode: selectMyCalendar
+        already hides every feed there, so the rail would show nothing but
+        unchecked rows. */}
+    <div className="flex min-w-0 items-start gap-4">
+      {screenMode !== 'my' && (
+        <CalendarSidebar
           feeds={feeds}
-          onTaskClick={setOpenTaskId}
-          onEventClick={setOpenEventId}
-        />
-      ) : (
-        <TaskCalendarGrid
-          tasks={visibleTasks}
-          entries={visibleEntries}
-          feeds={feeds}
-          viewerId={viewerId}
-          view={view}
-          anchorDate={month}
-          projectColour={projectColour}
-          feedColour={feedColour}
-          onTaskClick={setOpenTaskId}
-          onEventClick={setOpenEventId}
-          onEmptyDateClick={(dateStr) => { setCreateEventDate(dateStr); setCreateEventOpen(true) }}
-          onTaskReschedule={onTaskReschedule}
-          onEventReschedule={onEventReschedule}
+          hidden={hiddenFeedUserIds}
+          onToggle={toggleFeed}
+          dotClassFor={(userId) => feedColour(userId).dot}
         />
       )}
-      {!loading && screenMode !== 'list' && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
-        <div className="flex flex-wrap items-center gap-3 border-t p-4 text-xs text-muted-foreground">
-          <span className="font-medium">Projects:</span>
-          {projects.map((name) => (
-            <span key={name} className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${projectColour(name).dot}`} />{name}</span>
-          ))}
-          {visibleTasks.some((task) => !task.project) && (
-            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border border-dashed border-border bg-muted" />Not in a project</span>
+      <div className="min-w-0 flex-1">
+        <Card><CardContent className="p-0">
+          <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>
+          {loading ? <div className="flex h-96 items-center justify-center"><Spinner /></div> : screenMode === 'list' ? (
+            <CalendarListView
+              tasks={visibleTasks}
+              entries={visibleEntries}
+              feeds={feeds}
+              onTaskClick={setOpenTaskId}
+              onEventClick={setOpenEventId}
+            />
+          ) : (
+            <TaskCalendarGrid
+              tasks={visibleTasks}
+              entries={visibleEntries}
+              feeds={feeds}
+              viewerId={viewerId}
+              view={view}
+              anchorDate={month}
+              projectColour={projectColour}
+              feedColour={feedColour}
+              onTaskClick={setOpenTaskId}
+              onEventClick={setOpenEventId}
+              // Self-logged work is the far more frequent reason to click a
+              // bare day - "Add Event" (meetings) stays one click away in
+              // the header for the less-frequent case, unchanged.
+              onEmptyDateClick={(dateStr) => { setSelfTaskDate(dateStr); setSelfTaskOpen(true) }}
+              onTaskReschedule={onTaskReschedule}
+              onEventReschedule={onEventReschedule}
+            />
           )}
-        </div>
-      )}
-    </CardContent></Card>
+          {!loading && screenMode !== 'list' && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
+            <div className="flex flex-wrap items-center gap-3 border-t p-4 text-xs text-muted-foreground">
+              <span className="font-medium">Projects:</span>
+              {projects.map((name) => (
+                <span key={name} className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${projectColour(name).dot}`} />{name}</span>
+              ))}
+              {visibleTasks.some((task) => !task.project) && (
+                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border border-dashed border-border bg-muted" />Not in a project</span>
+              )}
+            </div>
+          )}
+        </CardContent></Card>
+      </div>
+    </div>
     <MyTaskDetailsDrawer
       taskId={openTaskId}
       open={openTaskId !== null}
@@ -611,14 +649,6 @@ export function TaskCalendarView() {
       open={openEventId !== null}
       onClose={() => setOpenEventId(null)}
       onUpdated={() => void loadEntries()}
-    />
-    <CalendarFeedTogglePanel
-      open={feedPanelOpen}
-      onClose={() => setFeedPanelOpen(false)}
-      feeds={feeds}
-      hidden={hiddenFeedUserIds}
-      onToggle={toggleFeed}
-      dotClassFor={(userId) => feedColour(userId).dot}
     />
     <ActivityTypesPanel
       open={activityTypesOpen}

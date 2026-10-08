@@ -167,7 +167,7 @@ function EventChip({ arg }: { arg: EventContentArg }) {
   const chip = (
     <div
       title={props.hint}
-      className={`flex w-full items-center gap-1 truncate rounded px-2 py-1 text-left text-xs font-medium ${props.fallbackClassName} ${props.settled ? 'line-through opacity-70' : ''} ${props.overdue ? 'ring-1 ring-inset ring-destructive/50' : ''}`}
+      className={`flex w-full items-center gap-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs font-medium leading-snug ${props.fallbackClassName} ${props.settled ? 'line-through opacity-70' : ''} ${props.overdue ? 'ring-1 ring-inset ring-destructive/50' : ''}`}
       style={props.accentColor ? { borderLeft: `3px solid ${props.accentColor}` } : undefined}
     >
       {props.kind === 'MILESTONE' && <Flag className="size-3 shrink-0" />}
