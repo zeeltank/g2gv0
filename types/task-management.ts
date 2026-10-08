@@ -68,6 +68,9 @@ export interface MyTask {
   task_type: string | null
   due_date: string | null
   remarks: string | null
+  /** Which recurring series this occurrence belongs to, if any. */
+  recurrence_id: string | null
+  visibility: 'PUBLIC' | 'PRIVATE'
   created_at: string | null
   updated_at: string | null
   observation_point?: string | null
@@ -135,6 +138,7 @@ export interface TaskPriorityOption {
   name: string
   sort_order: number
   sla_hours: number | null
+  color: string | null
   is_system: boolean
   active: boolean
 }
@@ -632,6 +636,7 @@ export interface WorkspaceTask {
   description: string
   project_id: string | null
   project: string
+  department_id: string | null
   department: string
   assignee_id: string | null
   assignee: string
@@ -666,6 +671,8 @@ export interface WorkspaceTask {
   workstream_id?: string | null
   due_date: string | null
   remarks: string | null
+  /** Which recurring series this occurrence belongs to, if any. */
+  recurrence_id: string | null
   approved: boolean
   approved_on: string | null
   /**
@@ -794,4 +801,188 @@ export interface DependenciesResponse {
       users: Array<{ id: string; name: string }>
     }
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * CALENDAR
+ *
+ * `CalendarEntry` is the merged read-model CalendarFeedService returns -
+ * tasks, events, milestones and workstream checkpoints normalised into one
+ * shape for one date range. TASK rows duplicate what `getWorkspace` already
+ * returns (TaskCalendarView keeps using WorkspaceTask for those - span math,
+ * drag-reschedule and the project palette are already built and proven
+ * against that shape); this endpoint's TASK entries exist so a consumer that
+ * only wants "everything on this day" has one call, not four. The calendar
+ * screen filters this down to kind === 'EVENT' and renders those as a
+ * second, visually distinct layer alongside the existing task chips.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type CalendarEntryKind = 'TASK' | 'EVENT' | 'MILESTONE' | 'CHECKPOINT'
+
+export interface CalendarEntry {
+  kind: CalendarEntryKind
+  id: string
+  title: string
+  /** `yyyy-MM-dd` for an all-day entry, a full datetime for a timed one. */
+  start: string
+  end: string
+  all_day: boolean
+  status: string
+  owner_id: string | null
+  /** EVENT only on the wire today; absent reads the same as PUBLIC. */
+  visibility?: 'PUBLIC' | 'PRIVATE'
+  /** Null when this entry isn't linked to a project (or, for EVENT, not linked to one directly). */
+  project_id: string | null
+  project_name: string | null
+  department_id: string | null
+  department_name: string | null
+}
+
+export interface CalendarEntriesResponse {
+  status: 1
+  message: string
+  data: { entries: CalendarEntry[] }
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  description: string
+  location: string | null
+  /** Full datetime, `yyyy-MM-dd HH:mm:ss` - unlike a task, an event always has both ends. */
+  start_at: string
+  end_at: string
+  all_day: boolean
+  status: 'Planned' | 'Held' | 'Cancelled'
+  owner_id: string
+  linked_type: string | null
+  linked_id: string | null
+  /** Which recurring series this occurrence belongs to, if any. */
+  recurrence_id: string | null
+  visibility: 'PUBLIC' | 'PRIVATE'
+}
+
+export interface CalendarEventPayload {
+  title: string
+  description?: string
+  location?: string
+  start_at: string
+  end_at: string
+  all_day?: boolean
+  owner_id?: string
+  visibility?: 'PUBLIC' | 'PRIVATE'
+}
+
+/* ── Recurrence (Phase 2) ──────────────────────────────────────────────
+ * Eager materialization on the backend: setting a rule writes real rows
+ * immediately (up to a 90-day horizon, or `until` if sooner), not a virtual
+ * expansion computed at read time. `recurrence_id` on a task/event marks it
+ * as one occurrence of a series; its presence is what decides whether an
+ * edit/delete needs to ask which occurrences it applies to. */
+
+export type RecurrenceScope = 'this' | 'this_and_future' | 'all'
+
+export interface RecurrenceRule {
+  frequency: 'daily' | 'weekly' | 'monthly'
+  interval: number
+  until: string | null
+}
+
+export interface RecurrenceResponse {
+  status: 1
+  message: string
+  data: { recurrence: (RecurrenceRule & { task_id?: string; event_id?: string }) | null }
+}
+
+export interface RecurrenceSavedResponse {
+  status: 1
+  message: string
+  data: { recurrence: RecurrenceRule & { task_id?: string; event_id?: string }; created_count: number }
+}
+
+/* ── Reminders (Phase 3) ───────────────────────────────────────────────
+ * A reminder's own "minutes before" lives on a per-entity GET/PUT/DELETE
+ * (`reminder-show`/`upsert` below) mirroring the recurrence endpoints
+ * exactly. `DueReminder` is the polling surface - entity-agnostic, since the
+ * toast does not know or care which task/event a delivery is for until the
+ * server tells it. No "fetch marks fired": seeing a reminder here never
+ * changes its status - only an explicit markSeen/snooze call does. */
+
+export interface ReminderSetting {
+  minutes_before: number
+}
+
+export interface ReminderResponse {
+  status: 1
+  message: string
+  data: { reminder: ReminderSetting | null }
+}
+
+export interface DueReminder {
+  delivery_id: string
+  entry_type: CalendarEntryKind
+  entry_id: string
+  title: string
+  fire_at: string
+  snoozed_until: string | null
+}
+
+export interface DueRemindersResponse {
+  status: 1
+  message: string
+  data: { reminders: DueReminder[] }
+}
+
+/* ── Sharing & visibility (Phase 4) ──────────────────────────────────────
+ * Two directions: CalendarShare (outgoing — whom I've granted access to)
+ * and CalendarFeed (incoming — whose calendars I may overlay). Never
+ * confused for each other; see CalendarShareService's own docblock. */
+
+export interface CalendarShare {
+  id: string
+  viewer_user_id: string
+  viewer_name: string
+  can_edit: boolean
+  color: string | null
+}
+
+export interface CalendarSharesResponse {
+  status: 1
+  message: string
+  data: { shares: CalendarShare[] }
+}
+
+export interface CalendarFeed {
+  user_id: string
+  name: string
+  /** The color the owner picked for this viewer (or everyone), if any — null falls back to the automatic by-index palette. */
+  color: string | null
+}
+
+export interface CalendarFeedsResponse {
+  status: 1
+  message: string
+  data: { feeds: CalendarFeed[] }
+}
+
+/* ── iCalendar import/export + attendees (Phase 5) ─────────────────────
+ * Accept-only, matching CRM — no decline/tentative. Export URLs are plain
+ * hrefs (a download, not a fetch), same pattern as auditLogsExportUrl. */
+
+export interface IcsImportResult {
+  imported: number
+  skipped: number
+  details: Array<{ uid: string | null; summary: string; reason: string }>
+}
+
+export interface Attendee {
+  id: string
+  name: string
+  status: 'invited' | 'accepted'
+}
+
+export interface AttendeesResponse {
+  status: 1
+  message: string
+  data: { attendees: Attendee[] }
 }
