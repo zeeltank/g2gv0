@@ -7,8 +7,10 @@
  *
  * ── HOW THIS RELATES TO LMS K-12's LIST ─────────────────────────────────────
  *
- * The same twelve names, deliberately, so "Platform Services" is one thing across the
- * platform rather than two menus that happen to rhyme. What differs, and must:
+ * The same twelve services, deliberately, so "Platform services" is one thing across the
+ * platform rather than two menus that happen to rhyme — `name` here uses K-12's own
+ * display wording ("Roles and permissions", not "RBAC"), not its internal registry key.
+ * What differs, and must:
  *
  *   `status`       what G2G offers today. LMS K-12's copy answers the same question
  *                  about LMS K-12, and the two products are at different points.
@@ -62,7 +64,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.rbac',
     slug: 'rbac',
-    name: 'RBAC',
+    name: 'Roles and permissions',
     section: 'services',
     icon: 'ShieldCheck',
     purpose: 'Decide which screens each role can open, and what it may do on them.',
@@ -78,7 +80,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.workflow',
     slug: 'workflow',
-    name: 'Workflow',
+    name: 'Workflows',
     section: 'services',
     icon: 'Workflow',
     purpose: 'Define the approval chains that sit in front of a module action.',
@@ -101,7 +103,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.scheduler',
     slug: 'scheduler',
-    name: 'Scheduler',
+    name: 'Schedules',
     section: 'services',
     icon: 'CalendarClock',
     purpose: 'See what the platform runs on a timer, when it last ran, and what failed.',
@@ -118,7 +120,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.integration',
     slug: 'integration',
-    name: 'Integration',
+    name: 'Integrations',
     section: 'services',
     icon: 'Plug',
     purpose: 'Connect and monitor the third-party services the platform talks to.',
@@ -155,7 +157,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.audit',
     slug: 'audit',
-    name: 'Audit',
+    name: 'Audit log',
     section: 'services',
     icon: 'ClipboardCheck',
     purpose: 'Read the record of what changed, who changed it, and when.',
@@ -169,9 +171,25 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     phase: 1,
   },
   {
+    id: 'platform.document-library',
+    slug: 'document-library',
+    name: 'Documents',
+    section: 'services',
+    icon: 'FileText',
+    purpose: 'Upload, search and browse every document across the organisation by what it says, not just its name.',
+    whyCentral:
+      'Onboarding documents, competency evidence, task attachments, offboarding paperwork and personnel records each had their own upload screen and no shared way to search what was actually written inside any of them.',
+    todayInG2g:
+      'document_library holds a MariaDB FULLTEXT index over every uploaded document’s extracted text, AI-classified via AiModelClient with a rule-based fallback. Onboarding, competency, task, offboarding and LMS-certificate documents are federated into the same index by source-system indexers that point back to their own storage and permission checks rather than migrating their files. Resumes and offer letters file themselves automatically on hire; Form 16 generates on demand.',
+    toBuild: [],
+    status: 'live',
+    destination: { kind: 'existing-route', href: '/documents' },
+    phase: 1,
+  },
+  {
     id: 'platform.event-bus',
     slug: 'event-bus',
-    name: 'Event Bus',
+    name: 'Activity feed',
     section: 'services',
     icon: 'Waypoints',
     purpose: 'Watch the event store drain: what was recorded, who consumed it, what failed.',
@@ -206,7 +224,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.add-process',
     slug: 'add-process',
-    name: 'Add Process',
+    name: 'Add process',
     section: 'setup',
     icon: 'CirclePlus',
     purpose: 'Turn a written procedure into a process, its workflow and its tasks.',
@@ -229,7 +247,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.fields-configuration',
     slug: 'fields-configuration',
-    name: 'Fields Configuration',
+    name: 'Field settings',
     section: 'setup',
     icon: 'SlidersHorizontal',
     purpose: 'Add the fields this organisation needs to records the product ships.',
@@ -249,7 +267,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.mobile-app-rights',
     slug: 'mobile-app-rights',
-    name: 'Mobile App Rights',
+    name: 'Mobile app rights',
     section: 'setup',
     icon: 'Smartphone',
     purpose: 'Decide which screens a role can reach from the mobile app.',
@@ -265,7 +283,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.administration',
     slug: 'platform-administration',
-    name: 'Platform Administration',
+    name: 'Platform administration',
     section: 'setup',
     icon: 'LayoutDashboard',
     purpose: 'One view of every platform service and AI capability, and what state each is in.',
@@ -280,7 +298,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
   {
     id: 'platform.whats-coming',
     slug: 'whats-coming',
-    name: "What's Coming",
+    name: "What's coming",
     section: 'setup',
     icon: 'Map',
     purpose: 'What is not built yet, across the platform services and the AI capabilities.',

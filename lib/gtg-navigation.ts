@@ -40,6 +40,8 @@ export const HOME_NAV: ActiveNav = {
  */
 export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organization-setup/organization-profile'
 export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
+/** Self-service - every employee's own department's shared documents. Must match the `access_link` seeded by database/migrations/2026_10_08_100100_add_my_department_documents_menu.php exactly. */
+export const MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK = '/module/organizational-management/organization-setup/my-department-documents'
 export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
 export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
@@ -113,10 +115,13 @@ export const TALENT_MOBILITY_ACCESS_LINK = '/module/talent-management/mobility-a
 export const TALENT_OFFBOARDING_ACCESS_LINK = '/module/talent-management/offboarding'
 export const TALENT_ADMINISTRATION_ACCESS_LINK = '/module/talent-management/administration'
 
+export const AG_AGENT_DASHBOARD_ACCESS_LINK = '/module/agentic-ai/agent-dashboard'
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
+export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
+export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
 
 export type BreadcrumbItem = {
   label: string

@@ -11,13 +11,16 @@ import { rememberLastVisited } from '@/lib/last-visited'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import { PlatformServicesSubheader } from '@/components/shell/platform-services-subheader'
-import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
+import PlatformServicesLauncher from '@/components/shell/gtg-platform-services-launcher'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import type { Message as AgentMessage } from '@/components/shell/agent/agent-chat'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { isAiCoreEnabled } from '@/lib/ai-core/flag'
+import type { G2gAiCore } from '@/lib/ai-core/runtime'
+import type { AppContext as AiCoreContext } from 'darshana-ai-core'
 import { accountService } from '@/services/account'
 import { useAuth } from '@/components/auth/gtg-auth'
 
@@ -191,7 +194,7 @@ export function GtgAppShell({
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
-  const { modules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
+  const { modules, sidebarModules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
   /*
    * ═══════════════════════════════════════════════════════════════════════
    * THE URL IS THE SOURCE OF TRUTH — NOT A DEFAULT SCREEN
@@ -317,13 +320,60 @@ export function GtgAppShell({
       content: trimmed,
     }
 
-    const nextMessages = [...agentMessagesRef.current, userMessage]
+    const previousMessages = agentMessagesRef.current
+    const nextMessages = [...previousMessages, userMessage]
     setAgentOpen(true)
     setAgentError(null)
     setAgentMessages(nextMessages)
     setAgentLoading(true)
 
     try {
+      /**
+       * Universal AI core path (flag `NEXT_PUBLIC_AI_CORE_ENABLED`, default off).
+       *
+       * The same request, made through the G2G chat engine behind the core's
+       * `ChatEngine` interface. Only a failure to *set the core up* — it cannot load,
+       * or the session has no organisation to build a context from — falls through to
+       * the built-in path below. Once the request is sent, an error is shown, never
+       * retried: re-sending would spend the model twice.
+       */
+      if (isAiCoreEnabled()) {
+        let core: G2gAiCore | null = null
+        let coreContext: AiCoreContext | null = null
+
+        try {
+          core = (await import('@/lib/ai-core/runtime')).getG2gAiCore()
+          coreContext = await core.context()
+        } catch (setupError) {
+          console.error('[ai-core] unavailable, using the built-in chat path', setupError)
+          core = null
+        }
+
+        if (core && coreContext) {
+          const reply = await core.chatEngine.send(coreContext, {
+            message: trimmed,
+            conversationId: agentSessionIdRef.current,
+            history: previousMessages.map((item) => ({ role: item.role, content: item.content })),
+          })
+          const meta = reply.answer.meta as
+            | { messageId?: string; status?: string; conversationType?: string; tools?: string[] }
+            | undefined
+
+          setAgentMessages((current) => [
+            ...current,
+            {
+              id: meta?.messageId || `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: reply.answer.text,
+              status: meta?.status,
+              conversationType: meta?.conversationType,
+              tools: meta?.tools,
+            },
+          ])
+          return
+        }
+      }
+
       /**
        * The Laravel session (token, sub_institute_id, syear) is what lets the
        * conversational layer read live module data through the same token
@@ -511,7 +561,7 @@ export function GtgAppShell({
       <GtgSidebar
         active={resolvedActive}
         onSelect={handleNavSelect}
-        modules={modules}
+        modules={sidebarModules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
@@ -600,7 +650,7 @@ export function GtgAppShell({
             </aside>
           </div>
         </BreadcrumbItemsProvider>
-        <FloatingToolbar
+        <PlatformServicesLauncher
           isAgentOpen={agentOpenState}
           open={toolbarOpen}
           onOpenChange={setToolbarOpen}

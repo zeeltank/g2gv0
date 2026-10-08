@@ -434,6 +434,189 @@
   }
 }
 
+/* A moving highlight sweeping across the document-upload progress bar's
+   fill, so it reads as "actively working" even between real backend polls —
+   not just a static block that happens to be wider than before. Applied via
+   an arbitrary Tailwind value on the fill itself. */
+@keyframes g2g-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* A soft pulsing glow on whichever step of the upload pipeline is currently
+   running, so the active step reads as "live" at a glance, not just via its
+   spinner icon. */
+@keyframes g2g-step-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * THE "BIG STREAMING" UPLOAD TREATMENT
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Three layers, each doing one job, all CSS-only (no animation library - the
+ * existing shimmer/glow above already prove this stack doesn't need one, and
+ * research into current upload-UI patterns turned up nothing a dependency
+ * would buy here that a wider gradient and a couple more keyframes don't):
+ *
+ *  1. g2g-stream-flow  - the fill itself: a wide diagonal multi-band gradient
+ *     that scrolls continuously, so a bar reads as "data is moving through
+ *     this" rather than "a block that happens to be getting wider."
+ *  2. g2g-particle-drift - small bright flecks riding the leading edge of an
+ *     active bar, moving faster than the stripe band for a layered sense of
+ *     motion rather than one flat sweep.
+ *  3. g2g-row-enter - batch-upload rows stagger in (via animation-delay set
+ *     per-row from its index) instead of all snapping into place at once.
+ *
+ * None of this touches WHAT is shown, only how it moves - the percentage
+ * driving these bars is still the same backend-confirmed-floor-plus-bounded-
+ * creep value from DocumentProcessingProgress's docblock, never a fake timer.
+ */
+@keyframes g2g-stream-flow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: -200% 0%;
+  }
+}
+
+@keyframes g2g-particle-drift {
+  /* `left`, not `transform: translateX()` - a percentage transform is
+     relative to the particle's OWN width, which wouldn't sweep it across the
+     bar at all. `left` is relative to the positioned parent, which is what
+     "drift across the whole bar" actually needs. */
+  0% {
+    left: -8%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 104%;
+    opacity: 0;
+  }
+}
+
+@keyframes g2g-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The big aggregate ring/number on the batch upload header - a slow, steady
+   breathing scale so the whole summary reads as alive while files are still
+   in flight, settling the instant the batch finishes (driven by the `done`
+   class, not a timeout). */
+@keyframes g2g-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * THE GENERATING ORB — components/ui/generating-orb.tsx
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Same "a few layers, each doing one job, CSS-only" approach as the
+ * streaming-bar treatment above, not a new animation dependency. Three
+ * layers on the orb itself:
+ *  1. g2g-orb-pulse - the core-to-halo radial gradient breathing in place.
+ *  2. g2g-orb-drift-rotate - a second gradient layer, in the alt color,
+ *     counter-rotating underneath it so the two continuously cross-fade
+ *     rather than the orb ever reading as one static blob.
+ *  3. g2g-orb-rim-spin - a thin highlight ring rotating around the edge.
+ *
+ * generating-orb.tsx simply doesn't attach these when `active` is false
+ * (done/failed) - freezing the orb needs no separate "stopped" keyframe.
+ */
+@keyframes g2g-orb-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes g2g-orb-drift-rotate {
+  0% {
+    transform: rotate(0deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.15);
+  }
+}
+
+@keyframes g2g-orb-rim-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Word-by-word reveal for the active processing-step label beneath the orb
+   (document-processing-steps.tsx) - each word gets this with a staggered
+   animation-delay set from its index, the same per-item stagger technique
+   g2g-row-enter above already uses for batch-upload rows, just at word
+   granularity instead of row granularity. */
+@keyframes g2g-word-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Runs AFTER g2g-word-reveal finishes (see document-processing-steps.tsx's
+   per-word delay math) - a slow, tiny continuous bob so the label keeps
+   reading as "alive" the whole time a step is active, not just for the
+   quarter-second it took to reveal. Paired with each word's own reveal
+   delay so the wave keeps rippling left-to-right indefinitely instead of
+   every word bobbing in lockstep. */
+@keyframes g2g-word-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
 /*
  * ════════════════════════════════════════════════════════════════════════════
  * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY

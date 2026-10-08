@@ -55,7 +55,7 @@ export function CapabilityShell({
         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
-        AI &amp; Intelligence
+        AI and insights
       </Link>
 
       <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
