@@ -1,19 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Share2, Trash2, Users, X } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Share2, Trash2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
-import { drawerSlideInLeft } from '@/lib/motion/variants'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import type { CalendarFeed, CalendarShare } from '@/types/task-management'
 
 interface Props {
-  open: boolean
-  onClose: () => void
   feeds: CalendarFeed[]
   /** user_ids currently hidden — everything else is shown. */
   hidden: Set<string>
@@ -26,20 +24,28 @@ interface Props {
 const EVERYONE_ID = '0'
 
 /**
+ * A persistent left rail, mirroring document-library-view.tsx's own
+ * sticky-sidebar-plus-main-content shape - the "Calendars:" chip row and the
+ * old CalendarFeedTogglePanel overlay both existed only to answer "whose
+ * calendars am I looking at", and both cost a click or ate a wrapping row of
+ * screen space to do it. This is always visible instead.
+ *
  * Whose calendars are overlaid on the grid right now — GET /calendar/feeds
  * already resolves this down to exactly who the viewer is ALLOWED to see
  * (self, subordinates, and whoever has shared with them or with everyone),
  * so every row here is a legitimate toggle, never a privacy decision made
  * client-side.
  *
- * The second section, below, is the other direction: outgoing grants this
- * component now owns itself (fetched on open, not threaded through
- * task-calendar-view.tsx) since neither createCalendarShare/deleteCalendarShare
- * nor the people lookup were ever wired to anything — both existed and
- * compiled, with zero callers.
+ * "Share my calendar" (the other direction - granting access OUT) lives in
+ * the "+" popover rather than inline in this list: a row here represents an
+ * INCOMING feed the viewer did not create, with no backend operation to
+ * recolor or remove it for themselves - only the owner (via the popover)
+ * can set a color for a given viewer. Giving each row a pencil that did
+ * nothing real would be worse than the three-element row this has instead.
  */
-export function CalendarFeedTogglePanel({ open, onClose, feeds, hidden, onToggle, dotClassFor }: Props) {
+export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props) {
   const [shares, setShares] = useState<CalendarShare[]>([])
+  const [sharesLoaded, setSharesLoaded] = useState(false)
   const [sharesLoading, setSharesLoading] = useState(false)
   const [shareError, setShareError] = useState('')
   const [people, setPeople] = useState<SearchableOption[]>([])
@@ -49,35 +55,29 @@ export function CalendarFeedTogglePanel({ open, onClose, feeds, hidden, onToggle
   const [sharing, setSharing] = useState(false)
   const [recoloring, setRecoloring] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) return
+  /** Lazy, once per mount - the popover is opened far less often than this sidebar is visible. */
+  const loadShareData = () => {
+    if (sharesLoaded || sharesLoading) return
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
-    let active = true
-    // Deferred so the load's first setState lands after this render.
-    queueMicrotask(() => {
-      if (!active) return
-      setSharesLoading(true); setShareError('')
-      Promise.all([
-        taskService.getCalendarShares(context),
-        taskService.getAssignmentUsers(context),
-      ]).then(([sharesResponse, users]) => {
-        if (!active) return
-        setShares(sharesResponse.data.shares)
-        setPeople(users.map((user) => ({
-          value: String(user.id),
-          label: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
-        })))
-      }).catch((reason) => {
-        if (active) setShareError(reason instanceof Error ? reason.message : 'Unable to load calendar sharing.')
-      }).finally(() => {
-        if (active) setSharesLoading(false)
-      })
+    setSharesLoading(true); setShareError('')
+    Promise.all([
+      taskService.getCalendarShares(context),
+      taskService.getAssignmentUsers(context),
+    ]).then(([sharesResponse, users]) => {
+      setShares(sharesResponse.data.shares)
+      setPeople(users.map((user) => ({
+        value: String(user.id),
+        label: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
+      })))
+      setSharesLoaded(true)
+    }).catch((reason) => {
+      setShareError(reason instanceof Error ? reason.message : 'Unable to load calendar sharing.')
+    }).finally(() => {
+      setSharesLoading(false)
     })
-
-    return () => { active = false }
-  }, [open])
+  }
 
   const refreshShares = async () => {
     try {
@@ -136,49 +136,23 @@ export function CalendarFeedTogglePanel({ open, onClose, feeds, hidden, onToggle
   ]
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/20"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.div
-            variants={drawerSlideInLeft}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="fixed inset-y-0 left-0 z-50 w-80 overflow-y-auto border-r bg-card p-4 shadow-xl"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold"><Users className="size-4" /> Calendars</h3>
-              <button type="button" aria-label="Close" onClick={onClose} className="text-muted-foreground hover:text-foreground">
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {feeds.map((feed) => (
-                <label key={feed.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 hover:bg-muted/40">
-                  <Checkbox checked={!hidden.has(feed.user_id)} onCheckedChange={() => onToggle(feed.user_id)} />
-                  {/* The owner's own chosen color wins over the automatic
-                      by-index palette, the same precedence the grid's chips
-                      use - set once feed.color exists, this stops being a
-                      generic class and becomes that person's real color. */}
-                  <span
-                    className={feed.color ? 'size-2.5 shrink-0 rounded-full' : `size-2.5 shrink-0 rounded-full ${dotClassFor(feed.user_id)}`}
-                    style={feed.color ? { backgroundColor: feed.color } : undefined}
-                  />
-                  <span className="truncate text-sm">{feed.name}</span>
-                </label>
-              ))}
-              {feeds.length === 0 && <p className="text-sm text-muted-foreground">No other calendars are shared with you yet.</p>}
-            </div>
-
-            <div className="my-4 border-t" />
-
+    <Card className="sticky top-4 hidden max-h-[calc(100vh-2rem)] w-64 shrink-0 flex-col p-2 md:flex">
+      <div className="flex items-center justify-between px-2 pb-2 pt-1">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+          <Users className="size-4" />Added Calendars
+          {hidden.size > 0 ? ` (${feeds.length - hidden.size}/${feeds.length})` : ''}
+        </h3>
+        <Popover onOpenChange={(isOpen) => { if (isOpen) loadShareData() }}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="Share my calendar"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Plus className="size-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Share2 className="size-4" /> Share my calendar</h3>
             {shareError && <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">{shareError}</p>}
             <div className="space-y-2">
@@ -205,7 +179,8 @@ export function CalendarFeedTogglePanel({ open, onClose, feeds, hidden, onToggle
                   </button>
                 </div>
               ))}
-              {!sharesLoading && shares.length === 0 && (
+              {sharesLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+              {!sharesLoading && sharesLoaded && shares.length === 0 && (
                 <p className="text-sm text-muted-foreground">You haven&apos;t shared your calendar with anyone yet.</p>
               )}
             </div>
@@ -231,9 +206,24 @@ export function CalendarFeedTogglePanel({ open, onClose, feeds, hidden, onToggle
                 {sharing ? 'Sharing…' : 'Share'}
               </Button>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
+        {feeds.map((feed) => (
+          <label key={feed.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
+            <Checkbox checked={!hidden.has(feed.user_id)} onCheckedChange={() => onToggle(feed.user_id)} />
+            {/* The owner's own chosen color wins over the automatic by-index
+                palette, the same precedence the grid's chips use. */}
+            <span
+              className={feed.color ? 'size-2.5 shrink-0 rounded-full' : `size-2.5 shrink-0 rounded-full ${dotClassFor(feed.user_id)}`}
+              style={feed.color ? { backgroundColor: feed.color } : undefined}
+            />
+            <span className="min-w-0 flex-1 truncate text-sm">{feed.name}</span>
+          </label>
+        ))}
+        {feeds.length === 0 && <p className="px-2 text-sm text-muted-foreground">No other calendars are shared with you yet.</p>}
+      </div>
+    </Card>
   )
 }
