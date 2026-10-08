@@ -11,7 +11,7 @@ import { rememberLastVisited } from '@/lib/last-visited'
 import { GtgSidebar } from '@/components/shell/gtg-sidebar'
 import { GtgHeader } from '@/components/shell/gtg-header'
 import { PlatformServicesSubheader } from '@/components/shell/platform-services-subheader'
-import FloatingToolbar from '@/components/shell/gtg-floating-toolbar'
+import PlatformServicesLauncher from '@/components/shell/gtg-platform-services-launcher'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
 import type { Message as AgentMessage } from '@/components/shell/agent/agent-chat'
@@ -205,7 +205,7 @@ export function GtgAppShell({
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
-  const { modules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
+  const { modules, sidebarModules, loading, getRoutePath, parseRoutePath } = useSidebarNavigation()
   /*
    * ═══════════════════════════════════════════════════════════════════════
    * THE URL IS THE SOURCE OF TRUTH — NOT A DEFAULT SCREEN
@@ -793,7 +793,7 @@ export function GtgAppShell({
       <GtgSidebar
         active={resolvedActive}
         onSelect={handleNavSelect}
-        modules={modules}
+        modules={sidebarModules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
@@ -885,7 +885,7 @@ export function GtgAppShell({
             </aside>
           </div>
         </BreadcrumbItemsProvider>
-        <FloatingToolbar
+        <PlatformServicesLauncher
           isAgentOpen={agentOpenState}
           open={toolbarOpen}
           onOpenChange={setToolbarOpen}

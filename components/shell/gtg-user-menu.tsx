@@ -1,28 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Building2,
-  ChevronDown,
-  LogOut,
-  Settings,
-  Sparkles,
-  User,
-  type LucideIcon,
-} from 'lucide-react'
+import { Building2, ChevronDown, LogOut, Settings, User } from 'lucide-react'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { platformMeService } from '@/services/platform/me'
 import { useAuth } from '@/hooks/use-auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAppPreferences } from '@/components/providers/preferences-provider'
-import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
-import { PLATFORM_MENU_SECTION } from '@shared/platform-services-core'
-import { platformServiceIcon } from '@/lib/platform/icons'
-import { usePlatformDestination } from '@/hooks/use-platform-destination'
-import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
-import type { PlatformService } from '@shared/platform-services-core'
-import type { AiCapability } from '@shared/ai-intelligence-core'
 
 /**
  * THE AVATAR MENU — one implementation, where there were two.
@@ -55,23 +40,14 @@ import type { AiCapability } from '@shared/ai-intelligence-core'
  * and quietly breaking a bookmarked URL to tidy a menu is not an improvement.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * IT IS A PANEL NOW, NOT A COLUMN
+ * PLATFORM SERVICES AND AI & INTELLIGENCE LIVE IN THE LAUNCHER PANEL, NOT HERE
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * AI & Intelligence alone made this a 15-row scrolling list. Platform Services and
- * Setup & Configuration add twelve more, and 27 rows in a 288px column is not a menu
- * anybody reads — it is a list you scroll hunting for a word.
- *
- * So the sections lay out side by side in fixed 220px columns, which is the width at
- * which the longest label in the three lists still fits on one line. Below the `sm`
- * breakpoint everything stacks, since three columns do not fit a phone at any useful
- * width — which is also why a section's span is applied only from `sm` up.
- *
- * SETUP & CONFIGURATION IS A COLUMN, NOT A THIRD SECTION. A reader does not experience
- * "what the platform provides" and "how this tenant is set up" as two different menus;
- * they experience three headings and have to guess which one owns Mobile App Rights. The
- * sub-heading keeps the distinction without making it a top-level choice. That layout is
- * data, in `PLATFORM_MENU_SECTION`, so this component never learns any section's name.
+ * Both sections used to render inside this dropdown as a 220px-column grid, which made
+ * the account menu a 27-row scrolling list mixing "things about you" with "platform admin
+ * consoles." They now render from the last navbar button instead — see
+ * `gtg-platform-services-launcher.tsx` — so this menu stays a short account rail
+ * (My Profile / Account Settings / Create an organisation / Sign Out).
  */
 export function GtgUserMenu() {
   const router = useRouter()
@@ -135,8 +111,7 @@ export function GtgUserMenu() {
    *
    * Pressing Enter on the avatar opened the panel and left focus on the avatar, so the
    * next Tab went to whatever follows the avatar in the header rather than into the
-   * thing that just appeared. With 27 entries laid out in a grid that is worse than it
-   * was with 15 in a column: the panel is visibly open and the keyboard is somewhere
+   * thing that just appeared — the panel is visibly open and the keyboard is somewhere
    * else entirely.
    */
   useEffect(() => {
@@ -181,171 +156,6 @@ export function GtgUserMenu() {
       active = false
     }
   }, [user])
-
-  /**
-   * PLATFORM SERVICES AND AI & INTELLIGENCE, DRIVEN BY REGISTRIES RATHER THAN BY LISTS
-   * HERE.
-   *
-   * Both sections come from `packages/`, which is also what builds their consoles and
-   * every detail page. Adding or renaming an entry is a registry edit; this file does
-   * not change. Hand-written lists beside them would be two more places to forget.
-   *
-   * LMS K-12 keeps the platform half as three hand-written objects in its header — a
-   * list of labels, a map of routes, a map of icons — and its own notes record the
-   * cost: a screen that graduates from placeholder to built has to be updated in three
-   * files, and a missed one silently sends people to the placeholder.
-   *
-   * WHY THEY HANG OFF THIS MENU AND NOT THE SIDEBAR
-   *
-   * Same reason "Create an organisation" does: `tblmenumaster_g2g` is the CUSTOMER'S
-   * navigation, and these are platform administration screens that configure the
-   * platform every module then runs on. Putting them in the catalogue would also mean
-   * nobody could open one until rights rows had been written for every profile on the
-   * estate.
-   *
-   * NEITHER SECTION IS GATED BY A HARDCODED ROLE CHECK ANY MORE
-   *
-   * Both used to be — Platform Services shared this file's old
-   * `isAdministrator` boolean, and AI & Intelligence had its own
-   * `profile:admin` gate on `routes/ai.php`'s whole route group. Both were
-   * the same defect: an admin screen built so admins could decide who gets
-   * to use these consoles was itself hardcoded to admins-only. Every entry
-   * in both sections is now filtered individually by
-   * `usePlatformServicesAccess()`, the same tblgroupwise_rights_g2g rows
-   * the API actually enforces via `platformright` (routes/platform.php and
-   * routes/ai.php alike) — what appears here is exactly what will not 403.
-   *
-   * CENTRALIZATION: A SECTION WITH NOTHING VISIBLE DOES NOT RENDER AT ALL
-   *
-   * An employee with zero grants in a section should not see that
-   * section's heading over an empty list — they should not see the
-   * dropdown entry for it at all. Both sections are only pushed into
-   * `sections` below when at least one of their columns still has items
-   * after filtering. An administrator (seeded view rights on every row by
-   * the migrations that created them) sees both sections in full, same as
-   * before — nothing here treats administrators specially; they simply
-   * hold every grant.
-   */
-  const resolveService = usePlatformDestination()
-  const access = usePlatformServicesAccess()
-
-  const sections = useMemo<MenuSection[]>(() => {
-    const isServiceVisible = (service: PlatformService): boolean => {
-      switch (service.slug) {
-        case 'rbac':
-        case 'mobile-app-rights':
-        case 'onboarding':
-          // Ride real, never-hidden menu rows (Role & Permissions / Talent
-          // Onboarding) — already correctly rights-gated, no change needed.
-          return resolveService(service).isRealScreen
-        case 'workflow':
-        case 'scheduler':
-        case 'integration':
-        case 'add-process':
-        case 'fields-configuration':
-          return access.anyModule
-        case 'document-library':
-          return access.documentLibrary
-        case 'event-bus':
-          return access.eventBus
-        case 'audit':
-          return access.audit
-        case 'platform-administration':
-          return access.platformAdministration
-        case 'whats-coming':
-          return access.whatsComing
-        default:
-          return false
-      }
-    }
-
-    const isCapabilityVisible = (capability: AiCapability): boolean => {
-      switch (capability.id) {
-        case 'ai.providers': return access.ai.providers
-        case 'ai.models': return access.ai.models
-        case 'ai.prompts': return access.ai.prompts
-        case 'ai.policies': return access.ai.policies
-        case 'ai.agents': return access.ai.agents
-        case 'ai.conversational': return access.ai.conversational
-        case 'ai.knowledge-rag': return access.ai.knowledge_rag
-        case 'ai.recommendations': return access.ai.recommendations
-        case 'ai.knowledge-graph': return access.ai.knowledge_graph
-        case 'ai.evaluation': return access.ai.evaluation
-        case 'ai.usage-cost': return access.ai.usage_cost
-        case 'ai.audit': return access.ai.audit
-        default: return false
-      }
-    }
-
-    const platformColumns = PLATFORM_MENU_SECTION.columns
-      .map((column) => ({
-        label: column.label,
-        items: column.items
-          .filter(isServiceVisible)
-          .map((service) => ({
-            id: service.id,
-            label: service.name,
-            icon: platformServiceIcon(service.slug),
-            /*
-             * Resolved here so the caller reaches the real screen in one click.
-             * A service whose screen lives in the module tree resolves against THIS
-             * user's own menu, and one they have no rights to falls back to the
-             * service's page — which explains it — rather than to a 404.
-             */
-            href: resolveService(service).href,
-            badge:
-              service.status === 'live'
-                ? undefined
-                : service.status === 'in-progress'
-                  ? 'WIP'
-                  : 'Soon',
-          })),
-      }))
-      // A column every one of whose items is filtered out would render a bare
-      // label over nothing.
-      .filter((column) => column.items.length > 0)
-
-    const aiColumns = [
-      {
-        items: AI_CAPABILITIES.filter(isCapabilityVisible).map((capability) => ({
-          id: capability.id,
-          label: capability.name,
-          icon: undefined,
-          href: `/ai/${capability.slug}`,
-          badge:
-            capability.status === 'live'
-              ? undefined
-              : capability.status === 'in-progress'
-                ? 'WIP'
-                : 'Soon',
-        })),
-      },
-    ].filter((column) => column.items.length > 0)
-
-    const sections: MenuSection[] = []
-
-    if (platformColumns.length > 0) {
-      sections.push({
-        id: PLATFORM_MENU_SECTION.id,
-        label: PLATFORM_MENU_SECTION.label,
-        href: PLATFORM_MENU_SECTION.href,
-        span: PLATFORM_MENU_SECTION.span,
-        columns: platformColumns,
-      })
-    }
-
-    if (aiColumns.length > 0) {
-      sections.push({
-        id: 'ai-intelligence',
-        label: 'AI & Intelligence',
-        href: '/ai',
-        span: 1,
-        columns: aiColumns,
-      })
-    }
-
-    return sections
-  }, [resolveService, access])
 
   const accountItems = [
     { id: 'profile', label: 'My Profile', icon: User, href: '/settings?s=profile' },
@@ -424,43 +234,25 @@ export function GtgUserMenu() {
          * ═══════════════════════════════════════════════════════════════════
          *
          * `role="menu"` describes a one-dimensional list whose items are reached with
-         * the arrow keys. This is a grid of up to 27 controls in three columns, and the
-         * component never implemented arrow-key navigation or a roving tabindex — so
-         * the old markup promised a keyboard interface it did not have, and a screen
-         * reader announced "menu, 27 items" for something that does not behave like one.
+         * the arrow keys, and this component never implemented arrow-key navigation or
+         * a roving tabindex — so the old markup promised a keyboard interface it did not
+         * have.
          *
          * As a plain dialog of `nav`/`ul`/`li` the promise matches the behaviour: Tab
-         * moves through the controls in DOM order, which is reading order, and the
-         * headings give a screen reader the same grouping a sighted reader gets from the
-         * columns. `aria-modal="false"` because it does not trap focus — Tab out of it
-         * closes nothing, which is what a menu attached to a header should do.
+         * moves through the controls in DOM order, which is reading order. `aria-modal="false"`
+         * because it does not trap focus — Tab out of it closes nothing, which is what a
+         * menu attached to a header should do.
          */
         <div
           ref={panelRef}
           role="dialog"
           aria-modal="false"
-          aria-label="Account and platform services"
-          /*
-           * WIDTH IS CONDITIONAL, AND THE NON-ADMIN CASE IS THE REASON.
-           *
-           * With the grid present, `sm:w-auto` lets the three 220px columns decide the
-           * width, which is what makes this a panel. With no grid — a non-administrator
-           * sees only the account rail — `w-auto` would instead size the panel to its
-           * longest line, which is the email address, and `truncate` cannot shorten text
-           * in a container that is sizing itself to fit that text. A long address would
-           * stretch the panel across the viewport.
-           *
-           * So a menu with no sections keeps the fixed `w-72` it has always had.
-           */
-          className={`absolute right-0 z-50 mt-2 flex max-h-[85vh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg ${
-            sections.length > 0 ? 'w-[min(calc(100vw-1.5rem),18rem)] sm:w-auto' : 'w-72'
-          }`}
+          aria-label="Account"
+          className="absolute right-0 z-50 mt-2 flex w-72 max-h-[85vh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
         >
           <div className="shrink-0 border-b border-border px-3 py-3">
-            {/* Capped so it can never be the widest child. In the `sm:w-auto` panel the
-                width is whatever the widest line needs, and `truncate` cannot shorten
-                text in a box that is sizing itself around that text — so an unusually
-                long address would set the panel's width instead of being cut. */}
+            {/* Capped so it can never be the widest child — an unusually long address
+                would otherwise set the panel's own width instead of being truncated. */}
             <p className="max-w-[16rem] truncate text-sm font-semibold text-foreground">
               {user?.name}
             </p>
@@ -468,10 +260,7 @@ export function GtgUserMenu() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {/* The account rail stays full-width above the grid: these are about YOU,
-                not about the platform, and folding them into a 220px column would put
-                "My Profile" beside "Event Bus" as though they were peers. */}
-            <nav aria-label="Account" className="border-b border-border p-1 sm:p-2">
+            <nav aria-label="Account" className="p-1 sm:p-2">
               <ul className="space-y-1">
                 {accountItems.map((item) => (
                   <li key={item.id}>
@@ -487,14 +276,6 @@ export function GtgUserMenu() {
                 ))}
               </ul>
             </nav>
-
-            {sections.length > 0 && (
-              <div className="grid grid-cols-1 gap-x-3 gap-y-5 p-3 sm:grid-cols-[repeat(3,220px)]">
-                {sections.map((section) => (
-                  <MenuSectionBlock key={section.id} section={section} onNavigate={go} />
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="shrink-0 border-t border-border p-1">
@@ -533,108 +314,3 @@ export function GtgUserMenu() {
   )
 }
 
-interface MenuItem {
-  id: string
-  label: string
-  icon: LucideIcon | undefined
-  href: string
-  /** `WIP` / `Soon`. Absent for anything live — a badge on everything says nothing. */
-  badge?: string
-}
-
-interface MenuColumn {
-  label?: string
-  items: MenuItem[]
-}
-
-interface MenuSection {
-  id: string
-  label: string
-  href: string
-  span: 1 | 2
-  columns: MenuColumn[]
-}
-
-/**
- * One section of the panel: a heading that is itself a destination, then its columns.
- *
- * The rule sits above the whole section rather than above each column, so a two-column
- * section reads as one heading over two lists instead of as two headings that happen to
- * be adjacent.
- */
-function MenuSectionBlock({
-  section,
-  onNavigate,
-}: {
-  section: MenuSection
-  onNavigate: (href: string) => void
-}) {
-  const headingId = `menu-section-${section.id}`
-
-  return (
-    <nav
-      aria-labelledby={headingId}
-      className={section.span === 2 ? 'min-w-0 sm:col-span-2' : 'min-w-0'}
-    >
-      <div className="px-1 pb-2">
-        <button
-          type="button"
-          id={headingId}
-          onClick={() => onNavigate(section.href)}
-          className="max-w-full truncate rounded-md text-left text-sm font-bold text-popover-foreground transition-colors outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {section.label}
-        </button>
-      </div>
-
-      <div
-        className={`grid gap-x-3 gap-y-4 border-t border-border pt-2 ${
-          section.span === 2 ? 'sm:grid-cols-2' : ''
-        }`}
-      >
-        {section.columns.map((column, index) => (
-          <div key={column.label ?? index} className="min-w-0">
-            {column.label && (
-              <p className="px-1 pb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                {column.label}
-              </p>
-            )}
-
-            <ul className="space-y-1">
-              {column.items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate(item.href)}
-                    title={item.label}
-                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-left text-sm font-semibold text-muted-foreground shadow-xs transition-all outline-none hover:border-muted-foreground/30 hover:bg-muted/60 hover:text-foreground hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {/* A label with no glyph falls back to its own initial, which is
-                        what the sidebar does for an unresolvable icon — a missing
-                        glyph never costs the row its shape. */}
-                    <span
-                      className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-                      aria-hidden="true"
-                    >
-                      {item.icon ? (
-                        <item.icon className="size-[15px]" />
-                      ) : (
-                        item.label.charAt(0).toUpperCase()
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {item.badge && (
-                      <span className="shrink-0 text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </nav>
-  )
-}

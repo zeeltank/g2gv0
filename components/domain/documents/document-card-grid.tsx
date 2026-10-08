@@ -1,176 +1,418 @@
 'use client'
 
-import {
-  Download,
-  Eye,
-  File,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  Loader2,
-  Trash2,
-} from 'lucide-react'
+import { useState } from 'react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { FileTypeIcon } from '@/components/ui/file-icon'
+import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { cn } from '@/lib/utils'
-import type { DocumentSearchHit } from '@/services/account'
+import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
 import { HighlightedSnippet } from './highlighted-snippet'
 
-function iconFor(mimeType: string | null, fileName: string | null) {
-  const mime = (mimeType ?? '').toLowerCase()
-  const ext = (fileName ?? '').split('.').pop()?.toLowerCase() ?? ''
+export type GridCardSize = 'xlarge' | 'large' | 'medium' | 'small'
 
-  if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return { Icon: FileImage, tint: 'text-violet-500 bg-violet-500/10' }
+/**
+ * Every tile — folder or file — is forced to `aspect-square` so one
+ * oversized folder can no longer stretch its whole grid row and leave the
+ * file cards next to it half-empty (the bug the previous fixed-height
+ * layout had). Each size preset controls three things together: how many
+ * columns `auto-fill` packs into the row (via the `minmax` floor), how big
+ * the icon reads, and how much text shows — `xlarge`/`large` are the only
+ * presets roomy enough for the content snippet.
+ */
+const SIZE_CONFIG: Record<
+  GridCardSize,
+  {
+    cols: string
+    gap: string
+    folderScale: number
+    title: string
+    meta: string
+    showSnippet: boolean
   }
-  if (mime === 'application/pdf' || ext === 'pdf') {
-    return { Icon: FileText, tint: 'text-rose-500 bg-rose-500/10' }
-  }
-  if (['xls', 'xlsx', 'csv'].includes(ext)) {
-    return { Icon: FileSpreadsheet, tint: 'text-emerald-500 bg-emerald-500/10' }
-  }
-  if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) {
-    return { Icon: FileText, tint: 'text-sky-500 bg-sky-500/10' }
-  }
-
-  return { Icon: File, tint: 'text-muted-foreground bg-muted' }
-}
-
-function formatSize(bytes: number | null) {
-  if (!bytes || bytes <= 0) return null
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+> = {
+  xlarge: {
+    cols: 'grid-cols-[repeat(auto-fill,minmax(240px,1fr))]',
+    gap: 'gap-3',
+    folderScale: 1.3,
+    title: 'text-lg',
+    meta: 'text-sm',
+    showSnippet: true,
+  },
+  large: {
+    cols: 'grid-cols-[repeat(auto-fill,minmax(190px,1fr))]',
+    gap: 'gap-2.5',
+    folderScale: 1.1,
+    title: 'text-base',
+    meta: 'text-xs',
+    showSnippet: true,
+  },
+  medium: {
+    cols: 'grid-cols-[repeat(auto-fill,minmax(148px,1fr))]',
+    gap: 'gap-2',
+    folderScale: 0.8,
+    title: 'text-sm',
+    meta: 'text-[11px]',
+    showSnippet: false,
+  },
+  small: {
+    cols: 'grid-cols-[repeat(auto-fill,minmax(114px,1fr))]',
+    gap: 'gap-1.5',
+    folderScale: 0.55,
+    title: 'text-xs',
+    meta: 'text-[11px]',
+    showSnippet: false,
+  },
 }
 
 export interface DocumentCardGridProps {
   documents: DocumentSearchHit[]
   typeLabel: (key: string | null) => string | null
   downloadingId: number | null
+  /** Extra large / large / medium / small — purely a tile-density preset, see `SIZE_CONFIG`. */
+  size?: GridCardSize
   /** The eye icon — a quick inline preview. */
   onOpen: (doc: DocumentSearchHit) => void
   /** Clicking the card body — the full detail panel (classification, versions, related, activity log). */
   onOpenDetails: (doc: DocumentSearchHit) => void
   onDownload: (doc: DocumentSearchHit) => void
   onDelete?: (doc: DocumentSearchHit) => void
+  /** Opens a folder picker for this document. Gated by `canDelete` too — same owner-only reasoning, not a new permission. */
+  onMove?: (doc: DocumentSearchHit) => void
+  /** Double-click the name to rename. Gated by `canDelete` too — same owner-only reasoning as move/delete. */
+  onRename?: (doc: DocumentSearchHit, title: string) => void
   /** Only the owner (or an elevated caller, which the server already filtered for) may delete from here. */
   canDelete: (doc: DocumentSearchHit) => boolean
+  /** Subfolders of whatever's currently being browsed — rendered first, same card shape, Folder icon. Omit entirely outside a folder-aware view. */
+  folders?: DocumentFolderNode[]
+  onOpenFolder?: (folder: DocumentFolderNode) => void
+  onDeleteFolder?: (folder: DocumentFolderNode) => void
+  onMoveFolder?: (folder: DocumentFolderNode) => void
+  /** Double-click the name to rename. Gated by `canManageFolder`. */
+  onRenameFolder?: (folder: DocumentFolderNode, name: string) => void
+  canManageFolder?: (folder: DocumentFolderNode) => boolean
+
+  /* ── cut/copy/paste, starring ──────────────────────────────────────────── */
+  onToggleStar?: (doc: DocumentSearchHit) => void
+  onCut?: (doc: DocumentSearchHit) => void
+  onCopy?: (doc: DocumentSearchHit) => void
+  onCutFolder?: (folder: DocumentFolderNode) => void
+  onCopyFolder?: (folder: DocumentFolderNode) => void
+  /** Shown as a "Paste" item at the top of a folder's own context menu, pasting INTO that folder — only when something is on the clipboard. */
+  hasClipboard?: boolean
+  onPasteIntoFolder?: (folder: DocumentFolderNode) => void
 }
 
 export function DocumentCardGrid({
   documents,
-  typeLabel,
   downloadingId,
+  size = 'large',
   onOpen,
   onOpenDetails,
   onDownload,
   onDelete,
+  onMove,
+  onRename,
   canDelete,
+  folders = [],
+  onOpenFolder,
+  onDeleteFolder,
+  onMoveFolder,
+  onRenameFolder,
+  canManageFolder,
+  onToggleStar,
+  onCut,
+  onCopy,
+  onCutFolder,
+  onCopyFolder,
+  hasClipboard,
+  onPasteIntoFolder,
 }: DocumentCardGridProps) {
+  const cfg = SIZE_CONFIG[size]
+  // Which tile's name is being edited right now, `folder-<id>` or `doc-<id>` — local UI state, the actual save round-trips through `onRename`/`onRenameFolder`.
+  const [renamingKey, setRenamingKey] = useState<string | null>(null)
+
+  function commitRename(input: HTMLInputElement, save: (value: string) => void) {
+    setRenamingKey(null)
+    save(input.value)
+  }
+  // The folder graphic's unscaled footprint is a fixed 100x80 box (see
+  // folder-icon-3d.tsx's own docblock) — `scale()` never changes that
+  // layout box, so the wrapper is sized to the EXACT scaled footprint here.
+  // This has to be an inline style, not a Tailwind class: the pixel value
+  // is computed from `cfg.folderScale` at render time, and Tailwind can
+  // only pick up class names that appear as literal strings in the source.
+  const folderBoxStyle = { width: `${100 * cfg.folderScale}px`, height: `${80 * cfg.folderScale}px` }
+
   return (
     /*
      * Container queries, not viewport breakpoints - this grid sits inside
      * the app shell's content area, which narrows when the sidebar or an
      * agent panel is open, so `lg:`/`xl:` would lay three columns into the
-     * space of one. Same reasoning as `course-card-grid.tsx`.
+     * space of one. `auto-fill` + a per-size `minmax` floor (instead of
+     * fixed breakpoint column counts) packs however many square tiles of
+     * that floor width actually fit, so resizing the panel changes the
+     * column count smoothly instead of jumping at three hardcoded steps.
      */
     <div className="@container/docs">
-      <ul className="grid grid-cols-1 gap-4 @lg/docs:grid-cols-2 @3xl/docs:grid-cols-3 @6xl/docs:grid-cols-4">
+      <ul className={cn('grid', cfg.cols, cfg.gap)}>
+        {folders.map((folder) => {
+          const canManage = canManageFolder?.(folder) ?? false
+          const folderKey = `folder-${folder.id}`
+          const isRenaming = renamingKey === folderKey
+          return (
+            <li key={folderKey} className="aspect-square">
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onOpenFolder?.(folder)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onOpenFolder?.(folder)
+                      }
+                    }}
+                    className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+                  >
+                    <span className="flex shrink-0 items-center justify-center overflow-visible" style={folderBoxStyle}>
+                      <FolderIcon3D size={cfg.folderScale} interactive={false} />
+                    </span>
+                    <div className="min-w-0 w-full">
+                      {isRenaming ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          defaultValue={folder.name}
+                          onClick={(e) => e.stopPropagation()}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onBlur={(e) => commitRename(e.currentTarget, (value) => onRenameFolder?.(folder, value))}
+                          onKeyDown={(e) => {
+                            e.stopPropagation()
+                            if (e.key === 'Enter') e.currentTarget.blur()
+                            if (e.key === 'Escape') {
+                              e.currentTarget.value = folder.name
+                              setRenamingKey(null)
+                            }
+                          }}
+                          className={cn(
+                            'w-full rounded border border-input bg-background px-1 text-center font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                            cfg.title,
+                          )}
+                        />
+                      ) : (
+                        <h3
+                          className={cn('line-clamp-1 font-semibold leading-tight text-foreground', cfg.title, onRenameFolder && canManage && 'cursor-text')}
+                          onClick={(e) => e.stopPropagation()}
+                          onDoubleClick={(e) => {
+                            if (!onRenameFolder || !canManage) return
+                            e.stopPropagation()
+                            setRenamingKey(folderKey)
+                          }}
+                        >
+                          {folder.name}
+                        </h3>
+                      )}
+                      <p className={cn('mt-0.5 truncate text-muted-foreground', cfg.meta)}>
+                        {folder.visibility === 'organization' ? 'Organisation' : folder.visibility === 'department' ? 'Department' : 'Private'}
+                      </p>
+                    </div>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  {hasClipboard && onPasteIntoFolder && canManage && (
+                    <>
+                      <ContextMenuItem onClick={() => onPasteIntoFolder(folder)}>
+                        <ClipboardPaste aria-hidden="true" />
+                        Paste
+                        <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                    </>
+                  )}
+                  <ContextMenuItem onClick={() => onOpenFolder?.(folder)}>
+                    <FolderOpen aria-hidden="true" />
+                    Open
+                  </ContextMenuItem>
+                  {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+                  {canManage && onMoveFolder && (
+                    <ContextMenuItem onClick={() => onMoveFolder(folder)}>
+                      <FolderInput aria-hidden="true" />
+                      Move
+                    </ContextMenuItem>
+                  )}
+                  {canManage && onCutFolder && (
+                    <ContextMenuItem onClick={() => onCutFolder(folder)}>
+                      <Scissors aria-hidden="true" />
+                      Cut
+                      <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {onCopyFolder && (
+                    <ContextMenuItem onClick={() => onCopyFolder(folder)}>
+                      <Copy aria-hidden="true" />
+                      Copy
+                      <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {canManage && onDeleteFolder && (
+                    <ContextMenuItem
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      onClick={() => onDeleteFolder(folder)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      Delete
+                    </ContextMenuItem>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+            </li>
+          )
+        })}
+
         {documents.map((doc) => {
-          const { Icon, tint } = iconFor(doc.mime_type, doc.original_file_name)
-          const size = formatSize(doc.size)
-          const date = formatDate(doc.document_date ?? doc.created_at)
-          const label = typeLabel(doc.document_type)
+          const source = doc.source_system ? `from ${doc.source_system}` : doc.category === 'organization' ? 'Organisation' : 'Personal'
           const pending = doc.processing_status !== 'done'
+          const canModify = canDelete(doc)
+          const docKey = `doc-${doc.id}`
+          const isRenaming = renamingKey === docKey
 
           return (
-            <li key={doc.id}>
-              <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/40">
+            <li key={doc.id} className="relative aspect-square">
+              {pending && (
+                <Badge variant="muted" className="absolute right-2 top-2 z-10 text-[10px] uppercase tracking-wide">
+                  {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}
+                </Badge>
+              )}
+              {onToggleStar && !pending && (
                 <button
                   type="button"
-                  onClick={() => onOpenDetails(doc)}
-                  className="flex flex-1 flex-col items-start gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
-                >
-                  <span className="flex w-full items-start justify-between gap-2">
-                    <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg', tint)}>
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    {pending && (
-                      <Badge variant="muted" className="shrink-0 text-[10px] uppercase tracking-wide">
-                        {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}
-                      </Badge>
-                    )}
-                  </span>
-
-                  <div className="min-w-0 w-full">
-                    <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">
-                      {doc.title || 'Untitled'}
-                    </h3>
-                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                      {[label, size, date].filter(Boolean).join(' · ')}
-                    </p>
-                  </div>
-
-                  {doc.snippet && (
-                    <p className="line-clamp-3 rounded-md bg-muted/50 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
-                      <HighlightedSnippet text={doc.snippet} />
-                    </p>
+                  aria-label={doc.starred ? 'Unstar' : 'Star'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleStar(doc)
+                  }}
+                  className={cn(
+                    'absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full transition-colors hover:bg-muted/60',
+                    doc.starred ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-muted-foreground',
                   )}
+                >
+                  <Star className={cn('size-3.5', doc.starred && 'fill-current')} aria-hidden="true" />
                 </button>
+              )}
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onOpenDetails(doc)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onOpenDetails(doc)
+                      }
+                    }}
+                    className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl p-3 text-center outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+                  >
+                    <span className="flex shrink-0 items-center justify-center overflow-visible" style={folderBoxStyle}>
+                      <FileTypeIcon mimeType={doc.mime_type} fileName={doc.original_file_name} className="h-full w-full" />
+                    </span>
 
-                <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    {doc.source_system ? `from ${doc.source_system}` : doc.category === 'organization' ? 'Organisation' : 'Personal'}
-                  </span>
-
-                  <span className="flex shrink-0 items-center gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-1.5 text-xs"
-                      onClick={() => onOpen(doc)}
-                      aria-label={`View ${doc.title ?? 'document'}`}
-                    >
-                      <Eye className="size-3.5" aria-hidden="true" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-1.5 text-xs"
-                      disabled={downloadingId !== null}
-                      onClick={() => onDownload(doc)}
-                      aria-label={`Download ${doc.title ?? 'document'}`}
-                    >
-                      {downloadingId === doc.id ? (
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    <div className="min-w-0 w-full">
+                      {isRenaming ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          defaultValue={doc.title || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onBlur={(e) => commitRename(e.currentTarget, (value) => onRename?.(doc, value))}
+                          onKeyDown={(e) => {
+                            e.stopPropagation()
+                            if (e.key === 'Enter') e.currentTarget.blur()
+                            if (e.key === 'Escape') {
+                              e.currentTarget.value = doc.title || ''
+                              setRenamingKey(null)
+                            }
+                          }}
+                          className={cn(
+                            'w-full rounded border border-input bg-background px-1 text-center font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                            cfg.title,
+                          )}
+                        />
                       ) : (
-                        <Download className="size-3.5" aria-hidden="true" />
+                        <h3
+                          className={cn('line-clamp-2 font-semibold leading-tight text-foreground', cfg.title, onRename && canModify && 'cursor-text')}
+                          onClick={(e) => e.stopPropagation()}
+                          onDoubleClick={(e) => {
+                            if (!onRename || !canModify) return
+                            e.stopPropagation()
+                            setRenamingKey(docKey)
+                          }}
+                        >
+                          {doc.title || 'Untitled'}
+                        </h3>
                       )}
-                    </Button>
-                    {onDelete && canDelete(doc) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => onDelete(doc)}
-                        aria-label={`Remove ${doc.title ?? 'document'}`}
-                      >
-                        <Trash2 className="size-3.5" aria-hidden="true" />
-                      </Button>
+                      <p className={cn('mt-1 truncate text-muted-foreground', cfg.meta)}>{source}</p>
+                    </div>
+
+                    {cfg.showSnippet && doc.snippet && (
+                      <p className="line-clamp-3 rounded-md bg-muted/50 px-2 py-1.5 text-left text-[11px] leading-snug text-muted-foreground">
+                        <HighlightedSnippet text={doc.snippet} />
+                      </p>
                     )}
-                  </span>
-                </div>
-              </article>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-44">
+                  <ContextMenuItem onClick={() => onOpen(doc)}>
+                    <Eye aria-hidden="true" />
+                    View
+                  </ContextMenuItem>
+                  <ContextMenuItem disabled={downloadingId !== null} onClick={() => onDownload(doc)}>
+                    {downloadingId === doc.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+                    Download
+                  </ContextMenuItem>
+                  {((onMove && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
+                  {onMove && canModify && (
+                    <ContextMenuItem onClick={() => onMove(doc)}>
+                      <FolderInput aria-hidden="true" />
+                      Move
+                    </ContextMenuItem>
+                  )}
+                  {onCut && canModify && (
+                    <ContextMenuItem onClick={() => onCut(doc)}>
+                      <Scissors aria-hidden="true" />
+                      Cut
+                      <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {onCopy && (
+                    <ContextMenuItem onClick={() => onCopy(doc)}>
+                      <Copy aria-hidden="true" />
+                      Copy
+                      <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  )}
+                  {onDelete && canModify && (
+                    <ContextMenuItem
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      onClick={() => onDelete(doc)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      Delete
+                    </ContextMenuItem>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             </li>
           )
         })}

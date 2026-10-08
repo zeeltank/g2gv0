@@ -129,7 +129,7 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
     >
       <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold tracking-widest text-primary uppercase">
         <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-        {moduleKey ? MODULE_LABEL[moduleKey] : 'Platform Services'}
+        {moduleKey ? MODULE_LABEL[moduleKey] : 'Platform services'}
       </span>
 
       <div className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />

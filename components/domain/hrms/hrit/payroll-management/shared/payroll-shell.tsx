@@ -159,5 +159,8 @@ export function downloadCsv(filename: string, headers: string[], rows: Array<Arr
   }
 
   const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')
-  saveBlob(filename, new Blob([`﻿${'$'}{csv}`], { type: 'text/csv;charset=utf-8;' }))
+  // The leading \ufeff is a byte-order mark, and it is load-bearing: without
+  // it Excel opens a UTF-8 CSV as the system codepage and mangles every
+  // non-ASCII name. It is invisible in an editor - do not "tidy" it away.
+  saveBlob(filename, new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' }))
 }

@@ -1,7 +1,8 @@
 'use client'
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ChevronDown,
   ChevronLeft,
@@ -34,20 +35,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
   Table,
   TableBody,
   TableCell,
@@ -62,22 +49,15 @@ import {
   type DeptNode,
 } from '@/lib/gtg-org-data'
 import { HodPickerDialog, ParentPickerDialog } from './department-pickers'
+import { EditDepartmentDialog } from './edit-department-dialog'
 import { DepartmentCreateWizard } from './department-create-wizard'
 import { DepartmentDeleteMergeDialog } from './department-delete-merge-dialog'
-import { getAccess, roleLabel, type Role } from '@/lib/gtg-roles'
+import { getAccess, roleLabel, type Access, type Role } from '@/lib/gtg-roles'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { organizationService, type LaravelDepartment, type LaravelDepartmentEmployee } from '@/services/organization'
-
-const LazyDepartmentDetailsPanel = lazy(() =>
-  import('@/domain/organization/department-management/department-details-panel').then((module) => ({
-    default: module.DepartmentDetailsPanel,
-  })),
-)
+import { organizationService, type LaravelDepartment } from '@/services/organization'
 
 type SortKey = 'name' | 'code' | 'parent' | 'hod' | 'employees' | 'status'
-// The dialog is edit-only now; creating goes through DepartmentCreateWizard.
-type DepartmentDialogMode = 'edit'
 
 const PAGE_SIZE = 10
 
@@ -148,7 +128,7 @@ function findNodeById(nodes: DeptNode[], id: string, visited = new Set<string>()
   return undefined
 }
 
-function mapDepartments(main: LaravelDepartment[], grouped: Record<string, LaravelDepartment[]>): Department[] {
+export function mapDepartments(main: LaravelDepartment[], grouped: Record<string, LaravelDepartment[]>): Department[] {
   const all = [...main, ...Object.values(grouped).flat()]
   const unique = new Map<string, LaravelDepartment>()
   for (const department of all) {
@@ -181,6 +161,52 @@ function mapDepartments(main: LaravelDepartment[], grouped: Record<string, Larav
     created: department.created_at ?? '',
     updated: department.updated_at ?? null,
   }))
+}
+
+/**
+ * What a scoped role (department head, reporting manager) may see.
+ *
+ * ── A FIXTURE WAS ONCE USED AS AN AUTHORISATION RULE ─────────────────────
+ *
+ * This used to filter to departments literally NAMED 'Engineering' - a
+ * leftover from a deleted demo. Every organisation without a department of
+ * that exact name showed its department heads an empty list, and any
+ * organisation that happened to have one showed them a department they may
+ * have nothing to do with.
+ *
+ * The real rule is the one the data already expresses: a head sees the
+ * department they head, and everything under it. Descendants are walked to
+ * full depth rather than one level, because a sub-department's
+ * sub-department is still theirs.
+ *
+ * Extracted (rather than left as an inline useMemo) so the department
+ * detail page can apply the exact same visibility boundary when looking a
+ * department up by id directly - a scoped user must not be able to view a
+ * department outside their scope just by knowing its id, which a narrower
+ * per-id fetch could not enforce on its own.
+ */
+export function scopeDepartments(departments: Department[], access: Access, userId?: string | null): Department[] {
+  if (access !== 'scoped') return departments
+
+  const mine = departments.filter((d) => d.hodId !== null && d.hodId === userId)
+
+  if (mine.length === 0) return []
+
+  // Walk down by name, which is what `parent` holds on this mapped shape.
+  const owned = new Set(mine.map((d) => d.name))
+  let grew = true
+
+  while (grew) {
+    grew = false
+    for (const department of departments) {
+      if (department.parent && owned.has(department.parent) && !owned.has(department.name)) {
+        owned.add(department.name)
+        grew = true
+      }
+    }
+  }
+
+  return departments.filter((d) => owned.has(d.name))
 }
 
 function buildSafeHierarchy(depts: Department[]): DeptNode[] {
@@ -255,6 +281,7 @@ function buildSafeHierarchy(depts: Department[]): DeptNode[] {
  */
 export function DepartmentList({ role }: { role?: Role }) {
   const { user } = useAuth()
+  const router = useRouter()
   const effectiveRole = role ?? user?.role
   const access = effectiveRole ? getAccess('department-list', effectiveRole) : 'none'
   const [query, setQuery] = useState('')
@@ -271,23 +298,9 @@ export function DepartmentList({ role }: { role?: Role }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [notice, setNotice] = useState('')
-  const [departmentDialogMode, setDepartmentDialogMode] = useState<DepartmentDialogMode | null>(null)
+  // Non-null means EditDepartmentDialog is open, editing this department.
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [deleteDepartment, setDeleteDepartment] = useState<Department | null>(null)
-  const [departmentName, setDepartmentName] = useState('')
-  // The add/edit dialog collected a name and nothing else, because the endpoint
-  // wrote a name and nothing else. Both now handle the full record.
-  const [departmentCodeInput, setDepartmentCodeInput] = useState('')
-  const [departmentDescription, setDepartmentDescription] = useState('')
-  // Parent, status and head are edited in the SAME form as name/code/description.
-  // Parent and head used to be reachable only from the row's kebab menu, and
-  // status could not be changed at all even though the API accepted it - so a
-  // department could be created Inactive by the wizard and never turned on.
-  const [departmentParentInput, setDepartmentParentInput] = useState('')
-  const [departmentStatusInput, setDepartmentStatusInput] = useState<'1' | '0'>('1')
-  const [departmentHeadInput, setDepartmentHeadInput] = useState<string>('')
-  const [departmentHeadName, setDepartmentHeadName] = useState<string>('')
-  const [headCandidates, setHeadCandidates] = useState<LaravelDepartmentEmployee[]>([])
   // Targets for the two pickers. Non-null means the dialog is open for that row.
   const [hodTarget, setHodTarget] = useState<Department | null>(null)
   const [parentTarget, setParentTarget] = useState<Department | null>(null)
@@ -373,6 +386,11 @@ export function DepartmentList({ role }: { role?: Role }) {
 
     return departments.filter((d) => owned.has(d.name))
   }, [access, departments, user?.id])
+  // What this role may see - see scopeDepartments()'s own docblock.
+  const scopedDepts = useMemo(
+    () => scopeDepartments(departments, access, user?.id),
+    [access, departments, user?.id],
+  )
 
   const tree = useMemo(() => buildSafeHierarchy(scopedDepts), [scopedDepts])
   const parents = useMemo(
@@ -473,43 +491,6 @@ export function DepartmentList({ role }: { role?: Role }) {
    * anyway ("Cannot move a department beneath one of its own sub-departments"),
    * so offering them would only produce a guaranteed 422.
    */
-  const parentCandidates = useMemo(() => {
-    if (!editingDepartment) return []
-
-    const childrenOf = new Map<string, string[]>()
-    for (const item of scopedDepts) {
-      const key = item.parentId ?? 'root'
-      childrenOf.set(key, [...(childrenOf.get(key) ?? []), item.id])
-    }
-
-    const blocked = new Set<string>([editingDepartment.id])
-    const queue = [editingDepartment.id]
-    while (queue.length) {
-      const current = queue.shift()!
-      for (const childId of childrenOf.get(current) ?? []) {
-        if (blocked.has(childId)) continue
-        blocked.add(childId)
-        queue.push(childId)
-      }
-    }
-
-    return scopedDepts
-      .filter((item) => !blocked.has(item.id))
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [editingDepartment, scopedDepts])
-
-  const headCandidateOptions = useMemo(
-    () =>
-      headCandidates.map((employee) => ({
-        value: String(employee.id),
-        label:
-          [employee.name, employee.employee_no].filter(Boolean).join(' · ') ||
-          `Employee #${employee.id}`,
-      })),
-    [headCandidates],
-  )
-
   /** Departments matching the tree search, for the "N matching" line. */
   const treeMatchCount = useMemo(() => {
     const q = treeQuery.trim().toLowerCase()
@@ -521,9 +502,7 @@ export function DepartmentList({ role }: { role?: Role }) {
   const current = Math.min(page, totalPages)
   const pageRows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
   const selected = selectedId ? scopedDepts.find((d) => d.id === selectedId) ?? null : null
-  const isDetailsOpen = Boolean(selected)
   const canManage = access !== 'none'
-  const isDepartmentDialogOpen = Boolean(departmentDialogMode)
 
   const detailDept = selected ?? lastShown
 
@@ -569,108 +548,8 @@ export function DepartmentList({ role }: { role?: Role }) {
   }
 
   function openEditDialog(department: Department) {
-    setDepartmentDialogMode('edit')
     setEditingDepartment(department)
-    setDepartmentName(department.name)
-    // Seeded from the row, so an edit round-trips instead of silently
-    // clearing the fields the dialog did not used to show.
-    setDepartmentCodeInput(department.code ?? '')
-    setDepartmentDescription(department.description ?? '')
-    setDepartmentParentInput(department.parentId ?? '')
-    setDepartmentStatusInput(department.status === 'Active' ? '1' : '0')
-    setDepartmentHeadInput(department.hodId ?? '')
-    setDepartmentHeadName(department.hod ?? '')
     setNotice('')
-
-    // The head picker needs the tenant's employees. Loaded when the form
-    // opens rather than on mount - most sessions never edit a department.
-    if (headCandidates.length === 0) {
-      void organizationService
-        .getDepartmentCandidates(context, {})
-        .then((response) => setHeadCandidates(response?.data ?? []))
-        .catch(() => setHeadCandidates([]))
-    }
-  }
-
-  function closeDepartmentDialog() {
-    if (isSaving) return
-    setDepartmentDialogMode(null)
-    setEditingDepartment(null)
-    setDepartmentName('')
-  }
-
-  async function saveDepartment() {
-    const nextName = departmentName.trim()
-    if (!nextName) {
-      setNotice('Department name is required.')
-      return
-    }
-
-    const nextCode = departmentCodeInput.trim()
-    const nextDescription = departmentDescription.trim()
-    const nextParent = departmentParentInput
-    const nextStatus = Number(departmentStatusInput)
-    const nextHead = departmentHeadInput
-
-    // This dialog is the EDIT path only - creating goes through
-    // DepartmentCreateWizard, which is the only way to reach the head,
-    // employee and document steps a new department needs.
-    if (!editingDepartment) return
-
-    // Compares every field the form shows. It used to compare the name alone,
-    // so editing only the code looked like a no-op and closed without saving.
-    const unchanged =
-      nextName === editingDepartment.name &&
-      nextCode === (editingDepartment.code ?? '') &&
-      nextDescription === (editingDepartment.description ?? '') &&
-      nextParent === (editingDepartment.parentId ?? '') &&
-      nextStatus === (editingDepartment.status === 'Active' ? 1 : 0) &&
-      nextHead === (editingDepartment.hodId ?? '')
-
-    if (unchanged) {
-      closeDepartmentDialog()
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      // The head lives on its own endpoint (it validates the employee against
-      // the tenant), so a head change is a second call rather than a field on
-      // update. Done first: if it is refused, nothing else has been written.
-      if (nextHead !== (editingDepartment.hodId ?? '')) {
-        await organizationService.setDepartmentHead(context, editingDepartment.id, nextHead || null)
-      }
-
-      await organizationService.updateDepartment(context, editingDepartment.id, {
-        department: nextName,
-        code: nextCode,
-        description: nextDescription,
-        status: nextStatus,
-        // Only sent when it actually changed - the backend cycle-check rejects
-        // a parent that is the department's own descendant, and there is no
-        // reason to invite that on an unrelated edit.
-        ...(nextParent !== (editingDepartment.parentId ?? '')
-          ? { parent_id: Number(nextParent) || 0 }
-          : {}),
-      })
-
-      const successMessage = `${editingDepartment.parent ? 'Sub-department' : 'Department'} updated successfully.`
-
-      setEditingDepartment(null)
-      setDepartmentDialogMode(null)
-      setDepartmentName('')
-      setDepartmentCodeInput('')
-      setDepartmentDescription('')
-      setDepartmentParentInput('')
-      setDepartmentHeadInput('')
-      setDepartmentHeadName('')
-      await loadDepartments({ clearNotice: false })
-      setNotice(successMessage)
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Failed to save department.')
-    } finally {
-      setIsSaving(false)
-    }
   }
 
   async function confirmDeleteDepartment() {
@@ -790,10 +669,9 @@ export function DepartmentList({ role }: { role?: Role }) {
     }
   }
 
-  /** Open the details panel for a row. */
+  /** Open the full-page detail view for a row. */
   function openDetails(department: Department) {
-    setSelectedId(department.id)
-    setLastShown(department)
+    router.push(`/organization/departments/${department.id}`)
   }
 
   function resetFilters() {
@@ -1105,7 +983,14 @@ export function DepartmentList({ role }: { role?: Role }) {
                   return (
                     <TableRow
                       key={department.id}
-                      onClick={() => selectDepartment(department.id)}
+                      onClick={() => {
+                        // Highlights the row (Move up/down's target) and opens
+                        // the full detail page - a click anywhere on the row
+                        // is "view this department", same as the Eye icon and
+                        // the row menu's "View Details" already do.
+                        selectDepartment(department.id)
+                        openDetails(department)
+                      }}
                       className={cn(
                         'cursor-pointer',
                         isSelected && 'bg-primary/10 hover:bg-primary/10',
@@ -1231,67 +1116,13 @@ export function DepartmentList({ role }: { role?: Role }) {
       </div>
 
       {/*
-        * Department details open in a right-hand DRAWER, matching the employee
-        * details drawer in Employee Directory.
-        *
-        * It used to be a third column inside the page grid, which meant the
-        * table lost roughly a third of its width whenever the panel opened -
-        * and on anything narrower than xl the panel was hidden outright, so
-        * "View details" did nothing visible on a laptop. A sheet overlays
-        * instead of competing for width, and behaves the same at every size.
+        * Department details now open on their own full page
+        * (/organization/departments/[id]) rather than in this drawer -
+        * openDetails() navigates there. The row-click highlight above
+        * (selectedId/detailDept) stays: it still drives Move up/down and the
+        * hierarchy tree's own filter, neither of which is a "view details"
+        * action.
         */}
-      <Sheet
-        open={isDetailsOpen}
-        onOpenChange={(next) => {
-          if (!next) setSelectedId(null)
-        }}
-      >
-        <SheetContent
-          side="right"
-          /*
-           * WIDER, IN STEPS.
-           *
-           * This was `sm:max-w-2xl` - 672px - and the drawer holds six tabs,
-           * including a job-role list carrying a name, a category, a headcount and
-           * now two actions per row. At that ceiling those rows wrapped.
-           *
-           * Stepped rather than one larger fixed value: 5xl is comfortable on a
-           * wide monitor, and the same 5xl on a 1280px laptop would cover the
-           * screen this drawer is meant to sit beside.
-           */
-          className="flex h-full w-[95vw] flex-col gap-0 border-l border-border/80 p-0 sm:max-w-3xl lg:max-w-5xl"
-        >
-          <SheetTitle className="sr-only">
-            {detailDept ? `${detailDept.name} details` : 'Department details'}
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Overview, employees, job roles, SOPs, policies and rules for this department.
-          </SheetDescription>
-
-          {detailDept && (
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-                  Loading department details...
-                </div>
-              }
-            >
-              <LazyDepartmentDetailsPanel
-                department={detailDept}
-                departments={scopedDepts}
-                canManage={canManage}
-                context={context}
-                onEdit={openEditDialog}
-                onAddSubDepartment={openAddDialog}
-                onDelete={setDeleteDepartment}
-                onAssignHod={setHodTarget}
-                onChangeParent={setParentTarget}
-                onSaved={() => void loadDepartments({ clearNotice: false })}
-              />
-            </Suspense>
-          )}
-        </SheetContent>
-      </Sheet>
 
       <DepartmentCreateWizard
         open={wizardOpen}
@@ -1330,150 +1161,17 @@ export function DepartmentList({ role }: { role?: Role }) {
         onSelect={(parentId) => void handleChangeParent(parentId)}
       />
 
-      <Dialog open={isDepartmentDialogOpen} onOpenChange={(open) => {
-        if (!open) closeDepartmentDialog()
-      }}>
-        <DialogContent className="rounded-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Edit {editingDepartment?.parent ? 'Sub-Department' : 'Department'}
-            </DialogTitle>
-            {/* Was "Department details are saved to the Laravel department
-                management API." - an implementation note shown to the user. */}
-            <DialogDescription>
-              {editingDepartment?.parent
-                ? `Parent department: ${editingDepartment.parent}`
-                : 'Update this department’s name, code and description.'}
-            </DialogDescription>
-          </DialogHeader>
-          {/*
-            * The dialog used to collect a name and nothing else, because the
-            * update endpoint wrote a name and nothing else. Code and
-            * description are real columns now, so the form that claims to edit
-            * a department can actually edit one.
-            */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="department-name" className="text-sm font-medium text-foreground">
-                Department Name
-              </label>
-              <Input
-                id="department-name"
-                value={departmentName}
-                onChange={(event) => setDepartmentName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void saveDepartment()
-                }}
-                placeholder="Enter department name"
-                disabled={isSaving}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="department-code" className="text-sm font-medium text-foreground">
-                Code <span className="font-normal text-muted-foreground">(optional)</span>
-              </label>
-              <Input
-                id="department-code"
-                value={departmentCodeInput}
-                onChange={(event) => setDepartmentCodeInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void saveDepartment()
-                }}
-                placeholder="e.g. HR, ENG-QA"
-                maxLength={50}
-                disabled={isSaving}
-              />
-            </div>
-
-            {/*
-              * Parent, Status and Head. All three were previously unreachable
-              * from this form: parent and head only from the row's kebab menu,
-              * and status not at all.
-              */}
-            <div className="grid gap-4 @md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="department-parent" className="text-sm font-medium text-foreground">
-                  Parent Department
-                </label>
-                <SelectInput
-                  id="department-parent"
-                  value={departmentParentInput}
-                  onChange={setDepartmentParentInput}
-                  className="h-10"
-                  options={[
-                    { value: '', label: 'None (top level)' },
-                    // Self and descendants excluded - the backend refuses a
-                    // parent that would put a department beneath itself, so
-                    // offering it would only produce a 422.
-                    ...parentCandidates.map((d) => ({ value: d.id, label: d.name })),
-                  ]}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="department-status" className="text-sm font-medium text-foreground">
-                  Status
-                </label>
-                <SelectInput
-                  id="department-status"
-                  value={departmentStatusInput}
-                  onChange={(value) => setDepartmentStatusInput(value === '0' ? '0' : '1')}
-                  className="h-10"
-                  options={[
-                    { value: '1', label: 'Active' },
-                    { value: '0', label: 'Inactive' },
-                  ]}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="department-head" className="text-sm font-medium text-foreground">
-                Head of Department{' '}
-                <span className="font-normal text-muted-foreground">(optional)</span>
-              </label>
-              <SelectInput
-                id="department-head"
-                value={departmentHeadInput}
-                onChange={setDepartmentHeadInput}
-                className="h-10"
-                options={[
-                  { value: '', label: 'Unassigned' },
-                  ...headCandidateOptions,
-                ]}
-              />
-              {departmentHeadName && !departmentHeadInput && (
-                <p className="text-xs text-muted-foreground">
-                  Saving will clear the current head ({departmentHeadName}).
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="department-description" className="text-sm font-medium text-foreground">
-                Description <span className="font-normal text-muted-foreground">(optional)</span>
-              </label>
-              <textarea
-                id="department-description"
-                value={departmentDescription}
-                onChange={(event) => setDepartmentDescription(event.target.value)}
-                placeholder="What this department is responsible for"
-                rows={3}
-                disabled={isSaving}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeDepartmentDialog} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={() => void saveDepartment()} disabled={isSaving}>
-              {isSaving ? 'Saving...' : editingDepartment ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditDepartmentDialog
+        department={editingDepartment}
+        departments={scopedDepts}
+        context={context}
+        onCancel={() => setEditingDepartment(null)}
+        onSaved={(message) => {
+          setEditingDepartment(null)
+          void loadDepartments({ clearNotice: false })
+          setNotice(message)
+        }}
+      />
 
       {/*
         * Delete-or-merge, replacing an AlertDialog that offered one
