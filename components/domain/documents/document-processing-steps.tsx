@@ -1,52 +1,56 @@
 'use client'
 
-import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * The active pipeline step's label, revealed word by word beneath the
- * GeneratingOrb — "extracting", "OCR extracting", "AI reasoning" etc.
- * fading/sliding in one word at a time rather than appearing as one static
- * line, so the orb's continuous motion is echoed by the text under it. Also
- * used inline in the checklist below the orb, for the one row that's
- * currently active — see `document-processing-progress.tsx`.
+ * The active pipeline step's label - "Reading text (OCR if it's a scan)",
+ * "Checking for duplicates" etc. Two layered animations, not one:
  *
- * Mechanism: split on spaces, each word gets TWO animations layered on the
- * same element (globals.css) via a per-word CSS custom property pair, not a
- * single Tailwind arbitrary-value class — two different animations with two
- * different per-word delays can't both be expressed through one shorthand
- * class, so each word's own `--word-reveal-delay`/`--word-float-delay` are
- * set inline and the Tailwind class just references them:
- *  1. `g2g-word-reveal` - the one-shot entrance, staggered by `i * 90ms`.
- *  2. `g2g-word-float` - picks up right where the reveal finishes (delay =
- *     the same `i * 90ms` plus the reveal's own 350ms) and keeps gently
- *     bobbing forever, so the label stays visibly "alive" for the whole
- *     time a step is active, not just for the quarter-second it took to
- *     reveal.
+ *  1. ENTRANCE - a new label rolls down into a centered position from above
+ *     and overshoots slightly larger before settling, like a flip-counter
+ *     digit landing, so a real `processing_step` change from the backend
+ *     (see document-processing-progress.tsx's own docblock) reads as an
+ *     event, not a silent text swap. Re-keyed on the label itself
+ *     (`key={label}`) so each genuinely new step replays the roll.
+ *  2. RESTING STATE - once landed, the label's color is a continuously
+ *     looping gradient sweep (g2g-step-color-loop, globals.css) through the
+ *     same three hues the GeneratingOrb's own shader is built from
+ *     (blue/purple/orange - see generating-orb.tsx's baseColor0-2), so the
+ *     one label actually being worked on right now reads as unmistakably
+ *     "live" against the plain muted/shimmer text around it, and visually
+ *     ties back to the orb above it rather than being a flat system color.
  *
- * Re-keyed on the label itself (via `key={label}` on the wrapper), so a
- * genuinely new backend-reported step replays the reveal (and restarts the
- * float wave) instead of the words just snapping to new text in place.
+ * `size="lg"` is the big headline under the orb; `size="sm"` is the same
+ * mechanic at checklist-row scale for whichever row is currently active -
+ * either way it's bold and a step larger than the plain `text-muted-foreground`
+ * siblings around it, which is the real "bigger than the others" contrast,
+ * not just a property of its own entrance.
  */
 export interface DocumentProcessingStepsProps {
   label: string
+  size?: 'sm' | 'lg'
   className?: string
 }
 
-export function DocumentProcessingSteps({ label, className }: DocumentProcessingStepsProps) {
-  const words = label.split(' ')
+const SIZE_CLASS: Record<'sm' | 'lg', string> = {
+  sm: 'text-sm font-bold',
+  lg: 'text-lg font-bold sm:text-xl',
+}
 
+export function DocumentProcessingSteps({ label, size = 'sm', className }: DocumentProcessingStepsProps) {
   return (
-    <p key={label} className={cn('flex flex-wrap justify-center gap-x-1.5 text-sm font-medium text-foreground', className)}>
-      {words.map((word, i) => (
-        <span
-          key={`${word}-${i}`}
-          className="inline-block motion-safe:[animation:g2g-word-reveal_0.35s_ease-out_var(--word-reveal-delay)_backwards,g2g-word-float_2.4s_ease-in-out_var(--word-float-delay)_infinite]"
-          style={{ '--word-reveal-delay': `${i * 90}ms`, '--word-float-delay': `${i * 90 + 350}ms` } as unknown as CSSProperties}
-        >
-          {word}
-        </span>
-      ))}
-    </p>
+    <span className={cn('inline-block text-center leading-tight', className)}>
+      <span
+        key={label}
+        className={cn(
+          'inline-block bg-clip-text text-transparent',
+          '[background-image:linear-gradient(90deg,#3d5aff,#9d00ff,#ff5f1f,#9d00ff,#3d5aff)] [background-size:300%_100%]',
+          'motion-safe:[animation:g2g-step-roll-in_0.5s_cubic-bezier(0.22,1,0.36,1)_backwards,g2g-step-color-loop_3s_linear_infinite]',
+          SIZE_CLASS[size],
+        )}
+      >
+        {label}
+      </span>
+    </span>
   )
 }

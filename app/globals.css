@@ -585,35 +585,72 @@
   }
 }
 
-/* Word-by-word reveal for the active processing-step label beneath the orb
-   (document-processing-steps.tsx) - each word gets this with a staggered
-   animation-delay set from its index, the same per-item stagger technique
-   g2g-row-enter above already uses for batch-upload rows, just at word
-   granularity instead of row granularity. */
-@keyframes g2g-word-reveal {
-  from {
+/* The active processing-step label beneath the orb (and, at a smaller size,
+   the checklist's own active row) rolling down into its centered resting
+   spot - see document-processing-steps.tsx's own docblock for why. Starts
+   above and slightly shrunk, overshoots past full size on the way down,
+   then settles - the overshoot is what reads as "becomes bigger" as it
+   lands, not just a static bigger/bolder resting style. */
+@keyframes g2g-step-roll-in {
+  0% {
+    transform: translateY(-70%) scale(0.7);
     opacity: 0;
-    transform: translateY(4px);
   }
-  to {
+  55% {
+    transform: translateY(8%) scale(1.12);
     opacity: 1;
-    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
   }
 }
 
-/* Runs AFTER g2g-word-reveal finishes (see document-processing-steps.tsx's
-   per-word delay math) - a slow, tiny continuous bob so the label keeps
-   reading as "alive" the whole time a step is active, not just for the
-   quarter-second it took to reveal. Paired with each word's own reveal
-   delay so the wave keeps rippling left-to-right indefinitely instead of
-   every word bobbing in lockstep. */
-@keyframes g2g-word-float {
+/* The active step label's resting-state color (document-processing-steps.tsx)
+   - a continuous loop through the gradient's own repeated color sequence via
+   background-position, not a one-shot reveal. Paired with g2g-step-roll-in
+   above on the same element: the roll-in plays once per label change, this
+   keeps looping underneath it for as long as that label stays on screen. */
+@keyframes g2g-step-color-loop {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* The checklist's own "still coming up" cue (document-processing-progress.tsx)
+   lives on each not-yet-reached row's text itself now, not a separate sweep
+   overlaid across the whole list - a highlight band travels through the
+   label via an animated background-position on a gradient clipped to the
+   text (`background-clip: text`), the same skeleton-shimmer technique
+   dozens of loading UIs use. The gradient's two colors are `--muted-foreground`
+   and `--foreground` - the exact tokens every other label in this checklist
+   already reads its color from - so the shimmer band itself stays correctly
+   dim-on-light / dim-on-dark with no separate color branch to maintain. */
+@keyframes g2g-text-shimmer {
+  0% {
+    background-position: 160% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+/* A gentle continuous bob on each not-yet-finished checklist row as a
+   whole line (document-processing-progress.tsx), on top of whatever that
+   row's own text is doing (the active label's roll-in, or a pending row's
+   text-shimmer) - staggered per row via each row's own animation-delay (set
+   inline from its index) so the list reads as a soft wave passing through
+   it rather than every row bobbing in lockstep. */
+@keyframes g2g-row-float {
   0%,
   100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
 }
 
