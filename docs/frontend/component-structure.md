@@ -53,7 +53,7 @@ Every component directory should have an `index.ts` file that re-exports all pub
 ```typescript
 // components/task/index.ts
 export { CreateTaskModal } from './create-task-modal'
-export { TaskBoardView } from './task-board-view'
+export { TaskCalendarView } from './task-calendar-view'
 // ...
 ```
 

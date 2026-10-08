@@ -1,103 +1,132 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { addDays, addMonths, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek, format, isAfter, isBefore, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns'
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, UserPlus, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Select } from '@/components/ui/select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { WorkspaceTask } from '@/types/task-management'
+import type { CalendarEntry, CalendarEntryKind, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
+import { CreateTaskModal } from './create-task-modal'
+import { SelfTaskEntryModal } from './self-task-entry-modal'
+import { CreateEventModal } from './create-event-modal'
+import { EventDetailsDrawer } from './event-details-drawer'
+import { MyTaskDetailsDrawer } from './my-task-details-drawer'
+import { TaskReminderToast } from './task-reminder-toast'
+import { CalendarFeedTogglePanel } from './calendar-feed-toggle-panel'
+import { IcsExportButton } from './ics-export-button'
+import { IcsImportModal } from './ics-import-modal'
+import { TaskCalendarGrid, type CalendarGridView } from './task-calendar-grid'
+import { ActivityTypesPanel } from './activity-types-panel'
+import { CalendarListView } from './calendar-list-view'
 
-/**
- * A `yyyy-MM-dd` string as a LOCAL date.
- *
- * `new Date('2026-08-21')` parses as UTC midnight and then renders in local
- * time, which lands on the 20th for anyone west of Greenwich - a task silently
- * one day early. Appending the time forces local-midnight parsing, matching how
- * `format(day, 'yyyy-MM-dd')` writes them back out.
- */
-function localDate(value: string): Date {
-  return new Date(`${value}T00:00:00`)
-}
-
-/**
- * The days a task occupies: [start, due].
- *
- * Returns null when it has neither date - such a task is not on the calendar
- * at all. Where only one is present that date stands for both, so the task is
- * a single day rather than an open-ended bar.
- *
- * INVERTED DATA IS NORMALISED, NOT TRUSTED. `TaskScheduleController` validates
- * order only on write, so legacy rows can hold a start AFTER their due date.
- * Rendering that literally would produce a negative-length span that draws
- * nothing; the two are swapped so the task still appears and can be corrected.
- */
-function taskSpan(task: WorkspaceTask): { start: Date; end: Date } | null {
-  const startRaw = task.planned_start_date ?? task.due_date
-  const endRaw = task.due_date ?? task.planned_start_date
-  if (!startRaw || !endRaw) return null
-
-  const a = localDate(startRaw)
-  const b = localDate(endRaw)
-  return a <= b ? { start: a, end: b } : { start: b, end: a }
-}
-
-function occupiesDay(task: WorkspaceTask, day: Date): boolean {
-  const span = taskSpan(task)
-  if (!span) return false
-  // Compare on the calendar day, not the instant, so a task due today counts
-  // for the whole of today rather than only its midnight.
-  return !isBefore(startOfDay(day), startOfDay(span.start))
-    && !isAfter(startOfDay(day), startOfDay(span.end))
-}
-
-/** Hover text that says what the bar covers, since only day one shows a title. */
-function taskTitleHint(task: WorkspaceTask): string {
-  const where = task.project ? task.project : 'Not in a project'
-  const span = taskSpan(task)
-  const when = span && !isSameDay(span.start, span.end)
-    ? ` (${format(span.start, 'd MMM')} - ${format(span.end, 'd MMM')})`
-    : ''
-  return `${where} - ${task.title}${when}`
-}
-
-type CalendarView = 'month' | 'week' | 'day'
+type ScreenMode = 'my' | 'shared' | 'list'
+import type { CalendarFeed } from '@/types/task-management'
 
 export function TaskCalendarView() {
   const [month, setMonth] = useState(startOfMonth(new Date()))
   /**
    * Month / week / day.
    *
-   * All three drive the SAME range and the same grid - only the interval and
-   * the column count differ - so a task renders identically in each and there
-   * is one span calculation, not three.
+   * All three drive the SAME underlying range/grid component - only the
+   * interval and FullCalendar's own view name differ.
    */
-  const [view, setView] = useState<CalendarView>('month')
+  const [view, setView] = useState<CalendarGridView>('month')
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
-  const [selected, setSelected] = useState<WorkspaceTask | null>(null)
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  // Rescheduling: the due date the user is moving the selected task to.
-  const [newDueDate, setNewDueDate] = useState('')
-  const [rescheduling, setRescheduling] = useState(false)
+  /** A project id, or '__none__' for "not in a project" - never a name, so a renamed/duplicate-named project can't silently filter the wrong rows. */
   const [projectFilter, setProjectFilter] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
+  // The REAL, tenant-wide project/department lists for the filter dropdowns -
+  // independent of the visible date range/scope, unlike the color-legend's
+  // own `projects` (below), which stays derived from on-screen tasks only.
+  // Fixes the confirmed bug where a project only appeared in the old filter
+  // if it happened to have a task in the currently-displayed window.
+  const [allProjects, setAllProjects] = useState<Array<{ id: string; name: string }>>([])
+  const [allDepartments, setAllDepartments] = useState<Array<{ id: string; name: string }>>([])
+
+  useEffect(() => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      taskService.getProjectRecords(context, { perPage: 100, includeArchived: true })
+        .then((response) => { if (active) setAllProjects(response.data.projects.map((project) => ({ id: project.id, name: project.name }))) })
+        .catch(() => { /* the calendar still works with no project filter options */ })
+      taskService.getProjectOptions(context)
+        .then((response) => { if (active) setAllDepartments(response.data.departments) })
+        .catch(() => { /* the calendar still works with no department filter options */ })
+    })
+    return () => { active = false }
+  }, [])
+  // My calendar vs team calendar — reuses task-workspace.tsx's existing
+  // WorkspaceScope control and its already-working backend support, rather
+  // than inventing a second access-control mechanism for the same question.
+  // Defaults to 'all', matching this screen's existing behaviour before this
+  // control existed (the backend's own default) — adding the selector must
+  // not narrow what anyone already saw.
+  const [viewScope, setViewScope] = useState<WorkspaceScope>('all')
+  /**
+   * My Calendar / Shared Calendar / List View - CRM's own three top-level
+   * calendar modes. Not new routes (locked-in #2): My/Shared drive the same
+   * viewScope + Feeds mechanism this screen already had, just surfaced as a
+   * real, named switch instead of a generic scope dropdown; List is a new
+   * flat table over the same already-fetched data.
+   */
+  const [screenMode, setScreenMode] = useState<ScreenMode>('shared')
   // How many the server says exist for this window, versus how many we hold.
   // A calendar that silently drops days is worse than one that admits it.
   const [totalInRange, setTotalInRange] = useState(0)
+
+  // Entries — EVENT, MILESTONE and CHECKPOINT, alongside the task chips
+  // above. Tasks keep using `getWorkspace`/WorkspaceTask (span math and
+  // drag-reschedule are already built and proven against that shape); the
+  // other three kinds come from the merged calendar feed, which this screen
+  // used to filter down to EVENT only - MILESTONE/CHECKPOINT were silently
+  // dropped entirely, with no toggle for either (see the Activity Types panel
+  // this plan adds next for the user-facing show/hide control).
+  const [entries, setEntries] = useState<CalendarEntry[]>([])
+  const [createEventOpen, setCreateEventOpen] = useState(false)
+  const [createEventDate, setCreateEventDate] = useState<string | undefined>(undefined)
+  const [selfTaskOpen, setSelfTaskOpen] = useState(false)
+  const [selfTaskDate, setSelfTaskDate] = useState<string | undefined>(undefined)
+  const [assignTaskOpen, setAssignTaskOpen] = useState(false)
+  const [statusOptions, setStatusOptions] = useState<TaskStatusOption[]>([])
+  // Whose calendars are overlaid — GET /calendar/feeds already resolves this
+  // to exactly who the viewer may see, so every row is a legitimate toggle.
+  const [feeds, setFeeds] = useState<CalendarFeed[]>([])
+  const [hiddenFeedUserIds, setHiddenFeedUserIds] = useState<Set<string>>(new Set())
+  const [feedPanelOpen, setFeedPanelOpen] = useState(false)
+  const [icsImportOpen, setIcsImportOpen] = useState(false)
+  // Activity Types: which of the four kinds are hidden on the grid - empty
+  // by default, since 9.1 already made all four visible unconditionally and
+  // this panel only adds the ability to turn one off, never a new default-off.
+  const [hiddenKinds, setHiddenKinds] = useState<Set<CalendarEntryKind>>(new Set())
+  const [activityTypesOpen, setActivityTypesOpen] = useState(false)
+  // The event drawer - the chip's title opens it; MILESTONE/CHECKPOINT open
+  // their own read-only popover instead (TaskCalendarGrid's own concern).
+  const [openEventId, setOpenEventId] = useState<string | null>(null)
+
+  const viewerId = getLaravelContext().userId
 
   const range = useMemo(() => {
     if (view === 'day') return { from: startOfDay(month), to: startOfDay(month) }
     if (view === 'week') {
       return { from: startOfWeek(month, { weekStartsOn: 1 }), to: endOfWeek(month, { weekStartsOn: 1 }) }
     }
-    return {
-      from: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
-      to: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
-    }
+    // A FIXED 6-week window, matching TaskCalendarGrid's own fixedWeekCount -
+    // a variable-length range here would under-fetch whatever trailing week
+    // a shorter month gets padded out to on screen.
+    const from = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
+    return { from, to: addDays(from, 6 * 7 - 1) }
   }, [month, view])
 
   /** Step by whatever unit is on screen, so the arrows always mean "next one of these". */
@@ -135,10 +164,14 @@ export function TaskCalendarView() {
       // Bounded so a bad `last_page` can never spin forever.
       for (let guard = 0; guard < 20; guard += 1) {
         const response = await taskService.getWorkspace(getLaravelContext(), {
-          from: format(range.from, 'yyyy-MM-dd'), to: format(range.to, 'yyyy-MM-dd'), perPage: 100, page,
+          from: format(range.from, 'yyyy-MM-dd'), to: format(range.to, 'yyyy-MM-dd'), perPage: 100, page, scope: viewScope,
         })
         collected.push(...response.data.tasks)
         total = response.data.pagination?.total ?? collected.length
+        // Already returned by this same call - the self-entry form's status
+        // picker needs the tenant's vocabulary and would otherwise need a
+        // second round trip just for that.
+        setStatusOptions(response.data.filters.status_options)
         const lastPage = response.data.pagination?.last_page ?? 1
         if (page >= lastPage || !response.data.tasks.length) break
         page += 1
@@ -148,65 +181,136 @@ export function TaskCalendarView() {
       setTotalInRange(total)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load calendar tasks.') }
     finally { setLoading(false) }
-  }, [range])
+  }, [range, viewScope])
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
     queueMicrotask(() => { void load() })
   }, [load])
 
-  const openTask = (task: WorkspaceTask) => {
-    setSelected(task); setNewDueDate(task.due_date ?? ''); setMessage('')
-  }
+  // Secondary layers (entries, feeds): a failed fetch must never block the
+  // rest of the calendar, so these never feed into the main `error` state -
+  // but failing SILENTLY, with nothing on screen admitting it, was its own
+  // problem. Each gets its own small, non-blocking retry affordance instead.
+  const [entriesError, setEntriesError] = useState(false)
+  const [feedsError, setFeedsError] = useState(false)
 
-  const reschedule = async () => {
-    if (!selected || !newDueDate || newDueDate === selected.due_date) return
-    setRescheduling(true); setError(''); setMessage('')
+  const loadEntries = useCallback(async () => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
     try {
-      const response = await taskService.updateTaskSchedule(getLaravelContext(), selected.id, { due_date: newDueDate })
-      setSelected({ ...selected, due_date: response.data.schedule.due_date })
-      setMessage(response.message)
-      await load()
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to reschedule this task.')
-    } finally { setRescheduling(false) }
+      const response = await taskService.getCalendarEntries(context, {
+        from: format(range.from, 'yyyy-MM-dd'), to: format(range.to, 'yyyy-MM-dd'),
+      })
+      setEntries(response.data.entries.filter((entry) => entry.kind !== 'TASK'))
+      setEntriesError(false)
+    } catch {
+      // A secondary layer on this screen — a failed fetch leaves the task
+      // calendar fully usable rather than erroring the whole view.
+      setEntries([])
+      setEntriesError(true)
+    }
+  }, [range])
+  useEffect(() => {
+    queueMicrotask(() => { void loadEntries() })
+  }, [loadEntries])
+
+  const loadFeeds = useCallback(async () => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    try {
+      const response = await taskService.getCalendarFeeds(context)
+      setFeeds(response.data.feeds)
+      setFeedsError(false)
+    } catch {
+      // The calendar still works with just the task/entry layers.
+      setFeedsError(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadFeeds() })
+  }, [loadFeeds])
+
+  const toggleFeed = (userId: string) => {
+    setHiddenFeedUserIds((current) => {
+      const next = new Set(current)
+      if (next.has(userId)) next.delete(userId); else next.add(userId)
+      return next
+    })
   }
 
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [dropDay, setDropDay] = useState<string | null>(null)
+  const toggleKind = (kind: CalendarEntryKind) => {
+    setHiddenKinds((current) => {
+      const next = new Set(current)
+      if (next.has(kind)) next.delete(kind); else next.add(kind)
+      return next
+    })
+  }
+
+  /** My Calendar: just you - any overlaid feed would contradict "my". */
+  const selectMyCalendar = () => {
+    setScreenMode('my'); setViewScope('mine')
+    setHiddenFeedUserIds(new Set(feeds.map((feed) => feed.user_id)))
+  }
+  /** Shared Calendar: back to a team-wide scope, feeds visible again by default. */
+  const selectSharedCalendar = () => {
+    setScreenMode('shared')
+    setViewScope((current) => (current === 'mine' ? 'all' : current))
+    setHiddenFeedUserIds(new Set())
+  }
 
   /**
-   * MOVE A TASK BY DRAGGING IT TO ANOTHER DAY.
-   *
-   * Native HTML5 drag, mirroring `candidate-kanban.tsx` - no library, and the
-   * same `dataTransfer` idiom already used elsewhere in this app.
-   *
-   * THE WHOLE SPAN MOVES, KEEPING ITS LENGTH. Dragging a three-day task to
-   * Monday makes it Monday-Wednesday, not a three-day task that now ends on
-   * Monday. Only tasks WITH a start date shift both ends; a single-day task
-   * just moves its due date, which is what the existing dialog does.
-   *
-   * OPTIMISTIC, WITH A REVERT. The grid updates immediately so the drag feels
-   * direct, and the previous dates are restored if the write fails - the task
-   * must never sit on a day the server did not agree to.
+   * Approve/reject/archive, ported from task-workspace.tsx's own Dashboard
+   * handlers verbatim - this screen now opens the SAME shared drawer with a
+   * dashboardContext, for the same reason the Dashboard does: viewScope
+   * routinely shows tasks the viewer does not personally own.
    */
-  const dropOnDay = async (taskId: string, day: Date) => {
+  const decide = async (task: WorkspaceTask, decision: 'approve' | 'reject') => {
+    let remarks = ''
+    if (decision === 'reject') {
+      const given = window.prompt(
+        `Why is “${task.title}” being sent back?\n\nThe assignee sees this, and it is recorded as the reason.`,
+        '',
+      )
+      if (given === null) return
+      remarks = given.trim()
+      if (remarks === '') {
+        setError('A rejection needs a reason. The assignee is shown it, and it is kept on the record.')
+        return
+      }
+    }
+    try {
+      const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
+      setMessage(response.message); setOpenTaskId(null); await load()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
+  }
+  const archive = async (task: WorkspaceTask) => {
+    if (!window.confirm(`Archive “${task.title}”?`)) return
+    try {
+      const response = await taskService.archiveWorkspaceTask(getLaravelContext(), task.id)
+      setMessage(response.message); setOpenTaskId(null); await load()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive task.') }
+  }
+
+  /**
+   * MOVE A TASK BY DRAGGING IT. TaskCalendarGrid/calendar-event-mapping.ts
+   * already converted FullCalendar's exclusive-end drag/resize result back
+   * to this app's inclusive [start, end] - this handler only has to decide
+   * what to send and revert on failure, exactly like the old native-drag
+   * dropOnDay did.
+   */
+  const onTaskReschedule = async (taskId: string, start: Date, end: Date): Promise<boolean> => {
     const task = tasks.find((candidate) => candidate.id === taskId)
-    if (!task) return
-
-    const span = taskSpan(task)
-    if (!span) return
-
-    const target = startOfDay(day)
-    const shift = differenceInCalendarDays(target, startOfDay(span.start))
-    if (shift === 0) return
+    if (!task) return false
 
     const hadStart = Boolean(task.planned_start_date)
-    const nextStart = format(target, 'yyyy-MM-dd')
-    const nextDue = format(addDays(startOfDay(span.end), shift), 'yyyy-MM-dd')
-
-    // Only the keys that actually change are sent - updateTaskSchedule patches,
-    // so omitting start on a task that has none leaves it NULL rather than
-    // inventing one.
+    const nextStart = format(start, 'yyyy-MM-dd')
+    const nextDue = format(end, 'yyyy-MM-dd')
+    // Only the keys that actually change are sent - updateTaskSchedule
+    // patches, so omitting start on a task that has none leaves it NULL
+    // rather than inventing one.
     const payload = hadStart ? { planned_start_date: nextStart, due_date: nextDue } : { due_date: nextDue }
 
     const previous = tasks
@@ -218,10 +322,33 @@ export function TaskCalendarView() {
     try {
       const response = await taskService.updateTaskSchedule(getLaravelContext(), taskId, payload)
       setMessage(response.message)
-      await load()
+      void load()
+      return true
     } catch (reason) {
       setTasks(previous)
       setError(reason instanceof Error ? reason.message : 'Unable to move that task.')
+      return false
+    }
+  }
+
+  const onEventReschedule = async (eventId: string, start: Date, end: Date, allDay: boolean): Promise<boolean> => {
+    const startAt = allDay ? `${format(start, 'yyyy-MM-dd')} 00:00:00` : format(start, 'yyyy-MM-dd HH:mm:ss')
+    const endAt = allDay ? `${format(end, 'yyyy-MM-dd')} 23:59:00` : format(end, 'yyyy-MM-dd HH:mm:ss')
+
+    const previous = entries
+    setEntries((current) => current.map((entry) => (entry.id === eventId && entry.kind === 'EVENT')
+      ? { ...entry, start: startAt, end: endAt, all_day: allDay }
+      : entry))
+    setError(''); setMessage('')
+
+    try {
+      const response = await taskService.rescheduleCalendarEvent(getLaravelContext(), eventId, startAt, endAt)
+      setMessage(response.message)
+      return true
+    } catch (reason) {
+      setEntries(previous)
+      setError(reason instanceof Error ? reason.message : 'Unable to move that event.')
+      return false
     }
   }
 
@@ -263,34 +390,99 @@ export function TaskCalendarView() {
   const projectColour = (project: string | null) =>
     project ? PALETTE[projects.indexOf(project) % PALETTE.length] : NO_PROJECT
 
-  const visibleTasks = projectFilter
-    ? tasks.filter((task) => (projectFilter === '__none__' ? !task.project : task.project === projectFilter))
-    : tasks
+  const matchesProject = (projectId: string | null) =>
+    !projectFilter || (projectFilter === '__none__' ? !projectId : projectId === projectFilter)
+  const matchesDepartment = (departmentId: string | null) => !departmentFilter || departmentId === departmentFilter
 
-  const days = eachDayOfInterval({ start: range.from, end: range.to })
+  const visibleTasks = hiddenKinds.has('TASK')
+    ? []
+    : tasks.filter((task) => matchesProject(task.project_id) && matchesDepartment(task.department_id)
+        && (!task.assignee_id || !hiddenFeedUserIds.has(task.assignee_id)))
+  const visibleEntries = entries.filter((entry) =>
+    !hiddenKinds.has(entry.kind) && matchesProject(entry.project_id) && matchesDepartment(entry.department_id)
+    && (!entry.owner_id || !hiddenFeedUserIds.has(entry.owner_id)))
+
+  /** One colour per feed, by the SAME stable-sort-order scheme as project colours. */
+  const feedColour = (userId: string) => PALETTE[feeds.findIndex((feed) => feed.user_id === userId) % PALETTE.length] ?? NO_PROJECT
+
+  const openTaskRow = tasks.find((task) => task.id === openTaskId) ?? null
+
   return <div className="space-y-5">
+    <TaskReminderToast />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-3xl font-bold tracking-tight">Task Calendar</h1><p className="text-sm text-muted-foreground">Deadlines across all visible projects and assignments.</p></div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="w-52"><Select value={projectFilter} onChange={setProjectFilter} options={[{ value: '', label: 'All projects' }, { value: '__none__', label: 'Not in a project' }, ...projects.map((name) => ({ value: name, label: name }))]} /></div>
         <div className="flex items-center rounded-lg border p-0.5">
-          {(['month', 'week', 'day'] as const).map((mode) => (
+          {([
+            { key: 'my' as const, label: 'My Calendar', onClick: selectMyCalendar },
+            { key: 'shared' as const, label: 'Shared Calendar', onClick: selectSharedCalendar },
+            { key: 'list' as const, label: 'List View', onClick: () => setScreenMode('list') },
+          ]).map(({ key, label, onClick }) => (
             <button
-              key={mode}
-              onClick={() => setView(mode)}
-              className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-                view === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              key={key}
+              onClick={onClick}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                screenMode === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {mode}
+              {label}
             </button>
           ))}
         </div>
+        {screenMode === 'shared' && (
+          <div className="w-44"><Select value={viewScope === 'mine' ? 'all' : viewScope} onChange={(value) => setViewScope(value as WorkspaceScope)} options={[
+            { value: 'all', label: 'All Tasks' }, { value: 'team', label: 'My Team' }, { value: 'department', label: 'My Department' },
+          ]} /></div>
+        )}
+        <div className="w-52"><Select value={projectFilter} onChange={setProjectFilter} options={[{ value: '', label: 'All projects' }, { value: '__none__', label: 'Not in a project' }, ...allProjects.map((project) => ({ value: project.id, label: project.name }))]} /></div>
+        {/* New capability beyond CRM parity - CRM itself has no department
+            concept at all. Filters the whole merged feed, not just tasks,
+            now that 8.5 put department_id on every kind's entries. */}
+        <div className="w-48"><Select value={departmentFilter} onChange={setDepartmentFilter} options={[{ value: '', label: 'All departments' }, ...allDepartments.map((department) => ({ value: department.id, label: department.name }))]} /></div>
+        {screenMode !== 'list' && (
+          <div className="flex items-center rounded-lg border p-0.5">
+            {(['month', 'week', 'day'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setView(mode)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+                  view === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        )}
         {/* The arrows step by whatever is on screen - a month, a week, a day -
             rather than always a month, which in week view would skip four. */}
         <Button variant="outline" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
         <Button variant="outline" onClick={() => setMonth(view === 'month' ? startOfMonth(new Date()) : startOfDay(new Date()))}>Today</Button>
         <Button variant="outline" size="icon" onClick={() => step(1)}><ChevronRight className="size-4" /></Button>
+        <Button
+          variant="outline"
+          onClick={() => { setSelfTaskDate(format(new Date(), 'yyyy-MM-dd')); setSelfTaskOpen(true) }}
+        >
+          <Plus className="mr-2 size-4" />Add Task
+        </Button>
+        {/* Deliberately a separate, clearly distinct control from "Add Task" -
+            that one is always self-assigned; this one opens the same
+            unchanged assign-to-someone-else form Task Management itself uses
+            (locked-in #5). */}
+        <Button variant="outline" onClick={() => setAssignTaskOpen(true)}>
+          <UserPlus className="mr-2 size-4" />Assign Task
+        </Button>
+        <Button onClick={() => { setCreateEventDate(format(new Date(), 'yyyy-MM-dd')); setCreateEventOpen(true) }}>
+          <CalendarClock className="mr-2 size-4" />Add Event
+        </Button>
+        <Button variant="outline" onClick={() => setFeedPanelOpen(true)}>
+          <Users className="mr-2 size-4" />Feeds{hiddenFeedUserIds.size > 0 ? ` (${feeds.length - hiddenFeedUserIds.size}/${feeds.length})` : ''}
+        </Button>
+        <Button variant="outline" onClick={() => setActivityTypesOpen(true)}>
+          <SlidersHorizontal className="mr-2 size-4" />Activity Types{hiddenKinds.size > 0 ? ` (${4 - hiddenKinds.size}/4)` : ''}
+        </Button>
+        <IcsExportButton from={format(range.from, 'yyyy-MM-dd')} to={format(range.to, 'yyyy-MM-dd')} />
+        <Button variant="outline" onClick={() => setIcsImportOpen(true)}>Import .ics</Button>
       </div>
     </div>
     {/* `danger` is not a token in this design system - globals.css defines
@@ -298,62 +490,75 @@ export function TaskCalendarView() {
         text colour, so a failed reschedule looked like a stray paragraph. */}
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
     {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
+    {/* Secondary layers only - the task calendar above stays fully usable
+        either way, so this is a small inline strip, never a blocking state. */}
+    {entriesError && (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <span>Couldn&apos;t load events, milestones or checkpoints.</span>
+        <Button variant="outline" size="sm" onClick={() => void loadEntries()}>Try again</Button>
+      </div>
+    )}
+    {feedsError && (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <span>Couldn&apos;t load shared calendars.</span>
+        <Button variant="outline" size="sm" onClick={() => void loadFeeds()}>Try again</Button>
+      </div>
+    )}
+    {/* Shared Calendar's own feed toggles, inline - the Feeds button above
+        still opens the full side panel (sharing, "Can edit", etc.), but
+        whose calendars are currently overlaid should be visible on the
+        screen itself, not only behind a click. */}
+    {screenMode === 'shared' && feeds.length > 0 && (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 p-3">
+        <span className="text-xs font-semibold text-muted-foreground">Calendars:</span>
+        {feeds.map((feed) => {
+          const active = !hiddenFeedUserIds.has(feed.user_id)
+          return (
+            <button
+              key={feed.user_id}
+              type="button"
+              onClick={() => toggleFeed(feed.user_id)}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                active ? 'border-transparent bg-background shadow-sm' : 'border-dashed text-muted-foreground opacity-60'
+              }`}
+            >
+              <span
+                className={feed.color ? 'size-2 rounded-full' : `size-2 rounded-full ${feedColour(feed.user_id).dot}`}
+                style={feed.color ? { backgroundColor: feed.color } : undefined}
+              />{feed.name}
+            </button>
+          )
+        })}
+      </div>
+    )}
     <Card><CardContent className="p-0">
-      <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>
-      {loading ? <div className="flex h-96 items-center justify-center"><Spinner /></div> : <>
-        {view !== 'day' && <div className="grid grid-cols-7 border-b bg-muted/30 text-center text-xs font-medium uppercase text-muted-foreground">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day) => <div key={day} className="p-3">{day}</div>)}</div>}
-        <div className={view === 'day' ? 'grid grid-cols-1' : 'grid grid-cols-7'}>{days.map((day) => {
-          const dayTasks = visibleTasks.filter((task) => occupiesDay(task, day))
-          const dayKey = format(day, 'yyyy-MM-dd')
-          return <div
-            key={day.toISOString()}
-            onDragOver={(event) => { if (draggingId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropDay(dayKey) } }}
-            onDragLeave={() => setDropDay((current) => (current === dayKey ? null : current))}
-            onDrop={(event) => {
-              event.preventDefault()
-              const id = event.dataTransfer.getData('text/task-id')
-              setDropDay(null); setDraggingId(null)
-              if (id) void dropOnDay(id, day)
-            }}
-            className={`border-b border-r p-2 transition-colors ${view === 'month' ? 'min-h-32' : view === 'week' ? 'min-h-64' : 'min-h-96'} ${dropDay === dayKey ? 'bg-primary/10 ring-1 ring-inset ring-primary/40' : ''}`}
-          ><span className={isSameMonth(day, month) ? 'text-sm font-medium' : 'text-sm text-muted-foreground/50'}>{format(day, 'd')}</span>
-            <div className="mt-2 space-y-1">{dayTasks.map((task) => {
-              const span = taskSpan(task)
-              // WHERE THIS DAY SITS IN THE TASK'S RUN. A task with no start is
-              // a single day and reads exactly as it did before; only a task
-              // that actually spans gets the continuation treatment.
-              const isFirst = !span || isSameDay(span.start, day)
-              const isLast = !span || isSameDay(span.end, day)
-              const multiDay = span !== null && !isSameDay(span.start, span.end)
-              return <button
-                key={task.id}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.effectAllowed = 'move'
-                  event.dataTransfer.setData('text/task-id', task.id)
-                  setDraggingId(task.id)
-                }}
-                onDragEnd={() => { setDraggingId(null); setDropDay(null) }}
-                onClick={() => openTask(task)}
-                title={taskTitleHint(task)}
-                className={`block w-full truncate px-2 py-1 text-left text-xs font-medium ${projectColour(task.project).chip} ${
-                  !multiDay ? 'rounded'
-                    : isFirst ? 'rounded-l border-l-2 border-current'
-                    : isLast ? 'rounded-r'
-                    : ''
-                }`}
-              >
-                {/* Only the first day carries the title. Repeating it on every
-                    day of a three-week task turns the month into a wall of the
-                    same sentence; the continuation days read as the bar they
-                    are. */}
-                {multiDay && !isFirst ? <span className="opacity-0">.</span> : task.title}
-              </button>
-            })}</div>
-          </div>
-        })}</div>
-      </>}
-      {!loading && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
+      <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>
+      {loading ? <div className="flex h-96 items-center justify-center"><Spinner /></div> : screenMode === 'list' ? (
+        <CalendarListView
+          tasks={visibleTasks}
+          entries={visibleEntries}
+          feeds={feeds}
+          onTaskClick={setOpenTaskId}
+          onEventClick={setOpenEventId}
+        />
+      ) : (
+        <TaskCalendarGrid
+          tasks={visibleTasks}
+          entries={visibleEntries}
+          feeds={feeds}
+          viewerId={viewerId}
+          view={view}
+          anchorDate={month}
+          projectColour={projectColour}
+          feedColour={feedColour}
+          onTaskClick={setOpenTaskId}
+          onEventClick={setOpenEventId}
+          onEmptyDateClick={(dateStr) => { setCreateEventDate(dateStr); setCreateEventOpen(true) }}
+          onTaskReschedule={onTaskReschedule}
+          onEventReschedule={onEventReschedule}
+        />
+      )}
+      {!loading && screenMode !== 'list' && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
         <div className="flex flex-wrap items-center gap-3 border-t p-4 text-xs text-muted-foreground">
           <span className="font-medium">Projects:</span>
           {projects.map((name) => (
@@ -365,24 +570,66 @@ export function TaskCalendarView() {
         </div>
       )}
     </CardContent></Card>
-    {selected && <Card><CardContent className="flex flex-wrap items-start justify-between gap-4 p-5">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2"><CalendarDays className="size-4 text-primary" /><h3 className="font-semibold">{selected.title}</h3></div>
-        <p className="mt-2 text-sm text-muted-foreground">{[selected.project || 'Not in a project', selected.assignee, `Due ${selected.due_date ?? '—'}`].filter(Boolean).join(' · ')}</p>
-        <p className="mt-2 text-sm">{selected.description}</p>
-        {/* A calendar you can only read is half a calendar - moving a deadline
-            is the one edit people expect to make from this screen. */}
-        <div className="mt-4 flex flex-wrap items-end gap-2">
-          <label className="text-xs font-semibold text-muted-foreground">
-            <span className="mb-1 block">Move deadline to</span>
-            <input type="date" value={newDueDate} onChange={(event) => setNewDueDate(event.target.value)} className="h-10 rounded-lg border px-3 text-sm font-normal text-foreground" />
-          </label>
-          <Button onClick={() => void reschedule()} disabled={rescheduling || !newDueDate || newDueDate === selected.due_date}>
-            {rescheduling ? 'Rescheduling…' : 'Reschedule'}
-          </Button>
-        </div>
-      </div>
-      <Button variant="ghost" onClick={() => setSelected(null)}>Close</Button>
-    </CardContent></Card>}
+    <MyTaskDetailsDrawer
+      taskId={openTaskId}
+      open={openTaskId !== null}
+      onClose={() => setOpenTaskId(null)}
+      onUpdated={() => void load()}
+      /* dashboardContext ALWAYS supplied here, mirroring task-workspace.tsx's
+         own Dashboard precedent unconditionally (not just for non-'mine'
+         scopes) - viewScope can show tasks the viewer does not personally
+         own even in 'mine' (assigned-to vs. assigned-by are different
+         people), and the drawer's own canManage gate is what actually
+         decides whether Edit/Delete/Private render, not this screen. */
+      dashboardContext={openTaskRow ? {
+        approved: openTaskRow.approved,
+        onApprove: () => void decide(openTaskRow, 'approve'),
+        onReject: () => void decide(openTaskRow, 'reject'),
+        onArchive: () => void archive(openTaskRow),
+      } : undefined}
+    />
+    <SelfTaskEntryModal
+      isOpen={selfTaskOpen}
+      initialDate={selfTaskDate}
+      statusOptions={statusOptions}
+      onClose={() => setSelfTaskOpen(false)}
+      onCreated={(text) => { setMessage(text); void load() }}
+    />
+    <CreateTaskModal
+      isOpen={assignTaskOpen}
+      onClose={() => setAssignTaskOpen(false)}
+      onCreated={(text) => { setMessage(text); void load() }}
+    />
+    <CreateEventModal
+      isOpen={createEventOpen}
+      initialDate={createEventDate}
+      onClose={() => setCreateEventOpen(false)}
+      onCreated={(text) => { setMessage(text); void loadEntries() }}
+    />
+    <EventDetailsDrawer
+      eventId={openEventId}
+      open={openEventId !== null}
+      onClose={() => setOpenEventId(null)}
+      onUpdated={() => void loadEntries()}
+    />
+    <CalendarFeedTogglePanel
+      open={feedPanelOpen}
+      onClose={() => setFeedPanelOpen(false)}
+      feeds={feeds}
+      hidden={hiddenFeedUserIds}
+      onToggle={toggleFeed}
+      dotClassFor={(userId) => feedColour(userId).dot}
+    />
+    <ActivityTypesPanel
+      open={activityTypesOpen}
+      onClose={() => setActivityTypesOpen(false)}
+      hidden={hiddenKinds}
+      onToggle={toggleKind}
+    />
+    <IcsImportModal
+      isOpen={icsImportOpen}
+      onClose={() => setIcsImportOpen(false)}
+      onImported={() => { setMessage('Calendar imported.'); void loadEntries() }}
+    />
   </div>
 }

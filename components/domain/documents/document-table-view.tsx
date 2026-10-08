@@ -3,6 +3,7 @@
 import { ClipboardPaste, Copy, Download, Eye, FolderInput, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { FileTypeIcon } from '@/components/ui/file-icon'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,15 +17,14 @@ import { formatFileDate, formatFileSize } from './documents-ui'
  * same props shape, switched to by the existing grid/list toggle in
  * `document-library-view.tsx`.
  *
- * Still deliberately has no checkbox-select column or bulk-action row -
- * there is no bulk-action endpoint in this app, and a column that does
- * nothing when clicked is worse than not having it. The star column DID
- * get added once starring shipped a real backend (document_library_stars) -
- * unlike bulk-select, that one stopped being a feature with nothing behind
- * it. An "Owner" column is still skipped for the same reason bulk-select
- * is: search results carry `owner_id`, never a resolved name, so a real
- * name isn't available to show without a backend change nobody asked for
- * here.
+ * The leading checkbox column drives multi-select for bulk move/copy/
+ * delete - the bulk ACTIONS themselves still go through the existing
+ * single-item endpoints, one request per selected item (see
+ * document-library-view.tsx's bulkMove/bulkCopy/bulkDelete), there is no
+ * dedicated bulk-action endpoint and none is needed at this app's scale.
+ * An "Owner" column is still skipped: search results carry `owner_id`,
+ * never a resolved name, so a real name isn't available to show without a
+ * backend change nobody asked for here.
  */
 
 export interface DocumentTableViewProps {
@@ -51,6 +51,12 @@ export interface DocumentTableViewProps {
   onCopyFolder?: (folder: DocumentFolderNode) => void
   hasClipboard?: boolean
   onPasteIntoFolder?: (folder: DocumentFolderNode) => void
+
+  /* ── multi-select, for bulk move/copy/delete — same keying as DocumentCardGrid's own (`doc-<id>` / `folder-<id>`) ── */
+  selectedKeys?: Set<string>
+  onToggleSelect?: (key: string) => void
+  /** Header "select all" checkbox - checked when every visible row is selected, indeterminate when only some are. */
+  onToggleSelectAll?: () => void
 }
 
 export function DocumentTableView({
@@ -75,12 +81,31 @@ export function DocumentTableView({
   onCopyFolder,
   hasClipboard,
   onPasteIntoFolder,
+  selectedKeys,
+  onToggleSelect,
+  onToggleSelectAll,
 }: DocumentTableViewProps) {
+  const totalRows = folders.length + documents.length
+  const selectedCount = selectedKeys?.size ?? 0
+  const allSelected = totalRows > 0 && selectedCount >= totalRows
+  const someSelected = selectedCount > 0 && !allSelected
+
   return (
     <div className="@container/docs overflow-x-auto rounded-xl border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
+            {onToggleSelect && (
+              <TableHead className="w-10">
+                <Checkbox
+                  size="sm"
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  onCheckedChange={() => onToggleSelectAll?.()}
+                  aria-label="Select all"
+                />
+              </TableHead>
+            )}
             <TableHead>Name</TableHead>
             <TableHead className="hidden @lg/docs:table-cell">Type</TableHead>
             <TableHead className="hidden @md/docs:table-cell">Size</TableHead>
@@ -89,8 +114,20 @@ export function DocumentTableView({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {folders.map((folder) => (
-            <TableRow key={`folder-${folder.id}`} className="group">
+          {folders.map((folder) => {
+            const folderKey = `folder-${folder.id}`
+            return (
+            <TableRow key={folderKey} className={cn('group', selectedKeys?.has(folderKey) && 'bg-primary/5')}>
+              {onToggleSelect && (
+                <TableCell>
+                  <Checkbox
+                    size="sm"
+                    checked={selectedKeys?.has(folderKey) ?? false}
+                    onCheckedChange={() => onToggleSelect(folderKey)}
+                    aria-label={`Select ${folder.name}`}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <button
                   type="button"
@@ -146,16 +183,28 @@ export function DocumentTableView({
                 </span>
               </TableCell>
             </TableRow>
-          ))}
+            )
+          })}
 
           {documents.map((doc) => {
             const size = formatFileSize(doc.size)
             const date = formatFileDate(doc.document_date ?? doc.created_at)
             const label = typeLabel(doc.document_type)
             const pending = doc.processing_status !== 'done'
+            const docKey = `doc-${doc.id}`
 
             return (
-              <TableRow key={doc.id} className="group">
+              <TableRow key={doc.id} className={cn('group', selectedKeys?.has(docKey) && 'bg-primary/5')}>
+                {onToggleSelect && (
+                  <TableCell>
+                    <Checkbox
+                      size="sm"
+                      checked={selectedKeys?.has(docKey) ?? false}
+                      onCheckedChange={() => onToggleSelect(docKey)}
+                      aria-label={`Select ${doc.title || 'document'}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <button type="button" onClick={() => onOpenDetails(doc)} className="flex min-w-0 items-center gap-3 text-left outline-none">
                     <span className="flex size-7 shrink-0 items-center justify-center">
