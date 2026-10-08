@@ -21,6 +21,8 @@ interface Props {
   onCreated: (message: string) => void
   /** Pre-fills the date when opened from a calendar empty-date click. */
   initialDate?: string
+  /** Pre-fills the start time when opened from a week/day-view time-slot click. */
+  initialTimeStart?: string
   /** Already fetched by the calendar's own load() — no extra call for this form alone. */
   statusOptions: TaskStatusOption[]
 }
@@ -38,7 +40,7 @@ const SYSTEM_STATUS_FALLBACK: Array<{ label: string; value: string }> = [
  * assign-to-someone-else CreateTaskModal (locked-in #5). Always self-assigned
  * - no assignee picker exists here, matching quickAdd's own backend reach.
  */
-export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, statusOptions }: Props) {
+export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, initialTimeStart, statusOptions }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
@@ -61,7 +63,7 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, st
     setSeededOpen(true)
     setTitle(''); setDescription('')
     setDate(initialDate ?? new Date().toISOString().slice(0, 10))
-    setTimeStart(''); setTimeEnd('')
+    setTimeStart(initialTimeStart ?? ''); setTimeEnd('')
     setStatus('PENDING')
     setProjectId(''); setWorkstreamId(''); setWorkstreamOptions([])
     setError('')

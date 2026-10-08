@@ -73,7 +73,7 @@ export interface CalendarGridExtendedProps {
   hint: string
 }
 
-interface ColourClasses { chip: string; dot: string }
+interface ColourClasses { chip: string; dot: string; solid: string }
 
 /** `id` is kind-prefixed (`TASK-42` vs `EVENT-42`) - task and entry ids come from different tables and can collide, which would corrupt FullCalendar's internal diffing. */
 export function taskEventId(taskId: string): string {
@@ -100,7 +100,7 @@ export function mapTaskToEvent(
   const extendedProps: CalendarGridExtendedProps = {
     kind: 'TASK',
     refId: task.id,
-    fallbackClassName: projectColour(project).chip,
+    fallbackClassName: projectColour(project).solid,
     accentColor,
     status: task.status,
     settled,
@@ -162,7 +162,7 @@ export function mapEntryToEvent(
     // on, via the same automatic by-index palette the Feeds panel already
     // uses - a flat, identical tint for everyone was the old (and reported
     // insufficiently distinct) look.
-    ? (entry.owner_id ? feedColour(entry.owner_id).chip : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80')
+    ? (entry.owner_id ? feedColour(entry.owner_id).solid : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80')
     : statusClassName(entry)
   // Status-colored (milestones/checkpoints) is its own established scheme,
   // independent of whose calendar something is on - a per-feed accent only
