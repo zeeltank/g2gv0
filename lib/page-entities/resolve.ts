@@ -44,7 +44,19 @@ export async function resolveEntity<App>(
     // The same record twice (a join that repeats a row) is one record.
     const unique = matches.filter((match, index) => matches.findIndex((other) => other.id === match.id) === index)
 
-    if (unique.length === 0) return { kind: 'none', providerKey: provider.key, noun: provider.noun, query: parsed }
+    if (unique.length === 0) {
+      // Nothing matched the whole request: offer what matches part of it, to choose from.
+      if (provider.similar) {
+        try {
+          const partial = (await provider.similar(parsed, context)).filter((match, index, all) => all.findIndex((other) => other.id === match.id) === index)
+          if (partial.length > 0) return { kind: 'similar', providerKey: provider.key, noun: provider.noun, query: parsed, matches: partial }
+        } catch {
+          // A failed attempt at suggestions is just "no suggestions".
+        }
+      }
+
+      return { kind: 'none', providerKey: provider.key, noun: provider.noun, query: parsed }
+    }
     if (unique.length === 1) return { kind: 'one', providerKey: provider.key, noun: provider.noun, query: parsed, match: unique[0] }
 
     return { kind: 'many', providerKey: provider.key, noun: provider.noun, query: parsed, matches: unique }
