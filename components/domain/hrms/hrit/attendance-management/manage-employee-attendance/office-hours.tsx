@@ -33,6 +33,7 @@ import {
   WEEKEND,
 } from '@/hooks/use-department-schedules'
 import { cn } from '@/lib/utils'
+import { OfficeHoursProposals } from './office-hours-proposals'
 import type {
   DepartmentSchedule,
   DepartmentScheduleDay,
@@ -69,10 +70,18 @@ import type {
 export function OfficeHoursTab() {
   const {
     schedules, isLoading, isSaving, error, notice, setError, setNotice,
-    save, preview, apply,
+    save, preview, apply, refresh,
   } = useDepartmentSchedules()
 
   const [openId, setOpenId] = React.useState<number | null>(null)
+  /**
+   * Bumped when a proposal is decided, so the department list refetches.
+   *
+   * An approval moves the preview's own counts - an employee-set roster is a
+   * bucket in it - so leaving the list stale would show a number that had just
+   * stopped being true.
+   */
+  const [proposalsNonce, setProposalsNonce] = React.useState(0)
   const [drafts, setDrafts] = React.useState<Record<number, DepartmentScheduleDay[]>>({})
   const [pending, setPending] = React.useState<{
     department: DepartmentSchedule
@@ -89,8 +98,18 @@ export function OfficeHoursTab() {
   const neverSet = schedules.filter((entry) => !entry.has_schedule)
   const employeesWithoutSchedule = neverSet.reduce((sum, entry) => sum + entry.employee_count, 0)
 
-  const startApply = async (department: DepartmentSchedule, weekdays: string[]) => {
-    const result = await preview(department.department_id, weekdays)
+  React.useEffect(() => {
+    if (proposalsNonce === 0) return
+    const handle = setTimeout(() => void refresh(), 0)
+    return () => clearTimeout(handle)
+  }, [proposalsNonce, refresh])
+
+  const startApply = async (
+    department: DepartmentSchedule,
+    weekdays: string[],
+    overrideEmployeeHours = false,
+  ) => {
+    const result = await preview(department.department_id, weekdays, overrideEmployeeHours)
     if (result) setPending({ department, weekdays, result })
   }
 
@@ -115,6 +134,17 @@ export function OfficeHoursTab() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/*
+        * Pinned above the department list.
+        *
+        * This tab is already where "whose hours differ from the department's"
+        * is the question, and an approver deciding somebody's 10:00 start needs
+        * the template beside it. Renders nothing when the caller may not decide
+        * or nothing is waiting - the server answers 403 and the component is
+        * silent, rather than gating itself on a role.
+        */}
+      <OfficeHoursProposals onDecided={() => setProposalsNonce((value) => value + 1)} />
 
       <Alert>
         <Clock className="size-4" />
@@ -210,9 +240,27 @@ export function OfficeHoursTab() {
           result={pending.result}
           isSaving={isSaving}
           onCancel={() => setPending(null)}
-          onConfirm={async () => {
-            const ok = await apply(pending.department.department_id, pending.weekdays)
+          onConfirm={async (overrideEmployeeHours) => {
+            const ok = await apply(
+              pending.department.department_id,
+              pending.weekdays,
+              overrideEmployeeHours,
+            )
             if (ok) setPending(null)
+          }}
+          onRepreview={async (overrideEmployeeHours) => {
+            /*
+             * Re-ask with the tick on, so the numbers on screen are the numbers
+             * the write will produce. The server computes preview and apply
+             * through one body precisely so they cannot disagree; re-previewing
+             * is what keeps the SCREEN honest about which mode it is in.
+             */
+            const result = await preview(
+              pending.department.department_id,
+              pending.weekdays,
+              overrideEmployeeHours,
+            )
+            if (result) setPending({ ...pending, result })
           }}
         />
       )}
@@ -448,17 +496,58 @@ function summarise(week: DepartmentScheduleDay[]) {
  * flattening them silently is what got that version removed.
  */
 function ApplyConfirmation({
-  department, weekdays, result, isSaving, onCancel, onConfirm,
+  department, weekdays, result, isSaving, onCancel, onConfirm, onRepreview,
 }: {
   department: DepartmentSchedule
   weekdays: string[]
   result: SchedulePreviewResponse
   isSaving: boolean
   onCancel: () => void
-  onConfirm: () => Promise<void>
+  onConfirm: (overrideEmployeeHours: boolean) => Promise<void>
+  onRepreview: (overrideEmployeeHours: boolean) => Promise<void>
 }) {
   const { data } = result
   const overwriting = data.total_would_change
+
+  /**
+   * Also overwrite the employees who chose their own hours.
+   *
+   * UNTICKED BY DEFAULT, and the whole bucket exists because the previous
+   * version of this feature was deleted for doing it silently.
+   */
+  const [override, setOverride] = React.useState(false)
+
+  /**
+   * Who has their own hours - captured from the FIRST preview, which is always
+   * the non-overriding one.
+   *
+   * ── WHY THIS IS NOT READ STRAIGHT OFF `data` ────────────────────────────
+   *
+   * `employees_left_alone` means exactly what it says: the people this apply
+   * will LEAVE ALONE. Tick the override and the honest answer is zero, because
+   * nobody is being left alone any more - and the server returns zero.
+   *
+   * Reading it live therefore collapsed the whole block the moment it was
+   * ticked: the warning vanished, and so did the checkbox that had just been
+   * ticked, leaving an override armed with nothing on screen saying so and no
+   * way to untick it. The server's own docblock warns that "a caller using the
+   * wrong one says something false" - this was that caller.
+   *
+   * The question "whose hours did they choose themselves" has one answer and it
+   * does not depend on what we are about to do about it. So it is taken once,
+   * from the preview that ran before any tick, and kept. The initialiser runs
+   * on mount only, and this component is mounted once per pending apply, so
+   * `onRepreview` replacing `result` cannot move it.
+   */
+  const [employeeSet] = React.useState(() => ({
+    // Distinct PEOPLE, not weekday-rows: total_employee_set would say 21 for
+    // three people across seven days.
+    count: data.employees_left_alone ?? 0,
+    names: Object.values(data.employees_left_alone_list ?? {}),
+  }))
+
+  const leftAlone = employeeSet.count
+  const names = employeeSet.names
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -481,6 +570,7 @@ function ApplyConfirmation({
                   <th scope="col" className="px-3 py-2 text-right font-semibold">Already match</th>
                   <th scope="col" className="px-3 py-2 text-right font-semibold">Would be set</th>
                   <th scope="col" className="px-3 py-2 text-right font-semibold">Would be overwritten</th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">Set by the employee</th>
                 </tr>
               </thead>
               <tbody>
@@ -510,6 +600,20 @@ function ApplyConfirmation({
                       )}
                     >
                       {row.would_change}
+                    </td>
+                    {/*
+                      * Optional on the type, so this ships before the server
+                      * does and shows a dash rather than `undefined`.
+                      */}
+                    <td
+                      className={cn(
+                        'px-3 py-2 text-right font-medium tabular-nums',
+                        (row.employee_set ?? 0) > 0
+                          ? 'text-violet-700 dark:text-violet-300'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {row.employee_set ?? '—'}
                     </td>
                   </tr>
                 ))}
@@ -554,20 +658,69 @@ function ApplyConfirmation({
           </p>
         </div>
 
+        {/*
+          * The fourth bucket, and the only way to override it.
+          *
+          * Shown only when there is something to protect, so the tick does not
+          * appear as an invitation on every apply.
+          */}
+        {leftAlone > 0 && (
+          <div className="rounded-lg border border-violet-500/40 bg-violet-500/10 p-3">
+            <p className="text-sm text-violet-900 dark:text-violet-200">
+              <strong>
+                {leftAlone} {leftAlone === 1 ? 'employee has' : 'employees have'} hours they set
+                themselves
+              </strong>{' '}
+              {names.length > 0 && (
+                <span className="text-violet-800/80 dark:text-violet-200/80">
+                  ({names.slice(0, 4).join(', ')}
+                  {names.length > 4 ? ` and ${names.length - 4} more` : ''})
+                </span>
+              )}
+              {override
+                ? ' — and this apply will overwrite them, because you ticked the box below.'
+                : ' — and this apply will leave them alone.'}
+            </p>
+
+            <label className="mt-2 flex items-start gap-2 text-xs text-violet-900 dark:text-violet-200">
+              <Checkbox
+                checked={override}
+                onCheckedChange={(checked) => {
+                  const next = checked === true
+                  setOverride(next)
+                  // Re-ask the server, so the table above is the table the write
+                  // will produce rather than the one from the other mode.
+                  void onRepreview(next)
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                Overwrite their hours too. They asked for these hours and somebody approved them,
+                so this replaces a decision that was already made &mdash; the original times are
+                kept in the change record either way.
+              </span>
+            </label>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isSaving}>
             Cancel
           </Button>
           <Button
-            onClick={() => void onConfirm()}
+            onClick={() => void onConfirm(override)}
             disabled={isSaving || data.employees_touched === 0}
-            variant={overwriting > 0 ? 'destructive' : 'default'}
+            // Destructive when it overwrites a choice somebody made, not merely
+            // when it changes a number.
+            variant={overwriting > 0 || (override && leftAlone > 0) ? 'destructive' : 'default'}
           >
             {isSaving
               ? 'Applying…'
               : data.employees_touched === 0
                 ? 'Nothing to change'
-                : `Apply to ${data.employees_touched} ${data.employees_touched === 1 ? 'employee' : 'employees'}`}
+                : override && leftAlone > 0
+                  ? `Apply to ${data.employees_touched}, overriding ${leftAlone}`
+                  : `Apply to ${data.employees_touched} ${data.employees_touched === 1 ? 'employee' : 'employees'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

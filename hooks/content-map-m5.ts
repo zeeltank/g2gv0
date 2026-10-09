@@ -37,6 +37,11 @@ const MonthlyAttendanceReportPage = createLazyComponent(() => import('@/domain/h
 // one shows everybody's and writes to it, so it needs its own menu row and its
 // own grant - a tab cannot express ownership.
 const ManageEmployeeAttendancePage = createLazyComponent(() => import('@/domain/hrms/hrit/attendance-management/manage-employee-attendance/page').then((m) => ({ default: m.default })))
+// Phase 19. The employee's own side of the attendance desk: propose your own
+// working days and times. The HR approval for it is NOT a screen - it is a
+// panel on Manage Employee Attendance's Office hours tab, where the
+// department template an approver needs to compare against already lives.
+const MyOfficeHoursPage = createLazyComponent(() => import('@/domain/hrms/hrit/attendance-management/my-office-hours/page').then((m) => ({ default: m.default })))
 // F-172. Payroll Register - the only screen that puts the day counts next to
 // the pay, so "why is this person's pay low" is answered in one row.
 const PayrollRegisterPage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/payroll-register/page').then((m) => ({ default: m.default })))
@@ -50,6 +55,11 @@ export const M5_CONTENT: ContentRoute[] = [
   { accessLink: '/module/hrit-solutions/attendance-management/attendance-reports', submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
   { accessLink: '/module/hrit-solutions/attendance-management/monthly-attendance-report', submenuId: '309', component: MonthlyAttendanceReportPage }, // Monthly Attendance Report (F-171)
   { accessLink: '/module/hrit-solutions/attendance-management/manage-employee-attendance', submenuId: '433', component: ManageEmployeeAttendancePage }, // Manage Employee Attendance (Phase 18)
+  // submenuId MUST stay 434: it is the fallback used when a row's access_link
+  // is blank, and 2026_10_09_120000_add_my_office_hours_menu.php pins the menu
+  // id to 434 on BOTH hosts for exactly that reason. An auto-increment id would
+  // have differed per host and resolved this entry to a different screen on each.
+  { accessLink: '/module/hrit-solutions/attendance-management/my-office-hours', submenuId: '434', component: MyOfficeHoursPage }, // My Office Hours (Phase 19)
   { accessLink: '/module/hrit-solutions/leave-management/leave-dashboard', submenuId: '102', component: LeaveManagementDashboard }, // Leave Dashboard
   { accessLink: '/module/hrit-solutions/leave-management/leave-requests', submenuId: '103', component: LeaveRequestsPage }, // Leave Requests
   { accessLink: '/module/hrit-solutions/leave-management/leave-reports', submenuId: '104', component: LeaveReportsPage }, // Leave Reports

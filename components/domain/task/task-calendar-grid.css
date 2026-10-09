@@ -64,6 +64,16 @@
   margin: 2px 3px;
 }
 
+/* Timed events (week/day view) represent a PRECISE time range - the 2px
+   top/bottom margin above is right for month view's stacked all-day chips,
+   but on a timed chip it visibly pulls the box in from both the start and
+   end gridlines, so a 9:00-10:00 task reads as not quite starting at 9 or
+   reaching 10. Same selector specificity as .fc-event above, so source
+   order is what makes this win - keep it declared after that rule. */
+.tm-calendar-grid .fc-timegrid-event {
+  margin: 0 1px;
+}
+
 /* More breathing room per cell - "half the page" was about the header, but
    the grid itself read as cramped too once that space was given back. */
 .tm-calendar-grid .fc-daygrid-day-frame {

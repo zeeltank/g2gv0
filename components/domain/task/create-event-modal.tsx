@@ -151,7 +151,7 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg">
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>New Event</DialogTitle>
           <DialogDescription>A meeting or call on your calendar — separate from a task.</DialogDescription>
@@ -187,30 +187,33 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
             </div>
 
             {/* Date and time as separate inputs, matching CRM's own popup
-                layout - not a single combined datetime-local field. */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="event-start-date">Starts</Label>
-                <div className="flex gap-2">
-                  <Input id="event-start-date" type="date" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} />
-                  {!allDay && (
-                    <TimePicker
-                      value={startAt.slice(11)}
-                      onChange={(next) => {
-                        const nextStart = `${startAt.slice(0, 10)}T${next}`
-                        setStartAt(nextStart)
-                        setEndAt(addOneHourToDateTimeLocal(nextStart))
-                      }}
-                    />
-                  )}
-                </div>
+                layout - not a single combined datetime-local field. Starts/
+                Ends are each a FULL-width row, not a 2-column grid: squeezed
+                into half the dialog, a date input plus TimePicker's
+                clock-icon-and-two-dropdowns no longer fit side by side
+                (confirmed live - the row overflowed and dragged the whole
+                dialog into a horizontal scroll, cutting off unrelated rows). */}
+            <div className="space-y-1.5">
+              <Label htmlFor="event-start-date">Starts</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="event-start-date" type="date" className="w-auto" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} />
+                {!allDay && (
+                  <TimePicker
+                    value={startAt.slice(11)}
+                    onChange={(next) => {
+                      const nextStart = `${startAt.slice(0, 10)}T${next}`
+                      setStartAt(nextStart)
+                      setEndAt(addOneHourToDateTimeLocal(nextStart))
+                    }}
+                  />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="event-end-date">Ends</Label>
-                <div className="flex gap-2">
-                  <Input id="event-end-date" type="date" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} />
-                  {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
-                </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="event-end-date">Ends</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="event-end-date" type="date" className="w-auto" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} />
+                {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
               </div>
             </div>
 

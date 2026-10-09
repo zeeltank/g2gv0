@@ -1,0 +1,130 @@
+/*
+ * FullCalendar's custom properties mapped onto this app's theme tokens, for the
+ * per-employee attendance month.
+ *
+ * ── THIS IS A COPY OF components/domain/task/task-calendar-grid.css, AND IT
+ *    MUST STAY A COPY ──────────────────────────────────────────────────────
+ *
+ * A future reader will see the duplication and want to extract a shared
+ * stylesheet. Do not. That file's own header explains why it is scoped under a
+ * single class: so nothing in it can leak into any other FullCalendar instance
+ * the app might add. Importing it here would hand the task module the power to
+ * restyle the attendance calendar by accident, and the two calendars genuinely
+ * want different things - the task grid draws event chips and resets .fc-event
+ * to nothing, while this one paints the day CELL and draws no chips at all.
+ *
+ * Everything below is scoped under .mea-employee-month for the same reason.
+ *
+ * ── WHY THERE IS NO FULLCALENDAR STYLESHEET IMPORT ──────────────────────────
+ *
+ * FullCalendar v6 ships no .css files; it injects its own styles at runtime.
+ * This file is the only stylesheet involved.
+ */
+.mea-employee-month {
+  /* Quieter gridlines, same reasoning as the task grid: a full-strength border
+     on every cell reads as clutter, and here the cell FILL is the data, so the
+     border must not compete with it. */
+  --fc-border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-page-bg-color: transparent;
+  --fc-today-bg-color: transparent; /* the tile draws its own today outline */
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: inherit;
+  --fc-now-indicator-color: var(--destructive);
+}
+
+.mea-employee-month .fc {
+  font-family: inherit;
+}
+
+/* Defensive only - the component passes headerToolbar={false} and renders its
+   own month navigation, because the parent owns the month. */
+.mea-employee-month .fc .fc-toolbar {
+  display: none;
+}
+
+.mea-employee-month .fc-col-header-cell-cushion {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/*
+ * The tile fills the cell.
+ *
+ * Zero padding and no frame of FullCalendar's own, because AttendanceDayTile IS
+ * the cell here - it paints the status fill edge to edge. With the default 4px
+ * frame padding the fills would sit in little islands and the month would read
+ * as a scatter of chips rather than a continuous calendar.
+ */
+.mea-employee-month .fc-daygrid-day-frame {
+  padding: 0;
+  min-height: 68px;
+}
+
+.mea-employee-month .fc-daygrid-day-events,
+.mea-employee-month .fc-daygrid-day-bottom {
+  display: none;
+}
+
+/*
+ * The date number is drawn by the tile, not by FullCalendar.
+ *
+ * Leaving fc-daygrid-day-top in place would stack FullCalendar's number above
+ * the tile and halve the height available to it - and the tile needs to put the
+ * number inside its own fill so it is legible against every status colour.
+ */
+.mea-employee-month .fc-daygrid-day-top {
+  display: none;
+}
+
+.mea-employee-month .fc-daygrid-day-harness,
+.mea-employee-month .fc-daygrid-day-frame > .fc-daygrid-day-events {
+  margin: 0;
+}
+
+/*
+ * Background events - approved leave and holidays.
+ *
+ * These are real FullCalendar events with display:'background', which is the
+ * one thing it does that a day cell cannot: say "this day has a quality"
+ * without consuming any cell height. They layer UNDER the tile, so a leave day
+ * still shows its own status fill on top.
+ */
+.mea-employee-month .fc-bg-event {
+  opacity: 1;
+}
+
+.mea-employee-month .fc-daygrid-bg-harness {
+  z-index: 0;
+}
+
+.mea-employee-month .fc-daygrid-day-frame > :not(.fc-daygrid-bg-harness) {
+  position: relative;
+  z-index: 1;
+}
+
+.mea-employee-month a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/*
+ * Print. The screen's own print block handles the matrix; this handles the
+ * calendar when the drill-down panel is the thing being printed.
+ *
+ * The fills are the data here too, so they are forced.
+ */
+@media print {
+  .mea-employee-month * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .mea-employee-month .fc-daygrid-day-frame {
+    min-height: 56px;
+  }
+}
