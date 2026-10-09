@@ -43,6 +43,20 @@ test('a person named with a possessive or a preposition', () => {
   assert.equal((parseDocumentRequest('find the documents of Rahul Patel please', types) as { terms: Record<string, string> }).terms.owner_name, 'Rahul Patel')
 })
 
+test('"show me X\'s documents" is about X - the word "me" does not make it "mine"', () => {
+  const t = (parseDocumentRequest("Show me kalpesh sheth1's documents", types) as { terms: Record<string, string> }).terms
+  assert.equal(t.owner_name, 'kalpesh sheth1')
+  assert.equal(t.mine, undefined)
+  const plain = (parseDocumentRequest('show me documents for Rahul Patel', types) as { terms: Record<string, string> }).terms
+  assert.equal(plain.owner_name, 'Rahul Patel')
+  assert.equal(plain.mine, undefined)
+})
+
+test('"for me" and "my" are the signed-in user', () => {
+  assert.equal((parseDocumentRequest('find documents for me', types) as { terms: Record<string, string> }).terms.mine, '1')
+  assert.equal((parseDocumentRequest('show my documents', types) as { terms: Record<string, string> }).terms.mine, '1')
+})
+
 test('"this user" names no one, so the chat asks instead of guessing', () => {
   assert.deepEqual(parseDocumentRequest("Show me this user's document", types), { kind: 'who' })
   assert.deepEqual(parseDocumentRequest('open her documents', types), { kind: 'who' })
@@ -60,6 +74,19 @@ test('a document type from the library itself, alone or with a person or "mine"'
 test('content and title searches', () => {
   assert.equal((parseDocumentRequest('find documents that mention project plan', types) as { terms: Record<string, string> }).terms.q, 'project plan')
   assert.equal((parseDocumentRequest('open the document Design_System_Project', types) as { terms: Record<string, string> }).terms.q, 'Design_System_Project')
+})
+
+test('a plain "open <name>" on this page asks for a document', () => {
+  const t = (parseDocumentRequest('open Finance_Chatbot_Project', types) as { terms: Record<string, string> }).terms
+  assert.equal(t.q, 'Finance_Chatbot_Project')
+  assert.equal((parseDocumentRequest('open artificial intelligence', types) as { terms: Record<string, string> }).terms.q, 'artificial intelligence')
+})
+
+test('but never a question, or a request for a page, menu or tab', () => {
+  assert.equal(parseDocumentRequest('open the leave requests page', types), null)
+  assert.equal(parseDocumentRequest('open the settings menu', types), null)
+  assert.equal(parseDocumentRequest('open what changed this week?', types), null)
+  assert.equal(parseDocumentRequest('show me the summary', types), null)
 })
 
 test('a question about documents is not a request to fetch one', () => {
@@ -96,6 +123,30 @@ test('"my documents" asks for the signed-in user\'s own, by id from the session'
   const d = deps(() => [hit(1, { owner_id: 7 })])
   await resolveEntity('show my documents', [documentLibraryProvider(d.value)], ctx())
   assert.equal(d.calls.at(-1)?.owner_id, 7)
+})
+
+test('nothing matches the whole phrase: documents with SOME of the words are listed, never opened', async () => {
+  const d = deps((filters) => {
+    if (filters.q === 'artificial') return [hit(1, { title: 'Science notes' }), hit(2, { title: 'Other' })]
+    if (filters.q === 'intelligence') return [hit(2, { title: 'Other' }), hit(3, { title: 'LMS plan' })]
+    return []
+  })
+  const out = await resolveEntity('open artificial intelligence document', [documentLibraryProvider(d.value)], ctx())
+  assert.equal(out?.kind, 'similar')
+  const matches = out?.kind === 'similar' ? out.matches : []
+  assert.deepEqual(matches.map((m) => m.id), ['2', '3', '1'])
+  assert.deepEqual(matches[0].details[0], { label: 'Contains', value: 'artificial, intelligence' })
+})
+
+test('a single partial match is still only offered, not opened', async () => {
+  const d = deps((filters) => (filters.q === 'artificial' ? [hit(9)] : []))
+  const out = await resolveEntity('open artificial intelligence document', [documentLibraryProvider(d.value)], ctx())
+  assert.equal(out?.kind, 'similar')
+})
+
+test('a one-word request has no partial matches to offer', async () => {
+  const out = await resolveEntity('open payroll document', [documentLibraryProvider(deps(() => []).value)], ctx())
+  assert.equal(out?.kind, 'none')
 })
 
 test('a name that is no person falls back to a title search', async () => {

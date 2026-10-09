@@ -806,6 +806,12 @@ export function GtgAppShell({
             reply(outcome.clarify.question, { choices: outcome.clarify.choices })
           } else if (outcome.kind === 'none') {
             reply(`No ${outcome.query.summary} were found.`)
+          } else if (outcome.kind === 'similar') {
+            // Nothing matched the whole request. These match part of it - listed, never opened.
+            reply(
+              `No ${outcome.query.summary} matched exactly. These ${outcome.noun} contain some of your words - choose the one you want:`,
+              { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: outcome.matches } },
+            )
           } else if (outcome.kind === 'error') {
             reply(outcome.message, { variant: 'error' })
           } else if (outcome.kind === 'one') {

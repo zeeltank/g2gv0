@@ -65,6 +65,12 @@ export interface EntityProvider<App = unknown> {
   /** The query this sentence asks for, a question back, or null when it is not about these records. */
   parse: (message: string, context: EntityContext<App>) => Promise<EntityQuery | EntityClarify | null> | EntityQuery | EntityClarify | null
   search: (query: EntityQuery, context: EntityContext<App>) => Promise<EntityMatch[]>
+  /**
+   * Optional. Asked only when `search` found nothing: records that satisfy PART of the request (some of
+   * the words). They are offered as a list to choose from and are never opened for the user, because a
+   * partial match is a suggestion, not the answer.
+   */
+  similar?: (query: EntityQuery, context: EntityContext<App>) => Promise<EntityMatch[]>
   /** Questions worth asking on this page, built from the records that really exist. */
   suggestions?: (context: EntityContext<App>) => Promise<string[]>
   open: (match: EntityMatch, context: EntityContext<App>) => EntityTarget
@@ -75,4 +81,6 @@ export type EntityOutcome =
   | { kind: 'none'; providerKey: string; noun: string; query: EntityQuery }
   | { kind: 'one'; providerKey: string; noun: string; query: EntityQuery; match: EntityMatch }
   | { kind: 'many'; providerKey: string; noun: string; query: EntityQuery; matches: EntityMatch[] }
+  /** Nothing matched the whole request; these match part of it. Always listed, never opened. */
+  | { kind: 'similar'; providerKey: string; noun: string; query: EntityQuery; matches: EntityMatch[] }
   | { kind: 'error'; providerKey: string; noun: string; message: string }

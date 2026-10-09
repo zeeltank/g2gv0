@@ -53,10 +53,18 @@ export interface DocumentProviderDeps {
 /** How many matches one answer lists. More than this means the request should be narrowed. */
 export const MAX_LISTED = 25
 
+/** How many partial matches are offered when nothing matched the whole request. */
+export const MAX_SIMILAR = 10
+
+const SKIP_WORDS = new Set(['the', 'and', 'for', 'with', 'this', 'that', 'doc', 'docs', 'document', 'documents', 'file', 'files'])
+
 const LOOKUP_VERB = /\b(show|find|open|get|list|view|display|fetch|search|look\s*up|pull\s*up|where\s+is|give\s+me|bring\s+up)\b/i
 const DOCUMENT_NOUN = /\b(documents?|docs?|files?|papers?)\b/i
+const QUESTION_START = /^(what|how|why|when|where|who|which|is|are|can|could|do|does)\b/i
+const NOT_A_DOCUMENT = /\b(page|screen|menu|tab|module|dashboard|section|chat|assistant|settings?)\b/i
 const THIS_PERSON = /\b(this|that|the\s+same)\s+(user|person|employee|member|candidate|colleague)\b|\b(him|her|them)\b/i
-const MINE = /\b(my|mine|me)\b/i
+// "my documents", "documents for me". Not a bare "me": "show me Rahul's documents" is about Rahul.
+const MINE = /\b(my|mine)\b|\b(?:for|of|by)\s+me\b/i
 const LEAD_WORDS = new Set(['show', 'me', 'find', 'open', 'get', 'list', 'view', 'display', 'fetch', 'search', 'look', 'up', 'pull', 'where', 'is', 'give', 'bring', 'the', 'a', 'an', 'please', 'all', 'any', 'of', 'for', 'to', 'can', 'you', 'i', 'want', 'need', 'would', 'like'])
 
 function typeLabels(types: DocumentSearchResult['document_types']): Array<{ key: string; label: string }> {
@@ -89,6 +97,20 @@ export function parseDocumentRequest(message: string, types: Array<{ key: string
   const text = message.trim()
   const typeHit = types.find((type) => new RegExp(`\\b${type.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b`, 'i').test(text))
 
+  // On this page a plain "open <name>" asks for a document even without the word "document". Only
+  // "open"/"view", never a question, and never a request for a page, menu or tab of the app.
+  const bare = /^\s*(?:please\s+)?(?:open|view)\s+(.+?)[?.!]*\s*$/i.exec(text)
+
+  if (bare && !DOCUMENT_NOUN.test(text) && !typeHit) {
+    const name = cleanName(bare[1])
+
+    if (name.length >= 2 && !QUESTION_START.test(name) && !NOT_A_DOCUMENT.test(name) && !text.includes('?')) {
+      return { kind: 'query', terms: { q: name }, summary: `documents matching "${name}"` }
+    }
+
+    return null
+  }
+
   // A request to go and get something - not a question about documents ("how many documents are there").
   if (!LOOKUP_VERB.test(text) || !(DOCUMENT_NOUN.test(text) || typeHit)) return null
 
@@ -109,9 +131,9 @@ export function parseDocumentRequest(message: string, types: Array<{ key: string
 
   // A person: "Rahul Patel's documents", "documents of/for/from Rahul Patel".
   let person: string | null = null
-  const possessive = /([A-Za-z][A-Za-z.'’\- ]*?)['’]s\s+(?:\w+\s+){0,2}?(?:documents?|docs?|files?|papers?|letters?|payslips?|resumes?)/i.exec(text)
+  const possessive = /([A-Za-z][A-Za-z0-9.'’\- ]*?)['’]s\s+(?:\w+\s+){0,2}?(?:documents?|docs?|files?|papers?|letters?|payslips?|resumes?)/i.exec(text)
   const preposition = !content
-    ? /\b(?:of|for|from|by|belonging\s+to|owned\s+by|uploaded\s+by)\s+([A-Za-z][A-Za-z.'’\- ]*?)(?:\s+(?:documents?|docs?|files?|uploaded)\b|[?.!]*$)/i.exec(text)
+    ? /\b(?:of|for|from|by|belonging\s+to|owned\s+by|uploaded\s+by)\s+([A-Za-z][A-Za-z0-9.'’\- ]*?)(?:\s+(?:documents?|docs?|files?|uploaded)\b|[?.!]*$)/i.exec(text)
     : null
 
   if (possessive) person = cleanName(possessive[1])
@@ -230,6 +252,41 @@ export function documentLibraryProvider(deps: DocumentProviderDeps): EntityProvi
       }
 
       return result.data.map((hit) => toMatch(hit, labels))
+    },
+
+    // "artificial intelligence" matched nothing as a whole: documents that contain SOME of the words,
+    // those matching the most words first, with the matching words shown so the user can judge.
+    similar: async (query, context) => {
+      const phrase = query.terms.q
+      if (!phrase) return []
+
+      const words = [...new Set(phrase.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length >= 3 && !SKIP_WORDS.has(word)))].slice(0, 5)
+      if (words.length < 2) return []
+
+      const found = new Map<number, { hit: DocumentHit; matched: string[] }>()
+
+      for (const word of words) {
+        const result = await deps.search(context.app.laravel, {
+          q: word,
+          document_type: query.terms.document_type,
+          per_page: MAX_LISTED,
+        })
+        learn(result.document_types)
+
+        for (const hit of result.data) {
+          const entry = found.get(hit.id) ?? { hit, matched: [] }
+          entry.matched.push(word)
+          found.set(hit.id, entry)
+        }
+      }
+
+      return [...found.values()]
+        .sort((a, b) => b.matched.length - a.matched.length || b.hit.id - a.hit.id)
+        .slice(0, MAX_SIMILAR)
+        .map(({ hit, matched }) => {
+          const match = toMatch(hit, labels)
+          return { ...match, details: [{ label: 'Contains', value: matched.join(', ') }, ...match.details] }
+        })
     },
 
     suggestions: async (context) => {
