@@ -249,3 +249,74 @@ export interface ContactListQuery {
   sortDir?: 'asc' | 'desc'
   organizationId?: string
 }
+
+export interface Campaign {
+  id: string
+  campaignNo: string | null
+  name: string
+  campaignType: string | null
+  campaignStatus: string | null
+  expectedRevenue: number | null
+  budgetCost: number | null
+  actualCost: number | null
+  expectedResponse: string | null
+  numSent: number | null
+  sponsor: string | null
+  targetAudience: string | null
+  targetSize: number | null
+  expectedResponseCount: number | null
+  expectedSalesCount: number | null
+  actualResponseCount: number | null
+  actualSalesCount: number | null
+  expectedRoi: number | null
+  actualRoi: number | null
+  closingDate: string | null
+  productId: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+
+export interface CampaignListResponse {
+  status: number
+  message: string
+  data: { items: Campaign[]; pagination: CrmPagination }
+}
+
+export interface CampaignResponse {
+  status: number
+  message: string
+  data: Campaign
+}
+
+export interface CampaignListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  campaignStatus?: string
+}
+
+/** One targeted lead/contact/organization row on a campaign - `targetRowId` identifies the join row itself (for remove/status updates), `targetId` the underlying lead/contact/organization. */
+export interface CampaignTarget {
+  targetRowId: string
+  targetId: string
+  name: string
+  subLabel: string | null
+  responseStatus: string
+}
+
+export interface CampaignTargetsResponse {
+  status: number
+  message: string
+  data: {
+    leads: CampaignTarget[]
+    contacts: CampaignTarget[]
+    organizations: CampaignTarget[]
+  }
+}
