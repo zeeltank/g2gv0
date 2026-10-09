@@ -1460,7 +1460,19 @@ export function CreateTaskModal({
         />
       </Field>
       <Field label="End time (optional)" span={4}>
-        <TimePicker value={timeEnd} onChange={setTimeEnd} />
+        {/* TimePicker displays "09:00" as soon as it renders with an empty
+            value (its own uncontrolled-default fallback), but that display
+            is NOT committed to timeStart's state until the Start picker
+            itself is touched. Editing only End used to submit time_end with
+            time_start left null — confirmed on a real created task — because
+            nothing here ever committed the start the user was already
+            looking at. Doesn't fight the "end follows start" rule above
+            (time-follow.ts, locked-in): once timeStart has a real value,
+            this never fires again. */}
+        <TimePicker
+          value={timeEnd}
+          onChange={(next) => { setTimeEnd(next); if (!timeStart) setTimeStart('09:00') }}
+        />
       </Field>
       <Field label="Task priority *" span={12} error={errors.priority} fieldRef={(node) => { fieldRefs.current.priority = node }}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
         </div>
