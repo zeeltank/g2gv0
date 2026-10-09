@@ -12,7 +12,7 @@ interface AgentPanelProps {
   error?: string | null
   onClose?: () => void
   onSendMessage?: (message: string) => void | Promise<void>
-  onOpenEntity?: (providerKey: string, match: EntityMatch) => void
+  onOpenEntity?: (providerKey: string, match: EntityMatch, action?: 'open' | 'reveal') => void
 }
 
 export function AgentPanel({

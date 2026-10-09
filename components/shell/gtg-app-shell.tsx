@@ -372,12 +372,14 @@ export function GtgAppShell({
    * signed-in user's current session, never a stale one.
    */
   const entityProviders = useMemo(() => createG2gEntityProviders(), [])
+  const lastEntityRef = useRef<{ id: number; title: string } | null>(null)
   const entityContext = useCallback(
     (): EntityContext<G2gEntityApp> => ({
       pathname,
       menuId: pageMenuId,
       moduleKey: moduleChatKey,
-      app: { laravel: getLaravelContext(user) },
+      // `recent` is the file the chat last opened or showed, so "where is this file?" has something to point at.
+      app: { laravel: getLaravelContext(user), recent: lastEntityRef.current },
     }),
     [pathname, pageMenuId, moduleChatKey, user],
   )
@@ -386,10 +388,14 @@ export function GtgAppShell({
   const entitySuggestionCache = useRef<{ path: string; at: number; list: string[] } | null>(null)
 
   const openEntity = useCallback(
-    (providerKey: string, match: EntityMatch) => {
+    (providerKey: string, match: EntityMatch, action: 'open' | 'reveal' = 'open') => {
       const provider = entityProviders.find((candidate) => candidate.key === providerKey)
       if (!provider) return
-      const target = provider.open(match, entityContext())
+      const context = entityContext()
+      // "Show in folder" goes to where the record lives and highlights it; "Open" opens the record itself.
+      const target = action === 'reveal' && provider.reveal ? provider.reveal(match, context) : provider.open(match, context)
+
+      if (match.kind === 'file') lastEntityRef.current = { id: Number(match.id), title: match.title }
 
       if (target.kind === 'event') window.dispatchEvent(new CustomEvent(target.name, { detail: target.detail }))
       else router.push(target.href)
@@ -815,13 +821,23 @@ export function GtgAppShell({
           } else if (outcome.kind === 'error') {
             reply(outcome.message, { variant: 'error' })
           } else if (outcome.kind === 'one') {
-            reply(`Opening "${outcome.match.title}"${outcome.match.subtitle ? ` (${outcome.match.subtitle})` : ''}.`, {
-              entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: [outcome.match] },
-            })
-            openEntity(outcome.providerKey, outcome.match)
+            const match = outcome.match
+            // "Where is X?" with one answer: say where, then go there and highlight it.
+            const reveal = outcome.query.onSingle === 'reveal' && match.revealable === true
+            const text =
+              match.kind === 'folder'
+                ? `Opening the "${match.title}" folder (${match.location}).`
+                : reveal
+                  ? `"${match.title}" is in ${match.location}. Taking you there and highlighting it.`
+                  : outcome.query.onSingle === 'reveal'
+                    ? `"${match.title}" is in ${match.location}. Opening it for you.`
+                    : `Opening "${match.title}"${match.subtitle ? ` (${match.subtitle})` : ''}.`
+
+            reply(text, { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: [match] } })
+            openEntity(outcome.providerKey, match, reveal ? 'reveal' : 'open')
           } else {
             reply(
-              `Found ${outcome.matches.length} ${outcome.query.summary}${outcome.matches.length >= MAX_LISTED ? ` (showing the first ${MAX_LISTED} - add a type or a name to narrow it)` : ''}. Choose the one you want:`,
+              `Found ${outcome.matches.length} ${outcome.query.summary}${outcome.matches.length >= MAX_LISTED ? ` (showing the first ${MAX_LISTED} - add a type or a name to narrow it)` : ''}. ${outcome.query.onSingle === 'reveal' ? 'Here is where each one is:' : 'Choose the one you want:'}`,
               { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: outcome.matches } },
             )
           }

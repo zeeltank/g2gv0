@@ -34,6 +34,14 @@ export interface EntityMatch {
   subtitle?: string
   /** Everything else that helps pick the right one: type, date, file name... */
   details: Array<{ label: string; value: string }>
+  /** What it is, for the icon and the button wording: "file", "folder"... */
+  kind?: string
+  /** Where it lives, in words: "Document Library › Finance › 2026". */
+  location?: string
+  /** Whether the user can be taken to where it lives and shown it there (not just opened). */
+  revealable?: boolean
+  /** Provider-specific facts needed to open or reveal it (a folder id, an owner id...). */
+  meta?: Record<string, string>
 }
 
 /** What the sentence asked for, in words the user can check. */
@@ -42,6 +50,11 @@ export interface EntityQuery {
   terms: Record<string, string>
   /** "documents of Rahul Patel" - shown back to the user so a wrong reading is obvious. */
   summary: string
+  /**
+   * What to do when exactly ONE record matches. `open` (the default) opens it; `reveal` takes the user
+   * to where it lives and highlights it - for "where is this?" questions.
+   */
+  onSingle?: 'open' | 'reveal'
 }
 
 /** The provider needs more from the user before it can search. */
@@ -74,6 +87,8 @@ export interface EntityProvider<App = unknown> {
   /** Questions worth asking on this page, built from the records that really exist. */
   suggestions?: (context: EntityContext<App>) => Promise<string[]>
   open: (match: EntityMatch, context: EntityContext<App>) => EntityTarget
+  /** Optional. Take the user to where the record lives and highlight it there. */
+  reveal?: (match: EntityMatch, context: EntityContext<App>) => EntityTarget
 }
 
 export type EntityOutcome =
