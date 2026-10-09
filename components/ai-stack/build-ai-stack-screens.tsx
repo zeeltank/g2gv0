@@ -1,6 +1,6 @@
 'use client';
 
-import { BookMarked, Cpu, FileText, Gauge, History, ShieldAlert, ShieldCheck, SlidersHorizontal, Terminal, Workflow } from 'lucide-react';
+import { BookMarked, Cpu, FileText, Gauge, History, LayoutList, ShieldAlert, ShieldCheck, SlidersHorizontal, Terminal, Workflow } from 'lucide-react';
 
 import type { ModuleStaticScreen } from './ai-stack-host';
 
@@ -10,6 +10,7 @@ import { AiStackApprovalsScreen } from './approvals-screen';
 import { AiStackAutomationsScreen } from './automations-screen';
 import { AiStackGuardrailsScreen } from './guardrails-screen';
 import { AiStackKnowledgeBaseScreen } from './knowledge-base-screen';
+import { AiStackPageExamplesScreen } from './page-examples-screen';
 import { AiStackModelsScreen } from './models-screen';
 import { AiStackPoliciesScreen } from './policies-screen';
 import { AiStackPromptsScreen } from './prompts-screen';
@@ -199,6 +200,14 @@ export function buildAiStackScreens(module: AiStackModule): ModuleStaticScreen[]
           <AiStackApprovalsScreen module={module} />
         </AiStackWithExample>
       ),
+    },
+    {
+      // Live. One worked example for EVERY PAGE of the module, from that page's own data - what the page is
+      // for, the real records behind it, how to use the AI Stack with it, and buttons that really do it.
+      id: 'examples',
+      label: 'Examples by page',
+      icon: LayoutList,
+      render: () => <AiStackPageExamplesScreen module={module} />,
     },
   ];
 }

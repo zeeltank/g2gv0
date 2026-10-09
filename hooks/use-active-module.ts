@@ -41,7 +41,7 @@
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 
-import { CENTRAL_AI_STACKS } from '@/lib/ai-stack/central'
+import { ADDITIONAL_AI_STACKS, CENTRAL_AI_STACKS } from '@/lib/ai-stack/central'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import type { DecentralizedModuleKey } from '@/lib/platform/access-links'
 import type { NavModule } from '@/lib/gtg-navigation'
@@ -81,7 +81,7 @@ function moduleSlug(accessLink: string | null | undefined): string | null {
  * resolves a report from (`descriptor.route` is the module's LEVEL-1 access link), then on
  * the slug in it. Returns null rather than a neighbour when nothing matches.
  */
-function stackFor(navModule: NavModule): { key: DecentralizedModuleKey; stack: AiStackModule } | null {
+function stackFor(navModule: NavModule): { key: DecentralizedModuleKey | null; stack: AiStackModule } | null {
   const link = navModule.accessLink ?? null
   const slug = moduleSlug(link)
 
@@ -91,6 +91,11 @@ function stackFor(navModule: NavModule): { key: DecentralizedModuleKey; stack: A
 
   for (const [key, stack] of Object.entries(CENTRAL_AI_STACKS)) {
     if (slug && slug === stack.menuSlug) return { key: key as DecentralizedModuleKey, stack }
+  }
+
+  // Modules outside Platform Services (Main Dashboard, Agentic AI): an AI Stack, but no Platform Services key.
+  for (const stack of Object.values(ADDITIONAL_AI_STACKS)) {
+    if ((link && link === stack.route) || (slug && slug === stack.menuSlug)) return { key: null, stack }
   }
 
   return null

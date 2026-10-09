@@ -288,6 +288,82 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
   },
 };
 
+/**
+ * Modules that have an AI Stack but are not Platform Services consoles: the Main Dashboard and Agentic AI.
+ *
+ * They are separate from `SPECS` on purpose. `SPECS` is keyed by `DecentralizedModuleKey`, the closed set the
+ * Platform Services bar and its consoles are built on; adding a key there would add a console to that bar.
+ * These two only need their own AI Stack screen, reached the same way as every module's - from its own menu
+ * row (`/module/{menuId}/ai-stack`) - so they are declared here and resolved by `useActiveModule` beside the rest.
+ *
+ * As everywhere in this file: words only. Every record and every source the stack reads is looked up from the
+ * backend (`ModuleDataSourceCatalog`); the source keys below only name which of them to offer as presets.
+ */
+const EXTRA_SPECS: Record<string, CentralSpec> = {
+  dashboard: {
+    key: 'main_dashboard',
+    menuSlug: 'dashboard',
+    route: '/dashboard',
+    label: 'Main Dashboard',
+    records: 'workforce, approval and task figures',
+    record: 'department',
+    subjectEntityKey: 'department',
+    primarySource: 'dashboard.headcount_by_department',
+    sources: [
+      { key: 'dashboard.headcount_by_department', label: 'Headcount by department' },
+      { key: 'dashboard.pending_approvals', label: 'Pending approvals' },
+      { key: 'dashboard.overdue_tasks', label: 'Overdue tasks' },
+      { key: 'dashboard.task_status', label: 'Tasks by status' },
+      { key: 'dashboard.expiring_certifications', label: 'Certifications expiring soon' },
+      { key: 'dashboard.upcoming_events', label: 'Upcoming holidays' },
+      { key: 'dashboard.hiring_funnel', label: 'Hiring funnel' },
+      { key: 'dashboard.learning_progress', label: 'Learning progress' },
+      { key: 'dashboard.attendance_trend', label: 'Attendance by day' },
+    ],
+    filters: [],
+    generative: false,
+    centralRisk:
+      'a headline figure being read as a verdict on a team or a person. AI may report the counts the dashboard shows; it may not rank people, predict who will leave or call a department a failure.',
+    policyNamePlaceholder: 'Dashboard figures disclosure policy',
+    promptSystemDefault:
+      "You answer questions about the organisation's headline figures. Use only the dashboard data you are given, never infer anything about an individual, and say when a figure is missing.",
+    reportCanPrint: "the headcounts, approval counts and task figures come from the dashboard's own records rather than from a model.",
+    groundedOn: 'the headcount, pending approvals, overdue tasks, certifications, events, hiring and learning figures the dashboard shows.',
+  },
+  agentic: {
+    key: 'agentic_ai',
+    menuSlug: 'agentic-ai',
+    route: '/module/agentic-ai',
+    label: 'Agentic AI',
+    records: 'agents and their runs',
+    record: 'agent',
+    subjectEntityKey: 'agent',
+    primarySource: 'agentic.agents',
+    sources: [
+      { key: 'agentic.agents', label: 'Agents' },
+      { key: 'agentic.runs', label: 'Agent runs' },
+      { key: 'agentic.tool_invocations', label: 'Tool calls made by agents' },
+      { key: 'agentic.analytics', label: 'Agent performance' },
+      { key: 'agentic.workflows', label: 'Multi-agent workflows' },
+      { key: 'agentic.optimizations', label: 'Reflection findings' },
+    ],
+    filters: [],
+    generative: false,
+    centralRisk:
+      'an agent being treated as an authority. A run is a record of what a tool read; AI may report what ran and how it ended, but it may not approve its own output or widen its own tools.',
+    policyNamePlaceholder: 'Agent run disclosure policy',
+    promptSystemDefault:
+      "You answer questions about the organisation's AI agents and their runs. Use only the agent and run records you are given, never reveal prompts, keys or tool payloads, and say when a run failed.",
+    reportCanPrint: 'the agent names, statuses, run counts and timings come from the agent and run records rather than from a model.',
+    groundedOn: 'the agents configured for your organisation and the runs recorded for them.',
+  },
+};
+
+/** The AI Stack descriptors of modules outside Platform Services (the Main Dashboard, Agentic AI). */
+export const ADDITIONAL_AI_STACKS: Record<string, AiStackModule> = Object.fromEntries(
+  Object.entries(EXTRA_SPECS).map(([key, spec]) => [key, build(spec)]),
+);
+
 /** The Centralized AI Stack descriptor for one Platform Services module. */
 export const CENTRAL_AI_STACKS: Record<DecentralizedModuleKey, AiStackModule> = Object.fromEntries(
   Object.entries(SPECS).map(([key, spec]) => [key, build(spec)]),
