@@ -104,3 +104,148 @@ export interface ConvertLeadResponse {
     contactId: string | null
   }
 }
+
+export interface Organization {
+  id: string
+  accountNo: string | null
+  name: string
+  parentId: string | null
+  accountType: string | null
+  industry: string | null
+  rating: string | null
+  ownership: string | null
+  annualRevenue: number | null
+  employees: number | null
+  sicCode: string | null
+  tickerSymbol: string | null
+  phone: string | null
+  secondaryPhone: string | null
+  email: string | null
+  secondaryEmail: string | null
+  website: string | null
+  fax: string | null
+  emailOptOut: boolean
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type OrganizationPayload = Partial<Omit<Organization, 'id' | 'accountNo' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+
+export interface OrganizationListResponse {
+  status: number
+  message: string
+  data: { items: Organization[]; pagination: CrmPagination }
+}
+
+export interface OrganizationResponse {
+  status: number
+  message: string
+  data: Organization
+}
+
+export interface OrganizationListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  accountType?: string
+}
+
+export interface OrganizationHierarchyNode {
+  id: string
+  name: string
+  depth?: number
+}
+
+export interface OrganizationHierarchyResponse {
+  status: number
+  message: string
+  data: {
+    ancestors: OrganizationHierarchyNode[]
+    current: OrganizationHierarchyNode
+    descendants: OrganizationHierarchyNode[]
+  }
+}
+
+export interface Contact {
+  id: string
+  contactNo: string | null
+  organizationId: string | null
+  organizationName: string | null
+  salutation: string | null
+  firstName: string | null
+  lastName: string
+  title: string | null
+  department: string | null
+  email: string | null
+  secondaryEmail: string | null
+  phone: string | null
+  mobile: string | null
+  fax: string | null
+  homePhone: string | null
+  assistant: string | null
+  assistantPhone: string | null
+  reportsToId: string | null
+  birthday: string | null
+  leadSource: string | null
+  doNotCall: boolean
+  emailOptOut: boolean
+  mailingStreet: string | null
+  mailingCity: string | null
+  mailingState: string | null
+  mailingCode: string | null
+  mailingCountry: string | null
+  mailingPoBox: string | null
+  otherStreet: string | null
+  otherCity: string | null
+  otherState: string | null
+  otherCode: string | null
+  otherCountry: string | null
+  otherPoBox: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type ContactPayload = Partial<
+  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+>
+
+export interface ContactListResponse {
+  status: number
+  message: string
+  data: { items: Contact[]; pagination: CrmPagination }
+}
+
+export interface ContactResponse {
+  status: number
+  message: string
+  data: Contact
+}
+
+export interface ContactListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  organizationId?: string
+}
