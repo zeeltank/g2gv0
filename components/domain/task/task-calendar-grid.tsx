@@ -182,7 +182,16 @@ function EventChip({ arg }: { arg: EventContentArg }) {
     <div
       title={props.hint}
       className={cn(
-        'flex w-full items-center gap-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs font-medium leading-snug',
+        // h-full matters only for a timed (week/day) event: FullCalendar's
+        // own harness is already positioned the full height of its time
+        // span (confirmed correct — see task-calendar-grid.css's note on
+        // that positioning), but this chip is its own flex box with no
+        // explicit height, so without h-full it only grows to fit one line
+        // of text and renders as a short bar vertically centered inside the
+        // correctly-sized-but-now-mostly-empty-looking harness, reading as
+        // "the card doesn't cover its own time range". Harmless on a month
+        // all-day chip, whose harness is already content-height.
+        'flex h-full w-full items-center gap-1 truncate rounded-none px-2.5 py-1.5 text-left text-xs font-medium leading-snug',
         props.fallbackClassName,
         statusBorderClass,
       )}
