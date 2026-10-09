@@ -155,13 +155,30 @@ export function TaskCalendarView() {
       ? `${format(range.from, 'd MMM')} - ${format(range.to, 'd MMM yyyy')}`
       : format(month, 'MMMM yyyy')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     // Nothing may fire before the session exists, or the first paint is an
     // auth error instead of a calendar. tm-reports.tsx already guards this way.
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
-    setLoading(true); setError('')
+    /*
+     * SILENT REFRESH AFTER CREATE/EDIT/APPROVE/ARCHIVE — NOT A FULL RELOAD.
+     *
+     * `loading=true` swaps the entire grid/list for a bare <Spinner/> (see the
+     * render below), which unmounts TaskCalendarGrid. A remounted FullCalendar
+     * instance re-reads `anchorDate`/`view` from scratch through its own
+     * queueMicrotask-deferred changeView/gotoDate effect (see that file's own
+     * flushSync-crash note) — confirmed as the cause of two reported symptoms
+     * together: the loading flash itself, AND the grid appearing to "jump" to
+     * a different date after creating or editing a task, which needed a manual
+     * click on Today to undo. onTaskReschedule already avoided this for
+     * drag-to-move ("No reload here (locked-in)"); this brings create/edit/
+     * approve/archive in line with that, rather than leaving them as the one
+     * remaining path that tears the grid down on every action.
+     */
+    const silent = options?.silent ?? false
+    if (!silent) setLoading(true)
+    setError('')
     try {
       // PAGE UNTIL EXHAUSTED. This used to request perPage:100 once, with no
       // pagination — and the backend caps per_page at 100 and sorts by
@@ -191,7 +208,7 @@ export function TaskCalendarView() {
       setTasks(collected)
       setTotalInRange(total)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load calendar tasks.') }
-    finally { setLoading(false) }
+    finally { if (!silent) setLoading(false) }
   }, [range, viewScope])
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
@@ -294,14 +311,14 @@ export function TaskCalendarView() {
     }
     try {
       const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
   }
   const archive = async (task: WorkspaceTask) => {
     if (!window.confirm(`Archive “${task.title}”?`)) return
     try {
       const response = await taskService.archiveWorkspaceTask(getLaravelContext(), task.id)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive task.') }
   }
 
@@ -674,7 +691,7 @@ export function TaskCalendarView() {
       taskId={openTaskId}
       open={openTaskId !== null}
       onClose={() => setOpenTaskId(null)}
-      onUpdated={() => void load()}
+      onUpdated={() => void load({ silent: true })}
       /* dashboardContext ALWAYS supplied here, mirroring task-workspace.tsx's
          own Dashboard precedent unconditionally (not just for non-'mine'
          scopes) - viewScope can show tasks the viewer does not personally
@@ -694,12 +711,12 @@ export function TaskCalendarView() {
       initialTimeStart={selfTaskTime}
       statusOptions={statusOptions}
       onClose={() => setSelfTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateTaskModal
       isOpen={assignTaskOpen}
       onClose={() => setAssignTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateEventModal
       isOpen={createEventOpen}
