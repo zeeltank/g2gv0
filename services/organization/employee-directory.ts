@@ -242,6 +242,16 @@ export const employeeDirectoryService = {
       ),
     ),
 
+  /** Admin-only: recolour a DIFFERENT employee's Task Calendar cards. See `routes/api.php`'s `profile:admin` group. */
+  setTaskCardColor: (context: LaravelContext, id: number | string, color: string) =>
+    ensureSuccess(
+      apiClient.put<StatusResponse>(
+        `/employees-management/${id}/task-card-color`,
+        { color },
+        { params: baseParams(context) },
+      ),
+    ),
+
   invite: (context: LaravelContext, id: number | string) =>
     ensureSuccess(
       apiClient.post<StatusResponse>(
