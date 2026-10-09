@@ -263,6 +263,8 @@ export interface DocumentSearchHit extends AccountDocument {
   owner_id: number | null
   /** The owner's full name, so a list of matches can tell two people apart. */
   owner_name?: string | null
+  /** Which folder it sits in; null = the top level. */
+  folder_id?: number | null
   department_id: number | null
   tags: string | null
   /** HTML with `<mark>` around the match — from the document's own content, not just its title. */
