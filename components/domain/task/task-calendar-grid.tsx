@@ -10,6 +10,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, EventContentArg, EventDropArg, EventInput } from '@fullcalendar/core'
 import type { DateClickArg, EventResizeDoneArg } from '@fullcalendar/interaction'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import type { CalendarEntry, CalendarFeed, WorkspaceTask } from '@/types/task-management'
 import { contrastTextColor, mapEntryToEvent, mapTaskToEvent, type CalendarGridExtendedProps } from './calendar-event-mapping'
 import './task-calendar-grid.css'
@@ -30,14 +31,13 @@ interface Props {
   viewerId: string
   view: CalendarGridView
   anchorDate: Date
-  projectColour: (project: string | null) => ColourClasses
   feedColour: (userId: string) => ColourClasses
   onTaskClick: (taskId: string) => void
   onEventClick: (eventId: string) => void
   /** `timeStr` ('HH:mm') is only present for a week/day-view click on a specific time slot - a month-view day cell has no time to give. */
   onEmptyDateClick: (dateStr: string, timeStr?: string) => void
   /** Resolves to whether the move should stick - false reverts the drag/resize visually too, not just in state. */
-  onTaskReschedule: (taskId: string, start: Date, end: Date) => Promise<boolean>
+  onTaskReschedule: (taskId: string, start: Date, end: Date, allDay: boolean) => Promise<boolean>
   onEventReschedule: (eventId: string, start: Date, end: Date, allDay: boolean) => Promise<boolean>
 }
 
@@ -55,7 +55,7 @@ function inclusiveEnd(allDay: boolean, start: Date, end: Date | null): Date {
 
 export function TaskCalendarGrid({
   tasks, entries, feeds, viewerId, view, anchorDate,
-  projectColour, feedColour,
+  feedColour,
   onTaskClick, onEventClick, onEmptyDateClick, onTaskReschedule, onEventReschedule,
 }: Props) {
   const calendarRef = useRef<FullCalendar>(null)
@@ -90,11 +90,11 @@ export function TaskCalendarGrid({
 
   const events = useMemo<EventInput[]>(() => {
     const taskEvents = tasks
-      .map((task) => mapTaskToEvent(task, projectColour, feedColorByUserId))
+      .map((task) => mapTaskToEvent(task, feedColour, feedColorByUserId))
       .filter((event): event is EventInput => event !== null)
     const entryEvents = entries.map((entry) => mapEntryToEvent(entry, viewerId, feedColorByUserId, feedColour))
     return [...taskEvents, ...entryEvents]
-  }, [tasks, entries, viewerId, projectColour, feedColour, feedColorByUserId])
+  }, [tasks, entries, viewerId, feedColour, feedColorByUserId])
 
   const handleEventClick = (arg: EventClickArg) => {
     const props = arg.event.extendedProps as CalendarGridExtendedProps
@@ -120,9 +120,11 @@ export function TaskCalendarGrid({
     // TASK does (mapEntryToEvent applies the same +1 going the other way),
     // which a prior version of this handler missed, writing every dragged
     // or resized all-day event's end_at one day later than where it was
-    // actually dropped.
+    // actually dropped. TASK now carries its own real allDay flag too
+    // (mapTaskToEvent), so it uses arg.event.allDay exactly like EVENT does -
+    // a drop onto a timed week/day slot picks up that time, not just the date.
     const ok = props.kind === 'TASK'
-      ? await onTaskReschedule(props.refId, start, inclusiveEnd(true, start, arg.event.end))
+      ? await onTaskReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
       : await onEventReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
     if (!ok) arg.revert()
   }
@@ -133,7 +135,7 @@ export function TaskCalendarGrid({
     if (!start) { arg.revert(); return }
 
     const ok = props.kind === 'TASK'
-      ? await onTaskReschedule(props.refId, start, inclusiveEnd(true, start, arg.event.end))
+      ? await onTaskReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
       : await onEventReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
     if (!ok) arg.revert()
   }
@@ -167,15 +169,30 @@ function EventChip({ arg }: { arg: EventContentArg }) {
   const props = arg.event.extendedProps as CalendarGridExtendedProps
   const isPin = props.kind === 'MILESTONE' || props.kind === 'CHECKPOINT'
 
+  // One status border, tri-state: green=completed, yellow=pending,
+  // red=overdue. border-2 (not a 1px hairline) deliberately - a thin border
+  // can vanish against an arbitrary bright personal accentColor fill, and
+  // this needs to read as a status signal regardless of what's underneath.
+  const statusBorderClass = props.cardStatus === 'completed' ? 'border-2 border-success'
+    : props.cardStatus === 'overdue' ? 'border-2 border-destructive'
+    : props.cardStatus === 'pending' ? 'border-2 border-warning'
+    : ''
+
   const chip = (
     <div
       title={props.hint}
-      className={`flex w-full items-center gap-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs font-medium leading-snug ${props.fallbackClassName} ${props.settled ? 'line-through opacity-70' : ''} ${props.overdue ? 'ring-1 ring-inset ring-destructive/50' : ''}`}
-      // A personal/share color overrides the project/feed-palette fill
-      // entirely (locked-in: "like CRM") - inline style wins over the
-      // fallbackClassName utilities above regardless of class order, so
-      // there's no need to also strip them out here.
-      style={props.accentColor ? { backgroundColor: props.accentColor, color: contrastTextColor(props.accentColor), borderColor: props.accentColor } : undefined}
+      className={cn(
+        'flex w-full items-center gap-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs font-medium leading-snug',
+        props.fallbackClassName,
+        statusBorderClass,
+      )}
+      // A personal/share color overrides the feed-palette fill entirely
+      // (locked-in: "like CRM") - inline style wins over the classes above
+      // regardless of class order. borderColor is deliberately NOT set here:
+      // the border is now a status signal, never an extension of the accent
+      // fill, so cn() above stays free to keep the status border color even
+      // when a personal accentColor applies.
+      style={props.accentColor ? { backgroundColor: props.accentColor, color: contrastTextColor(props.accentColor) } : undefined}
     >
       {props.kind === 'MILESTONE' && <Flag className="size-3 shrink-0" />}
       {props.kind === 'CHECKPOINT' && <CircleDot className="size-3 shrink-0" />}

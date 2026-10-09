@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Archive, Bell, CalendarClock, CalendarDays, CalendarPlus, CheckCircle2, Clock, Edit2, FileText, Lock, Repeat, Trash2, UserCircle2, Paperclip, Download} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -340,14 +340,19 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated, dashboar
   const canManage = Boolean(dashboardContext) || task?.owner_id === getLaravelContext().userId
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side="right" className="w-full p-0 sm:max-w-[640px]">
-        <SheetHeader className="border-b p-6">
-          <SheetTitle>{task?.title ?? 'Task details'}</SheetTitle>
-          <SheetDescription>Verified task information from Laravel</SheetDescription>
-        </SheetHeader>
+    // open && !editing (not just open): swap, don't stack. The Edit form
+    // below is its own Dialog now - two Radix dialog overlays at once
+    // compound to near-opaque and leave this one's content inert underneath,
+    // unlike the old side-Sheet, where the details panel visually got out of
+    // the way. onUpdated's refetch + setEditing(false) flips this back open.
+    <Dialog open={open && !editing} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[640px]">
+        <DialogHeader className="shrink-0 border-b p-6">
+          <DialogTitle>{task?.title ?? 'Task details'}</DialogTitle>
+          <DialogDescription>Verified task information from Laravel</DialogDescription>
+        </DialogHeader>
 
-        <div className="h-[calc(100vh-98px)] overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {loading && <div className="flex h-48 items-center justify-center"><Spinner /></div>}
           {error && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
           {message && <div className="mb-4 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
@@ -610,7 +615,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated, dashboar
             </div>
           )}
         </div>
-      </SheetContent>
+      </DialogContent>
     {/* The assign form, in edit mode, over the drawer. Keyed on the task so it
         remounts per task rather than showing the last one while this loads. */}
     {editing && task && <CreateTaskModal key={task.id} isOpen editTaskId={task.id}
@@ -628,7 +633,7 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated, dashboar
       onChoose={(scope) => void deleteTaskWithScope(scope)}
       onCancel={() => setDeleteScopeOpen(false)}
     />
-    </Sheet>
+    </Dialog>
   )
 }
 

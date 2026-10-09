@@ -5,13 +5,15 @@ import { Bell, CalendarDays, Download, Repeat, Trash2, UserPlus, Users } from 'l
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { TimePicker } from '@/components/ui/time-picker'
 import { AttendeeEmailInput } from './attendee-email-input'
 import { MemberPicker } from './member-picker'
 import { RecurrenceRulePicker } from './recurrence-rule-picker'
 import { RecurrenceScopeDialog } from './recurrence-scope-dialog'
+import { addOneHourToDateTimeLocal } from './time-follow'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import type { Attendee, CalendarEvent, RecurrenceRule, RecurrenceScope } from '@/types/task-management'
@@ -307,14 +309,14 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
   const canEdit = Boolean(event) && event?.owner_id === getLaravelContext().userId
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side="right" className="w-full p-0 sm:max-w-[640px]">
-        <SheetHeader className="border-b p-6">
-          <SheetTitle>{event?.title ?? 'Event details'}</SheetTitle>
-          <SheetDescription>Verified event information from Laravel</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[640px]">
+        <DialogHeader className="shrink-0 border-b p-6">
+          <DialogTitle>{event?.title ?? 'Event details'}</DialogTitle>
+          <DialogDescription>Verified event information from Laravel</DialogDescription>
+        </DialogHeader>
 
-        <div className="h-[calc(100vh-98px)] overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {loading && <div className="flex h-48 items-center justify-center"><Spinner /></div>}
           {error && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
           {message && <div className="mb-4 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
@@ -378,14 +380,23 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
                         <Label htmlFor="event-start-edit">Starts</Label>
                         <div className="flex gap-2">
                           <input id="event-start-edit" type="date" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />
-                          {!allDay && <input aria-label="Start time" type="time" value={startAt.slice(11)} onChange={(event) => setStartAt(`${startAt.slice(0, 10)}T${event.target.value}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />}
+                          {!allDay && (
+                            <TimePicker
+                              value={startAt.slice(11)}
+                              onChange={(next) => {
+                                const nextStart = `${startAt.slice(0, 10)}T${next}`
+                                setStartAt(nextStart)
+                                setEndAt(addOneHourToDateTimeLocal(nextStart))
+                              }}
+                            />
+                          )}
                         </div>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="event-end-edit">Ends</Label>
                         <div className="flex gap-2">
                           <input id="event-end-edit" type="date" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />
-                          {!allDay && <input aria-label="End time" type="time" value={endAt.slice(11)} onChange={(event) => setEndAt(`${endAt.slice(0, 10)}T${event.target.value}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />}
+                          {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
                         </div>
                       </div>
                     </div>
@@ -509,14 +520,14 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
             </div>
           )}
         </div>
-      </SheetContent>
+      </DialogContent>
       <RecurrenceScopeDialog
         open={deleteScopeOpen}
         action="delete"
         onChoose={(scope) => void deleteEventWithScope(scope)}
         onCancel={() => setDeleteScopeOpen(false)}
       />
-    </Sheet>
+    </Dialog>
   )
 }
 

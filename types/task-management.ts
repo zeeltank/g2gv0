@@ -670,6 +670,9 @@ export interface WorkspaceTask {
   /** The workstream inside `project_id`. Single-task read only. */
   workstream_id?: string | null
   due_date: string | null
+  /** "HH:mm", or null for an all-day task. Single-day only - see calendar-event-mapping.ts. */
+  time_start: string | null
+  time_end: string | null
   remarks: string | null
   /** Which recurring series this occurrence belongs to, if any. */
   recurrence_id: string | null
