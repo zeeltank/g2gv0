@@ -40,6 +40,18 @@ import {
 import { GtgPageHeader } from '@/components/shell/gtg-page-header'
 import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { RegularisationQueue } from '@/domain/hrms/hrit/attendance-management/attendance-tracking/components/regularisation-queue'
+import { EmployeeAttendancePanel } from '@/domain/hrms/hrit/attendance-management/shared/employee-attendance-panel'
+import { AttendanceCorrectionDialog } from '@/domain/hrms/hrit/attendance-management/shared/attendance-correction-dialog'
+import { ChangeHistory } from './change-history'
+import {
+  STATUS_HELP,
+  STATUS_LABEL,
+  statusClass,
+  statusLabel,
+  type AttendanceDayStatus,
+} from '@/domain/hrms/hrit/attendance-management/shared/attendance-day-status'
+import { MonthGrid } from './month-grid'
+import type { TileDensity } from '@/domain/hrms/hrit/attendance-management/shared/attendance-day-tile'
 import { OfficeHoursTab } from './office-hours'
 import { useAttendanceAdmin } from '@/hooks/use-attendance-admin'
 import { useAuth } from '@/hooks/use-auth'
@@ -47,6 +59,7 @@ import { HR_ADMIN_ROLES } from '@/types/role'
 import { cn } from '@/lib/utils'
 import type {
   AttendanceGridCell,
+  AttendanceGridDay,
   AttendanceGridEmployee,
   AttendanceGridStatus,
 } from '@/services/hrms'
@@ -83,6 +96,9 @@ import type {
  * banners the count. It is the difference between telling HR someone has nine
  * absences and telling them nobody ever recorded which days that person works.
  */
+/** localStorage key for the grid density. Namespaced, so it cannot collide. */
+const DENSITY_KEY = 'g2g.mea.density'
+
 export default function ManageEmployeeAttendancePage() {
   const { user } = useAuth()
   const {
@@ -94,7 +110,10 @@ export default function ManageEmployeeAttendancePage() {
     isLoading, error, notice, setNotice, setError,
     refresh,
     correct, correctMany, isSaving,
-    edits, editsLoading, editsError, loadEdits,
+    edits, editsLoading, editsError, editsMeta, editsLoadedAt, loadEdits,
+    historyMonth, setHistoryMonth, historyMonthLabel,
+    historyUserId, historyDay, focusHistory, clearHistoryFilters,
+    liveHistory, setLiveHistory,
   } = useAttendanceAdmin()
 
   const [tab, setTab] = React.useState<'grid' | 'history' | 'hours'>('grid')
@@ -104,6 +123,67 @@ export default function ManageEmployeeAttendancePage() {
     date: string
     cell: AttendanceGridCell
   } | null>(null)
+
+  /**
+   * The employee whose month is open in the drill-down panel.
+   *
+   * Carries the display fields rather than a user id alone, because the panel
+   * is also opened from the change history - where the grid row for that
+   * employee may not be on the current page, so there is nothing to look up.
+   */
+  const [viewing, setViewing] = React.useState<{
+    user_id: number
+    name: string
+    employee_code: string | null
+    department_name: string | null
+    has_roster?: boolean
+    month: string
+  } | null>(null)
+
+  /**
+   * Bumped after a correction, so the open panel refetches.
+   *
+   * `correct()` reloads the grid; the panel reads a different endpoint and has
+   * no way to know. One number is enough and cannot get out of step.
+   */
+  /**
+   * How tall a day cell is. Persisted, because it is a per-person preference.
+   *
+   * `MonthGrid` and `AttendanceDayTile` have supported three densities since
+   * they were extracted, and nothing let anybody change it - so every user got
+   * `compact` whether 31 x 28px suited their eyes or not.
+   *
+   * Compact stays the default: 31 columns is the whole point of the matrix, and
+   * at `times` density a month does not fit on a laptop without horizontal
+   * scrolling. The other two exist for the people who would rather scroll than
+   * squint.
+   *
+   * READ INSIDE try/catch, AND SO IS THE WRITE. localStorage throws outright in
+   * a few real contexts - Safari private browsing, a browser set to block site
+   * data, an embedded webview - and an unguarded read here would take the whole
+   * attendance desk down with it, to remember a row height.
+   */
+  const [density, setDensity] = React.useState<TileDensity>(() => {
+    try {
+      const stored = window.localStorage.getItem(DENSITY_KEY)
+      return stored === 'comfortable' || stored === 'times' || stored === 'roomy'
+        ? stored
+        : 'compact'
+    } catch {
+      return 'compact'
+    }
+  })
+
+  const changeDensity = React.useCallback((value: TileDensity) => {
+    setDensity(value)
+    try {
+      window.localStorage.setItem(DENSITY_KEY, value)
+    } catch {
+      // Not remembering it is a smaller problem than not rendering.
+    }
+  }, [])
+
+  const [correctionNonce, setCorrectionNonce] = React.useState(0)
 
   /*
    * A hint, not the gate. The route carries profile:admin,hr and the controller
@@ -116,6 +196,22 @@ export default function ManageEmployeeAttendancePage() {
   React.useEffect(() => {
     if (tab === 'history') void loadEdits()
   }, [tab, loadEdits])
+
+  /**
+   * Refresh whatever is actually on screen.
+   *
+   * The header button is shared by three tabs; sending it to the grid
+   * regardless meant two of them had a Refresh button that did nothing. Office
+   * hours owns its own refresh inside its tab, so this dispatches the two the
+   * page holds state for.
+   */
+  const refreshActiveTab = React.useCallback(async () => {
+    if (tab === 'history') {
+      await loadEdits()
+      return
+    }
+    await refresh()
+  }, [tab, loadEdits, refresh])
 
   /*
    * The selection, narrowed to who is actually on screen.
@@ -218,8 +314,27 @@ export default function ManageEmployeeAttendancePage() {
         description="Correct an employee's punch times, fill in a day that was never recorded, and see who changed what. Every change is kept with its reason."
         actions={
           <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-              <RefreshCw className={cn('mr-2 size-4', isLoading && 'animate-spin')} />
+            {/*
+              * TAB-AWARE, AND THIS WAS A REAL BUG.
+              *
+              * It called `refresh` - which is loadGrid - on every tab. On the
+              * history tab it fetched the grid and nothing visible happened,
+              * and its spinner was wired to the grid's loading state too, so
+              * the button did not even appear to do anything. That is very
+              * likely most of what "change history is not working" meant.
+              */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refreshActiveTab()}
+              disabled={tab === 'history' ? editsLoading : isLoading}
+            >
+              <RefreshCw
+                className={cn(
+                  'mr-2 size-4',
+                  (tab === 'history' ? editsLoading : isLoading) && 'animate-spin',
+                )}
+              />
               Refresh
             </Button>
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={employees.length === 0}>
@@ -318,7 +433,12 @@ export default function ManageEmployeeAttendancePage() {
             </Alert>
           )}
 
-          <Legend />
+          <Legend
+            employees={employees}
+            days={days}
+            density={density}
+            onDensityChange={changeDensity}
+          />
 
           {isLoading ? (
             <div className="space-y-2">
@@ -356,6 +476,17 @@ export default function ManageEmployeeAttendancePage() {
               <MonthGrid
                 days={days}
                 employees={employees}
+                density={density}
+                onOpenEmployee={(employee) =>
+                  setViewing({
+                    user_id: employee.user_id,
+                    name: employee.name,
+                    employee_code: employee.employee_code,
+                    department_name: employee.department_name,
+                    has_roster: employee.has_roster,
+                    month,
+                  })
+                }
                 selected={effective}
                 onToggle={(userId) =>
                   setSelected((current) =>
@@ -405,26 +536,117 @@ export default function ManageEmployeeAttendancePage() {
         <OfficeHoursTab />
       ) : (
         <ChangeHistory
-          monthLabel={monthLabel}
-          month={month}
-          setMonth={setMonth}
+          monthLabel={historyMonthLabel}
+          month={historyMonth}
+          setMonth={setHistoryMonth}
           rows={edits}
+          meta={editsMeta}
+          loadedAt={editsLoadedAt}
           isLoading={editsLoading}
           error={editsError}
           onRetry={() => void loadEdits()}
+          filteredUserId={historyUserId}
+          filteredDay={historyDay}
+          filteredName={
+            historyUserId !== null
+              ? (edits.find((row) => row.user_id === historyUserId)?.employee_name
+                  ?? employees.find((e) => e.user_id === historyUserId)?.name
+                  ?? null)
+              : null
+          }
+          onClearFilters={clearHistoryFilters}
+          live={liveHistory}
+          onLiveChange={setLiveHistory}
+          onOpenEmployee={(userId, day) => {
+            const row = employees.find((e) => e.user_id === userId)
+            setViewing({
+              user_id: userId,
+              name: row?.name ?? edits.find((r) => r.user_id === userId)?.employee_name ?? 'Employee',
+              employee_code: row?.employee_code ?? null,
+              department_name: row?.department_name ?? null,
+              has_roster: row?.has_roster,
+              month: day ? day.slice(0, 7) : historyMonth,
+            })
+          }}
         />
       )}
 
+      {/*
+        * The drill-down panel.
+        *
+        * `key={viewing.user_id}` is deliberate: the panel owns its own month,
+        * and keying it means opening a different employee starts from the
+        * grid's month rather than inheriting wherever you had paged to for the
+        * last one. Its own docblock says so.
+        */}
+      {viewing && (
+        <EmployeeAttendancePanel
+          key={viewing.user_id}
+          open
+          onOpenChange={(open) => !open && setViewing(null)}
+          userId={viewing.user_id}
+          employeeName={viewing.name}
+          employeeCode={viewing.employee_code}
+          departmentName={viewing.department_name}
+          hasRoster={viewing.has_roster}
+          initialMonth={viewing.month}
+          canCorrect={mayManage}
+          reloadKey={correctionNonce}
+          onCorrect={(date, cell) => {
+            // The grid row may not be on this page - the panel can be opened
+            // from the history - so a synthetic row carries what the dialog
+            // needs without pretending to be a full grid employee.
+            setEditing({
+              employee: {
+                user_id: viewing.user_id,
+                name: viewing.name,
+                employee_code: viewing.employee_code,
+                department_id: null,
+                department_name: viewing.department_name,
+                has_roster: viewing.has_roster ?? true,
+                days: {},
+              },
+              date,
+              cell: {
+                status: cell.status as AttendanceGridCell['status'],
+                in: cell.in,
+                out: cell.out,
+                duration: cell.duration,
+                work_mode: cell.work_mode ?? null,
+                edited: cell.edited ?? false,
+                shift_in: cell.shift_in,
+                shift_out: cell.shift_out,
+              },
+            })
+          }}
+          onOpenHistory={(date) => {
+            focusHistory(viewing.user_id, date)
+            setViewing(null)
+            setTab('history')
+          }}
+        />
+      )}
+
+      {/*
+        * Rendered as a SIBLING of the panel, not inside it.
+        *
+        * Both Sheet and Dialog sit at z-50, so DOM order decides which is on
+        * top. A dialog rendered inside the Sheet would be trapped beneath it.
+        */}
       {editing && (
-        <CorrectionDialog
-          employee={editing.employee}
+        <AttendanceCorrectionDialog
+          employeeName={editing.employee.name}
+          hasRoster={editing.employee.has_roster}
           date={editing.date}
           cell={editing.cell}
           isSaving={isSaving}
           onClose={() => setEditing(null)}
           onSubmit={async (payload) => {
             const ok = await correct({ userId: editing.employee.user_id, day: editing.date, ...payload })
-            if (ok) setEditing(null)
+            if (ok) {
+              setEditing(null)
+              setCorrectionNonce((value) => value + 1)
+            }
           }}
         />
       )}
@@ -436,58 +658,147 @@ export default function ManageEmployeeAttendancePage() {
 /* Status vocabulary                                                          */
 /* ========================================================================== */
 
+const DENSITIES: Array<{ value: TileDensity; label: string }> = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'comfortable', label: 'Comfortable' },
+  { value: 'times', label: 'Times' },
+]
+
 /**
- * The words on the screen, and the colours.
+ * The key, what is actually on screen, and how tall to draw it.
  *
- * `unset` is the one that matters. It is not a styling choice - it is the
- * difference between "nine absences" and "nobody recorded which days this
- * person works", and the module's two other attendance screens currently
- * answer that question differently from each other.
+ * ── THE COUNTS ARE THE POINT ────────────────────────────────────────────────
+ *
+ * Nothing on this screen totalled anything. An HR user could look at 1,550
+ * cells and not learn how many absences were in them without counting by eye -
+ * so the single largest legibility win here is not a nicer cell, it is a
+ * number beside each colour.
+ *
+ * ── SWATCHES ITERATE THE KNOWN KEYS; CHIPS ITERATE WHAT WAS OBSERVED ────────
+ *
+ * Two different questions. The swatch row is the legend - it must show every
+ * status the screen can draw, including ones not present this month, or it
+ * stops being a key. The chips are a measurement of THIS month, so they are
+ * built from the statuses actually in the cells.
+ *
+ * That asymmetry is deliberate and it is the defensive half: if the server
+ * starts returning a status this frontend has never heard of, it has no swatch
+ * and would vanish from a known-keys loop entirely. Counting what was observed
+ * means it appears - labelled by `statusLabel()`, which is total and falls back
+ * to the raw name - instead of being silently dropped. The same reasoning
+ * `statusClass()` exists for.
  */
-function statusLabel(status: AttendanceGridStatus | string): string {
-  // Falls back to the raw value rather than throwing. The server's vocabulary
-  // can grow - `recorded` was added to it late in this phase - and an unknown
-  // status should show itself, not render `undefined` in the grid and crash the
-  // dialog on `.toLowerCase()` of nothing.
-  return STATUS_LABEL[status as AttendanceGridStatus] ?? status
-}
+function Legend({
+  employees, days, density, onDensityChange,
+}: {
+  employees: AttendanceGridEmployee[]
+  days: AttendanceGridDay[]
+  density: TileDensity
+  onDensityChange: (value: TileDensity) => void
+}) {
+  /** Status -> how many cells on screen hold it. Observed, not assumed. */
+  const counts = React.useMemo(() => {
+    const tally = new Map<string, number>()
 
-const STATUS_LABEL: Record<AttendanceGridStatus, string> = {
-  present: 'Present',
-  incomplete: 'No punch out',
-  recorded: 'Recorded',
-  absent: 'Absent',
-  weekend: 'Non-working',
-  unset: 'No roster',
-  upcoming: 'Upcoming',
-}
+    for (const employee of employees) {
+      for (const day of days) {
+        const cell = employee.days[day.date]
+        if (!cell) continue
+        const status = String(cell.status ?? 'unknown')
+        tally.set(status, (tally.get(status) ?? 0) + 1)
+      }
+    }
 
-const STATUS_CLASS: Record<AttendanceGridStatus, string> = {
-  present: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200',
-  incomplete: 'bg-amber-500/20 text-amber-900 dark:text-amber-200',
-  recorded: 'bg-sky-500/15 text-sky-800 dark:text-sky-200',
-  absent: 'bg-rose-500/15 text-rose-800 dark:text-rose-200',
-  weekend: 'bg-muted text-muted-foreground',
-  unset: 'bg-violet-500/15 text-violet-800 dark:text-violet-200',
-  upcoming: 'bg-transparent text-muted-foreground/50',
-}
+    // Biggest first - the thing worth noticing is usually the big number.
+    return Array.from(tally.entries()).sort((a, b) => b[1] - a[1])
+  }, [employees, days])
 
-function Legend() {
+  /** Cells an HR user has corrected. Its own count, not a status. */
+  const editedCount = React.useMemo(() => {
+    let total = 0
+    for (const employee of employees) {
+      for (const day of days) {
+        if (employee.days[day.date]?.edited) total += 1
+      }
+    }
+    return total
+  }, [employees, days])
+
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-4 py-2.5 text-xs">
-      {(Object.keys(STATUS_LABEL) as AttendanceGridStatus[]).map((status) => (
-        <span key={status} className="flex items-center gap-1.5">
-          <span
-            className={cn('inline-block size-3 rounded border border-border', STATUS_CLASS[status])}
-            aria-hidden="true"
-          />
-          <span className="text-muted-foreground">{statusLabel(status)}</span>
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-xs">
+      {/* The key. Every status this screen can draw. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {(Object.keys(STATUS_LABEL) as AttendanceDayStatus[]).map((status) => (
+          <span key={status} className="flex items-center gap-1.5" title={STATUS_HELP[status]}>
+            <span
+              className={cn('inline-block size-3 rounded border border-border', statusClass(status))}
+              aria-hidden="true"
+            />
+            <span className="text-muted-foreground">{statusLabel(status)}</span>
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5">
+          <Pencil className="size-3 text-primary" aria-hidden="true" />
+          <span className="text-muted-foreground">Changed by HR</span>
         </span>
-      ))}
-      <span className="flex items-center gap-1.5">
-        <Pencil className="size-3 text-primary" aria-hidden="true" />
-        <span className="text-muted-foreground">Changed by HR</span>
-      </span>
+
+        {/*
+          * print:hidden - a density switch on paper is noise. The grid itself
+          * prints, and the print block forces its own layout anyway.
+          */}
+        <div className="ml-auto flex items-center gap-1 print:hidden">
+          <span className="text-muted-foreground">Size</span>
+          {DENSITIES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onDensityChange(option.value)}
+              aria-pressed={density === option.value}
+              className={cn(
+                'rounded px-2 py-0.5 transition-colors',
+                density === option.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* What is on screen this month. */}
+      {counts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-2">
+          <span className="text-muted-foreground">This month:</span>
+          {counts.map(([status, count]) => (
+            <span
+              key={status}
+              className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5"
+              title={STATUS_HELP[status as AttendanceDayStatus] ?? undefined}
+            >
+              <span
+                className={cn(
+                  'inline-block size-2 rounded-full border border-border',
+                  statusClass(status as AttendanceDayStatus),
+                )}
+                aria-hidden="true"
+              />
+              <span className="font-medium tabular-nums text-foreground">{count}</span>
+              <span className="text-muted-foreground">
+                {statusLabel(status as AttendanceDayStatus)}
+              </span>
+            </span>
+          ))}
+          {editedCount > 0 && (
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5">
+              <Pencil className="size-2.5 text-primary" aria-hidden="true" />
+              <span className="font-medium tabular-nums text-foreground">{editedCount}</span>
+              <span className="text-muted-foreground">changed by HR</span>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -566,179 +877,7 @@ function GridFilters({
 /* The grid                                                                   */
 /* ========================================================================== */
 
-/**
- * Employees down, days across, the name column frozen.
- *
- * The scroll lives on this container, not on the page: a 31-day row is wider
- * than any screen, and letting the body scroll sideways would take the filters
- * and the heading with it.
- */
-function MonthGrid({
-  days,
-  employees,
-  selected,
-  onToggle,
-  onToggleAll,
-  onPick,
-}: {
-  days: Array<{ date: string; day_of: number; weekday: string; is_future: boolean }>
-  employees: AttendanceGridEmployee[]
-  selected: number[]
-  onToggle: (userId: number) => void
-  onToggleAll: () => void
-  onPick: (employee: AttendanceGridEmployee, date: string, cell: AttendanceGridCell) => void
-}) {
-  return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <table className="w-full border-separate border-spacing-0 text-sm">
-        <thead>
-          <tr>
-            <th
-              scope="col"
-              className="sticky left-0 z-20 min-w-[240px] border-b border-r border-border bg-card px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <Checkbox
-                  checked={employees.length > 0 && selected.length === employees.length}
-                  indeterminate={selected.length > 0 && selected.length < employees.length}
-                  onCheckedChange={onToggleAll}
-                  aria-label="Select every employee on this page"
-                  className="print:hidden"
-                />
-                Employee
-              </span>
-            </th>
-            {days.map((day) => (
-              <th
-                key={day.date}
-                scope="col"
-                className={cn(
-                  'border-b border-border bg-card px-1 py-2 text-center text-xs font-semibold',
-                  // Saturday and Sunday read differently at a glance. Not a
-                  // roster claim - the roster is per employee and per cell.
-                  (day.weekday === 'Sat' || day.weekday === 'Sun')
-                    ? 'text-muted-foreground'
-                    : 'text-foreground',
-                )}
-              >
-                <span className="block tabular-nums">{day.day_of}</span>
-                <span className="block text-[10px] font-normal text-muted-foreground">{day.weekday}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((employee) => (
-            <tr key={employee.user_id} className="group">
-              <th
-                scope="row"
-                className={cn(
-                  'sticky left-0 z-10 border-b border-r border-border px-4 py-2 text-left align-middle font-normal',
-                  selected.includes(employee.user_id) ? 'bg-primary/10' : 'bg-card group-hover:bg-muted/40',
-                )}
-              >
-                <span className="flex items-start gap-2">
-                  <Checkbox
-                    checked={selected.includes(employee.user_id)}
-                    onCheckedChange={() => onToggle(employee.user_id)}
-                    aria-label={`Select ${employee.name}`}
-                    className="mt-0.5 print:hidden"
-                  />
-                  <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-foreground">{employee.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {employee.employee_code ? `${employee.employee_code} · ` : ''}
-                  {employee.department_name ?? 'No department'}
-                </span>
-                {!employee.has_roster && (
-                  <span className="mt-0.5 inline-block rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-800 dark:text-violet-200">
-                    No roster set
-                  </span>
-                )}
-                  </span>
-                </span>
-              </th>
 
-              {days.map((day) => {
-                const cell = employee.days[day.date]
-                if (!cell) {
-                  return <td key={day.date} className="border-b border-border px-1 py-2" />
-                }
-
-                return (
-                  <td key={day.date} className="border-b border-border p-0.5 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onPick(employee, day.date, cell)}
-                      title={cellTitle(employee, day.date, cell)}
-                      aria-label={cellTitle(employee, day.date, cell)}
-                      className={cn(
-                        'relative flex h-10 w-full min-w-[46px] flex-col items-center justify-center rounded transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        'hover:ring-2 hover:ring-primary/50',
-                        STATUS_CLASS[cell.status],
-                      )}
-                    >
-                      {cell.in || cell.out ? (
-                        <>
-                          <span className="text-[10px] font-medium leading-tight tabular-nums">
-                            {cell.in ?? '--:--'}
-                          </span>
-                          <span className="text-[10px] leading-tight tabular-nums opacity-80">
-                            {cell.out ?? '--:--'}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-[10px] font-medium leading-tight">
-                          {SHORT_STATUS[cell.status] ?? '?'}
-                        </span>
-                      )}
-
-                      {cell.edited && (
-                        <Pencil
-                          className="absolute right-0.5 top-0.5 size-2.5 text-primary"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </button>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-/** Two or three characters, because a cell is 46px wide. */
-const SHORT_STATUS: Record<AttendanceGridStatus, string> = {
-  present: 'P',
-  incomplete: 'IN',
-  recorded: 'R',
-  absent: 'A',
-  weekend: '—',
-  unset: '?',
-  upcoming: '',
-}
-
-function cellTitle(employee: AttendanceGridEmployee, date: string, cell: AttendanceGridCell) {
-  const parts = [
-    employee.name,
-    new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    }),
-    statusLabel(cell.status),
-  ]
-
-  if (cell.in || cell.out) parts.push(`In ${cell.in ?? '--'}, out ${cell.out ?? '--'}`)
-  if (cell.duration) parts.push(`Worked ${cell.duration}`)
-  if (cell.shift_in && cell.shift_out) parts.push(`Expected ${cell.shift_in}-${cell.shift_out}`)
-  if (cell.edited) parts.push('Changed by HR')
-
-  return parts.join(' · ')
-}
 
 /* ========================================================================== */
 /* Bulk action                                                                */
@@ -971,309 +1110,6 @@ function Pager({
 
 /* ========================================================================== */
 /* The correction dialog                                                      */
-/* ========================================================================== */
-
-/**
- * One employee, one day.
- *
- * Leaving a time blank leaves that side of the day alone, which is the common
- * case: filling in a punch-out that was never recorded without restating the
- * punch-in. The dialog says that in words rather than relying on the user to
- * infer it from an empty box.
- */
-function CorrectionDialog({
-  employee, date, cell, isSaving, onClose, onSubmit,
-}: {
-  employee: AttendanceGridEmployee
-  date: string
-  cell: AttendanceGridCell
-  isSaving: boolean
-  onClose: () => void
-  onSubmit: (payload: { inTime?: string; outTime?: string; reason: string }) => Promise<void>
-}) {
-  const [inTime, setInTime] = React.useState(cell.in ?? '')
-  const [outTime, setOutTime] = React.useState(cell.out ?? '')
-  const [reason, setReason] = React.useState('')
-  const [localError, setLocalError] = React.useState<string | null>(null)
-
-  const isFuture = cell.status === 'upcoming'
-  const creating = !cell.in && !cell.out
-
-  const prettyDate = new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-
-  const submit = async () => {
-    setLocalError(null)
-
-    if (!inTime && !outTime) {
-      setLocalError('Give a punch in time, a punch out time, or both.')
-      return
-    }
-    if (!reason.trim()) {
-      setLocalError('A reason is required — it is what makes this change answerable later.')
-      return
-    }
-    if (inTime && outTime && outTime <= inTime) {
-      // The server stores a null duration rather than a negative one, so this
-      // would save and then read as "no hours worked" with no explanation.
-      setLocalError('The punch out time has to be after the punch in time.')
-      return
-    }
-
-    await onSubmit({
-      ...(inTime ? { inTime } : {}),
-      ...(outTime ? { outTime } : {}),
-      reason: reason.trim(),
-    })
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {creating ? <CalendarPlus className="size-5" /> : <Pencil className="size-5" />}
-            {creating ? 'Add a missing day' : 'Correct this day'}
-          </DialogTitle>
-          <DialogDescription>
-            {employee.name} &middot; {prettyDate}
-          </DialogDescription>
-        </DialogHeader>
-
-        {isFuture ? (
-          <Alert variant="destructive">
-            <AlertTriangle className="size-4" />
-            <AlertDescription>
-              This day has not happened yet, so there are no hours to record. The server refuses a
-              future date for the same reason.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {/* What is there now, so the change is made against something real
-                rather than from memory. */}
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-              <span className="font-medium text-foreground">Currently: </span>
-              {cell.in || cell.out ? (
-                <span className="tabular-nums text-muted-foreground">
-                  in {cell.in ?? '—'}, out {cell.out ?? '—'}
-                  {cell.duration ? ` (${cell.duration} worked)` : ''}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">
-                  nothing recorded — {statusLabel(cell.status).toLowerCase()}
-                </span>
-              )}
-              {cell.shift_in && cell.shift_out && (
-                <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">
-                  Rostered hours for this day: {cell.shift_in}&ndash;{cell.shift_out}
-                </span>
-              )}
-              {!employee.has_roster && (
-                <span className="mt-0.5 block text-xs text-violet-700 dark:text-violet-300">
-                  This employee has no working days set, so lateness cannot be calculated for them.
-                </span>
-              )}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="mea-in">Punch in</Label>
-                <Input
-                  id="mea-in"
-                  type="time"
-                  value={inTime}
-                  onChange={(event) => setInTime(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="mea-out">Punch out</Label>
-                <Input
-                  id="mea-out"
-                  type="time"
-                  value={outTime}
-                  onChange={(event) => setOutTime(event.target.value)}
-                />
-              </div>
-            </div>
-
-            <p className="-mt-2 text-xs text-muted-foreground">
-              Leave a box empty to keep what is already recorded on that side of the day.
-            </p>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="mea-reason">
-                Reason <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="mea-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Forgot to punch out; badge reader was down; approved by manager…"
-                rows={2}
-                maxLength={255}
-              />
-            </div>
-
-            {/* Said where it is true, not discovered at payroll. */}
-            <Alert className="border-amber-500/40 bg-amber-500/10">
-              <AlertTriangle className="size-4 text-amber-600" />
-              <AlertDescription className="text-xs text-amber-900 dark:text-amber-200">
-                Attendance feeds payroll. Changing these times changes the hours recorded for this
-                day and can change this employee&apos;s payable days. The change is kept with your
-                name, the original times and this reason.
-              </AlertDescription>
-            </Alert>
-
-            {localError && (
-              <Alert variant="destructive">
-                <AlertTriangle className="size-4" />
-                <AlertDescription>{localError}</AlertDescription>
-              </Alert>
-            )}
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={() => void submit()} disabled={isSaving || isFuture}>
-            {isSaving ? 'Saving…' : creating ? 'Add this day' : 'Save correction'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 /* ========================================================================== */
 /* The change history                                                         */
-/* ========================================================================== */
-
-/**
- * Who changed whose day, from what, to what, and why.
- *
- * The platform event log holds the same facts and is the system of record, but
- * it is keyed by entity and time; answering "who changed Priya's Tuesday" from
- * it is a query nobody on the HR desk will write. This is that question, asked
- * the way the screen asks it.
- */
-function ChangeHistory({
-  monthLabel, month, setMonth, rows, isLoading, error, onRetry,
-}: {
-  monthLabel: string
-  month: string
-  setMonth: (value: string) => void
-  rows: Array<{
-    id: number
-    day: string
-    employee_name: string | null
-    changed_by_name: string | null
-    before_in_time: string | null
-    before_out_time: string | null
-    after_in_time: string | null
-    after_out_time: string | null
-    created_row: number
-    reason: string
-    source: string
-    created_at: string
-  }>
-  isLoading: boolean
-  error: string | null
-  onRetry: () => void
-}) {
-  const time = (value: string | null) => (value ? value.slice(11, 16) : null)
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="mea-history-month">Month</Label>
-          <MonthPicker id="mea-history-month" value={month} onChange={setMonth} />
-        </div>
-        <p className="pb-2 text-sm text-muted-foreground">
-          Changes to days in {monthLabel}, newest first.
-        </p>
-      </div>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertTriangle className="size-4" />
-          <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={onRetry}>
-              Try again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-14 w-full" />
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
-          <History className="mx-auto mb-4 size-10 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-foreground">No changes in {monthLabel}</h3>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Nobody has corrected an attendance day in this month. Corrections made from the
-            attendance grid, and employee regularisation requests that were approved, both appear
-            here.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th scope="col" className="px-4 py-2.5 font-semibold">Employee</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Day</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Was</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Changed to</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Reason</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/40">
-                  <td className="px-4 py-2.5 font-medium text-foreground">
-                    {row.employee_name?.trim() || `Employee #${row.id}`}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-muted-foreground">
-                    {new Date(`${row.day}T00:00:00`).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                    })}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-muted-foreground">
-                    {row.created_row
-                      ? <em className="not-italic text-xs">day did not exist</em>
-                      : `${time(row.before_in_time) ?? '—'} / ${time(row.before_out_time) ?? '—'}`}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 font-medium tabular-nums text-foreground">
-                    {time(row.after_in_time) ?? '—'} / {time(row.after_out_time) ?? '—'}
-                  </td>
-                  <td className="max-w-[260px] px-4 py-2.5 text-muted-foreground">
-                    <span className="block truncate" title={row.reason}>{row.reason}</span>
-                    {row.source !== 'admin' && (
-                      <span className="text-xs text-muted-foreground/70">via {row.source}</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
-                    <span className="block">{row.changed_by_name?.trim() || 'Unknown'}</span>
-                    <span className="block text-xs text-muted-foreground/70 tabular-nums">
-                      {row.created_at?.slice(0, 16).replace('T', ' ')}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
