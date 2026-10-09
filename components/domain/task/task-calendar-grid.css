@@ -138,14 +138,17 @@
   text-decoration: underline;
 }
 
-/* Week/day view: FullCalendar's own default overlapping-timed-event layout
-   is unconfigured here (no slotEventOverlap/eventMaxStack prop on the
-   <FullCalendar> element) - this containment is a defensive first pass, not
-   a fully root-caused fix; verify visually and consider slotEventOverlap={false}
-   on the component itself if chips still cross the grid's right edge. */
-.tm-calendar-grid .fc-timegrid-col-events {
-  overflow: hidden;
-}
-.tm-calendar-grid .fc-timegrid-event-harness {
-  max-width: 100%;
-}
+/* Week/day view overlapping events: CONFIRMED LIVE that FullCalendar's own
+   default side-by-side layout already keeps overlapping timed events
+   correctly within the column (it positions each one with an inset-based
+   width split - verified with 3 overlapping tasks rendering at ~107px/107px/
+   50px, none crossing the column's right edge). An earlier version of this
+   file added `.fc-timegrid-col-events { overflow: hidden }` here as a
+   defensive guess at a reported-but-unreproduced overflow - that rule
+   actually CLIPPED EVERY TIMED EVENT INVISIBLE instead (FullCalendar
+   positions these harnesses with a `top` + large-negative-`bottom` inset
+   trick that relies on the column NOT clipping its own content; confirmed
+   via elementFromPoint at an event's own coordinates returning the empty
+   background slot cell underneath it, not the event). Removed - do not
+   re-add overflow:hidden on this element. If a real overflow report
+   reappears, reproduce it live first before adding CSS here again. */
