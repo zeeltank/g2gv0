@@ -1,4 +1,4 @@
-import { addDays, format, isBefore, isSameDay, startOfDay } from 'date-fns'
+import { addDays, addMinutes, format, isBefore, isSameDay, startOfDay } from 'date-fns'
 import type { EventInput } from '@fullcalendar/core'
 import type { CalendarEntry, CalendarEntryKind, WorkspaceTask } from '@/types/task-management'
 
@@ -65,10 +65,10 @@ export interface CalendarGridExtendedProps {
   accentColor: string | null
   /** Raw status string - shown as-is on the milestone/checkpoint popover. */
   status: string
-  /** TASK only - COMPLETED/ON HOLD read as done-with via strikethrough, matching the old day-cell look exactly. Always false for the other three kinds, which never had this treatment. */
-  settled: boolean
-  /** TASK only, same reason. */
-  overdue: boolean
+  /** TASK only - the status-colored BORDER the chip gets (green/yellow/red).
+   *  null for the other three kinds, which keep their own status-color
+   *  scheme (statusClassName()) untouched by this redesign. */
+  cardStatus: 'completed' | 'pending' | 'overdue' | null
   /** Shown on the milestone/checkpoint popover; best-effort display text for TASK/EVENT, which open a full drawer instead and do not otherwise use it. */
   projectName: string | null
   departmentName: string | null
@@ -88,25 +88,48 @@ export function entryEventId(entry: Pick<CalendarEntry, 'kind' | 'id'>): string 
 
 export function mapTaskToEvent(
   task: WorkspaceTask,
-  projectColour: (project: string | null) => ColourClasses,
+  feedColour: (userId: string) => ColourClasses,
   feedColorByUserId: Map<string, string | null>,
 ): EventInput | null {
   const span = taskSpan(task)
   if (!span) return null
 
-  const settled = task.status === 'COMPLETED' || task.status === 'ON HOLD'
-  const overdue = !settled && isBefore(startOfDay(span.end), startOfDay(new Date()))
+  // ON HOLD stays immune to "overdue" - a task paused on purpose shouldn't
+  // read as late just because its due date has since passed under it.
+  const completed = task.status === 'COMPLETED'
+  const overdue = !completed && task.status !== 'ON HOLD' && isBefore(startOfDay(span.end), startOfDay(new Date()))
+  const cardStatus: CalendarGridExtendedProps['cardStatus'] = completed ? 'completed' : overdue ? 'overdue' : 'pending'
   const project = task.project || null
+  // WHO, never which project (locked-in) - a task is colored by its
+  // assignee's own feed color, the same identity the sidebar already shows.
   const accentColor = (task.assignee_id && feedColorByUserId.get(task.assignee_id)) || null
+
+  // Time only means something for a single-day task - a multi-day bar with
+  // a start-of-day time doesn't correspond to anything coherent.
+  const isSingleDay = isSameDay(span.start, span.end)
+  const hasTime = isSingleDay && Boolean(task.time_start)
+
+  let start: Date = span.start
+  // FullCalendar's all-day end is EXCLUSIVE; taskSpan's is inclusive (the
+  // last occupied day). Omitting the +1 renders every multi-day task one
+  // day short.
+  let end: Date = addDays(span.end, 1)
+  let allDay = true
+
+  if (hasTime) {
+    const dayKey = format(span.start, 'yyyy-MM-dd')
+    start = localDateTime(`${dayKey} ${task.time_start}`)
+    end = task.time_end ? localDateTime(`${dayKey} ${task.time_end}`) : addMinutes(start, 30)
+    allDay = false
+  }
 
   const extendedProps: CalendarGridExtendedProps = {
     kind: 'TASK',
     refId: task.id,
-    fallbackClassName: projectColour(project).solid,
+    fallbackClassName: feedColour(task.assignee_id ?? '').solid,
     accentColor,
     status: task.status,
-    settled,
-    overdue,
+    cardStatus,
     projectName: project,
     departmentName: task.department || null,
     hint: hintFor(task.title, project || 'Not in a project', span.start, span.end),
@@ -115,19 +138,17 @@ export function mapTaskToEvent(
   return {
     id: taskEventId(task.id),
     title: task.title,
-    start: span.start,
-    // FullCalendar's all-day end is EXCLUSIVE; taskSpan's is inclusive (the
-    // last occupied day). Omitting the +1 renders every multi-day task one
-    // day short.
-    end: addDays(span.end, 1),
-    allDay: true,
+    start,
+    end,
+    allDay,
     editable: true,
     startEditable: true,
     // Stretching only due_date via resize doesn't survive a reload: taskSpan's
     // own planned_start_date ?? due_date fallback recomputes start to the new
     // due date too, silently collapsing the task back to one day on the next
-    // load. Drag (move) stays enabled either way.
-    durationEditable: Boolean(task.planned_start_date),
+    // load - except for a timed single-day task, where resize always means
+    // "change time_end", which is never lost that way.
+    durationEditable: hasTime ? true : Boolean(task.planned_start_date),
     extendedProps,
   }
 }
@@ -177,11 +198,10 @@ export function mapEntryToEvent(
     fallbackClassName,
     accentColor,
     status: entry.status,
-    // Strikethrough/overdue-ring was never part of the event chip's look
-    // (it had one static style regardless of status) or of milestones'/
-    // checkpoints' own status-color treatment - not reintroduced here.
-    settled: false,
-    overdue: false,
+    // The status-colored border is a TASK-only concept (locked-in) - EVENT/
+    // MILESTONE/CHECKPOINT keep their own existing status-color scheme
+    // (statusClassName() above) untouched.
+    cardStatus: null,
     projectName: entry.project_name,
     departmentName: entry.department_name,
     hint: entry.kind === 'EVENT' ? entry.title : hintFor(entry.title, entry.project_name || 'Not in a project', start, allDay ? addDays(end, -1) : end),

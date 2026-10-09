@@ -45,10 +45,9 @@ export function TaskCalendarView() {
   const [projectFilter, setProjectFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   // The REAL, tenant-wide project/department lists for the filter dropdowns -
-  // independent of the visible date range/scope, unlike the color-legend's
-  // own `projects` (below), which stays derived from on-screen tasks only.
-  // Fixes the confirmed bug where a project only appeared in the old filter
-  // if it happened to have a task in the currently-displayed window.
+  // independent of the visible date range/scope. Fixes the confirmed bug
+  // where a project only appeared in the old filter if it happened to have
+  // a task in the currently-displayed window.
   const [allProjects, setAllProjects] = useState<Array<{ id: string; name: string }>>([])
   const [allDepartments, setAllDepartments] = useState<Array<{ id: string; name: string }>>([])
 
@@ -307,7 +306,7 @@ export function TaskCalendarView() {
    * what to send and revert on failure, exactly like the old native-drag
    * dropOnDay did.
    */
-  const onTaskReschedule = async (taskId: string, start: Date, end: Date): Promise<boolean> => {
+  const onTaskReschedule = async (taskId: string, start: Date, end: Date, allDay: boolean): Promise<boolean> => {
     const task = tasks.find((candidate) => candidate.id === taskId)
     if (!task) return false
 
@@ -317,18 +316,40 @@ export function TaskCalendarView() {
     // Only the keys that actually change are sent - updateTaskSchedule
     // patches, so omitting start on a task that has none leaves it NULL
     // rather than inventing one.
-    const payload = hadStart ? { planned_start_date: nextStart, due_date: nextDue } : { due_date: nextDue }
+    const payload: {
+      planned_start_date?: string; due_date?: string
+      time_start?: string | null; time_end?: string | null
+    } = hadStart ? { planned_start_date: nextStart, due_date: nextDue } : { due_date: nextDue }
+
+    const hadTime = Boolean(task.time_start)
+    if (allDay) {
+      // Dropped onto an all-day row / month cell: no time slot was chosen.
+      // A task that previously had a time must have it explicitly cleared,
+      // not silently retained alongside a new date it no longer matches.
+      if (hadTime) { payload.time_start = null; payload.time_end = null }
+    } else {
+      payload.time_start = format(start, 'HH:mm')
+      payload.time_end = format(end, 'HH:mm')
+    }
 
     const previous = tasks
     setTasks((current) => current.map((candidate) => candidate.id === taskId
-      ? { ...candidate, ...(hadStart ? { planned_start_date: nextStart } : {}), due_date: nextDue }
+      ? {
+          ...candidate,
+          ...(hadStart ? { planned_start_date: nextStart } : {}),
+          due_date: nextDue,
+          ...('time_start' in payload ? { time_start: payload.time_start ?? null, time_end: payload.time_end ?? null } : {}),
+        }
       : candidate))
     setError(''); setMessage('')
 
     try {
       const response = await taskService.updateTaskSchedule(getLaravelContext(), taskId, payload)
       setMessage(response.message)
-      void load()
+      // No reload here (locked-in) - the optimistic patch above is already
+      // complete and correct, and a full load() sets `loading`, which swaps
+      // the whole grid for a Spinner for no reason. onEventReschedule right
+      // below already works this way; this brings TASK in line with it.
       return true
     } catch (reason) {
       setTasks(previous)
@@ -358,14 +379,6 @@ export function TaskCalendarView() {
     }
   }
 
-  // One colour per project, assigned by stable sort order so a project keeps
-  // its colour between renders. Standalone tasks (no project) are deliberately
-  // NOT given a colour — they read as neutral, which is what distinguishes
-  // them at a glance from project work.
-  const projects = useMemo(
-    () => [...new Set(tasks.map((task) => task.project).filter((name): name is string => Boolean(name)))].sort(),
-    [tasks],
-  )
   /**
    * ONE PALETTE, TWO USES — and that is the fix.
    *
@@ -402,9 +415,6 @@ export function TaskCalendarView() {
     dot: 'bg-muted border border-dashed border-border',
     solid: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-border',
   }
-
-  const projectColour = (project: string | null) =>
-    project ? PALETTE[projects.indexOf(project) % PALETTE.length] : NO_PROJECT
 
   const matchesProject = (projectId: string | null) =>
     !projectFilter || (projectFilter === '__none__' ? !projectId : projectId === projectFilter)
@@ -600,7 +610,6 @@ export function TaskCalendarView() {
               viewerId={viewerId}
               view={view}
               anchorDate={month}
-              projectColour={projectColour}
               feedColour={feedColour}
               onTaskClick={setOpenTaskId}
               onEventClick={setOpenEventId}
@@ -612,15 +621,16 @@ export function TaskCalendarView() {
               onEventReschedule={onEventReschedule}
             />
           )}
-          {!loading && screenMode !== 'list' && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
+          {/* Project colour is gone from task chips (locked-in: feed colour
+              only) so the old per-project legend no longer corresponds to
+              anything on screen - a status legend replaces it, since that's
+              now the one thing a chip's border communicates beyond identity. */}
+          {!loading && screenMode !== 'list' && (
             <div className="flex flex-wrap items-center gap-3 border-t p-4 text-xs text-muted-foreground">
-              <span className="font-medium">Projects:</span>
-              {projects.map((name) => (
-                <span key={name} className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${projectColour(name).dot}`} />{name}</span>
-              ))}
-              {visibleTasks.some((task) => !task.project) && (
-                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border border-dashed border-border bg-muted" />Not in a project</span>
-              )}
+              <span className="font-medium">Status:</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-success" />Completed</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-warning" />Pending</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-destructive" />Overdue</span>
             </div>
           )}
         </CardContent></Card>

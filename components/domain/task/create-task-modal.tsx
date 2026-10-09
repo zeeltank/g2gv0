@@ -7,7 +7,9 @@ import { BulkRoleTaskPanel, type RoleBulkRow } from './bulk-role-task-panel'
 import { BulkCsvPanel } from './bulk-csv-panel'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { TimePicker } from '@/components/ui/time-picker'
+import { addOneHourToClock } from './time-follow'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { cn } from '@/lib/utils'
@@ -58,7 +60,7 @@ interface Props {
    */
   onCreatedTaskId?: (taskId: string) => void
 }
-interface Employee { id: string; name: string; departmentId?: string }
+interface Employee { id: string; name: string; departmentId?: string; jobRoleId?: string }
 interface JobRole { id: string; name: string; departmentId?: string; employees: Employee[] }
 interface EmployeeTaskOption { value: string; label: string }
 type BulkResult = Awaited<ReturnType<typeof taskService.uploadBulkTasks>>
@@ -266,6 +268,11 @@ export function CreateTaskModal({
   const [taskTitlesLoading, setTaskTitlesLoading] = useState(false)
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium')
   const [repeatDays, setRepeatDays] = useState('1'); const [dueDate, setDueDate] = useState('')
+  // When the work is meant to start, and its time-of-day window - all
+  // optional, same shape as the calendar's own self-entry quick-add.
+  const [startDate, setStartDate] = useState('')
+  const [timeStart, setTimeStart] = useState('')
+  const [timeEnd, setTimeEnd] = useState('')
   /*
    * ── THE SAVED TASK'S SKILLS, CARRIED THROUGH AN EDIT UNTOUCHED ────────────
    *
@@ -356,6 +363,7 @@ export function CreateTaskModal({
         id: String(employee.id),
         name: [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean).join(' '),
         departmentId: String(employee.department_id ?? ''),
+        jobRoleId: employee.jobtitle_id ? String(employee.jobtitle_id) : undefined,
       })))
     }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to load assignment options.'))
       .finally(() => setLoading(false))
@@ -406,6 +414,7 @@ export function CreateTaskModal({
       setDescription(task.description ?? '')
       setPriority((['High', 'Medium', 'Low'] as const).find((value) => value === task.priority) ?? 'Medium')
       setDueDate(task.due_date ?? '')
+      setStartDate(task.planned_start_date ?? ''); setTimeStart(task.time_start ?? ''); setTimeEnd(task.time_end ?? '')
       setKra(task.kra ?? ''); setKpa(task.kpa ?? ''); setObservation(task.observation_point ?? '')
 
       // The assignee, and the department that follows from them.
@@ -414,7 +423,17 @@ export function CreateTaskModal({
       const assigneeRecord = observers.find((person) => person.id === assigneeId)
       if (assigneeRecord?.departmentId) {
         const match = Object.entries(directory).find(([, roles]) => roles[0]?.departmentId === assigneeRecord.departmentId)
-        if (match) setDepartment(match[0])
+        if (match) {
+          setDepartment(match[0])
+          // Plain setJobRole, NOT chooseJobRole() - that's the handler for a
+          // user picking a NEW role, and clears assignees/observer/title as
+          // a side effect (via chooseAssignees([])), which would undo what
+          // this same prefill just set two lines up.
+          if (assigneeRecord.jobRoleId) {
+            const matchingRole = match[1].find((role) => role.id === assigneeRecord.jobRoleId)
+            if (matchingRole) setJobRole(matchingRole.id)
+          }
+        }
       }
 
       // The observer is `task_allocated`. It may be someone outside the people
@@ -768,7 +787,8 @@ export function CreateTaskModal({
 
   function reset() {
     setDepartment(''); setJobRole(''); setRoleEmployees([]); setAssignees([]); setTitle(''); setDescription(''); setPriority('Medium')
-    setRepeatDays('1'); setDueDate(''); setObserverId(''); setObserverName(''); setSupervisorGap('')
+    setRepeatDays('1'); setDueDate(''); setStartDate(''); setTimeStart(''); setTimeEnd('')
+    setObserverId(''); setObserverName(''); setSupervisorGap('')
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
     setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false);    setJobRoleTasks([]); setTaskTitlesLoading(false)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -872,7 +892,9 @@ export function CreateTaskModal({
     try {
       const response = await taskService.createLegacyTask(getLaravelContext(), {
         title: title.trim(), description: description.trim(), assigneeIds: assignees, observerId,
-        priority, repeatDays, dueDate, skillIds: [], skillNames: [], kra, kpa,
+        priority, repeatDays, dueDate,
+        plannedStartDate: startDate || undefined, timeStart: timeStart || undefined, timeEnd: timeEnd || undefined,
+        skillIds: [], skillNames: [], kra, kpa,
         observationPoint: observation, attachment, departmentId,
         /*
          * THE CATALOGUE ROW THIS TASK CAME FROM — the link that lets the
@@ -970,6 +992,7 @@ export function CreateTaskModal({
         title: title.trim(), description: description.trim(),
         assigneeId: assignees[0], observerId,
         priority, dueDate,
+        plannedStartDate: startDate || undefined, timeStart: timeStart || undefined, timeEnd: timeEnd || undefined,
         kra, kpa,
         skillNames: carriedSkillNames.current,
         skillIds: carriedSkillIds.current,
@@ -1151,9 +1174,9 @@ export function CreateTaskModal({
     finally { setGenerating(false) }
   }
 
-  return <Sheet open={isOpen} onOpenChange={(open) => !open && close()}><SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-[1100px]">
-    <SheetHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><SheetTitle className="text-xl">{mode === 'roleBulk' ? 'Bulk Task Assignment' : mode === 'csv' ? 'Import Tasks' : isEdit ? 'Edit Task' : 'New Assignment'}</SheetTitle><SheetDescription>{mode === 'roleBulk' ? 'Select and configure tasks for the chosen employee' : mode === 'csv' ? 'Create many tasks at once from a spreadsheet' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</SheetDescription></div>{mode === 'form' && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => setMode('csv')}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></SheetHeader>
-    <div className="@container/form g2g-scrollbar flex-1 space-y-4 overflow-y-auto p-6">
+  return <Dialog open={isOpen} onOpenChange={(open) => !open && close()}><DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-5xl">
+    <DialogHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><DialogTitle className="text-xl">{mode === 'roleBulk' ? 'Bulk Task Assignment' : mode === 'csv' ? 'Import Tasks' : isEdit ? 'Edit Task' : 'New Assignment'}</DialogTitle><DialogDescription>{mode === 'roleBulk' ? 'Select and configure tasks for the chosen employee' : mode === 'csv' ? 'Create many tasks at once from a spreadsheet' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</DialogDescription></div>{mode === 'form' && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => setMode('csv')}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></DialogHeader>
+    <div className="@container/form g2g-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
     {mode === 'roleBulk' ? (
       <BulkRoleTaskPanel
@@ -1425,6 +1448,20 @@ export function CreateTaskModal({
           ))}
         </div>
       </Field>
+      {/* When the work actually begins, as opposed to Due date above (when it
+          must be finished) - optional, and independent of due date/repeat. */}
+      <Field label="Start date (optional)" span={4}>
+        <Input type="date" value={startDate} onChange={setStartDate} />
+      </Field>
+      <Field label="Start time (optional)" span={4}>
+        <TimePicker
+          value={timeStart}
+          onChange={(next) => { setTimeStart(next); setTimeEnd(addOneHourToClock(next)) }}
+        />
+      </Field>
+      <Field label="End time (optional)" span={4}>
+        <TimePicker value={timeEnd} onChange={setTimeEnd} />
+      </Field>
       <Field label="Task priority *" span={12} error={errors.priority} fieldRef={(node) => { fieldRefs.current.priority = node }}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
         </div>
       </SectionGroup>
@@ -1624,7 +1661,7 @@ export function CreateTaskModal({
       </div>
     )}
   
-  </SheetContent></Sheet>
+  </DialogContent></Dialog>
 }
 
 /**

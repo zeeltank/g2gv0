@@ -131,6 +131,11 @@ export interface LegacyTaskCreatePayload {
   priority: 'High' | 'Medium' | 'Low'
   repeatDays: string
   dueDate: string
+  /** When the work is meant to start, and the time-of-day window - all
+   *  optional, same as the calendar's own quick-add path. */
+  plannedStartDate?: string
+  timeStart?: string
+  timeEnd?: string
   skillIds: string[]
   skillNames: string[]
   kra: string
@@ -589,10 +594,13 @@ export const taskService = {
    * are changed, which is what lets the Calendar reschedule by due date alone.
    */
   updateTaskSchedule: (context: LaravelContext, id: string, payload: {
-    planned_start_date?: string; due_date?: string; estimated_hours?: number; remaining_hours?: number
+    planned_start_date?: string; due_date?: string
+    time_start?: string | null; time_end?: string | null
+    estimated_hours?: number; remaining_hours?: number
   }) => apiClient.put<{
     status: 1; message: string
     data: { schedule: { task_id: string; planned_start_date: string | null; due_date: string | null
+      time_start: string | null; time_end: string | null
       estimated_hours: number | null; actual_hours: number | null; remaining_hours: number | null } }
   }>(`/task-management/workspace/${id}/schedule`, {
     ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
@@ -994,6 +1002,7 @@ export const taskService = {
       middle_name?: string
       last_name?: string
       department_id?: number | string
+      jobtitle_id?: number | string
       allocated_standards?: number | string
     }>>('/table_data', {
       table: 'tbluser',
@@ -1047,6 +1056,13 @@ export const taskService = {
     body.append('selType', payload.priority)
     body.append('repeat_days', payload.repeatDays)
     body.append('repeat_until', payload.dueDate)
+    // Mass-assigned straight through (taskController::store() builds its
+    // insert from `$request->except([...exclusions])`, an EXCLUSION list,
+    // into a $guarded = [] model) - these must be the real `task` column
+    // names, lowercase, not the UPPERCASE legacy field names above.
+    if (payload.plannedStartDate) body.append('planned_start_date', payload.plannedStartDate)
+    if (payload.timeStart) body.append('time_start', payload.timeStart)
+    if (payload.timeEnd) body.append('time_end', payload.timeEnd)
     if (payload.attachment) body.append('TASK_ATTACHMENT', payload.attachment)
     // The catalogue row this task came from. Sent only when there is one, because
     // insertTaskWithReference falls back to resolving it from the title when the
@@ -1107,6 +1123,9 @@ export const taskService = {
     observerId?: string
     priority?: string
     dueDate?: string
+    plannedStartDate?: string
+    timeStart?: string
+    timeEnd?: string
     kra?: string
     kpa?: string
     skillNames?: string
@@ -1123,6 +1142,13 @@ export const taskService = {
         ...(payload.observerId ? { owner_id: payload.observerId } : {}),
         ...(payload.priority ? { priority: payload.priority } : {}),
         ...(payload.dueDate ? { due_date: payload.dueDate } : {}),
+        // Omitting these when falsy is deliberate, not an oversight - a
+        // missing key and an explicit null reach the backend identically
+        // (Request::input() returns null either way), so clearing the start
+        // date/time on an existing task is exactly "don't send it".
+        ...(payload.plannedStartDate ? { planned_start_date: payload.plannedStartDate } : {}),
+        ...(payload.timeStart ? { time_start: payload.timeStart } : {}),
+        ...(payload.timeEnd ? { time_end: payload.timeEnd } : {}),
         kra: payload.kra ?? '',
         kpa: payload.kpa ?? '',
         required_skills: payload.skillNames ?? '',
