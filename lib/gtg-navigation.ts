@@ -82,6 +82,18 @@ export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/c
 export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
 
 /**
+ * CRM → Marketing. Nested under /marketing/ (not a flat /module/crm/{leaf}),
+ * matching tblmenumaster_g2g's own existing convention for this tree - these
+ * are reactivated rows (id 199/200/201 predate this work; 199 is safe to
+ * hardcode in hooks/use-content-map.ts because it is the same id on both the
+ * local and live databases, unlike a brand-new root would be).
+ */
+export const CRM_LEADS_ACCESS_LINK = '/module/crm/marketing/leads'
+export const CRM_CONTACTS_ACCESS_LINK = '/module/crm/marketing/contacts'
+export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organizations'
+export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
+
+/**
  * Talent Management — every sub-module, so nothing has to hand-roll a path.
  *
  * WHY THESE EXIST
