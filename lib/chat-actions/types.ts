@@ -29,11 +29,16 @@ export interface ActionOption {
 export interface ActionInput<App = unknown> {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'select'
+  /**
+   * `multiselect` lets the user tick several of the same live choices. Its value is the chosen
+   * option values joined by `,` (so option values must not contain a comma), and its label in
+   * `ActionLabels` is the chosen labels joined by `\n`. See `splitMulti`.
+   */
+  type: 'text' | 'textarea' | 'select' | 'multiselect'
   required?: boolean
   maxLength?: number
   placeholder?: string
-  /** Choices for a `select`, read from the application's real data when asked for. */
+  /** Choices for a `select` / `multiselect`, read from the application's real data when asked for. */
   options?: (context: ActionContext<App>) => Promise<ActionOption[]>
 }
 
@@ -84,6 +89,14 @@ export interface ChatActionDefinition<App = unknown> {
   validate?: (values: ActionValues) => Record<string, string>
   preview: (values: ActionValues, context: ActionContext<App>, labels: ActionLabels) => ActionPreview
   execute: (values: ActionValues, context: ActionContext<App>) => Promise<ActionResult>
+  /**
+   * Optional read-back after a SUCCESSFUL execute: ask the application's own API whether the
+   * change is really there (the department exists, the course is gone, the head is the new
+   * person). It receives what execute returned. If it reports `ok: false` the action is shown as
+   * failed - "it ran, but the result could not be confirmed" - rather than as done. It must only
+   * read; it never writes.
+   */
+  verify?: (values: ActionValues, context: ActionContext<App>, result: ActionResult) => Promise<{ ok: boolean; message?: string }>
 }
 
 /** Where one proposal is. `confirming` is the only state from which a request or run can start. */
@@ -98,3 +111,8 @@ export type FlowState =
   | { phase: 'done'; values: ActionValues; preview: ActionPreview; result: ActionResult; requestId?: number }
   | { phase: 'failed'; values: ActionValues; preview: ActionPreview; result: ActionResult; requestId?: number }
   | { phase: 'cancelled'; values: ActionValues }
+
+/** The chosen values of a `multiselect` input (comma-joined), without blanks or repeats. */
+export function splitMulti(value: string | undefined): string[] {
+  return Array.from(new Set((value ?? '').split(',').map((part) => part.trim()).filter(Boolean)))
+}

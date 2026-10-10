@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -61,6 +61,7 @@ import {
   type RecentDocumentHit,
   type TrashedDocument,
 } from '@/services/account'
+import { NAVIGATE_FOLDER_EVENT, OPEN_DOCUMENT_EVENT } from '@/lib/page-entities/g2g/documents'
 import { myHrService } from '@/services/hrms/my-hr'
 import { organizationService } from '@/services/organization'
 import { useDocumentClipboard } from '@/hooks/use-document-clipboard'
@@ -912,8 +913,159 @@ export function DocumentLibraryView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clipboard.entry, scope, currentFolderId])
 
+  /*
+   * OPEN ONE SPECIFIC DOCUMENT, ON REQUEST. The chat finds a document and asks the library to show
+   * exactly that one - by event when the library is already open, by `?open=<id>` when it had to
+   * navigate here. The document is fetched by its id through the same API the detail panel uses, so
+   * the server's own access check decides: a document the user may not see simply fails to open.
+   */
+  const openDocumentById = useCallback(
+    async (id: number) => {
+      // The session can still be loading when a deep link arrives; wait for it briefly.
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const context = resolveContext()
+
+        if (isLaravelContextReady(context)) {
+          try {
+            const response = await accountService.getDocument(context, id)
+            setViewing(response.data)
+          } catch (caught) {
+            setNotice({
+              tone: 'error',
+              text: caught instanceof Error ? caught.message : 'That document could not be opened.',
+            })
+          }
+          return
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+
+      setNotice({ tone: 'error', text: 'Your session is not ready yet, so that document could not be opened.' })
+    },
+    [resolveContext],
+  )
+
+  /*
+   * GO TO A FOLDER AND HIGHLIGHT A FILE, ON REQUEST. The chat finds where a file lives (or which folder
+   * was asked for) and asks the library to show it: by event when the library is already open, by
+   * `?folder=<id|root>&highlight=<documentId>&scope=<mine|visible>` when it had to navigate here. The
+   * view is cleared of anything that could hide the file (search text, filters), the folder is opened
+   * with its own contents, and the file is scrolled to and highlighted - on whichever page of the
+   * folder it is on.
+   */
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+  const [highlightTick, setHighlightTick] = useState(0)
+  const highlightArmed = useRef(false)
+  const previousLoading = useRef(false)
+
+  const navigateToFolder = useCallback((detail: { folderId: number | null; highlightDocumentId?: number; scope?: string }) => {
+    setSearchEverywhere(false)
+    setQuery('')
+    setDebouncedQuery('')
+    setCategory('')
+    setDocumentType('')
+    setDateFrom('')
+    setDateTo('')
+    setSearchDepartmentId('')
+    setScope(detail.scope === 'mine' ? 'mine' : 'visible')
+    setCurrentFolderId(detail.folderId)
+    setPage(1)
+
+    highlightArmed.current = false
+    setHighlightId(detail.highlightDocumentId ?? null)
+    // If nothing needs reloading (already in that folder) no load will report back; do not wait forever.
+    window.setTimeout(() => {
+      highlightArmed.current = true
+      setHighlightTick((tick) => tick + 1)
+    }, 1500)
+  }, [])
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: number }>).detail?.id
+      if (typeof id === 'number' && Number.isFinite(id)) void openDocumentById(id)
+    }
+
+    window.addEventListener(OPEN_DOCUMENT_EVENT, onOpen)
+
+    const onNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<{ folderId: number | null; highlightDocumentId?: number; scope?: string }>).detail
+      if (detail && (detail.folderId === null || Number.isFinite(detail.folderId))) navigateToFolder(detail)
+    }
+    window.addEventListener(NAVIGATE_FOLDER_EVENT, onNavigate)
+
+    const wantedFolder = new URLSearchParams(window.location.search).get('folder')
+    if (wantedFolder && (wantedFolder === 'root' || /^\d+$/.test(wantedFolder))) {
+      const params = new URLSearchParams(window.location.search)
+      const highlight = params.get('highlight')
+      const wantedScope = params.get('scope') ?? undefined
+
+      queueMicrotask(() =>
+        navigateToFolder({
+          folderId: wantedFolder === 'root' ? null : Number(wantedFolder),
+          highlightDocumentId: highlight && /^\d+$/.test(highlight) ? Number(highlight) : undefined,
+          scope: wantedScope,
+        }),
+      )
+
+      // The request is consumed: a refresh must not repeat it.
+      const url = new URL(window.location.href)
+      for (const key of ['folder', 'highlight', 'scope']) url.searchParams.delete(key)
+      window.history.replaceState(null, '', url.toString())
+    }
+
+    const requested = new URLSearchParams(window.location.search).get('open')
+    if (requested && /^\d+$/.test(requested)) {
+      // Deferred a tick: opening is asynchronous work, not part of this render.
+      queueMicrotask(() => void openDocumentById(Number(requested)))
+      // The request is consumed: a refresh must not reopen it.
+      const url = new URL(window.location.href)
+      url.searchParams.delete('open')
+      window.history.replaceState(null, '', url.toString())
+    }
+
+    return () => {
+      window.removeEventListener(OPEN_DOCUMENT_EVENT, onOpen)
+      window.removeEventListener(NAVIGATE_FOLDER_EVENT, onNavigate)
+    }
+  }, [openDocumentById, navigateToFolder])
+
   const canDelete = useCallback((doc: DocumentSearchHit) => myId !== null && doc.owner_id === myId, [myId])
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
+
+  // A load finished since the request: from now on "not on screen" really means "not on this page".
+  useEffect(() => {
+    if (previousLoading.current && !loading && highlightId !== null) highlightArmed.current = true
+    previousLoading.current = loading
+  }, [loading, highlightId])
+
+  // Find the file on screen, scroll to it and highlight it for a few seconds. It may be on a later page
+  // of the folder; past the last page, say so rather than failing silently.
+  useEffect(() => {
+    if (highlightId === null || loading) return
+
+    const element = document.querySelector<HTMLElement>(`[data-document-id="${highlightId}"]`)
+
+    if (element) {
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      element.setAttribute('data-highlight', 'true')
+      window.setTimeout(() => element.removeAttribute('data-highlight'), 6000)
+      queueMicrotask(() => setHighlightId(null))
+      return
+    }
+
+    if (!highlightArmed.current) return
+
+    queueMicrotask(() => {
+      if (page < totalPages) {
+        setPage((current) => current + 1)
+      } else {
+        setHighlightId(null)
+        setNotice({ tone: 'info', text: 'That file is in this folder, but it could not be shown on screen.' })
+      }
+    })
+  }, [highlightId, loading, results, page, totalPages, highlightTick])
 
   // Recent/Starred are flat, caller-centric lists with no folder dimension
   // (see the plan's own reasoning: same as Trash, a department filter or

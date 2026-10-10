@@ -18,7 +18,7 @@ import type { Message as AgentMessage } from '@/components/shell/agent/agent-cha
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { isAiCoreEnabled, isModuleChatEnabled } from '@/lib/ai-core/flag'
+import { isAiCoreEnabled, isChatLifecycleEnabled, isModuleChatEnabled } from '@/lib/ai-core/flag'
 import { useActiveModule } from '@/hooks/use-active-module'
 import { askAssistant } from '@/lib/intelligence/ai-conversations'
 import { fetchPageContext } from '@/lib/intelligence/ai-workspace'
@@ -27,7 +27,23 @@ import { createG2gActionRegistry } from '@/lib/chat-actions/g2g/registry'
 import type { G2gActionApp } from '@/lib/chat-actions/g2g/actions'
 import { prefillFromMessage } from '@/lib/chat-actions/registry'
 import * as actionFlow from '@/lib/chat-actions/flow'
+import { matchNavTarget, type NavTarget } from '@/lib/chat-actions/navigation'
+import { createG2gEntityProviders } from '@/lib/page-entities/g2g/registry'
+import { MAX_LISTED, type G2gEntityApp } from '@/lib/page-entities/g2g/documents'
+import { collectSuggestions, resolveEntity } from '@/lib/page-entities/resolve'
+import type { EntityContext, EntityMatch } from '@/lib/page-entities/types'
+import type { LifecyclePayload } from '@/lib/intelligence/ai-lifecycle'
 import type { ActionContext, ActionInput, ChatActionDefinition, FlowState } from '@/lib/chat-actions/types'
+import {
+  cancelActionRequest,
+  claimActionRequest,
+  completeActionRequest,
+  createActionRequest,
+  getActionRequest,
+  listActionRequests,
+  resolveActionRequest,
+  type ActionRequest,
+} from '@/lib/intelligence/ai-action-requests'
 import { ChatActionsContext, type ChatActionsApi } from '@/components/shell/agent/chat-actions-context'
 import { usePageSnapshot } from '@/lib/page-context/use-page-snapshot'
 import type { G2gAiCore } from '@/lib/ai-core/runtime'
@@ -35,6 +51,19 @@ import type { AppContext as AiCoreContext } from 'darshana-ai-core'
 import { accountService } from '@/services/account'
 import { useAuth } from '@/components/auth/gtg-auth'
 
+
+/**
+ * The module and tab of the AI Stack on screen, as the AI Stack host declares them on its own
+ * element - or null when no AI Stack is open. The AI Stack has no menu row, so the screen is the
+ * only source; the server checks both values before using them.
+ */
+function readAiStack(): { module: string; tab: string } | null {
+  if (typeof document === 'undefined') return null
+  const host = document.querySelector('[data-ai-stack-module]')
+  const stackModule = host?.getAttribute('data-ai-stack-module')
+  const tab = host?.getAttribute('data-ai-stack-tab')
+  return stackModule && tab ? { module: stackModule, tab } : null
+}
 
 function ComingSoonScreen({ title, description }: { title: string; description: string }) {
   return (
@@ -338,26 +367,84 @@ export function GtgAppShell({
   const pagePrompts = pagePromptState?.path === pathname ? pagePromptState.prompts : null
 
   /*
+   * PAGE ENTITIES. The kinds of record a page lists that the chat can find and open ("show this
+   * person's document"). The context is rebuilt at the moment it is needed so it carries the
+   * signed-in user's current session, never a stale one.
+   */
+  const entityProviders = useMemo(() => createG2gEntityProviders(), [])
+  const lastEntityRef = useRef<{ id: number; title: string } | null>(null)
+  const entityContext = useCallback(
+    (): EntityContext<G2gEntityApp> => ({
+      pathname,
+      menuId: pageMenuId,
+      moduleKey: moduleChatKey,
+      // `recent` is the file the chat last opened or showed, so "where is this file?" has something to point at.
+      app: { laravel: getLaravelContext(user), recent: lastEntityRef.current },
+    }),
+    [pathname, pageMenuId, moduleChatKey, user],
+  )
+  // Suggestions built from a page's real records are kept for a minute per page, so the page
+  // re-reading itself (the snapshot changes often) does not refetch them every time.
+  const entitySuggestionCache = useRef<{ path: string; at: number; list: string[] } | null>(null)
+
+  const openEntity = useCallback(
+    (providerKey: string, match: EntityMatch, action: 'open' | 'reveal' = 'open') => {
+      const provider = entityProviders.find((candidate) => candidate.key === providerKey)
+      if (!provider) return
+      const context = entityContext()
+      // "Show in folder" goes to where the record lives and highlights it; "Open" opens the record itself.
+      const target = action === 'reveal' && provider.reveal ? provider.reveal(match, context) : provider.open(match, context)
+
+      if (match.kind === 'file') lastEntityRef.current = { id: Number(match.id), title: match.title }
+
+      if (target.kind === 'event') window.dispatchEvent(new CustomEvent(target.name, { detail: target.detail }))
+      else router.push(target.href)
+    },
+    [entityProviders, entityContext, router],
+  )
+
+  /*
    * What is actually on the page - heading, counts, filters, search text, selected rows, the
    * rows of its tables - read from the content region while the chat is open. Any page gives
    * one; none registers anything. The backend turns it into questions about that page.
    */
+  const pageContextOn = isModuleChatEnabled()
   const pageSnapshot = usePageSnapshot({
-    enabled: Boolean(moduleChatKey && agentOpenState),
+    enabled: Boolean(pageContextOn && agentOpenState),
     getRoot: () => document.querySelector('[data-page-context-root]'),
     watch: pathname,
   })
 
   useEffect(() => {
-    if (!moduleChatKey || !agentOpenState) return
+    // Any page, in or out of a module: the questions always come from the page the user is on.
+    if (!pageContextOn || !agentOpenState) return
 
     let cancelled = false
+    const aiStack = readAiStack()
 
-    fetchPageContext({ menuId: pageMenuId, route: pathname, pageData: pageSnapshot })
-      .then((context) => {
-        if (!cancelled) {
-          setPagePromptState({ path: pathname, prompts: context.suggestions.map((suggestion) => suggestion.prompt) })
-        }
+    // Questions about the page's own records (documents, ...), from the records that really exist.
+    const cached = entitySuggestionCache.current
+    const recordQuestions: Promise<string[]> =
+      cached && cached.path === pathname && Date.now() - cached.at < 60_000
+        ? Promise.resolve(cached.list)
+        : collectSuggestions(entityProviders, entityContext()).then((list) => {
+            entitySuggestionCache.current = { path: pathname, at: Date.now(), list }
+            return list
+          })
+
+    Promise.all([
+      fetchPageContext({ menuId: pageMenuId, route: pathname, pageData: pageSnapshot, aiStack }).catch(() => null),
+      recordQuestions,
+    ])
+      .then(([context, records]) => {
+        if (cancelled) return
+        // Questions about the page's real records come first and, when there are any, are the whole
+        // answer. Otherwise the server's questions for the page. Outside a module the chat has no
+        // module data to answer module-level questions with, so only questions about what is on the
+        // page itself are offered; never a generic list.
+        const usable = context !== null && (moduleChatKey || aiStack || context.scope === 'page' || context.scope === 'tab')
+        const fromServer = usable && context ? context.suggestions.map((suggestion) => suggestion.prompt) : []
+        setPagePromptState({ path: pathname, prompts: records.length > 0 ? records : fromServer })
       })
       .catch(() => {
         if (!cancelled) setPagePromptState({ path: pathname, prompts: [] })
@@ -366,7 +453,7 @@ export function GtgAppShell({
     return () => {
       cancelled = true
     }
-  }, [moduleChatKey, agentOpenState, pageMenuId, pathname, pageSnapshot])
+  }, [pageContextOn, moduleChatKey, agentOpenState, pageMenuId, pathname, pageSnapshot, entityProviders, entityContext])
 
   useEffect(() => {
     agentMessagesRef.current = agentMessages
@@ -401,8 +488,29 @@ export function GtgAppShell({
 
     return actionRegistry
       .available({ pathname, menuId: pageMenuId, moduleKey: moduleChatKey, snapshot: null, app: { laravel: getLaravelContext(user) } })
-      .map(({ key, label, description }) => ({ key, label, description }))
+      .map(({ key, label, description, phrases }) => ({ key, label, description, phrases }))
   }, [actionRegistry, moduleChatKey, pathname, pageMenuId, user])
+
+  /*
+   * Pages the chat can take the user to: every sidebar entry that has a link. The sidebar is
+   * already filtered by the server to the signed-in user's rights, so a page they cannot open is
+   * never offered, and no route is named here.
+   */
+  const navTargets = useMemo<NavTarget[]>(() => {
+    const out: NavTarget[] = []
+    type Walkable = { label: string; accessLink?: string | null; children: Walkable[] }
+    const walk = (nodes: Walkable[], trail: string[]) => {
+      for (const node of nodes) {
+        if (node.accessLink) out.push({ label: node.label, path: node.accessLink, trail })
+        walk(node.children, [...trail, node.label])
+      }
+    }
+    walk(modules, [])
+    return out
+  }, [modules])
+
+  // The conversation the last lifecycle answer belonged to, so an approval request can be tied to it.
+  const lastConversationIdRef = useRef<number | null>(null)
 
   const setFlow = useCallback((id: string, key: string, state: FlowState) => {
     const next = { ...actionFlowsRef.current, [id]: { key, state } }
@@ -420,6 +528,98 @@ export function GtgAppShell({
     },
     [setAgentOpen, setFlow],
   )
+
+  // Approval ledger: requests waiting for me to decide (administrators), and mine that have moved.
+  const [pendingApprovals, setPendingApprovals] = useState<ActionRequest[]>([])
+  const [myRequests, setMyRequests] = useState<ActionRequest[]>([])
+
+  const refreshApprovals = useCallback(async () => {
+    if (!moduleChatKey) return
+    const [mine, pending] = await Promise.all([
+      listActionRequests('mine', null).catch(() => [] as ActionRequest[]),
+      // A refusal here just means "not an administrator" - there is nothing to decide.
+      listActionRequests('pending', null).catch(() => [] as ActionRequest[]),
+    ])
+    setMyRequests(mine)
+    setPendingApprovals(pending)
+  }, [moduleChatKey])
+
+  /**
+   * Run an approved proposal: claim it on the server (approved -> executing, once - a second tab
+   * or a double click loses the claim), run it as the signed-in user, then report the outcome so
+   * the ledger and the card agree.
+   */
+  const runApproved = useCallback(
+    async (id: string) => {
+      const entry = actionFlowsRef.current[id]
+      const definition = entry ? actionRegistry.get(entry.key) : undefined
+      const context = actionContextRef.current
+      if (!entry || !definition || !context) return
+
+      const executing = actionFlow.beginApprovedExecution(entry.state)
+      if (!executing || executing.requestId === undefined) return
+      setFlow(id, entry.key, executing)
+
+      try {
+        await claimActionRequest(executing.requestId)
+      } catch (error) {
+        setFlow(
+          id,
+          entry.key,
+          actionFlow.finish(executing, {
+            ok: false,
+            message: error instanceof Error ? error.message : 'This approval could not be claimed.',
+          }),
+        )
+        return
+      }
+
+      const result = await actionFlow.executeVerified(definition, executing.values, context)
+
+      await completeActionRequest(executing.requestId, result.ok, result.message).catch(() => undefined)
+      setFlow(id, entry.key, actionFlow.finish(executing, result))
+      if (result.ok) window.dispatchEvent(new CustomEvent('g2g:data-changed', { detail: { action: entry.key } }))
+      void refreshApprovals()
+    },
+    [actionRegistry, refreshApprovals, setFlow],
+  )
+
+  // While a proposal waits for approval, ask the server for the verdict; approved runs itself.
+  useEffect(() => {
+    const waiting = Object.entries(actionFlows).filter(([, flowEntry]) => flowEntry.state.phase === 'awaiting_approval')
+    if (waiting.length === 0) return
+
+    const timer = window.setInterval(() => {
+      for (const [id, flowEntry] of waiting) {
+        const state = actionFlowsRef.current[id]?.state
+        if (!state || state.phase !== 'awaiting_approval') continue
+
+        getActionRequest(state.requestId)
+          .then((request) => {
+            const current = actionFlowsRef.current[id]
+            if (!current) return
+            const next = actionFlow.decided(current.state, request.status, request.decision_note)
+            if (next === current.state) return
+            setFlow(id, flowEntry.key, next)
+            if (next.phase === 'approved') void runApproved(id)
+          })
+          .catch(() => undefined)
+      }
+    }, 5000)
+
+    return () => window.clearInterval(timer)
+  }, [actionFlows, runApproved, setFlow])
+
+  useEffect(() => {
+    if (!moduleChatKey) return
+    // Deferred one tick: the first read is asynchronous work, not part of this render.
+    const first = window.setTimeout(() => void refreshApprovals(), 0)
+    const timer = window.setInterval(() => void refreshApprovals(), 30000)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(timer)
+    }
+  }, [moduleChatKey, refreshApprovals])
 
   const chatActionsApi = useMemo<ChatActionsApi | null>(() => {
     if (!moduleChatKey) return null
@@ -439,7 +639,9 @@ export function GtgAppShell({
       entry: (id) => {
         const found = actionFlows[id]
         const definition = found ? actionRegistry.get(found.key) : undefined
-        return found && definition ? { label: definition.label, inputs: definition.inputs, state: found.state } : null
+        return found && definition
+          ? { label: definition.label, inputs: definition.inputs, state: found.state, requiresApproval: definition.requiresApproval === true }
+          : null
       },
       loadOptions: async (input) => {
         const context = actionContextRef.current
@@ -459,12 +661,69 @@ export function GtgAppShell({
       },
       cancel: (id) => {
         const found = definitionOf(id)
-        if (found) setFlow(id, found.entry.key, actionFlow.cancel(found.entry.state))
+        if (!found) return
+        const before = found.entry.state
+        setFlow(id, found.entry.key, actionFlow.cancel(before))
+        if (before.phase === 'awaiting_approval') {
+          cancelActionRequest(before.requestId)
+            .catch(() => undefined)
+            .finally(() => void refreshApprovals())
+        }
+      },
+      navigate: (path) => router.push(path),
+      approvals: {
+        pending: pendingApprovals,
+        mine: myRequests.filter((request) => request.status === 'approved'),
+        refresh: refreshApprovals,
+        decide: async (requestId, decision, note) => {
+          await resolveActionRequest(requestId, decision, note)
+          await refreshApprovals()
+        },
+        // Resume an approval granted after the chat was closed: rebuild the card and run it once.
+        resume: (request) => {
+          const definition = actionRegistry.get(request.action_key)
+          if (!definition || request.status !== 'approved' || !request.payload || !request.preview) return
+          const id = `action-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          setAgentOpen(true)
+          setAgentMessages((current) => [...current, { id, role: 'assistant', content: '', action: { key: definition.key } }])
+          setFlow(id, definition.key, { phase: 'approved', values: request.payload, preview: request.preview, requestId: request.id })
+          void runApproved(id)
+        },
       },
       confirm: (id) => {
         const found = definitionOf(id)
         const context = actionContextRef.current
         if (!found || !context) return
+
+        if (found.definition.requiresApproval) {
+          // Read from the ref: a second press in the same tick must find the first.
+          const requesting = actionFlow.beginApproval(found.entry.state)
+          if (!requesting) return
+          setFlow(id, found.entry.key, requesting)
+
+          createActionRequest({
+            actionKey: found.entry.key,
+            moduleKey: context.moduleKey,
+            payload: requesting.values,
+            preview: requesting.preview,
+            conversationId: lastConversationIdRef.current,
+          })
+            .then((request) => {
+              setFlow(id, found.entry.key, actionFlow.requested(requesting, request.id))
+              void refreshApprovals()
+            })
+            .catch((error: unknown) => {
+              setFlow(
+                id,
+                found.entry.key,
+                actionFlow.requestFailed(requesting, {
+                  ok: false,
+                  message: error instanceof Error ? error.message : 'The request could not be sent for approval.',
+                }),
+              )
+            })
+          return
+        }
 
         // Read from the ref, not render state: a second click in the same tick must see the first.
         const executing = actionFlow.beginExecution(found.entry.state)
@@ -472,12 +731,8 @@ export function GtgAppShell({
 
         setFlow(id, found.entry.key, executing)
 
-        found.definition
-          .execute(executing.values, context)
-          .catch((error: unknown) => ({
-            ok: false,
-            message: error instanceof Error ? error.message : 'The action failed.',
-          }))
+        actionFlow
+          .executeVerified(found.definition, executing.values, context)
           .then((result) => {
             setFlow(id, found.entry.key, actionFlow.finish(executing, result))
 
@@ -486,16 +741,41 @@ export function GtgAppShell({
           })
       },
     }
-  }, [moduleChatKey, actionRegistry, actionFlows, availableActions, setFlow, startAction])
+  }, [moduleChatKey, actionRegistry, actionFlows, availableActions, setFlow, startAction, refreshApprovals, pendingApprovals, myRequests, runApproved, setAgentOpen, router])
 
-  const handleAgentSendMessage = useCallback(async (message: string) => {
+  const handleAgentSendMessage = useCallback(async (message: string, moduleOverride?: string | null) => {
     const trimmed = message.trim()
     if (!trimmed) return
+
+    // The module this question belongs to: the one the caller named (an AI Stack example run from a
+    // module's own AI Stack page) or, as always, the one the open page belongs to. Never defaulted.
+    const aiStack = readAiStack()
+    const chatModule = isModuleChatEnabled() ? (moduleOverride ?? aiStack?.module ?? moduleChatKey) : null
 
     // A sentence that asks for an action THIS page offers opens the action flow - preview and
     // Confirm - instead of going to the assistant. Anything else is an ordinary question.
     const actionContext = actionContextRef.current
-    const requested = actionContext ? actionRegistry.match(trimmed, actionContext) : null
+    const lifecycleOn = isChatLifecycleEnabled() && chatModule !== null
+
+    // "open <page>": offered as a button, never done silently. Only pages in the user's own sidebar.
+    const destination = lifecycleOn ? matchNavTarget(trimmed, navTargets) : null
+
+    if (destination) {
+      setAgentMessages((current) => [
+        ...current,
+        { id: `user-${Date.now()}`, role: 'user', content: trimmed },
+        {
+          id: `nav-${Date.now()}`,
+          role: 'assistant',
+          content: `Here is ${destination.label}.`,
+          navigate: { label: destination.label, path: destination.path, trail: destination.trail },
+        },
+      ])
+      return
+    }
+
+    // With the lifecycle on, the server recognises the request (stage 4) and proposes the action.
+    const requested = !lifecycleOn && actionContext ? actionRegistry.match(trimmed, actionContext) : null
 
     if (requested) {
       setAgentMessages((current) => [...current, { id: `user-${Date.now()}`, role: 'user', content: trimmed }])
@@ -509,11 +789,70 @@ export function GtgAppShell({
       content: trimmed,
     }
 
-    const previousMessages = agentMessagesRef.current
+    // "Show me this person's document": a request to find a real record on a page that lists them.
+    // Searched through the page's own API as the signed-in user. Exactly one match opens; several are
+    // ALL listed for the user to choose (nothing is opened for them); none says so. Anything that is
+    // not such a request falls through to the assistant unchanged.
+    if (pageContextOn) {
+      const context = entityContext()
+
+      if (entityProviders.some((provider) => provider.appliesTo(context))) {
+        setAgentOpen(true)
+        setAgentError(null)
+        setAgentLoading(true)
+        setAgentMessages((current) => [...current, userMessage])
+
+        const outcome = await resolveEntity(trimmed, entityProviders, context)
+
+        if (outcome) {
+          const reply = (content: string, extra: Partial<AgentMessage> = {}) =>
+            setAgentMessages((current) => [...current, { id: `entity-${Date.now()}`, role: 'assistant', content, ...extra }])
+
+          if (outcome.kind === 'clarify') {
+            reply(outcome.clarify.question, { choices: outcome.clarify.choices })
+          } else if (outcome.kind === 'none') {
+            reply(`No ${outcome.query.summary} were found.`)
+          } else if (outcome.kind === 'similar') {
+            // Nothing matched the whole request. These match part of it - listed, never opened.
+            reply(
+              `No ${outcome.query.summary} matched exactly. These ${outcome.noun} contain some of your words - choose the one you want:`,
+              { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: outcome.matches } },
+            )
+          } else if (outcome.kind === 'error') {
+            reply(outcome.message, { variant: 'error' })
+          } else if (outcome.kind === 'one') {
+            const match = outcome.match
+            // "Where is X?" with one answer: say where, then go there and highlight it.
+            const reveal = outcome.query.onSingle === 'reveal' && match.revealable === true
+            const text =
+              match.kind === 'folder'
+                ? `Opening the "${match.title}" folder (${match.location}).`
+                : reveal
+                  ? `"${match.title}" is in ${match.location}. Taking you there and highlighting it.`
+                  : outcome.query.onSingle === 'reveal'
+                    ? `"${match.title}" is in ${match.location}. Opening it for you.`
+                    : `Opening "${match.title}"${match.subtitle ? ` (${match.subtitle})` : ''}.`
+
+            reply(text, { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: [match] } })
+            openEntity(outcome.providerKey, match, reveal ? 'reveal' : 'open')
+          } else {
+            reply(
+              `Found ${outcome.matches.length} ${outcome.query.summary}${outcome.matches.length >= MAX_LISTED ? ` (showing the first ${MAX_LISTED} - add a type or a name to narrow it)` : ''}. ${outcome.query.onSingle === 'reveal' ? 'Here is where each one is:' : 'Choose the one you want:'}`,
+              { entities: { providerKey: outcome.providerKey, noun: outcome.noun, summary: outcome.query.summary, matches: outcome.matches } },
+            )
+          }
+
+          setAgentLoading(false)
+          return
+        }
+      }
+    }
+
+    const previousMessages = agentMessagesRef.current.filter((item) => item.id !== userMessage.id)
     const nextMessages = [...previousMessages, userMessage]
     setAgentOpen(true)
     setAgentError(null)
-    setAgentMessages(nextMessages)
+    setAgentMessages((current) => (current.some((item) => item.id === userMessage.id) ? current : [...current, userMessage]))
     setAgentLoading(true)
 
     try {
@@ -530,12 +869,16 @@ export function GtgAppShell({
        * another module starts a fresh, correctly-tagged transcript instead of continuing
        * one that was opened under a different module.
        */
-      if (moduleChatKey) {
+      // A page outside every module also goes to the Laravel lifecycle (with the screen) when it is on:
+      // its suggested questions are about the screen, so the answer must be able to see it.
+      if (chatModule || (pageContextOn && isChatLifecycleEnabled())) {
         const result = await askAssistant({
           message: trimmed,
-          session_key: `${agentSessionIdRef.current}:${moduleChatKey}`,
-          module_key: moduleChatKey,
+          session_key: `${agentSessionIdRef.current}:${chatModule ?? 'org'}`,
+          module_key: chatModule ?? undefined,
+          ai_stack_tab: aiStack && aiStack.module === chatModule ? aiStack.tab : undefined,
           menu_id: pageMenuId ?? undefined,
+          available_actions: lifecycleOn ? availableActions : undefined,
           // Read at the moment of asking, so the answer reflects the screen as it is now.
           page_data: (() => {
             const root = document.querySelector('[data-page-context-root]')
@@ -543,8 +886,24 @@ export function GtgAppShell({
           })(),
         })
 
-        // A refusal (policy) or a failure arrives as a 200 with no answer and a reason.
-        if (result.answer === null) {
+        // The lifecycle's extras, when the backend ran it.
+        const lifecycle: LifecyclePayload | undefined = result.trace
+          ? {
+              conversationId: result.conversation_id,
+              intent: result.intent ?? 'data',
+              trace: result.trace,
+              evidence: result.evidence ?? [],
+              recommendations: result.recommendations ?? [],
+              report: result.report ?? null,
+              reportSuggestions: result.report_suggestions ?? [],
+              templateSuggestions: result.template_suggestions ?? [],
+            }
+          : undefined
+        lastConversationIdRef.current = result.conversation_id
+
+        // A refusal (policy) or a failure arrives as a 200 with no answer and a reason. With a
+        // lifecycle the evidence and trace are still worth showing beside the reason.
+        if (result.answer === null && !lifecycle) {
           throw new Error(result.error || 'The assistant could not answer.')
         }
 
@@ -553,10 +912,21 @@ export function GtgAppShell({
           {
             id: `assistant-${result.conversation_id}-${Date.now()}`,
             role: 'assistant',
-            content: result.answer ?? '',
+            content: result.answer ?? result.error ?? 'The assistant could not answer.',
+            variant: result.answer === null ? 'error' : undefined,
             conversationType: 'module',
+            lifecycle,
           },
         ])
+
+        // A proposed action opens its form - only if this page really offers it (re-checked here,
+        // not trusted from the server), and still needs Confirm before anything is written.
+        const proposed = result.proposed_action
+        const definition = proposed ? actionRegistry.get(proposed.key) : undefined
+        const context = actionContextRef.current
+        if (definition && context && actionRegistry.available(context).some((item) => item.key === definition.key)) {
+          startAction(definition, prefillFromMessage(definition, trimmed))
+        }
         return
       }
 
@@ -689,7 +1059,21 @@ export function GtgAppShell({
     } finally {
       setAgentLoading(false)
     }
-  }, [actionRegistry, moduleChatKey, pageMenuId, setAgentOpen, startAction, user])
+  }, [actionRegistry, availableActions, entityContext, entityProviders, moduleChatKey, navTargets, openEntity, pageContextOn, pageMenuId, setAgentOpen, startAction, user])
+
+  // Lets another part of the app (an AI Stack example, a chip) put a question to the chat: open it
+  // and send, exactly as if the user had typed it. Nothing is sent unless a module chat is active.
+  useEffect(() => {
+    const onSend = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string; moduleKey?: string }>).detail
+      const message = detail?.message
+      if (typeof message !== 'string' || message.trim() === '') return
+      setAgentOpen(true)
+      void handleAgentSendMessage(message, typeof detail?.moduleKey === 'string' ? detail.moduleKey : null)
+    }
+    window.addEventListener('g2g:chat-send', onSend)
+    return () => window.removeEventListener('g2g:chat-send', onSend)
+  }, [handleAgentSendMessage, setAgentOpen])
 
   /*
    * A sentinel for "the URL has not resolved to a menu row yet".
@@ -872,12 +1256,13 @@ export function GtgAppShell({
                 {agentOpenState && (
                   <ChatActionsContext.Provider value={chatActionsApi}>
                   <AgentPanel
-                    suggestedPrompts={moduleChatKey ? (pagePrompts ?? []) : undefined}
+                    suggestedPrompts={pageContextOn ? (pagePrompts ?? []) : undefined}
                     messages={agentMessages}
                     isLoading={agentLoading}
                     error={agentError}
                     onClose={() => setAgentOpen(false)}
                     onSendMessage={handleAgentSendMessage}
+                    onOpenEntity={openEntity}
                   />
                   </ChatActionsContext.Provider>
                 )}

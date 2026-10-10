@@ -15,6 +15,10 @@ import {
 import { cn } from '@/lib/utils'
 import { SuggestedPrompts } from './suggested-prompts'
 import { ActionCard } from './action-card'
+import { ApprovalsPanel } from './approvals-panel'
+import { LifecyclePanel } from './lifecycle-panel'
+import type { LifecyclePayload } from '@/lib/intelligence/ai-lifecycle'
+import type { EntityMatch } from '@/lib/page-entities/types'
 import { useChatActions } from './chat-actions-context'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -30,6 +34,17 @@ export interface Message {
   tools?: string[]
   /** Set when this message is a proposed action; the card renders it from the flow state. */
   action?: { key: string }
+  /** What stands behind an answer from the lifecycle: trace, evidence, suggestions, report. */
+  lifecycle?: LifecyclePayload
+  /** Set when this message offers to take the user to a page they asked for. */
+  navigate?: { label: string; path: string; trail: string[] }
+  /**
+   * Real records the user asked to find, to choose from. Each has its own Open button; nothing is
+   * opened until the user presses one (a single clear match is opened by the shell and not listed).
+   */
+  entities?: { providerKey: string; noun: string; summary: string; matches: EntityMatch[] }
+  /** Real values the assistant offers in answer to a question it asked; each sends its message. */
+  choices?: Array<{ label: string; message: string }>
 }
 
 const SUGGESTED_PROMPTS = [
@@ -52,6 +67,9 @@ interface AgentChatProps {
   isLoading?: boolean
   error?: string | null
   onSendMessage?: (message: string) => void | Promise<void>
+  /** Open one record the chat listed (the application knows how). */
+  /** Open one record the chat listed, or take the user to where it lives (the application knows how). */
+  onOpenEntity?: (providerKey: string, match: EntityMatch, action?: 'open' | 'reveal') => void
 }
 
 export function AgentChat({
@@ -60,6 +78,7 @@ export function AgentChat({
   isLoading = false,
   error,
   onSendMessage,
+  onOpenEntity,
 }: AgentChatProps) {
   const chatActions = useChatActions()
   const [input, setInput] = useState('')
@@ -116,6 +135,7 @@ export function AgentChat({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-5">
+        <div className="pt-4 empty:hidden"><ApprovalsPanel /></div>
         {messages.length === 0 ? (
           <div className="py-5">
             {suggestedPrompts !== undefined && suggestedPrompts.length === 0 && (
@@ -211,6 +231,82 @@ export function AgentChat({
                     </div>
                   ) : null}
                   {message.content}
+                  {message.navigate ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button type="button" size="sm" onClick={() => chatActions?.navigate(message.navigate!.path)}>
+                        Open {message.navigate.label}
+                      </Button>
+                      {message.navigate.trail.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">{message.navigate.trail.join(' › ')}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {message.entities ? (
+                    <ul className="mt-3 space-y-2">
+                      {message.entities.matches.map((match) => (
+                        <li key={match.id} className="rounded-2xl border border-border/70 bg-background p-3 text-sm leading-6">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="break-words font-medium text-foreground">
+                                {match.kind === 'folder' ? '📁 ' : ''}
+                                {match.title}
+                              </p>
+                              {match.subtitle ? <p className="text-xs text-muted-foreground">{match.subtitle}</p> : null}
+                              {match.location ? (
+                                <p className="mt-0.5 break-words text-xs text-primary">
+                                  {match.kind === 'folder' ? 'Path' : 'Location'}: {match.location}
+                                </p>
+                              ) : null}
+                              <dl className="mt-1 grid grid-cols-[auto,1fr] gap-x-3 text-xs">
+                                {match.details.map((detail) => (
+                                  <div key={detail.label} className="contents">
+                                    <dt className="text-muted-foreground">{detail.label}</dt>
+                                    <dd className="break-words text-foreground">{detail.value}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => onOpenEntity?.(message.entities!.providerKey, match, 'open')}
+                              >
+                                {match.kind === 'folder' ? 'Open folder' : 'Open'}
+                              </Button>
+                              {match.revealable ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onOpenEntity?.(message.entities!.providerKey, match, 'reveal')}
+                                >
+                                  Show in folder
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {message.choices ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {message.choices.map((choice) => (
+                        <button
+                          key={choice.message}
+                          type="button"
+                          onClick={() => void onSendMessage?.(choice.message)}
+                          className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition hover:border-primary hover:text-primary"
+                        >
+                          {choice.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {message.lifecycle ? (
+                    <LifecyclePanel payload={message.lifecycle} onSend={(text) => void onSendMessage?.(text)} />
+                  ) : null}
                 </div>
                 {message.role === 'user' && (
                   <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-border/60">

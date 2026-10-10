@@ -194,7 +194,11 @@ export function DocumentTableView({
             const docKey = `doc-${doc.id}`
 
             return (
-              <TableRow key={doc.id} className={cn('group', selectedKeys?.has(docKey) && 'bg-primary/5')}>
+              <TableRow
+                key={doc.id}
+                data-document-id={doc.id}
+                className={cn('group transition data-[highlight=true]:bg-primary/20 data-[highlight=true]:ring-2 data-[highlight=true]:ring-primary', selectedKeys?.has(docKey) && 'bg-primary/5')}
+              >
                 {onToggleSelect && (
                   <TableCell>
                     <Checkbox

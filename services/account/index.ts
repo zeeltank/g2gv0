@@ -261,6 +261,10 @@ export interface AccountDocumentsResponse {
 /** One search hit — AccountDocument plus a highlighted content excerpt when a query matched inside the file. */
 export interface DocumentSearchHit extends AccountDocument {
   owner_id: number | null
+  /** The owner's full name, so a list of matches can tell two people apart. */
+  owner_name?: string | null
+  /** Which folder it sits in; null = the top level. */
+  folder_id?: number | null
   department_id: number | null
   tags: string | null
   /** HTML with `<mark>` around the match — from the document's own content, not just its title. */
@@ -298,6 +302,8 @@ export interface DocumentSearchFilters {
   date_from?: string
   date_to?: string
   owner_id?: number
+  /** A person's name: narrows to documents owned by someone whose name contains it (within what the caller may see). */
+  owner_name?: string
   /** Narrows to one folder's direct contents. 0 = root (folder_id IS NULL). Omit entirely to search unfiltered by folder, as before. */
   folder_id?: number
   page?: number
