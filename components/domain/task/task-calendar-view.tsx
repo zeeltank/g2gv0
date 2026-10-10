@@ -30,7 +30,14 @@ type ScreenMode = 'my' | 'shared' | 'list'
 import type { CalendarFeed } from '@/types/task-management'
 
 export function TaskCalendarView() {
-  const [month, setMonth] = useState(startOfMonth(new Date()))
+  // The actual anchor DAY, not forced to the 1st - month view's own range
+  // calculation already normalizes via startOfMonth(month) below, so there
+  // was never a reason to start here. Forcing it to the 1st meant switching
+  // straight to Day/Week (without first navigating month view to a specific
+  // day) opened the 1st's day/week instead of today's, since nothing else
+  // in the component ever moved `month` off that default until the Today
+  // button or a day-cell click did.
+  const [month, setMonth] = useState(new Date())
   /**
    * Month / week / day.
    *
@@ -554,7 +561,10 @@ export function TaskCalendarView() {
         {/* The arrows step by whatever is on screen - a month, a week, a day -
             rather than always a month, which in week view would skip four. */}
         <Button variant="outline" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
-        <Button variant="outline" onClick={() => setMonth(view === 'month' ? startOfMonth(new Date()) : startOfDay(new Date()))}>Today</Button>
+        {/* Same `new Date()` regardless of view now - month view's own range
+            calculation normalizes via startOfMonth(month) itself, so there
+            was never a reason to special-case it to the 1st here either. */}
+        <Button variant="outline" onClick={() => setMonth(new Date())}>Today</Button>
         <Button variant="outline" size="icon" onClick={() => step(1)}><ChevronRight className="size-4" /></Button>
 
         {/* A visual break between navigation/filtering (left of here) and the
