@@ -319,9 +319,35 @@ export interface CrmBulkActionResponse {
   }
 }
 
+/** The 4 CRM modules, by their list-view route segment. */
+export type CrmModule = 'leads' | 'contacts' | 'organizations' | 'campaigns'
+
+// ── Saved Views (shared across all 4 modules) ─────────────────────────────
+
+export interface CrmSavedView {
+  id: string
+  module: CrmModule
+  name: string
+  /** That module's own query-param shape (search/status filter/sortBy/sortDir) - opaque here, applied back by the list view that saved it. */
+  conditions: Record<string, unknown>
+  createdAt: string | null
+}
+
+export interface CrmSavedViewListResponse {
+  status: number
+  message: string
+  data: CrmSavedView[]
+}
+
+export interface CrmSavedViewResponse {
+  status: number
+  message: string
+  data: CrmSavedView
+}
+
 // ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
 
-export type CrmRecycleBinType = 'leads' | 'contacts' | 'organizations' | 'campaigns'
+export type CrmRecycleBinType = CrmModule
 
 export interface CrmRecycleBinItem {
   type: CrmRecycleBinType

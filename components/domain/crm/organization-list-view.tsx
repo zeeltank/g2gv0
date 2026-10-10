@@ -16,6 +16,7 @@ import { CreateOrganizationModal } from './create-organization-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
+import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'name' | 'account_type' | 'industry' | 'rating' | 'billing_city' | 'created_at'
@@ -93,6 +94,13 @@ export function OrganizationListView() {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const handleApplyView = (conditions: Record<string, unknown>) => {
+    if (typeof conditions.search === 'string') setSearch(conditions.search)
+    if (typeof conditions.sortKey === 'string') setSortKey(conditions.sortKey as SortKey)
+    if (typeof conditions.sortAsc === 'boolean') setSortAsc(conditions.sortAsc)
+    setPage(1)
+  }
+
   const [bulkBusy, setBulkBusy] = useState(false)
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
@@ -141,9 +149,12 @@ export function OrganizationListView() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or phone…" className="pl-9" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-sm flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or phone…" className="pl-9" />
+        </div>
+        <CrmSavedViews module="organizations" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
       </div>
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}

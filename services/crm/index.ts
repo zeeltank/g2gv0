@@ -22,9 +22,12 @@ import type {
   ConvertLeadPayload,
   ConvertLeadResponse,
   CrmBulkActionResponse,
+  CrmModule,
   CrmPicklistMap,
   CrmRecycleBinListResponse,
   CrmRecycleBinType,
+  CrmSavedViewListResponse,
+  CrmSavedViewResponse,
   Lead,
   LeadListQuery,
   LeadListResponse,
@@ -227,6 +230,16 @@ export const crmService = {
 
   forceDeleteRecycleBinItem: (context: LaravelContext, type: CrmRecycleBinType, id: string) =>
     apiClient.delete<{ status: number; message: string }>(`/crm/recycle-bin/${type}/${id}`, baseParams(context)),
+
+  // ── Saved Views (shared across all 4 modules) ──────────────────────
+  getSavedViews: (context: LaravelContext, module: CrmModule) =>
+    apiClient.get<CrmSavedViewListResponse>('/crm/saved-views', { ...baseParams(context), module }),
+
+  createSavedView: (context: LaravelContext, module: CrmModule, name: string, conditions: Record<string, unknown>) =>
+    apiClient.post<CrmSavedViewResponse>('/crm/saved-views', { module, name, conditions, ...baseParams(context) }),
+
+  deleteSavedView: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/saved-views/${id}`, baseParams(context)),
 }
 
 export type { Lead }
