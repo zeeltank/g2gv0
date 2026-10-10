@@ -33,6 +33,20 @@
   color: var(--foreground);
 }
 
+/* The day-name header row (Mon/Tue/...) sticks in place while the grid
+   scrolls underneath it (FullCalendar's own stickyHeaderDates: 'auto'),
+   but --fc-page-bg-color above is deliberately transparent - so the sticky
+   header itself had no opaque background, and whatever row of task chips
+   scrolled up past it showed through behind the day-name text instead of
+   being covered by it. A solid background on the header cells (matching
+   the Card this calendar already sits in) is all a sticky header needs;
+   the z-index just guards against a tie with the chips' own stacking
+   context on browsers that resolve sticky order differently. */
+.tm-calendar-grid .fc-col-header-cell {
+  background: var(--card);
+  z-index: 5;
+}
+
 .tm-calendar-grid .fc-day-today .fc-daygrid-day-number {
   display: inline-flex;
   align-items: center;
