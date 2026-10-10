@@ -1,13 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, Repeat } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { describePlatformError } from '@/lib/platform/client'
+import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
@@ -21,8 +24,8 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy'
-const TABS: Array<{ id: Tab; label: string }> = [
+type Tab = 'details' | 'hierarchy' | 'custom'
+const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'hierarchy', label: 'Hierarchy' },
 ]
@@ -94,6 +97,26 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [transferOpen, setTransferOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
+  const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
+  const [hasCustomFields, setHasCustomFields] = useState(false)
+  const [savingCustom, setSavingCustom] = useState(false)
+  const [customNotice, setCustomNotice] = useState<string | null>(null)
+
+  const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const saveCustomFields = async () => {
+    setSavingCustom(true)
+    setCustomNotice(null)
+    try {
+      await saveCustomFieldValues('crm_organizations', Number(organization.id), customValues)
+      setCustomNotice('Saved.')
+    } catch (cause: unknown) {
+      setCustomNotice(describePlatformError(cause, 'Could not save these fields.'))
+    } finally {
+      setSavingCustom(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -122,7 +145,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
       <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -178,6 +201,26 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
           <OrganizationHierarchy organizationId={organization.id} />
         </div>
       )}
+
+      {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
+      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
+        <CustomFieldsSection
+          recordTable="crm_organizations"
+          recordId={Number(organization.id)}
+          values={customValues}
+          onChange={setCustomValues}
+          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+        />
+        {hasCustomFields && (
+          <div className="flex items-center gap-3 pt-2">
+            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+              Save
+            </Button>
+            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+          </div>
+        )}
+      </div>
 
       <CreateOrganizationModal
         isOpen={editOpen}

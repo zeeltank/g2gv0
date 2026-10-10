@@ -84,6 +84,7 @@ export const MODULE_LANDING_HREF: Record<DecentralizedModuleKey, string> = {
   lms: '/module/lms',
   competency: '/module/capability-intelligence/dashboard',
   task: '/module/task-management',
+  crm: '/module/crm/marketing/leads',
 }
 
 /**
@@ -98,6 +99,7 @@ export const MODULE_LABEL: Record<DecentralizedModuleKey, string> = {
   lms: 'Learning',
   competency: 'Capability',
   task: 'Task management',
+  crm: 'CRM',
 }
 
 /**

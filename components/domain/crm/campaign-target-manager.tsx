@@ -3,11 +3,12 @@
 /**
  * A campaign's target-management UI - the one piece of this module with no
  * existing precedent to copy. Three sub-tabs (Leads / Contacts / Organizations),
- * each with a search box that adds every matching record in one action
+ * each with two ways to bulk-add every matching record in one action
  * (crmService.bulkAddCampaignTargets) rather than a one-at-a-time picker -
  * campaign targeting is usually "everyone whose company starts with Acme",
- * not a single record, so the bulk action is the common case and the only
- * one built here.
+ * not a single record, so bulk actions are the only ones built here: a
+ * free-text search, or a saved view (the same ones built for that module's
+ * own list screen - its stored search term becomes the filter here too).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -18,7 +19,7 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import type { CampaignTarget } from '@/types/crm'
+import type { CampaignTarget, CrmSavedView } from '@/types/crm'
 
 type TargetKind = 'leads' | 'contacts' | 'organizations'
 
@@ -53,6 +54,9 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [busyRowId, setBusyRowId] = useState<string | null>(null)
+  const [savedViews, setSavedViews] = useState<CrmSavedView[]>([])
+  const [selectedViewId, setSelectedViewId] = useState('')
+  const [addingFromView, setAddingFromView] = useState(false)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
@@ -75,6 +79,23 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
   const activeTab = TABS.find((t) => t.id === tab) ?? TABS[0]
   const rows = targets[tab]
 
+  const loadSavedViews = useCallback(async () => {
+    if (!isLaravelContextReady(context)) return
+    try {
+      const response = await crmService.getSavedViews(context, activeTab.id)
+      setSavedViews(response.data)
+    } catch {
+      /* the search box still works with an empty saved-views list */
+    }
+  }, [context, activeTab.id])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setSelectedViewId('')
+      void loadSavedViews()
+    })
+  }, [loadSavedViews])
+
   const addMatching = async () => {
     const query = search.trim()
     if (!query) return
@@ -82,13 +103,29 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
     setAdding(true)
     setError('')
     try {
-      await crmService.bulkAddCampaignTargets(context, campaignId, activeTab.singular, query)
+      await crmService.bulkAddCampaignTargets(context, campaignId, activeTab.singular, { search: query })
       setSearch('')
       await load()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to add matching records.')
     } finally {
       setAdding(false)
+    }
+  }
+
+  const addFromSavedView = async () => {
+    if (!selectedViewId) return
+    if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); return }
+    setAddingFromView(true)
+    setError('')
+    try {
+      await crmService.bulkAddCampaignTargets(context, campaignId, activeTab.singular, { savedViewId: selectedViewId })
+      setSelectedViewId('')
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to add from that saved view.')
+    } finally {
+      setAddingFromView(false)
     }
   }
 
@@ -155,6 +192,22 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
           {adding ? 'Adding…' : `Add all matching “${search.trim()}”`}
         </Button>
       </div>
+
+      {savedViews.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={selectedViewId}
+            onChange={setSelectedViewId}
+            options={savedViews.map((view) => ({ label: view.name, value: view.id }))}
+            placeholder="Add from a saved view…"
+            className="w-64"
+            aria-label="Saved view to add from"
+          />
+          <Button variant="outline" size="sm" disabled={addingFromView || !selectedViewId} onClick={() => void addFromSavedView()}>
+            {addingFromView ? 'Adding…' : 'Add all matching that view'}
+          </Button>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">

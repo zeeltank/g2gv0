@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
 import { gtmService, type GtmOverview } from '@/services/gtm/gtm'
+import { money } from './deals-view'
 import { EstimateTag, GtmPageHeader, MeasuredTag, StatTile, errMsg, useGtmReady } from './gtm-shared'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -16,8 +17,8 @@ const STAGE_LABEL: Record<string, string> = {
 /**
  * Command Center. Every number is read from the database through /api/gtm/overview.
  * "Measured" tiles are counts of rows; "AI estimate" tiles are model output and say so.
- * Deals, forecast and customer health arrive with their own phases - until then this page
- * shows what exists rather than zeros that look like results.
+ * Deal figures are counted from deal records, per currency. There is no forecast: it needs
+ * stage probabilities an organisation sets, and none are recorded.
  */
 export function CommandCenterView() {
   const ready = useGtmReady()
@@ -86,6 +87,18 @@ export function CommandCenterView() {
         </section>
       )}
 
+      {data.deals && (
+        <>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Deals</h2>
+          <section className="mb-6 grid gap-3 md:grid-cols-4">
+            <StatTile label="Open deals" value={data.deals.open_count} tag={<MeasuredTag />} hint={data.deals.open_count === 0 ? 'None yet — create one in Deals.' : undefined} />
+            <StatTile label="Open value" value={money(data.deals.open_value_by_currency)} tag={<MeasuredTag />} hint={data.deals.open_without_amount > 0 ? `${data.deals.open_without_amount} open deal(s) have no amount and are not counted.` : 'Shown per currency; never added across currencies.'} />
+            <StatTile label="Deals needing attention" value={data.deals.flagged_count} tag={<MeasuredTag />} tone={data.deals.flagged_count > 0 ? 'warn' : undefined} hint={`${data.deals.no_next_step_count} with no next step. Rule-based flags.`} />
+            <StatTile label="Won, last 30 days" value={data.deals.won_30d.count} tag={<MeasuredTag />} hint={`${money(data.deals.won_30d.value_by_currency)} · ${data.deals.lost_30d.count} lost`} />
+          </section>
+        </>
+      )}
+
       <h2 className="mb-3 text-sm font-semibold text-foreground">Buying signals</h2>
       <section className="mb-6 grid gap-3 md:grid-cols-4">
         <StatTile label="High-priority signals" value={hi} tag={<MeasuredTag />} />
@@ -113,7 +126,7 @@ export function CommandCenterView() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Pipeline value, forecast, win rate and customer health are not shown: deals and customers are not tracked yet, and no figure is invented in their place.{' '}
+        Forecast is not shown: it needs stage probabilities your organisation sets, and none are recorded. Renewal dates and customer health scores are not tracked yet either, so none are invented.{' '}
         <Link href="/gtm/prospecting" className="text-primary underline">Go to Prospecting</Link>
       </p>
     </div>

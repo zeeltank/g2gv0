@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Pencil, Repeat } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { describePlatformError } from '@/lib/platform/client'
+import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import type { Lead } from '@/types/crm'
 import { CreateLeadModal } from './create-lead-modal'
 import { ConvertLeadDialog } from './convert-lead-dialog'
@@ -19,8 +22,8 @@ interface Props {
   }
 }
 
-type Tab = 'details' | 'activity'
-const TABS: Array<{ id: Tab; label: string }> = [
+type Tab = 'details' | 'activity' | 'custom'
+const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'activity', label: 'Activity' },
 ]
@@ -39,6 +42,26 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
+  const [hasCustomFields, setHasCustomFields] = useState(false)
+  const [savingCustom, setSavingCustom] = useState(false)
+  const [customNotice, setCustomNotice] = useState<string | null>(null)
+
+  const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const saveCustomFields = async () => {
+    setSavingCustom(true)
+    setCustomNotice(null)
+    try {
+      await saveCustomFieldValues('crm_leads', Number(lead.id), customValues)
+      setCustomNotice('Saved.')
+    } catch (cause: unknown) {
+      setCustomNotice(describePlatformError(cause, 'Could not save these fields.'))
+    } finally {
+      setSavingCustom(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -82,7 +105,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       )}
 
       <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -141,6 +164,32 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
           Activity history isn’t built yet.
         </div>
       )}
+
+      {/*
+        Always mounted (hidden, not unmounted, when another tab is active) -
+        same reasoning as the Employee record / Leave request precedents this
+        is copied from: this is what populates hasCustomFields, which decides
+        whether the "Custom Fields" tab button appears at all, so it has to
+        run before that tab can be clicked.
+      */}
+      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
+        <CustomFieldsSection
+          recordTable="crm_leads"
+          recordId={Number(lead.id)}
+          values={customValues}
+          onChange={setCustomValues}
+          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+        />
+        {hasCustomFields && (
+          <div className="flex items-center gap-3 pt-2">
+            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+              Save
+            </Button>
+            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+          </div>
+        )}
+      </div>
 
       <CreateLeadModal
         isOpen={editOpen}

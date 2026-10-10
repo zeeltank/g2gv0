@@ -16,6 +16,32 @@ export interface CrmPicklistValue {
 /** `module` -> `field_key` -> ordered options, as returned by GET /crm/picklist-values. */
 export type CrmPicklistMap = Record<string, Record<string, CrmPicklistValue[]>>
 
+export interface CrmPicklistAdminRow {
+  id: string
+  module: CrmModule
+  fieldKey: string
+  value: string
+  label: string
+  sortOrder: number
+  isDefault: boolean
+  status: boolean
+}
+
+export interface CrmPicklistAdminResponse {
+  status: number
+  message: string
+  data: {
+    fieldKeys: Record<string, string[]>
+    rows: CrmPicklistAdminRow[]
+  }
+}
+
+export interface CrmPicklistValueResponse {
+  status: number
+  message: string
+  data: CrmPicklistAdminRow
+}
+
 export interface CrmPagination {
   current_page: number
   last_page: number
@@ -300,6 +326,110 @@ export interface CampaignListQuery {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   campaignStatus?: string
+}
+
+// ── Bulk actions (shared across all 4 modules) ───────────────────────────
+
+export interface CrmBulkResult {
+  id: string
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmBulkActionResponse {
+  status: number
+  message: string
+  data: {
+    results: CrmBulkResult[]
+    summary: { succeeded: number; failed: number }
+  }
+}
+
+/** The 4 CRM modules, by their list-view route segment. */
+export type CrmModule = 'leads' | 'contacts' | 'organizations' | 'campaigns'
+
+// ── Saved Views (shared across all 4 modules) ─────────────────────────────
+
+export interface CrmSavedView {
+  id: string
+  module: CrmModule
+  name: string
+  /** That module's own query-param shape (search/status filter/sortBy/sortDir) - opaque here, applied back by the list view that saved it. */
+  conditions: Record<string, unknown>
+  createdAt: string | null
+}
+
+export interface CrmSavedViewListResponse {
+  status: number
+  message: string
+  data: CrmSavedView[]
+}
+
+export interface CrmSavedViewResponse {
+  status: number
+  message: string
+  data: CrmSavedView
+}
+
+// ── Duplicate detection + merge (Leads, Contacts, Organizations only -
+// Campaigns aren't a "duplicate record" the way those 3 are) ─────────────
+
+export interface CrmDuplicateGroup {
+  key: string
+  reason: string
+  /** Shape varies per module (Lead/Contact/Organization) - read via getLabel/getSubLabel, not indexed directly. */
+  rows: Array<Record<string, unknown> & { id: string }>
+}
+
+export interface CrmDuplicateGroupsResponse {
+  status: number
+  message: string
+  data: CrmDuplicateGroup[]
+}
+
+export interface CrmMergeResponse {
+  status: number
+  message: string
+  data: { survivorId: string; merged: number }
+}
+
+// ── CSV import/export (shared across all 4 modules) ──────────────────────
+
+export interface CrmImportRowResult {
+  row: number
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmImportResponse {
+  status: number
+  message: string
+  data: {
+    created: number
+    results: CrmImportRowResult[]
+  }
+}
+
+// ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
+
+export type CrmRecycleBinType = CrmModule
+
+export interface CrmRecycleBinItem {
+  type: CrmRecycleBinType
+  id: string
+  name: string
+  subLabel: string | null
+  deletedAt: string
+  deletedBy: string | null
+}
+
+export interface CrmRecycleBinListResponse {
+  status: number
+  message: string
+  data: {
+    items: CrmRecycleBinItem[]
+    pagination: CrmPagination
+  }
 }
 
 /** One targeted lead/contact/organization row on a campaign - `targetRowId` identifies the join row itself (for remove/status updates), `targetId` the underlying lead/contact/organization. */

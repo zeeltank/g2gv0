@@ -67,7 +67,14 @@ import type {
  * waits. Saturday and Sunday are never swept into a copy-forward or an apply
  * unless they are ticked.
  */
-export function OfficeHoursTab() {
+export function OfficeHoursTab({
+  onProposalDecided,
+}: {
+  /** The page's tab-bar badge count - a separate `useOfficeHoursRequests()`
+   *  instance from the one `OfficeHoursProposals` owns, so it needs its own
+   *  nudge to refetch when a decision is made here. */
+  onProposalDecided?: () => void
+} = {}) {
   const {
     schedules, isLoading, isSaving, error, notice, setError, setNotice,
     save, preview, apply, refresh,
@@ -144,7 +151,12 @@ export function OfficeHoursTab() {
         * or nothing is waiting - the server answers 403 and the component is
         * silent, rather than gating itself on a role.
         */}
-      <OfficeHoursProposals onDecided={() => setProposalsNonce((value) => value + 1)} />
+      <OfficeHoursProposals
+        onDecided={() => {
+          setProposalsNonce((value) => value + 1)
+          onProposalDecided?.()
+        }}
+      />
 
       <Alert>
         <Clock className="size-4" />

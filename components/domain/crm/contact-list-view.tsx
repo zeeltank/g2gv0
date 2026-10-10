@@ -2,18 +2,45 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
+import { CrmBulkActionBar } from './crm-bulk-action-bar'
+import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
+import { CrmExportButton } from './crm-export-button'
+import { CrmImportDialog } from './crm-import-dialog'
+import { CrmRecycleBinLink } from './crm-recycle-bin-link'
+import { CrmSavedViews } from './crm-saved-views'
+import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'email' | 'title' | 'created_at'
+
+const CONTACT_IMPORT_HEADER_MAP: Record<string, string> = {
+  salutation: 'salutation', 'first name': 'firstName', 'last name': 'lastName',
+  title: 'title', department: 'department', email: 'email',
+  'secondary email': 'secondaryEmail', phone: 'phone', mobile: 'mobile',
+  'home phone': 'homePhone', birthday: 'birthday', 'lead source': 'leadSource',
+  'mailing street': 'mailingStreet', 'mailing city': 'mailingCity',
+  'mailing state': 'mailingState', 'mailing postal code': 'mailingCode',
+  'mailing country': 'mailingCountry', description: 'description',
+  'organization id': 'organizationId', 'assigned to (user id)': 'assignedTo', 'assigned to': 'assignedTo',
+}
+
+const CONTACT_TEMPLATE_HEADERS = [
+  'Salutation', 'First Name', 'Last Name', 'Title', 'Department', 'Email', 'Secondary Email',
+  'Phone', 'Mobile', 'Home Phone', 'Birthday', 'Lead Source', 'Mailing Street', 'Mailing City',
+  'Mailing State', 'Mailing Postal Code', 'Mailing Country', 'Description', 'Organization ID',
+  'Assigned To (user id)',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -37,6 +64,7 @@ export function ContactListView() {
   const context = useMemo(() => getLaravelContext(), [])
 
   const [contacts, setContacts] = useState<Contact[]>([])
+  const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(contacts)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -46,12 +74,15 @@ export function ContactListView() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }>({ salutation: [], leadSource: [] })
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
     setIsLoading(true)
     setError('')
+    clearSelection()
     try {
       const response = await crmService.getContacts(context, {
         page, perPage: PAGE_SIZE, search: search || undefined,
@@ -64,7 +95,7 @@ export function ContactListView() {
     } finally {
       setIsLoading(false)
     }
-  }, [context, page, search, sortKey, sortAsc])
+  }, [context, page, search, sortKey, sortAsc, clearSelection])
 
   useEffect(() => {
     queueMicrotask(() => { void load() })
@@ -86,6 +117,45 @@ export function ContactListView() {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const handleApplyView = (conditions: Record<string, unknown>) => {
+    if (typeof conditions.search === 'string') setSearch(conditions.search)
+    if (typeof conditions.sortKey === 'string') setSortKey(conditions.sortKey as SortKey)
+    if (typeof conditions.sortAsc === 'boolean') setSortAsc(conditions.sortAsc)
+    setPage(1)
+  }
+
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const employees = useAssignableEmployees(context, selectedIds.size > 0)
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}? This moves them to the Recycle Bin.`)) return
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkDeleteContacts(context, Array.from(selectedIds))
+      setNotice(crmBulkResultMessage('Deleted', 'contact', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected contacts.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const handleBulkReassign = async (assigneeId: string) => {
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkAssignContacts(context, Array.from(selectedIds), assigneeId)
+      setNotice(crmBulkResultMessage('Reassigned', 'contact', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reassign the selected contacts.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -93,15 +163,30 @@ export function ContactListView() {
           <h1 className="text-xl font-semibold text-foreground">Contacts</h1>
           <p className="text-sm text-muted-foreground">People at the organizations you work with.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="mr-1.5 size-4" aria-hidden="true" />
-          Add Contact
-        </Button>
+        <div className="flex items-center gap-2">
+          <CrmRecycleBinLink />
+          <CrmExportButton href={crmService.contactsExportUrl(context, search || undefined)} />
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+            Import
+          </Button>
+          <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+            <Copy className="mr-1.5 size-4" aria-hidden="true" />
+            Find Duplicates
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="mr-1.5 size-4" aria-hidden="true" />
+            Add Contact
+          </Button>
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or organization…" className="pl-9" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-sm flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or organization…" className="pl-9" />
+        </div>
+        <CrmSavedViews module="contacts" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
       </div>
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
@@ -111,6 +196,14 @@ export function ContactListView() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all contacts on this page"
+                  checked={allSelected}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                />
+              </TableHead>
               <SortHead label="First Name" sortKey="first_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Last Name" sortKey="last_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Title" sortKey="title" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/contacts:table-cell" />
@@ -121,17 +214,25 @@ export function ContactListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading contacts…
               </TableCell></TableRow>
             )}
             {!isLoading && contacts.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 No contacts yet. Click “Add Contact” to create one.
               </TableCell></TableRow>
             )}
             {!isLoading && contacts.map((contact) => (
               <TableRow key={contact.id} className="cursor-pointer" onClick={() => router.push(resolveAccessLink('/module/crm/marketing/contacts') + `/${contact.id}`)}>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${contact.firstName ?? ''} ${contact.lastName}`.trim()}
+                    checked={selectedIds.has(contact.id)}
+                    onChange={() => toggle(contact.id)}
+                  />
+                </TableCell>
                 <TableCell>{contact.firstName || '—'}</TableCell>
                 <TableCell className="font-medium text-foreground">{contact.lastName}</TableCell>
                 <TableCell className="hidden @md/contacts:table-cell">{contact.title || '—'}</TableCell>
@@ -159,6 +260,37 @@ export function ContactListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         contact={null}
         picklists={picklists}
+      />
+
+      <CrmDuplicatesDialog
+        isOpen={duplicatesOpen}
+        onClose={() => setDuplicatesOpen(false)}
+        noun="contact"
+        getDuplicates={crmService.getContactDuplicates}
+        merge={crmService.mergeContacts}
+        getLabel={(row) => [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed'}
+        getSubLabel={(row) => (row.organizationName as string | null) ?? (row.email as string | null)}
+        onMerged={() => void load()}
+      />
+
+      <CrmImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        noun="contact"
+        headerMap={CONTACT_IMPORT_HEADER_MAP}
+        templateHeaders={CONTACT_TEMPLATE_HEADERS}
+        templateFilename="contacts-template.csv"
+        submitImport={crmService.importContacts}
+        onImported={() => void load()}
+      />
+
+      <CrmBulkActionBar
+        count={selectedIds.size}
+        busy={bulkBusy}
+        people={employees.map((e) => ({ value: e.id, label: e.name }))}
+        onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
+        onDelete={() => void handleBulkDelete()}
+        onClear={clearSelection}
       />
     </div>
   )
