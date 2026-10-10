@@ -26,7 +26,9 @@ import type {
   CrmImportResponse,
   CrmMergeResponse,
   CrmModule,
+  CrmPicklistAdminResponse,
   CrmPicklistMap,
+  CrmPicklistValueResponse,
   CrmRecycleBinListResponse,
   CrmRecycleBinType,
   CrmSavedViewListResponse,
@@ -53,6 +55,19 @@ export const crmService = {
       ...baseParams(context),
       ...(module ? { module } : {}),
     }),
+
+  getPicklistAdmin: (context: LaravelContext) =>
+    apiClient.get<CrmPicklistAdminResponse>('/crm/picklist-values/admin', baseParams(context)),
+
+  createPicklistValue: (context: LaravelContext, payload: {
+    module: CrmModule; fieldKey: string; value: string; label: string; sortOrder?: number; isDefault?: boolean
+  }) =>
+    apiClient.post<CrmPicklistValueResponse>('/crm/picklist-values', { ...payload, ...baseParams(context) }),
+
+  updatePicklistValue: (context: LaravelContext, id: string, payload: Partial<{
+    label: string; sortOrder: number; isDefault: boolean; status: boolean
+  }>) =>
+    apiClient.put<CrmPicklistValueResponse>(`/crm/picklist-values/${id}`, { ...payload, ...baseParams(context) }),
 
   // ── Leads ──────────────────────────────────────────────────────────
   getLeads: (context: LaravelContext, query: LeadListQuery = {}) =>

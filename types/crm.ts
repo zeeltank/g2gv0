@@ -16,6 +16,32 @@ export interface CrmPicklistValue {
 /** `module` -> `field_key` -> ordered options, as returned by GET /crm/picklist-values. */
 export type CrmPicklistMap = Record<string, Record<string, CrmPicklistValue[]>>
 
+export interface CrmPicklistAdminRow {
+  id: string
+  module: CrmModule
+  fieldKey: string
+  value: string
+  label: string
+  sortOrder: number
+  isDefault: boolean
+  status: boolean
+}
+
+export interface CrmPicklistAdminResponse {
+  status: number
+  message: string
+  data: {
+    fieldKeys: Record<string, string[]>
+    rows: CrmPicklistAdminRow[]
+  }
+}
+
+export interface CrmPicklistValueResponse {
+  status: number
+  message: string
+  data: CrmPicklistAdminRow
+}
+
 export interface CrmPagination {
   current_page: number
   last_page: number
