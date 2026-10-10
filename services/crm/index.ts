@@ -24,15 +24,41 @@ import type {
   CrmBulkActionResponse,
   CrmDuplicateGroupsResponse,
   CrmImportResponse,
+  CrmItemType,
   CrmMergeResponse,
   CrmModule,
+  CrmOpportunityContactsResponse,
+  CrmOpportunityListQuery,
+  CrmOpportunityListResponse,
+  CrmOpportunityPayload,
+  CrmOpportunityPipelineResponse,
+  CrmOpportunityProductsResponse,
+  CrmOpportunityResponse,
+  CrmOpportunityStageChangePayload,
+  CrmOpportunityStageHistoryResponse,
   CrmPicklistAdminResponse,
   CrmPicklistMap,
   CrmPicklistValueResponse,
+  CrmProductListQuery,
+  CrmProductListResponse,
+  CrmProductPayload,
+  CrmProductResponse,
+  CrmQuoteLineItemInput,
+  CrmQuoteLineItemsResponse,
+  CrmQuoteListQuery,
+  CrmQuoteListResponse,
+  CrmQuotePayload,
+  CrmQuoteResponse,
   CrmRecycleBinListResponse,
   CrmRecycleBinType,
   CrmSavedViewListResponse,
   CrmSavedViewResponse,
+  CrmSendSmsPayload,
+  CrmSendSmsResponse,
+  CrmSmsLogListResponse,
+  CrmTaxRateListResponse,
+  CrmTaxRatePayload,
+  CrmTaxRateResponse,
   Lead,
   LeadListQuery,
   LeadListResponse,
@@ -309,6 +335,193 @@ export const crmService = {
 
   deleteSavedView: (context: LaravelContext, id: string) =>
     apiClient.delete<{ status: number; message: string }>(`/crm/saved-views/${id}`, baseParams(context)),
+
+  // ── Tax Rates (shared by Products and Quote line items) ────────────
+  getTaxRates: (context: LaravelContext) =>
+    apiClient.get<CrmTaxRateListResponse>('/crm/tax-rates', baseParams(context)),
+
+  createTaxRate: (context: LaravelContext, payload: CrmTaxRatePayload) =>
+    apiClient.post<CrmTaxRateResponse>('/crm/tax-rates', { ...payload, ...baseParams(context) }),
+
+  updateTaxRate: (context: LaravelContext, id: string, payload: CrmTaxRatePayload) =>
+    apiClient.put<CrmTaxRateResponse>(`/crm/tax-rates/${id}`, { ...payload, ...baseParams(context) }),
+
+  // ── Products & Services (one table, item_type discriminates) ───────
+  getProducts: (context: LaravelContext, itemType: CrmItemType, query: CrmProductListQuery = {}) =>
+    apiClient.get<CrmProductListResponse>('/crm/products', {
+      ...baseParams(context),
+      itemType,
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.category ? { category: query.category } : {}),
+    }),
+
+  getProduct: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmProductResponse>(`/crm/products/${id}`, baseParams(context)),
+
+  createProduct: (context: LaravelContext, payload: CrmProductPayload) =>
+    apiClient.post<CrmProductResponse>('/crm/products', { ...payload, ...baseParams(context) }),
+
+  updateProduct: (context: LaravelContext, id: string, payload: CrmProductPayload) =>
+    apiClient.put<CrmProductResponse>(`/crm/products/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteProduct: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/products/${id}`, baseParams(context)),
+
+  bulkDeleteProducts: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/products/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignProducts: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/products/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getProductDuplicates: (context: LaravelContext, itemType: CrmItemType) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/products/duplicates', { ...baseParams(context), itemType }),
+
+  mergeProducts: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/products/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  productsExportUrl: (context: LaravelContext, itemType: CrmItemType, search?: string) =>
+    buildApiUrl('/crm/products/export', { ...baseParams(context), itemType, ...(search ? { search } : {}) }),
+
+  importProducts: (context: LaravelContext, itemType: CrmItemType, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/products/import', { itemType, rows, ...baseParams(context) }),
+
+  // ── Opportunities ────────────────────────────────────────────────────
+  getOpportunities: (context: LaravelContext, query: CrmOpportunityListQuery = {}) =>
+    apiClient.get<CrmOpportunityListResponse>('/crm/opportunities', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.salesStage ? { sales_stage: query.salesStage } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+    }),
+
+  getOpportunityPipeline: (context: LaravelContext) =>
+    apiClient.get<CrmOpportunityPipelineResponse>('/crm/opportunities/pipeline', baseParams(context)),
+
+  getOpportunity: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmOpportunityResponse>(`/crm/opportunities/${id}`, baseParams(context)),
+
+  createOpportunity: (context: LaravelContext, payload: CrmOpportunityPayload) =>
+    apiClient.post<CrmOpportunityResponse>('/crm/opportunities', { ...payload, ...baseParams(context) }),
+
+  updateOpportunity: (context: LaravelContext, id: string, payload: CrmOpportunityPayload) =>
+    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteOpportunity: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/opportunities/${id}`, baseParams(context)),
+
+  changeOpportunityStage: (context: LaravelContext, id: string, payload: CrmOpportunityStageChangePayload) =>
+    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}/stage`, { ...payload, ...baseParams(context) }),
+
+  getOpportunityStageHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmOpportunityStageHistoryResponse>(`/crm/opportunities/${id}/stage-history`, baseParams(context)),
+
+  getOpportunityContacts: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmOpportunityContactsResponse>(`/crm/opportunities/${id}/contacts`, baseParams(context)),
+
+  addOpportunityContact: (context: LaravelContext, id: string, contactId: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/opportunities/${id}/contacts`, {
+      contactId, ...baseParams(context),
+    }),
+
+  removeOpportunityContact: (context: LaravelContext, id: string, rowId: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/opportunities/${id}/contacts/${rowId}`, baseParams(context)),
+
+  getOpportunityProducts: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmOpportunityProductsResponse>(`/crm/opportunities/${id}/products`, baseParams(context)),
+
+  addOpportunityProduct: (context: LaravelContext, id: string, productId: string, quantity: number) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/opportunities/${id}/products`, {
+      productId, quantity, ...baseParams(context),
+    }),
+
+  removeOpportunityProduct: (context: LaravelContext, id: string, rowId: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/opportunities/${id}/products/${rowId}`, baseParams(context)),
+
+  bulkDeleteOpportunities: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/opportunities/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignOpportunities: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/opportunities/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  opportunitiesExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/opportunities/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importOpportunities: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/opportunities/import', { rows, ...baseParams(context) }),
+
+  // ── Quotes ───────────────────────────────────────────────────────────
+  getQuotes: (context: LaravelContext, query: CrmQuoteListQuery = {}) =>
+    apiClient.get<CrmQuoteListResponse>('/crm/quotes', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.quoteStage ? { quote_stage: query.quoteStage } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+    }),
+
+  getQuote: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmQuoteResponse>(`/crm/quotes/${id}`, baseParams(context)),
+
+  createQuote: (context: LaravelContext, payload: CrmQuotePayload) =>
+    apiClient.post<CrmQuoteResponse>('/crm/quotes', { ...payload, ...baseParams(context) }),
+
+  updateQuote: (context: LaravelContext, id: string, payload: CrmQuotePayload) =>
+    apiClient.put<CrmQuoteResponse>(`/crm/quotes/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteQuote: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/quotes/${id}`, baseParams(context)),
+
+  /** Replaces the whole line-item set and returns the quote with server-recomputed totals - never a per-line endpoint. */
+  saveQuoteLineItems: (context: LaravelContext, id: string, lineItems: CrmQuoteLineItemInput[]) =>
+    apiClient.put<CrmQuoteResponse>(`/crm/quotes/${id}/line-items`, { lineItems, ...baseParams(context) }),
+
+  getQuoteLineItems: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmQuoteLineItemsResponse>(`/crm/quotes/${id}/line-items`, baseParams(context)),
+
+  downloadQuotePdf: (context: LaravelContext, id: string): Promise<Blob> =>
+    apiClient.getBlob(`/crm/quotes/${id}/pdf`, baseParams(context)),
+
+  bulkDeleteQuotes: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/quotes/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignQuotes: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/quotes/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  quotesExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/quotes/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importQuotes: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/quotes/import', { rows, ...baseParams(context) }),
+
+  // ── SMS Notifier ─────────────────────────────────────────────────────
+  getSmsLog: (context: LaravelContext, query: { page?: number; perPage?: number } = {}) =>
+    apiClient.get<CrmSmsLogListResponse>('/crm/sms-log', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+    }),
+
+  sendSms: (context: LaravelContext, payload: CrmSendSmsPayload) =>
+    apiClient.post<CrmSendSmsResponse>('/crm/sms-log/send', { ...payload, ...baseParams(context) }),
 }
 
 export type { Lead }

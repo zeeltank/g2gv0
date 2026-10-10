@@ -345,8 +345,20 @@ export interface CrmBulkActionResponse {
   }
 }
 
-/** The 4 CRM modules, by their list-view route segment. */
-export type CrmModule = 'leads' | 'contacts' | 'organizations' | 'campaigns'
+/**
+ * The 8 CRM modules, by their list-view route segment. 'products' and
+ * 'services' are two routes/menu rights over the same `crm_products` table
+ * (see CrmProduct's own `itemType`) - deliberately still two CrmModule
+ * values, since Recycle Bin/Saved Views/bulk-rights all scope by module.
+ *
+ * SMS Notifier is NOT a CrmModule - it has no detail page, no Recycle Bin
+ * entry (crm_sms_log is an append-only log, never soft-deleted), and no
+ * duplicate-detection/merge/export-import surface the other 8 share. Its
+ * own list screen is typed independently in Phase 4.
+ */
+export type CrmModule =
+  | 'leads' | 'contacts' | 'organizations' | 'campaigns'
+  | 'opportunities' | 'quotes' | 'products' | 'services'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
 
@@ -449,4 +461,351 @@ export interface CampaignTargetsResponse {
     contacts: CampaignTarget[]
     organizations: CampaignTarget[]
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CRM Sales - Opportunities, Quotes, Products & Services, SMS Notifier.
+//
+// Named `CrmOpportunity`/`CrmQuote`/`CrmProduct`, never a bare `Opportunity`/
+// `Quote`/`Product` - `services/signals/opportunities.ts` already exports a
+// bare `Opportunity` (an unrelated AI buying-signal feature), and GTM's own
+// `ACCOUNT_STAGES` includes the literal string 'opportunity'. Namespacing
+// here avoids both collisions.
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface CrmTaxRate {
+  id: string
+  name: string
+  percentage: number
+  isDefault: boolean
+  isActive: boolean
+}
+
+export type CrmTaxRatePayload = Partial<Omit<CrmTaxRate, 'id'>>
+
+export interface CrmTaxRateListResponse {
+  status: number
+  message: string
+  data: CrmTaxRate[]
+}
+
+export interface CrmTaxRateResponse {
+  status: number
+  message: string
+  data: CrmTaxRate
+}
+
+// ── Products & Services (one table, two routes - see CrmModule) ──────────
+
+export type CrmItemType = 'product' | 'service'
+
+export interface CrmProduct {
+  id: string
+  itemType: CrmItemType
+  productNo: string | null
+  name: string
+  sku: string | null
+  category: string | null
+  description: string | null
+  unitPrice: number | null
+  costPrice: number | null
+  currency: string | null
+  taxRateId: string | null
+  taxRateName: string | null
+  isActive: boolean
+  /** Product-only - always null for a service row. */
+  vendor: string | null
+  qtyInStock: number | null
+  reorderLevel: number | null
+  weight: number | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmProductPayload = Partial<
+  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+>
+
+export interface CrmProductListResponse {
+  status: number
+  message: string
+  data: { items: CrmProduct[]; pagination: CrmPagination }
+}
+
+export interface CrmProductResponse {
+  status: number
+  message: string
+  data: CrmProduct
+}
+
+export interface CrmProductListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  category?: string
+}
+
+// ── Opportunities ──────────────────────────────────────────────────────────
+
+export interface CrmOpportunity {
+  id: string
+  opportunityNo: string | null
+  name: string
+  organizationId: string | null
+  organizationName: string | null
+  campaignId: string | null
+  campaignName: string | null
+  amount: number | null
+  currency: string | null
+  closingDate: string | null
+  salesStage: string | null
+  probability: number | null
+  /** Computed server-side (amount x probability / 100) - never sent in a payload. */
+  weightedRevenue: number | null
+  leadSource: string | null
+  potentialType: string | null
+  nextStep: string | null
+  forecastCategory: string | null
+  description: string | null
+  convertedFromGtmDealId: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmOpportunityPayload = Partial<
+  Omit<
+    CrmOpportunity,
+    'id' | 'opportunityNo' | 'organizationName' | 'campaignName' | 'weightedRevenue'
+    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmOpportunityListResponse {
+  status: number
+  message: string
+  data: { items: CrmOpportunity[]; pagination: CrmPagination }
+}
+
+export interface CrmOpportunityResponse {
+  status: number
+  message: string
+  data: CrmOpportunity
+}
+
+export interface CrmOpportunityListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  salesStage?: string
+  organizationId?: string
+}
+
+/** Stage-bucketed counts/values for the kanban board - mirrors GTM's own DealController::pipeline() shape. */
+export interface CrmOpportunityPipelineResponse {
+  status: number
+  message: string
+  data: {
+    stages: Array<{
+      stage: string
+      label: string
+      color: string | null
+      count: number
+      totalAmount: number
+    }>
+  }
+}
+
+export interface CrmOpportunityStageChangePayload {
+  salesStage: string
+  amount?: number | null
+  probability?: number | null
+  closingDate?: string | null
+}
+
+export interface CrmOpportunityStageHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  amount: number | null
+  probability: number | null
+  closingDate: string | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmOpportunityStageHistoryResponse {
+  status: number
+  message: string
+  data: CrmOpportunityStageHistoryEntry[]
+}
+
+/** A Contact linked to an Opportunity - `id` is the junction row (crm_opportunity_contacts), for removal. */
+export interface CrmOpportunityContact {
+  id: string
+  contactId: string
+  name: string
+  subLabel: string | null
+}
+
+export interface CrmOpportunityContactsResponse {
+  status: number
+  message: string
+  data: CrmOpportunityContact[]
+}
+
+/** A Product/Service tagged as "interested" on an Opportunity - unpriced, NOT a line item. `id` is the junction row (crm_opportunity_products). */
+export interface CrmOpportunityProduct {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  quantity: number
+}
+
+export interface CrmOpportunityProductsResponse {
+  status: number
+  message: string
+  data: CrmOpportunityProduct[]
+}
+
+// ── Quotes ─────────────────────────────────────────────────────────────────
+
+export interface CrmQuote {
+  id: string
+  quoteNo: string | null
+  subject: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  opportunityId: string | null
+  opportunityName: string | null
+  quoteStage: string | null
+  validTill: string | null
+  currency: string | null
+  subtotal: number
+  discountPercent: number | null
+  discountAmount: number
+  shippingHandlingAmount: number
+  adjustment: number
+  taxTotal: number
+  /** Server-authoritative - recomputed from line items on every save, never trusted from the client. */
+  total: number
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  termsConditions: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmQuotePayload = Partial<
+  Omit<
+    CrmQuote,
+    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName'
+    | 'subtotal' | 'discountAmount' | 'shippingHandlingAmount' | 'adjustment' | 'taxTotal' | 'total'
+    | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmQuoteListResponse {
+  status: number
+  message: string
+  data: { items: CrmQuote[]; pagination: CrmPagination }
+}
+
+export interface CrmQuoteResponse {
+  status: number
+  message: string
+  data: CrmQuote
+}
+
+export interface CrmQuoteListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  quoteStage?: string
+  organizationId?: string
+}
+
+export interface CrmQuoteLineItem {
+  id: string
+  productId: string | null
+  description: string | null
+  quantity: number
+  unitPrice: number
+  discountPercent: number | null
+  discountAmount: number | null
+  taxRateId: string | null
+  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved quote's total. */
+  taxNameSnapshot: string | null
+  taxPercentSnapshot: number | null
+  lineTotal: number
+  sequenceNo: number
+}
+
+/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. */
+export type CrmQuoteLineItemInput = Omit<CrmQuoteLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
+
+export interface CrmQuoteLineItemsResponse {
+  status: number
+  message: string
+  data: CrmQuoteLineItem[]
+}
+
+// ── SMS Notifier ───────────────────────────────────────────────────────────
+
+export type CrmSmsStatus = 'queued' | 'sent' | 'failed'
+
+export interface CrmSmsLogEntry {
+  id: string
+  toNumber: string
+  message: string
+  status: CrmSmsStatus
+  errorReason: string | null
+  relatedType: string | null
+  relatedId: string | null
+  sentBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmSmsLogListResponse {
+  status: number
+  message: string
+  data: { items: CrmSmsLogEntry[]; pagination: CrmPagination }
+}
+
+export interface CrmSendSmsPayload {
+  toNumber: string
+  message: string
+  relatedType?: string
+  relatedId?: string
+}
+
+export interface CrmSendSmsResponse {
+  status: number
+  message: string
+  data: CrmSmsLogEntry
 }
