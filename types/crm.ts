@@ -719,11 +719,17 @@ export interface CrmQuote {
   updatedAt: string | null
 }
 
+/**
+ * shippingHandlingAmount/adjustment ARE genuine inputs (CrmQuoteController's
+ * own payload() mapper accepts both) - only subtotal/discountAmount/taxTotal/
+ * total are server-computed outputs, recomputed from line items on every
+ * save and never accepted from the client.
+ */
 export type CrmQuotePayload = Partial<
   Omit<
     CrmQuote,
     'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName'
-    | 'subtotal' | 'discountAmount' | 'shippingHandlingAmount' | 'adjustment' | 'taxTotal' | 'total'
+    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
     | 'createdAt' | 'updatedAt' | 'createdBy'
   >
 >
@@ -748,6 +754,7 @@ export interface CrmQuoteListQuery {
   sortDir?: 'asc' | 'desc'
   quoteStage?: string
   organizationId?: string
+  opportunityId?: string
 }
 
 export interface CrmQuoteLineItem {

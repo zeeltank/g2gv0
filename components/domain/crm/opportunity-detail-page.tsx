@@ -14,8 +14,9 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmPicklistValue } from '@/types/crm'
+import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateOpportunityModal } from './create-opportunity-modal'
+import { CreateQuoteModal } from './create-quote-modal'
 import { useAssignableEmployees } from './lead-employees'
 
 interface Props {
@@ -25,11 +26,12 @@ interface Props {
   picklists: { salesStage: CrmPicklistValue[]; leadSource: CrmPicklistValue[]; potentialType: CrmPicklistValue[]; forecastCategory: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'contacts' | 'products' | 'custom'
+type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'products', label: 'Products & Services' },
+  { id: 'quotes', label: 'Quotes' },
 ]
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -176,6 +178,11 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
   const [productsLoading, setProductsLoading] = useState(true)
   const [addProductOpen, setAddProductOpen] = useState(false)
 
+  const [quotes, setQuotes] = useState<CrmQuote[]>([])
+  const [quotesLoading, setQuotesLoading] = useState(true)
+  const [createQuoteOpen, setCreateQuoteOpen] = useState(false)
+  const [quoteStages, setQuoteStages] = useState<CrmPicklistValue[]>([])
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -207,9 +214,28 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
     }
   }, [context, opportunity.id])
 
+  const loadQuotes = useCallback(async () => {
+    setQuotesLoading(true)
+    try {
+      const response = await crmService.getQuotes(context, { opportunityId: opportunity.id, perPage: 50 })
+      setQuotes(response.data.items)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setQuotesLoading(false)
+    }
+  }, [context, opportunity.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadContacts(); void loadProducts() })
-  }, [loadContacts, loadProducts])
+    queueMicrotask(() => { void loadContacts(); void loadProducts(); void loadQuotes() })
+  }, [loadContacts, loadProducts, loadQuotes])
+
+  useEffect(() => {
+    if (!isLaravelContextReady(context)) return
+    crmService.getPicklistValues(context, 'quotes')
+      .then((response) => setQuoteStages(response.data.quotes?.quote_stage ?? []))
+      .catch(() => { /* the New Quote modal still works with an empty stage dropdown */ })
+  }, [context])
 
   const removeContact = async (rowId: string) => {
     try {
@@ -387,6 +413,45 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
         </div>
       )}
 
+      {tab === 'quotes' && (
+        <div className="space-y-3 rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Quotes</h2>
+            <Button size="sm" variant="outline" onClick={() => setCreateQuoteOpen(true)}>
+              <Plus className="mr-1.5 size-4" aria-hidden="true" />
+              New Quote
+            </Button>
+          </div>
+          {quotesLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading quotes…
+            </div>
+          )}
+          {!quotesLoading && quotes.length === 0 && <p className="py-6 text-sm text-muted-foreground">No quotes yet for this opportunity.</p>}
+          {!quotesLoading && quotes.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {quotes.map((quote) => (
+                <button
+                  key={quote.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/sales/quotes') + `/${quote.id}`)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{quote.subject}</p>
+                    <p className="truncate text-xs text-muted-foreground">{quote.quoteStage || 'Draft'} · {quote.quoteNo}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium text-foreground">
+                    {quote.currency} {quote.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
         <CustomFieldsSection
@@ -416,6 +481,14 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       />
       <AddContactDialog isOpen={addContactOpen} onClose={() => setAddContactOpen(false)} onAdded={loadContacts} opportunityId={opportunity.id} />
       <AddProductDialog isOpen={addProductOpen} onClose={() => setAddProductOpen(false)} onAdded={loadProducts} opportunityId={opportunity.id} />
+      <CreateQuoteModal
+        isOpen={createQuoteOpen}
+        onClose={() => setCreateQuoteOpen(false)}
+        onSaved={(message) => { setNotice(message); setCreateQuoteOpen(false); void loadQuotes() }}
+        quote={null}
+        prefill={{ organizationId: opportunity.organizationId, opportunityId: opportunity.id }}
+        quoteStages={quoteStages}
+      />
     </div>
   )
 }

@@ -340,6 +340,10 @@ export const crmService = {
   getTaxRates: (context: LaravelContext) =>
     apiClient.get<CrmTaxRateListResponse>('/crm/tax-rates', baseParams(context)),
 
+  /** Every rate, active or not - the admin screen needs the inactive ones too, to let them be reactivated. Gated on the Quotes right server-side. */
+  getTaxRatesAdmin: (context: LaravelContext) =>
+    apiClient.get<CrmTaxRateListResponse>('/crm/tax-rates/admin', baseParams(context)),
+
   createTaxRate: (context: LaravelContext, payload: CrmTaxRatePayload) =>
     apiClient.post<CrmTaxRateResponse>('/crm/tax-rates', { ...payload, ...baseParams(context) }),
 
@@ -474,6 +478,7 @@ export const crmService = {
       ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
       ...(query.quoteStage ? { quote_stage: query.quoteStage } : {}),
       ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.opportunityId ? { opportunity_id: query.opportunityId } : {}),
     }),
 
   getQuote: (context: LaravelContext, id: string) =>

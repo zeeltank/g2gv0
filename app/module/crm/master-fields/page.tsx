@@ -20,6 +20,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { Button } from '@/components/ui/button'
 import { CrmPicklistAdmin } from '@/domain/crm/crm-picklist-admin'
+import { CrmTaxRateAdmin } from '@/domain/crm/crm-tax-rate-admin'
 
 const MASTER_FIELDS_ACTIVE_NAV = { moduleId: '199', menuId: '200', submenuId: '201' }
 
@@ -29,7 +30,7 @@ const breadcrumbItems = [
   { label: 'Master Fields' },
 ]
 
-type Tab = 'picklists' | 'custom'
+type Tab = 'picklists' | 'tax-rates' | 'custom'
 
 export default function CrmMasterFieldsRoute() {
   const [tab, setTab] = useState<Tab>('picklists')
@@ -43,12 +44,13 @@ export default function CrmMasterFieldsRoute() {
           <div className="space-y-4 p-4 sm:p-6">
             <div>
               <h1 className="text-xl font-semibold text-foreground">Master Fields</h1>
-              <p className="text-sm text-muted-foreground">Picklist values and custom fields for Leads, Contacts, Organizations, and Campaigns.</p>
+              <p className="text-sm text-muted-foreground">Picklist values, tax rates, and custom fields shared across every CRM module.</p>
             </div>
 
             <div className="flex gap-1 border-b border-border">
               {([
                 { id: 'picklists' as const, label: 'Picklist Values' },
+                { id: 'tax-rates' as const, label: 'Tax Rates' },
                 { id: 'custom' as const, label: 'Custom Fields' },
               ]).map((t) => (
                 <button
@@ -63,6 +65,8 @@ export default function CrmMasterFieldsRoute() {
             </div>
 
             {tab === 'picklists' && <CrmPicklistAdmin />}
+
+            {tab === 'tax-rates' && <CrmTaxRateAdmin />}
 
             {tab === 'custom' && (
               <div className="space-y-3 rounded-lg border border-dashed border-border p-10 text-center">
