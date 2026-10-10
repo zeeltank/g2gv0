@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Copy, Minus } from 'lucide-react'
+import { Building2, Copy, Minus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -80,11 +80,16 @@ export function DepartmentTemplateCompare({
 
   if (!template || template.length === 0) {
     return (
-      <aside className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          {departmentName ?? 'Your department'}
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
+      <aside className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">
+            {departmentName ?? 'Your department'}
+          </h3>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           No hours have been set for your department, so there is nothing to compare against.
           What you enter stands on its own.
         </p>
@@ -93,16 +98,21 @@ export function DepartmentTemplateCompare({
   }
 
   return (
-    <aside className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">
-          {departmentName ?? 'Your department'}&apos;s hours
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {differences === 0
-            ? 'Your week matches it exactly.'
-            : `You differ on ${differences} ${differences === 1 ? 'day' : 'days'}.`}
-        </p>
+    <aside className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Building2 className="size-4 text-primary" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            {departmentName ?? 'Your department'}&apos;s hours
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {differences === 0
+              ? 'Your week matches it exactly.'
+              : `You differ on ${differences} ${differences === 1 ? 'day' : 'days'}.`}
+          </p>
+        </div>
       </div>
 
       <ul className="flex flex-col gap-1">

@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { Pencil } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import {
@@ -252,15 +251,21 @@ export function AttendanceDayTile({
         />
       )}
 
-      {/* Changed by HR. A filled disc rather than a bare glyph, so it is still
-          findable at 28px. */}
+      {/*
+        * Changed by HR - a plain corner dot, not a pencil.
+        *
+        * A glyph at this scale (28px cell, originally a 12px square icon
+        * tile) read as clutter rather than information - the metadata was
+        * competing with the duration/status it sits on top of. The dot
+        * carries the same fact with none of that: it is still its own
+        * colour and still announced in `describeDay()`, just without a
+        * shape fighting for attention in the corner of every edited cell.
+        */}
       {cell.edited && (
         <span
           aria-hidden="true"
-          className="absolute right-0 top-0 flex size-3 items-center justify-center rounded-bl bg-primary/85"
-        >
-          <Pencil className="size-2 text-primary-foreground" />
-        </span>
+          className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary ring-1 ring-card"
+        />
       )}
     </Element>
   )

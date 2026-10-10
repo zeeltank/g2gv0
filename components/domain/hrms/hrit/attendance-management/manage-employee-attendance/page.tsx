@@ -11,10 +11,10 @@ import {
   ChevronRight,
   Download,
   ClipboardCheck,
+  Info,
   Users,
   History,
   Lock,
-  Pencil,
   Printer,
   RefreshCw,
   Search,
@@ -28,6 +28,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
@@ -54,6 +55,7 @@ import { MonthGrid } from './month-grid'
 import type { TileDensity } from '@/domain/hrms/hrit/attendance-management/shared/attendance-day-tile'
 import { OfficeHoursTab } from './office-hours'
 import { useAttendanceAdmin } from '@/hooks/use-attendance-admin'
+import { useOfficeHoursRequests } from '@/hooks/use-office-hours-requests'
 import { useAuth } from '@/hooks/use-auth'
 import { HR_ADMIN_ROLES } from '@/types/role'
 import { cn } from '@/lib/utils'
@@ -115,6 +117,19 @@ export default function ManageEmployeeAttendancePage() {
     historyUserId, historyDay, focusHistory, clearHistoryFilters,
     liveHistory, setLiveHistory,
   } = useAttendanceAdmin()
+
+  /*
+   * Only for the tab-bar badge below - a count, nothing else. The actual
+   * approve/reject queue (`OfficeHoursProposals`, inside the Office hours tab
+   * itself) owns its own instance of this hook, because it needs the full
+   * row list and `decide()`. Two instances of the same read-only GET is a
+   * smaller cost than threading that state through a tab nobody has opened
+   * yet - and for anyone who is not an approver, the endpoint 403s, `rows`
+   * stays empty, and the badge simply never appears (same "the server
+   * decides who sees this" idiom the queue itself uses).
+   */
+  const officeHoursRequests = useOfficeHoursRequests()
+  const pendingOfficeHoursCount = officeHoursRequests.rows.length
 
   const [tab, setTab] = React.useState<'grid' | 'history' | 'hours'>('grid')
   const [selected, setSelected] = React.useState<number[]>([])
@@ -283,7 +298,7 @@ export default function ManageEmployeeAttendancePage() {
   /* ---------------------------------------------------------------- render */
 
   return (
-    <div className="mea-print-root flex w-full flex-col gap-6">
+    <div className="mea-print-root flex w-full flex-col gap-4">
       {/*
         * Print rules, scoped to this screen.
         *
@@ -352,9 +367,9 @@ export default function ManageEmployeeAttendancePage() {
       {/* Three tabs: the month, the hours that define it, and who changed what. */}
       <div className="flex gap-1 border-b border-border print:hidden" role="tablist">
         {([
-          { id: 'grid' as const, label: 'Attendance grid', icon: CalendarClock },
-          { id: 'hours' as const, label: 'Office hours', icon: Clock },
-          { id: 'history' as const, label: 'Change history', icon: History },
+          { id: 'grid' as const, label: 'Attendance grid', icon: CalendarClock, count: 0 },
+          { id: 'hours' as const, label: 'Office hours', icon: Clock, count: pendingOfficeHoursCount },
+          { id: 'history' as const, label: 'Change history', icon: History, count: 0 },
         ]).map((entry) => (
           <button
             key={entry.id}
@@ -372,6 +387,25 @@ export default function ManageEmployeeAttendancePage() {
           >
             <entry.icon className="size-4" />
             {entry.label}
+            {/*
+              * Why this exists: the approval queue below renders nothing at
+              * all when it is empty (F-91's "hiding is not access control"
+              * idiom - a role check here would just drift from the server's).
+              * That is correct for the panel, but it meant the ONLY way to
+              * learn a request was waiting was to already be looking at this
+              * tab - there was nothing pulling anyone there. The count is
+              * read from the same endpoint the panel itself uses, so it can
+              * never claim a request exists that the panel would not also
+              * show.
+              */}
+            {entry.count > 0 && (
+              <span
+                className="flex min-w-[1.125rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none tabular-nums text-primary-foreground"
+                aria-label={`${entry.count} waiting for your decision`}
+              >
+                {entry.count > 99 ? '99+' : entry.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -405,40 +439,51 @@ export default function ManageEmployeeAttendancePage() {
 
       {tab === 'grid' ? (
         <>
-          <GridFilters
-            month={month}
-            setMonth={setMonth}
-            departmentId={departmentId}
-            setDepartmentId={setDepartmentId}
-            departments={departments}
-            search={search}
-            setSearch={setSearch}
-            perPage={perPage}
-            setPerPage={setPerPage}
-          />
+          {/*
+            * The toolbar cluster - filters, the roster banner, and the key -
+            * kept at a tighter gap than the page's own gap-4. These three used
+            * to be full-height cards stacked with the page's spacing between
+            * each, which on its own ran past 400px before a single employee
+            * row was visible. Grouping them tightens that without touching
+            * how the grid itself, the bulk bar or the approver queue below
+            * are spaced.
+            */}
+          <div className="flex flex-col gap-2.5">
+            <GridFilters
+              month={month}
+              setMonth={setMonth}
+              departmentId={departmentId}
+              setDepartmentId={setDepartmentId}
+              departments={departments}
+              search={search}
+              setSearch={setSearch}
+              perPage={perPage}
+              setPerPage={setPerPage}
+            />
 
-          {/* The 88%, stated on the screen that can fix it. */}
-          {!isLoading && meta.without_roster > 0 && (
-            <Alert className="border-amber-500/40 bg-amber-500/10">
-              <AlertTriangle className="size-4 text-amber-600" />
-              <AlertDescription className="text-amber-900 dark:text-amber-200">
-                <strong>
-                  {meta.without_roster} of {employees.length} employees shown have no working days set.
-                </strong>{' '}
-                Their days read &ldquo;No roster&rdquo; rather than present or absent, because nothing
-                records which days they are expected to work. Until a roster is set, lateness and
-                absence cannot be calculated for them &mdash; and the other attendance screens each
-                guess differently.
-              </AlertDescription>
-            </Alert>
-          )}
+            {/* The 88%, stated on the screen that can fix it. */}
+            {!isLoading && meta.without_roster > 0 && (
+              <Alert className="border-amber-500/40 bg-amber-500/10 py-2.5">
+                <AlertTriangle className="size-4 text-amber-600" />
+                <AlertDescription className="text-amber-900 dark:text-amber-200">
+                  <strong>
+                    {meta.without_roster} of {employees.length} employees shown have no working days set.
+                  </strong>{' '}
+                  Their days read &ldquo;No roster&rdquo; rather than present or absent, because nothing
+                  records which days they are expected to work. Until a roster is set, lateness and
+                  absence cannot be calculated for them &mdash; and the other attendance screens each
+                  guess differently.
+                </AlertDescription>
+              </Alert>
+            )}
 
-          <Legend
-            employees={employees}
-            days={days}
-            density={density}
-            onDensityChange={changeDensity}
-          />
+            <Legend
+              employees={employees}
+              days={days}
+              density={density}
+              onDensityChange={changeDensity}
+            />
+          </div>
 
           {isLoading ? (
             <div className="space-y-2">
@@ -533,7 +578,7 @@ export default function ManageEmployeeAttendancePage() {
           )}
         </>
       ) : tab === 'hours' ? (
-        <OfficeHoursTab />
+        <OfficeHoursTab onProposalDecided={() => void officeHoursRequests.refresh()} />
       ) : (
         <ChangeHistory
           monthLabel={historyMonthLabel}
@@ -665,7 +710,7 @@ const DENSITIES: Array<{ value: TileDensity; label: string }> = [
 ]
 
 /**
- * The key, what is actually on screen, and how tall to draw it.
+ * This month's counts, the density switch, and the key - in one slim row.
  *
  * ── THE COUNTS ARE THE POINT ────────────────────────────────────────────────
  *
@@ -674,19 +719,24 @@ const DENSITIES: Array<{ value: TileDensity; label: string }> = [
  * so the single largest legibility win here is not a nicer cell, it is a
  * number beside each colour.
  *
- * ── SWATCHES ITERATE THE KNOWN KEYS; CHIPS ITERATE WHAT WAS OBSERVED ────────
+ * ── THE SWATCH KEY MOVED BEHIND A BUTTON ────────────────────────────────────
  *
- * Two different questions. The swatch row is the legend - it must show every
- * status the screen can draw, including ones not present this month, or it
- * stops being a key. The chips are a measurement of THIS month, so they are
- * built from the statuses actually in the cells.
+ * It used to sit permanently on screen as its own row - eleven swatches plus
+ * a density switch, which wraps to two lines on anything narrower than a wide
+ * desktop. Most of what it explains is read once and then remembered; the
+ * count chips below it are what gets looked at every time the page opens. So
+ * the swatches, and the one-sentence explanation each used to carry only in a
+ * `title=` attribute, now live in a popover behind "Legend" - reachable by
+ * keyboard and screen reader exactly as before, just not paid for in height
+ * on every visit.
  *
- * That asymmetry is deliberate and it is the defensive half: if the server
- * starts returning a status this frontend has never heard of, it has no swatch
- * and would vanish from a known-keys loop entirely. Counting what was observed
- * means it appears - labelled by `statusLabel()`, which is total and falls back
- * to the raw name - instead of being silently dropped. The same reasoning
- * `statusClass()` exists for.
+ * ── THE CHIPS ARE A MEASUREMENT OF WHAT WAS OBSERVED ────────────────────────
+ *
+ * Built from the statuses actually present in the cells, not the full known
+ * vocabulary - so a status this frontend has never heard of still appears,
+ * labelled by `statusLabel()`, which is total and falls back to the raw name.
+ * The row scrolls sideways rather than wrapping, so the row height is fixed
+ * whether this month has three statuses on screen or all ten.
  */
 function Legend({
   employees, days, density, onDensityChange,
@@ -725,56 +775,59 @@ function Legend({
   }, [employees, days])
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-xs">
-      {/* The key. Every status this screen can draw. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {(Object.keys(STATUS_LABEL) as AttendanceDayStatus[]).map((status) => (
-          <span key={status} className="flex items-center gap-1.5" title={STATUS_HELP[status]}>
-            <span
-              className={cn('inline-block size-3 rounded border border-border', statusClass(status))}
-              aria-hidden="true"
-            />
-            <span className="text-muted-foreground">{statusLabel(status)}</span>
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <Pencil className="size-3 text-primary" aria-hidden="true" />
-          <span className="text-muted-foreground">Changed by HR</span>
-        </span>
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-card py-1.5 pl-2 pr-3 text-xs">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground print:hidden"
+          >
+            <Info className="size-3.5" aria-hidden="true" />
+            Legend
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-80">
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            What each colour means
+          </p>
+          <div className="flex max-h-80 flex-col gap-2.5 overflow-y-auto">
+            {(Object.keys(STATUS_LABEL) as AttendanceDayStatus[]).map((status) => (
+              <div key={status} className="flex items-start gap-2.5">
+                <span
+                  className={cn('mt-0.5 inline-block size-3 shrink-0 rounded border border-border', statusClass(status))}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground">{statusLabel(status)}</p>
+                  <p className="text-xs leading-snug text-muted-foreground">{STATUS_HELP[status]}</p>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-start gap-2.5 border-t border-border pt-2.5">
+              <span className="mt-1 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-foreground">Changed by HR</p>
+                <p className="text-xs leading-snug text-muted-foreground">
+                  This day&apos;s punch times were corrected by an admin or HR user - the small dot in
+                  the corner of the cell.
+                </p>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
-        {/*
-          * print:hidden - a density switch on paper is noise. The grid itself
-          * prints, and the print block forces its own layout anyway.
-          */}
-        <div className="ml-auto flex items-center gap-1 print:hidden">
-          <span className="text-muted-foreground">Size</span>
-          {DENSITIES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onDensityChange(option.value)}
-              aria-pressed={density === option.value}
-              className={cn(
-                'rounded px-2 py-0.5 transition-colors',
-                density === option.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
 
-      {/* What is on screen this month. */}
-      {counts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-2">
-          <span className="text-muted-foreground">This month:</span>
+      {/* What is on screen this month - a fixed-height strip that scrolls
+          sideways instead of wrapping, so the row never grows taller. */}
+      {counts.length > 0 ? (
+        <div className="g2g-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+          <span className="shrink-0 text-muted-foreground">This month:</span>
           {counts.map(([status, count]) => (
             <span
               key={status}
-              className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5"
               title={STATUS_HELP[status as AttendanceDayStatus] ?? undefined}
             >
               <span
@@ -791,14 +844,40 @@ function Legend({
             </span>
           ))}
           {editedCount > 0 && (
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5">
-              <Pencil className="size-2.5 text-primary" aria-hidden="true" />
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5">
+              <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
               <span className="font-medium tabular-nums text-foreground">{editedCount}</span>
               <span className="text-muted-foreground">changed by HR</span>
             </span>
           )}
         </div>
+      ) : (
+        <div className="flex-1" />
       )}
+
+      {/*
+        * print:hidden - a density switch on paper is noise. The grid itself
+        * prints, and the print block forces its own layout anyway.
+        */}
+      <div className="ml-auto flex shrink-0 items-center gap-1 print:hidden">
+        <span className="text-muted-foreground">Size</span>
+        {DENSITIES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onDensityChange(option.value)}
+            aria-pressed={density === option.value}
+            className={cn(
+              'rounded px-2 py-0.5 transition-colors',
+              density === option.value
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -821,16 +900,21 @@ function GridFilters({
   setPerPage: (value: number) => void
 }) {
   return (
-    <div className="grid gap-4 rounded-xl border border-border bg-card p-4 print:hidden sm:grid-cols-2 lg:grid-cols-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="mea-month">Month</Label>
-        <MonthPicker id="mea-month" value={month} onChange={setMonth} />
+    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card px-3 py-2.5 print:hidden">
+      <div className="flex w-40 flex-col gap-1">
+        <Label htmlFor="mea-month" className="text-xs font-medium text-muted-foreground">
+          Month
+        </Label>
+        <MonthPicker id="mea-month" value={month} onChange={setMonth} className="h-8 text-xs" />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="mea-department">Department</Label>
+      <div className="flex w-44 flex-col gap-1">
+        <Label htmlFor="mea-department" className="text-xs font-medium text-muted-foreground">
+          Department
+        </Label>
         <Select
           id="mea-department"
+          size="sm"
           value={departmentId}
           onChange={setDepartmentId}
           options={[{ value: 'all', label: 'All departments' }, ...departments]}
@@ -838,27 +922,33 @@ function GridFilters({
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="mea-search">Find an employee</Label>
+      <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+        <Label htmlFor="mea-search" className="text-xs font-medium text-muted-foreground">
+          Find an employee
+        </Label>
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <Input
             id="mea-search"
+            size="sm"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Name or employee code"
-            className="pl-9"
+            className="pl-8"
           />
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="mea-per-page">Rows per page</Label>
+      <div className="flex w-36 flex-col gap-1">
+        <Label htmlFor="mea-per-page" className="text-xs font-medium text-muted-foreground">
+          Rows per page
+        </Label>
         <Select
           id="mea-per-page"
+          size="sm"
           value={String(perPage)}
           onChange={(value) => setPerPage(Number(value))}
           options={[

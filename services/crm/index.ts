@@ -7,7 +7,7 @@
  * academic-year-bound).
  */
 
-import { apiClient } from '@/services/core'
+import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type {
   CampaignListQuery,
@@ -21,7 +21,18 @@ import type {
   ContactResponse,
   ConvertLeadPayload,
   ConvertLeadResponse,
+  CrmBulkActionResponse,
+  CrmDuplicateGroupsResponse,
+  CrmImportResponse,
+  CrmMergeResponse,
+  CrmModule,
+  CrmPicklistAdminResponse,
   CrmPicklistMap,
+  CrmPicklistValueResponse,
+  CrmRecycleBinListResponse,
+  CrmRecycleBinType,
+  CrmSavedViewListResponse,
+  CrmSavedViewResponse,
   Lead,
   LeadListQuery,
   LeadListResponse,
@@ -44,6 +55,19 @@ export const crmService = {
       ...baseParams(context),
       ...(module ? { module } : {}),
     }),
+
+  getPicklistAdmin: (context: LaravelContext) =>
+    apiClient.get<CrmPicklistAdminResponse>('/crm/picklist-values/admin', baseParams(context)),
+
+  createPicklistValue: (context: LaravelContext, payload: {
+    module: CrmModule; fieldKey: string; value: string; label: string; sortOrder?: number; isDefault?: boolean
+  }) =>
+    apiClient.post<CrmPicklistValueResponse>('/crm/picklist-values', { ...payload, ...baseParams(context) }),
+
+  updatePicklistValue: (context: LaravelContext, id: string, payload: Partial<{
+    label: string; sortOrder: number; isDefault: boolean; status: boolean
+  }>) =>
+    apiClient.put<CrmPicklistValueResponse>(`/crm/picklist-values/${id}`, { ...payload, ...baseParams(context) }),
 
   // ── Leads ──────────────────────────────────────────────────────────
   getLeads: (context: LaravelContext, query: LeadListQuery = {}) =>
@@ -72,6 +96,28 @@ export const crmService = {
 
   convertLead: (context: LaravelContext, id: string, payload: ConvertLeadPayload) =>
     apiClient.post<ConvertLeadResponse>(`/crm/leads/${id}/convert`, { ...payload, ...baseParams(context) }),
+
+  bulkDeleteLeads: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/leads/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignLeads: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/leads/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getLeadDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/leads/duplicates', baseParams(context)),
+
+  mergeLeads: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/leads/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  leadsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/leads/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importLeads: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/leads/import', { rows, ...baseParams(context) }),
 
   // ── Organizations ──────────────────────────────────────────────────
   getOrganizations: (context: LaravelContext, query: OrganizationListQuery = {}) =>
@@ -105,6 +151,28 @@ export const crmService = {
       assignedTo, cascadeToContacts, ...baseParams(context),
     }),
 
+  bulkDeleteOrganizations: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignOrganizations: (context: LaravelContext, ids: string[], assignedTo: string, cascadeToContacts = false) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/assign', {
+      ids: ids.map(Number), assignedTo, cascadeToContacts, ...baseParams(context),
+    }),
+
+  getOrganizationDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/organizations/duplicates', baseParams(context)),
+
+  mergeOrganizations: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/organizations/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  organizationsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/organizations/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importOrganizations: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/organizations/import', { rows, ...baseParams(context) }),
+
   // ── Contacts ────────────────────────────────────────────────────────
   getContacts: (context: LaravelContext, query: ContactListQuery = {}) =>
     apiClient.get<ContactListResponse>('/crm/contacts', {
@@ -133,6 +201,28 @@ export const crmService = {
     apiClient.post<{ status: number; message: string }>(`/crm/contacts/${id}/transfer-ownership`, {
       assignedTo, ...baseParams(context),
     }),
+
+  bulkDeleteContacts: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/contacts/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignContacts: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/contacts/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getContactDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/contacts/duplicates', baseParams(context)),
+
+  mergeContacts: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/contacts/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  contactsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/contacts/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importContacts: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/contacts/import', { rows, ...baseParams(context) }),
 
   // ── Campaigns ───────────────────────────────────────────────────────
   getCampaigns: (context: LaravelContext, query: CampaignListQuery = {}) =>
@@ -166,9 +256,12 @@ export const crmService = {
       targetType, targetId, ...baseParams(context),
     }),
 
-  bulkAddCampaignTargets: (context: LaravelContext, id: string, targetType: 'lead' | 'contact' | 'organization', search: string) =>
+  bulkAddCampaignTargets: (
+    context: LaravelContext, id: string, targetType: 'lead' | 'contact' | 'organization',
+    criteria: { search: string } | { savedViewId: string },
+  ) =>
     apiClient.post<{ status: number; message: string }>(`/crm/campaigns/${id}/targets/bulk`, {
-      targetType, search, ...baseParams(context),
+      targetType, ...criteria, ...baseParams(context),
     }),
 
   removeCampaignTarget: (context: LaravelContext, id: string, targetRowId: string) =>
@@ -178,6 +271,44 @@ export const crmService = {
     apiClient.put<{ status: number; message: string }>(`/crm/campaigns/${id}/targets/${targetRowId}`, {
       responseStatus, ...baseParams(context),
     }),
+
+  bulkDeleteCampaigns: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignCampaigns: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  campaignsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/campaigns/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importCampaigns: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/campaigns/import', { rows, ...baseParams(context) }),
+
+  // ── Recycle Bin (shared across all 4 modules) ──────────────────────
+  getRecycleBin: (context: LaravelContext, query: { page?: number; perPage?: number } = {}) =>
+    apiClient.get<CrmRecycleBinListResponse>('/crm/recycle-bin', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+    }),
+
+  restoreRecycleBinItem: (context: LaravelContext, type: CrmRecycleBinType, id: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/recycle-bin/${type}/${id}/restore`, baseParams(context)),
+
+  forceDeleteRecycleBinItem: (context: LaravelContext, type: CrmRecycleBinType, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/recycle-bin/${type}/${id}`, baseParams(context)),
+
+  // ── Saved Views (shared across all 4 modules) ──────────────────────
+  getSavedViews: (context: LaravelContext, module: CrmModule) =>
+    apiClient.get<CrmSavedViewListResponse>('/crm/saved-views', { ...baseParams(context), module }),
+
+  createSavedView: (context: LaravelContext, module: CrmModule, name: string, conditions: Record<string, unknown>) =>
+    apiClient.post<CrmSavedViewResponse>('/crm/saved-views', { module, name, conditions, ...baseParams(context) }),
+
+  deleteSavedView: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/saved-views/${id}`, baseParams(context)),
 }
 
 export type { Lead }
