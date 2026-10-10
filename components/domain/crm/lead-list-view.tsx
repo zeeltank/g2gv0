@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -17,11 +17,30 @@ import { CreateLeadModal } from './create-lead-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
 import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
+import { CrmExportButton } from './crm-export-button'
+import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'company' | 'email' | 'lead_status' | 'lead_source' | 'rating' | 'created_at'
+
+const LEAD_IMPORT_HEADER_MAP: Record<string, string> = {
+  salutation: 'salutation', 'first name': 'firstName', 'last name': 'lastName',
+  company: 'company', email: 'email', 'secondary email': 'secondaryEmail',
+  phone: 'phone', mobile: 'mobile', website: 'website', industry: 'industry',
+  'lead source': 'leadSource', 'lead status': 'leadStatus', rating: 'rating',
+  'annual revenue': 'annualRevenue', street: 'street', city: 'city', state: 'state',
+  country: 'country', 'postal code': 'postalCode', description: 'description',
+  'assigned to (user id)': 'assignedTo', 'assigned to': 'assignedTo',
+}
+
+const LEAD_TEMPLATE_HEADERS = [
+  'Salutation', 'First Name', 'Last Name', 'Company', 'Email', 'Secondary Email',
+  'Phone', 'Mobile', 'Website', 'Industry', 'Lead Source', 'Lead Status', 'Rating',
+  'Annual Revenue', 'Street', 'City', 'State', 'Country', 'Postal Code', 'Description',
+  'Assigned To (user id)',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -72,6 +91,7 @@ export function LeadListView() {
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [duplicatesOpen, setDuplicatesOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [picklists, setPicklists] = useState<{
     leadStatus: CrmPicklistValue[]; leadSource: CrmPicklistValue[]
@@ -172,6 +192,11 @@ export function LeadListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <CrmExportButton href={crmService.leadsExportUrl(context, search || undefined)} />
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+            Import
+          </Button>
           <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
             <Copy className="mr-1.5 size-4" aria-hidden="true" />
             Find Duplicates
@@ -288,6 +313,17 @@ export function LeadListView() {
         getLabel={(row) => [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed'}
         getSubLabel={(row) => (row.company as string | null) ?? (row.email as string | null)}
         onMerged={() => void load()}
+      />
+
+      <CrmImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        noun="lead"
+        headerMap={LEAD_IMPORT_HEADER_MAP}
+        templateHeaders={LEAD_TEMPLATE_HEADERS}
+        templateFilename="leads-template.csv"
+        submitImport={crmService.importLeads}
+        onImported={() => void load()}
       />
 
       <CrmBulkActionBar

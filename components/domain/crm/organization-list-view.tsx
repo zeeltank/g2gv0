@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,11 +16,29 @@ import { CreateOrganizationModal } from './create-organization-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
 import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
+import { CrmExportButton } from './crm-export-button'
+import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'name' | 'account_type' | 'industry' | 'rating' | 'billing_city' | 'created_at'
+
+const ORGANIZATION_IMPORT_HEADER_MAP: Record<string, string> = {
+  name: 'name', type: 'accountType', 'account type': 'accountType', industry: 'industry',
+  rating: 'rating', ownership: 'ownership', 'annual revenue': 'annualRevenue',
+  employees: 'employees', phone: 'phone', email: 'email', website: 'website',
+  'billing street': 'billingStreet', 'billing city': 'billingCity',
+  'billing state': 'billingState', 'billing postal code': 'billingCode',
+  'billing country': 'billingCountry', description: 'description',
+  'assigned to (user id)': 'assignedTo', 'assigned to': 'assignedTo',
+}
+
+const ORGANIZATION_TEMPLATE_HEADERS = [
+  'Name', 'Type', 'Industry', 'Rating', 'Ownership', 'Annual Revenue', 'Employees',
+  'Phone', 'Email', 'Website', 'Billing Street', 'Billing City', 'Billing State',
+  'Billing Postal Code', 'Billing Country', 'Description', 'Assigned To (user id)',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -55,6 +73,7 @@ export function OrganizationListView() {
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [duplicatesOpen, setDuplicatesOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }>({ accountType: [], industry: [], rating: [] })
 
   const load = useCallback(async () => {
@@ -144,6 +163,11 @@ export function OrganizationListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <CrmExportButton href={crmService.organizationsExportUrl(context, search || undefined)} />
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+            Import
+          </Button>
           <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
             <Copy className="mr-1.5 size-4" aria-hidden="true" />
             Find Duplicates
@@ -243,6 +267,17 @@ export function OrganizationListView() {
         getLabel={(row) => (row.name as string) ?? 'Unnamed'}
         getSubLabel={(row) => (row.website as string | null) ?? (row.phone as string | null)}
         onMerged={() => void load()}
+      />
+
+      <CrmImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        noun="organization"
+        headerMap={ORGANIZATION_IMPORT_HEADER_MAP}
+        templateHeaders={ORGANIZATION_TEMPLATE_HEADERS}
+        templateFilename="organizations-template.csv"
+        submitImport={crmService.importOrganizations}
+        onImported={() => void load()}
       />
 
       <CrmBulkActionBar

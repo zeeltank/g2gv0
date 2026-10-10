@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -16,11 +16,26 @@ import type { Campaign, CrmPicklistValue } from '@/types/crm'
 import { CreateCampaignModal } from './create-campaign-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmExportButton } from './crm-export-button'
+import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'name' | 'campaign_type' | 'campaign_status' | 'expected_revenue' | 'closing_date'
+
+const CAMPAIGN_IMPORT_HEADER_MAP: Record<string, string> = {
+  name: 'name', type: 'campaignType', 'campaign type': 'campaignType',
+  status: 'campaignStatus', 'campaign status': 'campaignStatus',
+  'expected revenue': 'expectedRevenue', 'budget cost': 'budgetCost', 'actual cost': 'actualCost',
+  sponsor: 'sponsor', 'target audience': 'targetAudience', 'closing date': 'closingDate',
+  description: 'description', 'assigned to (user id)': 'assignedTo', 'assigned to': 'assignedTo',
+}
+
+const CAMPAIGN_TEMPLATE_HEADERS = [
+  'Name', 'Type', 'Status', 'Expected Revenue', 'Budget Cost', 'Actual Cost', 'Sponsor',
+  'Target Audience', 'Closing Date', 'Description', 'Assigned To (user id)',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -61,6 +76,7 @@ export function CampaignListView() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ campaignType: CrmPicklistValue[]; campaignStatus: CrmPicklistValue[]; expectedResponse: CrmPicklistValue[] }>({ campaignType: [], campaignStatus: [], expectedResponse: [] })
 
   const load = useCallback(async () => {
@@ -150,6 +166,11 @@ export function CampaignListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <CrmExportButton href={crmService.campaignsExportUrl(context, search || undefined)} />
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+            Import
+          </Button>
           <Button onClick={() => setModalOpen(true)}>
             <Plus className="mr-1.5 size-4" aria-hidden="true" />
             Add Campaign
@@ -238,6 +259,17 @@ export function CampaignListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         campaign={null}
         picklists={picklists}
+      />
+
+      <CrmImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        noun="campaign"
+        headerMap={CAMPAIGN_IMPORT_HEADER_MAP}
+        templateHeaders={CAMPAIGN_TEMPLATE_HEADERS}
+        templateFilename="campaigns-template.csv"
+        submitImport={crmService.importCampaigns}
+        onImported={() => void load()}
       />
 
       <CrmBulkActionBar

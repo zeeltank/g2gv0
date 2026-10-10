@@ -7,7 +7,7 @@
  * academic-year-bound).
  */
 
-import { apiClient } from '@/services/core'
+import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type {
   CampaignListQuery,
@@ -23,6 +23,7 @@ import type {
   ConvertLeadResponse,
   CrmBulkActionResponse,
   CrmDuplicateGroupsResponse,
+  CrmImportResponse,
   CrmMergeResponse,
   CrmModule,
   CrmPicklistMap,
@@ -97,6 +98,12 @@ export const crmService = {
       survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
     }),
 
+  leadsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/leads/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importLeads: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/leads/import', { rows, ...baseParams(context) }),
+
   // ── Organizations ──────────────────────────────────────────────────
   getOrganizations: (context: LaravelContext, query: OrganizationListQuery = {}) =>
     apiClient.get<OrganizationListResponse>('/crm/organizations', {
@@ -145,6 +152,12 @@ export const crmService = {
       survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
     }),
 
+  organizationsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/organizations/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importOrganizations: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/organizations/import', { rows, ...baseParams(context) }),
+
   // ── Contacts ────────────────────────────────────────────────────────
   getContacts: (context: LaravelContext, query: ContactListQuery = {}) =>
     apiClient.get<ContactListResponse>('/crm/contacts', {
@@ -189,6 +202,12 @@ export const crmService = {
     apiClient.post<CrmMergeResponse>('/crm/contacts/merge', {
       survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
     }),
+
+  contactsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/contacts/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importContacts: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/contacts/import', { rows, ...baseParams(context) }),
 
   // ── Campaigns ───────────────────────────────────────────────────────
   getCampaigns: (context: LaravelContext, query: CampaignListQuery = {}) =>
@@ -242,6 +261,12 @@ export const crmService = {
     apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/assign', {
       ids: ids.map(Number), assignedTo, ...baseParams(context),
     }),
+
+  campaignsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/campaigns/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importCampaigns: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/campaigns/import', { rows, ...baseParams(context) }),
 
   // ── Recycle Bin (shared across all 4 modules) ──────────────────────
   getRecycleBin: (context: LaravelContext, query: { page?: number; perPage?: number } = {}) =>

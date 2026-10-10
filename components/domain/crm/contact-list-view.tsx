@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,11 +16,31 @@ import { CreateContactModal } from './create-contact-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
 import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
+import { CrmExportButton } from './crm-export-button'
+import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'email' | 'title' | 'created_at'
+
+const CONTACT_IMPORT_HEADER_MAP: Record<string, string> = {
+  salutation: 'salutation', 'first name': 'firstName', 'last name': 'lastName',
+  title: 'title', department: 'department', email: 'email',
+  'secondary email': 'secondaryEmail', phone: 'phone', mobile: 'mobile',
+  'home phone': 'homePhone', birthday: 'birthday', 'lead source': 'leadSource',
+  'mailing street': 'mailingStreet', 'mailing city': 'mailingCity',
+  'mailing state': 'mailingState', 'mailing postal code': 'mailingCode',
+  'mailing country': 'mailingCountry', description: 'description',
+  'organization id': 'organizationId', 'assigned to (user id)': 'assignedTo', 'assigned to': 'assignedTo',
+}
+
+const CONTACT_TEMPLATE_HEADERS = [
+  'Salutation', 'First Name', 'Last Name', 'Title', 'Department', 'Email', 'Secondary Email',
+  'Phone', 'Mobile', 'Home Phone', 'Birthday', 'Lead Source', 'Mailing Street', 'Mailing City',
+  'Mailing State', 'Mailing Postal Code', 'Mailing Country', 'Description', 'Organization ID',
+  'Assigned To (user id)',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -55,6 +75,7 @@ export function ContactListView() {
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [duplicatesOpen, setDuplicatesOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }>({ salutation: [], leadSource: [] })
 
   const load = useCallback(async () => {
@@ -144,6 +165,11 @@ export function ContactListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <CrmExportButton href={crmService.contactsExportUrl(context, search || undefined)} />
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+            Import
+          </Button>
           <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
             <Copy className="mr-1.5 size-4" aria-hidden="true" />
             Find Duplicates
@@ -245,6 +271,17 @@ export function ContactListView() {
         getLabel={(row) => [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed'}
         getSubLabel={(row) => (row.organizationName as string | null) ?? (row.email as string | null)}
         onMerged={() => void load()}
+      />
+
+      <CrmImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        noun="contact"
+        headerMap={CONTACT_IMPORT_HEADER_MAP}
+        templateHeaders={CONTACT_TEMPLATE_HEADERS}
+        templateFilename="contacts-template.csv"
+        submitImport={crmService.importContacts}
+        onImported={() => void load()}
       />
 
       <CrmBulkActionBar

@@ -367,6 +367,23 @@ export interface CrmMergeResponse {
   data: { survivorId: string; merged: number }
 }
 
+// ── CSV import/export (shared across all 4 modules) ──────────────────────
+
+export interface CrmImportRowResult {
+  row: number
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmImportResponse {
+  status: number
+  message: string
+  data: {
+    created: number
+    results: CrmImportRowResult[]
+  }
+}
+
 // ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
 
 export type CrmRecycleBinType = CrmModule
