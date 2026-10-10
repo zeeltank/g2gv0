@@ -11,12 +11,15 @@ import type { CrmModule, CrmPicklistAdminRow } from '@/types/crm'
 
 const MODULE_LABEL: Record<CrmModule, string> = {
   leads: 'Leads', contacts: 'Contacts', organizations: 'Organizations', campaigns: 'Campaigns',
+  opportunities: 'Opportunities', quotes: 'Quotes', products: 'Products', services: 'Services',
 }
 
 const FIELD_KEY_LABEL: Record<string, string> = {
   lead_status: 'Lead Status', lead_source: 'Lead Source', rating: 'Rating', salutation: 'Salutation',
   industry: 'Industry', account_type: 'Account Type', campaign_type: 'Campaign Type',
   campaign_status: 'Campaign Status', expected_response: 'Expected Response',
+  sales_stage: 'Sales Stage', potential_type: 'Opportunity Type', forecast_category: 'Forecast Category',
+  quote_stage: 'Quote Stage', category: 'Category',
 }
 
 function AddValueForm({ module, fieldKey, onAdded }: { module: CrmModule; fieldKey: string; onAdded: () => void }) {

@@ -93,6 +93,18 @@ export const CRM_CONTACTS_ACCESS_LINK = '/module/crm/marketing/contacts'
 export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organizations'
 export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
 
+// Sales phase - "Sales" itself is a fresh menu insert (unlike "Marketing",
+// which was reactivated, pre-existing scaffolding), so its own id is NOT
+// guaranteed to match between the mysql/live connections. Nothing may ever
+// hardcode it - every lookup goes through MenuRight::idForAccessLink() on
+// the backend, and these access_link strings on the frontend, exactly like
+// Contacts/Organizations/Campaigns already do.
+export const CRM_OPPORTUNITIES_ACCESS_LINK = '/module/crm/sales/opportunities'
+export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
+export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
+export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
+export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
+
 /**
  * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle
  * Bin (it is reached from a button on the 4 list views above, gated per-row
