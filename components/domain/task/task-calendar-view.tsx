@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns'
-import { CalendarClock, ChevronLeft, ChevronRight, Download, Filter, MoreHorizontal, Plus, SlidersHorizontal, UserPlus, Upload } from 'lucide-react'
+import { CalendarClock, ChevronLeft, ChevronRight, Download, Filter, MoreHorizontal, Plus, SlidersHorizontal, UserPlus, Upload, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -10,6 +10,8 @@ import { Select } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { taskService } from '@/services/task'
 import type { CalendarEntry, CalendarEntryKind, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
 import { CreateTaskModal } from './create-task-modal'
@@ -45,10 +47,9 @@ export function TaskCalendarView() {
   const [projectFilter, setProjectFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   // The REAL, tenant-wide project/department lists for the filter dropdowns -
-  // independent of the visible date range/scope, unlike the color-legend's
-  // own `projects` (below), which stays derived from on-screen tasks only.
-  // Fixes the confirmed bug where a project only appeared in the old filter
-  // if it happened to have a task in the currently-displayed window.
+  // independent of the visible date range/scope. Fixes the confirmed bug
+  // where a project only appeared in the old filter if it happened to have
+  // a task in the currently-displayed window.
   const [allProjects, setAllProjects] = useState<Array<{ id: string; name: string }>>([])
   const [allDepartments, setAllDepartments] = useState<Array<{ id: string; name: string }>>([])
 
@@ -71,18 +72,23 @@ export function TaskCalendarView() {
   // My calendar vs team calendar — reuses task-workspace.tsx's existing
   // WorkspaceScope control and its already-working backend support, rather
   // than inventing a second access-control mechanism for the same question.
-  // Defaults to 'all', matching this screen's existing behaviour before this
-  // control existed (the backend's own default) — adding the selector must
-  // not narrow what anyone already saw.
-  const [viewScope, setViewScope] = useState<WorkspaceScope>('all')
+  // Defaults to 'mine', matching screenMode's own default below — a shared
+  // tenant-wide view as the FIRST thing anyone sees read as "where did
+  // everyone else's work come from" more than it read as useful context.
+  const [viewScope, setViewScope] = useState<WorkspaceScope>('mine')
   /**
    * My Calendar / Shared Calendar / List View - CRM's own three top-level
    * calendar modes. Not new routes (locked-in #2): My/Shared drive the same
    * viewScope + Feeds mechanism this screen already had, just surfaced as a
    * real, named switch instead of a generic scope dropdown; List is a new
    * flat table over the same already-fetched data.
+   *
+   * Defaults to 'my' (locked-in, per explicit request): a viewer lands on
+   * their own work first and opts into the shared/tenant-wide view, not the
+   * other way round - matching selectMyCalendar()'s own viewScope/feed
+   * state exactly, just set once up front instead of via a click.
    */
-  const [screenMode, setScreenMode] = useState<ScreenMode>('shared')
+  const [screenMode, setScreenMode] = useState<ScreenMode>('my')
   // How many the server says exist for this window, versus how many we hold.
   // A calendar that silently drops days is worse than one that admits it.
   const [totalInRange, setTotalInRange] = useState(0)
@@ -99,6 +105,7 @@ export function TaskCalendarView() {
   const [createEventDate, setCreateEventDate] = useState<string | undefined>(undefined)
   const [selfTaskOpen, setSelfTaskOpen] = useState(false)
   const [selfTaskDate, setSelfTaskDate] = useState<string | undefined>(undefined)
+  const [selfTaskTime, setSelfTaskTime] = useState<string | undefined>(undefined)
   const [assignTaskOpen, setAssignTaskOpen] = useState(false)
   const [statusOptions, setStatusOptions] = useState<TaskStatusOption[]>([])
   // Whose calendars are overlaid — GET /calendar/feeds already resolves this
@@ -114,8 +121,12 @@ export function TaskCalendarView() {
   // The event drawer - the chip's title opens it; MILESTONE/CHECKPOINT open
   // their own read-only popover instead (TaskCalendarGrid's own concern).
   const [openEventId, setOpenEventId] = useState<string | null>(null)
+  /** "Added Calendars" sidebar - closed by default, reachable any time via the Feeds button below. */
+  const [feedsOpen, setFeedsOpen] = useState(false)
 
   const viewerId = getLaravelContext().userId
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'administrator'
 
   const range = useMemo(() => {
     if (view === 'day') return { from: startOfDay(month), to: startOfDay(month) }
@@ -144,13 +155,30 @@ export function TaskCalendarView() {
       ? `${format(range.from, 'd MMM')} - ${format(range.to, 'd MMM yyyy')}`
       : format(month, 'MMMM yyyy')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     // Nothing may fire before the session exists, or the first paint is an
     // auth error instead of a calendar. tm-reports.tsx already guards this way.
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
-    setLoading(true); setError('')
+    /*
+     * SILENT REFRESH AFTER CREATE/EDIT/APPROVE/ARCHIVE — NOT A FULL RELOAD.
+     *
+     * `loading=true` swaps the entire grid/list for a bare <Spinner/> (see the
+     * render below), which unmounts TaskCalendarGrid. A remounted FullCalendar
+     * instance re-reads `anchorDate`/`view` from scratch through its own
+     * queueMicrotask-deferred changeView/gotoDate effect (see that file's own
+     * flushSync-crash note) — confirmed as the cause of two reported symptoms
+     * together: the loading flash itself, AND the grid appearing to "jump" to
+     * a different date after creating or editing a task, which needed a manual
+     * click on Today to undo. onTaskReschedule already avoided this for
+     * drag-to-move ("No reload here (locked-in)"); this brings create/edit/
+     * approve/archive in line with that, rather than leaving them as the one
+     * remaining path that tears the grid down on every action.
+     */
+    const silent = options?.silent ?? false
+    if (!silent) setLoading(true)
+    setError('')
     try {
       // PAGE UNTIL EXHAUSTED. This used to request perPage:100 once, with no
       // pagination — and the backend caps per_page at 100 and sorts by
@@ -180,7 +208,7 @@ export function TaskCalendarView() {
       setTasks(collected)
       setTotalInRange(total)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load calendar tasks.') }
-    finally { setLoading(false) }
+    finally { if (!silent) setLoading(false) }
   }, [range, viewScope])
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
@@ -283,14 +311,14 @@ export function TaskCalendarView() {
     }
     try {
       const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
   }
   const archive = async (task: WorkspaceTask) => {
     if (!window.confirm(`Archive “${task.title}”?`)) return
     try {
       const response = await taskService.archiveWorkspaceTask(getLaravelContext(), task.id)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive task.') }
   }
 
@@ -301,7 +329,7 @@ export function TaskCalendarView() {
    * what to send and revert on failure, exactly like the old native-drag
    * dropOnDay did.
    */
-  const onTaskReschedule = async (taskId: string, start: Date, end: Date): Promise<boolean> => {
+  const onTaskReschedule = async (taskId: string, start: Date, end: Date, allDay: boolean): Promise<boolean> => {
     const task = tasks.find((candidate) => candidate.id === taskId)
     if (!task) return false
 
@@ -311,18 +339,40 @@ export function TaskCalendarView() {
     // Only the keys that actually change are sent - updateTaskSchedule
     // patches, so omitting start on a task that has none leaves it NULL
     // rather than inventing one.
-    const payload = hadStart ? { planned_start_date: nextStart, due_date: nextDue } : { due_date: nextDue }
+    const payload: {
+      planned_start_date?: string; due_date?: string
+      time_start?: string | null; time_end?: string | null
+    } = hadStart ? { planned_start_date: nextStart, due_date: nextDue } : { due_date: nextDue }
+
+    const hadTime = Boolean(task.time_start)
+    if (allDay) {
+      // Dropped onto an all-day row / month cell: no time slot was chosen.
+      // A task that previously had a time must have it explicitly cleared,
+      // not silently retained alongside a new date it no longer matches.
+      if (hadTime) { payload.time_start = null; payload.time_end = null }
+    } else {
+      payload.time_start = format(start, 'HH:mm')
+      payload.time_end = format(end, 'HH:mm')
+    }
 
     const previous = tasks
     setTasks((current) => current.map((candidate) => candidate.id === taskId
-      ? { ...candidate, ...(hadStart ? { planned_start_date: nextStart } : {}), due_date: nextDue }
+      ? {
+          ...candidate,
+          ...(hadStart ? { planned_start_date: nextStart } : {}),
+          due_date: nextDue,
+          ...('time_start' in payload ? { time_start: payload.time_start ?? null, time_end: payload.time_end ?? null } : {}),
+        }
       : candidate))
     setError(''); setMessage('')
 
     try {
       const response = await taskService.updateTaskSchedule(getLaravelContext(), taskId, payload)
       setMessage(response.message)
-      void load()
+      // No reload here (locked-in) - the optimistic patch above is already
+      // complete and correct, and a full load() sets `loading`, which swaps
+      // the whole grid for a Spinner for no reason. onEventReschedule right
+      // below already works this way; this brings TASK in line with it.
       return true
     } catch (reason) {
       setTasks(previous)
@@ -352,14 +402,6 @@ export function TaskCalendarView() {
     }
   }
 
-  // One colour per project, assigned by stable sort order so a project keeps
-  // its colour between renders. Standalone tasks (no project) are deliberately
-  // NOT given a colour — they read as neutral, which is what distinguishes
-  // them at a glance from project work.
-  const projects = useMemo(
-    () => [...new Set(tasks.map((task) => task.project).filter((name): name is string => Boolean(name)))].sort(),
-    [tasks],
-  )
   /**
    * ONE PALETTE, TWO USES — and that is the fix.
    *
@@ -372,23 +414,30 @@ export function TaskCalendarView() {
    * So each entry now carries both: the washed `chip` for the block, and a
    * SOLID `dot` for the swatch. Slicing a class string to guess at a colour was
    * never going to hold.
+   *
+   * `solid` is the same SOLID colour as `dot`, now also used for the calendar
+   * grid's own task/event chips (locked-in: full fill + matching border, like
+   * CRM's project chips — not the washed `chip` tint). Pairing each solid fill
+   * with its matching `-foreground` token rather than a flat white/black is
+   * the one already-reviewed-for-contrast scheme in this codebase (see
+   * globals.css's measured white-on-success/warning/destructive ratios) — so
+   * success/warning read with dark text and primary/destructive with light,
+   * instead of re-deriving a contrast rule here.
    */
   const PALETTE = [
-    { chip: 'bg-primary/10 text-primary hover:bg-primary/20', dot: 'bg-primary' },
-    { chip: 'bg-success/10 text-success hover:bg-success/20', dot: 'bg-success' },
-    { chip: 'bg-warning/15 text-warning hover:bg-warning/25', dot: 'bg-warning' },
-    { chip: 'bg-destructive/10 text-destructive hover:bg-destructive/20', dot: 'bg-destructive' },
-    { chip: 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80', dot: 'bg-secondary-foreground' },
+    { chip: 'bg-primary/10 text-primary hover:bg-primary/20', dot: 'bg-primary', solid: 'bg-primary text-primary-foreground border border-primary hover:opacity-90' },
+    { chip: 'bg-success/10 text-success hover:bg-success/20', dot: 'bg-success', solid: 'bg-success text-success-foreground border border-success hover:opacity-90' },
+    { chip: 'bg-warning/15 text-warning hover:bg-warning/25', dot: 'bg-warning', solid: 'bg-warning text-warning-foreground border border-warning hover:opacity-90' },
+    { chip: 'bg-destructive/10 text-destructive hover:bg-destructive/20', dot: 'bg-destructive', solid: 'bg-destructive text-destructive-foreground border border-destructive hover:opacity-90' },
+    { chip: 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80', dot: 'bg-secondary-foreground', solid: 'bg-secondary-foreground text-background border border-secondary-foreground hover:opacity-90' },
   ]
 
   /** Standalone tasks stay deliberately uncoloured — that is what marks them out. */
   const NO_PROJECT = {
     chip: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-border',
     dot: 'bg-muted border border-dashed border-border',
+    solid: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-border',
   }
-
-  const projectColour = (project: string | null) =>
-    project ? PALETTE[projects.indexOf(project) % PALETTE.length] : NO_PROJECT
 
   const matchesProject = (projectId: string | null) =>
     !projectFilter || (projectFilter === '__none__' ? !projectId : projectId === projectFilter)
@@ -472,12 +521,36 @@ export function TaskCalendarView() {
           </PopoverContent>
         </Popover>
         {screenMode !== 'list' && (
-          <div className="w-28">
-            <Select value={view} onChange={(value) => setView(value as CalendarGridView)} options={[
-              { value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'day', label: 'Day' },
-            ]} />
+          // A segmented switcher, not a dropdown - all three options are
+          // always visible, so switching is one click instead of two.
+          <div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Calendar view">
+            {(['month', 'week', 'day'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setView(option)}
+                aria-pressed={view === option}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors',
+                  view === option ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         )}
+        {/* "Added Calendars" - closed by default (9.12), reachable any time here. */}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={feedsOpen ? 'Hide calendars' : 'Show calendars'}
+          aria-pressed={feedsOpen}
+          className={cn(feedsOpen && 'bg-secondary text-secondary-foreground')}
+          onClick={() => setFeedsOpen((open) => !open)}
+        >
+          <Users className="size-4" />
+        </Button>
         {/* The arrows step by whatever is on screen - a month, a week, a day -
             rather than always a month, which in week view would skip four. */}
         <Button variant="outline" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
@@ -548,19 +621,25 @@ export function TaskCalendarView() {
         <Button variant="outline" size="sm" onClick={() => void loadFeeds()}>Try again</Button>
       </div>
     )}
-    {/* Persistent left rail (whose calendars are overlaid) alongside the
-        grid/list, mirroring document-library-view.tsx's own sidebar shape -
-        replaces both the old "Calendars:" chip row and the Feeds overlay
-        panel's visibility section. Hidden in 'my' mode: selectMyCalendar
-        already hides every feed there, so the rail would show nothing but
-        unchecked rows. */}
+    {/* Left rail (whose calendars are overlaid) alongside the grid/list,
+        mirroring document-library-view.tsx's own sidebar shape - replaces
+        both the old "Calendars:" chip row and the Feeds overlay panel's
+        visibility section. Closed by default (9.12) - the Feeds button in
+        the header above toggles it; open it when the viewer's own
+        task_card_color picker (or, for an admin, everyone else's) needs to
+        be reached, same as it was always reachable before, just not
+        permanently taking up the row. */}
     <div className="flex min-w-0 items-start gap-4">
-      {screenMode !== 'my' && (
+      {feedsOpen && (
         <CalendarSidebar
           feeds={feeds}
           hidden={hiddenFeedUserIds}
           onToggle={toggleFeed}
           dotClassFor={(userId) => feedColour(userId).dot}
+          viewerId={viewerId}
+          onMyColorChanged={() => void loadFeeds()}
+          selfOnly={screenMode === 'my'}
+          isAdmin={isAdmin}
         />
       )}
       <div className="min-w-0 flex-1">
@@ -582,27 +661,27 @@ export function TaskCalendarView() {
               viewerId={viewerId}
               view={view}
               anchorDate={month}
-              projectColour={projectColour}
               feedColour={feedColour}
               onTaskClick={setOpenTaskId}
               onEventClick={setOpenEventId}
               // Self-logged work is the far more frequent reason to click a
               // bare day - "Add Event" (meetings) stays one click away in
               // the header for the less-frequent case, unchanged.
-              onEmptyDateClick={(dateStr) => { setSelfTaskDate(dateStr); setSelfTaskOpen(true) }}
+              onEmptyDateClick={(dateStr, timeStr) => { setSelfTaskDate(dateStr); setSelfTaskTime(timeStr); setSelfTaskOpen(true) }}
               onTaskReschedule={onTaskReschedule}
               onEventReschedule={onEventReschedule}
             />
           )}
-          {!loading && screenMode !== 'list' && (projects.length > 0 || visibleTasks.some((task) => !task.project)) && (
+          {/* Project colour is gone from task chips (locked-in: feed colour
+              only) so the old per-project legend no longer corresponds to
+              anything on screen - a status legend replaces it, since that's
+              now the one thing a chip's border communicates beyond identity. */}
+          {!loading && screenMode !== 'list' && (
             <div className="flex flex-wrap items-center gap-3 border-t p-4 text-xs text-muted-foreground">
-              <span className="font-medium">Projects:</span>
-              {projects.map((name) => (
-                <span key={name} className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${projectColour(name).dot}`} />{name}</span>
-              ))}
-              {visibleTasks.some((task) => !task.project) && (
-                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border border-dashed border-border bg-muted" />Not in a project</span>
-              )}
+              <span className="font-medium">Status:</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-success" />Completed</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-warning" />Pending</span>
+              <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full border-2 border-destructive" />Overdue</span>
             </div>
           )}
         </CardContent></Card>
@@ -612,7 +691,7 @@ export function TaskCalendarView() {
       taskId={openTaskId}
       open={openTaskId !== null}
       onClose={() => setOpenTaskId(null)}
-      onUpdated={() => void load()}
+      onUpdated={() => void load({ silent: true })}
       /* dashboardContext ALWAYS supplied here, mirroring task-workspace.tsx's
          own Dashboard precedent unconditionally (not just for non-'mine'
          scopes) - viewScope can show tasks the viewer does not personally
@@ -629,14 +708,15 @@ export function TaskCalendarView() {
     <SelfTaskEntryModal
       isOpen={selfTaskOpen}
       initialDate={selfTaskDate}
+      initialTimeStart={selfTaskTime}
       statusOptions={statusOptions}
       onClose={() => setSelfTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateTaskModal
       isOpen={assignTaskOpen}
       onClose={() => setAssignTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateEventModal
       isOpen={createEventOpen}

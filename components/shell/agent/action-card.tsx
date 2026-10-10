@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import type { ActionOption, ActionValues } from '@/lib/chat-actions/types'
+import { splitMulti, type ActionOption, type ActionValues } from '@/lib/chat-actions/types'
 import { useChatActions } from './chat-actions-context'
 
 const field =
@@ -33,7 +33,7 @@ export function ActionCard({ messageId }: { messageId: string }) {
 
     let cancelled = false
 
-    for (const input of inputs.filter((candidate) => candidate.type === 'select')) {
+    for (const input of inputs.filter((candidate) => candidate.type === 'select' || candidate.type === 'multiselect')) {
       actions
         .loadOptions(input)
         .then((loaded) => {
@@ -58,6 +58,12 @@ export function ActionCard({ messageId }: { messageId: string }) {
     const submit = () => {
       const labels: Record<string, string> = {}
       for (const input of entry.inputs) {
+        if (input.type === 'multiselect') {
+          const picked = splitMulti(values[input.key])
+          const names = picked.map((value) => options[input.key]?.find((option) => option.value === value)?.label ?? value)
+          if (names.length > 0) labels[input.key] = names.join('\n')
+          continue
+        }
         const chosen = options[input.key]?.find((option) => option.value === values[input.key])
         if (chosen) labels[input.key] = chosen.label
       }
@@ -82,6 +88,31 @@ export function ActionCard({ messageId }: { messageId: string }) {
                 placeholder={input.placeholder}
                 onChange={(event) => setDraft({ ...values, [input.key]: event.target.value })}
               />
+            ) : input.type === 'multiselect' ? (
+              <span className="block max-h-40 space-y-1 overflow-auto rounded-xl border border-border bg-background p-2">
+                {(options[input.key] ?? []).length === 0 ? (
+                  <span className="block text-xs text-muted-foreground">Loading…</span>
+                ) : (
+                  (options[input.key] ?? []).map((option) => {
+                    const picked = splitMulti(values[input.key])
+                    return (
+                      <span key={option.value} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={picked.includes(option.value)}
+                          onChange={(event) =>
+                            setDraft({
+                              ...values,
+                              [input.key]: (event.target.checked ? [...picked, option.value] : picked.filter((value) => value !== option.value)).join(','),
+                            })
+                          }
+                        />
+                        <span className="text-sm">{option.label}</span>
+                      </span>
+                    )
+                  })
+                )}
+              </span>
             ) : input.type === 'select' ? (
               <select
                 className={field}
@@ -126,15 +157,19 @@ export function ActionCard({ messageId }: { messageId: string }) {
           {state.preview.lines.map((line) => (
             <div key={line.label} className="contents">
               <dt className="text-xs text-muted-foreground">{line.label}</dt>
-              <dd className="break-words text-foreground">{line.value}</dd>
+              <dd className="whitespace-pre-line break-words text-foreground">{line.value}</dd>
             </div>
           ))}
         </dl>
         {state.preview.warning ? <p className="text-xs text-amber-600">{state.preview.warning}</p> : null}
-        <p className="text-xs text-muted-foreground">Nothing is saved until you confirm.</p>
+        <p className="text-xs text-muted-foreground">
+          {entry.requiresApproval
+            ? 'Nothing is saved until an administrator approves it.'
+            : 'Nothing is saved until you confirm.'}
+        </p>
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => actions.confirm(messageId)}>
-            Confirm
+            {entry.requiresApproval ? 'Send for approval' : 'Confirm'}
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => actions.edit(messageId)}>
             Edit
@@ -143,6 +178,48 @@ export function ActionCard({ messageId }: { messageId: string }) {
             Cancel
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  if (state.phase === 'requesting') {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        Sending for approval…
+      </div>
+    )
+  }
+
+  if (state.phase === 'awaiting_approval') {
+    return (
+      <div className="space-y-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
+        <div className="flex items-center gap-2">
+          <Clock className="size-4 shrink-0" aria-hidden="true" />
+          <p className="font-medium">Waiting for approval</p>
+        </div>
+        <p className="text-xs text-muted-foreground">{state.preview.title} It runs as soon as an administrator approves it.</p>
+        <Button type="button" size="sm" variant="ghost" onClick={() => actions.cancel(messageId)}>
+          Withdraw request
+        </Button>
+      </div>
+    )
+  }
+
+  if (state.phase === 'approved') {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        Approved - running it now…
+      </div>
+    )
+  }
+
+  if (state.phase === 'rejected') {
+    return (
+      <div className="flex items-start gap-2 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <p>Rejected by an administrator{state.note ? `: ${state.note}` : '.'} Nothing was saved.</p>
       </div>
     )
   }

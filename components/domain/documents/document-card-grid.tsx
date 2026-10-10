@@ -336,7 +336,11 @@ export function DocumentCardGrid({
           const isRenaming = renamingKey === docKey
 
           return (
-            <li key={doc.id} className="group relative aspect-square">
+            <li
+              key={doc.id}
+              data-document-id={doc.id}
+              className="group relative aspect-square rounded-xl transition data-[highlight=true]:ring-4 data-[highlight=true]:ring-primary data-[highlight=true]:ring-offset-2"
+            >
               {pending && (
                 <Badge variant="muted" className="absolute right-2 top-2 z-10 text-[10px] uppercase tracking-wide">
                   {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}

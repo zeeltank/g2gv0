@@ -670,6 +670,9 @@ export interface WorkspaceTask {
   /** The workstream inside `project_id`. Single-task read only. */
   workstream_id?: string | null
   due_date: string | null
+  /** "HH:mm", or null for an all-day task. Single-day only - see calendar-event-mapping.ts. */
+  time_start: string | null
+  time_end: string | null
   remarks: string | null
   /** Which recurring series this occurrence belongs to, if any. */
   recurrence_id: string | null
@@ -955,7 +958,7 @@ export interface CalendarSharesResponse {
 export interface CalendarFeed {
   user_id: string
   name: string
-  /** The color the owner picked for this viewer (or everyone), if any — null falls back to the automatic by-index palette. */
+  /** The color this owner shows as: a share color picked for this viewer specifically, else the owner's own tenant-wide task_card_color preference, else null (the automatic by-index palette). */
   color: string | null
 }
 

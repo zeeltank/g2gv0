@@ -337,8 +337,15 @@ export function GeneratingOrb({ text, size = 96, speed = 1, active = true, class
       <canvas ref={canvasRef} className="absolute inset-0 size-full" aria-hidden="true" />
 
       {text && (
+        // text-foreground, not a literal white - the orb itself renders
+        // pale/pastel on a light page (see this file's own docblock on why:
+        // brightness-as-alpha blending with whatever's behind the canvas),
+        // so white text sat on a near-white background with poor contrast
+        // there. This token already resolves near-black in light mode and
+        // near-white in dark mode (globals.css's --foreground), matching
+        // each theme's actual orb rendering without a separate branch here.
         <span
-          className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums text-white drop-shadow-sm"
+          className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums text-foreground drop-shadow-sm"
           style={{ fontSize: Math.max(11, size * 0.18) }}
         >
           {text}

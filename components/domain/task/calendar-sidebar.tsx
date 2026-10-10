@@ -8,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { accountService } from '@/services/account'
+import { employeeDirectoryService } from '@/services/organization/employee-directory'
 import { taskService } from '@/services/task'
 import type { CalendarFeed, CalendarShare } from '@/types/task-management'
 
@@ -18,6 +20,14 @@ interface Props {
   onToggle: (userId: string) => void
   /** A Tailwind `bg-*` class, matching this screen's existing dot-swatch convention. */
   dotClassFor: (userId: string) => string
+  /** Which feed row is the viewer themselves — the only row they may recolor directly. */
+  viewerId: string
+  /** The viewer just changed their own task_card_color — refetch feeds so the new color shows everywhere (chips included), not just this row. */
+  onMyColorChanged: () => void
+  /** 'My Calendar' mode: every other feed is already hidden and inert there, so show just the viewer's own row (their color picker stays reachable) instead of a list of unchecked rows nothing can be done with. */
+  selfOnly?: boolean
+  /** Administrator viewing this sidebar — every row gets a real color picker, not just the viewer's own. Matches `routes/api.php`'s `profile:admin` gate on the endpoint this calls. */
+  isAdmin?: boolean
 }
 
 /** The one synthetic id this picker ever sends - CalendarShareService::EVERYONE, mirrored client-side only as a display label. */
@@ -38,22 +48,89 @@ const EVERYONE_ID = '0'
  *
  * "Share my calendar" (the other direction - granting access OUT) lives in
  * the "+" popover rather than inline in this list: a row here represents an
- * INCOMING feed the viewer did not create, with no backend operation to
- * recolor or remove it for themselves - only the owner (via the popover)
- * can set a color for a given viewer. Giving each row a pencil that did
- * nothing real would be worse than the three-element row this has instead.
+ * INCOMING feed the viewer did not create, with no backend operation for an
+ * ORDINARY viewer to recolor or remove it for themselves - only the owner
+ * (via the popover) can set a color for a given viewer. Giving every row a
+ * pencil that did nothing real would be worse than the plain row this has
+ * instead.
+ *
+ * The viewer's OWN row (9.11) is the one exception: that color isn't someone
+ * else's grant, it's the viewer's own task_card_color preference, so it gets
+ * a real, editable swatch instead of a read-only dot - everywhere this color
+ * shows (this dot, the grid's own chips) updates the moment it's changed.
+ *
+ * An ADMINISTRATOR (`isAdmin`) is the second exception: every row gets a real
+ * picker, via a new admin-on-behalf-of endpoint
+ * (`PUT /employees-management/{id}/task-card-color`, `profile:admin`-gated)
+ * that writes that employee's OWN task_card_color preference directly -
+ * the same field, same precedence, same visibility to every other viewer of
+ * that feed. Not a share color (those stay per-viewer and owner-set); this
+ * changes how the person is shown everywhere, same as if they'd picked it
+ * themselves.
  */
-export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props) {
+export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId, onMyColorChanged, selfOnly, isAdmin }: Props) {
   const [shares, setShares] = useState<CalendarShare[]>([])
   const [sharesLoaded, setSharesLoaded] = useState(false)
   const [sharesLoading, setSharesLoading] = useState(false)
   const [shareError, setShareError] = useState('')
   const [people, setPeople] = useState<SearchableOption[]>([])
-  const [viewerId, setViewerId] = useState('')
+  const [shareViewerId, setShareViewerId] = useState('')
   const [canEdit, setCanEdit] = useState(false)
   const [shareColor, setShareColor] = useState('#2563eb')
   const [sharing, setSharing] = useState(false)
   const [recoloring, setRecoloring] = useState<string | null>(null)
+  const [savingMyColor, setSavingMyColor] = useState(false)
+  /** Admin-on-behalf-of recolor in flight, keyed by the employee's user_id — distinct from `recoloring` (the share-popover's own, keyed by share id). */
+  const [recoloringFeedId, setRecoloringFeedId] = useState<string | null>(null)
+
+  /**
+   * My own card color, like CRM (9.11) — unlike every other row, this one is
+   * genuinely editable here: a `color` field the OWNER set for how THEY show
+   * up, not a share grant pointed at someone else. Saved to UserPreferences
+   * (task_card_color), not task_management_calendar_shares — that table's
+   * EVERYONE-viewer-id row is also a VISIBILITY grant
+   * (CalendarVisibilityService reads it that way too), so writing a
+   * self-color there would silently share the viewer's whole calendar with
+   * the entire tenant as a side effect of picking a color.
+   */
+  const saveMyColor = async (color: string) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    setSavingMyColor(true)
+    try {
+      await accountService.updatePreferences(context, { task_card_color: color })
+      onMyColorChanged()
+    } catch {
+      // A failed save leaves the swatch showing the old color on the next
+      // feeds refresh — no separate error surface for a single-field picker
+      // this small, matching the share-color input beside it.
+    } finally {
+      setSavingMyColor(false)
+    }
+  }
+
+  /**
+   * Admin-on-behalf-of: set a DIFFERENT employee's own task_card_color
+   * preference directly (`PUT /employees-management/{id}/task-card-color`,
+   * `profile:admin`-gated server-side — this button only renders when
+   * `isAdmin` is true, but the backend re-checks independently). Changes how
+   * that person is shown to every viewer of their feed, not just this admin.
+   */
+  const recolorFeed = async (userId: string, color: string) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    setRecoloringFeedId(userId)
+    try {
+      await employeeDirectoryService.setTaskCardColor(context, userId, color)
+      onMyColorChanged()
+    } catch {
+      // Same no-separate-error-surface call as saveMyColor, for the same reason.
+    } finally {
+      setRecoloringFeedId(null)
+    }
+  }
 
   /** Lazy, once per mount - the popover is opened far less often than this sidebar is visible. */
   const loadShareData = () => {
@@ -87,11 +164,11 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props)
   }
 
   const addShare = async () => {
-    if (!viewerId) return
+    if (!shareViewerId) return
     setSharing(true); setShareError('')
     try {
-      await taskService.createCalendarShare(getLaravelContext(), viewerId, canEdit, shareColor)
-      setViewerId(''); setCanEdit(false)
+      await taskService.createCalendarShare(getLaravelContext(), shareViewerId, canEdit, shareColor)
+      setShareViewerId(''); setCanEdit(false)
       await refreshShares()
     } catch (reason) {
       setShareError(reason instanceof Error ? reason.message : 'Unable to share your calendar.')
@@ -135,12 +212,14 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props)
     ...people.filter((person) => !alreadySharedIds.has(person.value)),
   ]
 
+  const visibleFeeds = selfOnly ? feeds.filter((feed) => feed.user_id === viewerId) : feeds
+
   return (
     <Card className="sticky top-4 hidden max-h-[calc(100vh-2rem)] w-64 shrink-0 flex-col p-2 md:flex">
       <div className="flex items-center justify-between px-2 pb-2 pt-1">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-          <Users className="size-4" />Added Calendars
-          {hidden.size > 0 ? ` (${feeds.length - hidden.size}/${feeds.length})` : ''}
+          <Users className="size-4" />{selfOnly ? 'My Calendar' : 'Added Calendars'}
+          {!selfOnly && hidden.size > 0 ? ` (${feeds.length - hidden.size}/${feeds.length})` : ''}
         </h3>
         <Popover onOpenChange={(isOpen) => { if (isOpen) loadShareData() }}>
           <PopoverTrigger asChild>
@@ -187,8 +266,8 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props)
 
             <div className="mt-3 space-y-2 border-t pt-3">
               <SearchableSelect
-                value={viewerId}
-                onChange={setViewerId}
+                value={shareViewerId}
+                onChange={setShareViewerId}
                 options={pickerOptions}
                 placeholder="Share with…"
                 searchPlaceholder="Search people…"
@@ -202,7 +281,7 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props)
                 <input type="color" value={shareColor} onChange={(event) => setShareColor(event.target.value)} disabled={sharing} className="size-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0" />
                 Color they&apos;ll be shown in
               </label>
-              <Button size="sm" className="w-full" disabled={!viewerId || sharing} onClick={() => void addShare()}>
+              <Button size="sm" className="w-full" disabled={!shareViewerId || sharing} onClick={() => void addShare()}>
                 {sharing ? 'Sharing…' : 'Share'}
               </Button>
             </div>
@@ -210,19 +289,50 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor }: Props)
         </Popover>
       </div>
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
-        {feeds.map((feed) => (
+        {visibleFeeds.map((feed) => (
           <label key={feed.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
             <Checkbox checked={!hidden.has(feed.user_id)} onCheckedChange={() => onToggle(feed.user_id)} />
             {/* The owner's own chosen color wins over the automatic by-index
-                palette, the same precedence the grid's chips use. */}
-            <span
-              className={feed.color ? 'size-2.5 shrink-0 rounded-full' : `size-2.5 shrink-0 rounded-full ${dotClassFor(feed.user_id)}`}
-              style={feed.color ? { backgroundColor: feed.color } : undefined}
-            />
+                palette, the same precedence the grid's chips use. The
+                viewer's OWN row is always editable here; every other row is
+                somebody else's choice and stays a plain dot UNLESS the
+                viewer is an administrator (see this file's own header
+                comment on why an ordinary viewer gets no pencil icon). */}
+            {feed.user_id === viewerId ? (
+              // Not forced circular, unlike the plain dot below - a native
+              // color input's internal swatch padding fights `rounded-full`
+              // inconsistently across browsers. Same rounded-square shape as
+              // the share popover's own color inputs above, just smaller to
+              // fit this denser row.
+              <input
+                type="color"
+                aria-label="My task calendar color"
+                value={feed.color || '#94a3b8'}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => { event.stopPropagation(); void saveMyColor(event.target.value) }}
+                disabled={savingMyColor}
+                className="size-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+              />
+            ) : isAdmin ? (
+              <input
+                type="color"
+                aria-label={`${feed.name}'s task calendar color`}
+                value={feed.color || '#94a3b8'}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => { event.stopPropagation(); void recolorFeed(feed.user_id, event.target.value) }}
+                disabled={recoloringFeedId === feed.user_id}
+                className="size-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+              />
+            ) : (
+              <span
+                className={feed.color ? 'size-2.5 shrink-0 rounded-full' : `size-2.5 shrink-0 rounded-full ${dotClassFor(feed.user_id)}`}
+                style={feed.color ? { backgroundColor: feed.color } : undefined}
+              />
+            )}
             <span className="min-w-0 flex-1 truncate text-sm">{feed.name}</span>
           </label>
         ))}
-        {feeds.length === 0 && <p className="px-2 text-sm text-muted-foreground">No other calendars are shared with you yet.</p>}
+        {!selfOnly && visibleFeeds.length === 0 && <p className="px-2 text-sm text-muted-foreground">No other calendars are shared with you yet.</p>}
       </div>
     </Card>
   )

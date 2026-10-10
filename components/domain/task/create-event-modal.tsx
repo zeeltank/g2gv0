@@ -1,20 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { TimePicker } from '@/components/ui/time-picker'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { modalScaleIn } from '@/lib/motion/variants'
 import { taskService } from '@/services/task'
 import { AttendeeEmailInput } from './attendee-email-input'
 import { MemberPicker } from './member-picker'
 import { RecurrenceRulePicker } from './recurrence-rule-picker'
+import { addOneHourToDateTimeLocal } from './time-follow'
 import type { RecurrenceRule } from '@/types/task-management'
 
 interface Props {
@@ -150,15 +150,14 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
-      <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
-        <motion.div variants={modalScaleIn} initial="initial" animate="animate" exit="exit">
-          <SheetHeader>
-            <SheetTitle>New Event</SheetTitle>
-            <SheetDescription>A meeting or call on your calendar — separate from a task.</SheetDescription>
-          </SheetHeader>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-xl">
+        <DialogHeader className="shrink-0">
+          <DialogTitle>New Event</DialogTitle>
+          <DialogDescription>A meeting or call on your calendar — separate from a task.</DialogDescription>
+        </DialogHeader>
 
-          <div className="mt-6 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
             <div className="space-y-1.5">
               <Label htmlFor="event-title">Title</Label>
               <Input id="event-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Weekly sync with design" autoFocus />
@@ -188,21 +187,33 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
             </div>
 
             {/* Date and time as separate inputs, matching CRM's own popup
-                layout - not a single combined datetime-local field. */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="event-start-date">Starts</Label>
-                <div className="flex gap-2">
-                  <Input id="event-start-date" type="date" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} />
-                  {!allDay && <Input aria-label="Start time" type="time" value={startAt.slice(11)} onChange={(event) => setStartAt(`${startAt.slice(0, 10)}T${event.target.value}`)} />}
-                </div>
+                layout - not a single combined datetime-local field. Starts/
+                Ends are each a FULL-width row, not a 2-column grid: squeezed
+                into half the dialog, a date input plus TimePicker's
+                clock-icon-and-two-dropdowns no longer fit side by side
+                (confirmed live - the row overflowed and dragged the whole
+                dialog into a horizontal scroll, cutting off unrelated rows). */}
+            <div className="space-y-1.5">
+              <Label htmlFor="event-start-date">Starts</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="event-start-date" type="date" className="w-auto" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} />
+                {!allDay && (
+                  <TimePicker
+                    value={startAt.slice(11)}
+                    onChange={(next) => {
+                      const nextStart = `${startAt.slice(0, 10)}T${next}`
+                      setStartAt(nextStart)
+                      setEndAt(addOneHourToDateTimeLocal(nextStart))
+                    }}
+                  />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="event-end-date">Ends</Label>
-                <div className="flex gap-2">
-                  <Input id="event-end-date" type="date" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} />
-                  {!allDay && <Input aria-label="End time" type="time" value={endAt.slice(11)} onChange={(event) => setEndAt(`${endAt.slice(0, 10)}T${event.target.value}`)} />}
-                </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="event-end-date">Ends</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="event-end-date" type="date" className="w-auto" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} />
+                {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
               </div>
             </div>
 
@@ -234,16 +245,15 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
             </div>
 
             {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+        </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={() => void submit()} disabled={submitting || !title.trim()}>
-                {submitting ? 'Creating…' : 'Create Event'}
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </SheetContent>
-    </Sheet>
+        <DialogFooter className="shrink-0">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => void submit()} disabled={submitting || !title.trim()}>
+            {submitting ? 'Creating…' : 'Create Event'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

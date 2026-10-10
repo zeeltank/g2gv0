@@ -1,4 +1,4 @@
-import { addDays, format, isBefore, isSameDay, startOfDay } from 'date-fns'
+import { addDays, addMinutes, format, isBefore, isSameDay, startOfDay } from 'date-fns'
 import type { EventInput } from '@fullcalendar/core'
 import type { CalendarEntry, CalendarEntryKind, WorkspaceTask } from '@/types/task-management'
 
@@ -53,27 +53,29 @@ export interface CalendarGridExtendedProps {
   /** Tailwind chip classes - the only styling when no custom feed color applies. */
   fallbackClassName: string
   /**
-   * A per-feed custom hex (9.8), TASK/EVENT only. Rendered as a left-border
-   * accent over the fallback classes, never as a full background - this
-   * app's only other custom-hex usages (tm-priority-management.tsx,
-   * task-workspace.tsx's Grid columns) are all small accents/dots, never a
-   * full chip with body text on top, and there is no contrast-safe-text
-   * scheme anywhere in this codebase to reuse for that.
+   * A per-person custom hex (9.8, 9.11), TASK/EVENT only - a share color the
+   * owner picked for this viewer specifically, or failing that the owner's
+   * own task_card_color preference (CalendarFeed.color resolves both, see
+   * its own docblock). Rendered as the chip's FULL solid fill + border,
+   * overriding the project/feed-palette fallbackClassName entirely - paired
+   * with contrastTextColor() below rather than a flat white/black, since an
+   * employee's own pick is arbitrary and unreviewed, unlike the palette's
+   * theme tokens.
    */
   accentColor: string | null
   /** Raw status string - shown as-is on the milestone/checkpoint popover. */
   status: string
-  /** TASK only - COMPLETED/ON HOLD read as done-with via strikethrough, matching the old day-cell look exactly. Always false for the other three kinds, which never had this treatment. */
-  settled: boolean
-  /** TASK only, same reason. */
-  overdue: boolean
+  /** TASK only - the status-colored BORDER the chip gets (green/yellow/red).
+   *  null for the other three kinds, which keep their own status-color
+   *  scheme (statusClassName()) untouched by this redesign. */
+  cardStatus: 'completed' | 'pending' | 'overdue' | null
   /** Shown on the milestone/checkpoint popover; best-effort display text for TASK/EVENT, which open a full drawer instead and do not otherwise use it. */
   projectName: string | null
   departmentName: string | null
   hint: string
 }
 
-interface ColourClasses { chip: string; dot: string }
+interface ColourClasses { chip: string; dot: string; solid: string }
 
 /** `id` is kind-prefixed (`TASK-42` vs `EVENT-42`) - task and entry ids come from different tables and can collide, which would corrupt FullCalendar's internal diffing. */
 export function taskEventId(taskId: string): string {
@@ -86,25 +88,48 @@ export function entryEventId(entry: Pick<CalendarEntry, 'kind' | 'id'>): string 
 
 export function mapTaskToEvent(
   task: WorkspaceTask,
-  projectColour: (project: string | null) => ColourClasses,
+  feedColour: (userId: string) => ColourClasses,
   feedColorByUserId: Map<string, string | null>,
 ): EventInput | null {
   const span = taskSpan(task)
   if (!span) return null
 
-  const settled = task.status === 'COMPLETED' || task.status === 'ON HOLD'
-  const overdue = !settled && isBefore(startOfDay(span.end), startOfDay(new Date()))
+  // ON HOLD stays immune to "overdue" - a task paused on purpose shouldn't
+  // read as late just because its due date has since passed under it.
+  const completed = task.status === 'COMPLETED'
+  const overdue = !completed && task.status !== 'ON HOLD' && isBefore(startOfDay(span.end), startOfDay(new Date()))
+  const cardStatus: CalendarGridExtendedProps['cardStatus'] = completed ? 'completed' : overdue ? 'overdue' : 'pending'
   const project = task.project || null
+  // WHO, never which project (locked-in) - a task is colored by its
+  // assignee's own feed color, the same identity the sidebar already shows.
   const accentColor = (task.assignee_id && feedColorByUserId.get(task.assignee_id)) || null
+
+  // Time only means something for a single-day task - a multi-day bar with
+  // a start-of-day time doesn't correspond to anything coherent.
+  const isSingleDay = isSameDay(span.start, span.end)
+  const hasTime = isSingleDay && Boolean(task.time_start)
+
+  let start: Date = span.start
+  // FullCalendar's all-day end is EXCLUSIVE; taskSpan's is inclusive (the
+  // last occupied day). Omitting the +1 renders every multi-day task one
+  // day short.
+  let end: Date = addDays(span.end, 1)
+  let allDay = true
+
+  if (hasTime) {
+    const dayKey = format(span.start, 'yyyy-MM-dd')
+    start = localDateTime(`${dayKey} ${task.time_start}`)
+    end = task.time_end ? localDateTime(`${dayKey} ${task.time_end}`) : addMinutes(start, 30)
+    allDay = false
+  }
 
   const extendedProps: CalendarGridExtendedProps = {
     kind: 'TASK',
     refId: task.id,
-    fallbackClassName: projectColour(project).chip,
+    fallbackClassName: feedColour(task.assignee_id ?? '').solid,
     accentColor,
     status: task.status,
-    settled,
-    overdue,
+    cardStatus,
     projectName: project,
     departmentName: task.department || null,
     hint: hintFor(task.title, project || 'Not in a project', span.start, span.end),
@@ -113,19 +138,17 @@ export function mapTaskToEvent(
   return {
     id: taskEventId(task.id),
     title: task.title,
-    start: span.start,
-    // FullCalendar's all-day end is EXCLUSIVE; taskSpan's is inclusive (the
-    // last occupied day). Omitting the +1 renders every multi-day task one
-    // day short.
-    end: addDays(span.end, 1),
-    allDay: true,
+    start,
+    end,
+    allDay,
     editable: true,
     startEditable: true,
     // Stretching only due_date via resize doesn't survive a reload: taskSpan's
     // own planned_start_date ?? due_date fallback recomputes start to the new
     // due date too, silently collapsing the task back to one day on the next
-    // load. Drag (move) stays enabled either way.
-    durationEditable: Boolean(task.planned_start_date),
+    // load - except for a timed single-day task, where resize always means
+    // "change time_end", which is never lost that way.
+    durationEditable: hasTime ? true : Boolean(task.planned_start_date),
     extendedProps,
   }
 }
@@ -162,7 +185,7 @@ export function mapEntryToEvent(
     // on, via the same automatic by-index palette the Feeds panel already
     // uses - a flat, identical tint for everyone was the old (and reported
     // insufficiently distinct) look.
-    ? (entry.owner_id ? feedColour(entry.owner_id).chip : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80')
+    ? (entry.owner_id ? feedColour(entry.owner_id).solid : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary/80')
     : statusClassName(entry)
   // Status-colored (milestones/checkpoints) is its own established scheme,
   // independent of whose calendar something is on - a per-feed accent only
@@ -175,11 +198,10 @@ export function mapEntryToEvent(
     fallbackClassName,
     accentColor,
     status: entry.status,
-    // Strikethrough/overdue-ring was never part of the event chip's look
-    // (it had one static style regardless of status) or of milestones'/
-    // checkpoints' own status-color treatment - not reintroduced here.
-    settled: false,
-    overdue: false,
+    // The status-colored border is a TASK-only concept (locked-in) - EVENT/
+    // MILESTONE/CHECKPOINT keep their own existing status-color scheme
+    // (statusClassName() above) untouched.
+    cardStatus: null,
     projectName: entry.project_name,
     departmentName: entry.department_name,
     hint: entry.kind === 'EVENT' ? entry.title : hintFor(entry.title, entry.project_name || 'Not in a project', start, allDay ? addDays(end, -1) : end),
@@ -211,4 +233,20 @@ function statusClassName(entry: CalendarEntry): string {
 function hintFor(title: string, where: string, start: Date, end: Date): string {
   const when = !isSameDay(start, end) ? ` (${format(start, 'd MMM')} - ${format(end, 'd MMM')})` : ''
   return `${where} - ${title}${when}`
+}
+
+/**
+ * Black or white, whichever reads on an ARBITRARY hex background - an
+ * employee's own `task_card_color` pick, unlike the PALETTE's theme tokens,
+ * is never reviewed for contrast ahead of time. Standard YIQ brightness
+ * split (perceived luminance, not a straight RGB average - the eye weighs
+ * green far more than blue), same threshold libraries like Chroma.js use.
+ */
+export function contrastTextColor(hex: string): string {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 128 ? '#000000' : '#ffffff'
 }
