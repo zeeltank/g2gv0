@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Plus, Search, Trash2, UserPlus } from 'lucide-react'
+import { ExternalLink, Loader2, Plus, Search, Sparkles, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,8 @@ import {
   ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, gtmService,
   type AccountDetail, type GtmAccount, type GtmCandidate,
 } from '@/services/gtm/gtm'
-import { GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { ImportContactsDialog } from './import-contacts-dialog'
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 
@@ -29,6 +30,7 @@ export function ProspectingView() {
   const [tab, setTab] = useState<Tab>('accounts')
   const [openId, setOpenId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const bump = () => setRefresh((n) => n + 1)
 
@@ -37,7 +39,7 @@ export function ProspectingView() {
       <GtmPageHeader
         title="Prospecting"
         description="Your working list of target accounts, the people at them, and the buying signals your research found."
-        actions={<Button onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button>}
+        actions={<><Button variant="outline" onClick={() => setImporting(true)}><Upload className="mr-1 size-4" />Import contacts</Button><Button onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button></>}
       />
       <div className="mb-4 flex gap-1 border-b border-border">
         {([['accounts', 'Target accounts'], ['research', 'From research']] as const).map(([key, label]) => (
@@ -52,6 +54,7 @@ export function ProspectingView() {
       {ready && tab === 'accounts' && <AccountsTab refresh={refresh} onOpen={setOpenId} />}
       {ready && tab === 'research' && <ResearchTab refresh={refresh} onPromoted={(id) => { bump(); setOpenId(id) }} />}
 
+      <ImportContactsDialog open={importing} onClose={() => setImporting(false)} onDone={bump} />
       <AddAccountDialog open={adding} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); bump(); setOpenId(id) }} />
       <AccountDialog key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} onChanged={bump} />
     </div>
@@ -291,6 +294,34 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
                 <Trash2 className="mr-1 size-3.5" />Remove
               </Button>
             </div>
+
+            <section>
+              <div className="mb-2 flex items-center gap-2">
+                <h3 className="text-sm font-semibold">ICP fit</h3><EstimateTag />
+                <Button size="sm" variant="outline" className="ml-auto" disabled={busy} onClick={() => run(() => gtmService.scoreIcp(detail.account.id))}>
+                  {busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Sparkles className="mr-1 size-3.5" />}
+                  {detail.account.icp_fit_score === null && !detail.account.icp_fit_basis ? 'Score fit' : 'Re-score'}
+                </Button>
+              </div>
+              {!detail.account.icp_fit_basis ? (
+                <p className="text-sm text-muted-foreground">Not scored. Scoring compares this account with the ideal customer you defined under Signals → Company research, using only the facts recorded here and its research signals.</p>
+              ) : (
+                <div className="rounded-md border border-border p-3 text-sm">
+                  <div className="mb-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-semibold">{detail.account.icp_fit_score ?? '—'}</span>
+                    <span className="text-xs text-muted-foreground">/ 100 · confidence {detail.account.icp_fit_basis.confidence} · {detail.account.icp_fit_basis.model} · {fmtDate(detail.account.icp_scored_at, true)}</span>
+                  </div>
+                  <p className="mb-2">{detail.account.icp_fit_basis.summary}</p>
+                  <ul className="space-y-1">
+                    {detail.account.icp_fit_basis.dimensions.map((d) => (
+                      <li key={d.name} className="flex gap-2"><span className="w-20 shrink-0 font-medium capitalize">{d.name}</span><span className="w-10 shrink-0">{d.score ?? 'n/a'}</span><span className="text-muted-foreground">{d.reason}</span></li>
+                    ))}
+                  </ul>
+                  {(detail.account.icp_fit_basis.adjustments ?? []).map((x) => <p key={x} className="mt-1 text-xs text-amber-700">{x}</p>)}
+                  {detail.account.icp_fit_basis.missing.length > 0 && <p className="mt-1 text-xs text-muted-foreground">Missing: {detail.account.icp_fit_basis.missing.join(', ')} — add them to the account to improve this score.</p>}
+                </div>
+              )}
+            </section>
 
             <section>
               <h3 className="mb-2 text-sm font-semibold">Buying signals ({detail.signals.length})</h3>
