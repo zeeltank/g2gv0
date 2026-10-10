@@ -302,6 +302,45 @@ export interface CampaignListQuery {
   campaignStatus?: string
 }
 
+// ── Bulk actions (shared across all 4 modules) ───────────────────────────
+
+export interface CrmBulkResult {
+  id: string
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmBulkActionResponse {
+  status: number
+  message: string
+  data: {
+    results: CrmBulkResult[]
+    summary: { succeeded: number; failed: number }
+  }
+}
+
+// ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
+
+export type CrmRecycleBinType = 'leads' | 'contacts' | 'organizations' | 'campaigns'
+
+export interface CrmRecycleBinItem {
+  type: CrmRecycleBinType
+  id: string
+  name: string
+  subLabel: string | null
+  deletedAt: string
+  deletedBy: string | null
+}
+
+export interface CrmRecycleBinListResponse {
+  status: number
+  message: string
+  data: {
+    items: CrmRecycleBinItem[]
+    pagination: CrmPagination
+  }
+}
+
 /** One targeted lead/contact/organization row on a campaign - `targetRowId` identifies the join row itself (for remove/status updates), `targetId` the underlying lead/contact/organization. */
 export interface CampaignTarget {
   targetRowId: string

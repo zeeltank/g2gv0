@@ -94,6 +94,16 @@ export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organization
 export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
 
 /**
+ * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle
+ * Bin (it is reached from a button on the 4 list views above, gated per-row
+ * by CrmRecycleBinController itself rather than one dedicated menu
+ * permission). Navigate to it with a literal `router.push`, never
+ * `resolveAccessLink()` - that function falls back to `/dashboard` for any
+ * path with no matching menu node.
+ */
+export const CRM_RECYCLE_BIN_PATH = '/module/crm/marketing/recycle-bin'
+
+/**
  * Talent Management — every sub-module, so nothing has to hand-roll a path.
  *
  * WHY THESE EXIST

@@ -21,7 +21,10 @@ import type {
   ContactResponse,
   ConvertLeadPayload,
   ConvertLeadResponse,
+  CrmBulkActionResponse,
   CrmPicklistMap,
+  CrmRecycleBinListResponse,
+  CrmRecycleBinType,
   Lead,
   LeadListQuery,
   LeadListResponse,
@@ -73,6 +76,14 @@ export const crmService = {
   convertLead: (context: LaravelContext, id: string, payload: ConvertLeadPayload) =>
     apiClient.post<ConvertLeadResponse>(`/crm/leads/${id}/convert`, { ...payload, ...baseParams(context) }),
 
+  bulkDeleteLeads: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/leads/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignLeads: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/leads/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
   // ── Organizations ──────────────────────────────────────────────────
   getOrganizations: (context: LaravelContext, query: OrganizationListQuery = {}) =>
     apiClient.get<OrganizationListResponse>('/crm/organizations', {
@@ -105,6 +116,14 @@ export const crmService = {
       assignedTo, cascadeToContacts, ...baseParams(context),
     }),
 
+  bulkDeleteOrganizations: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignOrganizations: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
   // ── Contacts ────────────────────────────────────────────────────────
   getContacts: (context: LaravelContext, query: ContactListQuery = {}) =>
     apiClient.get<ContactListResponse>('/crm/contacts', {
@@ -132,6 +151,14 @@ export const crmService = {
   transferContactOwnership: (context: LaravelContext, id: string, assignedTo: string) =>
     apiClient.post<{ status: number; message: string }>(`/crm/contacts/${id}/transfer-ownership`, {
       assignedTo, ...baseParams(context),
+    }),
+
+  bulkDeleteContacts: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/contacts/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignContacts: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/contacts/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
     }),
 
   // ── Campaigns ───────────────────────────────────────────────────────
@@ -178,6 +205,28 @@ export const crmService = {
     apiClient.put<{ status: number; message: string }>(`/crm/campaigns/${id}/targets/${targetRowId}`, {
       responseStatus, ...baseParams(context),
     }),
+
+  bulkDeleteCampaigns: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignCampaigns: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  // ── Recycle Bin (shared across all 4 modules) ──────────────────────
+  getRecycleBin: (context: LaravelContext, query: { page?: number; perPage?: number } = {}) =>
+    apiClient.get<CrmRecycleBinListResponse>('/crm/recycle-bin', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+    }),
+
+  restoreRecycleBinItem: (context: LaravelContext, type: CrmRecycleBinType, id: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/recycle-bin/${type}/${id}/restore`, baseParams(context)),
+
+  forceDeleteRecycleBinItem: (context: LaravelContext, type: CrmRecycleBinType, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/recycle-bin/${type}/${id}`, baseParams(context)),
 }
 
 export type { Lead }

@@ -7,11 +7,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
+import { CrmBulkActionBar } from './crm-bulk-action-bar'
+import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmRecycleBinLink } from './crm-recycle-bin-link'
+import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'email' | 'title' | 'created_at'
 
@@ -37,6 +42,7 @@ export function ContactListView() {
   const context = useMemo(() => getLaravelContext(), [])
 
   const [contacts, setContacts] = useState<Contact[]>([])
+  const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(contacts)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -52,6 +58,7 @@ export function ContactListView() {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
     setIsLoading(true)
     setError('')
+    clearSelection()
     try {
       const response = await crmService.getContacts(context, {
         page, perPage: PAGE_SIZE, search: search || undefined,
@@ -64,7 +71,7 @@ export function ContactListView() {
     } finally {
       setIsLoading(false)
     }
-  }, [context, page, search, sortKey, sortAsc])
+  }, [context, page, search, sortKey, sortAsc, clearSelection])
 
   useEffect(() => {
     queueMicrotask(() => { void load() })
@@ -86,6 +93,38 @@ export function ContactListView() {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const employees = useAssignableEmployees(context, selectedIds.size > 0)
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}? This moves them to the Recycle Bin.`)) return
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkDeleteContacts(context, Array.from(selectedIds))
+      setNotice(crmBulkResultMessage('Deleted', 'contact', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected contacts.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const handleBulkReassign = async (assigneeId: string) => {
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkAssignContacts(context, Array.from(selectedIds), assigneeId)
+      setNotice(crmBulkResultMessage('Reassigned', 'contact', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reassign the selected contacts.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -93,10 +132,13 @@ export function ContactListView() {
           <h1 className="text-xl font-semibold text-foreground">Contacts</h1>
           <p className="text-sm text-muted-foreground">People at the organizations you work with.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="mr-1.5 size-4" aria-hidden="true" />
-          Add Contact
-        </Button>
+        <div className="flex items-center gap-2">
+          <CrmRecycleBinLink />
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="mr-1.5 size-4" aria-hidden="true" />
+            Add Contact
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -111,6 +153,14 @@ export function ContactListView() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all contacts on this page"
+                  checked={allSelected}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                />
+              </TableHead>
               <SortHead label="First Name" sortKey="first_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Last Name" sortKey="last_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Title" sortKey="title" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/contacts:table-cell" />
@@ -121,17 +171,25 @@ export function ContactListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading contacts…
               </TableCell></TableRow>
             )}
             {!isLoading && contacts.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 No contacts yet. Click “Add Contact” to create one.
               </TableCell></TableRow>
             )}
             {!isLoading && contacts.map((contact) => (
               <TableRow key={contact.id} className="cursor-pointer" onClick={() => router.push(resolveAccessLink('/module/crm/marketing/contacts') + `/${contact.id}`)}>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${contact.firstName ?? ''} ${contact.lastName}`.trim()}
+                    checked={selectedIds.has(contact.id)}
+                    onChange={() => toggle(contact.id)}
+                  />
+                </TableCell>
                 <TableCell>{contact.firstName || '—'}</TableCell>
                 <TableCell className="font-medium text-foreground">{contact.lastName}</TableCell>
                 <TableCell className="hidden @md/contacts:table-cell">{contact.title || '—'}</TableCell>
@@ -159,6 +217,15 @@ export function ContactListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         contact={null}
         picklists={picklists}
+      />
+
+      <CrmBulkActionBar
+        count={selectedIds.size}
+        busy={bulkBusy}
+        people={employees.map((e) => ({ value: e.id, label: e.name }))}
+        onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
+        onDelete={() => void handleBulkDelete()}
+        onClear={clearSelection}
       />
     </div>
   )

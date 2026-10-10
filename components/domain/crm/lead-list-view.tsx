@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
 import { CreateLeadModal } from './create-lead-modal'
+import { CrmBulkActionBar } from './crm-bulk-action-bar'
+import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmRecycleBinLink } from './crm-recycle-bin-link'
+import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'company' | 'email' | 'lead_status' | 'lead_source' | 'rating' | 'created_at'
 
@@ -48,6 +53,13 @@ export function LeadListView() {
   const context = useMemo(() => getLaravelContext(), [])
 
   const [leads, setLeads] = useState<Lead[]>([])
+  // Destructured (not kept as one `selection` object) so `load`'s deps array
+  // below can name the stable `clear` function directly - a member access
+  // like `selection.clear` reads as unstable to exhaustive-deps, which then
+  // asks for the whole object, and that WOULD actually be unstable (a new
+  // object every render), recreating `load` - and re-triggering its effect -
+  // on every single checkbox click.
+  const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(leads)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -67,6 +79,10 @@ export function LeadListView() {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
     setIsLoading(true)
     setError('')
+    // A selection from a different page/filter refers to rows about to
+    // disappear from `leads` - carrying it over would bulk-act on ids no
+    // longer visible on screen.
+    clearSelection()
     try {
       const response = await crmService.getLeads(context, {
         page, perPage: PAGE_SIZE, search: search || undefined,
@@ -79,7 +95,7 @@ export function LeadListView() {
     } finally {
       setIsLoading(false)
     }
-  }, [context, page, search, sortKey, sortAsc])
+  }, [context, page, search, sortKey, sortAsc, clearSelection])
 
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
@@ -105,6 +121,38 @@ export function LeadListView() {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const employees = useAssignableEmployees(context, selectedIds.size > 0)
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} lead${selectedIds.size === 1 ? '' : 's'}? This moves them to the Recycle Bin.`)) return
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkDeleteLeads(context, Array.from(selectedIds))
+      setNotice(crmBulkResultMessage('Deleted', 'lead', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected leads.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const handleBulkReassign = async (assigneeId: string) => {
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkAssignLeads(context, Array.from(selectedIds), assigneeId)
+      setNotice(crmBulkResultMessage('Reassigned', 'lead', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reassign the selected leads.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -112,10 +160,13 @@ export function LeadListView() {
           <h1 className="text-xl font-semibold text-foreground">Leads</h1>
           <p className="text-sm text-muted-foreground">People and companies showing early interest, not yet customers.</p>
         </div>
-        <Button onClick={() => { setEditingLead(null); setModalOpen(true) }}>
-          <Plus className="mr-1.5 size-4" aria-hidden="true" />
-          Add Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <CrmRecycleBinLink />
+          <Button onClick={() => { setEditingLead(null); setModalOpen(true) }}>
+            <Plus className="mr-1.5 size-4" aria-hidden="true" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -135,6 +186,14 @@ export function LeadListView() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all leads on this page"
+                  checked={allSelected}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                />
+              </TableHead>
               <SortHead label="First Name" sortKey="first_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Last Name" sortKey="last_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Company" sortKey="company" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
@@ -146,12 +205,12 @@ export function LeadListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading leads…
               </TableCell></TableRow>
             )}
             {!isLoading && leads.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                 No leads yet. Click “Add Lead” to create one.
               </TableCell></TableRow>
             )}
@@ -161,6 +220,14 @@ export function LeadListView() {
                 className="cursor-pointer"
                 onClick={() => router.push(resolveAccessLink('/module/crm/marketing/leads') + `/${lead.id}`)}
               >
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${lead.firstName ?? ''} ${lead.lastName}`.trim()}
+                    checked={selectedIds.has(lead.id)}
+                    onChange={() => toggle(lead.id)}
+                  />
+                </TableCell>
                 <TableCell>{lead.firstName || '—'}</TableCell>
                 <TableCell className="font-medium text-foreground">{lead.lastName}</TableCell>
                 <TableCell>{lead.company || '—'}</TableCell>
@@ -193,6 +260,15 @@ export function LeadListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         lead={editingLead}
         picklists={picklists}
+      />
+
+      <CrmBulkActionBar
+        count={selectedIds.size}
+        busy={bulkBusy}
+        people={employees.map((e) => ({ value: e.id, label: e.name }))}
+        onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
+        onDelete={() => void handleBulkDelete()}
+        onClear={clearSelection}
       />
     </div>
   )

@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { Campaign, CrmPicklistValue } from '@/types/crm'
 import { CreateCampaignModal } from './create-campaign-modal'
+import { CrmBulkActionBar } from './crm-bulk-action-bar'
+import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmRecycleBinLink } from './crm-recycle-bin-link'
+import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'name' | 'campaign_type' | 'campaign_status' | 'expected_revenue' | 'closing_date'
 
@@ -45,6 +50,7 @@ export function CampaignListView() {
   const context = useMemo(() => getLaravelContext(), [])
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(campaigns)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -60,6 +66,7 @@ export function CampaignListView() {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
     setIsLoading(true)
     setError('')
+    clearSelection()
     try {
       const response = await crmService.getCampaigns(context, {
         page, perPage: PAGE_SIZE, search: search || undefined,
@@ -72,7 +79,7 @@ export function CampaignListView() {
     } finally {
       setIsLoading(false)
     }
-  }, [context, page, search, sortKey, sortAsc])
+  }, [context, page, search, sortKey, sortAsc, clearSelection])
 
   useEffect(() => {
     queueMicrotask(() => { void load() })
@@ -94,6 +101,38 @@ export function CampaignListView() {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const employees = useAssignableEmployees(context, selectedIds.size > 0)
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} campaign${selectedIds.size === 1 ? '' : 's'}? This moves them to the Recycle Bin.`)) return
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkDeleteCampaigns(context, Array.from(selectedIds))
+      setNotice(crmBulkResultMessage('Deleted', 'campaign', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected campaigns.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const handleBulkReassign = async (assigneeId: string) => {
+    setBulkBusy(true)
+    try {
+      const response = await crmService.bulkAssignCampaigns(context, Array.from(selectedIds), assigneeId)
+      setNotice(crmBulkResultMessage('Reassigned', 'campaign', response.data))
+      clearSelection()
+      void load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reassign the selected campaigns.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -101,10 +140,13 @@ export function CampaignListView() {
           <h1 className="text-xl font-semibold text-foreground">Campaigns</h1>
           <p className="text-sm text-muted-foreground">Marketing efforts you target leads, contacts, and organizations with.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="mr-1.5 size-4" aria-hidden="true" />
-          Add Campaign
-        </Button>
+        <div className="flex items-center gap-2">
+          <CrmRecycleBinLink />
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="mr-1.5 size-4" aria-hidden="true" />
+            Add Campaign
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -119,6 +161,14 @@ export function CampaignListView() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all campaigns on this page"
+                  checked={allSelected}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                />
+              </TableHead>
               <SortHead label="Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Type" sortKey="campaign_type" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/campaigns:table-cell" />
               <SortHead label="Status" sortKey="campaign_status" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
@@ -128,17 +178,25 @@ export function CampaignListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading campaigns…
               </TableCell></TableRow>
             )}
             {!isLoading && campaigns.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                 No campaigns yet. Click “Add Campaign” to create one.
               </TableCell></TableRow>
             )}
             {!isLoading && campaigns.map((campaign) => (
               <TableRow key={campaign.id} className="cursor-pointer" onClick={() => router.push(resolveAccessLink('/module/crm/marketing/campaigns') + `/${campaign.id}`)}>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${campaign.name}`}
+                    checked={selectedIds.has(campaign.id)}
+                    onChange={() => toggle(campaign.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium text-foreground">{campaign.name}</TableCell>
                 <TableCell className="hidden @md/campaigns:table-cell">{campaign.campaignType || '—'}</TableCell>
                 <TableCell>
@@ -169,6 +227,15 @@ export function CampaignListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         campaign={null}
         picklists={picklists}
+      />
+
+      <CrmBulkActionBar
+        count={selectedIds.size}
+        busy={bulkBusy}
+        people={employees.map((e) => ({ value: e.id, label: e.name }))}
+        onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
+        onDelete={() => void handleBulkDelete()}
+        onClear={clearSelection}
       />
     </div>
   )
