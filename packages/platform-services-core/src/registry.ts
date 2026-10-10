@@ -58,6 +58,7 @@ export const DECENTRALIZED_MODULES = [
   'lms',
   'competency',
   'task',
+  'crm',
 ] as const
 
 export const PLATFORM_SERVICES: readonly PlatformService[] = [

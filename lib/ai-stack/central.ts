@@ -125,7 +125,17 @@ function build(spec: CentralSpec): AiStackModule {
   };
 }
 
-const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
+/**
+ * `Partial` - not every decentralized module has a Central AI Stack entry
+ * yet. CRM (added to `DECENTRALIZED_MODULES` for Fields Configuration's
+ * `?module=crm` scoping, which has nothing to do with this file) has no
+ * `ai_modules` row, no `ModuleDataSourceCatalog::forModule('crm')`, and no
+ * read tools in `lib/agents/registry.ts` - a spec here would claim a
+ * working AI Stack that does not exist. `AiStackConsole` already renders
+ * its own "choose a module" empty state when `CENTRAL_AI_STACKS[key]` is
+ * undefined, so this is a true gap, not a crash.
+ */
+const SPECS: Partial<Record<DecentralizedModuleKey, CentralSpec>> = {
   organization: {
     key: 'organizational_management',
     menuSlug: 'organizational-management',
@@ -288,7 +298,7 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
   },
 };
 
-/** The Centralized AI Stack descriptor for one Platform Services module. */
-export const CENTRAL_AI_STACKS: Record<DecentralizedModuleKey, AiStackModule> = Object.fromEntries(
-  Object.entries(SPECS).map(([key, spec]) => [key, build(spec)]),
-) as Record<DecentralizedModuleKey, AiStackModule>;
+/** The Centralized AI Stack descriptor for one Platform Services module - absent for a module with no entry in `SPECS` above. */
+export const CENTRAL_AI_STACKS: Partial<Record<DecentralizedModuleKey, AiStackModule>> = Object.fromEntries(
+  Object.entries(SPECS).map(([key, spec]) => [key, build(spec as CentralSpec)]),
+);

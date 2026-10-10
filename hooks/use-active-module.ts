@@ -86,11 +86,11 @@ function stackFor(navModule: NavModule): { key: DecentralizedModuleKey; stack: A
   const slug = moduleSlug(link)
 
   for (const [key, stack] of Object.entries(CENTRAL_AI_STACKS)) {
-    if (link && link === stack.route) return { key: key as DecentralizedModuleKey, stack }
+    if (stack && link && link === stack.route) return { key: key as DecentralizedModuleKey, stack }
   }
 
   for (const [key, stack] of Object.entries(CENTRAL_AI_STACKS)) {
-    if (slug && slug === stack.menuSlug) return { key: key as DecentralizedModuleKey, stack }
+    if (stack && slug && slug === stack.menuSlug) return { key: key as DecentralizedModuleKey, stack }
   }
 
   return null

@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { describePlatformError } from '@/lib/platform/client'
+import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import type { Campaign, CrmPicklistValue } from '@/types/crm'
 import { CAMPAIGN_STATUS_VARIANT } from './campaign-list-view'
 import { CreateCampaignModal } from './create-campaign-modal'
@@ -16,8 +19,8 @@ interface Props {
   picklists: { campaignType: CrmPicklistValue[]; campaignStatus: CrmPicklistValue[]; expectedResponse: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'targets'
-const TABS: Array<{ id: Tab; label: string }> = [
+type Tab = 'details' | 'targets' | 'custom'
+const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'targets', label: 'Targets' },
 ]
@@ -35,6 +38,26 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
+  const [hasCustomFields, setHasCustomFields] = useState(false)
+  const [savingCustom, setSavingCustom] = useState(false)
+  const [customNotice, setCustomNotice] = useState<string | null>(null)
+
+  const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const saveCustomFields = async () => {
+    setSavingCustom(true)
+    setCustomNotice(null)
+    try {
+      await saveCustomFieldValues('crm_campaigns', Number(campaign.id), customValues)
+      setCustomNotice('Saved.')
+    } catch (cause: unknown) {
+      setCustomNotice(describePlatformError(cause, 'Could not save these fields.'))
+    } finally {
+      setSavingCustom(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -67,7 +90,7 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
       <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -122,6 +145,26 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
           <CampaignTargetManager campaignId={campaign.id} />
         </div>
       )}
+
+      {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
+      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
+        <CustomFieldsSection
+          recordTable="crm_campaigns"
+          recordId={Number(campaign.id)}
+          values={customValues}
+          onChange={setCustomValues}
+          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+        />
+        {hasCustomFields && (
+          <div className="flex items-center gap-3 pt-2">
+            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+              Save
+            </Button>
+            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+          </div>
+        )}
+      </div>
 
       <CreateCampaignModal
         isOpen={editOpen}
