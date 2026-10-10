@@ -7,6 +7,7 @@ import {
 import {
   AI_MAX_RETRIES,
   createAiModel,
+  defaultChatModelName,
   getLlmUnavailableReason,
   getQuotaCooldownSecondsRemaining,
   isLlmAvailable,
@@ -14,6 +15,7 @@ import {
   noteQuotaExhausted,
 } from "../config/model";
 import { createAgentTools } from "../agent/chat-tools";
+import { reportChatUsage, resolveConfiguredChatModel } from "../backend/chat-usage";
 import {
   tryAnswerFromDatabase,
   type DatabaseFirstResult,
@@ -424,9 +426,20 @@ export async function generateConversationResponse(
 
   // Declared as a local so its (heavily generic) return type is inferred from
   // the concrete tool set rather than widened to ToolSet.
+  // The model an administrator chose in AI Model Setup, if any; usage goes back to the
+  // backend so the Usage panel sees this route's spend. Both are best-effort.
+  const usageContext = {
+    token: context.user.token,
+    subInstituteId: context.user.subInstituteId,
+    userId: context.user.userId,
+  };
+  const configuredModel = await resolveConfiguredChatModel(usageContext);
+  const modelName = configuredModel || defaultChatModelName();
+  const startedAt = Date.now();
+
   const runAgent = () =>
     generateText({
-      model: createAiModel(),
+      model: createAiModel(configuredModel),
       system: prepared.systemPrompt,
       messages,
       // A data-backed answer can need listModules -> resolveEntity ->
@@ -450,6 +463,13 @@ export async function generateConversationResponse(
   try {
     result = await runAgent();
   } catch (error) {
+    void reportChatUsage(usageContext, {
+      model: modelName,
+      latencyMs: Date.now() - startedAt,
+      outcome: "failed",
+      error: error instanceof Error ? error.message : "chat call failed",
+    });
+
     if (!isQuotaError(error)) {
       throw error;
     }
@@ -461,6 +481,14 @@ export async function generateConversationResponse(
     // left is to say so plainly rather than retry or invent an answer.
     return buildLlmUnavailableResponse(context, databaseFirst);
   }
+
+  const usage = result.totalUsage ?? result.usage;
+  void reportChatUsage(usageContext, {
+    model: modelName,
+    inputTokens: usage?.inputTokens,
+    outputTokens: usage?.outputTokens,
+    latencyMs: Date.now() - startedAt,
+  });
 
   const executions = summarizeToolExecutions(result);
 
@@ -517,12 +545,29 @@ export async function streamConversationResponse(
   messages: ModelMessage[]
 ) {
   const prepared = await prepareConversation(request, messages);
+  const usageContext = {
+    token: request.context?.token,
+    subInstituteId: request.context?.subInstituteId,
+    userId: request.context?.userId,
+  };
+  const configuredModel = await resolveConfiguredChatModel(usageContext);
+  const modelName = configuredModel || defaultChatModelName();
+  const startedAt = Date.now();
 
   return {
     intent: prepared.intent,
     activeTools: prepared.activeTools,
     result: streamText({
-      model: createAiModel(),
+      model: createAiModel(configuredModel),
+      onFinish: (event) => {
+        const usage = event.totalUsage ?? event.usage;
+        void reportChatUsage(usageContext, {
+          model: modelName,
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
+          latencyMs: Date.now() - startedAt,
+        });
+      },
       system: prepared.systemPrompt,
       messages,
       // A data-backed answer can need listModules -> resolveEntity ->
