@@ -154,9 +154,9 @@ export const crmService = {
   bulkDeleteOrganizations: (context: LaravelContext, ids: string[]) =>
     apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
 
-  bulkAssignOrganizations: (context: LaravelContext, ids: string[], assignedTo: string) =>
+  bulkAssignOrganizations: (context: LaravelContext, ids: string[], assignedTo: string, cascadeToContacts = false) =>
     apiClient.post<CrmBulkActionResponse>('/crm/organizations/bulk/assign', {
-      ids: ids.map(Number), assignedTo, ...baseParams(context),
+      ids: ids.map(Number), assignedTo, cascadeToContacts, ...baseParams(context),
     }),
 
   getOrganizationDuplicates: (context: LaravelContext) =>
@@ -256,9 +256,12 @@ export const crmService = {
       targetType, targetId, ...baseParams(context),
     }),
 
-  bulkAddCampaignTargets: (context: LaravelContext, id: string, targetType: 'lead' | 'contact' | 'organization', search: string) =>
+  bulkAddCampaignTargets: (
+    context: LaravelContext, id: string, targetType: 'lead' | 'contact' | 'organization',
+    criteria: { search: string } | { savedViewId: string },
+  ) =>
     apiClient.post<{ status: number; message: string }>(`/crm/campaigns/${id}/targets/bulk`, {
-      targetType, search, ...baseParams(context),
+      targetType, ...criteria, ...baseParams(context),
     }),
 
   removeCampaignTarget: (context: LaravelContext, id: string, targetRowId: string) =>

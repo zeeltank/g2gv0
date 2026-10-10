@@ -140,10 +140,10 @@ export function OrganizationListView() {
     }
   }
 
-  const handleBulkReassign = async (assigneeId: string) => {
+  const handleBulkReassign = async (assigneeId: string, cascadeToContacts: boolean) => {
     setBulkBusy(true)
     try {
-      const response = await crmService.bulkAssignOrganizations(context, Array.from(selectedIds), assigneeId)
+      const response = await crmService.bulkAssignOrganizations(context, Array.from(selectedIds), assigneeId, cascadeToContacts)
       setNotice(crmBulkResultMessage('Reassigned', 'organization', response.data))
       clearSelection()
       void load()
@@ -284,9 +284,10 @@ export function OrganizationListView() {
         count={selectedIds.size}
         busy={bulkBusy}
         people={employees.map((e) => ({ value: e.id, label: e.name }))}
-        onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
+        onReassign={(assigneeId, cascade) => void handleBulkReassign(assigneeId, cascade)}
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
+        cascadeLabel="Also transfer contacts"
       />
     </div>
   )

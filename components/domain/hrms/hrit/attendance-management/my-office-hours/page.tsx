@@ -1,7 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Check, Clock, History, Send, Undo2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  History,
+  Info,
+  Send,
+  Undo2,
+  XCircle,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,10 +23,21 @@ import {
   emptySchedule,
 } from '@/domain/organization/employee-directory-parts/attendance-grid'
 import { useMyOfficeHours } from '@/hooks/use-my-office-hours'
+import { useAuth } from '@/hooks/use-auth'
+import { HR_ADMIN_ROLES, ROLE_GROUPS } from '@/types/role'
 import { DepartmentTemplateCompare } from './department-template-compare'
 import { cn } from '@/lib/utils'
 import type { ScheduleEntry, WorkingDay } from '@/services/organization/employee-directory'
 import type { OfficeHoursDay } from '@/services/hrms'
+
+/**
+ * Roles the approval queue's own scope table (`hrms_leave_role_permissions`)
+ * is typically configured for - admin/HR plus the two line-manager roles.
+ * Used only to soften the "you won't see your own request" note below; it is
+ * a heuristic, not an authority check, because `approve_leave` is actually
+ * per-tenant configuration this screen has no reason to fetch.
+ */
+const LIKELY_APPROVER_ROLES = [...HR_ADMIN_ROLES, ...ROLE_GROUPS.manager]
 
 /**
  * My office hours - an employee proposing their own working days and times.
@@ -47,11 +67,16 @@ import type { OfficeHoursDay } from '@/services/hrms'
  * than inside it, so neither existing caller changes.
  */
 export default function MyOfficeHoursPage() {
+  const { user } = useAuth()
   const {
     current, template, hasSchedule, departmentName, pending, history,
     isLoading, isSaving, error, notice, setError, setNotice,
     submit, withdraw,
   } = useMyOfficeHours()
+
+  /** See `LIKELY_APPROVER_ROLES` - a hint, not a claim about this tenant's
+   *  actual permission config. */
+  const mayAlsoApprove = !!user && LIKELY_APPROVER_ROLES.includes(user.role)
 
   const [draft, setDraft] = React.useState<ScheduleEntry[] | null>(null)
   const [reason, setReason] = React.useState('')
@@ -174,7 +199,7 @@ export default function MyOfficeHoursPage() {
 
       {notice && (
         <Alert className="border-emerald-500/40 bg-emerald-500/10">
-          <Check className="size-4 text-emerald-600" />
+          <CheckCircle2 className="size-4 text-emerald-600" />
           <AlertDescription className="flex items-center justify-between gap-4">
             <span className="text-emerald-800 dark:text-emerald-200">{notice}</span>
             <Button variant="ghost" size="sm" onClick={() => setNotice(null)}>Dismiss</Button>
@@ -184,15 +209,20 @@ export default function MyOfficeHoursPage() {
 
       {/* ── pending ───────────────────────────────────────────────────── */}
       {pending && (
-        <div className="rounded-xl border border-sky-500/40 bg-sky-500/10 p-4">
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/[0.06] p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-medium text-sky-900 dark:text-sky-200">
-                You have a change waiting for review
-              </p>
-              <p className="mt-0.5 text-sm text-sky-800/80 dark:text-sky-200/80">
-                Asked {pending.submitted_at?.slice(0, 10)} &mdash; &ldquo;{pending.reason}&rdquo;
-              </p>
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/15">
+                <Clock className="size-5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-semibold text-sky-900 dark:text-sky-200">
+                  You have a change waiting for review
+                </p>
+                <p className="mt-0.5 text-sm text-sky-800/80 dark:text-sky-200/80">
+                  Asked {pending.submitted_at?.slice(0, 10)} &mdash; &ldquo;{pending.reason}&rdquo;
+                </p>
+              </div>
             </div>
             <Button
               variant="outline"
@@ -207,9 +237,29 @@ export default function MyOfficeHoursPage() {
 
           <WeekDiff week={pending.week} current={pending.current_week} className="mt-3" />
 
-          <p className="mt-2 text-xs text-sky-800/80 dark:text-sky-200/80">
+          <p className="mt-3 text-xs text-sky-800/80 dark:text-sky-200/80">
             Your hours have not changed yet. They change only if this is approved.
           </p>
+
+          {/*
+            * The one question this screen cannot answer for itself: whether
+            * THIS person is also an approver somewhere, in which case the
+            * team queue excludes their own request by design (you cannot
+            * approve yourself). Shown only as a hint - `mayAlsoApprove` is a
+            * role guess, not the tenant's real `approve_leave` config - so it
+            * is worded as "if", never as a claim.
+            */}
+          {mayAlsoApprove && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-500/20 bg-background/60 px-3 py-2">
+              <Info className="mt-0.5 size-3.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                If you also approve office-hours requests for your team, note that this one will{' '}
+                <strong className="text-foreground">not</strong> appear in your own approval queue
+                &mdash; nobody can approve their own request. Someone else with approval rights
+                needs to review it.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -217,64 +267,86 @@ export default function MyOfficeHoursPage() {
       {!pending && history[0] && (
         <div
           className={cn(
-            'rounded-xl border p-4',
+            'flex items-start gap-3 rounded-xl border p-4 shadow-sm',
             history[0].status === 'approved'
-              ? 'border-emerald-500/40 bg-emerald-500/10'
-              : 'border-rose-500/40 bg-rose-500/10',
+              ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
+              : 'border-rose-500/30 bg-rose-500/[0.06]',
           )}
         >
-          <p
+          <div
             className={cn(
-              'font-medium',
-              history[0].status === 'approved'
-                ? 'text-emerald-900 dark:text-emerald-200'
-                : 'text-rose-900 dark:text-rose-200',
+              'flex size-10 shrink-0 items-center justify-center rounded-lg',
+              history[0].status === 'approved' ? 'bg-emerald-500/15' : 'bg-rose-500/15',
             )}
           >
-            {history[0].status === 'approved'
-              ? `Applied${history[0].applied_at ? ' on ' + history[0].applied_at.slice(0, 10) : ''}${history[0].reviewed_by_name ? ' by ' + history[0].reviewed_by_name : ''}`
-              : `Not approved${history[0].reviewed_by_name ? ' by ' + history[0].reviewed_by_name : ''}`}
-          </p>
-          {history[0].reviewer_comment && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              &ldquo;{history[0].reviewer_comment}&rdquo;
+            {history[0].status === 'approved' ? (
+              <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            ) : (
+              <XCircle className="size-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p
+              className={cn(
+                'font-semibold',
+                history[0].status === 'approved'
+                  ? 'text-emerald-900 dark:text-emerald-200'
+                  : 'text-rose-900 dark:text-rose-200',
+              )}
+            >
+              {history[0].status === 'approved'
+                ? `Applied${history[0].applied_at ? ' on ' + history[0].applied_at.slice(0, 10) : ''}${history[0].reviewed_by_name ? ' by ' + history[0].reviewed_by_name : ''}`
+                : `Not approved${history[0].reviewed_by_name ? ' by ' + history[0].reviewed_by_name : ''}`}
             </p>
-          )}
-          {history[0].status === 'approved' && (
-            <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
-              Your office hours decide what counts as late and what counts as a full day, so this
-              affects your attendance records and payable days.
-            </p>
-          )}
+            {history[0].reviewer_comment && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                &ldquo;{history[0].reviewer_comment}&rdquo;
+              </p>
+            )}
+            {history[0].status === 'approved' && (
+              <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+                Your office hours decide what counts as late and what counts as a full day, so this
+                affects your attendance records and payable days.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {/* ── nobody has set your hours at all ──────────────────────────── */}
       {hasSchedule === false && (
-        <Alert className="border-amber-500/40 bg-amber-500/10">
-          <AlertTriangle className="size-4 text-amber-600" />
-          <AlertDescription className="text-amber-900 dark:text-amber-200">
-            <strong>Nobody has recorded which days you work.</strong> Until somebody does, lateness
-            and absence cannot be calculated for you, and the attendance screens each fall back
-            differently. You can ask for your hours to be set below.
-          </AlertDescription>
-        </Alert>
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 shadow-sm">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          </div>
+          <p className="text-sm text-amber-900 dark:text-amber-200">
+            <strong className="font-semibold">Nobody has recorded which days you work.</strong>{' '}
+            Until somebody does, lateness and absence cannot be calculated for you, and the
+            attendance screens each fall back differently. You can ask for your hours to be set
+            below.
+          </p>
+        </div>
       )}
 
       {/* ── the week ──────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-semibold text-foreground">
-              {pending ? 'Your hours as they stand' : 'Your working week'}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {seed.from === 'mine'
-                ? 'These are your recorded hours.'
-                : seed.from === 'department'
-                  ? `Nothing is recorded for you yet — this starts from ${departmentName ?? 'your department'}'s hours.`
-                  : 'Nothing is recorded for you, and your department has no hours set either — this starts blank.'}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Clock className="size-5 text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">
+                {pending ? 'Your hours as they stand' : 'Your working week'}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {seed.from === 'mine'
+                  ? 'These are your recorded hours.'
+                  : seed.from === 'department'
+                    ? `Nothing is recorded for you yet — this starts from ${departmentName ?? 'your department'}'s hours.`
+                    : 'Nothing is recorded for you, and your department has no hours set either — this starts blank.'}
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -380,33 +452,51 @@ export default function MyOfficeHoursPage() {
 
       {/* ── previous requests ─────────────────────────────────────────── */}
       {history.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <h2 className="flex items-center gap-2 font-semibold text-foreground">
-            <History className="size-4" aria-hidden="true" />
+            <History className="size-4 text-muted-foreground" aria-hidden="true" />
             Previous requests
           </h2>
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="mt-3 flex flex-col gap-1.5">
             {history.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-baseline gap-2 text-sm">
-                <span
-                  className={cn(
-                    'rounded px-1.5 py-0.5 text-xs font-medium',
-                    row.status === 'approved'
-                      ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
-                      : 'bg-rose-500/15 text-rose-800 dark:text-rose-200',
-                  )}
-                >
-                  {row.status === 'approved' ? 'Approved' : 'Not approved'}
-                </span>
-                <span className="text-muted-foreground tabular-nums">
-                  {row.submitted_at?.slice(0, 10)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-foreground">{row.reason}</span>
-                {row.reviewer_comment && (
-                  <span className="text-xs text-muted-foreground">
-                    &ldquo;{row.reviewer_comment}&rdquo;
-                  </span>
+              <li
+                key={row.id}
+                className="flex flex-wrap items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted/40"
+              >
+                {row.status === 'approved' ? (
+                  <CheckCircle2
+                    className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <XCircle
+                    className="mt-0.5 size-4 shrink-0 text-rose-600 dark:text-rose-400"
+                    aria-hidden="true"
+                  />
                 )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span
+                      className={cn(
+                        'text-sm font-medium',
+                        row.status === 'approved'
+                          ? 'text-emerald-800 dark:text-emerald-200'
+                          : 'text-rose-800 dark:text-rose-200',
+                      )}
+                    >
+                      {row.status === 'approved' ? 'Approved' : 'Not approved'}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {row.submitted_at?.slice(0, 10)}
+                    </span>
+                  </div>
+                  <p className="truncate text-sm text-foreground">{row.reason}</p>
+                  {row.reviewer_comment && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      &ldquo;{row.reviewer_comment}&rdquo;
+                    </p>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

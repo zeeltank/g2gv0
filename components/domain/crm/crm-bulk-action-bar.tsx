@@ -12,9 +12,11 @@ interface Props {
   count: number
   busy: boolean
   people: SearchableOption[]
-  onReassign: (assigneeId: string) => void
+  onReassign: (assigneeId: string, cascade: boolean) => void
   onDelete: () => void
   onClear: () => void
+  /** When set, shows a checkbox with this label next to Reassign (e.g. "Also transfer contacts") - omit for a module with nothing to cascade to. */
+  cascadeLabel?: string
 }
 
 /**
@@ -24,8 +26,9 @@ interface Props {
  * that bar is still hand-rolled per its own two callers too, so there's no
  * existing generic actions-array convention in this app to adopt instead.
  */
-export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear }: Props) {
+export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel }: Props) {
   const [assigneeId, setAssigneeId] = useState('')
+  const [cascade, setCascade] = useState(false)
 
   return (
     <AnimatePresence>
@@ -54,11 +57,18 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
             <Button
               size="sm"
               disabled={!assigneeId || busy}
-              onClick={() => { onReassign(assigneeId); setAssigneeId('') }}
+              onClick={() => { onReassign(assigneeId, cascade); setAssigneeId(''); setCascade(false) }}
             >
               <UserCog className="mr-2 size-4" />Reassign
             </Button>
           </div>
+
+          {cascadeLabel && (
+            <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+              <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} disabled={busy} />
+              {cascadeLabel}
+            </label>
+          )}
 
           <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>
             <Trash2 className="mr-2 size-4" />Delete
