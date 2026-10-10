@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -15,6 +15,7 @@ import type { Contact, CrmPicklistValue } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
@@ -53,6 +54,7 @@ export function ContactListView() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }>({ salutation: [], leadSource: [] })
 
   const load = useCallback(async () => {
@@ -142,6 +144,10 @@ export function ContactListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+            <Copy className="mr-1.5 size-4" aria-hidden="true" />
+            Find Duplicates
+          </Button>
           <Button onClick={() => setModalOpen(true)}>
             <Plus className="mr-1.5 size-4" aria-hidden="true" />
             Add Contact
@@ -228,6 +234,17 @@ export function ContactListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         contact={null}
         picklists={picklists}
+      />
+
+      <CrmDuplicatesDialog
+        isOpen={duplicatesOpen}
+        onClose={() => setDuplicatesOpen(false)}
+        noun="contact"
+        getDuplicates={crmService.getContactDuplicates}
+        merge={crmService.mergeContacts}
+        getLabel={(row) => [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed'}
+        getSubLabel={(row) => (row.organizationName as string | null) ?? (row.email as string | null)}
+        onMerged={() => void load()}
       />
 
       <CrmBulkActionBar

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -16,6 +16,7 @@ import type { CrmPicklistValue, Lead } from '@/types/crm'
 import { CreateLeadModal } from './create-lead-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
@@ -70,6 +71,7 @@ export function LeadListView() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [picklists, setPicklists] = useState<{
     leadStatus: CrmPicklistValue[]; leadSource: CrmPicklistValue[]
@@ -170,6 +172,10 @@ export function LeadListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+            <Copy className="mr-1.5 size-4" aria-hidden="true" />
+            Find Duplicates
+          </Button>
           <Button onClick={() => { setEditingLead(null); setModalOpen(true) }}>
             <Plus className="mr-1.5 size-4" aria-hidden="true" />
             Add Lead
@@ -271,6 +277,17 @@ export function LeadListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         lead={editingLead}
         picklists={picklists}
+      />
+
+      <CrmDuplicatesDialog
+        isOpen={duplicatesOpen}
+        onClose={() => setDuplicatesOpen(false)}
+        noun="lead"
+        getDuplicates={crmService.getLeadDuplicates}
+        merge={crmService.mergeLeads}
+        getLabel={(row) => [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed'}
+        getSubLabel={(row) => (row.company as string | null) ?? (row.email as string | null)}
+        onMerged={() => void load()}
       />
 
       <CrmBulkActionBar

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus, Search } from 'lucide-react'
+import { ChevronDown, Copy, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -15,6 +15,7 @@ import type { CrmPicklistValue, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
+import { CrmDuplicatesDialog } from './crm-duplicates-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
@@ -53,6 +54,7 @@ export function OrganizationListView() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   const [picklists, setPicklists] = useState<{ accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }>({ accountType: [], industry: [], rating: [] })
 
   const load = useCallback(async () => {
@@ -142,6 +144,10 @@ export function OrganizationListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+            <Copy className="mr-1.5 size-4" aria-hidden="true" />
+            Find Duplicates
+          </Button>
           <Button onClick={() => setModalOpen(true)}>
             <Plus className="mr-1.5 size-4" aria-hidden="true" />
             Add Organization
@@ -226,6 +232,17 @@ export function OrganizationListView() {
         onSaved={(message) => { setNotice(message); void load() }}
         organization={null}
         picklists={picklists}
+      />
+
+      <CrmDuplicatesDialog
+        isOpen={duplicatesOpen}
+        onClose={() => setDuplicatesOpen(false)}
+        noun="organization"
+        getDuplicates={crmService.getOrganizationDuplicates}
+        merge={crmService.mergeOrganizations}
+        getLabel={(row) => (row.name as string) ?? 'Unnamed'}
+        getSubLabel={(row) => (row.website as string | null) ?? (row.phone as string | null)}
+        onMerged={() => void load()}
       />
 
       <CrmBulkActionBar

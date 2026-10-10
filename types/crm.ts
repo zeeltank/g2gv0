@@ -345,6 +345,28 @@ export interface CrmSavedViewResponse {
   data: CrmSavedView
 }
 
+// ── Duplicate detection + merge (Leads, Contacts, Organizations only -
+// Campaigns aren't a "duplicate record" the way those 3 are) ─────────────
+
+export interface CrmDuplicateGroup {
+  key: string
+  reason: string
+  /** Shape varies per module (Lead/Contact/Organization) - read via getLabel/getSubLabel, not indexed directly. */
+  rows: Array<Record<string, unknown> & { id: string }>
+}
+
+export interface CrmDuplicateGroupsResponse {
+  status: number
+  message: string
+  data: CrmDuplicateGroup[]
+}
+
+export interface CrmMergeResponse {
+  status: number
+  message: string
+  data: { survivorId: string; merged: number }
+}
+
 // ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
 
 export type CrmRecycleBinType = CrmModule

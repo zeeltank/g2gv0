@@ -22,6 +22,8 @@ import type {
   ConvertLeadPayload,
   ConvertLeadResponse,
   CrmBulkActionResponse,
+  CrmDuplicateGroupsResponse,
+  CrmMergeResponse,
   CrmModule,
   CrmPicklistMap,
   CrmRecycleBinListResponse,
@@ -87,6 +89,14 @@ export const crmService = {
       ids: ids.map(Number), assignedTo, ...baseParams(context),
     }),
 
+  getLeadDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/leads/duplicates', baseParams(context)),
+
+  mergeLeads: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/leads/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
   // ── Organizations ──────────────────────────────────────────────────
   getOrganizations: (context: LaravelContext, query: OrganizationListQuery = {}) =>
     apiClient.get<OrganizationListResponse>('/crm/organizations', {
@@ -127,6 +137,14 @@ export const crmService = {
       ids: ids.map(Number), assignedTo, ...baseParams(context),
     }),
 
+  getOrganizationDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/organizations/duplicates', baseParams(context)),
+
+  mergeOrganizations: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/organizations/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
   // ── Contacts ────────────────────────────────────────────────────────
   getContacts: (context: LaravelContext, query: ContactListQuery = {}) =>
     apiClient.get<ContactListResponse>('/crm/contacts', {
@@ -162,6 +180,14 @@ export const crmService = {
   bulkAssignContacts: (context: LaravelContext, ids: string[], assignedTo: string) =>
     apiClient.post<CrmBulkActionResponse>('/crm/contacts/bulk/assign', {
       ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getContactDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/contacts/duplicates', baseParams(context)),
+
+  mergeContacts: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/contacts/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
     }),
 
   // ── Campaigns ───────────────────────────────────────────────────────
