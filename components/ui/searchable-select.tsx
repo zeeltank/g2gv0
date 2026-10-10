@@ -55,11 +55,32 @@ export function SearchableSelect({
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [active, setActive] = React.useState(0)
+  const [openAbove, setOpenAbove] = React.useState(false)
   const rootRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
 
   const selected = options.find((option) => option.value === value) ?? null
+
+  /*
+   * FLIP UPWARD WHEN THE TRIGGER SITS NEAR THE BOTTOM OF THE VIEWPORT.
+   *
+   * This popover isn't portalled, so it was always `mt-1` below the trigger -
+   * fine inside a dialog or a normal page flow, but every bulk-action bar
+   * (CrmBulkActionBar, WorkspaceBulkActionBar) is `fixed bottom-4`, leaving
+   * under 20px of real room below the trigger. The dropdown rendered there
+   * anyway, 100+px of it past the bottom edge of the browser window - not
+   * scrollable into view, since a `position: fixed` ancestor doesn't move
+   * with page scroll. Nothing below the fold was clickable by mouse.
+   */
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    setOpenAbove(spaceBelow < 280 && spaceAbove > spaceBelow)
+  }, [open])
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -144,7 +165,10 @@ export function SearchableSelect({
 
       {open && (
         <div
-          className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-border bg-popover shadow-xl"
+          className={cn(
+            'absolute z-50 w-full overflow-hidden rounded-xl border border-border bg-popover shadow-xl',
+            openAbove ? 'bottom-full mb-1' : 'mt-1',
+          )}
           onKeyDown={onKeyDown}
         >
           <div className="border-b border-border/60 p-2">
