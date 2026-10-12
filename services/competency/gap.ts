@@ -58,6 +58,22 @@ interface Envelope<T> {
   data: T
 }
 
+/**
+ * `GET /competency/gap/narrative`'s own data shape — the same gap payload
+ * `mine()` returns, plus one extra field. Kept as a separate type rather than
+ * widening `CompetencyGap` itself: a narrative is a GENERATED explanation,
+ * never a fact the gap computation produces, and that distinction is worth
+ * keeping visible in the type, not folded into the number-bearing shape.
+ */
+export interface CompetencyGapWithNarrative extends CompetencyGap {
+  /**
+   * NULL is a normal state (no competencies to explain, or the server
+   * chose not to fabricate one) — never render null as an error, and never
+   * render it as "no gap". It is the narrative that's absent, not the data.
+   */
+  narrative: string | null
+}
+
 export const competencyGapService = {
   /**
    * An employee may read THEIR OWN gap. Anyone else needs an elevated role_key —
@@ -68,5 +84,25 @@ export const competencyGapService = {
     apiClient.get<Envelope<CompetencyGap>>(
       '/competency/gap',
       withLaravelParams(context, { user_id: String(userId) }),
+    ),
+
+  /**
+   * The same gap, plus a short graph-grounded narrative for a manager
+   * (Phase 7.4). Same auth shape as `mine()` — own gap, or an elevated role.
+   * `jobroleId` is optional, same as the server's own `show()`: the server
+   * resolves it from the employee's record when omitted.
+   *
+   * CAN FAIL WHERE `mine()` SUCCEEDS — no AI model configured (503), or the
+   * narrative generation itself failing (502). Callers should treat a
+   * narrative failure as "no narrative available", never as "the gap data
+   * is wrong" — the two are fetched and can fail independently on purpose.
+   */
+  narrative: (context: LaravelContext, userId: number, jobroleId?: number) =>
+    apiClient.get<Envelope<CompetencyGapWithNarrative>>(
+      '/competency/gap/narrative',
+      withLaravelParams(context, {
+        user_id: String(userId),
+        ...(jobroleId ? { jobrole_id: String(jobroleId) } : {}),
+      }),
     ),
 }

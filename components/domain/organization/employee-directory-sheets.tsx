@@ -278,6 +278,17 @@ function EmployeeOverviewSheet({
   const [kabaEmptyReason, setKabaEmptyReason] = useState<string | null>(null)
 
   /*
+   * THE GRAPH-GROUNDED NARRATIVE (Phase 7.4) — a SEPARATE fetch from
+   * `gapData`, on purpose, same "must not share its fate" principle this
+   * file already applies to the self-assessment panel below. A narrative
+   * failure (no AI model configured, generation failed) must not blank the
+   * gap numbers that already rendered successfully, and the reverse: the
+   * numbers are never blocked on the narrative arriving.
+   */
+  const [narrative, setNarrative] = useState<string | null>(null)
+  const [isNarrativeLoading, setIsNarrativeLoading] = useState(false)
+
+  /*
    * TASK READINESS — the Jobrole Tasks tab's second dimension.
    *
    * Loaded ON ITS OWN TAB, like the competency data, rather than with the
@@ -383,6 +394,7 @@ function EmployeeOverviewSheet({
     if (!employee?.id) {
       setKabaItems([])
       setGapData(null)
+      setNarrative(null)
       setHasLoadedKaba(true)
       return
     }
@@ -391,6 +403,7 @@ function EmployeeOverviewSheet({
     setKabaError(null)
     setKabaNotMapped(false)
     setKabaEmptyReason(null)
+    setNarrative(null)
     try {
       const response = await fetchKasbaRatings(employee.id, getLaravelContext())
       setKabaItems(response?.data?.items ?? [])
@@ -408,11 +421,30 @@ function EmployeeOverviewSheet({
        * A failure here does not fail the tab: the items still render, the
        * rolled-up column simply says nothing rather than guessing.
        */
+      let jobroleId: number | undefined
       try {
         const gapRes = await competencyGapService.mine(getLaravelContext(), Number(employee.id))
         setGapData(gapRes?.data ?? null)
+        jobroleId = gapRes?.data?.jobrole_id
       } catch {
         setGapData(null)
+      }
+
+      /*
+       * THE NARRATIVE (Phase 7.4) — graph-grounded, generated, and allowed to
+       * fail on its own. No AI model configured (503) or generation failing
+       * (502) both land here as "no narrative", never as a tab error — the
+       * numbers above already rendered and must not be retracted because the
+       * explanation of them did not arrive.
+       */
+      setIsNarrativeLoading(true)
+      try {
+        const narrativeRes = await competencyGapService.narrative(getLaravelContext(), Number(employee.id), jobroleId)
+        setNarrative(narrativeRes?.data?.narrative ?? null)
+      } catch {
+        setNarrative(null)
+      } finally {
+        setIsNarrativeLoading(false)
       }
 
       // AN EXPECTED EMPTY IS NOT AN ERROR. The endpoint distinguishes "no job
@@ -427,6 +459,7 @@ function EmployeeOverviewSheet({
     } catch (error) {
       setKabaItems([])
       setGapData(null)
+      setNarrative(null)
       setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
       setHasLoadedKaba(true)
     } finally {
@@ -873,6 +906,24 @@ function EmployeeOverviewSheet({
                   emptyReason={kabaEmptyReason}
                   ratingRange={kabaRange}
                 />
+                {/*
+                  * THE GRAPH-GROUNDED NARRATIVE (Phase 7.4), rendered as a
+                  * SIBLING of the tab rather than threaded through its props -
+                  * `CompetencyAssessmentTab` owns the numbers; this is a
+                  * separately-sourced explanation of them and fails
+                  * independently (see loadKaba's own comment on this fetch).
+                  * Nothing renders while loading or when there is nothing to
+                  * say - a missing narrative is a normal state, not an error,
+                  * same rule the endpoint itself documents.
+                  */}
+                {!isNarrativeLoading && narrative && (
+                  <div className="mt-4 rounded-2xl border border-border bg-card/40 p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Summary for your manager
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">{narrative}</p>
+                  </div>
+                )}
               </Suspense>
             )}
             {activeTopTab === 'certificates' && (
