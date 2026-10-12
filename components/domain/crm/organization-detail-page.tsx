@@ -1,22 +1,25 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Briefcase, Building2, DollarSign, Globe, Loader2,
-  Mail, MapPin, Pencil, Phone, Repeat, Send, Star, Users,
+  ArrowLeft, Briefcase, Building2, DollarSign, FileText, Globe, Loader2,
+  Mail, MapPin, Pencil, Phone, Repeat, Send, Star, Target, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, Organization } from '@/types/crm'
+import type { CrmOpportunity, CrmPicklistValue, CrmQuote, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { OrganizationHierarchy } from './organization-hierarchy'
 import { SendSmsDialog } from './send-sms-dialog'
@@ -29,10 +32,12 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy' | 'custom'
+type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'hierarchy', label: 'Hierarchy' },
+  { id: 'opportunities', label: 'Opportunities' },
+  { id: 'quotes', label: 'Quotes' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
@@ -97,11 +102,19 @@ function TransferOwnershipDialog({ isOpen, onClose, onTransferred, organizationI
 }
 
 export function OrganizationDetailPage({ organization, onSaved, onBack, picklists }: Props) {
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
+  const context = useMemo(() => getLaravelContext(), [])
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [sendSmsOpen, setSendSmsOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const [opportunities, setOpportunities] = useState<CrmOpportunity[]>([])
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(true)
+  const [quotes, setQuotes] = useState<CrmQuote[]>([])
+  const [quotesLoading, setQuotesLoading] = useState(true)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -109,6 +122,34 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [customNotice, setCustomNotice] = useState<string | null>(null)
 
   const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const loadOpportunities = useCallback(async () => {
+    setOpportunitiesLoading(true)
+    try {
+      const response = await crmService.getOpportunities(context, { organizationId: organization.id, perPage: 50 })
+      setOpportunities(response.data.items)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setOpportunitiesLoading(false)
+    }
+  }, [context, organization.id])
+
+  const loadQuotes = useCallback(async () => {
+    setQuotesLoading(true)
+    try {
+      const response = await crmService.getQuotes(context, { organizationId: organization.id, perPage: 50 })
+      setQuotes(response.data.items)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setQuotesLoading(false)
+    }
+  }, [context, organization.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadOpportunities(); void loadQuotes() })
+  }, [loadOpportunities, loadQuotes])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -210,6 +251,80 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
       {tab === 'hierarchy' && (
         <SectionCard title="Organization Hierarchy">
           <OrganizationHierarchy organizationId={organization.id} />
+        </SectionCard>
+      )}
+
+      {tab === 'opportunities' && (
+        <SectionCard title="Opportunities">
+          {opportunitiesLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading opportunities…
+            </div>
+          )}
+          {!opportunitiesLoading && opportunities.length === 0 && (
+            <EmptyState icon={<Target className="size-8" aria-hidden="true" />} title="No opportunities yet" description="Deals linked to this organization will show up here." />
+          )}
+          {!opportunitiesLoading && opportunities.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {opportunities.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/sales/opportunities') + `/${row.id}`)}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Target className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{row.salesStage || 'Opportunity'} · {row.opportunityNo}</p>
+                  </div>
+                  {row.amount !== null && (
+                    <p className="shrink-0 text-sm font-semibold text-foreground">{row.currency ?? ''} {row.amount.toLocaleString()}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {tab === 'quotes' && (
+        <SectionCard title="Quotes">
+          {quotesLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading quotes…
+            </div>
+          )}
+          {!quotesLoading && quotes.length === 0 && (
+            <EmptyState icon={<FileText className="size-8" aria-hidden="true" />} title="No quotes yet" description="Quotes linked to this organization will show up here." />
+          )}
+          {!quotesLoading && quotes.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {quotes.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/sales/quotes') + `/${row.id}`)}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{row.subject}</p>
+                    <p className="truncate text-xs text-muted-foreground">{row.quoteStage || 'Draft'} · {row.quoteNo}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-foreground">
+                    {row.currency ?? ''} {row.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
         </SectionCard>
       )}
 
