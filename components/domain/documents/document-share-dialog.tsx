@@ -210,9 +210,17 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md">
-        <DialogHeader>
-          <DialogTitle className="truncate">Share &quot;{document?.title ?? 'document'}&quot;</DialogTitle>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+        {/* min-w-0 is load-bearing, not decorative: DialogHeader is a flex
+            column, and a flex item's default min-width is its own content's
+            full size - `truncate`'s overflow-hidden/ellipsis never get a
+            chance to apply without this, so a long title (a real case here -
+            legal filings, audit reports) just overflows the dialog's own
+            edge instead of clipping, running straight through the close
+            button and the page behind it. pr-6 then reserves that button's
+            own width so the ellipsis always lands clear of it, never under it. */}
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="truncate pr-6">Share &quot;{document?.title ?? 'document'}&quot;</DialogTitle>
           <DialogDescription>Choose who can open this document, and what they can do.</DialogDescription>
         </DialogHeader>
 
