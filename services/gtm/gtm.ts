@@ -142,9 +142,37 @@ export interface AccountInput {
   location?: string | null
   stage?: AccountStage
   notes?: string | null
+  owner_user_id?: number | null
 }
 
+export const CONTACT_STATUSES = ['active', 'bounced', 'unsubscribed', 'do_not_contact'] as const
+
+export interface ContactPatch {
+  full_name?: string
+  title?: string | null
+  email?: string | null
+  phone?: string | null
+  linkedin_url?: string | null
+  role_in_deal?: (typeof CONTACT_ROLES)[number] | null
+  status?: (typeof CONTACT_STATUSES)[number]
+  notes?: string | null
+}
+
+/** GET /gtm/directory: the organisation's own users and departments (id + name only). */
+export interface GtmDirectory {
+  users: { id: number; name: string; department_id: number | null }[]
+  departments: { id: number; name: string }[]
+}
+
+/**
+ * Values a server may mask for restricted viewers contain mask characters. They must never be
+ * sent back as an edit, or the masked text would overwrite the real value.
+ */
+export const isMasked = (v: string | null | undefined): boolean => !!v && /[*•●]/.test(v)
+
 export const gtmService = {
+  directory: () => apiClient.get<Env<GtmDirectory>>('/gtm/directory'),
+
   overview: () => apiClient.get<Env<GtmOverview>>('/gtm/overview'),
 
   listAccounts: (q: { q?: string; stage?: string; page?: number; sort?: string } = {}) => {
@@ -174,6 +202,9 @@ export const gtmService = {
 
   addContact: (accountId: number, input: Partial<GtmContact> & { full_name: string }) =>
     apiClient.post<Env<{ contact: GtmContact }>>(`/gtm/accounts/${accountId}/contacts`, input),
+
+  updateContact: (id: number, patch: ContactPatch) =>
+    apiClient.patch<Env<{ contact: GtmContact }>>(`/gtm/contacts/${id}`, patch),
 
   deleteContact: (id: number) => apiClient.delete<Env<null>>(`/gtm/contacts/${id}`),
 
@@ -257,13 +288,20 @@ export interface GtmAgentOutput {
   integrity: { references_dropped: number; note: string | null }
 }
 
+export interface AgentCampaignOption { id: number; name: string; status: string; kind?: string | null; goal?: string | null; target_accounts?: number }
+
 /** An agent failure keeps the server's code so the screen can say what actually happened. */
 export const agentService = {
   list: () => apiClient.get<Env<{ agents: GtmAgentInfo[]; ai_configured: boolean }>>('/gtm/agents'),
   run: (slug: string, input: Record<string, unknown>) => apiClient.post<Env<GtmAgentOutput>>(`/gtm/agents/${slug}/run`, { input }),
   runs: (agent?: string) => apiClient.get<Env<{ runs: GtmAgentRunRow[] }>>('/gtm/agents/runs', agent ? { agent } : {}),
+  /** Campaigns that can be passed to the Outreach agent as `campaign_id` (GET /gtm/campaigns). */
+  campaigns: () => apiClient.get<Env<{ items: AgentCampaignOption[] }>>('/gtm/campaigns'),
   runDetail: (id: number) => apiClient.get<Env<{ run: GtmAgentRunRow & { input: unknown; output: GtmAgentOutput | null } }>>(`/gtm/agents/runs/${id}`),
 }
+
+export const FORECAST_CATEGORIES = ['pipeline', 'best_case', 'commit', 'omitted'] as const
+export type ForecastCategory = (typeof FORECAST_CATEGORIES)[number]
 
 export const DEAL_STAGES = ['discovery', 'qualification', 'proposal', 'negotiation', 'won', 'lost'] as const
 export const OPEN_DEAL_STAGES = ['discovery', 'qualification', 'proposal', 'negotiation'] as const
@@ -292,6 +330,7 @@ export interface GtmDeal {
   stage_changed_at: string | null
   closed_at: string | null
   close_reason: string | null
+  forecast_category?: ForecastCategory | null
   health?: DealHealth | null
 }
 
@@ -336,6 +375,8 @@ export interface DealInput {
   next_step?: string | null
   next_step_due?: string | null
   methodology_slug?: string | null
+  owner_user_id?: number | null
+  forecast_category?: ForecastCategory | null
 }
 
 export const dealService = {
@@ -379,6 +420,15 @@ export interface OutreachMessage {
   body: string
   status: OutreachStatus
   decision_note: string | null
+  deal_id?: number | null
+  campaign_id?: number | null
+  submitted_at?: string | null
+  approved_at?: string | null
+  /** When the scheduler may send an approved message; null = only a person can send it. */
+  scheduled_for?: string | null
+  next_attempt_at?: string | null
+  attempts?: number
+  last_attempt_at?: string | null
   sent_at: string | null
   error: string | null
   created_at: string
@@ -388,24 +438,71 @@ export interface OutreachReadiness {
   mailer: string
   host: string | null
   from: string
+  from_name?: string
   platform_gate_allows: boolean
+  platform_gate_reason?: string | null
   gtm_sending_enabled: boolean
+  scheduler_enabled?: boolean
   unsubscribe_link_ok: boolean
+  unsubscribe_problem?: string | null
   daily_cap: number
   sent_today: number
+  require_second_approver?: boolean
   can_send: boolean
   blockers: string[]
   smtp: { ok: boolean; error: string | null } | null
 }
 
+export interface OutreachAttempt {
+  id: number
+  message_id: number
+  attempt: number
+  outcome: string
+  code: string | null
+  detail: string | null
+  scheduled: number | boolean
+  actor_id: number | null
+  created_at: string | null
+}
+
+export interface Suppression {
+  id: number
+  kind: 'email' | 'domain'
+  value: string
+  reason: string
+  note: string | null
+  created_by: number | null
+  created_at: string | null
+}
+
+export type OutreachEventType = 'reply' | 'bounce' | 'complaint'
+export interface OutreachEventResult { status: string; detail?: string; contact_id?: number; message_id?: number | null }
+
 export const outreachService = {
   list: (status?: string) => apiClient.get<Env<{ items: OutreachMessage[]; counts: Record<string, number> }>>('/gtm/outreach', status ? { status } : {}),
   readiness: (check = false) => apiClient.get<Env<OutreachReadiness>>('/gtm/outreach/readiness', check ? { check: '1' } : {}),
-  create: (input: { contact_id: number; subject: string; body: string }) => apiClient.post<Env<{ message: OutreachMessage }>>('/gtm/outreach', input),
+  create: (input: { contact_id: number; subject: string; body: string; deal_id?: number | null; campaign_id?: number | null }) =>
+    apiClient.post<Env<{ message: OutreachMessage }>>('/gtm/outreach', input),
   fromAnalysis: (analysis_id: number) => apiClient.post<Env<{ messages: OutreachMessage[] }>>('/gtm/outreach/from-analysis', { analysis_id }),
+  /** Changed text is new text: the server withdraws any approval and send time and returns the message to draft. */
   update: (id: number, input: { subject?: string; body?: string }) => apiClient.patch<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}`, input),
   submit: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/submit`, {}),
-  approve: (id: number, note?: string) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/approve`, { confirm: true, note }),
+  /** `send_at` (optional, at most 90 days ahead) is when the scheduler may send the approved message. */
+  approve: (id: number, note?: string, send_at?: string) =>
+    apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/approve`, { confirm: true, note, ...(send_at ? { send_at } : {}) }),
+  unschedule: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/unschedule`, {}),
+  attempts: (id: number) => apiClient.get<Env<{ attempts: OutreachAttempt[] }>>(`/gtm/outreach/${id}/attempts`),
+  sequenceSubmit: (key: string) => apiClient.post<Env<{ submitted: number; steps: OutreachMessage[] }>>(`/gtm/outreach/sequences/${key}/submit`, {}),
+  /** With `schedule`, each step gets a send time spaced like its due dates, starting at `start_at` (default now). */
+  sequenceApprove: (key: string, opts: { note?: string; schedule?: boolean; start_at?: string } = {}) =>
+    apiClient.post<Env<{ approved: number; steps: OutreachMessage[] }>>(`/gtm/outreach/sequences/${key}/approve`, { confirm: true, ...opts }),
+  sequenceCancel: (key: string) => apiClient.post<Env<{ cancelled: number }>>(`/gtm/outreach/sequences/${key}/cancel`, {}),
+  suppressions: (q?: string) => apiClient.get<Env<{ items: Suppression[]; total: number; reasons: string[] }>>('/gtm/suppressions', q ? { q } : {}),
+  addSuppression: (input: { kind: 'email' | 'domain'; value: string; note?: string }) => apiClient.post<Env<{ item: Suppression }>>('/gtm/suppressions', input),
+  removeSuppression: (id: number) => apiClient.delete<{ status: number; message?: string }>(`/gtm/suppressions/${id}`),
+  /** Record a reply / bounce / complaint by hand for a contact (Administrator). Contact status changes accordingly. */
+  recordEvent: (contactId: number, input: { type: OutreachEventType; bounce_type?: 'hard' | 'soft'; subject?: string; text?: string; reason?: string }) =>
+    apiClient.post<Env<OutreachEventResult>>(`/gtm/contacts/${contactId}/record-event`, input),
   reject: (id: number, note: string) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/reject`, { note }),
   cancel: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/cancel`, {}),
   send: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/send`, {}),
