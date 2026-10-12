@@ -351,19 +351,20 @@ export interface CrmBulkActionResponse {
 }
 
 /**
- * The 8 CRM modules, by their list-view route segment. 'products' and
+ * The CRM modules, by their list-view route segment. 'products' and
  * 'services' are two routes/menu rights over the same `crm_products` table
  * (see CrmProduct's own `itemType`) - deliberately still two CrmModule
  * values, since Recycle Bin/Saved Views/bulk-rights all scope by module.
  *
- * SMS Notifier is NOT a CrmModule - it has no detail page, no Recycle Bin
- * entry (crm_sms_log is an append-only log, never soft-deleted), and no
- * duplicate-detection/merge/export-import surface the other 8 share. Its
- * own list screen is typed independently in Phase 4.
+ * SMS Notifier (`sms_log`) is a member here (Saved Views/bulk-rights can
+ * still scope by it) but has no detail page, and `CrmRecycleBinType` below
+ * explicitly excludes it - `crm_sms_log` is an append-only log, never
+ * soft-deleted, so it has nothing to recycle.
  */
 export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
   | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log' | 'price_books'
+  | 'vendors' | 'sales_orders' | 'purchase_orders' | 'invoices'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
 
@@ -634,6 +635,7 @@ export interface CrmOpportunityListQuery {
   sortDir?: 'asc' | 'desc'
   salesStage?: string
   organizationId?: string
+  contactId?: string
 }
 
 /** Stage-bucketed counts/values for the kanban board - mirrors GTM's own DealController::pipeline() shape. */
@@ -822,6 +824,7 @@ export interface CrmQuoteListQuery {
   sortDir?: 'asc' | 'desc'
   quoteStage?: string
   organizationId?: string
+  contactId?: string
   opportunityId?: string
 }
 

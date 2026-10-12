@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Pencil, Repeat, Send } from 'lucide-react'
+import { ArrowLeft, Briefcase, Loader2, Mail, MapPin, Pencil, Phone, Repeat, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext } from '@/lib/laravel-context'
@@ -30,12 +31,12 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
 ]
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function IconValue({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-foreground">{value || '—'}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </span>
   )
 }
 
@@ -120,10 +121,12 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to Contacts
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Contacts" title="Back to Contacts">
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-sm font-semibold text-primary">
+            {(contact.firstName?.[0] ?? contact.lastName[0] ?? '?').toUpperCase()}
+          </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground">
               {contact.salutation ? `${contact.salutation} ` : ''}{contact.firstName ? `${contact.firstName} ` : ''}{contact.lastName}
@@ -176,59 +179,58 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
       </div>
 
       {tab === 'details' && (
-      <div className="space-y-6 rounded-lg border border-border p-4">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Contact Information</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Department" value={contact.department} />
-            <Field label="Email" value={contact.email} />
-            <Field label="Secondary Email" value={contact.secondaryEmail} />
-            <Field label="Phone" value={contact.phone} />
-            <Field label="Mobile" value={contact.mobile} />
-            <Field label="Fax" value={contact.fax} />
-            <Field label="Home Phone" value={contact.homePhone} />
-            <Field label="Lead Source" value={contact.leadSource} />
-            <Field label="Do Not Call" value={contact.doNotCall ? 'Yes' : 'No'} />
-          </div>
-        </section>
+      <div className="space-y-4">
+        <SectionCard title="Contact Information">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ReadField label="Department" value={contact.department && <IconValue icon={Briefcase}>{contact.department}</IconValue>} />
+            <ReadField label="Email" value={contact.email && <IconValue icon={Mail}>{contact.email}</IconValue>} />
+            <ReadField label="Secondary Email" value={contact.secondaryEmail && <IconValue icon={Mail}>{contact.secondaryEmail}</IconValue>} />
+            <ReadField label="Phone" value={contact.phone && <IconValue icon={Phone}>{contact.phone}</IconValue>} />
+            <ReadField label="Mobile" value={contact.mobile && <IconValue icon={Phone}>{contact.mobile}</IconValue>} />
+            <ReadField label="Fax" value={contact.fax} />
+            <ReadField label="Home Phone" value={contact.homePhone && <IconValue icon={Phone}>{contact.homePhone}</IconValue>} />
+            <ReadField label="Lead Source" value={contact.leadSource} />
+            <ReadField label="Do Not Call" value={contact.doNotCall ? 'Yes' : 'No'} />
+          </dl>
+        </SectionCard>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Mailing Address</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Street" value={contact.mailingStreet} />
-            <Field label="City" value={contact.mailingCity} />
-            <Field label="State" value={contact.mailingState} />
-            <Field label="Country" value={contact.mailingCountry} />
-            <Field label="Postal Code" value={contact.mailingCode} />
-            <Field label="PO Box" value={contact.mailingPoBox} />
-          </div>
-        </section>
+        <SectionCard title="Mailing Address">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ReadField label="Street" value={contact.mailingStreet && <IconValue icon={MapPin}>{contact.mailingStreet}</IconValue>} />
+            <ReadField label="City" value={contact.mailingCity} />
+            <ReadField label="State" value={contact.mailingState} />
+            <ReadField label="Country" value={contact.mailingCountry} />
+            <ReadField label="Postal Code" value={contact.mailingCode} />
+            <ReadField label="PO Box" value={contact.mailingPoBox} />
+          </dl>
+        </SectionCard>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Description</h2>
+        <SectionCard title="Description">
           <p className="text-sm text-foreground">{contact.description || '—'}</p>
-        </section>
+        </SectionCard>
       </div>
       )}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
-      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
-        <CustomFieldsSection
-          recordTable="crm_contacts"
-          recordId={Number(contact.id)}
-          values={customValues}
-          onChange={setCustomValues}
-          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
-        />
-        {hasCustomFields && (
-          <div className="flex items-center gap-3 pt-2">
-            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
-              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
-              Save
-            </Button>
-            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
-          </div>
-        )}
+      <div className={tab === 'custom' ? '' : 'hidden'}>
+        <SectionCard title="Custom Fields">
+          <CustomFieldsSection
+            recordTable="crm_contacts"
+            recordId={Number(contact.id)}
+            values={customValues}
+            onChange={setCustomValues}
+            onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+          />
+          {hasCustomFields && (
+            <div className="flex items-center gap-3 pt-2">
+              <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+                {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+                Save
+              </Button>
+              {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <CreateContactModal

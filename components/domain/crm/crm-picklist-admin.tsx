@@ -18,6 +18,10 @@ const MODULE_LABEL: Record<CrmModule, string> = {
   // only to satisfy Record<CrmModule, string>'s completeness.
   sms_log: 'SMS Notifier',
   price_books: 'Price Books',
+  vendors: 'Vendors',
+  sales_orders: 'Sales Orders',
+  purchase_orders: 'Purchase Orders',
+  invoices: 'Invoices',
 }
 
 const FIELD_KEY_LABEL: Record<string, string> = {
@@ -26,6 +30,7 @@ const FIELD_KEY_LABEL: Record<string, string> = {
   campaign_status: 'Campaign Status', expected_response: 'Expected Response',
   sales_stage: 'Sales Stage', potential_type: 'Opportunity Type', forecast_category: 'Forecast Category',
   quote_stage: 'Quote Stage', category: 'Category',
+  so_stage: 'Sales Order Stage', po_stage: 'Purchase Order Stage', invoice_stage: 'Invoice Stage',
 }
 
 function AddValueForm({ module, fieldKey, onAdded }: { module: CrmModule; fieldKey: string; onAdded: () => void }) {

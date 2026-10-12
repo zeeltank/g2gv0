@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Pencil, Plus, Send, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft, CalendarClock, DollarSign, FileText, Loader2, Package, Pencil, Percent,
+  Plus, Send, Tag, Trash2, TrendingUp, User,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { KPICard } from '@/components/shared/business/kpi-card'
+import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
@@ -35,12 +41,12 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'quotes', label: 'Quotes' },
 ]
 
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
+function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-foreground">{value ?? '—'}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </span>
   )
 }
 
@@ -276,10 +282,12 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to Opportunities
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Opportunities" title="Back to Opportunities">
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-primary">
+            <TrendingUp className="size-5" aria-hidden="true" />
+          </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground">{opportunity.name}</h1>
             <p className="text-sm text-muted-foreground">{opportunity.salesStage || 'Opportunity'} · {opportunity.opportunityNo}</p>
@@ -313,67 +321,95 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       </div>
 
       {tab === 'details' && (
-        <div className="space-y-6 rounded-lg border border-border p-4">
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Opportunity Details</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-0.5">
-                <p className="text-xs font-medium text-muted-foreground">Organization</p>
-                {opportunity.organizationId ? (
-                  <button
-                    type="button"
-                    className="text-sm text-primary hover:underline"
-                    onClick={() => router.push(resolveAccessLink('/module/crm/marketing/organizations') + `/${opportunity.organizationId}`)}
-                  >
-                    {opportunity.organizationName}
-                  </button>
-                ) : (
-                  <p className="text-sm text-foreground">—</p>
-                )}
-              </div>
-              <Field label="Campaign" value={opportunity.campaignName} />
-              <Field label="Amount" value={opportunity.amount !== null ? `${opportunity.currency ?? ''} ${opportunity.amount.toLocaleString()}`.trim() : null} />
-              <Field label="Weighted Revenue" value={opportunity.weightedRevenue !== null ? `${opportunity.currency ?? ''} ${opportunity.weightedRevenue.toLocaleString()}`.trim() : null} />
-              <Field label="Probability" value={opportunity.probability !== null ? `${opportunity.probability}%` : null} />
-              <Field label="Closing Date" value={opportunity.closingDate} />
-              <Field label="Lead Source" value={opportunity.leadSource} />
-              <Field label="Type" value={opportunity.potentialType} />
-              <Field label="Forecast Category" value={opportunity.forecastCategory} />
-              <Field label="Next Step" value={opportunity.nextStep} />
-              <Field label="Assigned To" value={assignedToName} />
-              {opportunity.convertedFromGtmDealId && (
-                <Field label="Source" value={`Converted from GTM Deal #${opportunity.convertedFromGtmDealId}`} />
-              )}
-            </div>
-          </section>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KPICard
+              label="Amount"
+              value={opportunity.amount !== null ? `${opportunity.currency ?? ''} ${opportunity.amount.toLocaleString()}`.trim() : '—'}
+              icon={<DollarSign className="size-4" aria-hidden="true" />}
+            />
+            <KPICard
+              label="Weighted Revenue"
+              value={opportunity.weightedRevenue !== null ? `${opportunity.currency ?? ''} ${opportunity.weightedRevenue.toLocaleString()}`.trim() : '—'}
+              icon={<DollarSign className="size-4" aria-hidden="true" />}
+            />
+            <KPICard
+              label="Probability"
+              value={opportunity.probability !== null ? `${opportunity.probability}%` : '—'}
+              icon={<Percent className="size-4" aria-hidden="true" />}
+            />
+          </div>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Description</h2>
+          <SectionCard title="Opportunity Details">
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organization</dt>
+                <dd className="text-sm font-medium text-foreground">
+                  {opportunity.organizationId ? (
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => router.push(resolveAccessLink('/module/crm/marketing/organizations') + `/${opportunity.organizationId}`)}
+                    >
+                      {opportunity.organizationName}
+                    </button>
+                  ) : '—'}
+                </dd>
+              </div>
+              <ReadField label="Campaign" value={opportunity.campaignName} />
+              <ReadField label="Closing Date" value={opportunity.closingDate && <IconValue icon={CalendarClock}>{opportunity.closingDate}</IconValue>} />
+              <ReadField label="Lead Source" value={opportunity.leadSource} />
+              <ReadField label="Type" value={opportunity.potentialType && <IconValue icon={Tag}>{opportunity.potentialType}</IconValue>} />
+              <ReadField label="Forecast Category" value={opportunity.forecastCategory} />
+              <ReadField label="Next Step" value={opportunity.nextStep} />
+              <ReadField label="Assigned To" value={assignedToName && <IconValue icon={User}>{assignedToName}</IconValue>} />
+              {opportunity.convertedFromGtmDealId && (
+                <ReadField label="Source" value={`Converted from GTM Deal #${opportunity.convertedFromGtmDealId}`} />
+              )}
+            </dl>
+          </SectionCard>
+
+          <SectionCard title="Description">
             <p className="text-sm text-foreground">{opportunity.description || '—'}</p>
-          </section>
+          </SectionCard>
         </div>
       )}
 
       {tab === 'contacts' && (
-        <div className="space-y-3 rounded-lg border border-border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Linked Contacts</h2>
+        <SectionCard
+          title="Linked Contacts"
+          actions={(
             <Button size="sm" variant="outline" onClick={() => setAddContactOpen(true)}>
               <Plus className="mr-1.5 size-4" aria-hidden="true" />
               Add Contact
             </Button>
-          </div>
+          )}
+        >
           {contactsLoading && (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Loading contacts…
             </div>
           )}
-          {!contactsLoading && contacts.length === 0 && <p className="py-6 text-sm text-muted-foreground">No contacts linked yet.</p>}
+          {!contactsLoading && contacts.length === 0 && (
+            <EmptyState
+              icon={<User className="size-8" aria-hidden="true" />}
+              title="No contacts linked yet"
+              action={(
+                <Button size="sm" onClick={() => setAddContactOpen(true)}>
+                  <Plus className="mr-1.5 size-4" aria-hidden="true" />
+                  Add Contact
+                </Button>
+              )}
+            />
+          )}
           {!contactsLoading && contacts.length > 0 && (
             <div className="divide-y divide-border rounded-lg border border-border">
               {contacts.map((row) => (
                 <div key={row.id} className="flex items-center gap-3 p-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <User className="size-4" aria-hidden="true" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
                     {row.subLabel && <p className="truncate text-xs text-muted-foreground">{row.subLabel}</p>}
@@ -385,29 +421,44 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               ))}
             </div>
           )}
-        </div>
+        </SectionCard>
       )}
 
       {tab === 'products' && (
-        <div className="space-y-3 rounded-lg border border-border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Products & Services of Interest</h2>
+        <SectionCard
+          title="Products & Services of Interest"
+          actions={(
             <Button size="sm" variant="outline" onClick={() => setAddProductOpen(true)}>
               <Plus className="mr-1.5 size-4" aria-hidden="true" />
               Add Product
             </Button>
-          </div>
+          )}
+        >
           {productsLoading && (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Loading products…
             </div>
           )}
-          {!productsLoading && products.length === 0 && <p className="py-6 text-sm text-muted-foreground">Nothing tagged yet.</p>}
+          {!productsLoading && products.length === 0 && (
+            <EmptyState
+              icon={<Package className="size-8" aria-hidden="true" />}
+              title="Nothing tagged yet"
+              action={(
+                <Button size="sm" onClick={() => setAddProductOpen(true)}>
+                  <Plus className="mr-1.5 size-4" aria-hidden="true" />
+                  Add Product
+                </Button>
+              )}
+            />
+          )}
           {!productsLoading && products.length > 0 && (
             <div className="divide-y divide-border rounded-lg border border-border">
               {products.map((row) => (
                 <div key={row.id} className="flex items-center gap-3 p-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Package className="size-4" aria-hidden="true" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{row.itemType === 'service' ? 'Service' : 'Product'} · Qty {row.quantity}</p>
@@ -419,25 +470,37 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               ))}
             </div>
           )}
-        </div>
+        </SectionCard>
       )}
 
       {tab === 'quotes' && (
-        <div className="space-y-3 rounded-lg border border-border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Quotes</h2>
+        <SectionCard
+          title="Quotes"
+          actions={(
             <Button size="sm" variant="outline" onClick={() => setCreateQuoteOpen(true)}>
               <Plus className="mr-1.5 size-4" aria-hidden="true" />
               New Quote
             </Button>
-          </div>
+          )}
+        >
           {quotesLoading && (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Loading quotes…
             </div>
           )}
-          {!quotesLoading && quotes.length === 0 && <p className="py-6 text-sm text-muted-foreground">No quotes yet for this opportunity.</p>}
+          {!quotesLoading && quotes.length === 0 && (
+            <EmptyState
+              icon={<FileText className="size-8" aria-hidden="true" />}
+              title="No quotes yet for this opportunity"
+              action={(
+                <Button size="sm" onClick={() => setCreateQuoteOpen(true)}>
+                  <Plus className="mr-1.5 size-4" aria-hidden="true" />
+                  New Quote
+                </Button>
+              )}
+            />
+          )}
           {!quotesLoading && quotes.length > 0 && (
             <div className="divide-y divide-border rounded-lg border border-border">
               {quotes.map((quote) => (
@@ -447,6 +510,9 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
                   className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
                   onClick={() => router.push(resolveAccessLink('/module/crm/sales/quotes') + `/${quote.id}`)}
                 >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{quote.subject}</p>
                     <p className="truncate text-xs text-muted-foreground">{quote.quoteStage || 'Draft'} · {quote.quoteNo}</p>
@@ -458,27 +524,29 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               ))}
             </div>
           )}
-        </div>
+        </SectionCard>
       )}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
-      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
-        <CustomFieldsSection
-          recordTable="crm_opportunities"
-          recordId={Number(opportunity.id)}
-          values={customValues}
-          onChange={setCustomValues}
-          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
-        />
-        {hasCustomFields && (
-          <div className="flex items-center gap-3 pt-2">
-            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
-              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
-              Save
-            </Button>
-            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
-          </div>
-        )}
+      <div className={tab === 'custom' ? '' : 'hidden'}>
+        <SectionCard title="Custom Fields">
+          <CustomFieldsSection
+            recordTable="crm_opportunities"
+            recordId={Number(opportunity.id)}
+            values={customValues}
+            onChange={setCustomValues}
+            onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+          />
+          {hasCustomFields && (
+            <div className="flex items-center gap-3 pt-4">
+              <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+                {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+                Save
+              </Button>
+              {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <CreateOpportunityModal

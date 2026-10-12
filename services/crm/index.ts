@@ -440,6 +440,7 @@ export const crmService = {
       ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
       ...(query.salesStage ? { sales_stage: query.salesStage } : {}),
       ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
     }),
 
   getOpportunityPipeline: (context: LaravelContext) =>
@@ -510,6 +511,7 @@ export const crmService = {
       ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
       ...(query.quoteStage ? { quote_stage: query.quoteStage } : {}),
       ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
       ...(query.opportunityId ? { opportunity_id: query.opportunityId } : {}),
     }),
 
