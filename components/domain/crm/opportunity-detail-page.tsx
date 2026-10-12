@@ -341,6 +341,9 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               <Field label="Forecast Category" value={opportunity.forecastCategory} />
               <Field label="Next Step" value={opportunity.nextStep} />
               <Field label="Assigned To" value={assignedToName} />
+              {opportunity.convertedFromGtmDealId && (
+                <Field label="Source" value={`Converted from GTM Deal #${opportunity.convertedFromGtmDealId}`} />
+              )}
             </div>
           </section>
 
