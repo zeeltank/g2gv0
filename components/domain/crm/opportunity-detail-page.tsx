@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, CalendarClock, DollarSign, FileText, Loader2, Package, Pencil, Percent,
+  ArrowLeft, CalendarClock, DollarSign, FileCheck2, FileText, Loader2, Package, Pencil, Percent,
   Plus, Send, Tag, Trash2, TrendingUp, User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmPicklistValue, CrmQuote } from '@/types/crm'
+import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmOpportunityStageHistoryEntry, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateOpportunityModal } from './create-opportunity-modal'
 import { CreateQuoteModal } from './create-quote-modal'
 import { useAssignableEmployees } from './lead-employees'
@@ -33,12 +33,13 @@ interface Props {
   picklists: { salesStage: CrmPicklistValue[]; leadSource: CrmPicklistValue[]; potentialType: CrmPicklistValue[]; forecastCategory: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'custom'
+type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'products', label: 'Products & Services' },
   { id: 'quotes', label: 'Quotes' },
+  { id: 'history', label: 'Stage History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -191,6 +192,9 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
   const [createQuoteOpen, setCreateQuoteOpen] = useState(false)
   const [quoteStages, setQuoteStages] = useState<CrmPicklistValue[]>([])
 
+  const [stageHistory, setStageHistory] = useState<CrmOpportunityStageHistoryEntry[]>([])
+  const [stageHistoryLoading, setStageHistoryLoading] = useState(true)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -234,9 +238,21 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
     }
   }, [context, opportunity.id])
 
+  const loadStageHistory = useCallback(async () => {
+    setStageHistoryLoading(true)
+    try {
+      const response = await crmService.getOpportunityStageHistory(context, opportunity.id)
+      setStageHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setStageHistoryLoading(false)
+    }
+  }, [context, opportunity.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadContacts(); void loadProducts(); void loadQuotes() })
-  }, [loadContacts, loadProducts, loadQuotes])
+    queueMicrotask(() => { void loadContacts(); void loadProducts(); void loadQuotes(); void loadStageHistory() })
+  }, [loadContacts, loadProducts, loadQuotes, loadStageHistory])
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
@@ -521,6 +537,32 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
                     {quote.currency} {quote.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </button>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {tab === 'history' && (
+        <SectionCard title="Stage History">
+          {stageHistoryLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading stage history…
+            </div>
+          )}
+          {!stageHistoryLoading && stageHistory.length === 0 && (
+            <EmptyState icon={<FileCheck2 className="size-8" aria-hidden="true" />} title="No stage changes recorded yet" />
+          )}
+          {!stageHistoryLoading && stageHistory.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {stageHistory.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                  <span className="text-foreground">
+                    {entry.fromStage || 'None'} <span className="text-muted-foreground">→</span> {entry.toStage || 'None'}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{entry.createdAt}</span>
+                </div>
               ))}
             </div>
           )}

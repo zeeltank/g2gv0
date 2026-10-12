@@ -46,6 +46,7 @@ import type {
   CrmProductResponse,
   CrmQuoteLineItemInput,
   CrmQuoteLineItemsResponse,
+  CrmQuoteStageHistoryResponse,
   CrmQuoteListQuery,
   CrmPriceBook,
   CrmPriceBookItem,
@@ -592,6 +593,9 @@ export const crmService = {
 
   downloadQuotePdf: (context: LaravelContext, id: string): Promise<Blob> =>
     apiClient.getBlob(`/crm/quotes/${id}/pdf`, baseParams(context)),
+
+  getQuoteStageHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmQuoteStageHistoryResponse>(`/crm/quotes/${id}/stage-history`, baseParams(context)),
 
   bulkDeleteQuotes: (context: LaravelContext, ids: string[]) =>
     apiClient.post<CrmBulkActionResponse>('/crm/quotes/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
