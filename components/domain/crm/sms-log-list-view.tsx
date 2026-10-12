@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmSmsLogEntry, CrmSmsStatus } from '@/types/crm'
+import { CrmExportButton } from './crm-export-button'
 import { CrmSavedViews } from './crm-saved-views'
 import { SendSmsDialog } from './send-sms-dialog'
 import { employeeName, useAssignableEmployees } from './lead-employees'
@@ -102,6 +103,7 @@ export function SmsLogListView() {
           className="w-40"
         />
         <CrmSavedViews module="sms_log" currentConditions={{ search, status }} onApply={handleApplyView} />
+        <CrmExportButton href={crmService.smsLogExportUrl(context, { search: search || undefined, status: status || undefined })} />
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">

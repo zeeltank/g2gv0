@@ -535,6 +535,13 @@ export const crmService = {
 
   sendSms: (context: LaravelContext, payload: CrmSendSmsPayload) =>
     apiClient.post<CrmSendSmsResponse>('/crm/sms-log/send', { ...payload, ...baseParams(context) }),
+
+  smsLogExportUrl: (context: LaravelContext, query: { search?: string; status?: CrmSmsStatus } = {}) =>
+    buildApiUrl('/crm/sms-log/export', {
+      ...baseParams(context),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    }),
 }
 
 export type { Lead }
