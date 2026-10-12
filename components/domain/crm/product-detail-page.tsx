@@ -1,13 +1,18 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Loader2, Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ArrowLeft, Boxes, Camera, CheckCircle2, DollarSign, Loader2, Package,
+  Pencil, Percent, Plus, Receipt, Ruler, Tag, Trash2, Warehouse, XCircle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { FileUpload } from '@/components/ui/file-upload'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { EmptyState } from '@/components/ui/empty-state'
+import { KPICard } from '@/components/shared/business/kpi-card'
+import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
@@ -26,6 +31,16 @@ interface Props {
 
 type Tab = 'details' | 'bundle' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [{ id: 'details', label: 'Details' }]
+
+/** A label paired with a small muted icon - the inline-icon convention organization-information.tsx uses for ReadField values. */
+function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </span>
+  )
+}
 
 /** Products only (vtiger's SubProducts has no Service equivalent), one level deep - matches backend's own non-recursive rule. */
 function AddBundleComponentDialog({ isOpen, onClose, onAdded, productId }: {
@@ -89,15 +104,6 @@ function AddBundleComponentDialog({ isOpen, onClose, onAdded, productId }: {
   )
 }
 
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
-  return (
-    <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-foreground">{value ?? '—'}</p>
-    </div>
-  )
-}
-
 /** Shared by Products and Services - one unified crm_products table, one detail page, `product.itemType` branding labels/fields. */
 export function ProductDetailPage({ product, onSaved, onBack, categories, taxRates }: Props) {
   const context = useMemo(() => getLaravelContext(), [])
@@ -107,6 +113,7 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -151,7 +158,7 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
     }
   }
 
-  const handleImageSelect = async (file: File | null) => {
+  const handleImageSelect = async (file: File | undefined) => {
     if (!file) return
     setUploadingImage(true)
     try {
@@ -162,6 +169,7 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
       setNotice(reason instanceof Error ? reason.message : 'Unable to upload that image.')
     } finally {
       setUploadingImage(false)
+      if (imageInputRef.current) imageInputRef.current.value = ''
     }
   }
 
@@ -186,6 +194,34 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
             <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
             Back to {noun === 'Service' ? 'Services' : 'Products'}
           </Button>
+
+          {/* Preview-first image treatment (profile-photo-picker's own convention) - the upload control is a small overlay chip, never a standalone dashed box. */}
+          <div className="relative shrink-0">
+            {product.imageUrl ? (
+              <img src={product.imageUrl} alt={product.name} className="size-14 rounded-xl border border-border object-cover" />
+            ) : (
+              <div className="flex size-14 items-center justify-center rounded-xl border border-border bg-primary/10 text-primary">
+                <Package className="size-6" aria-hidden="true" />
+              </div>
+            )}
+            <button
+              type="button"
+              aria-label={product.imageUrl ? 'Change image' : 'Upload image'}
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:text-primary disabled:opacity-50"
+            >
+              {uploadingImage ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Camera className="size-3.5" aria-hidden="true" />}
+            </button>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => void handleImageSelect(e.target.files?.[0])}
+            />
+          </div>
+
           <div>
             <h1 className="text-xl font-semibold text-foreground">{product.name}</h1>
             <p className="text-sm text-muted-foreground">{product.category || noun} · {product.productNo}</p>
@@ -215,78 +251,98 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
       </div>
 
       {tab === 'details' && (
-        <div className="space-y-6 rounded-lg border border-border p-4">
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Image</h2>
-            <div className="flex items-center gap-4">
-              {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="size-20 rounded-lg border border-border object-cover" />
-              ) : (
-                <div className="flex size-20 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground">
-                  <Package className="size-8" aria-hidden="true" />
-                </div>
-              )}
-              <div className="w-64">
-                <FileUpload accept="image/*" maxSizeMB={5} hint="PNG or JPG, up to 5MB" onFileSelect={(file) => void handleImageSelect(file)} disabled={uploadingImage} />
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">{noun} Details</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {product.itemType === 'product' && <Field label="SKU" value={product.sku} />}
-              <Field label="Category" value={product.category} />
-              <Field label="GL Account" value={product.glAccount} />
-              <Field label="Unit Price" value={product.unitPrice !== null ? `${product.currency ?? ''} ${product.unitPrice.toFixed(2)}`.trim() : null} />
-              <Field label="Cost Price" value={product.costPrice !== null ? `${product.currency ?? ''} ${product.costPrice.toFixed(2)}`.trim() : null} />
-              <Field label="Commission Rate" value={product.commissionRate !== null ? `${product.commissionRate}%` : null} />
-              <Field label="Default Tax Rate" value={product.taxRateName} />
-              <Field label="Active" value={product.isActive ? 'Yes' : 'No'} />
-              <Field label="Usage Unit" value={product.usageUnit} />
+        <div className="space-y-4">
+          <SectionCard title={`${noun} Details`}>
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {product.itemType === 'product' && <ReadField label="SKU" value={product.sku} />}
+              <ReadField label="Category" value={product.category && <IconValue icon={Tag}>{product.category}</IconValue>} />
+              <ReadField label="GL Account" value={product.glAccount && <IconValue icon={Receipt}>{product.glAccount}</IconValue>} />
+              <ReadField
+                label="Unit Price"
+                value={product.unitPrice !== null && (
+                  <IconValue icon={DollarSign}>{`${product.currency ?? ''} ${product.unitPrice.toFixed(2)}`.trim()}</IconValue>
+                )}
+              />
+              <ReadField
+                label="Cost Price"
+                value={product.costPrice !== null && (
+                  <IconValue icon={DollarSign}>{`${product.currency ?? ''} ${product.costPrice.toFixed(2)}`.trim()}</IconValue>
+                )}
+              />
+              <ReadField label="Commission Rate" value={product.commissionRate !== null && <IconValue icon={Percent}>{`${product.commissionRate}%`}</IconValue>} />
+              <ReadField label="Default Tax Rate" value={product.taxRateName} />
+              <ReadField
+                label="Status"
+                value={product.isActive
+                  ? <span className="inline-flex items-center gap-1.5 text-success"><CheckCircle2 className="size-3.5" aria-hidden="true" />Active</span>
+                  : <span className="inline-flex items-center gap-1.5 text-muted-foreground"><XCircle className="size-3.5" aria-hidden="true" />Inactive</span>}
+              />
+              <ReadField label="Usage Unit" value={product.usageUnit && <IconValue icon={Ruler}>{product.usageUnit}</IconValue>} />
               {product.itemType === 'product' && (
                 <>
-                  <Field label="Vendor" value={product.vendor} />
-                  <Field label="Qty In Stock" value={product.qtyInStock} />
-                  <Field label="Qty In Demand" value={product.qtyInDemand} />
-                  <Field label="Reorder Level" value={product.reorderLevel} />
-                  <Field label="Weight" value={product.weight} />
+                  <ReadField label="Vendor" value={product.vendor} />
+                  <ReadField label="Qty In Stock" value={product.qtyInStock !== null && <IconValue icon={Warehouse}>{product.qtyInStock}</IconValue>} />
+                  <ReadField label="Qty In Demand" value={product.qtyInDemand} />
+                  <ReadField label="Reorder Level" value={product.reorderLevel} />
+                  <ReadField label="Weight" value={product.weight} />
                 </>
               )}
-            </div>
-          </section>
+            </dl>
+          </SectionCard>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Description</h2>
-            <p className="text-sm text-foreground">{product.description || '—'}</p>
-          </section>
+          <SectionCard title="Description">
+            <p className="text-sm text-foreground">{product.description || 'No description yet.'}</p>
+          </SectionCard>
         </div>
       )}
 
       {tab === 'bundle' && isBundleable && (
-        <div className="space-y-3 rounded-lg border border-border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Bundle Components</h2>
-              <p className="text-xs text-muted-foreground">Make this product a kit of others - its own price above is kept independently.</p>
-            </div>
+        <SectionCard
+          title="Bundle Components"
+          description="Make this product a kit of others - its own price above is kept independently."
+          actions={(
             <Button size="sm" variant="outline" onClick={() => setAddComponentOpen(true)}>
               <Plus className="mr-1.5 size-4" aria-hidden="true" />
               Add Component
             </Button>
-          </div>
+          )}
+        >
           {bundleLoading && (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Loading components…
             </div>
           )}
-          {!bundleLoading && bundleItems.length === 0 && <p className="py-6 text-sm text-muted-foreground">Not a bundle yet - add a component to make it one.</p>}
+          {!bundleLoading && bundleItems.length === 0 && (
+            <EmptyState
+              icon={<Boxes className="size-8" aria-hidden="true" />}
+              title="Not a bundle yet"
+              description="Add a component to turn this product into a kit of others."
+              action={(
+                <Button size="sm" onClick={() => setAddComponentOpen(true)}>
+                  <Plus className="mr-1.5 size-4" aria-hidden="true" />
+                  Add Component
+                </Button>
+              )}
+            />
+          )}
           {!bundleLoading && bundleItems.length > 0 && (
-            <>
+            <div className="space-y-4">
+              <KPICard
+                label="Components Total"
+                value={bundleTotal.toFixed(2)}
+                unit={product.currency ?? undefined}
+                icon={<Package className="size-5" aria-hidden="true" />}
+                variant="primary"
+                size="sm"
+                description={`${bundleItems.length} component${bundleItems.length === 1 ? '' : 's'}`}
+              />
               <div className="divide-y divide-border rounded-lg border border-border">
                 {bundleItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 p-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <Package className="size-4" aria-hidden="true" />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -299,32 +355,31 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
                   </div>
                 ))}
               </div>
-              <p className="text-right text-sm text-muted-foreground">
-                Components total: {product.currency ?? ''} {bundleTotal.toFixed(2)}
-              </p>
-            </>
+            </div>
           )}
-        </div>
+        </SectionCard>
       )}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
-      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
-        <CustomFieldsSection
-          recordTable="crm_products"
-          recordId={Number(product.id)}
-          values={customValues}
-          onChange={setCustomValues}
-          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
-        />
-        {hasCustomFields && (
-          <div className="flex items-center gap-3 pt-2">
-            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
-              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
-              Save
-            </Button>
-            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
-          </div>
-        )}
+      <div className={tab === 'custom' ? '' : 'hidden'}>
+        <SectionCard title="Custom Fields">
+          <CustomFieldsSection
+            recordTable="crm_products"
+            recordId={Number(product.id)}
+            values={customValues}
+            onChange={setCustomValues}
+            onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+          />
+          {hasCustomFields && (
+            <div className="flex items-center gap-3 pt-4">
+              <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+                {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+                Save
+              </Button>
+              {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <CreateProductModal

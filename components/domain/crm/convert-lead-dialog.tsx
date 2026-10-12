@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Building2, TrendingUp, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -92,23 +93,35 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label htmlFor="convert-org" className="cursor-pointer">Create Organization</Label>
-              {!lead.company && <p className="text-xs text-muted-foreground">This lead has no Company name.</p>}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+          <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Building2 className="size-4" aria-hidden="true" />
             </div>
-            <Switch id="convert-org" checked={createOrganization} onChange={(e) => setCreateOrganization(e.target.checked)} disabled={!lead.company} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="convert-org" className="cursor-pointer">Create Organization</Label>
+                <Switch id="convert-org" checked={createOrganization} onChange={(e) => setCreateOrganization(e.target.checked)} disabled={!lead.company} />
+              </div>
+              {!lead.company && <p className="mt-0.5 text-xs text-muted-foreground">This lead has no Company name.</p>}
+            </div>
           </div>
 
-          <div className="space-y-2 rounded-lg border p-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="convert-contact" className="cursor-pointer">Create Contact</Label>
-              <Switch id="convert-contact" checked={createContact} onChange={(e) => setCreateContact(e.target.checked)} />
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <UserPlus className="size-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="convert-contact" className="cursor-pointer">Create Contact</Label>
+                  <Switch id="convert-contact" checked={createContact} onChange={(e) => setCreateContact(e.target.checked)} />
+                </div>
+              </div>
             </div>
             {createContact && (
-              <div className="space-y-2 border-t pt-2">
-                <div className="flex items-center justify-between">
+              <div className="mt-3 space-y-2 rounded-md bg-muted/50 p-2.5 pl-[3.25rem]">
+                <div className="flex items-center justify-between gap-3">
                   <Label htmlFor="convert-link-existing" className="cursor-pointer text-sm text-muted-foreground">Attach to an existing Contact instead</Label>
                   <Switch id="convert-link-existing" checked={linkExisting} onChange={(e) => setLinkExisting(e.target.checked)} />
                 </div>
@@ -124,12 +137,17 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label htmlFor="convert-opportunity" className="cursor-pointer">Create Opportunity</Label>
-              <p className="text-xs text-muted-foreground">Starts a pipeline deal - amount and stage are set afterward.</p>
+          <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <TrendingUp className="size-4" aria-hidden="true" />
             </div>
-            <Switch id="convert-opportunity" checked={createOpportunity} onChange={(e) => setCreateOpportunity(e.target.checked)} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="convert-opportunity" className="cursor-pointer">Create Opportunity</Label>
+                <Switch id="convert-opportunity" checked={createOpportunity} onChange={(e) => setCreateOpportunity(e.target.checked)} />
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">Starts a pipeline deal - amount and stage are set afterward.</p>
+            </div>
           </div>
 
           <div className="space-y-1.5">

@@ -9,7 +9,8 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MessageSquareText, Users } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -59,11 +60,21 @@ export function BulkSendSmsDialog({ isOpen, onClose, onSent, relatedType, ids }:
     <Dialog open={isOpen} onOpenChange={(open) => { if (! open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Send SMS to {ids.length} {ids.length === 1 ? 'record' : 'records'}</DialogTitle>
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <MessageSquareText className="size-4" aria-hidden="true" />
+            </div>
+            <DialogTitle>Send SMS</DialogTitle>
+          </div>
           <DialogDescription>Every attempt is logged, including any record with no phone number on file.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <Badge variant="outline" className="gap-1.5">
+            <Users className="size-3.5" aria-hidden="true" />
+            {ids.length} {ids.length === 1 ? 'recipient' : 'recipients'} selected
+          </Badge>
+
           <div className="space-y-1.5">
             <Label htmlFor="bulk-sms-message">Message *</Label>
             <Textarea id="bulk-sms-message" rows={4} maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} autoFocus />

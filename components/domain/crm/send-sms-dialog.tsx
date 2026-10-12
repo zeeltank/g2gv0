@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MessageSquareText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -73,7 +73,12 @@ export function SendSmsDialog({ isOpen, onClose, onSent, defaultToNumber, relate
     <Dialog open={isOpen} onOpenChange={(open) => { if (! open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Send SMS</DialogTitle>
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <MessageSquareText className="size-4" aria-hidden="true" />
+            </div>
+            <DialogTitle>Send SMS</DialogTitle>
+          </div>
           <DialogDescription>Every attempt is logged, whether or not the gateway accepts it.</DialogDescription>
         </DialogHeader>
 
