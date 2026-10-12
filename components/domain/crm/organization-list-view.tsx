@@ -12,6 +12,7 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
+import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
@@ -123,6 +124,7 @@ export function OrganizationListView() {
   }
 
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
@@ -288,6 +290,15 @@ export function OrganizationListView() {
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
         cascadeLabel="Also transfer contacts"
+        onSendSms={() => setBulkSmsOpen(true)}
+      />
+
+      <BulkSendSmsDialog
+        isOpen={bulkSmsOpen}
+        onClose={() => setBulkSmsOpen(false)}
+        onSent={(message) => { setNotice(message); clearSelection(); void load() }}
+        relatedType="organization"
+        ids={Array.from(selectedIds)}
       />
     </div>
   )

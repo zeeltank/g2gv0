@@ -278,6 +278,15 @@ export interface RecentDocumentHit extends DocumentSearchHit {
   last_viewed_at: string
 }
 
+/** One person a document has been shared with — the Share dialog's "People with access" list. */
+export interface DocumentShare {
+  id: number
+  viewer_user_id: number
+  viewer_name: string
+  /** false = view only. */
+  can_edit: boolean
+}
+
 export interface DocumentSearchResponse {
   status: number
   data: DocumentSearchHit[]
@@ -803,16 +812,47 @@ export const accountService = {
     }),
 
   /**
-   * Correct one of mine — title, type, category, subject. Owner-only, same
-   * as delete. Send only the fields that actually changed; the server
+   * Correct one of mine — title, type, category, subject, or (owner/admin
+   * only — the server rejects these two from a shared editor, see
+   * DocumentLibraryController::update()'s own docblock) its general
+   * visibility. Send only the fields that actually changed; the server
    * no-ops (and skips the audit entry) on an empty diff.
    */
   updateDocument: (
     context: LaravelContext,
     id: number,
-    changes: Partial<{ title: string; document_type: string; category: 'personnel' | 'organization'; subject: string | null }>,
+    changes: Partial<{
+      title: string
+      document_type: string
+      category: 'personnel' | 'organization'
+      subject: string | null
+      visibility: 'private' | 'department' | 'organization'
+      department_id: number | null
+    }>,
   ) =>
     apiClient.patch<{ status: number; message?: string }>(`/account/documents/${id}`, { ...params(context), ...changes }),
+
+  /** The Share dialog's "People with access" list for one document. */
+  getDocumentShares: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: { shares: DocumentShare[] } }>(`/account/documents/${id}/shares`, params(context)),
+
+  /**
+   * Share (or re-share, to change their role) a document with one specific
+   * person. Upsert server-side — calling this again for the same person
+   * just updates `can_edit` rather than erroring or duplicating the grant.
+   */
+  shareDocument: (context: LaravelContext, id: number, viewerUserId: number, canEdit: boolean) =>
+    apiClient.post<{ status: number; message?: string }>(`/account/documents/${id}/shares`, {
+      ...params(context),
+      viewer_user_id: viewerUserId,
+      can_edit: canEdit,
+    }),
+
+  unshareDocument: (context: LaravelContext, id: number, shareId: number) =>
+    apiClient.delete<{ status: number; message?: string }>(
+      `/account/documents/${id}/shares/${shareId}`,
+      params(context) as Record<string, string>,
+    ),
 
   /**
    * Upload a new version of one of mine — same multipart shape as

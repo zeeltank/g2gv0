@@ -104,6 +104,15 @@ export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
 export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
 export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
 export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
+export const CRM_PRICE_BOOKS_ACCESS_LINK = '/module/crm/sales/price-books'
+export const CRM_PURCHASE_ORDERS_ACCESS_LINK = '/module/crm/sales/purchase-orders'
+
+// Order-to-cash phase (Vendors/Sales Orders/Purchase Orders/Invoices) - same
+// fresh-menu-insert reasoning as the rest of "Sales" above; every lookup
+// still goes through MenuRight::idForAccessLink() + resolveAccessLink(),
+// never a hardcoded id.
+export const CRM_VENDORS_ACCESS_LINK = '/module/crm/sales/vendors'
+export const CRM_INVOICES_ACCESS_LINK = '/module/crm/sales/invoices'
 
 /**
  * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle

@@ -25,8 +25,9 @@ interface Props {
 }
 
 const EMPTY: CrmProductPayload = {
-  name: '', sku: '', category: '', description: '', unitPrice: null, costPrice: null, currency: '',
-  taxRateId: null, isActive: true, vendor: '', qtyInStock: null, reorderLevel: null, weight: null, assignedTo: '',
+  name: '', sku: '', category: '', glAccount: '', description: '', unitPrice: null, costPrice: null,
+  commissionRate: null, currency: '', taxRateId: null, isActive: true, vendor: '', qtyInStock: null,
+  qtyInDemand: null, reorderLevel: null, weight: null, usageUnit: '', assignedTo: '',
 }
 
 /**
@@ -49,10 +50,13 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
     setSeededFrom(product)
     setForm(product
       ? {
-          name: product.name, sku: product.sku ?? '', category: product.category ?? '', description: product.description ?? '',
-          unitPrice: product.unitPrice, costPrice: product.costPrice, currency: product.currency ?? '',
+          name: product.name, sku: product.sku ?? '', category: product.category ?? '', glAccount: product.glAccount ?? '',
+          description: product.description ?? '',
+          unitPrice: product.unitPrice, costPrice: product.costPrice, commissionRate: product.commissionRate,
+          currency: product.currency ?? '',
           taxRateId: product.taxRateId, isActive: product.isActive, vendor: product.vendor ?? '',
-          qtyInStock: product.qtyInStock, reorderLevel: product.reorderLevel, weight: product.weight,
+          qtyInStock: product.qtyInStock, qtyInDemand: product.qtyInDemand, reorderLevel: product.reorderLevel,
+          weight: product.weight, usageUnit: product.usageUnit ?? '',
           assignedTo: product.assignedTo ?? '',
         }
       : EMPTY)
@@ -119,9 +123,17 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
                 options={[{ label: '—', value: 'none' }, ...categories.map((c) => ({ label: c.label, value: c.value }))]}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-gl-account">GL Account</Label>
+              <Input id="prod-gl-account" value={form.glAccount ?? ''} onChange={(e) => set('glAccount', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-usage-unit">Usage Unit</Label>
+              <Input id="prod-usage-unit" value={form.usageUnit ?? ''} onChange={(e) => set('usageUnit', e.target.value)} placeholder="e.g. box of 12, hour" />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="space-y-1.5">
               <Label htmlFor="prod-unit-price">Unit Price</Label>
               <Input id="prod-unit-price" type="number" value={form.unitPrice ?? ''} onChange={(e) => set('unitPrice', e.target.value === '' ? null : Number(e.target.value))} />
@@ -133,6 +145,10 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
             <div className="space-y-1.5">
               <Label htmlFor="prod-currency">Currency</Label>
               <Input id="prod-currency" value={form.currency ?? ''} onChange={(e) => set('currency', e.target.value)} placeholder="USD" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-commission">Commission Rate %</Label>
+              <Input id="prod-commission" type="number" min={0} max={100} value={form.commissionRate ?? ''} onChange={(e) => set('commissionRate', e.target.value === '' ? null : Number(e.target.value))} />
             </div>
           </div>
 
@@ -146,7 +162,7 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
           </div>
 
           {itemType === 'product' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <div className="space-y-1.5">
                 <Label htmlFor="prod-vendor">Vendor</Label>
                 <Input id="prod-vendor" value={form.vendor ?? ''} onChange={(e) => set('vendor', e.target.value)} />
@@ -154,6 +170,10 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
               <div className="space-y-1.5">
                 <Label htmlFor="prod-qty">Qty In Stock</Label>
                 <Input id="prod-qty" type="number" value={form.qtyInStock ?? ''} onChange={(e) => set('qtyInStock', e.target.value === '' ? null : Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-qty-demand">Qty In Demand</Label>
+                <Input id="prod-qty-demand" type="number" value={form.qtyInDemand ?? ''} onChange={(e) => set('qtyInDemand', e.target.value === '' ? null : Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="prod-reorder">Reorder Level</Label>

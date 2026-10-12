@@ -1,9 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
+import {
+  ArrowLeft, Building2, CalendarClock, CheckCircle2, Globe, Loader2,
+  Mail, MapPin, Pencil, Phone, Repeat, Star, Tag, Users,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
@@ -28,12 +33,12 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'activity', label: 'Activity' },
 ]
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-foreground">{value || '—'}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </span>
   )
 }
 
@@ -63,14 +68,24 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
     }
   }
 
+  // Three independent targets a conversion may have created - named in the
+  // order the Convert dialog itself lists them (Organization, Contact, Opportunity).
+  const convertedTargets = [
+    lead.convertedOrganizationId && 'an Organization',
+    lead.convertedContactId && 'a Contact',
+    lead.convertedOpportunityId && 'an Opportunity',
+  ].filter((t): t is string => !!t)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to Leads
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Leads" title="Back to Leads">
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-sm font-semibold text-primary">
+            {(lead.firstName?.[0] ?? lead.lastName[0] ?? '?').toUpperCase()}
+          </div>
           <div>
             <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
               {lead.firstName ? `${lead.firstName} ` : ''}{lead.lastName}
@@ -95,12 +110,10 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
-      {lead.converted && (
-        <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
-          This lead was converted
-          {lead.convertedOrganizationId ? ' to an Organization' : ''}
-          {lead.convertedOrganizationId && lead.convertedContactId ? ' and' : ''}
-          {lead.convertedContactId ? ' a Contact' : ''}.
+      {lead.converted && convertedTargets.length > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
+          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+          This lead was converted to {convertedTargets.join(' and ')}.
         </div>
       )}
 
@@ -120,49 +133,45 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       </div>
 
       {tab === 'details' && (
-        <div className="space-y-6 rounded-lg border border-border p-4">
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Lead Information</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Salutation" value={lead.salutation} />
-              <Field label="Email" value={lead.email} />
-              <Field label="Secondary Email" value={lead.secondaryEmail} />
-              <Field label="Phone" value={lead.phone} />
-              <Field label="Mobile" value={lead.mobile} />
-              <Field label="Fax" value={lead.fax} />
-              <Field label="Website" value={lead.website} />
-              <Field label="Industry" value={lead.industry} />
-              <Field label="Lead Source" value={lead.leadSource} />
-              <Field label="Lead Status" value={lead.leadStatus} />
-              <Field label="Rating" value={lead.rating} />
-              <Field label="Annual Revenue" value={lead.annualRevenue != null ? String(lead.annualRevenue) : null} />
-              <Field label="Number of Employees" value={lead.numberOfEmp} />
-            </div>
-          </section>
+        <div className="space-y-4">
+          <SectionCard title="Lead Information">
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <ReadField label="Salutation" value={lead.salutation} />
+              <ReadField label="Designation" value={lead.designation} />
+              <ReadField label="Email" value={lead.email && <IconValue icon={Mail}>{lead.email}</IconValue>} />
+              <ReadField label="Secondary Email" value={lead.secondaryEmail && <IconValue icon={Mail}>{lead.secondaryEmail}</IconValue>} />
+              <ReadField label="Phone" value={lead.phone && <IconValue icon={Phone}>{lead.phone}</IconValue>} />
+              <ReadField label="Mobile" value={lead.mobile && <IconValue icon={Phone}>{lead.mobile}</IconValue>} />
+              <ReadField label="Fax" value={lead.fax} />
+              <ReadField label="Website" value={lead.website && <IconValue icon={Globe}>{lead.website}</IconValue>} />
+              <ReadField label="Industry" value={lead.industry && <IconValue icon={Building2}>{lead.industry}</IconValue>} />
+              <ReadField label="Lead Source" value={lead.leadSource} />
+              <ReadField label="Lead Status" value={lead.leadStatus} />
+              <ReadField label="Rating" value={lead.rating && <IconValue icon={Star}>{lead.rating}</IconValue>} />
+              <ReadField label="Annual Revenue" value={lead.annualRevenue != null ? String(lead.annualRevenue) : null} />
+              <ReadField label="Number of Employees" value={lead.numberOfEmp && <IconValue icon={Users}>{lead.numberOfEmp}</IconValue>} />
+            </dl>
+          </SectionCard>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Address</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Street" value={lead.street} />
-              <Field label="City" value={lead.city} />
-              <Field label="State" value={lead.state} />
-              <Field label="Country" value={lead.country} />
-              <Field label="Postal Code" value={lead.postalCode} />
-              <Field label="PO Box" value={lead.poBox} />
-            </div>
-          </section>
+          <SectionCard title="Address">
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <ReadField label="Street" value={lead.street && <IconValue icon={MapPin}>{lead.street}</IconValue>} />
+              <ReadField label="City" value={lead.city} />
+              <ReadField label="State" value={lead.state} />
+              <ReadField label="Country" value={lead.country} />
+              <ReadField label="Postal Code" value={lead.postalCode} />
+              <ReadField label="PO Box" value={lead.poBox} />
+            </dl>
+          </SectionCard>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Description</h2>
-            <p className="text-sm text-foreground">{lead.description || '—'}</p>
-          </section>
+          <SectionCard title="Description">
+            <p className="text-sm text-foreground">{lead.description || 'No description yet.'}</p>
+          </SectionCard>
         </div>
       )}
 
       {tab === 'activity' && (
-        <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          Activity history isn’t built yet.
-        </div>
+        <EmptyState icon={<CalendarClock className="size-8" aria-hidden="true" />} title="Activity history isn't built yet" />
       )}
 
       {/*
@@ -172,23 +181,25 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
         whether the "Custom Fields" tab button appears at all, so it has to
         run before that tab can be clicked.
       */}
-      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
-        <CustomFieldsSection
-          recordTable="crm_leads"
-          recordId={Number(lead.id)}
-          values={customValues}
-          onChange={setCustomValues}
-          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
-        />
-        {hasCustomFields && (
-          <div className="flex items-center gap-3 pt-2">
-            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
-              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
-              Save
-            </Button>
-            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
-          </div>
-        )}
+      <div className={tab === 'custom' ? '' : 'hidden'}>
+        <SectionCard title="Custom Fields">
+          <CustomFieldsSection
+            recordTable="crm_leads"
+            recordId={Number(lead.id)}
+            values={customValues}
+            onChange={setCustomValues}
+            onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+          />
+          {hasCustomFields && (
+            <div className="flex items-center gap-3 pt-4">
+              <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+                {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+                Save
+              </Button>
+              {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <CreateLeadModal

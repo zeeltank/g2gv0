@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Share2, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -106,6 +106,8 @@ export interface DocumentCardGridProps {
   onDelete?: (doc: DocumentSearchHit) => void
   /** Opens a folder picker for this document. Gated by `canDelete` too — same owner-only reasoning, not a new permission. */
   onMove?: (doc: DocumentSearchHit) => void
+  /** Opens the Share dialog (per-person access + general visibility). Gated by `canDelete` too — same owner-only reasoning as move/delete; the server separately re-checks via canManage(). */
+  onShare?: (doc: DocumentSearchHit) => void
   /** Double-click the name to rename. Gated by `canDelete` too — same owner-only reasoning as move/delete. */
   onRename?: (doc: DocumentSearchHit, title: string) => void
   /** Only the owner (or an elevated caller, which the server already filtered for) may delete from here. */
@@ -147,6 +149,7 @@ export function DocumentCardGrid({
   onDownload,
   onDelete,
   onMove,
+  onShare,
   onRename,
   canDelete,
   folders = [],
@@ -453,11 +456,17 @@ export function DocumentCardGrid({
                     {downloadingId === doc.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
                     Download
                   </ContextMenuItem>
-                  {((onMove && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
+                  {((onMove && canModify) || (onShare && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
                   {onMove && canModify && (
                     <ContextMenuItem onClick={() => deferToNextTick(() => onMove(doc))}>
                       <FolderInput aria-hidden="true" />
                       Move
+                    </ContextMenuItem>
+                  )}
+                  {onShare && canModify && (
+                    <ContextMenuItem onClick={() => deferToNextTick(() => onShare(doc))}>
+                      <Share2 aria-hidden="true" />
+                      Share
                     </ContextMenuItem>
                   )}
                   {onCut && canModify && (

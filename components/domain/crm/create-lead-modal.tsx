@@ -29,7 +29,7 @@ interface Props {
 }
 
 const EMPTY: LeadPayload = {
-  firstName: '', lastName: '', company: '', email: '', secondaryEmail: '',
+  firstName: '', lastName: '', company: '', designation: '', email: '', secondaryEmail: '',
   phone: '', mobile: '', fax: '', website: '', industry: '', leadSource: '',
   leadStatus: '', rating: '', annualRevenue: null, numberOfEmp: '', emailOptOut: false,
   street: '', city: '', state: '', country: '', postalCode: '', poBox: '',
@@ -53,6 +53,7 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
     setForm(lead
       ? {
           firstName: lead.firstName ?? '', lastName: lead.lastName, company: lead.company ?? '',
+          designation: lead.designation ?? '',
           email: lead.email ?? '', secondaryEmail: lead.secondaryEmail ?? '', phone: lead.phone ?? '',
           mobile: lead.mobile ?? '', fax: lead.fax ?? '', website: lead.website ?? '',
           industry: lead.industry ?? '', leadSource: lead.leadSource ?? '', leadStatus: lead.leadStatus ?? '',
@@ -117,9 +118,15 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="lead-company">Company</Label>
-            <Input id="lead-company" value={form.company ?? ''} onChange={(e) => set('company', e.target.value)} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-company">Company</Label>
+              <Input id="lead-company" value={form.company ?? ''} onChange={(e) => set('company', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-designation">Designation</Label>
+              <Input id="lead-designation" value={form.designation ?? ''} onChange={(e) => set('designation', e.target.value)} />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

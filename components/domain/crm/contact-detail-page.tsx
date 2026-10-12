@@ -1,20 +1,23 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
+import { ArrowLeft, Briefcase, FileText, Loader2, Mail, MapPin, Pencil, Phone, Repeat, Send, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { Contact, CrmPicklistValue } from '@/types/crm'
+import type { Contact, CrmOpportunity, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
+import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
 
 interface Props {
@@ -24,17 +27,19 @@ interface Props {
   picklists: { salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'custom'
+type Tab = 'details' | 'opportunities' | 'quotes' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'opportunities', label: 'Opportunities' },
+  { id: 'quotes', label: 'Quotes' },
 ]
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function IconValue({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-foreground">{value || '—'}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </span>
   )
 }
 
@@ -89,10 +94,17 @@ function TransferOwnershipDialog({ isOpen, onClose, onTransferred, contactId }: 
 export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props) {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
+  const context = useMemo(() => getLaravelContext(), [])
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [sendSmsOpen, setSendSmsOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const [opportunities, setOpportunities] = useState<CrmOpportunity[]>([])
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(true)
+  const [quotes, setQuotes] = useState<CrmQuote[]>([])
+  const [quotesLoading, setQuotesLoading] = useState(true)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -100,6 +112,34 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
   const [customNotice, setCustomNotice] = useState<string | null>(null)
 
   const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const loadOpportunities = useCallback(async () => {
+    setOpportunitiesLoading(true)
+    try {
+      const response = await crmService.getOpportunities(context, { contactId: contact.id, perPage: 50 })
+      setOpportunities(response.data.items)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setOpportunitiesLoading(false)
+    }
+  }, [context, contact.id])
+
+  const loadQuotes = useCallback(async () => {
+    setQuotesLoading(true)
+    try {
+      const response = await crmService.getQuotes(context, { contactId: contact.id, perPage: 50 })
+      setQuotes(response.data.items)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setQuotesLoading(false)
+    }
+  }, [context, contact.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadOpportunities(); void loadQuotes() })
+  }, [loadOpportunities, loadQuotes])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -118,10 +158,12 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to Contacts
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Contacts" title="Back to Contacts">
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-sm font-semibold text-primary">
+            {(contact.firstName?.[0] ?? contact.lastName[0] ?? '?').toUpperCase()}
+          </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground">
               {contact.salutation ? `${contact.salutation} ` : ''}{contact.firstName ? `${contact.firstName} ` : ''}{contact.lastName}
@@ -141,6 +183,12 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
           </div>
         </div>
         <div className="flex gap-2">
+          {(contact.mobile || contact.phone) && (
+            <Button variant="outline" onClick={() => setSendSmsOpen(true)}>
+              <Send className="mr-1.5 size-4" aria-hidden="true" />
+              Send SMS
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setTransferOpen(true)}>
             <Repeat className="mr-1.5 size-4" aria-hidden="true" />
             Transfer Ownership
@@ -168,59 +216,132 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
       </div>
 
       {tab === 'details' && (
-      <div className="space-y-6 rounded-lg border border-border p-4">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Contact Information</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Department" value={contact.department} />
-            <Field label="Email" value={contact.email} />
-            <Field label="Secondary Email" value={contact.secondaryEmail} />
-            <Field label="Phone" value={contact.phone} />
-            <Field label="Mobile" value={contact.mobile} />
-            <Field label="Fax" value={contact.fax} />
-            <Field label="Home Phone" value={contact.homePhone} />
-            <Field label="Lead Source" value={contact.leadSource} />
-            <Field label="Do Not Call" value={contact.doNotCall ? 'Yes' : 'No'} />
-          </div>
-        </section>
+      <div className="space-y-4">
+        <SectionCard title="Contact Information">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ReadField label="Department" value={contact.department && <IconValue icon={Briefcase}>{contact.department}</IconValue>} />
+            <ReadField label="Email" value={contact.email && <IconValue icon={Mail}>{contact.email}</IconValue>} />
+            <ReadField label="Secondary Email" value={contact.secondaryEmail && <IconValue icon={Mail}>{contact.secondaryEmail}</IconValue>} />
+            <ReadField label="Phone" value={contact.phone && <IconValue icon={Phone}>{contact.phone}</IconValue>} />
+            <ReadField label="Mobile" value={contact.mobile && <IconValue icon={Phone}>{contact.mobile}</IconValue>} />
+            <ReadField label="Fax" value={contact.fax} />
+            <ReadField label="Home Phone" value={contact.homePhone && <IconValue icon={Phone}>{contact.homePhone}</IconValue>} />
+            <ReadField label="Lead Source" value={contact.leadSource} />
+            <ReadField label="Do Not Call" value={contact.doNotCall ? 'Yes' : 'No'} />
+          </dl>
+        </SectionCard>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Mailing Address</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Street" value={contact.mailingStreet} />
-            <Field label="City" value={contact.mailingCity} />
-            <Field label="State" value={contact.mailingState} />
-            <Field label="Country" value={contact.mailingCountry} />
-            <Field label="Postal Code" value={contact.mailingCode} />
-            <Field label="PO Box" value={contact.mailingPoBox} />
-          </div>
-        </section>
+        <SectionCard title="Mailing Address">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ReadField label="Street" value={contact.mailingStreet && <IconValue icon={MapPin}>{contact.mailingStreet}</IconValue>} />
+            <ReadField label="City" value={contact.mailingCity} />
+            <ReadField label="State" value={contact.mailingState} />
+            <ReadField label="Country" value={contact.mailingCountry} />
+            <ReadField label="Postal Code" value={contact.mailingCode} />
+            <ReadField label="PO Box" value={contact.mailingPoBox} />
+          </dl>
+        </SectionCard>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Description</h2>
+        <SectionCard title="Description">
           <p className="text-sm text-foreground">{contact.description || '—'}</p>
-        </section>
+        </SectionCard>
       </div>
       )}
 
+      {tab === 'opportunities' && (
+        <SectionCard title="Opportunities">
+          {opportunitiesLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading opportunities…
+            </div>
+          )}
+          {!opportunitiesLoading && opportunities.length === 0 && (
+            <EmptyState icon={<Target className="size-8" aria-hidden="true" />} title="No opportunities yet" description="Deals this contact is tagged on will show up here." />
+          )}
+          {!opportunitiesLoading && opportunities.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {opportunities.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/sales/opportunities') + `/${row.id}`)}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Target className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{row.salesStage || 'Opportunity'} · {row.opportunityNo}</p>
+                  </div>
+                  {row.amount !== null && (
+                    <p className="shrink-0 text-sm font-semibold text-foreground">{row.currency ?? ''} {row.amount.toLocaleString()}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {tab === 'quotes' && (
+        <SectionCard title="Quotes">
+          {quotesLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading quotes…
+            </div>
+          )}
+          {!quotesLoading && quotes.length === 0 && (
+            <EmptyState icon={<FileText className="size-8" aria-hidden="true" />} title="No quotes yet" description="Quotes addressed to this contact will show up here." />
+          )}
+          {!quotesLoading && quotes.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {quotes.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/sales/quotes') + `/${row.id}`)}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{row.subject}</p>
+                    <p className="truncate text-xs text-muted-foreground">{row.quoteStage || 'Draft'} · {row.quoteNo}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-foreground">
+                    {row.currency ?? ''} {row.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
-      <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>
-        <CustomFieldsSection
-          recordTable="crm_contacts"
-          recordId={Number(contact.id)}
-          values={customValues}
-          onChange={setCustomValues}
-          onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
-        />
-        {hasCustomFields && (
-          <div className="flex items-center gap-3 pt-2">
-            <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
-              {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
-              Save
-            </Button>
-            {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
-          </div>
-        )}
+      <div className={tab === 'custom' ? '' : 'hidden'}>
+        <SectionCard title="Custom Fields">
+          <CustomFieldsSection
+            recordTable="crm_contacts"
+            recordId={Number(contact.id)}
+            values={customValues}
+            onChange={setCustomValues}
+            onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}
+          />
+          {hasCustomFields && (
+            <div className="flex items-center gap-3 pt-2">
+              <Button size="sm" disabled={savingCustom} onClick={() => void saveCustomFields()}>
+                {savingCustom && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}
+                Save
+              </Button>
+              {customNotice && <span className="text-xs text-muted-foreground">{customNotice}</span>}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <CreateContactModal
@@ -235,6 +356,14 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
         onClose={() => setTransferOpen(false)}
         onTransferred={(message) => { setNotice(message); setTransferOpen(false); onSaved() }}
         contactId={contact.id}
+      />
+      <SendSmsDialog
+        isOpen={sendSmsOpen}
+        onClose={() => setSendSmsOpen(false)}
+        onSent={(message) => { setNotice(message); setSendSmsOpen(false) }}
+        defaultToNumber={contact.mobile || contact.phone}
+        relatedType="contact"
+        relatedId={contact.id}
       />
     </div>
   )
