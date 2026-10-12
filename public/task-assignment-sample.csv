@@ -1,2 +1,4 @@
-Department,JobRole,Employee Name (Assigned To),Task Deadline,Repeat once in every (days),Task Title,Task Description,Observer,Task Priority
-Nursing,Nurse Clinician,Yuvraj Paresh Khosla,2026-12-31,7,Patient Care Review,Review assigned patient care records,Supervisor Name,High
+Task Title,Task Description,Project Code,Department,JobRole,Employee Name (Assigned To),Observer,Task Priority,Task Start Date,Start Time,End Time,Task Deadline,Repeat once in every (days)
+Patient Care Review,Review assigned patient care records,,Nursing,Nurse Clinician,Yuvraj Paresh Khosla,Supervisor Name,High,2026-12-01,09:00,10:00,2026-12-31,7
+Ward Safety Walkthrough,Weekly safety and hygiene walkthrough of the ward,,Nursing,Nurse Clinician,Yuvraj Paresh Khosla;Priya Sharma,Supervisor Name,Medium,,,,2026-12-15,1
+Discharge Summary Audit,Audit discharge summaries for completeness before filing,PRJ-001,Nursing,Nurse Clinician,Priya Sharma,Supervisor Name,Low,2026-12-05,14:00,15:30,2026-12-20,1
