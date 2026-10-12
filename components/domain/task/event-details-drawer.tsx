@@ -374,30 +374,32 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
                       <Switch id="event-private-edit" checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} />
                     </div>
                     {/* Date and time as separate inputs, matching CRM's own
-                        popup layout - not a single combined datetime-local field. */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="event-start-edit">Starts</Label>
-                        <div className="flex gap-2">
-                          <input id="event-start-edit" type="date" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />
-                          {!allDay && (
-                            <TimePicker
-                              value={startAt.slice(11)}
-                              onChange={(next) => {
-                                const nextStart = `${startAt.slice(0, 10)}T${next}`
-                                setStartAt(nextStart)
-                                setEndAt(addOneHourToDateTimeLocal(nextStart))
-                              }}
-                            />
-                          )}
-                        </div>
+                        popup layout - not a single combined datetime-local
+                        field. Starts/Ends are each a FULL-width row, not a
+                        2-column grid: squeezed into half the panel, a date
+                        input plus TimePicker's clock-icon-and-two-dropdowns
+                        no longer fit side by side. */}
+                    <div className="space-y-1">
+                      <Label htmlFor="event-start-edit">Starts</Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input id="event-start-edit" type="date" value={startAt.slice(0, 10)} onChange={(event) => setStartAt(`${event.target.value}T${startAt.slice(11) || '00:00'}`)} className="h-10 w-auto rounded-lg border px-3 text-sm" />
+                        {!allDay && (
+                          <TimePicker
+                            value={startAt.slice(11)}
+                            onChange={(next) => {
+                              const nextStart = `${startAt.slice(0, 10)}T${next}`
+                              setStartAt(nextStart)
+                              setEndAt(addOneHourToDateTimeLocal(nextStart))
+                            }}
+                          />
+                        )}
                       </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="event-end-edit">Ends</Label>
-                        <div className="flex gap-2">
-                          <input id="event-end-edit" type="date" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} className="h-10 w-full rounded-lg border px-3 text-sm" />
-                          {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
-                        </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="event-end-edit">Ends</Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input id="event-end-edit" type="date" value={endAt.slice(0, 10)} onChange={(event) => setEndAt(`${event.target.value}T${endAt.slice(11) || '23:59'}`)} className="h-10 w-auto rounded-lg border px-3 text-sm" />
+                        {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
                       </div>
                     </div>
                     <Button onClick={() => void saveCore()} disabled={saving || !title.trim()} className="w-full">

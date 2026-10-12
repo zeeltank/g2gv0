@@ -115,10 +115,24 @@ export function useDepartmentSchedules() {
 
   /** What an apply would do. Writes nothing. */
   const preview = useCallback(
-    async (departmentId: number, weekdays: string[]): Promise<SchedulePreviewResponse | null> => {
+    async (
+      departmentId: number,
+      weekdays: string[],
+      /**
+       * Also overwrite employees who set their OWN hours through an approved
+       * request. Defaults to false, and the preview is asked with the same
+       * value the apply will use - a preview that disagreed with the write
+       * would be worse than none, because it is trusted.
+       */
+      overrideEmployeeHours = false,
+    ): Promise<SchedulePreviewResponse | null> => {
       setError(null)
       try {
-        return await hrmsService.previewScheduleApply(getLaravelContext(user), { departmentId, weekdays })
+        return await hrmsService.previewScheduleApply(getLaravelContext(user), {
+          departmentId,
+          weekdays,
+          overrideEmployeeHours,
+        })
       } catch (caught) {
         setError(toMessage(caught, 'Could not work out what this would change.'))
         return null
@@ -129,12 +143,20 @@ export function useDepartmentSchedules() {
 
   /** Write the template onto the department's employees. */
   const apply = useCallback(
-    async (departmentId: number, weekdays: string[]): Promise<boolean> => {
+    async (
+      departmentId: number,
+      weekdays: string[],
+      overrideEmployeeHours = false,
+    ): Promise<boolean> => {
       setIsSaving(true)
       setError(null)
       setNotice(null)
       try {
-        const response = await hrmsService.applySchedule(getLaravelContext(user), { departmentId, weekdays })
+        const response = await hrmsService.applySchedule(getLaravelContext(user), {
+          departmentId,
+          weekdays,
+          overrideEmployeeHours,
+        })
         setNotice(
           response.message ||
             (response.applied ? 'Office hours applied.' : 'Nothing needed changing.'),

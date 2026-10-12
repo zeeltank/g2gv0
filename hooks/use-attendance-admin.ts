@@ -8,9 +8,12 @@ import {
   hrmsService,
   type AttendanceCorrectionPayload,
   type AttendanceEditRow,
+  type AttendanceEditsResponse,
   type AttendanceGridDay,
   type AttendanceGridEmployee,
 } from '@/services/hrms'
+
+type AttendanceEditsMeta = NonNullable<AttendanceEditsResponse['meta']>
 
 function toMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
@@ -72,6 +75,42 @@ export function useAttendanceAdmin() {
   const [edits, setEdits] = useState<AttendanceEditRow[]>([])
   const [editsLoading, setEditsLoading] = useState(false)
   const [editsError, setEditsError] = useState<string | null>(null)
+  const [editsMeta, setEditsMeta] = useState<AttendanceEditsMeta | null>(null)
+  /** When the history last came back, so the screen can show its own freshness. */
+  const [editsLoadedAt, setEditsLoadedAt] = useState<number | null>(null)
+
+  /*
+   * THE HISTORY'S OWN FILTERS, DECOUPLED FROM THE GRID'S.
+   *
+   * `month` above is shared grid state, and its setter also resets the page.
+   * The history tab was handed that setter - so changing the month while
+   * reading the history silently re-paged and re-fetched the grid sitting
+   * behind it, and the user had no way to know.
+   *
+   * Seeded from the grid's month on first use and never written back.
+   */
+  const [historyMonth, setHistoryMonth] = useState<string | null>(null)
+  const [historyUserId, setHistoryUserId] = useState<number | null>(null)
+  const [historyDay, setHistoryDay] = useState<string | null>(null)
+
+  /**
+   * Poll the history while the tab is open. OFF by default.
+   *
+   * "Real time" was the ask, and this is the honest version of it: a visible
+   * toggle whose cost the user can see and switch off, rather than a hidden
+   * interval running all day on a 50-row join to catch an event that almost
+   * always originates in this very tab.
+   */
+  const [liveHistory, setLiveHistory] = useState(false)
+
+  /*
+   * Whether the history has ever been loaded.
+   *
+   * A write invalidates it only if it has - so somebody who never opens the tab
+   * pays nothing, and somebody watching it sees their own correction appear
+   * without touching anything.
+   */
+  const editsEverLoaded = useRef(false)
 
   /*
    * The search box types faster than the request returns. Without a sequence
@@ -194,26 +233,72 @@ export function useAttendanceAdmin() {
     setPage(1)
   }, [])
 
+  /**
+   * Load the change history.
+   *
+   * Reads the history's OWN filters, falling back to the grid's month only for
+   * the very first load - see the state block for why they are separate.
+   *
+   * `quiet` skips the spinner, for the background refetches: a list that blinks
+   * every time you tab back to the window is worse than one that just updates.
+   */
   const loadEdits = useCallback(
-    async (params?: { userId?: number | string }) => {
+    async (options?: { userId?: number | string; day?: string | null; quiet?: boolean }) => {
       if (authLoading || !user) return
-      setEditsLoading(true)
+
+      editsEverLoaded.current = true
+
+      if (!options?.quiet) setEditsLoading(true)
       setEditsError(null)
+
       try {
         const response = await hrmsService.getAttendanceEdits(getLaravelContext(user), {
-          month,
-          ...(params?.userId ? { userId: params.userId } : {}),
+          month: historyMonth ?? month,
+          ...(options?.userId !== undefined
+            ? { userId: options.userId }
+            : historyUserId !== null
+              ? { userId: historyUserId }
+              : {}),
+          ...(options?.day !== undefined
+            ? (options.day ? { day: options.day } : {})
+            : historyDay
+              ? { day: historyDay }
+              : {}),
         })
         setEdits(response.data ?? [])
+        setEditsMeta(response.meta ?? null)
+        setEditsLoadedAt(Date.now())
       } catch (caught) {
         setEditsError(toMessage(caught, 'Could not load the change history.'))
         setEdits([])
+        setEditsMeta(null)
       } finally {
-        setEditsLoading(false)
+        if (!options?.quiet) setEditsLoading(false)
       }
     },
-    [authLoading, user, month],
+    [authLoading, user, month, historyMonth, historyUserId, historyDay],
   )
+
+  /**
+   * Show one employee's changes, optionally for one day.
+   *
+   * This is the drill-down the grid's own comment has always promised - "the
+   * screen shows WHO and WHY from /admin/edits when a marked cell is opened" -
+   * and which was never wired. Called from a changed cell's reveal.
+   */
+  const focusHistory = useCallback(
+    (userId: number | null, day?: string | null) => {
+      setHistoryUserId(userId)
+      setHistoryDay(day ?? null)
+      if (day) setHistoryMonth(day.slice(0, 7))
+    },
+    [],
+  )
+
+  const clearHistoryFilters = useCallback(() => {
+    setHistoryUserId(null)
+    setHistoryDay(null)
+  }, [])
 
   /**
    * Apply one correction.
@@ -231,6 +316,10 @@ export function useAttendanceAdmin() {
         const response = await hrmsService.correctAttendance(getLaravelContext(user), payload)
         setNotice(response.message || 'Attendance corrected.')
         await loadGrid({ quiet: true })
+        // The history is stale the moment this lands. Refetched only if the tab
+        // has ever been opened, so this costs nothing for somebody who never
+        // looks at it.
+        if (editsEverLoaded.current) void loadEdits({ quiet: true })
         return true
       } catch (caught) {
         setError(toMessage(caught, 'Could not change this day.'))
@@ -241,7 +330,10 @@ export function useAttendanceAdmin() {
     },
     // `user` because getLaravelContext(user) reads it - without it this closes
     // over the identity that was signed in when the callback was first built.
-    [loadGrid, user],
+    // `loadEdits` because this invalidates the history, and loadEdits carries
+    // the history's own month/employee/day filters - a stale copy would refetch
+    // with filters the user has already moved past.
+    [loadGrid, user, loadEdits],
   )
 
   /**
@@ -277,17 +369,82 @@ export function useAttendanceAdmin() {
       }
 
       await loadGrid({ quiet: true })
+      if (editsEverLoaded.current) void loadEdits({ quiet: true })
       setIsSaving(false)
       return { ok, failed }
     },
-    [loadGrid, user],
+    [loadGrid, user, loadEdits],
   )
 
-  const monthLabel = useMemo(() => {
-    const [year, mon] = month.split('-').map(Number)
-    if (!year || !mon) return month
+  /*
+   * "REAL TIME", THE HONEST VERSION.
+   *
+   * Three mechanisms, in order of how much of reality each covers:
+   *
+   * 1. Invalidation after a write (above). The person who changed something is
+   *    almost always the person looking at the list, so this is most of it.
+   * 2. Refetch when the window comes back. Covers the other HR user's write
+   *    without any polling at all. Thresholded, so alt-tabbing is not a
+   *    request storm.
+   * 3. An opt-in interval, off by default, for somebody who genuinely wants to
+   *    watch. A toggle makes the cost legible instead of hidden.
+   *
+   * Polling as the DEFAULT was rejected: a 15-second interval on a two-join
+   * query, on a tab an HR user leaves open all day, to catch an event that
+   * usually originates in that very tab.
+   *
+   * Optimistic append was rejected too - the correction response carries
+   * neither the edit row's id nor the actor's display name, so an appended row
+   * would be a partial fiction that then gets replaced by the real one.
+   */
+  const STALE_AFTER_MS = 20_000
+
+  const refetchEditsIfStale = useCallback(() => {
+    if (!editsEverLoaded.current) return
+    if (editsLoadedAt !== null && Date.now() - editsLoadedAt < STALE_AFTER_MS) return
+    void loadEdits({ quiet: true })
+  }, [editsLoadedAt, loadEdits])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refetchEditsIfStale()
+    }
+
+    window.addEventListener('focus', refetchEditsIfStale)
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      window.removeEventListener('focus', refetchEditsIfStale)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [refetchEditsIfStale])
+
+  useEffect(() => {
+    if (!liveHistory) return
+    if (typeof window === 'undefined') return
+
+    const handle = setInterval(() => {
+      // Only while the tab is actually being looked at - a background tab
+      // polling every 30 seconds is pure waste.
+      if (document.visibilityState === 'visible') void loadEdits({ quiet: true })
+    }, 30_000)
+
+    return () => clearInterval(handle)
+  }, [liveHistory, loadEdits])
+
+  const prettyMonth = (value: string) => {
+    const [year, mon] = value.split('-').map(Number)
+    if (!year || !mon) return value
     return new Date(year, mon - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-  }, [month])
+  }
+
+  const monthLabel = useMemo(() => prettyMonth(month), [month])
+  const historyMonthLabel = useMemo(
+    () => prettyMonth(historyMonth ?? month),
+    [historyMonth, month],
+  )
 
   return {
     // filters - the setters reset the page, see above
@@ -305,6 +462,13 @@ export function useAttendanceAdmin() {
     correct, correctMany, isSaving,
 
     // the trail
-    edits, editsLoading, editsError, loadEdits,
+    edits, editsLoading, editsError, editsMeta, editsLoadedAt, loadEdits,
+    // its own filters, deliberately not the grid's
+    historyMonth: historyMonth ?? month,
+    setHistoryMonth,
+    historyMonthLabel,
+    historyUserId, historyDay,
+    focusHistory, clearHistoryFilters,
+    liveHistory, setLiveHistory,
   }
 }

@@ -7,6 +7,20 @@ const Popover = PopoverPrimitive.Root
 
 const PopoverTrigger = PopoverPrimitive.Trigger
 
+/**
+ * Position a popover against something that is not its trigger.
+ *
+ * Added for the attendance grid, where ~1,550 day cells share ONE popover: the
+ * grid tracks which cell is hovered or focused and anchors the single popover
+ * to that cell's rect. Wrapping every cell in its own Popover root would be the
+ * obvious alternative and would mean 1,550 Radix roots on one screen.
+ *
+ * It is also why ui/tooltip.tsx could not be used there - it is hand-rolled and
+ * absolutely positioned inside a `relative` wrapper, so it is clipped by any
+ * `overflow-x-auto` ancestor. This one portals.
+ */
+const PopoverAnchor = PopoverPrimitive.Anchor
+
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
@@ -31,4 +45,4 @@ const PopoverContent = React.forwardRef<
 ))
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverContent }
+export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent }

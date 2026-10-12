@@ -181,6 +181,11 @@ export function MyTaskDetailsDrawer({ taskId, open, onClose, onUpdated, dashboar
       setTask({ ...task, status: response.data.status, status_label: response.data.status_label, remarks: remarks.trim() })
       setMessage(response.message)
       onUpdated()
+      // Closes the drawer once the save actually succeeds, same as
+      // deleteTaskWithScope already does below - staying open after a
+      // successful status/remarks save served no purpose but an extra
+      // manual close.
+      onClose()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to update the task.')
     } finally {

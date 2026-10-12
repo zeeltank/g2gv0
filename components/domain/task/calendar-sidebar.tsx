@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { accountService } from '@/services/account'
+import { employeeDirectoryService } from '@/services/organization/employee-directory'
 import { taskService } from '@/services/task'
 import type { CalendarFeed, CalendarShare } from '@/types/task-management'
 
@@ -25,6 +26,8 @@ interface Props {
   onMyColorChanged: () => void
   /** 'My Calendar' mode: every other feed is already hidden and inert there, so show just the viewer's own row (their color picker stays reachable) instead of a list of unchecked rows nothing can be done with. */
   selfOnly?: boolean
+  /** Administrator viewing this sidebar — every row gets a real color picker, not just the viewer's own. Matches `routes/api.php`'s `profile:admin` gate on the endpoint this calls. */
+  isAdmin?: boolean
 }
 
 /** The one synthetic id this picker ever sends - CalendarShareService::EVERYONE, mirrored client-side only as a display label. */
@@ -45,17 +48,27 @@ const EVERYONE_ID = '0'
  *
  * "Share my calendar" (the other direction - granting access OUT) lives in
  * the "+" popover rather than inline in this list: a row here represents an
- * INCOMING feed the viewer did not create, with no backend operation to
- * recolor or remove it for themselves - only the owner (via the popover)
- * can set a color for a given viewer. Giving every row a pencil that did
- * nothing real would be worse than the plain row this has instead.
+ * INCOMING feed the viewer did not create, with no backend operation for an
+ * ORDINARY viewer to recolor or remove it for themselves - only the owner
+ * (via the popover) can set a color for a given viewer. Giving every row a
+ * pencil that did nothing real would be worse than the plain row this has
+ * instead.
  *
- * The one exception is the viewer's OWN row (9.11): that color isn't someone
+ * The viewer's OWN row (9.11) is the one exception: that color isn't someone
  * else's grant, it's the viewer's own task_card_color preference, so it gets
  * a real, editable swatch instead of a read-only dot - everywhere this color
  * shows (this dot, the grid's own chips) updates the moment it's changed.
+ *
+ * An ADMINISTRATOR (`isAdmin`) is the second exception: every row gets a real
+ * picker, via a new admin-on-behalf-of endpoint
+ * (`PUT /employees-management/{id}/task-card-color`, `profile:admin`-gated)
+ * that writes that employee's OWN task_card_color preference directly -
+ * the same field, same precedence, same visibility to every other viewer of
+ * that feed. Not a share color (those stay per-viewer and owner-set); this
+ * changes how the person is shown everywhere, same as if they'd picked it
+ * themselves.
  */
-export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId, onMyColorChanged, selfOnly }: Props) {
+export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId, onMyColorChanged, selfOnly, isAdmin }: Props) {
   const [shares, setShares] = useState<CalendarShare[]>([])
   const [sharesLoaded, setSharesLoaded] = useState(false)
   const [sharesLoading, setSharesLoading] = useState(false)
@@ -67,6 +80,8 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId
   const [sharing, setSharing] = useState(false)
   const [recoloring, setRecoloring] = useState<string | null>(null)
   const [savingMyColor, setSavingMyColor] = useState(false)
+  /** Admin-on-behalf-of recolor in flight, keyed by the employee's user_id — distinct from `recoloring` (the share-popover's own, keyed by share id). */
+  const [recoloringFeedId, setRecoloringFeedId] = useState<string | null>(null)
 
   /**
    * My own card color, like CRM (9.11) — unlike every other row, this one is
@@ -92,6 +107,28 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId
       // this small, matching the share-color input beside it.
     } finally {
       setSavingMyColor(false)
+    }
+  }
+
+  /**
+   * Admin-on-behalf-of: set a DIFFERENT employee's own task_card_color
+   * preference directly (`PUT /employees-management/{id}/task-card-color`,
+   * `profile:admin`-gated server-side — this button only renders when
+   * `isAdmin` is true, but the backend re-checks independently). Changes how
+   * that person is shown to every viewer of their feed, not just this admin.
+   */
+  const recolorFeed = async (userId: string, color: string) => {
+    const context = getLaravelContext()
+    if (!isLaravelContextReady(context)) return
+
+    setRecoloringFeedId(userId)
+    try {
+      await employeeDirectoryService.setTaskCardColor(context, userId, color)
+      onMyColorChanged()
+    } catch {
+      // Same no-separate-error-surface call as saveMyColor, for the same reason.
+    } finally {
+      setRecoloringFeedId(null)
     }
   }
 
@@ -256,11 +293,11 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId
           <label key={feed.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
             <Checkbox checked={!hidden.has(feed.user_id)} onCheckedChange={() => onToggle(feed.user_id)} />
             {/* The owner's own chosen color wins over the automatic by-index
-                palette, the same precedence the grid's chips use. Only the
-                viewer's OWN row is editable here - every other row is
-                somebody else's choice, with no backend operation for a
-                viewer to recolor it for themselves (see this file's own
-                header comment on why no pencil icon exists for those). */}
+                palette, the same precedence the grid's chips use. The
+                viewer's OWN row is always editable here; every other row is
+                somebody else's choice and stays a plain dot UNLESS the
+                viewer is an administrator (see this file's own header
+                comment on why an ordinary viewer gets no pencil icon). */}
             {feed.user_id === viewerId ? (
               // Not forced circular, unlike the plain dot below - a native
               // color input's internal swatch padding fights `rounded-full`
@@ -274,6 +311,16 @@ export function CalendarSidebar({ feeds, hidden, onToggle, dotClassFor, viewerId
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => { event.stopPropagation(); void saveMyColor(event.target.value) }}
                 disabled={savingMyColor}
+                className="size-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+              />
+            ) : isAdmin ? (
+              <input
+                type="color"
+                aria-label={`${feed.name}'s task calendar color`}
+                value={feed.color || '#94a3b8'}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => { event.stopPropagation(); void recolorFeed(feed.user_id, event.target.value) }}
+                disabled={recoloringFeedId === feed.user_id}
                 className="size-4 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
               />
             ) : (

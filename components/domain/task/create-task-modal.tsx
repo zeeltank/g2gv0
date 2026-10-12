@@ -1174,7 +1174,7 @@ export function CreateTaskModal({
     finally { setGenerating(false) }
   }
 
-  return <Dialog open={isOpen} onOpenChange={(open) => !open && close()}><DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-5xl">
+  return <Dialog open={isOpen} onOpenChange={(open) => !open && close()}><DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-6xl">
     <DialogHeader className="shrink-0 border-b px-7 py-5"><div className="flex items-start justify-between pr-10"><div><DialogTitle className="text-xl">{mode === 'roleBulk' ? 'Bulk Task Assignment' : mode === 'csv' ? 'Import Tasks' : isEdit ? 'Edit Task' : 'New Assignment'}</DialogTitle><DialogDescription>{mode === 'roleBulk' ? 'Select and configure tasks for the chosen employee' : mode === 'csv' ? 'Create many tasks at once from a spreadsheet' : isEdit ? 'Change this task and save it' : 'Track and monitor task assignment progress'}</DialogDescription></div>{mode === 'form' && !isEdit && assignees.length > 0 && <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={openRoleBulk}>Bulk Tasks</Button><Button type="button" size="sm" onClick={() => setMode('csv')}><Upload className="mr-2 size-4" />Upload Bulk Task</Button></div>}</div></DialogHeader>
     <div className="@container/form g2g-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
     {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
@@ -1460,7 +1460,19 @@ export function CreateTaskModal({
         />
       </Field>
       <Field label="End time (optional)" span={4}>
-        <TimePicker value={timeEnd} onChange={setTimeEnd} />
+        {/* TimePicker displays "09:00" as soon as it renders with an empty
+            value (its own uncontrolled-default fallback), but that display
+            is NOT committed to timeStart's state until the Start picker
+            itself is touched. Editing only End used to submit time_end with
+            time_start left null — confirmed on a real created task — because
+            nothing here ever committed the start the user was already
+            looking at. Doesn't fight the "end follows start" rule above
+            (time-follow.ts, locked-in): once timeStart has a real value,
+            this never fires again. */}
+        <TimePicker
+          value={timeEnd}
+          onChange={(next) => { setTimeEnd(next); if (!timeStart) setTimeStart('09:00') }}
+        />
       </Field>
       <Field label="Task priority *" span={12} error={errors.priority} fieldRef={(node) => { fieldRefs.current.priority = node }}><div className="flex gap-5">{(['High','Medium','Low'] as const).map((value) => <button key={value} type="button" onClick={() => setPriority(value)} className={cn('flex h-14 w-20 flex-col items-center justify-center rounded-lg border-2 text-xs font-semibold', value === 'High' ? 'border-destructive text-destructive' : value === 'Medium' ? 'border-warning text-warning' : 'border-success text-success', priority === value && (value === 'High' ? 'bg-destructive/10' : value === 'Medium' ? 'bg-warning/10' : 'bg-success/10'))}><span className={cn('mb-1 size-3 rounded-full', value === 'High' ? 'bg-destructive' : value === 'Medium' ? 'bg-warning' : 'bg-success')} />{value}</button>)}</div></Field>
         </div>

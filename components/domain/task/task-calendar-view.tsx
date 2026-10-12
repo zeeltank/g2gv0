@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns'
-import { CalendarClock, ChevronLeft, ChevronRight, Download, Filter, MoreHorizontal, Plus, SlidersHorizontal, UserPlus, Upload } from 'lucide-react'
+import { CalendarClock, ChevronLeft, ChevronRight, Download, Filter, MoreHorizontal, Plus, SlidersHorizontal, UserPlus, Upload, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -10,6 +10,8 @@ import { Select } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/components/auth/gtg-auth'
 import { taskService } from '@/services/task'
 import type { CalendarEntry, CalendarEntryKind, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
 import { CreateTaskModal } from './create-task-modal'
@@ -28,7 +30,14 @@ type ScreenMode = 'my' | 'shared' | 'list'
 import type { CalendarFeed } from '@/types/task-management'
 
 export function TaskCalendarView() {
-  const [month, setMonth] = useState(startOfMonth(new Date()))
+  // The actual anchor DAY, not forced to the 1st - month view's own range
+  // calculation already normalizes via startOfMonth(month) below, so there
+  // was never a reason to start here. Forcing it to the 1st meant switching
+  // straight to Day/Week (without first navigating month view to a specific
+  // day) opened the 1st's day/week instead of today's, since nothing else
+  // in the component ever moved `month` off that default until the Today
+  // button or a day-cell click did.
+  const [month, setMonth] = useState(new Date())
   /**
    * Month / week / day.
    *
@@ -119,8 +128,12 @@ export function TaskCalendarView() {
   // The event drawer - the chip's title opens it; MILESTONE/CHECKPOINT open
   // their own read-only popover instead (TaskCalendarGrid's own concern).
   const [openEventId, setOpenEventId] = useState<string | null>(null)
+  /** "Added Calendars" sidebar - closed by default, reachable any time via the Feeds button below. */
+  const [feedsOpen, setFeedsOpen] = useState(false)
 
   const viewerId = getLaravelContext().userId
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'administrator'
 
   const range = useMemo(() => {
     if (view === 'day') return { from: startOfDay(month), to: startOfDay(month) }
@@ -149,13 +162,30 @@ export function TaskCalendarView() {
       ? `${format(range.from, 'd MMM')} - ${format(range.to, 'd MMM yyyy')}`
       : format(month, 'MMMM yyyy')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     // Nothing may fire before the session exists, or the first paint is an
     // auth error instead of a calendar. tm-reports.tsx already guards this way.
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
-    setLoading(true); setError('')
+    /*
+     * SILENT REFRESH AFTER CREATE/EDIT/APPROVE/ARCHIVE — NOT A FULL RELOAD.
+     *
+     * `loading=true` swaps the entire grid/list for a bare <Spinner/> (see the
+     * render below), which unmounts TaskCalendarGrid. A remounted FullCalendar
+     * instance re-reads `anchorDate`/`view` from scratch through its own
+     * queueMicrotask-deferred changeView/gotoDate effect (see that file's own
+     * flushSync-crash note) — confirmed as the cause of two reported symptoms
+     * together: the loading flash itself, AND the grid appearing to "jump" to
+     * a different date after creating or editing a task, which needed a manual
+     * click on Today to undo. onTaskReschedule already avoided this for
+     * drag-to-move ("No reload here (locked-in)"); this brings create/edit/
+     * approve/archive in line with that, rather than leaving them as the one
+     * remaining path that tears the grid down on every action.
+     */
+    const silent = options?.silent ?? false
+    if (!silent) setLoading(true)
+    setError('')
     try {
       // PAGE UNTIL EXHAUSTED. This used to request perPage:100 once, with no
       // pagination — and the backend caps per_page at 100 and sorts by
@@ -185,7 +215,7 @@ export function TaskCalendarView() {
       setTasks(collected)
       setTotalInRange(total)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load calendar tasks.') }
-    finally { setLoading(false) }
+    finally { if (!silent) setLoading(false) }
   }, [range, viewScope])
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
@@ -288,14 +318,14 @@ export function TaskCalendarView() {
     }
     try {
       const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
   }
   const archive = async (task: WorkspaceTask) => {
     if (!window.confirm(`Archive “${task.title}”?`)) return
     try {
       const response = await taskService.archiveWorkspaceTask(getLaravelContext(), task.id)
-      setMessage(response.message); setOpenTaskId(null); await load()
+      setMessage(response.message); setOpenTaskId(null); await load({ silent: true })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive task.') }
   }
 
@@ -498,16 +528,43 @@ export function TaskCalendarView() {
           </PopoverContent>
         </Popover>
         {screenMode !== 'list' && (
-          <div className="w-28">
-            <Select value={view} onChange={(value) => setView(value as CalendarGridView)} options={[
-              { value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'day', label: 'Day' },
-            ]} />
+          // A segmented switcher, not a dropdown - all three options are
+          // always visible, so switching is one click instead of two.
+          <div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Calendar view">
+            {(['month', 'week', 'day'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setView(option)}
+                aria-pressed={view === option}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors',
+                  view === option ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         )}
+        {/* "Added Calendars" - closed by default (9.12), reachable any time here. */}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={feedsOpen ? 'Hide calendars' : 'Show calendars'}
+          aria-pressed={feedsOpen}
+          className={cn(feedsOpen && 'bg-secondary text-secondary-foreground')}
+          onClick={() => setFeedsOpen((open) => !open)}
+        >
+          <Users className="size-4" />
+        </Button>
         {/* The arrows step by whatever is on screen - a month, a week, a day -
             rather than always a month, which in week view would skip four. */}
         <Button variant="outline" size="icon" onClick={() => step(-1)}><ChevronLeft className="size-4" /></Button>
-        <Button variant="outline" onClick={() => setMonth(view === 'month' ? startOfMonth(new Date()) : startOfDay(new Date()))}>Today</Button>
+        {/* Same `new Date()` regardless of view now - month view's own range
+            calculation normalizes via startOfMonth(month) itself, so there
+            was never a reason to special-case it to the 1st here either. */}
+        <Button variant="outline" onClick={() => setMonth(new Date())}>Today</Button>
         <Button variant="outline" size="icon" onClick={() => step(1)}><ChevronRight className="size-4" /></Button>
 
         {/* A visual break between navigation/filtering (left of here) and the
@@ -574,23 +631,27 @@ export function TaskCalendarView() {
         <Button variant="outline" size="sm" onClick={() => void loadFeeds()}>Try again</Button>
       </div>
     )}
-    {/* Persistent left rail (whose calendars are overlaid) alongside the
-        grid/list, mirroring document-library-view.tsx's own sidebar shape -
-        replaces both the old "Calendars:" chip row and the Feeds overlay
-        panel's visibility section. Always rendered, even in 'my' mode
-        (9.11): every OTHER feed is hidden and inert there, so the sidebar
-        shows just the viewer's own row - which still needs to be reachable,
-        since that's where their own task_card_color picker lives now. */}
+    {/* Left rail (whose calendars are overlaid) alongside the grid/list,
+        mirroring document-library-view.tsx's own sidebar shape - replaces
+        both the old "Calendars:" chip row and the Feeds overlay panel's
+        visibility section. Closed by default (9.12) - the Feeds button in
+        the header above toggles it; open it when the viewer's own
+        task_card_color picker (or, for an admin, everyone else's) needs to
+        be reached, same as it was always reachable before, just not
+        permanently taking up the row. */}
     <div className="flex min-w-0 items-start gap-4">
-      <CalendarSidebar
-        feeds={feeds}
-        hidden={hiddenFeedUserIds}
-        onToggle={toggleFeed}
-        dotClassFor={(userId) => feedColour(userId).dot}
-        viewerId={viewerId}
-        onMyColorChanged={() => void loadFeeds()}
-        selfOnly={screenMode === 'my'}
-      />
+      {feedsOpen && (
+        <CalendarSidebar
+          feeds={feeds}
+          hidden={hiddenFeedUserIds}
+          onToggle={toggleFeed}
+          dotClassFor={(userId) => feedColour(userId).dot}
+          viewerId={viewerId}
+          onMyColorChanged={() => void loadFeeds()}
+          selfOnly={screenMode === 'my'}
+          isAdmin={isAdmin}
+        />
+      )}
       <div className="min-w-0 flex-1">
         <Card><CardContent className="p-0">
           <div className="flex items-center justify-between border-b p-4"><h2 className="text-lg font-semibold">{screenMode === 'list' ? 'All scheduled entries' : periodLabel}</h2><span className="text-sm text-muted-foreground">{visibleTasks.length}{visibleTasks.length !== totalInRange && totalInRange ? ` of ${totalInRange}` : ''} scheduled tasks</span></div>
@@ -640,7 +701,7 @@ export function TaskCalendarView() {
       taskId={openTaskId}
       open={openTaskId !== null}
       onClose={() => setOpenTaskId(null)}
-      onUpdated={() => void load()}
+      onUpdated={() => void load({ silent: true })}
       /* dashboardContext ALWAYS supplied here, mirroring task-workspace.tsx's
          own Dashboard precedent unconditionally (not just for non-'mine'
          scopes) - viewScope can show tasks the viewer does not personally
@@ -660,12 +721,12 @@ export function TaskCalendarView() {
       initialTimeStart={selfTaskTime}
       statusOptions={statusOptions}
       onClose={() => setSelfTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateTaskModal
       isOpen={assignTaskOpen}
       onClose={() => setAssignTaskOpen(false)}
-      onCreated={(text) => { setMessage(text); void load() }}
+      onCreated={(text) => { setMessage(text); void load({ silent: true }) }}
     />
     <CreateEventModal
       isOpen={createEventOpen}

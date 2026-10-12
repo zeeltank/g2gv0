@@ -200,7 +200,15 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="self-task-end">End (optional)</Label>
-              <TimePicker value={timeEnd} onChange={setTimeEnd} />
+              {/* See create-task-modal.tsx's identical fix: TimePicker shows
+                  "09:00" as soon as it renders empty, but never commits that
+                  to timeStart until the Start picker itself is touched -
+                  editing only End used to save time_end with time_start left
+                  null. */}
+              <TimePicker
+                value={timeEnd}
+                onChange={(next) => { setTimeEnd(next); if (!timeStart) setTimeStart('09:00') }}
+              />
             </div>
           </div>
 
