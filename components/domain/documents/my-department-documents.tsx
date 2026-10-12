@@ -134,7 +134,11 @@ export function MyDepartmentDocuments() {
     try {
       const response = await accountService.myDepartmentDocuments(context, {
         q: debouncedQuery || undefined,
-        folder_id: currentFolderId ?? 0,
+        // Same "don't silently hide nested-folder results" fix as the main
+        // library page and the admin department tab - a typed search looks
+        // across the whole department; plain browsing (no query) keeps the
+        // exact-folder scope.
+        folder_id: debouncedQuery ? undefined : (currentFolderId ?? 0),
         page,
         per_page: PER_PAGE,
       })

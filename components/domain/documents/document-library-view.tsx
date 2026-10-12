@@ -175,7 +175,13 @@ export function DocumentLibraryView() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [searchDepartmentId, setSearchDepartmentId] = useState('')
-  const [searchEverywhere, setSearchEverywhere] = useState(false)
+  // Defaults true - "This folder" is the deliberate narrowing choice, not
+  // the other way around. A search that silently hid everything outside
+  // the exact folder you happened to be browsing (the old default) is
+  // exactly the bug reported: a word search missing documents one level
+  // deeper than wherever you started, with no visible sign anything was
+  // hidden until you noticed and clicked the toggle yourself.
+  const [searchEverywhere, setSearchEverywhere] = useState(true)
   const [departmentOptions, setDepartmentOptions] = useState<SearchableOption[]>([])
 
   const [recentResults, setRecentResults] = useState<RecentDocumentHit[]>([])
@@ -963,7 +969,10 @@ export function DocumentLibraryView() {
   const previousLoading = useRef(false)
 
   const navigateToFolder = useCallback((detail: { folderId: number | null; highlightDocumentId?: number; scope?: string }) => {
-    setSearchEverywhere(false)
+    // Resets to the same default as initial mount (true), not the old
+    // narrow-to-folder one - landing in a folder from a deep link shouldn't
+    // leave the NEXT search the user types here quietly pre-narrowed.
+    setSearchEverywhere(true)
     setQuery('')
     setDebouncedQuery('')
     setCategory('')
@@ -1422,19 +1431,22 @@ export function DocumentLibraryView() {
             )}
 
             <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
-              <button
-                type="button"
-                onClick={() => setSearchEverywhere(false)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                This folder
-              </button>
+              {/* Everywhere first, matching it now being the default - same
+                  "default option listed first" convention the My/Everyone's
+                  trash toggle already uses. */}
               <button
                 type="button"
                 onClick={() => setSearchEverywhere(true)}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 Everywhere
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchEverywhere(false)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                This folder
               </button>
             </div>
           </div>
