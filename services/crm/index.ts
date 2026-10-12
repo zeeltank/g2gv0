@@ -77,6 +77,38 @@ import type {
   OrganizationListResponse,
   OrganizationPayload,
   OrganizationResponse,
+  CrmVendor,
+  CrmVendorPayload,
+  CrmVendorListQuery,
+  CrmVendorListResponse,
+  CrmVendorResponse,
+  CrmVendorContactsResponse,
+  CrmSalesOrder,
+  CrmSalesOrderLineItemInput,
+  CrmSalesOrderLineItemsResponse,
+  CrmSalesOrderListQuery,
+  CrmSalesOrderListResponse,
+  CrmSalesOrderPayload,
+  CrmSalesOrderResponse,
+  CrmSalesOrderStatusHistoryResponse,
+  CrmPurchaseOrder,
+  CrmPurchaseOrderLineItemInput,
+  CrmPurchaseOrderLineItemsResponse,
+  CrmPurchaseOrderListQuery,
+  CrmPurchaseOrderListResponse,
+  CrmPurchaseOrderPayload,
+  CrmPurchaseOrderResponse,
+  CrmPurchaseOrderStageChangePayload,
+  CrmPurchaseOrderStageHistoryResponse,
+  CrmInvoice,
+  CrmInvoiceLineItemInput,
+  CrmInvoiceLineItemsResponse,
+  CrmInvoiceListQuery,
+  CrmInvoiceListResponse,
+  CrmInvoicePayload,
+  CrmInvoiceResponse,
+  CrmInvoiceStageChangePayload,
+  CrmInvoiceStatusHistoryResponse,
 } from '@/types/crm'
 
 function baseParams(context: LaravelContext): Record<string, string> {
@@ -604,6 +636,243 @@ export const crmService = {
 
   removePriceBookItem: (context: LaravelContext, priceBookId: string, rowId: string) =>
     apiClient.delete<{ status: number; message: string }>(`/crm/price-books/${priceBookId}/items/${rowId}`, baseParams(context)),
+
+  // ── Vendors ─────────────────────────────────────────────────────────
+  getVendors: (context: LaravelContext, query: CrmVendorListQuery = {}) =>
+    apiClient.get<CrmVendorListResponse>('/crm/vendors', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.isActive !== undefined ? { isActive: String(query.isActive) } : {}),
+    }),
+
+  getVendor: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmVendorResponse>(`/crm/vendors/${id}`, baseParams(context)),
+
+  createVendor: (context: LaravelContext, payload: CrmVendorPayload) =>
+    apiClient.post<CrmVendorResponse>('/crm/vendors', { ...payload, ...baseParams(context) }),
+
+  updateVendor: (context: LaravelContext, id: string, payload: CrmVendorPayload) =>
+    apiClient.put<CrmVendorResponse>(`/crm/vendors/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteVendor: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/vendors/${id}`, baseParams(context)),
+
+  bulkDeleteVendors: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/vendors/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignVendors: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/vendors/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getVendorDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/vendors/duplicates', baseParams(context)),
+
+  mergeVendors: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/vendors/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  vendorsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/vendors/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importVendors: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/vendors/import', { rows, ...baseParams(context) }),
+
+  getVendorContacts: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmVendorContactsResponse>(`/crm/vendors/${id}/contacts`, baseParams(context)),
+
+  addVendorContact: (context: LaravelContext, id: string, contactId: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/vendors/${id}/contacts`, {
+      contactId, ...baseParams(context),
+    }),
+
+  removeVendorContact: (context: LaravelContext, id: string, rowId: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/vendors/${id}/contacts/${rowId}`, baseParams(context)),
+
+  // ── Sales Orders ─────────────────────────────────────────────────────
+  getSalesOrders: (context: LaravelContext, query: CrmSalesOrderListQuery = {}) =>
+    apiClient.get<CrmSalesOrderListResponse>('/crm/sales-orders', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.soStage ? { so_stage: query.soStage } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
+      ...(query.opportunityId ? { opportunity_id: query.opportunityId } : {}),
+      ...(query.quoteId ? { quote_id: query.quoteId } : {}),
+    }),
+
+  getSalesOrder: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmSalesOrderResponse>(`/crm/sales-orders/${id}`, baseParams(context)),
+
+  createSalesOrder: (context: LaravelContext, payload: CrmSalesOrderPayload) =>
+    apiClient.post<CrmSalesOrderResponse>('/crm/sales-orders', { ...payload, ...baseParams(context) }),
+
+  /** Converts a Quote into a new Sales Order server-side (organization/addresses/terms/line items all copied over) - `subject` overrides the quote's own subject when given. */
+  createSalesOrderFromQuote: (context: LaravelContext, quoteId: string, subject?: string) =>
+    apiClient.post<CrmSalesOrderResponse>(`/crm/sales-orders/from-quote/${quoteId}`, {
+      ...(subject ? { subject } : {}),
+      ...baseParams(context),
+    }),
+
+  updateSalesOrder: (context: LaravelContext, id: string, payload: CrmSalesOrderPayload) =>
+    apiClient.put<CrmSalesOrderResponse>(`/crm/sales-orders/${id}`, { ...payload, ...baseParams(context) }),
+
+  changeSalesOrderStage: (context: LaravelContext, id: string, soStage: string) =>
+    apiClient.put<CrmSalesOrderResponse>(`/crm/sales-orders/${id}/stage`, { soStage, ...baseParams(context) }),
+
+  getSalesOrderStageHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmSalesOrderStatusHistoryResponse>(`/crm/sales-orders/${id}/stage-history`, baseParams(context)),
+
+  deleteSalesOrder: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/sales-orders/${id}`, baseParams(context)),
+
+  /** Replaces the whole line-item set and returns the sales order with server-recomputed totals - never a per-line endpoint. */
+  saveSalesOrderLineItems: (context: LaravelContext, id: string, lineItems: CrmSalesOrderLineItemInput[]) =>
+    apiClient.put<CrmSalesOrderResponse>(`/crm/sales-orders/${id}/line-items`, { lineItems, ...baseParams(context) }),
+
+  getSalesOrderLineItems: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmSalesOrderLineItemsResponse>(`/crm/sales-orders/${id}/line-items`, baseParams(context)),
+
+  bulkDeleteSalesOrders: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/sales-orders/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignSalesOrders: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/sales-orders/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  salesOrdersExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/sales-orders/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importSalesOrders: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/sales-orders/import', { rows, ...baseParams(context) }),
+
+  // ── Purchase Orders ───────────────────────────────────────────────────
+  getPurchaseOrders: (context: LaravelContext, query: CrmPurchaseOrderListQuery = {}) =>
+    apiClient.get<CrmPurchaseOrderListResponse>('/crm/purchase-orders', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.poStage ? { po_stage: query.poStage } : {}),
+      ...(query.vendorId ? { vendor_id: query.vendorId } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
+      ...(query.quoteId ? { quote_id: query.quoteId } : {}),
+    }),
+
+  getPurchaseOrder: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}`, baseParams(context)),
+
+  createPurchaseOrder: (context: LaravelContext, payload: CrmPurchaseOrderPayload) =>
+    apiClient.post<CrmPurchaseOrderResponse>('/crm/purchase-orders', { ...payload, ...baseParams(context) }),
+
+  /** Transactional copy of a Quote's header + whole line-item set into a brand-new Purchase Order - vendorId is left null (Quotes have no vendor concept), set it afterward with updatePurchaseOrder. */
+  createPurchaseOrderFromQuote: (context: LaravelContext, quoteId: string) =>
+    apiClient.post<CrmPurchaseOrderResponse>(`/crm/purchase-orders/from-quote/${quoteId}`, { ...baseParams(context) }),
+
+  updatePurchaseOrder: (context: LaravelContext, id: string, payload: CrmPurchaseOrderPayload) =>
+    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}`, { ...payload, ...baseParams(context) }),
+
+  deletePurchaseOrder: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/purchase-orders/${id}`, baseParams(context)),
+
+  changePurchaseOrderStage: (context: LaravelContext, id: string, payload: CrmPurchaseOrderStageChangePayload) =>
+    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}/stage`, { ...payload, ...baseParams(context) }),
+
+  getPurchaseOrderStageHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmPurchaseOrderStageHistoryResponse>(`/crm/purchase-orders/${id}/stage-history`, baseParams(context)),
+
+  /** Replaces the whole line-item set and returns the purchase order with server-recomputed totals - never a per-line endpoint. */
+  savePurchaseOrderLineItems: (context: LaravelContext, id: string, lineItems: CrmPurchaseOrderLineItemInput[]) =>
+    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}/line-items`, { lineItems, ...baseParams(context) }),
+
+  getPurchaseOrderLineItems: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmPurchaseOrderLineItemsResponse>(`/crm/purchase-orders/${id}/line-items`, baseParams(context)),
+
+  bulkDeletePurchaseOrders: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/purchase-orders/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignPurchaseOrders: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/purchase-orders/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  purchaseOrdersExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/purchase-orders/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importPurchaseOrders: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/purchase-orders/import', { rows, ...baseParams(context) }),
+
+  // ── Invoices ─────────────────────────────────────────────────────────
+  getInvoices: (context: LaravelContext, query: CrmInvoiceListQuery = {}) =>
+    apiClient.get<CrmInvoiceListResponse>('/crm/invoices', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.invoiceStage ? { invoice_stage: query.invoiceStage } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
+      ...(query.salesOrderId ? { sales_order_id: query.salesOrderId } : {}),
+    }),
+
+  getInvoice: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmInvoiceResponse>(`/crm/invoices/${id}`, baseParams(context)),
+
+  createInvoice: (context: LaravelContext, payload: CrmInvoicePayload) =>
+    apiClient.post<CrmInvoiceResponse>('/crm/invoices', { ...payload, ...baseParams(context) }),
+
+  /** Creates a new invoice by copying a Sales Order's header fields + a fresh copy of its line items, server-side. */
+  createInvoiceFromSalesOrder: (context: LaravelContext, salesOrderId: string) =>
+    apiClient.post<CrmInvoiceResponse>(`/crm/invoices/from-sales-order/${salesOrderId}`, { ...baseParams(context) }),
+
+  updateInvoice: (context: LaravelContext, id: string, payload: CrmInvoicePayload) =>
+    apiClient.put<CrmInvoiceResponse>(`/crm/invoices/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteInvoice: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/invoices/${id}`, baseParams(context)),
+
+  changeInvoiceStage: (context: LaravelContext, id: string, payload: CrmInvoiceStageChangePayload) =>
+    apiClient.put<CrmInvoiceResponse>(`/crm/invoices/${id}/stage`, { ...payload, ...baseParams(context) }),
+
+  getInvoiceStageHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmInvoiceStatusHistoryResponse>(`/crm/invoices/${id}/stage-history`, baseParams(context)),
+
+  /** Replaces the whole line-item set and returns the invoice with server-recomputed totals - never a per-line endpoint. */
+  saveInvoiceLineItems: (context: LaravelContext, id: string, lineItems: CrmInvoiceLineItemInput[]) =>
+    apiClient.put<CrmInvoiceResponse>(`/crm/invoices/${id}/line-items`, { lineItems, ...baseParams(context) }),
+
+  getInvoiceLineItems: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmInvoiceLineItemsResponse>(`/crm/invoices/${id}/line-items`, baseParams(context)),
+
+  bulkDeleteInvoices: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/invoices/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignInvoices: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/invoices/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  invoicesExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/invoices/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importInvoices: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/invoices/import', { rows, ...baseParams(context) }),
 
   // ── SMS Notifier ─────────────────────────────────────────────────────
   getSmsLog: (context: LaravelContext, query: {
