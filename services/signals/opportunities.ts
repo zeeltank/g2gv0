@@ -77,7 +77,23 @@ export interface MarketScores {
   total: number
 }
 
+/** The plain-English face of a lead, built on the server (CardPresenter). The client never re-derives it. */
+export interface OpportunityCardFace {
+  urgency_band: 'act_this_week' | 'act_this_month' | 'nurture'
+  urgency_line: string
+  organisation_line: string
+  headline: string
+  context: string
+  so_what: string
+  what_to_do: string
+  how_sure: string
+  source: { text: string; url: string | null }
+  /** false for leads written before the plain-English rules (older research, or imported text). */
+  written_plainly: boolean
+}
+
 export interface Opportunity {
+  card?: OpportunityCardFace
   id: number
   company_id: number
   company_name: string

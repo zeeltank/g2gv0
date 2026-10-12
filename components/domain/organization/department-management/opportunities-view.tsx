@@ -170,80 +170,100 @@ function ResearchProgressCard({ run }: { run: ResearchRun | null }) {
   )
 }
 
+const URGENCY_TONE: Record<string, string> = {
+  act_this_week: 'text-destructive',
+  act_this_month: 'text-amber-600',
+  nurture: 'text-muted-foreground',
+}
+
+/**
+ * One lead, in plain English, single column. A colleague who has never seen this screen should be able
+ * to say who it is about, what happened and what to do after ten seconds. Everything internal (scores,
+ * stored values, matched offers, full reasoning) is collapsed under "Details for our team".
+ * The face text is written and checked on the server; this component only lays it out.
+ */
 function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: Opportunity) => void; onMatch: (o: Opportunity) => void }) {
-  const high = o.priority === 'High' && o.review_status !== 'Dismissed'
-  const meta = [o.industry, o.location].filter(Boolean).join(' · ')
+  const c = o.card
+  const dismissed = o.review_status === 'Dismissed'
   return (
-    <Surface className={`p-5 ${high ? 'border-destructive/30' : ''} ${o.review_status === 'Dismissed' ? 'opacity-70' : ''}`}>
+    <Surface className={`p-5 ${dismissed ? 'opacity-70' : ''}`}>
       <article className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {o.signal_kind_label && <Badge variant="default">{o.signal_kind_label}</Badge>}
-          <Badge variant="navy">{o.category_label}</Badge>
-          <Badge variant={PRIORITY_VARIANT[o.priority]}>{o.priority}</Badge>
-          <QualBadge value={o.qualification} />
-          <ImportedChips o={o} />
-          {o.review_status !== 'New' && <Badge variant="muted">{o.review_status}</Badge>}
-          <span className="ml-auto text-xs text-muted-foreground">Found {fmt(o.first_discovered_at, false)}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`text-sm font-medium ${URGENCY_TONE[c?.urgency_band ?? 'nurture']}`}>{c?.urgency_line ?? 'Keep an eye on this'}</p>
+          <span className="text-xs text-muted-foreground">
+            Found {fmt(o.first_discovered_at, false)}{o.review_status !== 'New' ? ` · ${o.review_status}` : ''}
+          </span>
         </div>
 
-        <div className="min-w-0">
-          <h4 className="break-words text-base font-semibold leading-snug text-foreground">{o.company_name}</h4>
-          <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">
-            {meta || 'Industry and location not verified from sources'}
-            {o.website && (
-              <>
-                {meta && ' · '}
-                <a href={o.website} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">
-                  {o.website.replace(/^https?:\/\//, '')}
-                </a>
-              </>
-            )}
-          </p>
-          <p className="mt-3 break-words text-sm font-medium leading-snug text-foreground">{o.title}</p>
+        <h4 className="break-words text-base font-semibold leading-snug text-foreground">{c?.organisation_line ?? o.company_name}</h4>
+
+        <div className="space-y-1">
+          <p className="break-words text-sm font-semibold leading-snug text-foreground">{c?.headline || o.observed_event}</p>
+          {c?.context && <p className="break-words text-sm leading-relaxed text-muted-foreground">{c.context}</p>}
         </div>
 
-        <dl className="space-y-4">
-          <Fact label="Observed event">{o.observed_event}</Fact>
-          {o.source_published_at && (
-            <p className="text-xs text-muted-foreground">Published: {fmt(o.source_published_at, false)}</p>
-          )}
-          <div className="grid gap-4 @2xl:grid-cols-2">
-            <Fact label={`Inference — Why they may need ${o.product_name ?? 'the product'}`}>{o.why_indicates_need}</Fact>
-            <Fact label="Suggested next action">{o.recommended_action}</Fact>
-          </div>
-          {o.confirmed_facts && o.confirmed_facts.length > 0 && (
-            <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Confirmed Facts</dt>
-              <dd className="mt-1 text-xs text-foreground">
-                <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
-                  {o.confirmed_facts.slice(0, 2).map((fact, idx) => (
-                    <li key={idx}><span className="text-foreground">{fact}</span></li>
-                  ))}
-                </ul>
-              </dd>
-            </div>
-          )}
-          <MatchedOffers offers={o.matched_offers} limit={3} />
-        </dl>
+        {(c?.so_what ?? o.why_indicates_need) && (
+          <section className="space-y-1">
+            <h5 className="text-sm font-semibold text-foreground">What this means for us</h5>
+            <p className="break-words text-sm leading-relaxed text-foreground">{c?.so_what ?? o.why_indicates_need}</p>
+          </section>
+        )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
-          {o.primary_source ? (
-            <a
-              href={o.primary_source.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-w-0 max-w-full flex-1 items-center gap-1.5 text-xs text-primary hover:underline"
-            >
-              <ExternalLink className="size-3.5 shrink-0" />
-              <span className="truncate">{o.primary_source.title}</span>
+        {(c?.what_to_do ?? o.recommended_action) && (
+          <section className="space-y-1">
+            <h5 className="text-sm font-semibold text-foreground">What to do</h5>
+            <p className="break-words text-sm leading-relaxed text-foreground">{c?.what_to_do ?? o.recommended_action}</p>
+          </section>
+        )}
+
+        <section className="space-y-1">
+          <h5 className="text-sm font-semibold text-foreground">How sure are we?</h5>
+          <p className="break-words text-sm leading-relaxed text-muted-foreground">{c?.how_sure}</p>
+        </section>
+
+        <p className="text-xs text-muted-foreground">
+          {c?.source.url ? (
+            <a href={c.source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-primary hover:underline">
+              {c.source.text} <ExternalLink className="size-3 shrink-0" />
             </a>
-          ) : <span />}
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="default" className="shrink-0" onClick={() => onMatch(o)}>
-              <Briefcase className="mr-1.5 size-3.5" /> Match Offers &amp; Partners
-            </Button>
-            <Button size="sm" variant="outline" className="shrink-0" onClick={() => onOpen(o)}>View evidence</Button>
+          ) : (c?.source.text ?? '')}
+        </p>
+
+        <details className="group rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
+          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">Details for our team</summary>
+          <div className="mt-3 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {o.signal_kind_label && <Badge variant="default">{o.signal_kind_label}</Badge>}
+              <Badge variant="navy">{o.category_label}</Badge>
+              <Badge variant={PRIORITY_VARIANT[o.priority]}>{o.priority}</Badge>
+              <QualBadge value={o.qualification} />
+              <ImportedChips o={o} />
+              {c && !c.written_plainly && <Badge variant="muted">Written before the plain-English format</Badge>}
+            </div>
+            <dl className="space-y-3">
+              {o.trigger_summary && <Fact label="Why now">{o.trigger_summary}</Fact>}
+              {o.what_we_could_sell && <Fact label="What we could sell (detail)">{o.what_we_could_sell}</Fact>}
+              {o.evidence_note && <Fact label="How the evidence was graded">{o.evidence_note}</Fact>}
+              {o.score_reasoning && <Fact label="Score reasoning">{o.score_reasoning}</Fact>}
+              <Fact label="Stored values">
+                {[o.claim_level && `evidence: ${o.claim_level}`, o.entry_point && `entry point: ${o.entry_point}`, o.urgency && `urgency: ${o.urgency}`, o.feed_section && `section: ${o.feed_section}`].filter(Boolean).join(' · ') || '—'}
+              </Fact>
+              {o.confirmed_facts && o.confirmed_facts.length > 0 && (
+                <Fact label="Facts stated by the source">
+                  <ul className="list-inside list-disc space-y-0.5 text-xs">{o.confirmed_facts.slice(0, 3).map((fact, idx) => <li key={idx}>{fact}</li>)}</ul>
+                </Fact>
+              )}
+              <MatchedOffers offers={o.matched_offers} limit={3} />
+            </dl>
+            <MarketDetail o={o} />
           </div>
+        </details>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-4">
+          <Button size="sm" variant="default" className="shrink-0" onClick={() => onMatch(o)}>
+            <Briefcase className="mr-1.5 size-3.5" /> Match Offers &amp; Partners
+          </Button>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => onOpen(o)}>View evidence</Button>
         </div>
       </article>
     </Surface>
@@ -650,15 +670,9 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
             <div className="@xl:col-span-2 @3xl:col-span-3">
               <Input aria-label="Search opportunities" placeholder="Search company, title or event" value={filters.search} onChange={(e) => set({ search: e.target.value })} />
             </div>
-            <SelectInput value={filters.category} onChange={(v) => set({ category: v })} options={[{ value: '', label: 'All categories' }, ...(list?.filters.categories ?? [])]} />
-            <SelectInput value={filters.kind} onChange={(v) => set({ kind: v })} options={[{ value: '', label: 'All signal types' }, ...(list?.filters.kinds ?? [])]} />
-            <SelectInput value={filters.priority} onChange={(v) => set({ priority: v })} options={[{ value: '', label: 'All priorities' }, { value: 'High', label: 'High' }, { value: 'Medium', label: 'Medium' }, { value: 'Low', label: 'Low' }]} />
-            <SelectInput value={filters.qualification} onChange={(v) => set({ qualification: v })} options={[{ value: '', label: 'All qualifications' }, ...['New Opportunity', 'Needs Verification', 'Relevant Requirement Found', 'Monitoring'].map((q) => ({ value: q, label: q }))]} />
-            <SelectInput value={filters.reviewStatus} onChange={(v) => set({ reviewStatus: v })} options={[{ value: '', label: 'All review states' }, ...['New', 'Reviewed', 'Follow-up', 'Dismissed'].map((q) => ({ value: q, label: q }))]} />
-            <SelectInput value={filters.reportDate} onChange={(v) => set({ reportDate: v })} options={[{ value: '', label: 'All report dates' }, ...(list?.filters.report_dates ?? []).map((d) => ({ value: d, label: fmt(d, false) }))]} />
+            <SelectInput value={filters.businessFit} onChange={(v) => set({ businessFit: v })} options={[{ value: '', label: 'All product lines' }, { value: 'eb', label: 'Enterprise Brain' }, { value: 'scholar', label: 'Scholar' }, { value: 'g2g', label: 'G2G' }, { value: 'multiple', label: 'Multiple' }]} />
             <SelectInput value={filters.claimLevel} onChange={(v) => set({ claimLevel: v })} options={[{ value: '', label: 'All evidence levels' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'inference', label: 'Inference' }, { value: 'hypothesis', label: 'Hypothesis' }]} />
-            <SelectInput value={filters.businessFit} onChange={(v) => set({ businessFit: v })} options={[{ value: '', label: 'All business fits' }, { value: 'eb', label: 'Enterprise Brain' }, { value: 'scholar', label: 'Scholar' }, { value: 'g2g', label: 'G2G' }, { value: 'multiple', label: 'Multiple' }]} />
-            <SelectInput value={filters.expiry} onChange={(v) => set({ expiry: v as Filters['expiry'] })} options={[{ value: '', label: 'Active signals' }, { value: 'only', label: `Expired (${list?.summary.expired ?? 0})` }]} />
+            <SelectInput value={filters.reviewStatus} onChange={(v) => set({ reviewStatus: v })} options={[{ value: '', label: 'All review states' }, ...['New', 'Reviewed', 'Follow-up', 'Dismissed'].map((q) => ({ value: q, label: q }))]} />
             {((list?.summary.samples ?? 0) > 0 || filters.includeSamples) && (
               <label className="flex items-center gap-2 text-sm text-foreground @xl:col-span-2 @3xl:col-span-3">
                 <input type="checkbox" className="size-4 rounded border-border" checked={filters.includeSamples} onChange={(e) => set({ includeSamples: e.target.checked })} />
