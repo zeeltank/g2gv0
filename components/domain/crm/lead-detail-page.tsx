@@ -125,6 +125,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
             <h2 className="text-sm font-semibold text-foreground">Lead Information</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Salutation" value={lead.salutation} />
+              <Field label="Designation" value={lead.designation} />
               <Field label="Email" value={lead.email} />
               <Field label="Secondary Email" value={lead.secondaryEmail} />
               <Field label="Phone" value={lead.phone} />

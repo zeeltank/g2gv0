@@ -13,6 +13,7 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
+import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateLeadModal } from './create-lead-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
@@ -152,6 +153,7 @@ export function LeadListView() {
   }
 
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
@@ -333,6 +335,15 @@ export function LeadListView() {
         onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
+        onSendSms={() => setBulkSmsOpen(true)}
+      />
+
+      <BulkSendSmsDialog
+        isOpen={bulkSmsOpen}
+        onClose={() => setBulkSmsOpen(false)}
+        onSent={(message) => { setNotice(message); clearSelection(); void load() }}
+        relatedType="lead"
+        ids={Array.from(selectedIds)}
       />
     </div>
   )

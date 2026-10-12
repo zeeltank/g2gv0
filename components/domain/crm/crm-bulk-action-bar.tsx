@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Trash2, UserCog, X } from 'lucide-react'
+import { Send, Trash2, UserCog, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { Spinner } from '@/components/ui/spinner'
@@ -17,6 +17,8 @@ interface Props {
   onClear: () => void
   /** When set, shows a checkbox with this label next to Reassign (e.g. "Also transfer contacts") - omit for a module with nothing to cascade to. */
   cascadeLabel?: string
+  /** When set, shows a "Send SMS" button - omit for a module with no phone-bearing records (e.g. Campaigns). */
+  onSendSms?: () => void
 }
 
 /**
@@ -26,7 +28,7 @@ interface Props {
  * that bar is still hand-rolled per its own two callers too, so there's no
  * existing generic actions-array convention in this app to adopt instead.
  */
-export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel }: Props) {
+export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms }: Props) {
   const [assigneeId, setAssigneeId] = useState('')
   const [cascade, setCascade] = useState(false)
 
@@ -68,6 +70,12 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
               <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} disabled={busy} />
               {cascadeLabel}
             </label>
+          )}
+
+          {onSendSms && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={onSendSms}>
+              <Send className="mr-2 size-4" />Send SMS
+            </Button>
           )}
 
           <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>

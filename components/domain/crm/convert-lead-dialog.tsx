@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -33,13 +33,28 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
 
   const [createOrganization, setCreateOrganization] = useState(!!lead.company)
   const [createContact, setCreateContact] = useState(true)
+  const [linkExisting, setLinkExisting] = useState(false)
+  const [existingContactId, setExistingContactId] = useState('')
+  const [contacts, setContacts] = useState<Array<{ id: string; label: string }>>([])
+  const [createOpportunity, setCreateOpportunity] = useState(false)
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (!isOpen || !linkExisting || !isLaravelContextReady(context)) return
+    crmService.getContacts(context, { perPage: 100, sortBy: 'last_name', sortDir: 'asc' })
+      .then((response) => setContacts(response.data.items.map((c) => ({ id: c.id, label: `${c.firstName ?? ''} ${c.lastName}`.trim() }))))
+      .catch(() => { /* the picker still renders empty */ })
+  }, [isOpen, linkExisting, context])
+
   const submit = async () => {
     if (!createOrganization && !createContact) {
       setError('Select at least one of Organization or Contact to create.')
+      return
+    }
+    if (createContact && linkExisting && !existingContactId) {
+      setError('Choose which existing Contact to attach to.')
       return
     }
     if (!assignedTo) {
@@ -54,7 +69,10 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
     setSubmitting(true)
     setError('')
     try {
-      const response = await crmService.convertLead(context, lead.id, { createOrganization, createContact, assignedTo })
+      const response = await crmService.convertLead(context, lead.id, {
+        createOrganization, createContact, assignedTo, createOpportunity,
+        ...(createContact && linkExisting ? { existingContactId } : {}),
+      })
       onConverted(response.message)
       onClose()
     } catch (reason) {
@@ -83,9 +101,35 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
             <Switch id="convert-org" checked={createOrganization} onChange={(e) => setCreateOrganization(e.target.checked)} disabled={!lead.company} />
           </div>
 
+          <div className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="convert-contact" className="cursor-pointer">Create Contact</Label>
+              <Switch id="convert-contact" checked={createContact} onChange={(e) => setCreateContact(e.target.checked)} />
+            </div>
+            {createContact && (
+              <div className="space-y-2 border-t pt-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="convert-link-existing" className="cursor-pointer text-sm text-muted-foreground">Attach to an existing Contact instead</Label>
+                  <Switch id="convert-link-existing" checked={linkExisting} onChange={(e) => setLinkExisting(e.target.checked)} />
+                </div>
+                {linkExisting && (
+                  <SearchableSelect
+                    value={existingContactId}
+                    onChange={setExistingContactId}
+                    options={contacts.map((c) => ({ value: c.id, label: c.label }))}
+                    placeholder="Choose an existing contact…"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label htmlFor="convert-contact" className="cursor-pointer">Create Contact</Label>
-            <Switch id="convert-contact" checked={createContact} onChange={(e) => setCreateContact(e.target.checked)} />
+            <div>
+              <Label htmlFor="convert-opportunity" className="cursor-pointer">Create Opportunity</Label>
+              <p className="text-xs text-muted-foreground">Starts a pipeline deal - amount and stage are set afterward.</p>
+            </div>
+            <Switch id="convert-opportunity" checked={createOpportunity} onChange={(e) => setCreateOpportunity(e.target.checked)} />
           </div>
 
           <div className="space-y-1.5">

@@ -53,6 +53,7 @@ import type {
   CrmRecycleBinType,
   CrmSavedViewListResponse,
   CrmSavedViewResponse,
+  CrmBulkSendSmsResponse,
   CrmSendSmsPayload,
   CrmSendSmsResponse,
   CrmSmsLogListResponse,
@@ -535,6 +536,11 @@ export const crmService = {
 
   sendSms: (context: LaravelContext, payload: CrmSendSmsPayload) =>
     apiClient.post<CrmSendSmsResponse>('/crm/sms-log/send', { ...payload, ...baseParams(context) }),
+
+  bulkSendSms: (context: LaravelContext, relatedType: 'lead' | 'organization' | 'contact', ids: string[], message: string) =>
+    apiClient.post<CrmBulkSendSmsResponse>('/crm/sms-log/bulk-send', {
+      relatedType, ids: ids.map(Number), message, ...baseParams(context),
+    }),
 
   smsLogExportUrl: (context: LaravelContext, query: { search?: string; status?: CrmSmsStatus } = {}) =>
     buildApiUrl('/crm/sms-log/export', {

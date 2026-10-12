@@ -56,6 +56,7 @@ export interface Lead {
   firstName: string | null
   lastName: string
   company: string | null
+  designation: string | null
   email: string | null
   secondaryEmail: string | null
   phone: string | null
@@ -79,6 +80,7 @@ export interface Lead {
   converted: boolean
   convertedOrganizationId: string | null
   convertedContactId: string | null
+  convertedOpportunityId: string | null
   description: string | null
   assignedTo: string | null
   createdBy: string | null
@@ -87,7 +89,7 @@ export interface Lead {
 }
 
 export type LeadPayload = Partial<
-  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'createdAt' | 'updatedAt' | 'createdBy'>
 >
 
 export interface LeadListResponse {
@@ -119,6 +121,8 @@ export interface ConvertLeadPayload {
   createOrganization: boolean
   createContact: boolean
   organizationName?: string
+  existingContactId?: string
+  createOpportunity?: boolean
   assignedTo: string
 }
 
@@ -128,6 +132,7 @@ export interface ConvertLeadResponse {
   data: {
     organizationId: string | null
     contactId: string | null
+    opportunityId: string | null
   }
 }
 
@@ -514,9 +519,11 @@ export interface CrmProduct {
   name: string
   sku: string | null
   category: string | null
+  glAccount: string | null
   description: string | null
   unitPrice: number | null
   costPrice: number | null
+  commissionRate: number | null
   currency: string | null
   taxRateId: string | null
   taxRateName: string | null
@@ -524,8 +531,11 @@ export interface CrmProduct {
   /** Product-only - always null for a service row. */
   vendor: string | null
   qtyInStock: number | null
+  /** Product-only - always null for a service row. */
+  qtyInDemand: number | null
   reorderLevel: number | null
   weight: number | null
+  usageUnit: string | null
   assignedTo: string | null
   createdBy: string | null
   createdAt: string | null
@@ -823,4 +833,14 @@ export interface CrmSendSmsResponse {
   status: number
   message: string
   data: CrmSmsLogEntry
+}
+
+export interface CrmBulkSendSmsResponse {
+  status: number
+  message: string
+  data: {
+    sent: number
+    failed: number
+    results: Array<{ id: string; ok: boolean; reason?: string }>
+  }
 }

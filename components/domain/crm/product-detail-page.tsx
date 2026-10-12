@@ -99,14 +99,18 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {product.itemType === 'product' && <Field label="SKU" value={product.sku} />}
               <Field label="Category" value={product.category} />
+              <Field label="GL Account" value={product.glAccount} />
               <Field label="Unit Price" value={product.unitPrice !== null ? `${product.currency ?? ''} ${product.unitPrice.toFixed(2)}`.trim() : null} />
               <Field label="Cost Price" value={product.costPrice !== null ? `${product.currency ?? ''} ${product.costPrice.toFixed(2)}`.trim() : null} />
+              <Field label="Commission Rate" value={product.commissionRate !== null ? `${product.commissionRate}%` : null} />
               <Field label="Default Tax Rate" value={product.taxRateName} />
               <Field label="Active" value={product.isActive ? 'Yes' : 'No'} />
+              <Field label="Usage Unit" value={product.usageUnit} />
               {product.itemType === 'product' && (
                 <>
                   <Field label="Vendor" value={product.vendor} />
                   <Field label="Qty In Stock" value={product.qtyInStock} />
+                  <Field label="Qty In Demand" value={product.qtyInDemand} />
                   <Field label="Reorder Level" value={product.reorderLevel} />
                   <Field label="Weight" value={product.weight} />
                 </>
