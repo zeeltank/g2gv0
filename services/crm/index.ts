@@ -42,6 +42,7 @@ import type {
   CrmProductListQuery,
   CrmProductListResponse,
   CrmProductPayload,
+  CrmProductBundleItem,
   CrmProductResponse,
   CrmQuoteLineItemInput,
   CrmQuoteLineItemsResponse,
@@ -398,6 +399,30 @@ export const crmService = {
 
   importProducts: (context: LaravelContext, itemType: CrmItemType, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/products/import', { itemType, rows, ...baseParams(context) }),
+
+  getBundleItems: (context: LaravelContext, productId: string) =>
+    apiClient.get<{ status: number; message: string; data: CrmProductBundleItem[] }>(
+      `/crm/products/${productId}/bundle-items`, baseParams(context),
+    ),
+
+  addBundleItem: (context: LaravelContext, productId: string, componentProductId: string, quantity: number) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/products/${productId}/bundle-items`, {
+      componentProductId: Number(componentProductId), quantity, ...baseParams(context),
+    }),
+
+  removeBundleItem: (context: LaravelContext, productId: string, rowId: string) =>
+    apiClient.delete<{ status: number; message: string }>(
+      `/crm/products/${productId}/bundle-items/${rowId}`, baseParams(context),
+    ),
+
+  uploadProductImage: (context: LaravelContext, productId: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('image', file)
+
+    return apiClient.postForm<CrmProductResponse>(`/crm/products/${productId}/image`, body)
+  },
 
   // ── Opportunities ────────────────────────────────────────────────────
   getOpportunities: (context: LaravelContext, query: CrmOpportunityListQuery = {}) =>

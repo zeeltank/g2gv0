@@ -536,6 +536,7 @@ export interface CrmProduct {
   reorderLevel: number | null
   weight: number | null
   usageUnit: string | null
+  imageUrl: string | null
   assignedTo: string | null
   createdBy: string | null
   createdAt: string | null
@@ -543,8 +544,17 @@ export interface CrmProduct {
 }
 
 export type CrmProductPayload = Partial<
-  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'>
 >
+
+export interface CrmProductBundleItem {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  unitPrice: number | null
+  quantity: number
+}
 
 export interface CrmProductListResponse {
   status: number
