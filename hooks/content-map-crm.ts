@@ -24,6 +24,14 @@ const InvoiceListView = createLazyComponent(() => import('@/domain/crm/invoice-l
 const VendorListView = createLazyComponent(() => import('@/domain/crm/vendor-list-view').then((m) => ({ default: m.VendorListView })))
 const PurchaseOrderListView = createLazyComponent(() => import('@/domain/crm/purchase-order-list-view').then((m) => ({ default: m.PurchaseOrderListView })))
 
+// Support phase (Tickets/FAQ/Service Contracts/Assets) - same "coming soon
+// until its own phase ships" convention as the Sales/order-to-cash phases
+// above.
+const AssetListView = createLazyComponent(() => import('@/domain/crm/asset-list-view').then((m) => ({ default: m.AssetListView })))
+const TicketListView = createLazyComponent(() => import('@/domain/crm/ticket-list-view').then((m) => ({ default: m.TicketListView })))
+const FaqListView = createLazyComponent(() => import('@/domain/crm/faq-list-view').then((m) => ({ default: m.FaqListView })))
+const ServiceContractListView = createLazyComponent(() => import('@/domain/crm/service-contract-list-view').then((m) => ({ default: m.ServiceContractListView })))
+
 // CRM (module id 199) was a disabled, never-finished menu tree reactivated
 // for this migration - access_links are nested under /marketing/ (not the
 // flat 2-segment convention Task Management uses), matching that tree's own
@@ -44,4 +52,15 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/sales/sales-orders', component: SalesOrderListView },
   { accessLink: '/module/crm/sales/invoices', component: InvoiceListView },
   { accessLink: '/module/crm/sales/purchase-orders', component: PurchaseOrderListView },
+  { accessLink: '/module/crm/support/assets', component: AssetListView },
+  { accessLink: '/module/crm/support/tickets', component: TicketListView },
+  { accessLink: '/module/crm/support/faq', component: FaqListView },
+  { accessLink: '/module/crm/support/service-contracts', component: ServiceContractListView },
+  // Cross-links to already-shipped screens (vtiger's own "one module, several
+  // parent tabs" mechanism) - same component, a second access_link/menu entry
+  // so Support gets correct active-state highlighting and back-navigation of
+  // its own, independent of Marketing's/Sales' own routes to the same data.
+  { accessLink: '/module/crm/support/organizations', component: OrganizationListView },
+  { accessLink: '/module/crm/support/contacts', component: ContactListView },
+  { accessLink: '/module/crm/support/sms-notifier', component: SmsLogListView },
 ]

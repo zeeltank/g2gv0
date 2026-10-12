@@ -365,6 +365,7 @@ export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
   | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log' | 'price_books'
   | 'vendors' | 'sales_orders' | 'purchase_orders' | 'invoices'
+  | 'tickets' | 'faqs' | 'service_contracts' | 'assets'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
 
@@ -1304,6 +1305,276 @@ export interface CrmInvoiceLineItemsResponse {
   status: number
   message: string
   data: CrmInvoiceLineItem[]
+}
+
+// ── Service Contracts ────────────────────────────────────────────────────
+
+export interface CrmServiceContract {
+  id: string
+  legacyId: string | null
+  contractNo: string | null
+  subject: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  startDate: string | null
+  endDate: string | null
+  dueDate: string | null
+  trackingUnit: string | null
+  totalUnits: number | null
+  /** Server-authoritative - written only by Tickets' consumption-math when a linked ticket closes/reopens/changes, and by this controller's own manual-complete auto-stamp. Never accept this from the client. */
+  usedUnits: number | null
+  /** Server-authoritative - same reasoning as usedUnits. */
+  progress: number | null
+  contractStatus: string | null
+  contractType: string | null
+  priority: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/**
+ * totalUnits/trackingUnit/etc ARE genuine inputs - only usedUnits/progress
+ * are server-computed outputs, never accepted from the client (same
+ * reasoning as CrmQuote's subtotal/total fields being excluded here).
+ */
+export type CrmServiceContractPayload = Partial<
+  Omit<
+    CrmServiceContract,
+    'id' | 'legacyId' | 'contractNo' | 'organizationName' | 'contactName' | 'assignedToName'
+    | 'usedUnits' | 'progress' | 'createdAt' | 'updatedAt'
+  >
+>
+
+export interface CrmServiceContractListResponse {
+  status: number
+  message: string
+  data: { items: CrmServiceContract[]; pagination: CrmPagination }
+}
+
+export interface CrmServiceContractResponse {
+  status: number
+  message: string
+  data: CrmServiceContract
+}
+
+export interface CrmServiceContractListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  contractStatus?: string
+  organizationId?: string
+  contactId?: string
+}
+
+// ── Assets (Support phase) ────────────────────────────────────────────────
+// `CrmAsset`, never bare `Asset` - `components/domain/talent/onboarding/
+// onboarding-tabs.tsx` already exports a bare `OnbAsset`/`AssetsPanel` for an
+// unrelated employee IT-equipment-issuance concept (same collision-avoidance
+// reasoning this file already documents for CrmOpportunity/CrmQuote/
+// CrmProduct/CrmVendor).
+
+export interface CrmAsset {
+  id: string
+  legacyId: string | null
+  assetNo: string | null
+  assetName: string
+  productId: string | null
+  productName: string | null
+  organizationId: string | null
+  organizationName: string | null
+  serialNumber: string | null
+  tagNumber: string | null
+  dateSold: string | null
+  dateInService: string | null
+  status: string | null
+  shippingMethod: string | null
+  shippingTrackingNumber: string | null
+  invoiceId: string | null
+  invoiceNo: string | null
+  description: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmAssetPayload = Partial<
+  Omit<CrmAsset, 'id' | 'legacyId' | 'assetNo' | 'productName' | 'organizationName' | 'invoiceNo' | 'assignedToName' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmAssetListResponse {
+  status: number
+  message: string
+  data: { items: CrmAsset[]; pagination: CrmPagination }
+}
+
+export interface CrmAssetResponse {
+  status: number
+  message: string
+  data: CrmAsset
+}
+
+export interface CrmAssetListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  productId?: string
+  organizationId?: string
+}
+
+// ── Tickets (legacy "HelpDesk") ─────────────────────────────────────────
+
+export interface CrmTicket {
+  id: string
+  legacyId: string | null
+  ticketNo: string | null
+  title: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  productId: string | null
+  productName: string | null
+  assetId: string | null
+  assetName: string | null
+  serviceContractId: string | null
+  serviceContractNo: string | null
+  status: string | null
+  priority: string | null
+  severity: string | null
+  category: string | null
+  description: string | null
+  solution: string | null
+  hours: number | null
+  days: number | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmTicketPayload = Partial<
+  Omit<
+    CrmTicket,
+    'id' | 'legacyId' | 'ticketNo' | 'organizationName' | 'contactName' | 'productName'
+    | 'assetName' | 'serviceContractNo' | 'assignedToName' | 'createdAt' | 'updatedAt'
+  >
+>
+
+export interface CrmTicketListResponse {
+  status: number
+  message: string
+  data: { items: CrmTicket[]; pagination: CrmPagination }
+}
+
+export interface CrmTicketResponse {
+  status: number
+  message: string
+  data: CrmTicket
+}
+
+export interface CrmTicketListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  priority?: string
+  severity?: string
+  category?: string
+  organizationId?: string
+  contactId?: string
+  assetId?: string
+  serviceContractId?: string
+  assignedTo?: string
+}
+
+export interface CrmTicketStatusChangePayload {
+  status: string
+}
+
+export interface CrmTicketComment {
+  id: string
+  comment: string
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmTicketCommentsResponse {
+  status: number
+  message: string
+  data: CrmTicketComment[]
+}
+
+export interface CrmTicketStatusHistoryEntry {
+  id: string
+  fromStatus: string | null
+  toStatus: string | null
+  changedBy: string | null
+  changedByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmTicketStatusHistoryResponse {
+  status: number
+  message: string
+  data: CrmTicketStatusHistoryEntry[]
+}
+
+// ── FAQ ──────────────────────────────────────────────────────────────────
+
+export interface CrmFaq {
+  id: string
+  legacyId: string | null
+  faqNo: string | null
+  question: string
+  answer: string | null
+  category: string | null
+  status: string | null
+  productId: string | null
+  productName: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmFaqPayload = Partial<
+  Omit<CrmFaq, 'id' | 'legacyId' | 'faqNo' | 'productName' | 'assignedToName' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmFaqListResponse {
+  status: number
+  message: string
+  data: { items: CrmFaq[]; pagination: CrmPagination }
+}
+
+export interface CrmFaqResponse {
+  status: number
+  message: string
+  data: CrmFaq
+}
+
+export interface CrmFaqListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  category?: string
+  status?: string
+  productId?: string
 }
 
 // ── SMS Notifier ───────────────────────────────────────────────────────────

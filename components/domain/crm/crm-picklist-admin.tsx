@@ -22,6 +22,10 @@ const MODULE_LABEL: Record<CrmModule, string> = {
   sales_orders: 'Sales Orders',
   purchase_orders: 'Purchase Orders',
   invoices: 'Invoices',
+  tickets: 'Tickets',
+  faqs: 'FAQ',
+  service_contracts: 'Service Contracts',
+  assets: 'Assets',
 }
 
 const FIELD_KEY_LABEL: Record<string, string> = {
@@ -31,6 +35,8 @@ const FIELD_KEY_LABEL: Record<string, string> = {
   sales_stage: 'Sales Stage', potential_type: 'Opportunity Type', forecast_category: 'Forecast Category',
   quote_stage: 'Quote Stage', category: 'Category',
   so_stage: 'Sales Order Stage', po_stage: 'Purchase Order Stage', invoice_stage: 'Invoice Stage',
+  status: 'Status', priority: 'Priority', severity: 'Severity',
+  tracking_unit: 'Tracking Unit', contract_status: 'Contract Status', contract_type: 'Contract Type',
 }
 
 function AddValueForm({ module, fieldKey, onAdded }: { module: CrmModule; fieldKey: string; onAdded: () => void }) {

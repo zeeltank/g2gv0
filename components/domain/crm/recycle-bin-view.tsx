@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Briefcase, Building2, FileText, Loader2, Megaphone, Package, Receipt, RotateCcw, ShoppingCart, Target, Trash2, Truck, User, UserPlus } from 'lucide-react'
+import { BookOpen, Briefcase, Building2, FileSignature, FileText, HelpCircle, Laptop, LifeBuoy, Loader2, Megaphone, Package, Receipt, RotateCcw, ShoppingCart, Target, Trash2, Truck, User, UserPlus } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -26,6 +26,10 @@ const TYPE_META: Record<CrmRecycleBinType, { label: string; icon: typeof User; b
   sales_orders: { label: 'Sales Order', icon: ShoppingCart, badge: 'success' },
   purchase_orders: { label: 'Purchase Order', icon: Package, badge: 'warning' },
   invoices: { label: 'Invoice', icon: Receipt, badge: 'default' },
+  tickets: { label: 'Ticket', icon: LifeBuoy, badge: 'destructive' },
+  faqs: { label: 'FAQ', icon: HelpCircle, badge: 'secondary' },
+  service_contracts: { label: 'Service Contract', icon: FileSignature, badge: 'secondary' },
+  assets: { label: 'Asset', icon: Laptop, badge: 'muted' },
 }
 
 /** "30m ago" / "2h ago" / "5d ago" - same small convention as the Talent dashboard's activity feed, not worth sharing for one more caller. */

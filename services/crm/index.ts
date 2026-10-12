@@ -109,6 +109,30 @@ import type {
   CrmInvoiceResponse,
   CrmInvoiceStageChangePayload,
   CrmInvoiceStatusHistoryResponse,
+  CrmServiceContract,
+  CrmServiceContractListQuery,
+  CrmServiceContractListResponse,
+  CrmServiceContractPayload,
+  CrmServiceContractResponse,
+  CrmAsset,
+  CrmAssetPayload,
+  CrmAssetListQuery,
+  CrmAssetListResponse,
+  CrmAssetResponse,
+  CrmTicket,
+  CrmTicketComment,
+  CrmTicketCommentsResponse,
+  CrmTicketListQuery,
+  CrmTicketListResponse,
+  CrmTicketPayload,
+  CrmTicketResponse,
+  CrmTicketStatusChangePayload,
+  CrmTicketStatusHistoryResponse,
+  CrmFaq,
+  CrmFaqListQuery,
+  CrmFaqListResponse,
+  CrmFaqPayload,
+  CrmFaqResponse,
 } from '@/types/crm'
 
 function baseParams(context: LaravelContext): Record<string, string> {
@@ -873,6 +897,194 @@ export const crmService = {
 
   importInvoices: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/invoices/import', { rows, ...baseParams(context) }),
+
+  // ── Service Contracts ────────────────────────────────────────────────
+  getServiceContracts: (context: LaravelContext, query: CrmServiceContractListQuery = {}) =>
+    apiClient.get<CrmServiceContractListResponse>('/crm/service-contracts', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.contractStatus ? { contract_status: query.contractStatus } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
+    }),
+
+  getServiceContract: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmServiceContractResponse>(`/crm/service-contracts/${id}`, baseParams(context)),
+
+  createServiceContract: (context: LaravelContext, payload: CrmServiceContractPayload) =>
+    apiClient.post<CrmServiceContractResponse>('/crm/service-contracts', { ...payload, ...baseParams(context) }),
+
+  updateServiceContract: (context: LaravelContext, id: string, payload: CrmServiceContractPayload) =>
+    apiClient.put<CrmServiceContractResponse>(`/crm/service-contracts/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteServiceContract: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/service-contracts/${id}`, baseParams(context)),
+
+  bulkDeleteServiceContracts: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/service-contracts/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignServiceContracts: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/service-contracts/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  serviceContractsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/service-contracts/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importServiceContracts: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/service-contracts/import', { rows, ...baseParams(context) }),
+
+  // ── Assets ────────────────────────────────────────────────────────────
+  getAssets: (context: LaravelContext, query: CrmAssetListQuery = {}) =>
+    apiClient.get<CrmAssetListResponse>('/crm/assets', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.productId ? { product_id: query.productId } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+    }),
+
+  getAsset: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAssetResponse>(`/crm/assets/${id}`, baseParams(context)),
+
+  createAsset: (context: LaravelContext, payload: CrmAssetPayload) =>
+    apiClient.post<CrmAssetResponse>('/crm/assets', { ...payload, ...baseParams(context) }),
+
+  updateAsset: (context: LaravelContext, id: string, payload: CrmAssetPayload) =>
+    apiClient.put<CrmAssetResponse>(`/crm/assets/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteAsset: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/assets/${id}`, baseParams(context)),
+
+  bulkDeleteAssets: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/assets/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignAssets: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/assets/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  getAssetDuplicates: (context: LaravelContext) =>
+    apiClient.get<CrmDuplicateGroupsResponse>('/crm/assets/duplicates', baseParams(context)),
+
+  mergeAssets: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
+    apiClient.post<CrmMergeResponse>('/crm/assets/merge', {
+      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
+    }),
+
+  assetsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/assets/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importAssets: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/assets/import', { rows, ...baseParams(context) }),
+
+  // ── Tickets ──────────────────────────────────────────────────────────
+  getTickets: (context: LaravelContext, query: CrmTicketListQuery = {}) =>
+    apiClient.get<CrmTicketListResponse>('/crm/tickets', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.priority ? { priority: query.priority } : {}),
+      ...(query.severity ? { severity: query.severity } : {}),
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
+      ...(query.contactId ? { contact_id: query.contactId } : {}),
+      ...(query.assetId ? { asset_id: query.assetId } : {}),
+      ...(query.serviceContractId ? { service_contract_id: query.serviceContractId } : {}),
+      ...(query.assignedTo ? { assigned_to: query.assignedTo } : {}),
+    }),
+
+  getTicket: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmTicketResponse>(`/crm/tickets/${id}`, baseParams(context)),
+
+  createTicket: (context: LaravelContext, payload: CrmTicketPayload) =>
+    apiClient.post<CrmTicketResponse>('/crm/tickets', { ...payload, ...baseParams(context) }),
+
+  updateTicket: (context: LaravelContext, id: string, payload: CrmTicketPayload) =>
+    apiClient.put<CrmTicketResponse>(`/crm/tickets/${id}`, { ...payload, ...baseParams(context) }),
+
+  changeTicketStatus: (context: LaravelContext, id: string, payload: CrmTicketStatusChangePayload) =>
+    apiClient.put<CrmTicketResponse>(`/crm/tickets/${id}/status`, { ...payload, ...baseParams(context) }),
+
+  getTicketStatusHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmTicketStatusHistoryResponse>(`/crm/tickets/${id}/status-history`, baseParams(context)),
+
+  getTicketComments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmTicketCommentsResponse>(`/crm/tickets/${id}/comments`, baseParams(context)),
+
+  addTicketComment: (context: LaravelContext, id: string, comment: string) =>
+    apiClient.post<{ status: number; message: string; data: CrmTicketComment }>(`/crm/tickets/${id}/comments`, {
+      comment, ...baseParams(context),
+    }),
+
+  deleteTicket: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/tickets/${id}`, baseParams(context)),
+
+  bulkDeleteTickets: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/tickets/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignTickets: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/tickets/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  ticketsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/tickets/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importTickets: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/tickets/import', { rows, ...baseParams(context) }),
+
+  // ── FAQ ──────────────────────────────────────────────────────────────
+  getFaqs: (context: LaravelContext, query: CrmFaqListQuery = {}) =>
+    apiClient.get<CrmFaqListResponse>('/crm/faqs', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.productId ? { product_id: query.productId } : {}),
+    }),
+
+  getFaq: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmFaqResponse>(`/crm/faqs/${id}`, baseParams(context)),
+
+  createFaq: (context: LaravelContext, payload: CrmFaqPayload) =>
+    apiClient.post<CrmFaqResponse>('/crm/faqs', { ...payload, ...baseParams(context) }),
+
+  updateFaq: (context: LaravelContext, id: string, payload: CrmFaqPayload) =>
+    apiClient.put<CrmFaqResponse>(`/crm/faqs/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteFaq: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/faqs/${id}`, baseParams(context)),
+
+  bulkDeleteFaqs: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/faqs/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignFaqs: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/faqs/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  faqsExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/faqs/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  importFaqs: (context: LaravelContext, rows: Record<string, unknown>[]) =>
+    apiClient.post<CrmImportResponse>('/crm/faqs/import', { rows, ...baseParams(context) }),
 
   // ── SMS Notifier ─────────────────────────────────────────────────────
   getSmsLog: (context: LaravelContext, query: {
