@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Repeat, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,7 @@ import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
+import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
 
 interface Props {
@@ -92,6 +93,7 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [sendSmsOpen, setSendSmsOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
@@ -141,6 +143,12 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
           </div>
         </div>
         <div className="flex gap-2">
+          {(contact.mobile || contact.phone) && (
+            <Button variant="outline" onClick={() => setSendSmsOpen(true)}>
+              <Send className="mr-1.5 size-4" aria-hidden="true" />
+              Send SMS
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setTransferOpen(true)}>
             <Repeat className="mr-1.5 size-4" aria-hidden="true" />
             Transfer Ownership
@@ -235,6 +243,14 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
         onClose={() => setTransferOpen(false)}
         onTransferred={(message) => { setNotice(message); setTransferOpen(false); onSaved() }}
         contactId={contact.id}
+      />
+      <SendSmsDialog
+        isOpen={sendSmsOpen}
+        onClose={() => setSendSmsOpen(false)}
+        onSent={(message) => { setNotice(message); setSendSmsOpen(false) }}
+        defaultToNumber={contact.mobile || contact.phone}
+        relatedType="contact"
+        relatedId={contact.id}
       />
     </div>
   )

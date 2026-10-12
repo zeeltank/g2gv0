@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Loader2, Pencil, Repeat } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Repeat, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,7 @@ import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { OrganizationHierarchy } from './organization-hierarchy'
+import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
 
 interface Props {
@@ -95,6 +96,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [sendSmsOpen, setSendSmsOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
@@ -131,6 +133,12 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
           </div>
         </div>
         <div className="flex gap-2">
+          {organization.phone && (
+            <Button variant="outline" onClick={() => setSendSmsOpen(true)}>
+              <Send className="mr-1.5 size-4" aria-hidden="true" />
+              Send SMS
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setTransferOpen(true)}>
             <Repeat className="mr-1.5 size-4" aria-hidden="true" />
             Transfer Ownership
@@ -234,6 +242,14 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
         onClose={() => setTransferOpen(false)}
         onTransferred={(message) => { setNotice(message); setTransferOpen(false); onSaved() }}
         organizationId={organization.id}
+      />
+      <SendSmsDialog
+        isOpen={sendSmsOpen}
+        onClose={() => setSendSmsOpen(false)}
+        onSent={(message) => { setNotice(message); setSendSmsOpen(false) }}
+        defaultToNumber={organization.phone}
+        relatedType="organization"
+        relatedId={organization.id}
       />
     </div>
   )

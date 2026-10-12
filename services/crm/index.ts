@@ -56,6 +56,7 @@ import type {
   CrmSendSmsPayload,
   CrmSendSmsResponse,
   CrmSmsLogListResponse,
+  CrmSmsStatus,
   CrmTaxRateListResponse,
   CrmTaxRatePayload,
   CrmTaxRateResponse,
@@ -518,11 +519,18 @@ export const crmService = {
     apiClient.post<CrmImportResponse>('/crm/quotes/import', { rows, ...baseParams(context) }),
 
   // ── SMS Notifier ─────────────────────────────────────────────────────
-  getSmsLog: (context: LaravelContext, query: { page?: number; perPage?: number } = {}) =>
+  getSmsLog: (context: LaravelContext, query: {
+    page?: number; perPage?: number; search?: string; status?: CrmSmsStatus
+    relatedType?: string; relatedId?: string
+  } = {}) =>
     apiClient.get<CrmSmsLogListResponse>('/crm/sms-log', {
       ...baseParams(context),
       ...(query.page ? { page: String(query.page) } : {}),
       ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.relatedType ? { related_type: query.relatedType } : {}),
+      ...(query.relatedId ? { related_id: query.relatedId } : {}),
     }),
 
   sendSms: (context: LaravelContext, payload: CrmSendSmsPayload) =>

@@ -358,7 +358,7 @@ export interface CrmBulkActionResponse {
  */
 export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
-  | 'opportunities' | 'quotes' | 'products' | 'services'
+  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
 
@@ -424,7 +424,15 @@ export interface CrmImportResponse {
 
 // ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
 
-export type CrmRecycleBinType = CrmModule
+/**
+ * Explicitly excludes 'sms_log', not just every other CrmModule member -
+ * crm_sms_log has no `deleted_at` column at all (append-only by design,
+ * confirmed in its own migration docblock), so CrmRecycleBinController's
+ * own TYPES const was never given an sms_log entry either. A blind
+ * `= CrmModule` alias would silently claim Recycle Bin support that
+ * cannot exist.
+ */
+export type CrmRecycleBinType = Exclude<CrmModule, 'sms_log'>
 
 export interface CrmRecycleBinItem {
   type: CrmRecycleBinType

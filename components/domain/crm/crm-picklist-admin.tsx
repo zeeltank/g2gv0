@@ -12,6 +12,11 @@ import type { CrmModule, CrmPicklistAdminRow } from '@/types/crm'
 const MODULE_LABEL: Record<CrmModule, string> = {
   leads: 'Leads', contacts: 'Contacts', organizations: 'Organizations', campaigns: 'Campaigns',
   opportunities: 'Opportunities', quotes: 'Quotes', products: 'Products', services: 'Services',
+  // sms_log never actually appears here - CrmPicklistController's own
+  // FIELD_KEYS has no sms_log entry (its one field, status, is a fixed
+  // enum, not an admin-configurable picklist) - present only to satisfy
+  // Record<CrmModule, string>'s completeness.
+  sms_log: 'SMS Notifier',
 }
 
 const FIELD_KEY_LABEL: Record<string, string> = {

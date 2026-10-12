@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmP
 import { CreateOpportunityModal } from './create-opportunity-modal'
 import { CreateQuoteModal } from './create-quote-modal'
 import { useAssignableEmployees } from './lead-employees'
+import { SendSmsDialog } from './send-sms-dialog'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -168,6 +169,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
 
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
+  const [sendSmsOpen, setSendSmsOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const [contacts, setContacts] = useState<CrmOpportunityContact[]>([])
@@ -284,6 +286,10 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSendSmsOpen(true)}>
+            <Send className="mr-1.5 size-4" aria-hidden="true" />
+            Send SMS
+          </Button>
           <Button onClick={() => setEditOpen(true)}>
             <Pencil className="mr-1.5 size-4" aria-hidden="true" />
             Edit
@@ -481,6 +487,13 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       />
       <AddContactDialog isOpen={addContactOpen} onClose={() => setAddContactOpen(false)} onAdded={loadContacts} opportunityId={opportunity.id} />
       <AddProductDialog isOpen={addProductOpen} onClose={() => setAddProductOpen(false)} onAdded={loadProducts} opportunityId={opportunity.id} />
+      <SendSmsDialog
+        isOpen={sendSmsOpen}
+        onClose={() => setSendSmsOpen(false)}
+        onSent={(message) => { setNotice(message); setSendSmsOpen(false) }}
+        relatedType="opportunity"
+        relatedId={opportunity.id}
+      />
       <CreateQuoteModal
         isOpen={createQuoteOpen}
         onClose={() => setCreateQuoteOpen(false)}
