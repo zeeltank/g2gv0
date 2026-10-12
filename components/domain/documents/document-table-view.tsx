@@ -1,6 +1,6 @@
 'use client'
 
-import { ClipboardPaste, Copy, Download, Eye, FolderInput, Loader2, Scissors, Star, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, Loader2, Scissors, Share2, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -36,6 +36,7 @@ export interface DocumentTableViewProps {
   onDownload: (doc: DocumentSearchHit) => void
   onDelete?: (doc: DocumentSearchHit) => void
   onMove?: (doc: DocumentSearchHit) => void
+  onShare?: (doc: DocumentSearchHit) => void
   canDelete: (doc: DocumentSearchHit) => boolean
   folders?: DocumentFolderNode[]
   onOpenFolder?: (folder: DocumentFolderNode) => void
@@ -68,6 +69,7 @@ export function DocumentTableView({
   onDownload,
   onDelete,
   onMove,
+  onShare,
   canDelete,
   folders = [],
   onOpenFolder,
@@ -260,6 +262,11 @@ export function DocumentTableView({
                     {onMove && canDelete(doc) && (
                       <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onMove(doc)} aria-label={`Move ${doc.title ?? 'document'}`}>
                         <FolderInput className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
+                    {onShare && canDelete(doc) && (
+                      <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onShare(doc)} aria-label={`Share ${doc.title ?? 'document'}`}>
+                        <Share2 className="size-3.5" aria-hidden="true" />
                       </Button>
                     )}
                     {onCut && canDelete(doc) && (

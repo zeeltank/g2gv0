@@ -67,6 +67,7 @@ import { organizationService } from '@/services/organization'
 import { useDocumentClipboard } from '@/hooks/use-document-clipboard'
 import { DocumentCardGrid, type GridCardSize } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
+import { DocumentShareDialog, type ShareableDocument } from './document-share-dialog'
 import { DocumentFolderTree } from './document-folder-tree'
 import { assignFolderIds, type DiscoveredFile } from './document-folder-upload'
 import { DocumentProcessingProgress } from './document-processing-progress'
@@ -224,6 +225,8 @@ export function DocumentLibraryView() {
   const [movingFolder, setMovingFolder] = useState<DocumentFolderNode | null>(null)
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('')
   const [moving, setMoving] = useState(false)
+  const [sharingDoc, setSharingDoc] = useState<ShareableDocument | null>(null)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
 
   // Multi-select, for bulk move/copy/delete — keyed `doc-<id>`/`folder-<id>`,
   // the same disambiguation convention `renamingKey` already uses inside
@@ -1732,6 +1735,7 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
             setMovingDoc(doc)
           }}
+          onShare={(doc) => { setSharingDoc(doc); setShareDialogOpen(true) }}
           onRename={(doc, title) => void renameDocumentHandler(doc, title)}
           canDelete={canDelete}
           folders={displayedFolders}
@@ -1767,6 +1771,7 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
             setMovingDoc(doc)
           }}
+          onShare={(doc) => { setSharingDoc(doc); setShareDialogOpen(true) }}
           canDelete={canDelete}
           folders={displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
@@ -1941,6 +1946,19 @@ export function DocumentLibraryView() {
         onDownload={() => {
           if (detailDoc) void download(detailDoc)
         }}
+        onShare={(detail) => { setSharingDoc(detail); setShareDialogOpen(true) }}
+      />
+
+      <DocumentShareDialog
+        key={sharingDoc?.id ?? 'none'}
+        document={sharingDoc}
+        open={shareDialogOpen}
+        onOpenChange={(open) => {
+          setShareDialogOpen(open)
+          if (!open) setSharingDoc(null)
+        }}
+        departmentOptions={departmentOptions}
+        onVisibilityChanged={() => void load()}
       />
 
       <ConfirmDialog

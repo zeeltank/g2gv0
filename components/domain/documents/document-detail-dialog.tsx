@@ -12,6 +12,7 @@ import {
   Loader2,
   Pencil,
   RotateCcw,
+  Share2,
   Upload,
   X,
 } from 'lucide-react'
@@ -48,6 +49,8 @@ export interface DocumentDetailDialogProps {
   onPreview: () => void
   onDownload: () => void
   downloading: boolean
+  /** Opens the Share dialog for this document — omitted entirely (no button renders) when the caller doesn't wire it up. */
+  onShare?: (detail: DocumentDetail) => void
 }
 
 /**
@@ -68,6 +71,7 @@ export function DocumentDetailDialog({
   onPreview,
   onDownload,
   downloading,
+  onShare,
 }: DocumentDetailDialogProps) {
   const resolveContext = useLaravelContext()
   const { user } = useAuth()
@@ -302,6 +306,7 @@ export function DocumentDetailDialog({
               editing={editing}
               saving={editSaving}
               error={editError}
+              onShare={onShare}
               onStartEdit={() => {
                 setEditError(null)
                 setEditing(true)
@@ -373,6 +378,7 @@ function DetailsTab({
   onStartEdit,
   onCancelEdit,
   onSave,
+  onShare,
 }: {
   detail: DocumentDetail
   typeLabel: (key: string | null) => string | null
@@ -385,6 +391,7 @@ function DetailsTab({
   error: string | null
   onStartEdit: () => void
   onCancelEdit: () => void
+  onShare?: (detail: DocumentDetail) => void
   onSave: (changes: Partial<{
     title: string
     document_type: string
@@ -520,7 +527,15 @@ function DetailsTab({
           {detail.subject && <Fact label="Subject">{detail.subject}</Fact>}
           {detail.period_label && <Fact label="Period">{detail.period_label}</Fact>}
           <Fact label="Visibility">
-            <span className="capitalize">{detail.visibility ?? 'private'}</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="capitalize">{detail.visibility ?? 'private'}</span>
+              {canEdit && onShare && (
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => onShare(detail)}>
+                  <Share2 className="mr-1 size-3" aria-hidden="true" />
+                  Share
+                </Button>
+              )}
+            </span>
           </Fact>
           {detail.source_system && <Fact label="Source">{detail.source_system}</Fact>}
           {sizeLabel && <Fact label="Size">{sizeLabel}</Fact>}
