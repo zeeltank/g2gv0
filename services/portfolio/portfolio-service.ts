@@ -1,6 +1,7 @@
 import { apiClient } from '@/services/core'
 import { withLaravelParams, type LaravelContext } from '@/lib/laravel-context'
 import type {
+  ReadinessLogEntry,
   ProductOffer,
   Partner,
   TaxonomyData,
@@ -73,6 +74,25 @@ export const portfolioService = {
     return apiClient.put(`/portfolio/offers/${id}`, offer, {
       params: withLaravelParams(context),
     })
+  },
+
+  /**
+   * Confirm (or remove the confirmation of) an offer's readiness. Administrators only; the server
+   * enforces it, records who and when, and appends an audit row. A note is required to confirm.
+   */
+  async setReadiness(
+    context: LaravelContext,
+    id: string | number,
+    confirmed: boolean,
+    note?: string,
+  ): Promise<{ status: number; message: string; data: ProductOffer }> {
+    return apiClient.post(`/portfolio/offers/${id}/readiness`, { confirmed, note }, {
+      params: withLaravelParams(context),
+    })
+  },
+
+  async getReadinessLog(context: LaravelContext, id: string | number): Promise<{ status: number; data: ReadinessLogEntry[] }> {
+    return apiClient.get(`/portfolio/offers/${id}/readiness-log`, withLaravelParams(context))
   },
 
   async deleteOffer(context: LaravelContext, id: string | number): Promise<{ status: number; message: string }> {

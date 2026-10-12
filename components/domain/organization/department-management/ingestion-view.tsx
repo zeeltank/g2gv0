@@ -29,12 +29,22 @@ import {
   type IngestionSignalListResponse,
   type IngestionSourceDetail,
   type IngestionSourceInfo,
+  type MarketImportResult,
   type ProcessingStatus,
 } from '@/services/signals/opportunities'
 import { Fact, FieldLabel, GroupHeading, Notice, Placeholder, SectionHeader, SignalsPage, Surface } from './signals-ui'
 
 const ACCEPT = '.pdf,.docx,.txt,.xlsx,.xls'
 const FORMATS = ['PDF', 'DOCX', 'TXT', 'XLSX']
+/** A structured demand-side file goes to the market import, not to AI analysis. Excel is not read yet. */
+const MARKET_ACCEPT = '.json,.csv'
+const MARKET_FORMATS = ['JSON', 'CSV']
+
+type Intent = 'foundation' | 'market'
+const INTENTS: { id: Intent; label: string; help: string }[] = [
+  { id: 'foundation', label: 'Foundation', help: 'Our own catalogue, notes or documents. The AI reads them and writes signals about our business.' },
+  { id: 'market', label: 'Market signals', help: 'A structured demand-side file (JSON or CSV) from the daily scan. It goes straight into Company opportunities. Rows that fail a check are listed with the reason.' },
+]
 const POLL_FAST_MS = 3000
 const POLL_SLOW_MS = 10000
 const POLL_FAST_TICKS = 60 // three minutes at the fast rate, then back off
@@ -141,7 +151,10 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   const [detail, setDetail] = useState<IngestionSourceDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [url, setUrl] = useState('')
-  const [busy, setBusy] = useState<'upload' | 'url' | null>(null)
+  const [busy, setBusy] = useState<'upload' | 'url' | 'market' | null>(null)
+  const [intent, setIntent] = useState<Intent>('foundation')
+  const [marketResult, setMarketResult] = useState<{ file: string; dryRun: boolean; result: MarketImportResult } | null>(null)
+  const [dryRun, setDryRun] = useState(false)
   const [retrying, setRetrying] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'error' | 'info' | 'warning'; text: string } | null>(null)
@@ -158,6 +171,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   const [acting, setActing] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
+  const marketFileRef = useRef<HTMLInputElement>(null)
   const previousStatus = useRef<Map<number, ProcessingStatus>>(new Map())
   const signalsRequest = useRef(0)
   const pollTicks = useRef(0)
@@ -257,7 +271,24 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     setPage(1)
   }
 
+  async function handleMarketFile(file: File | undefined) {
+    if (!file || busy) return
+    setNotice(null)
+    setMarketResult(null)
+    setBusy('market')
+    try {
+      const response = await opportunitiesService.importMarket(context, file, { dryRun, label: file.name })
+      setMarketResult({ file: file.name, dryRun, result: response.data })
+    } catch (cause) {
+      setNotice({ tone: 'error', text: errText(cause, 'The market file could not be imported.') })
+    } finally {
+      setBusy(null)
+      if (marketFileRef.current) marketFileRef.current.value = ''
+    }
+  }
+
   async function handleFile(file: File | undefined) {
+    if (intent === 'market') return handleMarketFile(file)
     if (!file || busy) return
     setNotice(null)
     setBusy('upload')
@@ -347,7 +378,87 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
-      <section aria-label="Add a source" className="grid gap-4 @3xl:grid-cols-2">
+      <section aria-label="What are you uploading?" className="space-y-2">
+        <div role="radiogroup" aria-label="Upload intent" className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
+          {INTENTS.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              role="radio"
+              aria-checked={intent === i.id}
+              onClick={() => { setIntent(i.id); setMarketResult(null) }}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${intent === i.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {i.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">{INTENTS.find((i) => i.id === intent)?.help}</p>
+      </section>
+
+      {intent === 'market' && (
+        <section aria-label="Market signals import" className="grid gap-4 @3xl:grid-cols-2">
+          <label
+            onDragOver={(e) => { e.preventDefault(); if (busy === null) setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); void handleMarketFile(e.dataTransfer.files?.[0]) }}
+            className={`flex min-w-0 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring ${dragging ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/40'} ${busy !== null ? 'pointer-events-none opacity-70' : ''}`}
+          >
+            <input ref={marketFileRef} type="file" accept={MARKET_ACCEPT} aria-label="Choose a market signals file" className="sr-only" onChange={(e) => void handleMarketFile(e.target.files?.[0])} disabled={busy !== null} />
+            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              {busy === 'market' ? <Loader2 className="size-5 animate-spin" /> : <Upload className="size-5" />}
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-foreground">{busy === 'market' ? 'Checking and importing…' : 'Upload a market signals file'}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">Drop a file here, or click to browse</span>
+            </span>
+            <span className="flex flex-wrap justify-center gap-1.5">{MARKET_FORMATS.map((f) => <Badge key={f} variant="muted">{f}</Badge>)}</span>
+            <span className="text-xs text-muted-foreground">Excel is not read yet: save the sheet as CSV.</span>
+          </label>
+
+          <Surface className="flex flex-col gap-3 p-6">
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input type="checkbox" className="mt-0.5 size-4 rounded border-border" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled={busy !== null} />
+              <span>
+                Check only (dry run)
+                <span className="block text-xs text-muted-foreground">Validate the file and show what would be accepted or rejected. Nothing is saved.</span>
+              </span>
+            </label>
+
+            {marketResult ? (
+              <div className="space-y-3" aria-live="polite">
+                <p className="text-sm font-semibold text-foreground">
+                  {marketResult.dryRun ? 'Check result' : 'Import result'} <span className="font-normal text-muted-foreground">· {marketResult.file}</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="success">{marketResult.result.accepted} {marketResult.dryRun ? 'valid' : 'accepted'}</Badge>
+                  {!marketResult.dryRun && <Badge variant="navy">{marketResult.result.updated} updated</Badge>}
+                  {!marketResult.dryRun && <Badge variant="muted">{marketResult.result.duplicate} duplicate</Badge>}
+                  <Badge variant={marketResult.result.rejected > 0 ? 'destructive' : 'muted'}>{marketResult.result.rejected} rejected</Badge>
+                </div>
+                {marketResult.result.rejected > 0 && (
+                  <ul className="max-h-48 space-y-1.5 overflow-y-auto text-xs">
+                    {marketResult.result.results.filter((r) => r.outcome === 'rejected').map((r) => (
+                      <li key={r.index} className="rounded-md bg-destructive/5 px-3 py-2 text-destructive">
+                        <span className="font-semibold">Row {r.index + 1}</span> · {r.reason}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!marketResult.dryRun && marketResult.result.accepted + marketResult.result.updated > 0 && (
+                  <p className="text-xs text-muted-foreground">They now appear under Company opportunities.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Each record needs a buyer, a named trigger, a date, a source link and an evidence level. Signals that cannot be confirmed from the full page are stored as inference, not confirmed.
+              </p>
+            )}
+          </Surface>
+        </section>
+      )}
+
+      <section aria-label="Add a source" className={`grid gap-4 @3xl:grid-cols-2 ${intent === 'market' ? 'hidden' : ''}`}>
         <label
           onDragOver={(e) => { e.preventDefault(); if (busy === null) setDragging(true) }}
           onDragLeave={() => setDragging(false)}

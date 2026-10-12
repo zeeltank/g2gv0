@@ -27,6 +27,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/hooks/use-auth'
 import {
   Dialog,
   DialogContent,
@@ -37,7 +39,7 @@ import {
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
-import type { ProductOffer, TaxonomyData } from '@/services/portfolio/types'
+import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/portfolio/types'
 
 export function PortfolioView({ context, canManage = true }: { context: LaravelContext; canManage?: boolean }) {
   const [loading, setLoading] = useState(true)
@@ -70,6 +72,15 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const [createOpen, setCreateOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
+
+  // Readiness confirmation: administrators only. The server enforces it and records who and when.
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'administrator'
+  const [readinessAction, setReadinessAction] = useState<'confirm' | 'remove' | null>(null)
+  const [readinessNote, setReadinessNote] = useState('')
+  const [readinessSaving, setReadinessSaving] = useState(false)
+  const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [readinessLog, setReadinessLog] = useState<ReadinessLogEntry[] | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -139,9 +150,20 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     }
   }
 
+  const loadReadinessLog = async (offerId: number) => {
+    if (!canManage) return
+    try {
+      setReadinessLog((await portfolioService.getReadinessLog(context, offerId)).data)
+    } catch {
+      setReadinessLog([])
+    }
+  }
+
   const viewOfferDetail = async (offer: ProductOffer) => {
     setDetailOffer(offer)
+    setReadinessLog(null)
     setDetailLoading(true)
+    void loadReadinessLog(offer.id)
     try {
       const full = await portfolioService.getOffer(context, offer.id)
       setDetailOffer(full.data)
@@ -149,6 +171,29 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       // fallback to current
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const submitReadiness = async () => {
+    if (!detailOffer || !readinessAction) return
+    const confirmed = readinessAction === 'confirm'
+    if (confirmed && readinessNote.trim().length < 5) {
+      setReadinessError('Say what was verified (at least 5 characters).')
+      return
+    }
+    setReadinessSaving(true)
+    setReadinessError(null)
+    try {
+      const res = await portfolioService.setReadiness(context, detailOffer.id, confirmed, readinessNote.trim() || undefined)
+      setDetailOffer({ ...detailOffer, ...res.data })
+      setReadinessAction(null)
+      setReadinessNote('')
+      void loadReadinessLog(detailOffer.id)
+      loadData()
+    } catch (err) {
+      setReadinessError(err instanceof Error ? err.message : 'Could not update readiness.')
+    } finally {
+      setReadinessSaving(false)
     }
   }
 
@@ -591,6 +636,45 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                   </section>
                 )}
 
+                <section className="space-y-2 rounded-lg border border-border/60 p-3" aria-label="Readiness">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="font-semibold text-muted-foreground uppercase text-[11px]">Readiness</h4>
+                    {detailOffer.readiness_confirmed ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Not yet verified</Badge>}
+                  </div>
+                  <p className="text-foreground">
+                    Stage: <span className="font-medium">{detailOffer.readiness_status}</span>.{' '}
+                    {detailOffer.readiness_confirmed
+                      ? `Confirmed by an administrator${detailOffer.readiness_confirmed_at ? ` on ${new Date(detailOffer.readiness_confirmed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}.`
+                      : 'No administrator has confirmed this offer is ready to deliver.'}
+                  </p>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Verified offers are shown as deliverable when they are matched to a signal. Nothing is confirmed automatically, and confirmation never changes a match score.
+                  </p>
+                  {isAdmin ? (
+                    <Button
+                      size="sm"
+                      variant={detailOffer.readiness_confirmed ? 'outline' : 'default'}
+                      onClick={() => { setReadinessError(null); setReadinessNote(''); setReadinessAction(detailOffer.readiness_confirmed ? 'remove' : 'confirm') }}
+                    >
+                      <ShieldCheck className="mr-1.5 size-3.5" />
+                      {detailOffer.readiness_confirmed ? 'Remove confirmation' : 'Confirm readiness'}
+                    </Button>
+                  ) : (
+                    <p className="text-muted-foreground">Only an administrator can confirm readiness.</p>
+                  )}
+                  {readinessLog && readinessLog.length > 0 && (
+                    <ul className="divide-y divide-border/60 border-t border-border/60 pt-1">
+                      {readinessLog.map((entry) => (
+                        <li key={entry.id} className="py-1.5">
+                          <span className="font-medium text-foreground">{entry.action === 'confirmed' ? 'Confirmed' : 'Confirmation removed'}</span>{' '}
+                          <span className="text-muted-foreground">· {new Date(entry.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · user #{entry.actor_id ?? '?'}</span>
+                          {entry.note && <p className="text-muted-foreground">{entry.note}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
                 {detailOffer.notes && (
                   <section className="space-y-1">
                     <h4 className="font-semibold text-muted-foreground uppercase text-[11px]">Notes</h4>
@@ -600,6 +684,40 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={readinessAction !== null} onOpenChange={(open) => { if (!open && !readinessSaving) setReadinessAction(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{readinessAction === 'confirm' ? 'Confirm readiness' : 'Remove confirmation'}</DialogTitle>
+            <DialogDescription>
+              {readinessAction === 'confirm'
+                ? `You are stating that ${detailOffer?.offer_id ?? 'this offer'} (${detailOffer?.name ?? ''}) is ready to deliver. Your name and the time are recorded.`
+                : `${detailOffer?.offer_id ?? 'This offer'} will go back to Not yet verified. The change is recorded.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="readiness-note" className="text-xs font-medium text-foreground">
+              {readinessAction === 'confirm' ? 'What was verified? (required)' : 'Reason (optional)'}
+            </label>
+            <Textarea
+              id="readiness-note"
+              rows={3}
+              value={readinessNote}
+              onChange={(e) => setReadinessNote(e.target.value)}
+              placeholder={readinessAction === 'confirm' ? 'e.g. Running in production at a client, checked on 8 Oct' : ''}
+              disabled={readinessSaving}
+            />
+            {readinessError && <p role="alert" className="text-xs text-destructive">{readinessError}</p>}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setReadinessAction(null)} disabled={readinessSaving}>Cancel</Button>
+            <Button size="sm" onClick={() => void submitReadiness()} disabled={readinessSaving}>
+              {readinessSaving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 size-3.5" />}
+              {readinessAction === 'confirm' ? 'Confirm readiness' : 'Remove confirmation'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
