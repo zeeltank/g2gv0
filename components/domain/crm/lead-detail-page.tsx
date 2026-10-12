@@ -80,9 +80,8 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to Leads
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Leads" title="Back to Leads">
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-sm font-semibold text-primary">
             {(lead.firstName?.[0] ?? lead.lastName[0] ?? '?').toUpperCase()}

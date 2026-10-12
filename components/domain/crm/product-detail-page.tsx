@@ -190,9 +190,8 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
-            Back to {noun === 'Service' ? 'Services' : 'Products'}
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label={`Back to ${noun === 'Service' ? 'Services' : 'Products'}`} title={`Back to ${noun === 'Service' ? 'Services' : 'Products'}`}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
 
           {/* Preview-first image treatment (profile-photo-picker's own convention) - the upload control is a small overlay chip, never a standalone dashed box. */}

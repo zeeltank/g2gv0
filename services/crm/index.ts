@@ -47,6 +47,11 @@ import type {
   CrmQuoteLineItemInput,
   CrmQuoteLineItemsResponse,
   CrmQuoteListQuery,
+  CrmPriceBook,
+  CrmPriceBookItem,
+  CrmPriceBookListResponse,
+  CrmPriceBookPayload,
+  CrmPriceBookResponse,
   CrmQuoteListResponse,
   CrmQuotePayload,
   CrmQuoteResponse,
@@ -543,6 +548,60 @@ export const crmService = {
 
   importQuotes: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/quotes/import', { rows, ...baseParams(context) }),
+
+  // ── Price Books ──────────────────────────────────────────────────────
+  getPriceBooks: (context: LaravelContext, query: { page?: number; perPage?: number; search?: string; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}) =>
+    apiClient.get<CrmPriceBookListResponse>('/crm/price-books', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+    }),
+
+  /** Active price books only, for a Quote's own picker - no pagination. */
+  getActivePriceBooks: (context: LaravelContext) =>
+    apiClient.get<{ status: number; message: string; data: CrmPriceBook[] }>('/crm/price-books/active', baseParams(context)),
+
+  getPriceBook: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmPriceBookResponse>(`/crm/price-books/${id}`, baseParams(context)),
+
+  createPriceBook: (context: LaravelContext, payload: CrmPriceBookPayload) =>
+    apiClient.post<CrmPriceBookResponse>('/crm/price-books', { ...payload, ...baseParams(context) }),
+
+  updatePriceBook: (context: LaravelContext, id: string, payload: CrmPriceBookPayload) =>
+    apiClient.put<CrmPriceBookResponse>(`/crm/price-books/${id}`, { ...payload, ...baseParams(context) }),
+
+  deletePriceBook: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/price-books/${id}`, baseParams(context)),
+
+  bulkDeletePriceBooks: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/price-books/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+
+  bulkAssignPriceBooks: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/price-books/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+
+  priceBooksExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/price-books/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  getPriceBookItems: (context: LaravelContext, priceBookId: string) =>
+    apiClient.get<{ status: number; message: string; data: CrmPriceBookItem[] }>(`/crm/price-books/${priceBookId}/items`, baseParams(context)),
+
+  addPriceBookItem: (context: LaravelContext, priceBookId: string, productId: string, listPrice: number) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/price-books/${priceBookId}/items`, {
+      productId: Number(productId), listPrice, ...baseParams(context),
+    }),
+
+  updatePriceBookItem: (context: LaravelContext, priceBookId: string, rowId: string, listPrice: number) =>
+    apiClient.put<{ status: number; message: string }>(`/crm/price-books/${priceBookId}/items/${rowId}`, {
+      listPrice, ...baseParams(context),
+    }),
+
+  removePriceBookItem: (context: LaravelContext, priceBookId: string, rowId: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/price-books/${priceBookId}/items/${rowId}`, baseParams(context)),
 
   // ── SMS Notifier ─────────────────────────────────────────────────────
   getSmsLog: (context: LaravelContext, query: {

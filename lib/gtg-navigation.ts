@@ -104,6 +104,7 @@ export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
 export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
 export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
 export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
+export const CRM_PRICE_BOOKS_ACCESS_LINK = '/module/crm/sales/price-books'
 
 /**
  * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle

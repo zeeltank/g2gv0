@@ -363,7 +363,7 @@ export interface CrmBulkActionResponse {
  */
 export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
-  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log'
+  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log' | 'price_books'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
 
@@ -716,6 +716,8 @@ export interface CrmQuote {
   contactName: string | null
   opportunityId: string | null
   opportunityName: string | null
+  priceBookId: string | null
+  priceBookName: string | null
   quoteStage: string | null
   validTill: string | null
   currency: string | null
@@ -756,7 +758,7 @@ export interface CrmQuote {
 export type CrmQuotePayload = Partial<
   Omit<
     CrmQuote,
-    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName'
+    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName' | 'priceBookName'
     | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
     | 'createdAt' | 'updatedAt' | 'createdBy'
   >
@@ -766,6 +768,44 @@ export interface CrmQuoteListResponse {
   status: number
   message: string
   data: { items: CrmQuote[]; pagination: CrmPagination }
+}
+
+export interface CrmPriceBook {
+  id: string
+  priceBookNo: string | null
+  name: string
+  currency: string | null
+  isActive: boolean
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmPriceBookPayload = Partial<
+  Omit<CrmPriceBook, 'id' | 'priceBookNo' | 'createdAt' | 'updatedAt' | 'createdBy'>
+>
+
+export interface CrmPriceBookListResponse {
+  status: number
+  message: string
+  data: { items: CrmPriceBook[]; pagination: CrmPagination }
+}
+
+export interface CrmPriceBookResponse {
+  status: number
+  message: string
+  data: CrmPriceBook
+}
+
+export interface CrmPriceBookItem {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  basePrice: number | null
+  listPrice: number
 }
 
 export interface CrmQuoteResponse {

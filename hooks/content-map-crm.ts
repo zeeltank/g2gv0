@@ -14,6 +14,7 @@ const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-
 const ProductListView = createLazyComponent(() => import('@/domain/crm/product-list-view').then((m) => ({ default: m.ProductListView })))
 const ServiceListView = createLazyComponent(() => import('@/domain/crm/service-list-view').then((m) => ({ default: m.ServiceListView })))
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
+const PriceBookListView = createLazyComponent(() => import('@/domain/crm/price-book-list-view').then((m) => ({ default: m.PriceBookListView })))
 
 // CRM (module id 199) was a disabled, never-finished menu tree reactivated
 // for this migration - access_links are nested under /marketing/ (not the
@@ -30,4 +31,5 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/sales/products', component: ProductListView },
   { accessLink: '/module/crm/sales/services', component: ServiceListView },
   { accessLink: '/module/crm/sales/sms-notifier', component: SmsLogListView },
+  { accessLink: '/module/crm/sales/price-books', component: PriceBookListView },
 ]

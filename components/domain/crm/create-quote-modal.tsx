@@ -15,6 +15,7 @@ import { useAssignableEmployees } from './lead-employees'
 import { useOrganizationOptions } from './organization-options'
 import { useContactOptions } from './contact-options'
 import { useOpportunityOptions } from './opportunity-options'
+import { usePriceBookOptions } from './price-book-options'
 
 export interface QuotePrefill {
   organizationId?: string | null
@@ -33,7 +34,7 @@ interface Props {
 
 const emptyForm = (prefill: QuotePrefill | undefined, quoteStages: CrmPicklistValue[]): CrmQuotePayload => ({
   subject: '', organizationId: prefill?.organizationId ?? null, contactId: prefill?.contactId ?? null,
-  opportunityId: prefill?.opportunityId ?? null,
+  opportunityId: prefill?.opportunityId ?? null, priceBookId: null,
   quoteStage: quoteStages.find((s) => s.isDefault)?.value ?? quoteStages[0]?.value ?? '',
   validTill: '', currency: '',
   billingStreet: '', billingCity: '', billingState: '', billingCode: '', billingCountry: '', billingPoBox: '',
@@ -47,6 +48,7 @@ export function CreateQuoteModal({ isOpen, onClose, onSaved, quote, prefill, quo
   const organizations = useOrganizationOptions(context, isOpen)
   const contacts = useContactOptions(context, isOpen)
   const opportunities = useOpportunityOptions(context, isOpen)
+  const priceBooks = usePriceBookOptions(context, isOpen)
 
   const [seededFrom, setSeededFrom] = useState<CrmQuote | null | 'unset'>('unset')
   const [form, setForm] = useState<CrmQuotePayload>(emptyForm(prefill, quoteStages))
@@ -58,7 +60,7 @@ export function CreateQuoteModal({ isOpen, onClose, onSaved, quote, prefill, quo
     setForm(quote
       ? {
           subject: quote.subject, organizationId: quote.organizationId, contactId: quote.contactId,
-          opportunityId: quote.opportunityId, quoteStage: quote.quoteStage ?? '', validTill: quote.validTill ?? '',
+          opportunityId: quote.opportunityId, priceBookId: quote.priceBookId, quoteStage: quote.quoteStage ?? '', validTill: quote.validTill ?? '',
           currency: quote.currency ?? '',
           billingStreet: quote.billingStreet ?? '', billingCity: quote.billingCity ?? '', billingState: quote.billingState ?? '',
           billingCode: quote.billingCode ?? '', billingCountry: quote.billingCountry ?? '', billingPoBox: quote.billingPoBox ?? '',
@@ -159,6 +161,17 @@ export function CreateQuoteModal({ isOpen, onClose, onSaved, quote, prefill, quo
                 placeholder="Choose an employee…"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Price Book</Label>
+            <SearchableSelect
+              value={form.priceBookId ?? ''}
+              onChange={(v) => set('priceBookId', v || null)}
+              options={priceBooks.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Use each product's base price"
+            />
+            <p className="text-xs text-muted-foreground">New line items default to this book&apos;s price when it has one for that product.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

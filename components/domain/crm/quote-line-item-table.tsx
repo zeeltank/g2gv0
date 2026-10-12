@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { CrmProduct, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
+import type { CrmPriceBookItem, CrmProduct, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -63,6 +63,8 @@ interface Props {
   products: CrmProduct[]
   taxRates: CrmTaxRate[]
   currency: string | null
+  /** The quote's selected price book's own per-product prices, if any - a newly-picked product defaults to its override here instead of its base unitPrice. */
+  priceBookItems?: CrmPriceBookItem[]
 }
 
 const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
@@ -70,7 +72,7 @@ const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, currency }: Props) {
+export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, currency, priceBookItems = [] }: Props) {
   const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates])
 
   const productOptions = useMemo(
@@ -86,10 +88,15 @@ export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, cu
   const onProductChange = (index: number, productId: string) => {
     const product = products.find((p) => p.id === productId)
     if (!product) { updateRow(index, { productId: null }); return }
+    // The quote's price book overrides this product's base price when it has
+    // one listed - falls back to the base unitPrice otherwise (see
+    // crm_price_book_items' own migration docblock: this is a UI default at
+    // add-time only, never enforced retroactively on rows already on the quote).
+    const override = priceBookItems.find((i) => i.productId === product.id)
     updateRow(index, {
       productId: product.id,
       description: product.name,
-      unitPrice: product.unitPrice ?? 0,
+      unitPrice: override?.listPrice ?? product.unitPrice ?? 0,
       taxRateId: product.taxRateId,
     })
   }
