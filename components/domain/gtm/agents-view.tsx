@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
 import {
   agentService, dealService, gtmService, outreachService,
-  type GtmAccount, type GtmDeal, type GtmAgentInfo, type GtmAgentOutput, type GtmAgentRunRow, type GtmContact,
+  type AgentCampaignOption, type GtmAccount, type GtmDeal, type GtmAgentInfo, type GtmAgentOutput, type GtmAgentRunRow, type GtmContact,
 } from '@/services/gtm/gtm'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 
@@ -79,6 +79,7 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
   const [accounts, setAccounts] = useState<GtmAccount[]>([])
   const [contacts, setContacts] = useState<GtmContact[]>([])
   const [deals, setDeals] = useState<GtmDeal[]>([])
+  const [campaigns, setCampaigns] = useState<AgentCampaignOption[]>([])
   const [input, setInput] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,6 +87,7 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
   const needsAccount = 'account_id' in agent.inputs
   const needsContact = 'contact_id' in agent.inputs
   const needsDeal = 'deal_id' in agent.inputs
+  const needsCampaign = 'campaign_id' in agent.inputs
   const modeOptions = agent.inputs.mode?.options
 
   useEffect(() => {
@@ -97,6 +99,13 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
     if (!needsDeal || !agent.runnable) return
     void dealService.list({ status: 'open' }).then((r) => setDeals(r.data.items)).catch(() => setDeals([]))
   }, [needsDeal, agent.runnable])
+
+  useEffect(() => {
+    if (!needsCampaign || !agent.runnable) return
+    void agentService.campaigns()
+      .then((r) => setCampaigns(r.data.items.filter((c) => !['completed', 'archived'].includes(c.status))))
+      .catch(() => setCampaigns([]))
+  }, [needsCampaign, agent.runnable])
 
   useEffect(() => {
     if (!needsContact || !input.account_id) { queueMicrotask(() => setContacts([])); return }
@@ -116,6 +125,8 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
       if (payload.account_id) payload.account_id = Number(payload.account_id)
       if (payload.contact_id) payload.contact_id = Number(payload.contact_id)
       if (payload.deal_id) payload.deal_id = Number(payload.deal_id)
+      if (payload.campaign_id) payload.campaign_id = Number(payload.campaign_id)
+      else delete payload.campaign_id
       setOut((await agentService.run(agent.slug, payload)).data)
     } catch (e) {
       setError(errMsg(e))
@@ -160,6 +171,12 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
             <select className={SELECT} value={input.contact_id ?? ''} onChange={(e) => setInput({ ...input, contact_id: e.target.value })} disabled={!input.account_id}>
               <option value="">{input.account_id && contacts.length === 0 ? 'No contacts — add one first' : 'Contact…'}</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+            </select>
+          )}
+          {needsCampaign && (
+            <select className={SELECT} value={input.campaign_id ?? ''} onChange={(e) => setInput({ ...input, campaign_id: e.target.value })} title="The account must be a target of the campaign">
+              <option value="">{campaigns.length === 0 ? 'No open campaigns' : 'Campaign (optional)…'}</option>
+              {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
           <Button size="sm" disabled={busy || missing || !aiConfigured} onClick={run}>
@@ -244,14 +261,37 @@ function AgentResult({ slug, out }: { slug: string; out: GtmAgentOutput }) {
 
       {slug === 'gtm-customer-success' && (
         <>
-          <Block title="Measured (counted from your records)">
-            <table className="w-full text-xs"><thead className="text-left text-muted-foreground"><tr><th>Account</th><th>Contacts</th><th>Activities (90d)</th><th>Days since last</th></tr></thead>
-              <tbody>{arr(r.facts).map((f) => <tr key={String(f.account_id)}><td>{String(f.name)}</td><td>{String(f.contacts)}</td><td>{String(f.activities_90d)}</td><td>{f.days_since_last_activity == null ? '—' : String(f.days_since_last_activity)}</td></tr>)}</tbody></table>
-          </Block>
-          <Block title="Assessment (AI estimate)">
-            <ul className="space-y-2">{arr(r.accounts).map((a) => <li key={String(a.account_id)}><span className="font-medium">{String(a.risk)}</span><p className="text-muted-foreground">{String(a.evidence)}</p><p>→ {String(a.action)}</p></li>)}</ul>
-          </Block>
-          <p className="mt-2 text-xs text-muted-foreground">Renewal dates, contract values and product usage are not tracked in G2G yet, so none are estimated.</p>
+          {r.mode === 'expansion' ? (
+            <Block title="Expansion opportunities (each rests on a recorded signal)">
+              {arr(r.opportunities).length === 0 ? <p className="text-muted-foreground">No opportunity is backed by a recorded signal.</p> : (
+                <ul className="space-y-2">{arr(r.opportunities).map((o, i) => (
+                  <li key={i}><span className="font-medium">{String(o.opportunity)}</span><p className="text-muted-foreground">{String(o.evidence)}</p>
+                    {o.signal_title ? <p className="text-xs text-muted-foreground">Signal: {String(o.signal_title)}</p> : null}<Src urls={o.source_urls} /></li>
+                ))}</ul>
+              )}
+            </Block>
+          ) : (
+            <>
+              <Block title="Measured health and renewals (rules, from your records)">
+                <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="text-left text-muted-foreground"><tr><th className="pr-3">Account</th><th className="pr-3">Health</th><th className="pr-3">Risks</th><th className="pr-3">Renewal</th><th>Not recorded</th></tr></thead>
+                  <tbody>{arr(r.facts).map((f) => {
+                    const ren = f.renewal as Row | null | undefined
+                    return (
+                      <tr key={String(f.account_id)} className="align-top">
+                        <td className="pr-3">{String(f.name)}</td>
+                        <td className="pr-3">{f.score == null ? 'n/a' : `${String(f.score)}`}{f.band ? ` (${String(f.band)})` : ''}</td>
+                        <td className="pr-3">{strs(f.risks).join('; ') || '—'}</td>
+                        <td className="pr-3">{ren ? `${String(ren.name ?? 'Renewal')} · ${fmtDate(String(ren.date))}${ren.days_until != null ? ` (${String(ren.days_until)}d)` : ''}${ren.amount ? ` · ${String(ren.currency ?? '')} ${String(ren.amount)}` : ''}` : 'none recorded'}</td>
+                        <td>{strs(f.missing).join(', ') || '—'}</td>
+                      </tr>
+                    )
+                  })}</tbody></table></div>
+              </Block>
+              <Block title="Assessment (AI estimate)">
+                <ul className="space-y-2">{arr(r.accounts).map((a) => <li key={String(a.account_id)}><span className="font-medium">{String(arr(r.facts).find((f) => f.account_id === a.account_id)?.name ?? `Account #${a.account_id}`)}: {String(a.risk)}</span><p className="text-muted-foreground">{String(a.evidence)}</p><p>→ {String(a.action)}</p></li>)}</ul>
+              </Block>
+            </>
+          )}
         </>
       )}
 
@@ -260,6 +300,7 @@ function AgentResult({ slug, out }: { slug: string; out: GtmAgentOutput }) {
           {typeof r.health === 'string' && <p className="font-medium">{r.health}</p>}
           {strs(r.measured_flags).length > 0 && <Block title="Measured flags (rules, not AI)"><ul className="list-disc pl-5">{strs(r.measured_flags).map((f) => <li key={f}>{String((r.measured_labels as Record<string, string> | undefined)?.[f] ?? f)}</li>)}</ul></Block>}
           {arr(r.risks).length > 0 && <Block title="Risks"><ul className="list-disc pl-5">{arr(r.risks).map((x, i) => <li key={i}>{String(x.risk)} <span className="text-muted-foreground">— {String(x.evidence)}</span></li>)}</ul></Block>}
+          {strs(r.strengths).length > 0 && <Block title="Strengths"><ul className="list-disc pl-5">{strs(r.strengths).map((x) => <li key={x}>{x}</li>)}</ul></Block>}
           {arr(r.next_actions).length > 0 && <Block title="Next actions"><ol className="list-decimal pl-5">{arr(r.next_actions).map((x, i) => <li key={i}>{String(x.action)} <span className="text-muted-foreground">— {String(x.why)}</span></li>)}</ol></Block>}
         </>
       )}

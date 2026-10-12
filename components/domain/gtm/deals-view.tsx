@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, LayoutGrid, List, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -10,8 +11,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  DEAL_STAGES, OPEN_DEAL_STAGES, agentService, dealService, gtmService, playbookService,
-  type DealDetail, type DealStage, type GtmAccount, type GtmDeal, type GtmPlaybook, type PipelineSummary,
+  DEAL_STAGES, FORECAST_CATEGORIES, OPEN_DEAL_STAGES, agentService, dealService, gtmService, playbookService,
+  type DealDetail, type DealStage, type ForecastCategory, type GtmAccount, type GtmDeal, type GtmDirectory, type GtmPlaybook, type PipelineSummary,
 } from '@/services/gtm/gtm'
 import { EstimateTag, GtmPageHeader, MeasuredTag, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 
@@ -72,7 +73,7 @@ export function DealsView() {
           <div><div className="text-xs text-muted-foreground">Won, last {pipeline.closed_last_days} days</div><div className="font-medium">{pipeline.won.count} · {money(pipeline.won.value_by_currency)}</div></div>
           <div><div className="text-xs text-muted-foreground">Lost, last {pipeline.closed_last_days} days</div><div className="font-medium">{pipeline.lost.count} · {money(pipeline.lost.value_by_currency)}</div></div>
           <MeasuredTag />
-          <p className="basis-full text-xs text-muted-foreground">No forecast is shown: it needs stage probabilities your organisation sets, and none are recorded.</p>
+          <p className="basis-full text-xs text-muted-foreground">Weighted forecasts use stage settings your organisation sets: see <Link href="/gtm/forecast" className="text-primary underline">Forecast</Link>.</p>
         </div>
       )}
 
@@ -199,7 +200,8 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
   const [methodologies, setMethodologies] = useState<GtmPlaybook[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [edit, setEdit] = useState({ next_step: '', next_step_due: '', expected_close_date: '' })
+  const [edit, setEdit] = useState({ next_step: '', next_step_due: '', expected_close_date: '', name: '', amount: '', currency: '', owner: '', forecast_category: '' })
+  const [directory, setDirectory] = useState<GtmDirectory | null>(null)
   const [methodology, setMethodology] = useState('')
   const [notes, setNotes] = useState('')
   const [note, setNote] = useState({ type: 'note', subject: '' })
@@ -211,7 +213,11 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
     try {
       const res = (await dealService.get(id)).data
       setD(res)
-      setEdit({ next_step: res.deal.next_step ?? '', next_step_due: res.deal.next_step_due ?? '', expected_close_date: res.deal.expected_close_date ?? '' })
+      setEdit({
+        next_step: res.deal.next_step ?? '', next_step_due: res.deal.next_step_due ?? '', expected_close_date: res.deal.expected_close_date ?? '',
+        name: res.deal.name, amount: res.deal.amount ? String(Number(res.deal.amount)) : '', currency: res.deal.currency ?? '',
+        owner: res.deal.owner_user_id === null ? '' : String(res.deal.owner_user_id), forecast_category: res.deal.forecast_category ?? '',
+      })
       setMethodology((m) => m || res.deal.methodology_slug || '')
       setCoach((c) => c ?? (res.analyses.deal_coach?.result as Row | undefined) ?? null)
       setDiscovery((x) => x ?? (res.analyses.discovery_analysis ? { result: res.analyses.discovery_analysis.result as Row, integrity: { note: null } } : null))
@@ -225,6 +231,7 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
   useEffect(() => {
     if (id === null) return
     void playbookService.list({ kind: 'methodology' }).then((r) => setMethodologies(r.data.items)).catch(() => setMethodologies([]))
+    void gtmService.directory().then((r) => setDirectory(r.data)).catch(() => setDirectory(null))
   }, [id])
 
   const run = async (key: string, fn: () => Promise<unknown>, after?: () => void) => {
@@ -263,7 +270,7 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
       <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{deal?.name ?? 'Deal'}</DialogTitle>
-          <DialogDescription>{d?.account ? `${d.account.name} · ` : ''}{deal ? `${deal.amount ? `${deal.currency} ${Number(deal.amount).toLocaleString('en-IN')}` : 'no amount'} · ${deal.stage}` : 'Loading…'}</DialogDescription>
+          <DialogDescription>{d?.account ? `${d.account.name} · ` : ''}{deal ? `${deal.amount ? `${deal.currency} ${Number(deal.amount).toLocaleString('en-IN')}` : 'no amount'} · ${deal.stage}${deal.forecast_category ? ` · forecast: ${deal.forecast_category.replace('_', ' ')}` : ''}` : 'Loading…'}</DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!d || !deal ? (error ? null : <Skeleton className="h-48" />) : (
@@ -292,8 +299,28 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
                   <Input type="date" title="Next step due" value={edit.next_step_due} onChange={(e) => setEdit({ ...edit, next_step_due: e.target.value })} />
                   <Input type="date" title="Expected close" value={edit.expected_close_date} onChange={(e) => setEdit({ ...edit, expected_close_date: e.target.value })} />
                 </div>
-                <Button size="sm" className="mt-2" disabled={busy !== null}
-                  onClick={() => run('save', () => dealService.update(deal.id, { next_step: edit.next_step || null, next_step_due: edit.next_step_due || null, expected_close_date: edit.expected_close_date || null }))}>Save</Button>
+                <h4 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deal details</h4>
+                <div className="grid gap-2 md:grid-cols-4">
+                  <Input placeholder="Deal name *" className="md:col-span-2" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+                  <Input type="number" min="0" placeholder="Amount" value={edit.amount} onChange={(e) => setEdit({ ...edit, amount: e.target.value })} />
+                  <Input maxLength={3} placeholder="Currency (e.g. INR)" value={edit.currency} onChange={(e) => setEdit({ ...edit, currency: e.target.value.toUpperCase() })} />
+                  <select className={SELECT} value={edit.owner} onChange={(e) => setEdit({ ...edit, owner: e.target.value })} title="Owner">
+                    <option value="">No owner</option>
+                    {edit.owner && !directory?.users.some((u) => String(u.id) === edit.owner) && <option value={edit.owner}>User #{edit.owner}</option>}
+                    {directory?.users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                  <select className={SELECT} value={edit.forecast_category} onChange={(e) => setEdit({ ...edit, forecast_category: e.target.value })} title="Forecast category">
+                    <option value="">Forecast: stage default</option>
+                    {FORECAST_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
+                  </select>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">A forecast category overrides what this deal&apos;s stage would count as in the forecast. A currency is required when an amount is set.</p>
+                <Button size="sm" className="mt-2" disabled={busy !== null || !edit.name.trim() || (!!edit.amount && edit.currency.length !== 3)}
+                  onClick={() => run('save', () => dealService.update(deal.id, {
+                    name: edit.name.trim(), next_step: edit.next_step || null, next_step_due: edit.next_step_due || null, expected_close_date: edit.expected_close_date || null,
+                    amount: edit.amount ? Number(edit.amount) : null, currency: edit.amount ? edit.currency : null,
+                    owner_user_id: edit.owner ? Number(edit.owner) : null, forecast_category: (edit.forecast_category || null) as ForecastCategory | null,
+                  }))}>Save</Button>
               </section>
             )}
 
@@ -348,7 +375,10 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
                   <div className="mt-3 rounded-md border border-border p-3 text-sm">
                     {typeof coach.health === 'string' && <p className="mb-2 font-medium">{coach.health}</p>}
                     {arr(coach.risks).length > 0 && <><h4 className="text-xs font-semibold uppercase text-muted-foreground">Risks</h4><ul className="mb-2 list-disc pl-5">{arr(coach.risks).map((r, i) => <li key={i}>{String(r.risk)} <span className="text-muted-foreground">— {String(r.evidence)}</span></li>)}</ul></>}
+                    {strs(coach.strengths).length > 0 && <><h4 className="text-xs font-semibold uppercase text-muted-foreground">Strengths</h4><ul className="mb-2 list-disc pl-5">{strs(coach.strengths).map((x) => <li key={x}>{x}</li>)}</ul></>}
+                    {strs(coach.measured_flags).length > 0 && <><h4 className="text-xs font-semibold uppercase text-muted-foreground">Measured flags (rules, not AI)</h4><ul className="mb-2 list-disc pl-5">{strs(coach.measured_flags).map((x) => <li key={x}>{String((coach.measured_labels as Record<string, string> | undefined)?.[x] ?? x)}</li>)}</ul></>}
                     {arr(coach.next_actions).length > 0 && <><h4 className="text-xs font-semibold uppercase text-muted-foreground">Next actions</h4><ol className="list-decimal pl-5">{arr(coach.next_actions).map((a, i) => <li key={i}>{String(a.action)} <span className="text-muted-foreground">— {String(a.why)}</span></li>)}</ol></>}
+                    {strs(coach.missing).length > 0 && <p className="mt-2 text-xs text-muted-foreground">Missing information: {strs(coach.missing).join(', ')}</p>}
                     <p className="mt-2 text-xs text-muted-foreground">Advice only. Nothing here changes the deal.</p>
                   </div>
                 )}

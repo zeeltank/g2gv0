@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Plus, Search, Sparkles, Trash2, Upload, UserPlus } from 'lucide-react'
+import { ExternalLink, Loader2, Pencil, Plus, Search, Sparkles, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,8 +10,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, gtmService,
-  type AccountDetail, type GtmAccount, type GtmCandidate,
+  ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, CONTACT_STATUSES, gtmService, isMasked,
+  type AccountDetail, type ContactPatch, type GtmAccount, type GtmCandidate, type GtmContact, type GtmDirectory,
 } from '@/services/gtm/gtm'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 import { ImportContactsDialog } from './import-contacts-dialog'
@@ -242,6 +242,13 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
   const [contact, setContact] = useState({ full_name: '', title: '', email: '', role_in_deal: '' })
   const [note, setNote] = useState({ type: 'note', subject: '' })
   const [busy, setBusy] = useState(false)
+  const [directory, setDirectory] = useState<GtmDirectory | null>(null)
+  const [editingAccount, setEditingAccount] = useState(false)
+
+  useEffect(() => {
+    if (id === null) return
+    void gtmService.directory().then((r) => setDirectory(r.data)).catch(() => setDirectory(null))
+  }, [id])
 
   const load = useCallback(async () => {
     if (id === null) return
@@ -297,6 +304,24 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
 
             <section>
               <div className="mb-2 flex items-center gap-2">
+                <h3 className="text-sm font-semibold">Details</h3>
+                {!editingAccount && <Button size="sm" variant="outline" className="ml-auto" disabled={busy} onClick={() => setEditingAccount(true)}><Pencil className="mr-1 size-3.5" />Edit</Button>}
+              </div>
+              {editingAccount ? (
+                <AccountEditForm account={detail.account} directory={directory} busy={busy} onCancel={() => setEditingAccount(false)}
+                  onSave={(patch) => run(() => gtmService.updateAccount(detail.account.id, patch), () => setEditingAccount(false))} />
+              ) : (
+                <dl className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+                  <Detail k="Domain" v={detail.account.domain} /><Detail k="Website" v={detail.account.website} />
+                  <Detail k="Industry" v={detail.account.industry} /><Detail k="Location" v={detail.account.location} />
+                  <Detail k="Company size" v={detail.account.employee_range} />
+                  <Detail k="Owner" v={detail.account.owner_user_id === null ? null : directory?.users.find((u) => u.id === detail.account.owner_user_id)?.name ?? `User #${detail.account.owner_user_id}`} />
+                </dl>
+              )}
+            </section>
+
+            <section>
+              <div className="mb-2 flex items-center gap-2">
                 <h3 className="text-sm font-semibold">ICP fit</h3><EstimateTag />
                 <Button size="sm" variant="outline" className="ml-auto" disabled={busy} onClick={() => run(() => gtmService.scoreIcp(detail.account.id))}>
                   {busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Sparkles className="mr-1 size-3.5" />}
@@ -346,10 +371,9 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
               {detail.contacts.length === 0 && <p className="mb-2 text-sm text-muted-foreground">No contacts yet. G2G does not invent people — add the ones you have found.</p>}
               <ul className="mb-3 space-y-1">
                 {detail.contacts.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-                    <span><strong>{c.full_name}</strong>{c.title ? ` — ${c.title}` : ''}{c.email ? ` · ${c.email}` : ''}{c.role_in_deal ? ` · ${c.role_in_deal.replace('_', ' ')}` : ''}</span>
-                    <button className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${c.full_name}`} disabled={busy} onClick={() => run(() => gtmService.deleteContact(c.id))}><Trash2 className="size-4" /></button>
-                  </li>
+                  <ContactRow key={c.id} contact={c} busy={busy}
+                    onSave={(patch) => run(() => gtmService.updateContact(c.id, patch))}
+                    onDelete={() => run(() => gtmService.deleteContact(c.id))} />
                 ))}
               </ul>
               <div className="grid gap-2 md:grid-cols-5">
@@ -394,5 +418,106 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function Detail({ k, v }: { k: string; v: string | null | undefined }) {
+  return <div className="flex gap-2"><dt className="w-28 shrink-0 text-muted-foreground">{k}</dt><dd>{v || '—'}</dd></div>
+}
+
+/** Only fields the person changed are sent, so an untouched value is never written back. */
+function AccountEditForm({ account, directory, busy, onSave, onCancel }: {
+  account: GtmAccount; directory: GtmDirectory | null; busy: boolean; onSave: (patch: Record<string, unknown>) => void; onCancel: () => void
+}) {
+  const [f, setF] = useState({
+    name: account.name, domain: account.domain ?? '', website: account.website ?? '', industry: account.industry ?? '',
+    location: account.location ?? '', employee_range: account.employee_range ?? '', owner: account.owner_user_id === null ? '' : String(account.owner_user_id),
+  })
+  const save = () => {
+    const patch: Record<string, unknown> = {}
+    if (f.name.trim() !== account.name) patch.name = f.name.trim()
+    for (const k of ['domain', 'website', 'industry', 'location', 'employee_range'] as const) {
+      if (f[k].trim() !== (account[k] ?? '')) patch[k] = f[k].trim() || null
+    }
+    if (f.owner !== (account.owner_user_id === null ? '' : String(account.owner_user_id))) patch.owner_user_id = f.owner ? Number(f.owner) : null
+    if (Object.keys(patch).length === 0) { onCancel(); return }
+    onSave(patch)
+  }
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 md:grid-cols-2">
+        <Input placeholder="Company name *" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <Input placeholder="Domain" value={f.domain} onChange={(e) => setF({ ...f, domain: e.target.value })} />
+        <Input placeholder="Website" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} />
+        <Input placeholder="Industry" value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })} />
+        <Input placeholder="Location" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} />
+        <Input placeholder="Company size (e.g. 51-200)" value={f.employee_range} onChange={(e) => setF({ ...f, employee_range: e.target.value })} />
+        <select className={SELECT} value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })}>
+          <option value="">No owner</option>
+          {f.owner && !directory?.users.some((u) => String(u.id) === f.owner) && <option value={f.owner}>User #{f.owner}</option>}
+          {directory?.users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button size="sm" disabled={busy || !f.name.trim()} onClick={save}>Save details</Button>
+      </div>
+    </div>
+  )
+}
+
+function ContactRow({ contact: c, busy, onSave, onDelete }: { contact: GtmContact; busy: boolean; onSave: (patch: ContactPatch) => void; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [f, setF] = useState({ full_name: c.full_name, title: c.title ?? '', email: c.email ?? '', phone: c.phone ?? '', role: c.role_in_deal ?? '', status: c.status })
+  const emailMasked = isMasked(c.email)
+  const phoneMasked = isMasked(c.phone)
+
+  if (!editing) {
+    return (
+      <li className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
+        <span><strong>{c.full_name}</strong>{c.title ? ` — ${c.title}` : ''}{c.email ? ` · ${c.email}` : ''}{c.role_in_deal ? ` · ${c.role_in_deal.replace('_', ' ')}` : ''}
+          {c.status !== 'active' && <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700">{c.status.replace(/_/g, ' ')}</Badge>}</span>
+        <span className="flex shrink-0 gap-2">
+          <button className="text-muted-foreground hover:text-primary" aria-label={`Edit ${c.full_name}`} disabled={busy} onClick={() => { setF({ full_name: c.full_name, title: c.title ?? '', email: c.email ?? '', phone: c.phone ?? '', role: c.role_in_deal ?? '', status: c.status }); setEditing(true) }}><Pencil className="size-4" /></button>
+          <button className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${c.full_name}`} disabled={busy} onClick={onDelete}><Trash2 className="size-4" /></button>
+        </span>
+      </li>
+    )
+  }
+
+  const save = () => {
+    const patch: ContactPatch = {}
+    if (f.full_name.trim() !== c.full_name) patch.full_name = f.full_name.trim()
+    if (f.title.trim() !== (c.title ?? '')) patch.title = f.title.trim() || null
+    if (!emailMasked && f.email.trim() !== (c.email ?? '')) patch.email = f.email.trim() || null
+    if (!phoneMasked && f.phone.trim() !== (c.phone ?? '')) patch.phone = f.phone.trim() || null
+    if (f.role !== (c.role_in_deal ?? '')) patch.role_in_deal = (f.role || null) as ContactPatch['role_in_deal']
+    if (f.status !== c.status) patch.status = f.status
+    if (Object.keys(patch).length === 0) { setEditing(false); return }
+    onSave(patch)
+    setEditing(false)
+  }
+
+  return (
+    <li className="rounded-md border border-primary/40 p-3 text-sm">
+      <div className="grid gap-2 md:grid-cols-3">
+        <Input placeholder="Full name *" value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} />
+        <Input placeholder="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+        <Input placeholder="Email" value={f.email} disabled={emailMasked} title={emailMasked ? 'Hidden for your role; it cannot be edited here' : undefined} onChange={(e) => setF({ ...f, email: e.target.value })} />
+        <Input placeholder="Phone" value={f.phone} disabled={phoneMasked} title={phoneMasked ? 'Hidden for your role; it cannot be edited here' : undefined} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        <select className={SELECT} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+          <option value="">Role…</option>
+          {CONTACT_ROLES.map((r) => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+        </select>
+        <select className={SELECT} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as GtmContact['status'] })}>
+          {CONTACT_STATUSES.map((st) => <option key={st} value={st}>{st.replace(/_/g, ' ')}</option>)}
+        </select>
+      </div>
+      {f.status !== 'active' && <p className="mt-2 text-xs text-amber-700">With this status, no email can be written or sent to this contact.</p>}
+      <div className="mt-2 flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+        <Button size="sm" disabled={busy || !f.full_name.trim()} onClick={save}>Save contact</Button>
+      </div>
+    </li>
   )
 }

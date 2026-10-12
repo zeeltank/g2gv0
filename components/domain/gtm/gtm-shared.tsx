@@ -16,6 +16,8 @@ export function useGtmReady(): boolean {
 /** The server's own words where it gave them; a 403 gets an explanation of what it means. */
 export function errMsg(e: unknown, fallback = 'Something went wrong'): string {
   if (e instanceof ApiError) {
+    // A 403 the server explained (e.g. a second approver is required) keeps its own words.
+    if (e.status === 403 && e.message && !/unauthori[sz]ed|forbidden|permission|access denied|profile/i.test(e.message)) return e.detail ? `${e.message} — ${e.detail}` : e.message
     if (e.status === 403) return 'You do not have permission for this. GTM is limited to Administrators (edit) and Executives (view).'
     return e.detail ? `${e.message} — ${e.detail}` : e.message
   }
@@ -32,14 +34,22 @@ export function fmtDate(value?: string | null, withTime = false): string {
   })
 }
 
-export function GtmPageHeader({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
+/** Only Administrators can change GTM data (Executives read). The server enforces it; this just hides controls that would be refused. */
+export function useGtmCanWrite(): boolean {
+  const { user } = useAuth()
+  return user?.role === 'administrator'
+}
+
+export function GtmPageHeader({ title, description, actions, readOnlyActions }: { title: string; description: string; actions?: ReactNode; readOnlyActions?: boolean }) {
+  const canWrite = useGtmCanWrite()
+  const shown = readOnlyActions || canWrite ? actions : undefined
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {shown && <div className="flex items-center gap-2">{shown}</div>}
     </div>
   )
 }

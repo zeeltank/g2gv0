@@ -9,6 +9,11 @@ import { gtmService, type GtmOverview } from '@/services/gtm/gtm'
 import { money } from './deals-view'
 import { EstimateTag, GtmPageHeader, MeasuredTag, StatTile, errMsg, useGtmReady } from './gtm-shared'
 
+const MORE_PAGES: [string, string][] = [
+  ['/gtm/forecast', 'Forecast'], ['/gtm/campaigns', 'Campaigns'], ['/gtm/customers', 'Customers'],
+  ['/gtm/workflows', 'Workflows'], ['/gtm/reports', 'Reports'], ['/gtm/monitoring', 'Monitoring'],
+]
+
 const STAGE_LABEL: Record<string, string> = {
   target: 'Target', engaged: 'Engaged', opportunity: 'Opportunity',
   customer: 'Customer', churned: 'Churned', disqualified: 'Disqualified',
@@ -17,8 +22,8 @@ const STAGE_LABEL: Record<string, string> = {
 /**
  * Command Center. Every number is read from the database through /api/gtm/overview.
  * "Measured" tiles are counts of rows; "AI estimate" tiles are model output and say so.
- * Deal figures are counted from deal records, per currency. There is no forecast: it needs
- * stage probabilities an organisation sets, and none are recorded.
+ * Deal figures are counted from deal records, per currency. Weighted forecasts live on the
+ * Forecast page, which uses stage settings the organisation sets.
  */
 export function CommandCenterView() {
   const ready = useGtmReady()
@@ -68,6 +73,10 @@ export function CommandCenterView() {
           badText={`Not configured${data.readiness.web_search.driver ? ` (driver: ${data.readiness.web_search.driver})` : ''} — signal research cannot fetch new sources until an API key is set.`}
         />
       </section>
+
+      <nav aria-label="More GTM pages" className="mb-6 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {MORE_PAGES.map(([href, text]) => <Link key={href} href={href} className="text-primary underline">{text}</Link>)}
+      </nav>
 
       <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline of accounts</h2>
       <section className="mb-6 grid gap-3 md:grid-cols-4">
@@ -126,7 +135,7 @@ export function CommandCenterView() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Forecast is not shown: it needs stage probabilities your organisation sets, and none are recorded. Renewal dates and customer health scores are not tracked yet either, so none are invented.{' '}
+        Forecasts, renewals and customer health live on their own pages (links above); nothing on this page is estimated except the labelled AI figures.{' '}
         <Link href="/gtm/prospecting" className="text-primary underline">Go to Prospecting</Link>
       </p>
     </div>
