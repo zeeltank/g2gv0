@@ -78,7 +78,21 @@ export interface MarketScores {
 }
 
 /** The plain-English face of a lead, built on the server (CardPresenter). The client never re-derives it. */
+export interface OpportunityAccount {
+  /** CRM lead number: look the contact up there (phone and email are not copied into signals). */
+  crm_ref: string | null
+  crm_owner: string | null
+  contact_name: string | null
+  city: string | null
+  icp_status: 'candidate' | 'low_fit' | 'unscored' | 'disqualified' | string
+  icp_tier: 'A' | 'B' | 'C' | null
+}
+
 export interface OpportunityCardFace {
+  /** One plain sentence: who needs what and why now. Null for leads written before this existed. */
+  needs_line: string | null
+  /** The CRM school this lead is about, when it is on the target list. */
+  account: OpportunityAccount | null
   urgency_band: 'act_this_week' | 'act_this_month' | 'nurture'
   urgency_line: string
   organisation_line: string
