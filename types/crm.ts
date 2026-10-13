@@ -1636,3 +1636,186 @@ export interface CrmBulkSendSmsResponse {
     results: Array<{ id: string; ok: boolean; reason?: string }>
   }
 }
+
+// ── Comments (Lead/Contact/Organization/Opportunity) ───────────────────────
+// Ticket keeps its own CrmTicketComment above - these 4 entities share one
+// identical row shape instead of 4 near-duplicate types.
+
+export interface CrmComment {
+  id: string
+  comment: string
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmCommentsResponse {
+  status: number
+  message: string
+  data: CrmComment[]
+}
+
+export interface CrmAddCommentResponse {
+  status: number
+  message: string
+  data: CrmComment
+}
+
+// ── Linked Documents (Lead/Contact/Organization/Opportunity/Ticket) ────────
+
+export interface CrmLinkedDocument {
+  id: string
+  title: string | null
+  originalFileName: string | null
+  mimeType: string | null
+  size: number | null
+  uploadedBy: string | null
+  uploadedByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmLinkedDocumentsResponse {
+  status: number
+  message: string
+  data: CrmLinkedDocument[]
+}
+
+export interface CrmLinkedDocumentResponse {
+  status: number
+  message: string
+  data: CrmLinkedDocument
+}
+
+// ── Emails ───────────────────────────────────────────────────────────────
+
+export type CrmEmailLinkedType = 'LEAD' | 'CONTACT' | 'ORGANIZATION' | 'OPPORTUNITY' | 'TICKET'
+
+export interface CrmEmail {
+  id: string
+  legacyId: string | null
+  subject: string
+  body: string
+  toAddress: string
+  templateId: string | null
+  templateName: string | null
+  status: string | null
+  sentAt: string | null
+  failureReason: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmEmailPayload = {
+  subject: string
+  body: string
+  toAddress: string
+  templateId?: string
+  assignedTo?: string
+  linkedType: CrmEmailLinkedType
+  linkedId: string
+}
+
+export interface CrmEmailListResponse {
+  status: number
+  message: string
+  data: { items: CrmEmail[]; pagination: CrmPagination }
+}
+
+export interface CrmEmailResponse {
+  status: number
+  message: string
+  data: CrmEmail
+}
+
+export interface CrmEmailListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  linkedType?: CrmEmailLinkedType
+  linkedId?: string
+}
+
+/** What `HasCrmEmailLinks::getEmails()` returns for one record's own Emails tab - same fields as CrmEmail plus the sender's display name. */
+export interface CrmEmailLinkEntry {
+  id: string
+  subject: string
+  body: string
+  toAddress: string
+  templateId: string | null
+  templateName: string | null
+  status: string | null
+  sentAt: string | null
+  failureReason: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmEmailLinkEntriesResponse {
+  status: number
+  message: string
+  data: CrmEmailLinkEntry[]
+}
+
+// ── Email Templates ──────────────────────────────────────────────────────
+
+export interface CrmEmailTemplate {
+  id: string
+  legacyId: string | null
+  name: string
+  folder: string | null
+  subject: string
+  body: string
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmEmailTemplatePayload = Partial<
+  Omit<CrmEmailTemplate, 'id' | 'legacyId' | 'createdBy' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmEmailTemplateListResponse {
+  status: number
+  message: string
+  data: { items: CrmEmailTemplate[]; pagination: CrmPagination }
+}
+
+export interface CrmEmailTemplateResponse {
+  status: number
+  message: string
+  data: CrmEmailTemplate
+}
+
+export interface CrmEmailTemplateListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  folder?: string
+}
+
+// ── Audit Trail (generic, cross-entity) ─────────────────────────────────
+
+export interface CrmAuditEntry {
+  id: string
+  type: string
+  changes: { field: string; oldValue: unknown; newValue: unknown }[]
+  actorId: string | null
+  actorName: string | null
+  occurredAt: string | null
+}
+
+export interface CrmAuditEntryResponse {
+  status: number
+  message: string
+  data: CrmAuditEntry[]
+}

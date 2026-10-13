@@ -19,11 +19,18 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmOpportunity, CrmPicklistValue, CrmQuote, Organization } from '@/types/crm'
+import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmPicklistValue, CrmQuote, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { OrganizationHierarchy } from './organization-hierarchy'
 import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
+import { CommentThread } from './comment-thread'
+import { CrmDocumentTab } from './crm-document-tab'
+import { CrmEmailTab } from './crm-email-tab'
+import { SendEmailDialog } from './send-email-dialog'
+import { CrmHistoryTab } from './crm-history-tab'
+import { CrmScheduleTab } from './crm-schedule-tab'
+import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
 
 interface Props {
   organization: Organization
@@ -32,12 +39,18 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'custom'
+type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'hierarchy', label: 'Hierarchy' },
   { id: 'opportunities', label: 'Opportunities' },
   { id: 'quotes', label: 'Quotes' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'comments', label: 'Comments' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'emails', label: 'Emails' },
+  { id: 'history', label: 'History' },
+  { id: 'projects', label: 'Projects' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
@@ -116,6 +129,18 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [quotes, setQuotes] = useState<CrmQuote[]>([])
   const [quotesLoading, setQuotesLoading] = useState(true)
 
+  const [comments, setComments] = useState<CrmComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [documents, setDocuments] = useState<CrmLinkedDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(true)
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [linkedProjects, setLinkedProjects] = useState<LinkedProject[]>([])
+  const [linkedProjectsLoading, setLinkedProjectsLoading] = useState(true)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -147,9 +172,72 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
     }
   }, [context, organization.id])
 
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true)
+    try {
+      const response = await crmService.getOrganizationComments(context, organization.id)
+      setComments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [context, organization.id])
+
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await crmService.getOrganizationDocuments(context, organization.id)
+      setDocuments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [context, organization.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getOrganizationEmails(context, organization.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, organization.id])
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getOrganizationHistory(context, organization.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, organization.id])
+
+  const loadLinkedProjects = useCallback(async () => {
+    setLinkedProjectsLoading(true)
+    try {
+      const response = await crmService.getOrganizationProjects(context, organization.id)
+      setLinkedProjects(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setLinkedProjectsLoading(false)
+    }
+  }, [context, organization.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadOpportunities(); void loadQuotes() })
-  }, [loadOpportunities, loadQuotes])
+    queueMicrotask(() => {
+      void loadOpportunities(); void loadQuotes(); void loadComments()
+      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects()
+    })
+  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -328,6 +416,46 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
         </SectionCard>
       )}
 
+      {tab === 'schedule' && (
+        <CrmScheduleTab linkedType="ORGANIZATION" linkedId={organization.id} recordLabel={organization.name} />
+      )}
+
+      {tab === 'comments' && (
+        <SectionCard title="Comments">
+          <CommentThread
+            comments={comments}
+            loading={commentsLoading}
+            onAdd={async (text) => {
+              await crmService.addOrganizationComment(context, organization.id, text)
+              void loadComments()
+            }}
+          />
+        </SectionCard>
+      )}
+
+      {tab === 'documents' && (
+        <CrmDocumentTab
+          documents={documents}
+          loading={documentsLoading}
+          onUpload={async (file) => {
+            await crmService.attachOrganizationDocument(context, organization.id, file)
+            void loadDocuments()
+          }}
+        />
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
+
+      {tab === 'projects' && (
+        <SectionCard title="Linked Projects" description="Task Management projects tied to this organization.">
+          <CrmProjectsTab projects={linkedProjects} loading={linkedProjectsLoading} />
+        </SectionCard>
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
@@ -370,6 +498,14 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
         defaultToNumber={organization.phone}
         relatedType="organization"
         relatedId={organization.id}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="ORGANIZATION"
+        linkedId={organization.id}
+        defaultToAddress={organization.email}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CalendarClock, FileSignature, Gauge, Loader2, Pencil, Ruler, Tag, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,9 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, CrmServiceContract } from '@/types/crm'
+import type { CrmAuditEntry, CrmPicklistValue, CrmServiceContract } from '@/types/crm'
 import { CreateServiceContractModal } from './create-service-contract-modal'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   serviceContract: CrmServiceContract
@@ -21,9 +22,10 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'details' | 'custom'
+type Tab = 'details' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'history', label: 'History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -53,7 +55,26 @@ export function ServiceContractDetailPage({ serviceContract, onSaved, onBack }: 
   const [savingCustom, setSavingCustom] = useState(false)
   const [customNotice, setCustomNotice] = useState<string | null>(null)
 
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
   const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getServiceContractHistory(context, serviceContract.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, serviceContract.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadHistory() })
+  }, [loadHistory])
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
@@ -172,6 +193,8 @@ export function ServiceContractDetailPage({ serviceContract, onSaved, onBack }: 
           </SectionCard>
         </div>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>

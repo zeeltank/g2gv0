@@ -11,6 +11,7 @@ import type {
   CalendarEntriesResponse,
   CalendarEvent,
   CalendarEventPayload,
+  LinkedCalendarEventsResponse,
   AttendeesResponse,
   CalendarFeedsResponse,
   CalendarSharesResponse,
@@ -236,6 +237,16 @@ export const taskService = {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
       from: params.from, to: params.to,
     }),
+  /**
+   * One record's own feed (Activities/Calendar gap) — every Event linked to
+   * this Lead/Contact/Organization/Opportunity/Ticket (or any future
+   * linked_type), without pulling a whole date-range feed. Backs
+   * CrmScheduleTab.
+   */
+  getLinkedCalendarEvents: (context: LaravelContext, linkedType: string, linkedId: string) =>
+    apiClient.get<LinkedCalendarEventsResponse>(`/task-management/calendar/events/linked/${linkedType}/${linkedId}`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
+    }),
   createCalendarEvent: (context: LaravelContext, payload: CalendarEventPayload) =>
     apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/calendar/events', {
       ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
@@ -244,7 +255,7 @@ export const taskService = {
     apiClient.get<{ status: 1; message: string; data: CalendarEvent }>(`/task-management/calendar/events/${id}`, {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),
-  updateCalendarEvent: (context: LaravelContext, id: string, payload: Partial<CalendarEventPayload & { linked_type: string | null; linked_id: string | null }>) =>
+  updateCalendarEvent: (context: LaravelContext, id: string, payload: Partial<CalendarEventPayload>) =>
     apiClient.put<{ status: 1; message: string; data: CalendarEvent }>(`/task-management/calendar/events/${id}`, {
       ...payload, token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
     }),

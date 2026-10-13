@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Building2, CalendarClock, Hash, Laptop, Loader2, Package, Pencil, Receipt, Tag, Truck, User,
@@ -12,10 +12,12 @@ import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
+import { crmService } from '@/services/crm'
 import { useAssignableEmployees } from './lead-employees'
 import { getLaravelContext } from '@/lib/laravel-context'
-import type { CrmAsset } from '@/types/crm'
+import type { CrmAsset, CrmAuditEntry } from '@/types/crm'
 import { CreateAssetModal } from './create-asset-modal'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   asset: CrmAsset
@@ -23,9 +25,10 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'details' | 'custom'
+type Tab = 'details' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'history', label: 'History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -46,6 +49,25 @@ export function AssetDetailPage({ asset, onSaved, onBack }: Props) {
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getAssetHistory(context, asset.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, asset.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadHistory() })
+  }, [loadHistory])
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -179,6 +201,8 @@ export function AssetDetailPage({ asset, onSaved, onBack }: Props) {
           </SectionCard>
         </div>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>

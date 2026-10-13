@@ -18,8 +18,9 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, CrmProduct, CrmProductBundleItem, CrmTaxRate } from '@/types/crm'
+import type { CrmAuditEntry, CrmPicklistValue, CrmProduct, CrmProductBundleItem, CrmTaxRate } from '@/types/crm'
 import { CreateProductModal } from './create-product-modal'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   product: CrmProduct
@@ -29,7 +30,7 @@ interface Props {
   taxRates: CrmTaxRate[]
 }
 
-type Tab = 'details' | 'bundle' | 'custom'
+type Tab = 'details' | 'bundle' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [{ id: 'details', label: 'Details' }]
 
 /** A label paired with a small muted icon - the inline-icon convention organization-information.tsx uses for ReadField values. */
@@ -124,9 +125,13 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
   const [bundleLoading, setBundleLoading] = useState(true)
   const [addComponentOpen, setAddComponentOpen] = useState(false)
 
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
   const tabs = [
     ...BASE_TABS,
     ...(isBundleable ? [{ id: 'bundle' as const, label: 'Bundle' }] : []),
+    { id: 'history' as const, label: 'History' },
     ...(hasCustomFields ? [{ id: 'custom' as const, label: 'Custom Fields' }] : []),
   ]
 
@@ -143,9 +148,21 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
     }
   }, [context, product.id, isBundleable])
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getProductHistory(context, product.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, product.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadBundleItems() })
-  }, [loadBundleItems])
+    queueMicrotask(() => { void loadBundleItems(); void loadHistory() })
+  }, [loadBundleItems, loadHistory])
 
   const bundleTotal = bundleItems.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0)
 
@@ -358,6 +375,8 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
           )}
         </SectionCard>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>

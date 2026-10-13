@@ -16,6 +16,7 @@ import { RecurrenceScopeDialog } from './recurrence-scope-dialog'
 import { addOneHourToDateTimeLocal } from './time-follow'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
+import { isLinkedRecordType, LinkedRecordPicker, type LinkedRecordType } from '@/components/domain/crm/linked-record-picker'
 import type { Attendee, CalendarEvent, RecurrenceRule, RecurrenceScope } from '@/types/task-management'
 
 interface Props {
@@ -46,6 +47,17 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
+
+  // The link editor only ever renders for a type it recognises (the 5 CRM
+  // types) or no link at all. A pre-existing link to one of the 4 original
+  // task-management types (a PROJECT, say) is real but unrenderable here -
+  // `linkedTypeEditable` tracks whether the picker below is actually in
+  // play for THIS event, so saveCore() can leave an unrecognised link alone
+  // rather than ever sending `linked_type: null` and silently deleting it.
+  const [linkedType, setLinkedType] = useState<LinkedRecordType | null>(null)
+  const [linkedId, setLinkedId] = useState<string | null>(null)
+  const [linkedTypeEditable, setLinkedTypeEditable] = useState(true)
+  const [unrecognisedLink, setUnrecognisedLink] = useState<{ type: string; id: string } | null>(null)
 
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null)
   const [recurrenceBusy, setRecurrenceBusy] = useState(false)
@@ -100,6 +112,22 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
           setEditingRecurrence(false)
           setNewAttendeeEmails([])
           setNewAttendeeUserIds([])
+
+          if (isLinkedRecordType(data.linked_type) || data.linked_type == null) {
+            setLinkedType((data.linked_type as LinkedRecordType | null) ?? null)
+            setLinkedId(data.linked_id)
+            setLinkedTypeEditable(true)
+            setUnrecognisedLink(null)
+          } else {
+            // A real link to a type this CRM-only picker doesn't render
+            // (PROJECT/WORKSTREAM/TASK/BACKLOG_ITEM) - shown read-only
+            // below, and left out of every saveCore() payload so a save
+            // here can never clobber it.
+            setLinkedType(null)
+            setLinkedId(null)
+            setLinkedTypeEditable(false)
+            setUnrecognisedLink({ type: data.linked_type, id: data.linked_id ?? '' })
+          }
 
           if (data.recurrence_id) {
             taskService.getEventRecurrence(context, id)
@@ -159,6 +187,9 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
         end_at: endAt.replace('T', ' '),
         all_day: allDay,
         visibility: isPrivate ? 'PRIVATE' : 'PUBLIC',
+        // Omitted entirely (not sent as null) when this event's link isn't
+        // one `linkedTypeEditable` recognises - see the load handler above.
+        ...(linkedTypeEditable ? { linked_type: linkedType, linked_id: linkedId } : {}),
       })
       setEvent(response.data)
       setMessage(response.message)
@@ -402,6 +433,18 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
                         {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
                       </div>
                     </div>
+                    {linkedTypeEditable ? (
+                      <LinkedRecordPicker
+                        context={getLaravelContext()}
+                        type={linkedType}
+                        id={linkedId}
+                        onChange={(type, id) => { setLinkedType(type); setLinkedId(id) }}
+                      />
+                    ) : unrecognisedLink && (
+                      <p className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+                        Linked to {unrecognisedLink.type} #{unrecognisedLink.id} — editing this link isn&apos;t available here yet.
+                      </p>
+                    )}
                     <Button onClick={() => void saveCore()} disabled={saving || !title.trim()} className="w-full">
                       {saving ? 'Saving…' : 'Save changes'}
                     </Button>
@@ -411,6 +454,8 @@ export function EventDetailsDrawer({ eventId, open, onClose, onUpdated }: Props)
                     <Info icon={CalendarDays} label="Starts" value={formatDateTime(event.start_at, event.all_day)} />
                     <Info icon={CalendarDays} label="Ends" value={formatDateTime(event.end_at, event.all_day)} />
                     {event.location && <Info icon={Users} label="Location" value={event.location} />}
+                    {linkedType && <Info icon={Users} label="Linked to" value={`${linkedType} #${linkedId}`} />}
+                    {unrecognisedLink && <Info icon={Users} label="Linked to" value={`${unrecognisedLink.type} #${unrecognisedLink.id}`} />}
                     {event.description && (
                       <div className="col-span-full rounded-xl bg-muted/30 p-4 text-sm leading-6 text-foreground/80">{event.description}</div>
                     )}

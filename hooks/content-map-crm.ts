@@ -32,6 +32,9 @@ const TicketListView = createLazyComponent(() => import('@/domain/crm/ticket-lis
 const FaqListView = createLazyComponent(() => import('@/domain/crm/faq-list-view').then((m) => ({ default: m.FaqListView })))
 const ServiceContractListView = createLazyComponent(() => import('@/domain/crm/service-contract-list-view').then((m) => ({ default: m.ServiceContractListView })))
 
+// Gap-closure phase: Email Templates admin library (Support menu).
+const EmailTemplateListView = createLazyComponent(() => import('@/domain/crm/email-template-list-view').then((m) => ({ default: m.EmailTemplateListView })))
+
 // CRM (module id 199) was a disabled, never-finished menu tree reactivated
 // for this migration - access_links are nested under /marketing/ (not the
 // flat 2-segment convention Task Management uses), matching that tree's own
@@ -56,6 +59,7 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/support/tickets', component: TicketListView },
   { accessLink: '/module/crm/support/faq', component: FaqListView },
   { accessLink: '/module/crm/support/service-contracts', component: ServiceContractListView },
+  { accessLink: '/module/crm/support/email-templates', component: EmailTemplateListView },
   // Cross-links to already-shipped screens (vtiger's own "one module, several
   // parent tabs" mechanism) - same component, a second access_link/menu entry
   // so Support gets correct active-state highlighting and back-navigation of
