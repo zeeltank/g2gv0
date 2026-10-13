@@ -236,6 +236,11 @@ export function ReportBuilderWizard({
 
   const groupableFields = fields.filter((f) => f.groupable)
   const dateFields = fields.filter((f) => f.type === 'date')
+  // A custom field is display-only (Docs/reports-engine/PLAN.md §5) — it can
+  // never carry an aggregate, so ticking it in a summary/pivot/chart report
+  // would be a no-op the backend silently ignores. Only worth offering in a
+  // tabular report, where it actually shows up as a real column.
+  const columnPickerFields = reportType === 'tabular' ? fields : fields.filter((f) => !f.is_custom_field)
   const stepIndex = STEPS.indexOf(step)
 
   return (
@@ -300,33 +305,33 @@ export function ReportBuilderWizard({
           {step === 'Columns' && (
             <div className="space-y-2">
               {loadingFields && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />}
-              {!loadingFields && fields.length === 0 && <p className="text-sm text-muted-foreground">No fields available for this module yet.</p>}
+              {!loadingFields && columnPickerFields.length === 0 && <p className="text-sm text-muted-foreground">No fields available for this module yet.</p>}
 
-              {!loadingFields && fields.length > 0 && (
+              {!loadingFields && columnPickerFields.length > 0 && (
                 <label className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted px-3 py-2">
                   <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                     <input
                       type="checkbox"
-                      checked={columns.length === fields.length}
+                      checked={columns.length === columnPickerFields.length}
                       ref={(el) => {
-                        if (el) el.indeterminate = columns.length > 0 && columns.length < fields.length
+                        if (el) el.indeterminate = columns.length > 0 && columns.length < columnPickerFields.length
                       }}
                       onChange={(e) => {
                         setColumns(
                           e.target.checked
-                            ? fields.map((f) => ({ module: primaryModule, field: f.key, label: f.label, visible: true }))
+                            ? columnPickerFields.map((f) => ({ module: primaryModule, field: f.key, label: f.label, visible: true }))
                             : [],
                         )
                       }}
                     />
                     Select all
                   </span>
-                  <span className="text-xs text-muted-foreground">{columns.length} of {fields.length} selected</span>
+                  <span className="text-xs text-muted-foreground">{columns.length} of {columnPickerFields.length} selected</span>
                 </label>
               )}
 
               <div className="grid gap-2 sm:grid-cols-2">
-                {fields.map((field) => {
+                {columnPickerFields.map((field) => {
                   const col = columns.find((c) => c.field === field.key)
 
                   return (

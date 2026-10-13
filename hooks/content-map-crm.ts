@@ -39,6 +39,11 @@ const EmailTemplateListView = createLazyComponent(() => import('@/domain/crm/ema
 // Stack report engine, scoped to CRM's own data sources (Support menu).
 const CrmReportsView = createLazyComponent(() => import('@/domain/crm/crm-reports-view').then((m) => ({ default: m.CrmReportsView })))
 
+// Reports-engine Phase 3: CRM's own top-level entry point into the generic
+// report builder (Docs/reports-engine/PLAN.md) - a new, separate screen from
+// CrmReportsView above, not a replacement for it.
+const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-reports-shell').then((m) => ({ default: m.CrmReportsShell })))
+
 // CRM (module id 199) was a disabled, never-finished menu tree reactivated
 // for this migration - access_links are nested under /marketing/ (not the
 // flat 2-segment convention Task Management uses), matching that tree's own
@@ -65,6 +70,7 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/support/service-contracts', component: ServiceContractListView },
   { accessLink: '/module/crm/support/email-templates', component: EmailTemplateListView },
   { accessLink: '/module/crm/support/reports', component: CrmReportsView },
+  { accessLink: '/module/crm/reports', component: CrmReportsShell },
   // Cross-links to already-shipped screens (vtiger's own "one module, several
   // parent tabs" mechanism) - same component, a second access_link/menu entry
   // so Support gets correct active-state highlighting and back-navigation of
