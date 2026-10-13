@@ -1,9 +1,17 @@
 'use client'
 
-import { ClipboardPaste, Copy, Download, Eye, FolderInput, Loader2, Scissors, Share2, Star, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Copy, Download, Eye, FolderInput, FolderOpen, Loader2, Scissors, Share2, Star, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { FileTypeIcon } from '@/components/ui/file-icon'
 import { FolderIcon3D } from '@/components/ui/folder-icon-3d'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -25,7 +33,16 @@ import { formatFileDate, formatFileSize } from './documents-ui'
  * An "Owner" column is still skipped: search results carry `owner_id`,
  * never a resolved name, so a real name isn't available to show without a
  * backend change nobody asked for here.
+ *
+ * Right-click opens the same action set as the hover-button column, via
+ * the same `ContextMenu` Radix primitive `DocumentCardGrid` already uses -
+ * see its own docblock for why dialog-opening callbacks (View/Move/Share/
+ * Delete) are wrapped in `deferToNextTick`, and plain ones (Download/Cut/
+ * Copy/Open folder/Paste) are not.
  */
+function deferToNextTick(fn: () => void) {
+  setTimeout(fn, 0)
+}
 
 export interface DocumentTableViewProps {
   documents: DocumentSearchHit[]
@@ -118,8 +135,11 @@ export function DocumentTableView({
         <TableBody>
           {folders.map((folder) => {
             const folderKey = `folder-${folder.id}`
+            const canManage = canManageFolder?.(folder) ?? false
             return (
-            <TableRow key={folderKey} className={cn('group', selectedKeys?.has(folderKey) && 'bg-primary/5')}>
+            <ContextMenu key={folderKey}>
+            <ContextMenuTrigger asChild>
+            <TableRow className={cn('group', selectedKeys?.has(folderKey) && 'bg-primary/5')}>
               {onToggleSelect && (
                 <TableCell>
                   <Checkbox
@@ -185,6 +205,54 @@ export function DocumentTableView({
                 </span>
               </TableCell>
             </TableRow>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              {hasClipboard && onPasteIntoFolder && canManage && (
+                <>
+                  <ContextMenuItem onClick={() => onPasteIntoFolder(folder)}>
+                    <ClipboardPaste aria-hidden="true" />
+                    Paste
+                    <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                </>
+              )}
+              <ContextMenuItem onClick={() => onOpenFolder?.(folder)}>
+                <FolderOpen aria-hidden="true" />
+                Open
+              </ContextMenuItem>
+              {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+              {canManage && onMoveFolder && (
+                <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
+                  <FolderInput aria-hidden="true" />
+                  Move
+                </ContextMenuItem>
+              )}
+              {canManage && onCutFolder && (
+                <ContextMenuItem onClick={() => onCutFolder(folder)}>
+                  <Scissors aria-hidden="true" />
+                  Cut
+                  <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                </ContextMenuItem>
+              )}
+              {onCopyFolder && (
+                <ContextMenuItem onClick={() => onCopyFolder(folder)}>
+                  <Copy aria-hidden="true" />
+                  Copy
+                  <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+                </ContextMenuItem>
+              )}
+              {canManage && onDeleteFolder && (
+                <ContextMenuItem
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  onClick={() => deferToNextTick(() => onDeleteFolder(folder))}
+                >
+                  <Trash2 aria-hidden="true" />
+                  Delete
+                </ContextMenuItem>
+              )}
+            </ContextMenuContent>
+            </ContextMenu>
             )
           })}
 
@@ -194,10 +262,12 @@ export function DocumentTableView({
             const label = typeLabel(doc.document_type)
             const pending = doc.processing_status !== 'done'
             const docKey = `doc-${doc.id}`
+            const canModify = canDelete(doc)
 
             return (
+              <ContextMenu key={doc.id}>
+              <ContextMenuTrigger asChild>
               <TableRow
-                key={doc.id}
                 data-document-id={doc.id}
                 className={cn('group transition data-[highlight=true]:bg-primary/20 data-[highlight=true]:ring-2 data-[highlight=true]:ring-primary', selectedKeys?.has(docKey) && 'bg-primary/5')}
               >
@@ -293,6 +363,54 @@ export function DocumentTableView({
                   </span>
                 </TableCell>
               </TableRow>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-44">
+                <ContextMenuItem onClick={() => deferToNextTick(() => onOpen(doc))}>
+                  <Eye aria-hidden="true" />
+                  View
+                </ContextMenuItem>
+                <ContextMenuItem disabled={downloadingId !== null} onClick={() => onDownload(doc)}>
+                  {downloadingId === doc.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+                  Download
+                </ContextMenuItem>
+                {((onMove && canModify) || (onShare && canModify) || onCut || onCopy || (onDelete && canModify)) && <ContextMenuSeparator />}
+                {onMove && canModify && (
+                  <ContextMenuItem onClick={() => deferToNextTick(() => onMove(doc))}>
+                    <FolderInput aria-hidden="true" />
+                    Move
+                  </ContextMenuItem>
+                )}
+                {onShare && canModify && (
+                  <ContextMenuItem onClick={() => deferToNextTick(() => onShare(doc))}>
+                    <Share2 aria-hidden="true" />
+                    Share
+                  </ContextMenuItem>
+                )}
+                {onCut && canModify && (
+                  <ContextMenuItem onClick={() => onCut(doc)}>
+                    <Scissors aria-hidden="true" />
+                    Cut
+                    <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+                  </ContextMenuItem>
+                )}
+                {onCopy && (
+                  <ContextMenuItem onClick={() => onCopy(doc)}>
+                    <Copy aria-hidden="true" />
+                    Copy
+                    <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+                  </ContextMenuItem>
+                )}
+                {onDelete && canModify && (
+                  <ContextMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onClick={() => deferToNextTick(() => onDelete(doc))}
+                  >
+                    <Trash2 aria-hidden="true" />
+                    Delete
+                  </ContextMenuItem>
+                )}
+              </ContextMenuContent>
+              </ContextMenu>
             )
           })}
         </TableBody>

@@ -175,6 +175,12 @@ export function DocumentLibraryView() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [searchDepartmentId, setSearchDepartmentId] = useState('')
+  // Already fully wired server-side (DocumentSearchService::search() ->
+  // ownerIdsByName(), narrows via whereIn('owner_id',...) before visibility
+  // rules even run) - this is just the missing input. Works independent of
+  // `q`, so it's debounced the same way but NOT gated behind a typed query.
+  const [ownerName, setOwnerName] = useState('')
+  const [debouncedOwnerName, setDebouncedOwnerName] = useState('')
   // Defaults true - "This folder" is the deliberate narrowing choice, not
   // the other way around. A search that silently hid everything outside
   // the exact folder you happened to be browsing (the old default) is
@@ -254,15 +260,26 @@ export function DocumentLibraryView() {
   }, [query])
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedOwnerName(ownerName.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [ownerName])
+
+  useEffect(() => {
     setPage(1)
-  }, [debouncedQuery, category, documentType, scope, currentFolderId, dateFrom, dateTo, searchDepartmentId, searchEverywhere])
+  }, [debouncedQuery, category, documentType, scope, currentFolderId, dateFrom, dateTo, searchDepartmentId, searchEverywhere, debouncedOwnerName])
 
   // A selection only makes sense against the list it was made on - leaving
   // the Bin open or Recent/Starred selected after navigating away would
   // silently point a bulk action at items the viewer can no longer see.
   useEffect(() => {
     setSelected(new Set())
-  }, [scope, currentFolderId, debouncedQuery])
+  }, [scope, currentFolderId, debouncedQuery, debouncedOwnerName])
+
+  // Guards against a slower, older request's response overwriting a newer
+  // one's - every load() call stamps its own id here and checks it's still
+  // current before applying ANY state from its response. A ref (not state)
+  // on purpose: bumping it must never itself trigger a re-render/re-fetch.
+  const requestIdRef = useRef(0)
 
   function toggleSelected(key: string) {
     setSelected((prev) => {
@@ -298,24 +315,29 @@ export function DocumentLibraryView() {
   }, [isElevated])
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+    const isStale = () => requestId !== requestIdRef.current
+
     if (scope === 'trash') return
 
     if (scope === 'recent') {
       const context = resolveContext()
       if (!isLaravelContextReady(context)) {
-        setLoading(false)
+        if (!isStale()) setLoading(false)
         return
       }
       setLoading(true)
       setError(null)
       try {
         const response = await accountService.getRecentDocuments(context)
+        if (isStale()) return
         setRecentResults(response.data ?? [])
       } catch (caught) {
+        if (isStale()) return
         setRecentResults([])
         setError(caught instanceof Error ? caught.message : 'Recent documents could not be loaded.')
       } finally {
-        setLoading(false)
+        if (!isStale()) setLoading(false)
       }
       return
     }
@@ -323,19 +345,21 @@ export function DocumentLibraryView() {
     if (scope === 'starred') {
       const context = resolveContext()
       if (!isLaravelContextReady(context)) {
-        setLoading(false)
+        if (!isStale()) setLoading(false)
         return
       }
       setLoading(true)
       setError(null)
       try {
         const response = await accountService.getStarredDocuments(context)
+        if (isStale()) return
         setStarredResults(response.data ?? [])
       } catch (caught) {
+        if (isStale()) return
         setStarredResults([])
         setError(caught instanceof Error ? caught.message : 'Starred documents could not be loaded.')
       } finally {
-        setLoading(false)
+        if (!isStale()) setLoading(false)
       }
       return
     }
@@ -343,7 +367,7 @@ export function DocumentLibraryView() {
     const context = resolveContext()
 
     if (!isLaravelContextReady(context)) {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
       return
     }
 
@@ -363,6 +387,7 @@ export function DocumentLibraryView() {
         category: (category as 'personnel' | 'organization') || undefined,
         document_type: documentType || undefined,
         owner_id: scope === 'mine' && myId ? myId : undefined,
+        owner_name: scope === 'visible' ? debouncedOwnerName || undefined : undefined,
         folder_id: everywhere ? undefined : (currentFolderId ?? 0),
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
@@ -370,14 +395,16 @@ export function DocumentLibraryView() {
         page,
         per_page: PER_PAGE,
       })
+      if (isStale()) return
       setResults(response.data ?? [])
       setTotal(response.meta?.total ?? 0)
       setTypes(response.document_types ?? { personnel: {}, organization: {} })
     } catch (caught) {
+      if (isStale()) return
       setResults([])
       setError(caught instanceof Error ? caught.message : 'Documents could not be loaded.')
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
   }, [
     resolveContext,
@@ -386,6 +413,7 @@ export function DocumentLibraryView() {
     documentType,
     scope,
     myId,
+    debouncedOwnerName,
     currentFolderId,
     page,
     dateFrom,
@@ -1358,6 +1386,24 @@ export function DocumentLibraryView() {
               <div className="w-48 shrink-0">
                 <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
               </div>
+
+              {/* Only in "Shared with me" - in "My Drive" owner_id is already
+                  forced to the caller (every result has one, known owner), so
+                  this would be dead weight; "Shared with me" genuinely spans
+                  other people's uploads. Not gated behind a typed query like
+                  the power-row below: the backend applies it independent of
+                  `q`, so "browse everything this person uploaded" works with
+                  no search term at all. */}
+              {scope === 'visible' && (
+                <div className="w-44 shrink-0">
+                  <Input
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="Uploaded by…"
+                    aria-label="Search by uploader name"
+                  />
+                </div>
+              )}
             </>
           )}
 
