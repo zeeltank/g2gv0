@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, BarChart3, FolderPlus, Plus, Share2, Trash2 } from 'lucide-react'
+import { AlertCircle, BarChart3, FolderPlus, Plus, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,7 @@ import {
   type ReportView,
 } from '@/services/reports'
 import { ReportBuilderWizard } from './builder/report-builder-wizard'
+import { ReportViewPage } from './report-view-page'
 
 type Selection = { view: ReportView; folderId?: number }
 
@@ -45,6 +46,11 @@ export function ReportsShell({ scope, title, description }: { scope: ReportScope
 
   const [builderOpen, setBuilderOpen] = useState(false)
   const [editingReportId, setEditingReportId] = useState<number | null>(null)
+  const [viewingReportId, setViewingReportId] = useState<number | null>(null)
+  // Bumped whenever the builder saves changes to the report currently being
+  // viewed — passed as ReportViewPage's `key` so it remounts and re-fetches
+  // rather than silently showing the pre-edit definition/result.
+  const [viewReloadKey, setViewReloadKey] = useState(0)
 
   const loadFolders = useCallback(async () => {
     if (!isLaravelContextReady(context)) return
@@ -128,6 +134,30 @@ export function ReportsShell({ scope, title, description }: { scope: ReportScope
 
   const isNavActive = (candidate: Selection) =>
     candidate.view === selection.view && candidate.folderId === selection.folderId
+
+  if (viewingReportId !== null) {
+    return (
+      <>
+        <ReportViewPage
+          key={viewReloadKey}
+          reportId={viewingReportId}
+          scope={scope}
+          onBack={() => setViewingReportId(null)}
+          onEdit={() => { setEditingReportId(viewingReportId); setBuilderOpen(true) }}
+          onDeleted={() => { setViewingReportId(null); void loadReports() }}
+        />
+        {builderOpen && (
+          <ReportBuilderWizard
+            scope={scope}
+            reportId={editingReportId}
+            defaultFolderId={selection.view === 'folder' ? selection.folderId ?? null : null}
+            onClose={() => setBuilderOpen(false)}
+            onSaved={() => { setBuilderOpen(false); setViewReloadKey((k) => k + 1) }}
+          />
+        )}
+      </>
+    )
+  }
 
   return (
     <div className="flex h-full gap-6 p-4 sm:p-6">
@@ -227,7 +257,7 @@ export function ReportsShell({ scope, title, description }: { scope: ReportScope
                 <TableRow
                   key={report.id}
                   className="cursor-pointer"
-                  onClick={() => { setEditingReportId(report.id); setBuilderOpen(true) }}
+                  onClick={() => setViewingReportId(report.id)}
                 >
                   <TableCell className="font-medium text-foreground">{report.title}</TableCell>
                   <TableCell className="capitalize text-muted-foreground">{report.report_type}</TableCell>
@@ -237,15 +267,6 @@ export function ReportsShell({ scope, title, description }: { scope: ReportScope
                   <TableCell className="text-muted-foreground">{report.last_run_at ?? 'Never run'}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        aria-label={`Share ${report.title}`}
-                        title="Share"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-                        onClick={() => { setEditingReportId(report.id); setBuilderOpen(true) }}
-                      >
-                        <Share2 className="size-4" aria-hidden="true" />
-                      </button>
                       <button
                         type="button"
                         aria-label={`Delete ${report.title}`}
