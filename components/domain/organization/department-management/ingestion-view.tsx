@@ -34,7 +34,7 @@ import {
 } from '@/services/signals/opportunities'
 import { Fact, FieldLabel, GroupHeading, Notice, Placeholder, SectionHeader, SignalsPage, Surface } from './signals-ui'
 
-const ACCEPT = '.pdf,.docx,.txt,.xlsx,.xls'
+const ACCEPT = '.pdf,.docx,.txt,.csv,.xlsx,.xls'
 const FORMATS = ['PDF', 'DOCX', 'TXT', 'XLSX']
 /** A structured demand-side file goes to the market import, not to AI analysis. Excel is not read yet. */
 const MARKET_ACCEPT = '.json,.csv'
