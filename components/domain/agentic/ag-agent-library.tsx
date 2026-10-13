@@ -185,9 +185,27 @@ export function AgAgentLibrary() {
   /**
    * Follows a catalogue agent's call to action. External links open a tab;
    * internal ones route in-app so the shell keeps its state.
+   *
+   * Six platform catalogue agents (pal-agent, marketing-strategy,
+   * content-automation, newsletter-agent, seo-agent,
+   * social-media-automation) carry a `cta_link` of
+   * '/module/m7/ag-agent-workspace/ag-agent-workspace?agent=<id>' — a path
+   * this app's content-map has never resolved (confirmed directly against
+   * hooks/use-content-map.ts's CONTENT_MAP_LOADERS: it keys on the real
+   * tblmenumaster_g2g id, and there is no row reserved for a standalone
+   * workspace route). router.push-ing it always landed on the generic
+   * "not available yet" screen — this is what "opening the other agents"
+   * not working was. The detail Sheet below already renders this exact
+   * agent's own input-schema-driven launch panel (AgentDetail ->
+   * AgentLaunchPanel), so that IS the workspace; open it instead of
+   * navigating to a route that was never reachable.
    */
   const followCta = (agent: Agent) => {
     if (!agent.cta_link) return
+    if (agent.cta_link.includes('ag-agent-workspace')) {
+      setSelected(agent)
+      return
+    }
     if (agent.cta_target === 'external' || /^https?:\/\//i.test(agent.cta_link)) {
       window.open(agent.cta_link, '_blank', 'noopener,noreferrer')
       return
