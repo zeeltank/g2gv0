@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
-import type { Campaign, CrmPicklistValue } from '@/types/crm'
+import { crmService } from '@/services/crm'
+import type { Campaign, CrmAuditEntry, CrmPicklistValue } from '@/types/crm'
 import { CAMPAIGN_STATUS_VARIANT } from './campaign-list-view'
 import { CreateCampaignModal } from './create-campaign-modal'
 import { CampaignTargetManager } from './campaign-target-manager'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   campaign: Campaign
@@ -19,10 +22,11 @@ interface Props {
   picklists: { campaignType: CrmPicklistValue[]; campaignStatus: CrmPicklistValue[]; expectedResponse: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'targets' | 'custom'
+type Tab = 'details' | 'targets' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'targets', label: 'Targets' },
+  { id: 'history', label: 'History' },
 ]
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -38,6 +42,26 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const context = useMemo(() => getLaravelContext(), [])
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getCampaignHistory(context, campaign.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, campaign.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadHistory() })
+  }, [loadHistory])
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -145,6 +169,8 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
           <CampaignTargetManager campaignId={campaign.id} />
         </div>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? 'space-y-4 rounded-lg border border-border p-4' : 'hidden'}>

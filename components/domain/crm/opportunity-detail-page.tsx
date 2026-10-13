@@ -20,11 +20,17 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmOpportunityStageHistoryEntry, CrmPicklistValue, CrmQuote } from '@/types/crm'
+import type { CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmOpportunityContact, CrmOpportunityProduct, CrmOpportunityStageHistoryEntry, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateOpportunityModal } from './create-opportunity-modal'
 import { CreateQuoteModal } from './create-quote-modal'
 import { useAssignableEmployees } from './lead-employees'
 import { SendSmsDialog } from './send-sms-dialog'
+import { CommentThread } from './comment-thread'
+import { CrmDocumentTab } from './crm-document-tab'
+import { CrmEmailTab } from './crm-email-tab'
+import { SendEmailDialog } from './send-email-dialog'
+import { CrmScheduleTab } from './crm-schedule-tab'
+import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -33,13 +39,18 @@ interface Props {
   picklists: { salesStage: CrmPicklistValue[]; leadSource: CrmPicklistValue[]; potentialType: CrmPicklistValue[]; forecastCategory: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'history' | 'custom'
+type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'history' | 'schedule' | 'comments' | 'documents' | 'emails' | 'projects' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'products', label: 'Products & Services' },
   { id: 'quotes', label: 'Quotes' },
   { id: 'history', label: 'Stage History' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'comments', label: 'Comments' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'emails', label: 'Emails' },
+  { id: 'projects', label: 'Projects' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -195,6 +206,16 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
   const [stageHistory, setStageHistory] = useState<CrmOpportunityStageHistoryEntry[]>([])
   const [stageHistoryLoading, setStageHistoryLoading] = useState(true)
 
+  const [comments, setComments] = useState<CrmComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [documents, setDocuments] = useState<CrmLinkedDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(true)
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
+  const [linkedProjects, setLinkedProjects] = useState<LinkedProject[]>([])
+  const [linkedProjectsLoading, setLinkedProjectsLoading] = useState(true)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -250,9 +271,60 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
     }
   }, [context, opportunity.id])
 
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true)
+    try {
+      const response = await crmService.getOpportunityComments(context, opportunity.id)
+      setComments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [context, opportunity.id])
+
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await crmService.getOpportunityDocuments(context, opportunity.id)
+      setDocuments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [context, opportunity.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getOpportunityEmails(context, opportunity.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, opportunity.id])
+
+  const loadLinkedProjects = useCallback(async () => {
+    setLinkedProjectsLoading(true)
+    try {
+      const response = await crmService.getOpportunityProjects(context, opportunity.id)
+      setLinkedProjects(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setLinkedProjectsLoading(false)
+    }
+  }, [context, opportunity.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadContacts(); void loadProducts(); void loadQuotes(); void loadStageHistory() })
-  }, [loadContacts, loadProducts, loadQuotes, loadStageHistory])
+    queueMicrotask(() => {
+      void loadContacts(); void loadProducts(); void loadQuotes(); void loadStageHistory()
+      void loadComments(); void loadDocuments(); void loadEmails(); void loadLinkedProjects()
+    })
+  }, [loadContacts, loadProducts, loadQuotes, loadStageHistory, loadComments, loadDocuments, loadEmails, loadLinkedProjects])
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
@@ -569,6 +641,44 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
         </SectionCard>
       )}
 
+      {tab === 'schedule' && (
+        <CrmScheduleTab linkedType="OPPORTUNITY" linkedId={opportunity.id} recordLabel={opportunity.name} />
+      )}
+
+      {tab === 'comments' && (
+        <SectionCard title="Comments">
+          <CommentThread
+            comments={comments}
+            loading={commentsLoading}
+            onAdd={async (text) => {
+              await crmService.addOpportunityComment(context, opportunity.id, text)
+              void loadComments()
+            }}
+          />
+        </SectionCard>
+      )}
+
+      {tab === 'documents' && (
+        <CrmDocumentTab
+          documents={documents}
+          loading={documentsLoading}
+          onUpload={async (file) => {
+            await crmService.attachOpportunityDocument(context, opportunity.id, file)
+            void loadDocuments()
+          }}
+        />
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
+      {tab === 'projects' && (
+        <SectionCard title="Linked Projects" description="Task Management projects tied to this opportunity.">
+          <CrmProjectsTab projects={linkedProjects} loading={linkedProjectsLoading} />
+        </SectionCard>
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
@@ -614,6 +724,14 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
         quote={null}
         prefill={{ organizationId: opportunity.organizationId, opportunityId: opportunity.id }}
         quoteStages={quoteStages}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="OPPORTUNITY"
+        linkedId={opportunity.id}
+        defaultToAddress={null}
       />
     </div>
   )

@@ -16,9 +16,10 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmVendor, CrmVendorContact } from '@/types/crm'
+import type { CrmAuditEntry, CrmVendor, CrmVendorContact } from '@/types/crm'
 import { CreateVendorModal } from './create-vendor-modal'
 import { useAssignableEmployees } from './lead-employees'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   vendor: CrmVendor
@@ -26,10 +27,11 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'details' | 'contacts' | 'custom'
+type Tab = 'details' | 'contacts' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'contacts', label: 'Contacts' },
+  { id: 'history', label: 'History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
@@ -106,6 +108,9 @@ export function VendorDetailPage({ vendor, onSaved, onBack }: Props) {
   const [contactsLoading, setContactsLoading] = useState(true)
   const [addContactOpen, setAddContactOpen] = useState(false)
 
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -125,9 +130,21 @@ export function VendorDetailPage({ vendor, onSaved, onBack }: Props) {
     }
   }, [context, vendor.id])
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getVendorHistory(context, vendor.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, vendor.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadContacts() })
-  }, [loadContacts])
+    queueMicrotask(() => { void loadContacts(); void loadHistory() })
+  }, [loadContacts, loadHistory])
 
   const removeContact = async (rowId: string) => {
     try {
@@ -283,6 +300,8 @@ export function VendorDetailPage({ vendor, onSaved, onBack }: Props) {
           )}
         </SectionCard>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>

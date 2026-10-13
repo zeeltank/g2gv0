@@ -1,21 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, Building2, CalendarClock, CheckCircle2, Globe, Loader2,
+  ArrowLeft, Building2, CheckCircle2, Globe, Loader2,
   Mail, MapPin, Pencil, Phone, Repeat, Star, Tag, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { EmptyState } from '@/components/ui/empty-state'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
+import { crmService } from '@/services/crm'
 import type { Lead } from '@/types/crm'
 import { CreateLeadModal } from './create-lead-modal'
 import { ConvertLeadDialog } from './convert-lead-dialog'
-import type { CrmPicklistValue } from '@/types/crm'
+import { CommentThread } from './comment-thread'
+import { CrmDocumentTab } from './crm-document-tab'
+import { CrmEmailTab } from './crm-email-tab'
+import { SendEmailDialog } from './send-email-dialog'
+import { CrmHistoryTab } from './crm-history-tab'
+import { CrmScheduleTab } from './crm-schedule-tab'
+import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmPicklistValue } from '@/types/crm'
 
 interface Props {
   lead: Lead
@@ -27,10 +34,14 @@ interface Props {
   }
 }
 
-type Tab = 'details' | 'activity' | 'custom'
+type Tab = 'details' | 'activity' | 'comments' | 'documents' | 'emails' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'activity', label: 'Activity' },
+  { id: 'comments', label: 'Comments' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'emails', label: 'Emails' },
+  { id: 'history', label: 'History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -47,6 +58,70 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const context = useMemo(() => getLaravelContext(), [])
+
+  const [comments, setComments] = useState<CrmComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [documents, setDocuments] = useState<CrmLinkedDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(true)
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true)
+    try {
+      const response = await crmService.getLeadComments(context, lead.id)
+      setComments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [context, lead.id])
+
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await crmService.getLeadDocuments(context, lead.id)
+      setDocuments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [context, lead.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getLeadEmails(context, lead.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, lead.id])
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getLeadHistory(context, lead.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, lead.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadComments(); void loadDocuments(); void loadEmails(); void loadHistory() })
+  }, [loadComments, loadDocuments, loadEmails, loadHistory])
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -171,8 +246,38 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       )}
 
       {tab === 'activity' && (
-        <EmptyState icon={<CalendarClock className="size-8" aria-hidden="true" />} title="Activity history isn't built yet" />
+        <CrmScheduleTab linkedType="LEAD" linkedId={lead.id} recordLabel={`${lead.firstName ? `${lead.firstName} ` : ''}${lead.lastName}`} />
       )}
+
+      {tab === 'comments' && (
+        <SectionCard title="Comments">
+          <CommentThread
+            comments={comments}
+            loading={commentsLoading}
+            onAdd={async (text) => {
+              await crmService.addLeadComment(context, lead.id, text)
+              void loadComments()
+            }}
+          />
+        </SectionCard>
+      )}
+
+      {tab === 'documents' && (
+        <CrmDocumentTab
+          documents={documents}
+          loading={documentsLoading}
+          onUpload={async (file) => {
+            await crmService.attachLeadDocument(context, lead.id, file)
+            void loadDocuments()
+          }}
+        />
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/*
         Always mounted (hidden, not unmounted, when another tab is active) -
@@ -214,6 +319,14 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
         onClose={() => setConvertOpen(false)}
         onConverted={(message) => { setNotice(message); setConvertOpen(false); onSaved() }}
         lead={lead}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="LEAD"
+        linkedId={lead.id}
+        defaultToAddress={lead.email}
       />
     </div>
   )

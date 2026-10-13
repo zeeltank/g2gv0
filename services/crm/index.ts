@@ -9,8 +9,30 @@
 
 import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type {
   CampaignListQuery,
+  CrmAddCommentResponse,
+  CrmAuditEntry,
+  CrmAuditEntryResponse,
+  CrmComment,
+  CrmCommentsResponse,
+  CrmEmail,
+  CrmEmailLinkedType,
+  CrmEmailLinkEntriesResponse,
+  CrmEmailLinkEntry,
+  CrmEmailListQuery,
+  CrmEmailListResponse,
+  CrmEmailPayload,
+  CrmEmailResponse,
+  CrmEmailTemplate,
+  CrmEmailTemplateListQuery,
+  CrmEmailTemplateListResponse,
+  CrmEmailTemplatePayload,
+  CrmEmailTemplateResponse,
+  CrmLinkedDocument,
+  CrmLinkedDocumentResponse,
+  CrmLinkedDocumentsResponse,
   CampaignListResponse,
   CampaignPayload,
   CampaignResponse,
@@ -1119,6 +1141,167 @@ export const crmService = {
       ...(query.search ? { search: query.search } : {}),
       ...(query.status ? { status: query.status } : {}),
     }),
+
+  // ── Comments (Lead/Contact/Organization/Opportunity) ─────────────────
+  getLeadComments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmCommentsResponse>(`/crm/leads/${id}/comments`, baseParams(context)),
+  addLeadComment: (context: LaravelContext, id: string, comment: string) =>
+    apiClient.post<CrmAddCommentResponse>(`/crm/leads/${id}/comments`, { comment, ...baseParams(context) }),
+  getContactComments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmCommentsResponse>(`/crm/contacts/${id}/comments`, baseParams(context)),
+  addContactComment: (context: LaravelContext, id: string, comment: string) =>
+    apiClient.post<CrmAddCommentResponse>(`/crm/contacts/${id}/comments`, { comment, ...baseParams(context) }),
+  getOrganizationComments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmCommentsResponse>(`/crm/organizations/${id}/comments`, baseParams(context)),
+  addOrganizationComment: (context: LaravelContext, id: string, comment: string) =>
+    apiClient.post<CrmAddCommentResponse>(`/crm/organizations/${id}/comments`, { comment, ...baseParams(context) }),
+  getOpportunityComments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmCommentsResponse>(`/crm/opportunities/${id}/comments`, baseParams(context)),
+  addOpportunityComment: (context: LaravelContext, id: string, comment: string) =>
+    apiClient.post<CrmAddCommentResponse>(`/crm/opportunities/${id}/comments`, { comment, ...baseParams(context) }),
+
+  // ── Linked Documents (Lead/Contact/Organization/Opportunity/Ticket) ──
+  getLeadDocuments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmLinkedDocumentsResponse>(`/crm/leads/${id}/documents`, baseParams(context)),
+  attachLeadDocument: (context: LaravelContext, id: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('document', file)
+    return apiClient.postForm<CrmLinkedDocumentResponse>(`/crm/leads/${id}/documents`, body)
+  },
+  getContactDocuments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmLinkedDocumentsResponse>(`/crm/contacts/${id}/documents`, baseParams(context)),
+  attachContactDocument: (context: LaravelContext, id: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('document', file)
+    return apiClient.postForm<CrmLinkedDocumentResponse>(`/crm/contacts/${id}/documents`, body)
+  },
+  getOrganizationDocuments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmLinkedDocumentsResponse>(`/crm/organizations/${id}/documents`, baseParams(context)),
+  attachOrganizationDocument: (context: LaravelContext, id: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('document', file)
+    return apiClient.postForm<CrmLinkedDocumentResponse>(`/crm/organizations/${id}/documents`, body)
+  },
+  getOpportunityDocuments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmLinkedDocumentsResponse>(`/crm/opportunities/${id}/documents`, baseParams(context)),
+  attachOpportunityDocument: (context: LaravelContext, id: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('document', file)
+    return apiClient.postForm<CrmLinkedDocumentResponse>(`/crm/opportunities/${id}/documents`, body)
+  },
+  getTicketDocuments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmLinkedDocumentsResponse>(`/crm/tickets/${id}/documents`, baseParams(context)),
+  attachTicketDocument: (context: LaravelContext, id: string, file: File) => {
+    const body = new FormData()
+    body.append('token', context.token)
+    body.append('sub_institute_id', String(context.subInstituteId))
+    body.append('document', file)
+    return apiClient.postForm<CrmLinkedDocumentResponse>(`/crm/tickets/${id}/documents`, body)
+  },
+
+  // ── Emails ─────────────────────────────────────────────────────────
+  getEmails: (context: LaravelContext, query: CrmEmailListQuery = {}) =>
+    apiClient.get<CrmEmailListResponse>('/crm/emails', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.linkedType ? { linked_type: query.linkedType } : {}),
+      ...(query.linkedId ? { linked_id: query.linkedId } : {}),
+    }),
+  getEmail: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailResponse>(`/crm/emails/${id}`, baseParams(context)),
+  composeEmail: (context: LaravelContext, payload: CrmEmailPayload) =>
+    apiClient.post<CrmEmailResponse>('/crm/emails/compose', { ...payload, ...baseParams(context) }),
+  getLeadEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/leads/${id}/emails`, baseParams(context)),
+  getContactEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/contacts/${id}/emails`, baseParams(context)),
+  getOrganizationEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/organizations/${id}/emails`, baseParams(context)),
+  getOpportunityEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/opportunities/${id}/emails`, baseParams(context)),
+  getTicketEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/tickets/${id}/emails`, baseParams(context)),
+
+  // ── Email Templates ──────────────────────────────────────────────────
+  getEmailTemplates: (context: LaravelContext, query: CrmEmailTemplateListQuery = {}) =>
+    apiClient.get<CrmEmailTemplateListResponse>('/crm/email-templates', {
+      ...baseParams(context),
+      ...(query.page ? { page: String(query.page) } : {}),
+      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
+      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
+      ...(query.folder ? { folder: query.folder } : {}),
+    }),
+  getEmailTemplate: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailTemplateResponse>(`/crm/email-templates/${id}`, baseParams(context)),
+  createEmailTemplate: (context: LaravelContext, payload: CrmEmailTemplatePayload) =>
+    apiClient.post<CrmEmailTemplateResponse>('/crm/email-templates', { ...payload, ...baseParams(context) }),
+  updateEmailTemplate: (context: LaravelContext, id: string, payload: CrmEmailTemplatePayload) =>
+    apiClient.put<CrmEmailTemplateResponse>(`/crm/email-templates/${id}`, { ...payload, ...baseParams(context) }),
+  deleteEmailTemplate: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/email-templates/${id}`, baseParams(context)),
+  bulkDeleteEmailTemplates: (context: LaravelContext, ids: string[]) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/email-templates/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
+  bulkAssignEmailTemplates: (context: LaravelContext, ids: string[], assignedTo: string) =>
+    apiClient.post<CrmBulkActionResponse>('/crm/email-templates/bulk/assign', {
+      ids: ids.map(Number), assignedTo, ...baseParams(context),
+    }),
+  emailTemplatesExportUrl: (context: LaravelContext, search?: string) =>
+    buildApiUrl('/crm/email-templates/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+
+  // ── Audit Trail (generic, cross-entity) ──────────────────────────────
+  getLeadHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/leads/${id}/history`, baseParams(context)),
+  getContactHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/contacts/${id}/history`, baseParams(context)),
+  getOrganizationHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/organizations/${id}/history`, baseParams(context)),
+  getOpportunityHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/opportunities/${id}/history`, baseParams(context)),
+  getTicketHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/tickets/${id}/history`, baseParams(context)),
+  getCampaignHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/campaigns/${id}/history`, baseParams(context)),
+  getQuoteHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/quotes/${id}/history`, baseParams(context)),
+  getPriceBookHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/price-books/${id}/history`, baseParams(context)),
+  getVendorHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/vendors/${id}/history`, baseParams(context)),
+  getSalesOrderHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/sales-orders/${id}/history`, baseParams(context)),
+  getPurchaseOrderHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/purchase-orders/${id}/history`, baseParams(context)),
+  getInvoiceHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/invoices/${id}/history`, baseParams(context)),
+  getFaqHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/faqs/${id}/history`, baseParams(context)),
+  getServiceContractHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/service-contracts/${id}/history`, baseParams(context)),
+  getAssetHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/assets/${id}/history`, baseParams(context)),
+  getProductHistory: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmAuditEntryResponse>(`/crm/products/${id}/history`, baseParams(context)),
+
+  // ── CRM-linked Projects (Organization/Opportunity) ───────────────────
+  getOrganizationProjects: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: number; message: string; data: LinkedProject[] }>(`/crm/organizations/${id}/projects`, baseParams(context)),
+  getOpportunityProjects: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: number; message: string; data: LinkedProject[] }>(`/crm/opportunities/${id}/projects`, baseParams(context)),
 }
 
 export type { Lead }
