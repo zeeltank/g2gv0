@@ -7,6 +7,7 @@ import {
   AG_ANALYTICS_ACCESS_LINK,
   AG_MULTI_AGENT_ACCESS_LINK,
   AG_REFLECTION_ACCESS_LINK,
+  AG_AGENT_WORKSPACE_ACCESS_LINK,
 } from '@/lib/gtg-navigation'
 
 const AgAgentDashboard = createLazyComponent(() => import('@/domain/agentic/ag-agent-dashboard').then((m) => ({ default: m.AgAgentDashboard })))
@@ -45,5 +46,10 @@ export const M7_CONTENT: ContentRoute[] = [
   { accessLink: AG_MULTI_AGENT_ACCESS_LINK, menuId: '192', component: AgMultiAgent },
   { accessLink: AG_REFLECTION_ACCESS_LINK, menuId: '193', component: AgReflection },
   { accessLink: AG_AGENT_LIBRARY_ACCESS_LINK, menuId: '194', component: AgAgentLibrary },
-  { menuId: '195', component: AgAgentWorkspace },
+  // Real row as of 2026_11_28_090000_create_agentic_workspace_menu_row.php -
+  // previously had no accessLink at all (no row existed to give it one),
+  // so this screen was unreachable by any real navigation; the stale
+  // menuId '195' is now purely a defensive fallback, same as every entry
+  // above it.
+  { accessLink: AG_AGENT_WORKSPACE_ACCESS_LINK, menuId: '195', component: AgAgentWorkspace },
 ]

@@ -165,6 +165,16 @@ export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
 export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
 export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
+/**
+ * AgAgentWorkspace - a full working screen for ONE agent (Launch/History
+ * tabs + run results), reached by appending `?agent=<id>` to this same
+ * access_link. It used to have no real tblmenumaster_g2g row at all (every
+ * catalogue agent's "Open X" button pointed at a legacy module-code path,
+ * '/module/m7/ag-agent-workspace/...', that this app's content-map never
+ * resolved) - see 2026_11_28_090000_create_agentic_workspace_menu_row.php
+ * on hp_erp, which created this real row.
+ */
+export const AG_AGENT_WORKSPACE_ACCESS_LINK = '/module/agentic-ai/agent-workspace'
 
 export type BreadcrumbItem = {
   label: string

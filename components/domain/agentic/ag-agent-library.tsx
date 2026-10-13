@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils'
 import { useAgentDetail, useAgentMeta, useAgents } from '@/hooks/use-agentic'
 import type { Agent, AgentStatus } from '@/services/agentic'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { AG_CREATE_AGENT_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { AG_CREATE_AGENT_ACCESS_LINK, AG_AGENT_WORKSPACE_ACCESS_LINK } from '@/lib/gtg-navigation'
 
 import { AgentDetail } from './agent-detail'
 import {
@@ -188,29 +188,33 @@ export function AgAgentLibrary() {
    *
    * Six platform catalogue agents (pal-agent, marketing-strategy,
    * content-automation, newsletter-agent, seo-agent,
-   * social-media-automation) carry a `cta_link` of
-   * '/module/m7/ag-agent-workspace/ag-agent-workspace?agent=<id>' — a path
-   * this app's content-map has never resolved (confirmed directly against
-   * hooks/use-content-map.ts's CONTENT_MAP_LOADERS: it keys on the real
-   * tblmenumaster_g2g id, and there is no row reserved for a standalone
-   * workspace route). router.push-ing it always landed on the generic
-   * "not available yet" screen — this is what "opening the other agents"
-   * not working was. The detail Sheet below already renders this exact
-   * agent's own input-schema-driven launch panel (AgentDetail ->
-   * AgentLaunchPanel), so that IS the workspace; open it instead of
-   * navigating to a route that was never reachable.
+   * social-media-automation) carry a `cta_link` whose base path is
+   * AG_AGENT_WORKSPACE_ACCESS_LINK — the Agent Workspace screen
+   * (Launch/History tabs + run results). It used to be
+   * '/module/m7/ag-agent-workspace/...', a legacy module-code path this
+   * app's content-map never resolved and which had no real
+   * tblmenumaster_g2g row behind it at all (confirmed directly against
+   * hooks/use-content-map.ts's CONTENT_MAP_LOADERS, not assumed) — every one
+   * of these "Open X" buttons landed on the generic "not available yet"
+   * screen. That row now exists
+   * (2026_11_28_090000_create_agentic_workspace_menu_row.php, hp_erp), so
+   * this resolves it the same rights-aware way goCreate() already does
+   * rather than trusting the stored path's base segment directly — a
+   * profile without rights to it (shouldn't happen: the migration granted
+   * it to everyone who can already reach the Library, which is who sees
+   * this card at all) falls back to '/dashboard' instead of a 404.
    */
   const followCta = (agent: Agent) => {
     if (!agent.cta_link) return
-    if (agent.cta_link.includes('ag-agent-workspace')) {
-      setSelected(agent)
-      return
-    }
     if (agent.cta_target === 'external' || /^https?:\/\//i.test(agent.cta_link)) {
       window.open(agent.cta_link, '_blank', 'noopener,noreferrer')
       return
     }
-    router.push(agent.cta_link)
+    const query = agent.cta_link.split('?')[1]
+    const path = agent.cta_link.startsWith(AG_AGENT_WORKSPACE_ACCESS_LINK)
+      ? `${resolveAccessLink(AG_AGENT_WORKSPACE_ACCESS_LINK)}${query ? `?${query}` : ''}`
+      : agent.cta_link
+    router.push(path)
   }
 
   const goCreate = (agentId?: number) => {
