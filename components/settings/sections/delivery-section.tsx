@@ -14,6 +14,7 @@ import { apiClient } from '@/services/core'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog, SectionBlock, SectionEmpty, SectionError, SectionSkeleton } from './section-primitives'
 import { SenderProfileModal } from './sender-profile-modal'
+import { TestSendDialog } from './test-send-dialog'
 
 /**
  * EMAIL & SMS — one sender profile per module, instead of one mailbox for
@@ -37,13 +38,15 @@ import { SenderProfileModal } from './sender-profile-modal'
  * has been told HOW (the profiles list). An administrator can only fix the
  * second one from here.
  *
- * ── THE TEST BUTTON SENDS TO YOU, THROUGH THAT EXACT PROFILE ───────────────
+ * ── THE TEST BUTTON ASKS WHERE, THROUGH THAT EXACT PROFILE ─────────────────
  *
- * No address field - same reasoning as before (mailing an arbitrary address
- * on demand from the organisation's mailbox is a relay with a login screen).
- * It now also proves the RIGHT thing: the backend resolves that one row's
- * own credentials rather than the platform's shared account, so Test
- * actually tells you whether that mailbox works.
+ * `TestSendDialog` collects the address (blank defaults to the caller's own,
+ * same as before this existed) - the message itself is still fixed server-
+ * side, so this is a way to prove a mailbox works at a chosen address, not a
+ * way to send arbitrary mail. It proves the RIGHT thing either way: the
+ * backend resolves that one row's own credentials rather than the
+ * platform's shared account, so Test actually tells you whether that
+ * mailbox works.
  */
 
 type ModuleOption = { key: string; label: string }
@@ -88,6 +91,7 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
    */
   const [testingIds, setTestingIds] = useState<ReadonlySet<string>>(() => new Set())
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({})
+  const [testDialogProfile, setTestDialogProfile] = useState<SenderProfile | null>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<SenderProfile | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -145,7 +149,7 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
     })
   }, [load])
 
-  async function sendTest(profile: SenderProfile) {
+  async function sendTest(profile: SenderProfile, address: string) {
     if (testingIds.has(profile.id)) return
 
     setTestingIds((current) => new Set(current).add(profile.id))
@@ -158,7 +162,7 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
       const context = resolveContext()
       const response = await apiClient.post<{ status: number; message: string }>(
         `/organization/delivery/profiles/${profile.id}/test`,
-        { type: 'api', token: context.token },
+        { type: 'api', token: context.token, ...(address ? { to: address } : {}) },
       )
 
       setTestResults((current) => ({ ...current, [profile.id]: { ok: true, message: response.message } }))
@@ -319,9 +323,9 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Send a test from ${profile.label}`}
-                              title="Send myself a test"
+                              title="Send a test email"
                               disabled={isTesting}
-                              onClick={() => void sendTest(profile)}
+                              onClick={() => setTestDialogProfile(profile)}
                             >
                               {isTesting ? (
                                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -420,6 +424,18 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
         profile={editing}
         modules={options?.modules ?? []}
         usedModuleKeys={usedModuleKeys}
+      />
+
+      <TestSendDialog
+        isOpen={testDialogProfile !== null}
+        onClose={() => setTestDialogProfile(null)}
+        onSend={(address) => {
+          const profile = testDialogProfile
+          setTestDialogProfile(null)
+          if (profile) void sendTest(profile, address)
+        }}
+        profileLabel={testDialogProfile?.label ?? ''}
+        sending={testDialogProfile !== null && testingIds.has(testDialogProfile.id)}
       />
 
       <ConfirmDialog
