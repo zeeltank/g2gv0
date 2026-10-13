@@ -79,98 +79,121 @@ export type ModuleOption = { key: string; label: string; joinable: string[] }
 
 export type ReportShare = { id: number; viewer_user_id: number; can_edit: boolean; viewer_name: string | null }
 
-function params(context: LaravelContext, extra: Record<string, unknown> = {}) {
-  return {
-    ...(context.token ? { type: 'api', token: context.token } : {}),
-    ...extra,
-  }
+/*
+ * TWO SEPARATE HELPERS, NOT ONE — a real bug caught live (a deployed "Unknown
+ * scope" error): `apiClient.get`/`delete` take a `Record<string, string>`
+ * that THEY turn into the query string internally (`api-client.ts`'s own
+ * `request()` always does `url += '?' + new URLSearchParams(params)`,
+ * unconditionally). Building a SECOND `?query` string by hand into the
+ * endpoint path, the way an earlier version of this file did, produces a
+ * literal second `?` in the final URL — not a syntax error, just silently
+ * wrong: everything after the first `&` of the hand-built part gets
+ * swallowed into the previous key's value by the query parser, so `scope`
+ * from a hand-built qs() could arrive intact while `view`/`folder_id`
+ * (or vice versa, depending on write order) arrive corrupted or missing.
+ * `apiClient.post`/`put`'s second argument is a request BODY instead
+ * (arbitrary JSON, sent via `JSON.stringify`, nested objects like
+ * `definition` are fine) — a different contract, so it gets its own helper
+ * rather than overloading one function for both shapes.
+ */
+function authParams(context: LaravelContext): Record<string, string> {
+  return context.token ? { type: 'api', token: context.token } : {}
 }
 
-function qs(extra: Record<string, string | number | undefined>): string {
-  const parts = Object.entries(extra)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+/** For GET/DELETE — everything becomes part of the URL's query string, so every value must already be a string; `undefined`/`null`/`''` are dropped rather than becoming the literal text "undefined". */
+function queryParams(context: LaravelContext, extra: Record<string, string | number | boolean | undefined | null> = {}): Record<string, string> {
+  const result = authParams(context)
 
-  return parts.length ? `?${parts.join('&')}` : ''
+  for (const [key, value] of Object.entries(extra)) {
+    if (value === undefined || value === null || value === '') continue
+    result[key] = String(value)
+  }
+
+  return result
+}
+
+/** For POST/PUT — becomes the JSON request body, so nested objects (e.g. `definition`) pass through untouched. */
+function bodyParams(context: LaravelContext, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return { ...authParams(context), ...extra }
 }
 
 export const reportBuilderService = {
   // Folders
   listFolders: (context: LaravelContext, scope: ReportScope) =>
     apiClient.get<{ status: boolean; data: { folders: ReportFolder[] } }>(
-      `/report-builder/folders${qs({ scope })}`,
-      params(context),
+      '/report-builder/folders',
+      queryParams(context, { scope }),
     ),
 
   createFolder: (context: LaravelContext, scope: ReportScope, name: string) =>
     apiClient.post<{ status: boolean; message: string; data: { id: number } }>(
-      `/report-builder/folders${qs({ scope })}`,
-      params(context, { name }),
+      '/report-builder/folders',
+      bodyParams(context, { scope, name }),
     ),
 
   renameFolder: (context: LaravelContext, id: number, name: string) =>
-    apiClient.put<{ status: boolean; message: string }>(`/report-builder/folders/${id}`, params(context, { name })),
+    apiClient.put<{ status: boolean; message: string }>(`/report-builder/folders/${id}`, bodyParams(context, { name })),
 
   deleteFolder: (context: LaravelContext, id: number) =>
-    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/folders/${id}`, params(context)),
+    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/folders/${id}`, queryParams(context)),
 
   // Modules / fields (for the builder)
   listModules: (context: LaravelContext, scope: ReportScope) =>
     apiClient.get<{ status: boolean; data: { modules: ModuleOption[] } }>(
-      `/report-builder/modules${qs({ scope })}`,
-      params(context),
+      '/report-builder/modules',
+      queryParams(context, { scope }),
     ),
 
   listFields: (context: LaravelContext, moduleKey: string) =>
     apiClient.get<{ status: boolean; data: { fields: ModuleField[] } }>(
       `/report-builder/modules/${encodeURIComponent(moduleKey)}/fields`,
-      params(context),
+      queryParams(context),
     ),
 
   // Reports
   listReports: (context: LaravelContext, scope: ReportScope, view: ReportView, folderId?: number) =>
     apiClient.get<{ status: boolean; data: { reports: ReportSummary[] } }>(
-      `/report-builder${qs({ scope, view, folder_id: folderId })}`,
-      params(context),
+      '/report-builder',
+      queryParams(context, { scope, view, folder_id: folderId }),
     ),
 
   getReport: (context: LaravelContext, id: number) =>
-    apiClient.get<{ status: boolean; data: ReportDetail }>(`/report-builder/${id}`, params(context)),
+    apiClient.get<{ status: boolean; data: ReportDetail }>(`/report-builder/${id}`, queryParams(context)),
 
   createReport: (context: LaravelContext, payload: {
     scope: ReportScope; folder_id: number | null; report_type: ReportType; primary_module: string
     title: string; description?: string; sharingtype?: 'Private' | 'Public'; definition: ReportDefinition
   }) =>
-    apiClient.post<{ status: boolean; message: string; data: ReportDetail }>('/report-builder', params(context, payload)),
+    apiClient.post<{ status: boolean; message: string; data: ReportDetail }>('/report-builder', bodyParams(context, payload)),
 
   updateReport: (context: LaravelContext, id: number, payload: {
     scope: ReportScope; folder_id: number | null; report_type: ReportType; primary_module: string
     title: string; description?: string; sharingtype?: 'Private' | 'Public'; definition: ReportDefinition
   }) =>
-    apiClient.put<{ status: boolean; message: string; data: ReportDetail }>(`/report-builder/${id}`, params(context, payload)),
+    apiClient.put<{ status: boolean; message: string; data: ReportDetail }>(`/report-builder/${id}`, bodyParams(context, payload)),
 
   deleteReport: (context: LaravelContext, id: number) =>
-    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}`, params(context)),
+    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}`, queryParams(context)),
 
   preview: (context: LaravelContext, scope: ReportScope, reportType: ReportType, primaryModule: string, definition: ReportDefinition) =>
     apiClient.post<{ status: boolean; data: ReportResult; message?: string }>(
       '/report-builder/preview',
-      params(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
+      bodyParams(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
     ),
 
   run: (context: LaravelContext, id: number) =>
-    apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(`/report-builder/${id}/run`, params(context)),
+    apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(`/report-builder/${id}/run`, queryParams(context)),
 
   exportUrl: (context: LaravelContext, id: number) =>
-    buildApiUrl(`/report-builder/${id}/export`, params(context)),
+    buildApiUrl(`/report-builder/${id}/export`, queryParams(context)),
 
   // Sharing
   listShares: (context: LaravelContext, id: number) =>
-    apiClient.get<{ status: boolean; data: { shares: ReportShare[] } }>(`/report-builder/${id}/shares`, params(context)),
+    apiClient.get<{ status: boolean; data: { shares: ReportShare[] } }>(`/report-builder/${id}/shares`, queryParams(context)),
 
   share: (context: LaravelContext, id: number, viewerUserId: number, canEdit: boolean) =>
-    apiClient.post<{ status: boolean; message: string }>(`/report-builder/${id}/shares`, params(context, { viewer_user_id: viewerUserId, can_edit: canEdit })),
+    apiClient.post<{ status: boolean; message: string }>(`/report-builder/${id}/shares`, bodyParams(context, { viewer_user_id: viewerUserId, can_edit: canEdit })),
 
   unshare: (context: LaravelContext, id: number, shareId: number) =>
-    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/shares/${shareId}`, params(context)),
+    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/shares/${shareId}`, queryParams(context)),
 }
