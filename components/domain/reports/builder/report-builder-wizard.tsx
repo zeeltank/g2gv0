@@ -240,7 +240,7 @@ export function ReportBuilderWizard({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
+      <DialogContent className="flex h-[88vh] w-[calc(100%-2rem)] max-w-5xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{reportId ? 'Edit Report' : 'New Report'}</DialogTitle>
         </DialogHeader>
@@ -301,38 +301,64 @@ export function ReportBuilderWizard({
             <div className="space-y-2">
               {loadingFields && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />}
               {!loadingFields && fields.length === 0 && <p className="text-sm text-muted-foreground">No fields available for this module yet.</p>}
-              {fields.map((field) => {
-                const col = columns.find((c) => c.field === field.key)
 
-                return (
-                  <label key={field.key} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-                    <span className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={!!col}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setColumns((cur) => [...cur, { module: primaryModule, field: field.key, label: field.label, visible: true }])
-                          } else {
-                            setColumns((cur) => cur.filter((c) => c.field !== field.key))
-                          }
-                        }}
-                      />
-                      {field.label}
-                    </span>
-                    {col && field.aggregatable && (reportType === 'summary' || reportType === 'chart') && (
-                      <select
-                        value={col.aggregate ?? ''}
-                        onChange={(e) => setColumns((cur) => cur.map((c) => (c.field === field.key ? { ...c, aggregate: (e.target.value || null) as ReportColumn['aggregate'] } : c)))}
-                        className="rounded border border-border bg-background px-2 py-1 text-xs"
-                      >
-                        <option value="">no aggregate</option>
-                        {AGGREGATES.map((a) => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                    )}
-                  </label>
-                )
-              })}
+              {!loadingFields && fields.length > 0 && (
+                <label className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={columns.length === fields.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = columns.length > 0 && columns.length < fields.length
+                      }}
+                      onChange={(e) => {
+                        setColumns(
+                          e.target.checked
+                            ? fields.map((f) => ({ module: primaryModule, field: f.key, label: f.label, visible: true }))
+                            : [],
+                        )
+                      }}
+                    />
+                    Select all
+                  </span>
+                  <span className="text-xs text-muted-foreground">{columns.length} of {fields.length} selected</span>
+                </label>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {fields.map((field) => {
+                  const col = columns.find((c) => c.field === field.key)
+
+                  return (
+                    <label key={field.key} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                      <span className="flex items-center gap-2 truncate text-sm">
+                        <input
+                          type="checkbox"
+                          checked={!!col}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setColumns((cur) => [...cur, { module: primaryModule, field: field.key, label: field.label, visible: true }])
+                            } else {
+                              setColumns((cur) => cur.filter((c) => c.field !== field.key))
+                            }
+                          }}
+                        />
+                        <span className="truncate">{field.label}</span>
+                      </span>
+                      {col && field.aggregatable && (reportType === 'summary' || reportType === 'chart') && (
+                        <select
+                          value={col.aggregate ?? ''}
+                          onChange={(e) => setColumns((cur) => cur.map((c) => (c.field === field.key ? { ...c, aggregate: (e.target.value || null) as ReportColumn['aggregate'] } : c)))}
+                          className="shrink-0 rounded border border-border bg-background px-2 py-1 text-xs"
+                        >
+                          <option value="">no aggregate</option>
+                          {AGGREGATES.map((a) => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
           )}
 
