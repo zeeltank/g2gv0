@@ -854,6 +854,21 @@ export interface CrmQuoteLineItemsResponse {
   data: CrmQuoteLineItem[]
 }
 
+/** Incidental gap-closing: Quotes never got a stage-history table/tab, unlike every order-to-cash sibling. */
+export interface CrmQuoteStageHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmQuoteStageHistoryResponse {
+  status: number
+  message: string
+  data: CrmQuoteStageHistoryEntry[]
+}
+
 // ── Vendors ───────────────────────────────────────────────────────────────
 // `CrmVendor`, never bare `Vendor` - `services/lms/governance.ts` already
 // exports a bare `Vendor` type for an unrelated LMS-training-suppliers

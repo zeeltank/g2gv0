@@ -163,7 +163,13 @@ export function DepartmentDocumentsTab({
       const response = await accountService.searchDocuments(context, {
         q: debouncedQuery || undefined,
         department_id: departmentId,
-        folder_id: currentFolderId ?? 0,
+        // A typed search looks across this whole department, not just
+        // whichever exact folder happens to be open - the same "don't
+        // silently hide nested-folder results" fix as the main library
+        // page, just without a visible toggle since this screen is
+        // deliberately simpler (one department's folder space only).
+        // Plain browsing (no query) keeps the exact-folder scope.
+        folder_id: debouncedQuery ? undefined : (currentFolderId ?? 0),
         page,
         per_page: PER_PAGE,
       })

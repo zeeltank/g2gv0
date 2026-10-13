@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Building2, Calendar, DollarSign, Download, FileText,
+  ArrowLeft, Building2, Calendar, DollarSign, Download, FileCheck2, FileText,
   Loader2, MapPin, Pencil, Target, User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import { KPICard } from '@/components/shared/business/kpi-card'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
@@ -16,7 +17,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPriceBookItem, CrmProduct, CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
+import type { CrmPriceBookItem, CrmProduct, CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmQuoteStageHistoryEntry, CrmTaxRate } from '@/types/crm'
 import { CreateQuoteModal } from './create-quote-modal'
 import { QuoteLineItemTable } from './quote-line-item-table'
 import { useAssignableEmployees } from './lead-employees'
@@ -28,10 +29,11 @@ interface Props {
   quoteStages: CrmPicklistValue[]
 }
 
-type Tab = 'details' | 'line-items' | 'custom'
+type Tab = 'details' | 'line-items' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'line-items', label: 'Line Items' },
+  { id: 'history', label: 'Stage History' },
 ]
 
 function money(currency: string | null, n: number): string {
@@ -67,6 +69,8 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
   const [products, setProducts] = useState<CrmProduct[]>([])
   const [taxRates, setTaxRates] = useState<CrmTaxRate[]>([])
   const [priceBookItems, setPriceBookItems] = useState<CrmPriceBookItem[]>([])
+  const [stageHistory, setStageHistory] = useState<CrmQuoteStageHistoryEntry[]>([])
+  const [stageHistoryLoading, setStageHistoryLoading] = useState(true)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -90,9 +94,21 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
     }
   }, [context, quote.id])
 
+  const loadStageHistory = useCallback(async () => {
+    setStageHistoryLoading(true)
+    try {
+      const response = await crmService.getQuoteStageHistory(context, quote.id)
+      setStageHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setStageHistoryLoading(false)
+    }
+  }, [context, quote.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadLineItems() })
-  }, [loadLineItems])
+    queueMicrotask(() => { void loadLineItems(); void loadStageHistory() })
+  }, [loadLineItems, loadStageHistory])
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
@@ -254,6 +270,32 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
                 </Button>
                 <p className="text-xs text-muted-foreground">Totals shown while editing are a preview - the server recomputes everything on save.</p>
               </div>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {tab === 'history' && (
+        <SectionCard title="Stage History">
+          {stageHistoryLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading stage history…
+            </div>
+          )}
+          {!stageHistoryLoading && stageHistory.length === 0 && (
+            <EmptyState icon={<FileCheck2 className="size-8" aria-hidden="true" />} title="No stage changes recorded yet" />
+          )}
+          {!stageHistoryLoading && stageHistory.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {stageHistory.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                  <span className="text-foreground">
+                    {entry.fromStage || 'None'} <span className="text-muted-foreground">→</span> {entry.toStage || 'None'}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{entry.createdAt}</span>
+                </div>
+              ))}
             </div>
           )}
         </SectionCard>
