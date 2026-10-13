@@ -151,11 +151,22 @@ export function SenderProfileModal({ isOpen, onClose, onSaved, profile, modules,
               value={form.moduleKey}
               onChange={(v) => set('moduleKey', v)}
               options={availableModules.map((m) => ({ value: m.key, label: m.label }))}
-              placeholder="Choose a module…"
+              placeholder={availableModules.length > 0 ? 'Choose a module…' : 'No modules left to assign'}
+              disabled={availableModules.length === 0}
             />
-            <p className="text-xs text-muted-foreground">
-              Every email that module sends will go through this mailbox. Each module can have at most one profile.
-            </p>
+            {availableModules.length === 0 ? (
+              <p className="text-xs text-warning">
+                Every module already has its own profile. Edit one of them instead, or remove one first.
+              </p>
+            ) : form.moduleKey === 'default' ? (
+              <p className="text-xs text-muted-foreground">
+                This becomes the organisation-wide fallback: every module with no profile of its own sends through it.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Every email that module sends will go through this mailbox. Each module can have at most one profile.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

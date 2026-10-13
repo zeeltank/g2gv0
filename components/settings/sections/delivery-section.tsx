@@ -1,14 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Check, Loader2, Mail, Pencil, Plus, Send, ShieldAlert, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useLaravelContext } from '@/hooks/use-agentic'
 import { useUnsavedGuard } from '@/hooks/use-unsaved-guard'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { apiClient } from '@/services/core'
+import { cn } from '@/lib/utils'
 import { ConfirmDialog, SectionBlock, SectionEmpty, SectionError, SectionSkeleton } from './section-primitives'
 import { SenderProfileModal } from './sender-profile-modal'
 
@@ -77,8 +80,14 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<SenderProfile | null>(null)
 
-  const [testingId, setTestingId] = useState<string | null>(null)
-  const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
+  /*
+   * EACH ROW'S OWN TEST, INDEPENDENTLY — same fix as People & Access's own
+   * `busy`/`results` pair. A single `testingId`/`testResult` would freeze
+   * every row's button behind whichever test is in flight, and a second
+   * test would silently erase the first row's result before anyone read it.
+   */
+  const [testingIds, setTestingIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({})
 
   const [deleteTarget, setDeleteTarget] = useState<SenderProfile | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -137,8 +146,13 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
   }, [load])
 
   async function sendTest(profile: SenderProfile) {
-    setTestingId(profile.id)
-    setTestResult(null)
+    if (testingIds.has(profile.id)) return
+
+    setTestingIds((current) => new Set(current).add(profile.id))
+    setTestResults((current) => {
+      const { [profile.id]: _dropped, ...rest } = current
+      return rest
+    })
 
     try {
       const context = resolveContext()
@@ -147,15 +161,21 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
         { type: 'api', token: context.token },
       )
 
-      setTestResult({ id: profile.id, ok: true, message: response.message })
+      setTestResults((current) => ({ ...current, [profile.id]: { ok: true, message: response.message } }))
     } catch (caught) {
-      setTestResult({
-        id: profile.id,
-        ok: false,
-        message: caught instanceof Error ? caught.message : 'The test could not be sent.',
-      })
+      setTestResults((current) => ({
+        ...current,
+        [profile.id]: {
+          ok: false,
+          message: caught instanceof Error ? caught.message : 'The test could not be sent.',
+        },
+      }))
     } finally {
-      setTestingId(null)
+      setTestingIds((current) => {
+        const next = new Set(current)
+        next.delete(profile.id)
+        return next
+      })
     }
   }
 
@@ -169,6 +189,10 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
         `/organization/delivery/profiles/${deleteTarget.id}`,
         { type: 'api', token: context.token },
       )
+      setTestResults((current) => {
+        const { [deleteTarget.id]: _dropped, ...rest } = current
+        return rest
+      })
       setDeleteTarget(null)
       await load()
     } catch (caught) {
@@ -247,73 +271,123 @@ export function DeliverySection({ onDirtyChange }: DirtyReporter = {}) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell className="font-medium text-foreground">{profile.label}</TableCell>
-                    <TableCell>
-                      <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {profile.moduleLabel}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{profile.fromAddress}</TableCell>
-                    <TableCell>
-                      {profile.hasPassword ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-success">
-                          <Check className="size-3.5" aria-hidden="true" />
-                          Configured
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No password saved</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Send a test from ${profile.label}`}
-                          title="Send myself a test"
-                          disabled={testingId === profile.id}
-                          onClick={() => void sendTest(profile)}
-                        >
-                          {testingId === profile.id ? (
-                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                {profiles.map((profile) => {
+                  const result = testResults[profile.id]
+                  const isTesting = testingIds.has(profile.id)
+
+                  return (
+                    <Fragment key={profile.id}>
+                      <TableRow className={result ? 'border-b-0' : undefined}>
+                        <TableCell className="font-medium text-foreground">{profile.label}</TableCell>
+                        <TableCell>
+                          {/*
+                            * The organisation-wide default is structurally
+                            * different from the rest - every module with no
+                            * profile of its own falls back to this one - so
+                            * it gets the one coloured badge instead of
+                            * reading as just another row in the list.
+                            */}
+                          <Badge variant={profile.moduleKey === 'default' ? 'navy' : 'outline'}>
+                            {profile.moduleLabel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="block text-foreground">{profile.fromAddress}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {profile.server}{profile.port !== null ? `:${profile.port}` : ''}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {profile.hasPassword ? (
+                            <StatusBadge
+                              variant="active"
+                              icon={<Check className="size-3" aria-hidden="true" />}
+                              label="Configured"
+                            />
                           ) : (
-                            <Send className="size-4" aria-hidden="true" />
+                            <StatusBadge
+                              variant="warning"
+                              icon={<AlertCircle className="size-3" aria-hidden="true" />}
+                              label="No password saved"
+                              title="This profile cannot send until a password is added."
+                            />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Edit ${profile.label}`}
-                          title="Edit"
-                          onClick={() => { setEditing(profile); setModalOpen(true) }}
-                        >
-                          <Pencil className="size-4" aria-hidden="true" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Remove ${profile.label}`}
-                          title="Remove"
-                          onClick={() => setDeleteTarget(profile)}
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Send a test from ${profile.label}`}
+                              title="Send myself a test"
+                              disabled={isTesting}
+                              onClick={() => void sendTest(profile)}
+                            >
+                              {isTesting ? (
+                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <Send className="size-4" aria-hidden="true" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${profile.label}`}
+                              title="Edit"
+                              onClick={() => { setEditing(profile); setModalOpen(true) }}
+                            >
+                              <Pencil className="size-4" aria-hidden="true" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Remove ${profile.label}`}
+                              title="Remove"
+                              onClick={() => setDeleteTarget(profile)}
+                            >
+                              <Trash2 className="size-4" aria-hidden="true" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {/*
+                        * THIS PROFILE'S OWN RESULT, NOT A SHARED BANNER BELOW
+                        * THE TABLE.
+                        *
+                        * A single result under the table only ever shows the
+                        * LAST test sent - testing "Hiring" and then "CRM"
+                        * silently replaced Hiring's answer before anyone had
+                        * read it. Anchoring the message to its own row means
+                        * testing two profiles in a row loses neither.
+                        */}
+                      {result && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={5} className="py-0 pb-3 pt-0">
+                            <div
+                              className={cn(
+                                'flex items-start gap-2 rounded-lg p-3 text-sm',
+                                result.ok
+                                  ? 'bg-success/10 text-success'
+                                  : 'bg-destructive/10 text-destructive',
+                              )}
+                            >
+                              {result.ok ? (
+                                <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                              ) : (
+                                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                              )}
+                              <span>{result.message}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
-        )}
-
-        {testResult && (
-          <Alert variant={testResult.ok ? 'success' : 'destructive'} className="mt-4">
-            {testResult.ok ? <Check className="size-4" aria-hidden="true" /> : <AlertCircle className="size-4" aria-hidden="true" />}
-            <AlertDescription>{testResult.message}</AlertDescription>
-          </Alert>
         )}
 
         <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
