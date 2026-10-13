@@ -195,7 +195,8 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
           </span>
         </div>
 
-        <h4 className="break-words text-base font-semibold leading-snug text-foreground">{c?.organisation_line ?? o.company_name}</h4>
+        {c?.needs_line && <p className="break-words text-base font-semibold leading-snug text-foreground">{c.needs_line}</p>}
+        <h4 className={c?.needs_line ? 'break-words text-sm font-medium leading-snug text-muted-foreground' : 'break-words text-base font-semibold leading-snug text-foreground'}>{c?.organisation_line ?? o.company_name}</h4>
 
         <div className="space-y-1">
           <p className="break-words text-sm font-semibold leading-snug text-foreground">{c?.headline || o.observed_event}</p>
@@ -228,6 +229,14 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
             </a>
           ) : (c?.source.text ?? '')}
         </p>
+
+        {c?.account?.crm_ref && (
+          <p className="text-xs text-muted-foreground">
+            In your CRM as <span className="font-medium text-foreground">{c.account.crm_ref}</span>
+            {c.account.crm_owner ? ` · owner ${c.account.crm_owner}` : ''}
+            {c.account.contact_name ? ` · contact ${c.account.contact_name}` : ''}
+          </p>
+        )}
 
         <details className="group rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
           <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">Details for our team</summary>
