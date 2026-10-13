@@ -69,7 +69,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchModuleUsage(module.key)
+    fetchModuleUsage(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         setUsage(next);
@@ -82,7 +82,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
         setLoading(false);
       });
 
-    fetchRuns({ module: module.key, limit: 200 })
+    fetchRuns({ module: module.key, limit: 200, rollup: true })
       .then((next) => {
         if (!cancelled) setRuns(next);
       })

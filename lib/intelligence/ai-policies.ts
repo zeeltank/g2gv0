@@ -120,8 +120,8 @@ export function fetchAiPolicyOptions(): Promise<AiPolicyOptions> {
 }
 
 /** Policies for one module. Omit `moduleKey` for every policy the organisation can see. */
-export function fetchAiPolicies(moduleKey?: string | null): Promise<AiPolicyIndex> {
-  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}` : ''
+export function fetchAiPolicies(moduleKey?: string | null, options: { rollup?: boolean } = {}): Promise<AiPolicyIndex> {
+  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}${options.rollup ? '&rollup=1' : ''}` : ''
 
   return aiRequest<AiPolicyIndex>(`/policies${query}`)
 }

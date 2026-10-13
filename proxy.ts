@@ -16,10 +16,7 @@ export function proxy(request: NextRequest) {
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
 
-  // Redirect authenticated users away from login
-  if (isAuthenticated && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
+
 
   // Redirect unauthenticated users to login for protected routes
   if (!isAuthenticated && isProtectedRoute) {

@@ -41,6 +41,11 @@ export function BulkCsvPanel({
         <div>
           <h3 className="font-semibold">Bulk Task Upload</h3>
           <p className="text-xs text-muted-foreground">Download the format first, then upload the completed CSV.</p>
+          <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+            <li><span className="font-medium text-foreground">Required:</span> Task Title, Employee Name (Assigned To)</li>
+            <li><span className="font-medium text-foreground">Optional:</span> Project Code, Department, Job Role, Observer, Priority, Start Date, Start/End Time, Deadline, Repeat days</li>
+            <li>Assign one task to several people by separating names with a semicolon, e.g. <span className="font-mono">Jane Doe;John Smith</span></li>
+          </ul>
         </div>
         <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Back to the single task form">
           <X className="size-4" />

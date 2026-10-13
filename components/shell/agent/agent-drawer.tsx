@@ -3,21 +3,26 @@
 import { Bot, X } from 'lucide-react'
 import { AgentChat, type Message } from './agent-chat'
 import { IconButton } from '@/components/ui/icon-button'
+import type { EntityMatch } from '@/lib/page-entities/types'
 
 interface AgentPanelProps {
+  suggestedPrompts?: string[]
   messages: Message[]
   isLoading?: boolean
   error?: string | null
   onClose?: () => void
   onSendMessage?: (message: string) => void | Promise<void>
+  onOpenEntity?: (providerKey: string, match: EntityMatch, action?: 'open' | 'reveal') => void
 }
 
 export function AgentPanel({
+  suggestedPrompts,
   messages,
   isLoading,
   error,
   onClose,
   onSendMessage,
+  onOpenEntity,
 }: AgentPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-background via-background to-surface-muted/30">
@@ -49,10 +54,12 @@ export function AgentPanel({
       </div>
 
       <AgentChat
+        suggestedPrompts={suggestedPrompts}
         messages={messages}
         isLoading={isLoading}
         error={error}
         onSendMessage={onSendMessage}
+        onOpenEntity={onOpenEntity}
       />
     </div>
   )

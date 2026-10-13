@@ -93,7 +93,7 @@ export default function WhatsComingPage() {
       />
 
       <RoadmapSection
-        title="AI & Intelligence"
+        title="AI and insights"
         blurb="Capabilities the platform serves once and every module calls."
         rows={capabilities}
       />

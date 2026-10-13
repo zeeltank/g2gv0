@@ -6,6 +6,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  // The shared AI core ships TypeScript source; Next must compile it.
+  transpilePackages: ['darshana-ai-core'],
   logging: {
     fetches: {
       fullUrl: true,
@@ -31,6 +33,25 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/opportunities',
+        destination: '/signals',
+        permanent: false,
+      },
+      {
+        source: '/opportunities/:path*',
+        destination: '/signals',
+        permanent: false,
+      },
+      {
+        source: '/ingestion-engine',
+        destination: '/ingestion',
+        permanent: false,
+      },
+    ]
   },
 }
 

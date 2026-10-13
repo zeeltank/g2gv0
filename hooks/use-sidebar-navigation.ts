@@ -89,8 +89,29 @@ function buildModuleTree(rawModules: SidebarMenuNode[]): NavModule[] {
   }))
 }
 
+/**
+ * Top-level modules kept out of the rendered sidebar list, by their stable
+ * `access_link` rather than a numeric id — dev and live have been observed to
+ * disagree on a row's id for the same menu_name/access_link (see the hide
+ * migrations' own matching style), so an id would silently target the wrong
+ * row on one host.
+ *
+ * This does NOT hide the screens themselves or touch any right: it only
+ * drops the entry from `sidebarModules` (what `<GtgSidebar>` renders).
+ * `modules` (full, unfiltered) is still what `resolveAccessLink` searches, so
+ * a deep link into one of these modules — e.g. "Agent Management" in the AI
+ * & Intelligence launcher, which resolves `/module/agentic-ai/agentic-library`
+ * — keeps working for whoever already has rights to it. Someone with no
+ * rights to the module still can't reach it either way; nothing about
+ * can_view enforcement changes.
+ */
+const SIDEBAR_HIDDEN_ACCESS_LINKS = new Set<string>(['/module/agentic-ai'])
+
 export interface SidebarNavigationResult {
+  /** Full tree, rights-filtered but otherwise complete — what resolution (resolveAccessLink, getRoutePath) reads. */
   modules: NavModule[]
+  /** `modules` minus `SIDEBAR_HIDDEN_ACCESS_LINKS` — what `<GtgSidebar>` should render. */
+  sidebarModules: NavModule[]
   loading: boolean
   error: string | null
   /** null when nothing is mapped — the caller must decline to navigate, not guess. */
@@ -147,15 +168,18 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * revoking it is supposed to mean. /dashboard itself stays reachable by URL,
    * so this removes the link, not the page.
    */
-  const modules = useMemo(
-    () => buildModuleTree(query.data?.data ?? []),
-    [query.data],
+  const modules = useMemo(() => {
+    // Signals, Ingestion Engine, Product Portfolio and Partner Network used to be injected here as
+    // standalone sidebar links. They are intentionally no longer added; their routes and pages
+    // are untouched (see parseRoutePath below), and Intelligence Loop comes from the server menu.
+    return buildModuleTree(query.data?.data ?? [])
+  }, [query.data])
+
+  const sidebarModules = useMemo(
+    () => modules.filter((module) => !SIDEBAR_HIDDEN_ACCESS_LINKS.has(module.accessLink ?? '')),
+    [modules],
   )
 
-  // `${moduleId}:${menuId}:${submenuId}` -> access_link, and the reverse lookup.
-  // ActiveNav only carries 3 ids, so for a node deeper than module->menu->submenu,
-  // menuId is its immediate parent and submenuId is the node itself — the tree
-  // itself (walked via findNodePath) is what actually carries full depth.
   const { pathByKey, keyByPath } = useMemo(() => {
     const pathByKey = new Map<string, string>()
     const keyByPath = new Map<string, ActiveNav>()
@@ -184,35 +208,37 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return { pathByKey, keyByPath }
   }, [modules])
 
-  /**
-   * Where a nav selection goes, or NULL when nothing is mapped to it.
-   *
-   * It used to answer '/dashboard' for anything it could not resolve, and that
-   * default is what hid every bug in this file: a sidebar click built from the
-   * wrong key did not fail, it quietly opened the dashboard — which looks enough
-   * like working software that nobody investigates. Returning null makes a miss
-   * something the caller has to handle.
-   *
-   * The `if (active.moduleId === 'm0') return '/dashboard'` short-circuit is gone
-   * with it. 'm0' was the hardcoded HOME_MODULE's id; that module no longer
-   * exists, so the id matched no row in the sidebar and nothing highlighted —
-   * including on /dashboard itself. The dashboard is an ordinary menu row now
-   * and resolves through the same lookup as everything else.
-   */
   const getRoutePath = (active: ActiveNav): string | null => {
     return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
   }
 
   const parseRoutePath = (pathname: string): ActiveNav | null => {
+    if (pathname.startsWith('/signals')) {
+      return { moduleId: 'signals', menuId: 'signals', submenuId: 'signals' }
+    }
+    if (pathname.startsWith('/ingestion')) {
+      return { moduleId: 'ingestion', menuId: 'ingestion', submenuId: 'ingestion' }
+    }
+    if (pathname.startsWith('/portfolio')) {
+      return { moduleId: 'portfolio', menuId: 'portfolio', submenuId: 'portfolio' }
+    }
+    if (pathname.startsWith('/partners')) {
+      return { moduleId: 'partners', menuId: 'partners', submenuId: 'partners' }
+    }
     return keyByPath.get(pathname) ?? null
   }
 
   const resolveAccessLink = (accessLink: string): string => {
+    if (accessLink === '/signals') return '/signals'
+    if (accessLink === '/ingestion') return '/ingestion'
+    if (accessLink === '/portfolio') return '/portfolio'
+    if (accessLink === '/partners') return '/partners'
     return getRouteByAccessLink(modules, accessLink) ?? '/dashboard'
   }
 
   return {
     modules,
+    sidebarModules,
     loading: ready && query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     getRoutePath,

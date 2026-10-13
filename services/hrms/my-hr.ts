@@ -153,4 +153,19 @@ export const myHrService = {
    */
   getForm16: (context: LaravelContext, year: number) =>
     apiClient.get<Envelope<MyForm16>>(`/my-hr/form-16/${year}`, withLaravelParams(context)),
+
+  /**
+   * Render the same figures to a PDF and file it into the Document Library.
+   *
+   * Form 16 was a live-computed report with nothing to download for a
+   * previous year without recomputing it on screen - this is what makes a
+   * past year's figures into an actual document. Upserts on the year: this
+   * can be called again (e.g. after a correction) and replaces the stored
+   * PDF rather than filing a duplicate.
+   */
+  generateForm16: (context: LaravelContext, year: number) =>
+    apiClient.post<Envelope<{ id: number }>>(
+      `/my-hr/form-16/${year}/generate`,
+      withLaravelParams(context),
+    ),
 }

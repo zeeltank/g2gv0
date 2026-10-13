@@ -72,7 +72,7 @@ export function EmployeeAvatar({
 
   if (usable) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- object-store URLs are not next/image sources
+       
       <img
         src={src as string}
         alt={name ?? ''}

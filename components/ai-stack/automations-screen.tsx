@@ -117,8 +117,8 @@ export function AiStackAutomationsScreen({ module }: { module: AiStackModule }) 
   const rbacKey = aiStackRbacKey(module);
 
   // Tool agents, on the central Agent Management engine.
-  const agents = useBrainResource(() => fetchAgents({ module: module.key }), [module.key]);
-  const runs = useBrainResource(() => fetchRuns({ module: module.key, limit: 100 }), [module.key]);
+  const agents = useBrainResource(() => fetchAgents({ module: module.key, rollup: true }), [module.key]);
+  const runs = useBrainResource(() => fetchRuns({ module: module.key, limit: 100, rollup: true }), [module.key]);
   const canCreate = usePermission(rbacKey, 'create');
   const canRun = usePermission(rbacKey, 'update');
 

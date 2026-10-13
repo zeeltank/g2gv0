@@ -41,7 +41,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Database, Loader2, RefreshCw, Table2 } from 'lucide-react'
+import { Database, Info, Loader2, RefreshCw, Table2 } from 'lucide-react'
 
 import { AiStackCard, AiStackCardHeading, AiStackEmpty, AiStackError, AiStackPill } from './ai-stack-chrome'
 import { mcpError, mcpRows, summariseMcpPayload, type McpRow } from '@/lib/ai-stack/mcp-payload'
@@ -53,6 +53,54 @@ const PREVIEW_ROWS = 5
 
 /** What one read produced: the backend's own count, and the rows it actually returned. */
 type ExampleResult = { rows: McpRow[]; total: number | null; detail: string }
+
+/**
+ * A call that failed at the HTTP layer, carrying its status.
+ *
+ * The status is the whole point. The same red error box means two different things
+ * depending on it, and conflating them is how a deployment gap gets reported as corrupt
+ * module data:
+ *
+ *   400 / 422 — an answer *about this call*: the tool rejected the request. A real fault.
+ *   401 / 403 — about the *session*, not the records. The operator is not signed in, or is
+ *               not entitled. Saying "this module's data is broken" here is a lie.
+ *   404 / 502 / 503 — about the *deployment*: the AI host is not serving the route, or is
+ *               not reachable from here. Still not a statement about the records.
+ *   no status — the request never arrived. Same category as 502.
+ *
+ * Only the first group is a fault in what the user asked for. The rest are neutral states
+ * that must not be painted as errors, because this panel fires on arrival: a red box the
+ * operator did not cause, appearing unasked, is worse than saying nothing.
+ */
+class DataSourceCallError extends Error {
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.name = 'DataSourceCallError';
+    this.status = status;
+  }
+}
+
+/** True only for failures that are genuinely about this module's records or this call. */
+function isRecordFault(error: unknown): boolean {
+  if (error instanceof DataSourceCallError) return error.status === 400 || error.status === 422;
+  // A tool that reported its own failure in the payload threw a plain Error. That *is* a
+  // fault, so it keeps the error treatment rather than being downgraded to a note.
+  return true;
+}
+
+/**
+ * The neutral card's one-line summary, so the operator is told which thing is wrong
+ * (session, entitlement, deployment) rather than just being handed a status code.
+ */
+function unreachableHeadline(error: unknown): string {
+  const status = error instanceof DataSourceCallError ? error.status : null;
+  if (status === 401) return 'The data service needs a signed-in session';
+  if (status === 403) return 'Your account is not entitled to read this source';
+  if (status === 404) return 'The data service did not offer this source';
+  return 'The data service could not be reached';
+}
 
 export function AiStackModuleExample({
   module,
@@ -83,6 +131,14 @@ export function AiStackModuleExample({
     // Records change as people use the module, so a revisit should ask again.
     staleTime: 0,
     refetchOnWindowFocus: false,
+    /*
+     * One request per visit, not react-query's default three with exponential backoff.
+     * This query is fired on arrival without the operator asking, so the default retry
+     * policy would quadruple a request nobody requested — and on a live deployment whose
+     * AI host is down, that is four failed calls per page view from every visitor.
+     * "Read again" is the retry, and it is a deliberate act.
+     */
+    retry: false,
     queryFn: async () => {
       if (!source) return { rows: [], total: null, detail: '' };
 
@@ -111,8 +167,9 @@ export function AiStackModuleExample({
       const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
       if (!response.ok) {
-        throw new Error(
+        throw new DataSourceCallError(
           typeof payload?.error === 'string' ? payload.error : `The call failed (${response.status}).`,
+          response.status,
         );
       }
 
@@ -172,11 +229,41 @@ export function AiStackModuleExample({
         }
       />
 
-      {query.isError ? (
+      {query.isError && isRecordFault(query.error) ? (
         <div className="px-5 py-4">
           <AiStackError onRetry={reread}>
             {query.error instanceof Error ? query.error.message : 'The call failed.'}
           </AiStackError>
+        </div>
+      ) : query.isError ? (
+        /*
+         * Not a fault in this module's records — a statement about the session or the
+         * deployment. It gets a neutral card and a retry, never the red error box, because
+         * this panel runs on arrival and a red box nobody asked for is a false alarm.
+         */
+        <div className="px-5 py-4">
+          <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <Info className="mt-0.5 size-4 shrink-0 text-slate-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-slate-900">{unreachableHeadline(query.error)}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                {query.error instanceof Error ? query.error.message : 'The call failed.'}{' '}
+                <span className="text-slate-500">
+                  This says nothing about your {module.label} records — only that the call did not complete. Nothing is
+                  shown here rather than fill it with something that is not your data.
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={reread}
+              disabled={query.isFetching}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {query.isFetching ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+              Try again
+            </button>
+          </div>
         </div>
       ) : !result ? (
         <p className="flex items-center gap-2 px-5 py-6 text-sm text-slate-500">

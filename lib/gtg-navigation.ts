@@ -40,6 +40,8 @@ export const HOME_NAV: ActiveNav = {
  */
 export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organization-setup/organization-profile'
 export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
+/** Self-service - every employee's own department's shared documents. Must match the `access_link` seeded by database/migrations/2026_10_08_100100_add_my_department_documents_menu.php exactly. */
+export const MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK = '/module/organizational-management/organization-setup/my-department-documents'
 export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
 export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
@@ -80,6 +82,49 @@ export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/c
 export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
 
 /**
+ * CRM → Marketing. Nested under /marketing/ (not a flat /module/crm/{leaf}),
+ * matching tblmenumaster_g2g's own existing convention for this tree - these
+ * are reactivated rows (id 199/200/201 predate this work; 199 is safe to
+ * hardcode in hooks/use-content-map.ts because it is the same id on both the
+ * local and live databases, unlike a brand-new root would be).
+ */
+export const CRM_LEADS_ACCESS_LINK = '/module/crm/marketing/leads'
+export const CRM_CONTACTS_ACCESS_LINK = '/module/crm/marketing/contacts'
+export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organizations'
+export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
+
+// Sales phase - "Sales" itself is a fresh menu insert (unlike "Marketing",
+// which was reactivated, pre-existing scaffolding), so its own id is NOT
+// guaranteed to match between the mysql/live connections. Nothing may ever
+// hardcode it - every lookup goes through MenuRight::idForAccessLink() on
+// the backend, and these access_link strings on the frontend, exactly like
+// Contacts/Organizations/Campaigns already do.
+export const CRM_OPPORTUNITIES_ACCESS_LINK = '/module/crm/sales/opportunities'
+export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
+export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
+export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
+export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
+export const CRM_PRICE_BOOKS_ACCESS_LINK = '/module/crm/sales/price-books'
+export const CRM_PURCHASE_ORDERS_ACCESS_LINK = '/module/crm/sales/purchase-orders'
+
+// Order-to-cash phase (Vendors/Sales Orders/Purchase Orders/Invoices) - same
+// fresh-menu-insert reasoning as the rest of "Sales" above; every lookup
+// still goes through MenuRight::idForAccessLink() + resolveAccessLink(),
+// never a hardcoded id.
+export const CRM_VENDORS_ACCESS_LINK = '/module/crm/sales/vendors'
+export const CRM_INVOICES_ACCESS_LINK = '/module/crm/sales/invoices'
+
+/**
+ * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle
+ * Bin (it is reached from a button on the 4 list views above, gated per-row
+ * by CrmRecycleBinController itself rather than one dedicated menu
+ * permission). Navigate to it with a literal `router.push`, never
+ * `resolveAccessLink()` - that function falls back to `/dashboard` for any
+ * path with no matching menu node.
+ */
+export const CRM_RECYCLE_BIN_PATH = '/module/crm/marketing/recycle-bin'
+
+/**
  * Talent Management — every sub-module, so nothing has to hand-roll a path.
  *
  * WHY THESE EXIST
@@ -113,10 +158,13 @@ export const TALENT_MOBILITY_ACCESS_LINK = '/module/talent-management/mobility-a
 export const TALENT_OFFBOARDING_ACCESS_LINK = '/module/talent-management/offboarding'
 export const TALENT_ADMINISTRATION_ACCESS_LINK = '/module/talent-management/administration'
 
+export const AG_AGENT_DASHBOARD_ACCESS_LINK = '/module/agentic-ai/agent-dashboard'
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
+export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
+export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
 
 export type BreadcrumbItem = {
   label: string

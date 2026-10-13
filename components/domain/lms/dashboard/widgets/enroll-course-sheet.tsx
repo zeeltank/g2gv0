@@ -108,7 +108,7 @@ export function EnrollCourseSheet({
                   <div key={course.id} className="flex items-center gap-3 px-6 py-3.5 hover:bg-muted/30">
                     <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
                       {course.display_image && course.display_image !== '/' ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={course.display_image} alt="" className="size-full object-cover" />
                       ) : (
                         <ImageIcon className="size-5 text-muted-foreground/40" />

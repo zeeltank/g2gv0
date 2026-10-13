@@ -70,6 +70,13 @@ export interface AiConfigurationRow {
   editable: boolean
   key_preview: string | null
   updated_at: string | null
+  /** Failover state of this credential. `invalid` = rejected by the provider, retried later. */
+  health?: 'healthy' | 'cooldown' | 'invalid' | 'retired'
+  cooldown_until?: string | null
+  last_error_type?: string | null
+  last_error_at?: string | null
+  failure_count?: number
+  last_used_at?: string | null
 }
 
 /** What a module resolves to right now, including modules with nothing saved. */
@@ -109,6 +116,8 @@ export interface AiConfigurationPayload {
   account_email?: string | null
   api_limit?: number | null
   status?: number
+  /** Add another credential for the same module + provider (failover pool). */
+  additional_credential?: boolean
 }
 
 export interface AiModelPayload {

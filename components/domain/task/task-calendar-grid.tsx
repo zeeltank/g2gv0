@@ -1,0 +1,231 @@
+'use client'
+
+import { useEffect, useMemo, useRef } from 'react'
+import { addDays, format } from 'date-fns'
+import { CircleDot, Flag, Lock } from 'lucide-react'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import type { EventClickArg, EventContentArg, EventDropArg, EventInput } from '@fullcalendar/core'
+import type { DateClickArg, EventResizeDoneArg } from '@fullcalendar/interaction'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+import type { CalendarEntry, CalendarFeed, WorkspaceTask } from '@/types/task-management'
+import { contrastTextColor, mapEntryToEvent, mapTaskToEvent, type CalendarGridExtendedProps } from './calendar-event-mapping'
+import './task-calendar-grid.css'
+
+export type CalendarGridView = 'month' | 'week' | 'day'
+
+const FC_VIEW: Record<CalendarGridView, string> = {
+  month: 'dayGridMonth', week: 'timeGridWeek', day: 'timeGridDay',
+}
+
+interface ColourClasses { chip: string; dot: string; solid: string }
+
+interface Props {
+  tasks: WorkspaceTask[]
+  /** EVENT + MILESTONE + CHECKPOINT only - the caller still sources TASK rows from getWorkspace, not this feed. */
+  entries: CalendarEntry[]
+  feeds: CalendarFeed[]
+  viewerId: string
+  view: CalendarGridView
+  anchorDate: Date
+  feedColour: (userId: string) => ColourClasses
+  onTaskClick: (taskId: string) => void
+  onEventClick: (eventId: string) => void
+  /** `timeStr` ('HH:mm') is only present for a week/day-view click on a specific time slot - a month-view day cell has no time to give. */
+  onEmptyDateClick: (dateStr: string, timeStr?: string) => void
+  /** Resolves to whether the move should stick - false reverts the drag/resize visually too, not just in state. */
+  onTaskReschedule: (taskId: string, start: Date, end: Date, allDay: boolean) => Promise<boolean>
+  onEventReschedule: (eventId: string, start: Date, end: Date, allDay: boolean) => Promise<boolean>
+}
+
+/**
+ * FullCalendar's all-day end is EXCLUSIVE; this app's own schedule fields
+ * (task.due_date, an all-day event's end_at) are INCLUSIVE of the last
+ * occupied day. Converting a drag/resize result back for the API needs the
+ * opposite adjustment from the one calendar-event-mapping.ts applies when
+ * first placing the entry on the grid.
+ */
+function inclusiveEnd(allDay: boolean, start: Date, end: Date | null): Date {
+  if (!allDay) return end ?? start
+  return addDays(end ?? addDays(start, 1), -1)
+}
+
+export function TaskCalendarGrid({
+  tasks, entries, feeds, viewerId, view, anchorDate,
+  feedColour,
+  onTaskClick, onEventClick, onEmptyDateClick, onTaskReschedule, onEventReschedule,
+}: Props) {
+  const calendarRef = useRef<FullCalendar>(null)
+
+  // One-way sync: the parent's own Month/Week/Day buttons and date-nav
+  // arrows already own `view`/`anchorDate` (headerToolbar is off, so
+  // FullCalendar renders no native nav of its own and never changes either
+  // value by itself) - there is nothing to read back out.
+  //
+  // DEFERRED, NOT CALLED DIRECTLY IN THE EFFECT. @fullcalendar/react uses
+  // flushSync internally to keep its own DOM in sync when changeView/gotoDate
+  // are invoked - calling them synchronously from inside a plain useEffect
+  // collided with React's own commit ("flushSync was called from inside a
+  // lifecycle method"), which tore down the whole calendar on every view
+  // switch (confirmed live: .fc vanished entirely after clicking "week").
+  // queueMicrotask pushes the call past the current commit, the same pattern
+  // already used throughout this module's own data-loading effects.
+  useEffect(() => {
+    queueMicrotask(() => {
+      const api = calendarRef.current?.getApi()
+      if (!api) return
+      api.changeView(FC_VIEW[view])
+      api.gotoDate(anchorDate)
+    })
+  }, [view, anchorDate])
+
+  const feedColorByUserId = useMemo(() => {
+    const map = new Map<string, string | null>()
+    feeds.forEach((feed) => map.set(feed.user_id, feed.color))
+    return map
+  }, [feeds])
+
+  const events = useMemo<EventInput[]>(() => {
+    const taskEvents = tasks
+      .map((task) => mapTaskToEvent(task, feedColour, feedColorByUserId))
+      .filter((event): event is EventInput => event !== null)
+    const entryEvents = entries.map((entry) => mapEntryToEvent(entry, viewerId, feedColorByUserId, feedColour))
+    return [...taskEvents, ...entryEvents]
+  }, [tasks, entries, viewerId, feedColour, feedColorByUserId])
+
+  const handleEventClick = (arg: EventClickArg) => {
+    const props = arg.event.extendedProps as CalendarGridExtendedProps
+    if (props.kind === 'TASK') onTaskClick(props.refId)
+    else if (props.kind === 'EVENT') onEventClick(props.refId)
+    // MILESTONE/CHECKPOINT: the chip's own Popover owns this click - nothing further to route.
+  }
+
+  const handleDateClick = (arg: DateClickArg) => {
+    // arg.allDay is true for a dayGridMonth cell (no time of day to give) and
+    // false for a timeGridWeek/Day slot, which carries the actual time clicked.
+    onEmptyDateClick(format(arg.date, 'yyyy-MM-dd'), arg.allDay ? undefined : format(arg.date, 'HH:mm'))
+  }
+
+  const handleEventDrop = async (arg: EventDropArg) => {
+    const props = arg.event.extendedProps as CalendarGridExtendedProps
+    const start = arg.event.start
+    if (!start) { arg.revert(); return }
+
+    // inclusiveEnd handles both cases: for a timed entry it's a no-op
+    // (end ?? start); for an all-day one it undoes FullCalendar's own
+    // exclusive-end convention - an all-day EVENT needs this exactly like a
+    // TASK does (mapEntryToEvent applies the same +1 going the other way),
+    // which a prior version of this handler missed, writing every dragged
+    // or resized all-day event's end_at one day later than where it was
+    // actually dropped. TASK now carries its own real allDay flag too
+    // (mapTaskToEvent), so it uses arg.event.allDay exactly like EVENT does -
+    // a drop onto a timed week/day slot picks up that time, not just the date.
+    const ok = props.kind === 'TASK'
+      ? await onTaskReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
+      : await onEventReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
+    if (!ok) arg.revert()
+  }
+
+  const handleEventResize = async (arg: EventResizeDoneArg) => {
+    const props = arg.event.extendedProps as CalendarGridExtendedProps
+    const start = arg.event.start
+    if (!start) { arg.revert(); return }
+
+    const ok = props.kind === 'TASK'
+      ? await onTaskReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
+      : await onEventReschedule(props.refId, start, inclusiveEnd(arg.event.allDay, start, arg.event.end), arg.event.allDay)
+    if (!ok) arg.revert()
+  }
+
+  return (
+    <div className="tm-calendar-grid">
+      <FullCalendar
+        ref={calendarRef}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        initialView={FC_VIEW[view]}
+        initialDate={anchorDate}
+        headerToolbar={false}
+        firstDay={1}
+        fixedWeekCount
+        height={view === 'month' ? 'auto' : 700}
+        scrollTime="07:00:00"
+        nowIndicator
+        dayMaxEvents={view === 'month' ? 3 : false}
+        events={events}
+        dateClick={handleDateClick}
+        eventClick={handleEventClick}
+        eventDrop={(arg) => { void handleEventDrop(arg) }}
+        eventResize={(arg) => { void handleEventResize(arg) }}
+        eventContent={(arg) => <EventChip arg={arg} />}
+      />
+    </div>
+  )
+}
+
+function EventChip({ arg }: { arg: EventContentArg }) {
+  const props = arg.event.extendedProps as CalendarGridExtendedProps
+  const isPin = props.kind === 'MILESTONE' || props.kind === 'CHECKPOINT'
+
+  // One status border, tri-state: green=completed, yellow=pending,
+  // red=overdue. border-2 (not a 1px hairline) deliberately - a thin border
+  // can vanish against an arbitrary bright personal accentColor fill, and
+  // this needs to read as a status signal regardless of what's underneath.
+  const statusBorderClass = props.cardStatus === 'completed' ? 'border-2 border-success'
+    : props.cardStatus === 'overdue' ? 'border-2 border-destructive'
+    : props.cardStatus === 'pending' ? 'border-2 border-warning'
+    : ''
+
+  const chip = (
+    <div
+      title={props.hint}
+      className={cn(
+        // h-full matters only for a timed (week/day) event: FullCalendar's
+        // own harness is already positioned the full height of its time
+        // span (confirmed correct — see task-calendar-grid.css's note on
+        // that positioning), but this chip is its own flex box with no
+        // explicit height, so without h-full it only grows to fit one line
+        // of text and renders as a short bar vertically centered inside the
+        // correctly-sized-but-now-mostly-empty-looking harness, reading as
+        // "the card doesn't cover its own time range". Harmless on a month
+        // all-day chip, whose harness is already content-height.
+        // rounded-sm, not rounded-lg/rounded-full - a short all-day chip is
+        // barely taller than its own text, so a large radius (or `full`)
+        // reads as a pill/oval rather than a card with soft corners.
+        'flex h-full w-full items-center gap-1 truncate rounded-sm px-2.5 py-1.5 text-left text-xs font-medium leading-snug',
+        props.fallbackClassName,
+        statusBorderClass,
+      )}
+      // A personal/share color overrides the feed-palette fill entirely
+      // (locked-in: "like CRM") - inline style wins over the classes above
+      // regardless of class order. borderColor is deliberately NOT set here:
+      // the border is now a status signal, never an extension of the accent
+      // fill, so cn() above stays free to keep the status border color even
+      // when a personal accentColor applies.
+      style={props.accentColor ? { backgroundColor: props.accentColor, color: contrastTextColor(props.accentColor) } : undefined}
+    >
+      {props.kind === 'MILESTONE' && <Flag className="size-3 shrink-0" />}
+      {props.kind === 'CHECKPOINT' && <CircleDot className="size-3 shrink-0" />}
+      {arg.timeText && <span className="shrink-0 opacity-70">{arg.timeText}</span>}
+      <span className="min-w-0 flex-1 truncate">{arg.event.title}</span>
+      {!isPin && !arg.event.startEditable && <Lock className="size-3 shrink-0 text-muted-foreground" />}
+    </div>
+  )
+
+  if (!isPin) return chip
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild><button type="button" className="w-full min-w-0">{chip}</button></PopoverTrigger>
+      <PopoverContent className="w-64 text-sm" onClick={(event) => event.stopPropagation()}>
+        <p className="font-semibold">{arg.event.title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{props.kind === 'MILESTONE' ? 'Milestone' : 'Checkpoint'} · {props.status}</p>
+        {arg.event.start && <p className="mt-2 text-xs text-muted-foreground">{format(arg.event.start, 'd MMM yyyy')}</p>}
+        {props.projectName && <p className="mt-1 text-xs">{props.projectName}</p>}
+        {props.departmentName && <p className="text-xs text-muted-foreground">{props.departmentName}</p>}
+      </PopoverContent>
+    </Popover>
+  )
+}

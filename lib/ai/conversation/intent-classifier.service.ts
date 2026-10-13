@@ -3,10 +3,12 @@ import { z } from "zod";
 import {
   AI_MAX_RETRIES,
   createAiModel,
+  defaultChatModelName,
   isLlmAvailable,
   isQuotaError,
   noteQuotaExhausted,
 } from "../config/model";
+import { reportChatUsage, resolveConfiguredChatModel } from "../backend/chat-usage";
 import { getToolDefinition } from "../mcp/registry/tool-catalog";
 import type { ConversationContext } from "./context.service";
 import {
@@ -215,9 +217,17 @@ export async function classifyConversationIntent(
     return fallbackIntent(context);
   }
 
+  const usageContext = {
+    token: context.user.token,
+    subInstituteId: context.user.subInstituteId,
+    userId: context.user.userId,
+  };
+  const configuredModel = await resolveConfiguredChatModel(usageContext);
+  const startedAt = Date.now();
+
   try {
-    const { object } = await generateObject({
-      model: createAiModel(),
+    const { object, usage } = await generateObject({
+      model: createAiModel(configuredModel),
       // A quota error is fatal and anything else falls back to rules, so
       // retrying only burns more of the same quota.
       maxRetries: AI_MAX_RETRIES,
@@ -269,6 +279,14 @@ leaveTypeName, jobRole, fromDate, toDate. Use the names exactly as the user said
 them - do not invent ids.
 
 Return only structured output.`,
+    });
+
+    void reportChatUsage(usageContext, {
+      model: configuredModel || defaultChatModelName(),
+      inputTokens: usage?.inputTokens,
+      outputTokens: usage?.outputTokens,
+      latencyMs: Date.now() - startedAt,
+      relatedType: "intent_classifier",
     });
 
     const intent = conversationIntentSchema.parse(object);

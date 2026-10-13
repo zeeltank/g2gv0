@@ -84,6 +84,8 @@ function toLaravelContext(context: LaravelRuntimeContext): LaravelContext {
     syear: context.syear ?? "",
     userId: context.userId ?? "",
     organizationId: context.orgId ?? "",
+    orgType: "",
+    profileId: "",
   };
 }
 

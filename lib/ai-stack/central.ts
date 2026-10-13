@@ -1,4 +1,4 @@
-import type { AiStackModule } from '@/components/ai-stack/ai-stack-module';
+import type { AiStackModule, AiStackReportFilter } from '@/components/ai-stack/ai-stack-module';
 import type { DecentralizedModuleKey } from '@/lib/platform/access-links';
 
 /**
@@ -37,6 +37,13 @@ interface CentralSpec {
   subjectEntityKey: string;
   /** A read source of the module's own, used for the default agent and the report hint. */
   primarySource: string;
+  /**
+   * Every read tool the module offers, from `lib/agents/registry.ts` — one agent preset each.
+   * Rolled-up screen tools are included, because a module's tools are its own plus its screens'.
+   */
+  sources: Array<{ key: string; label: string }>;
+  /** Filters of the primary source, named exactly as that tool's arguments (its `exampleInput`). */
+  filters: AiStackReportFilter[];
   /** Whether the module has a real generative consumer — decides how a report is logged. */
   generative: boolean;
   centralRisk: string;
@@ -71,7 +78,7 @@ function build(spec: CentralSpec): AiStackModule {
 
     report: {
       defaultDataSource: spec.primarySource,
-      filters: [{ key: 'limit', label: 'Rows', kind: 'number', defaultValue: '200' }],
+      filters: [...spec.filters, { key: 'limit', label: 'Rows', kind: 'number', defaultValue: '200' }],
       operation: reportOperation,
       emptyNote: `No ${spec.records} matched, so no report was created.`,
     },
@@ -85,6 +92,16 @@ function build(spec: CentralSpec): AiStackModule {
         instructions: `Report ${spec.records} exactly as recorded. Never infer anything about a person from a list of ${spec.records} alone.`,
         status: 'active',
       },
+      ...spec.sources
+        .filter((source) => source.key !== spec.primarySource)
+        .map((source) => ({
+          name: `${spec.label} ${source.label.toLowerCase()} reader`,
+          description: `Reads ${source.label.toLowerCase()} for your organisation. Changes nothing.`,
+          module: spec.key,
+          tools_allowed: [source.key],
+          instructions: `Report ${source.label.toLowerCase()} exactly as recorded. Never infer anything about a person from a list alone.`,
+          status: 'active' as const,
+        })),
     ],
 
     boundAgent: null,
@@ -108,7 +125,17 @@ function build(spec: CentralSpec): AiStackModule {
   };
 }
 
-const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
+/**
+ * `Partial` - not every decentralized module has a Central AI Stack entry
+ * yet. CRM (added to `DECENTRALIZED_MODULES` for Fields Configuration's
+ * `?module=crm` scoping, which has nothing to do with this file) has no
+ * `ai_modules` row, no `ModuleDataSourceCatalog::forModule('crm')`, and no
+ * read tools in `lib/agents/registry.ts` - a spec here would claim a
+ * working AI Stack that does not exist. `AiStackConsole` already renders
+ * its own "choose a module" empty state when `CENTRAL_AI_STACKS[key]` is
+ * undefined, so this is a true gap, not a crash.
+ */
+const SPECS: Partial<Record<DecentralizedModuleKey, CentralSpec>> = {
   organization: {
     key: 'organizational_management',
     menuSlug: 'organizational-management',
@@ -118,6 +145,14 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'employee',
     subjectEntityKey: 'employee',
     primarySource: 'organization.employees',
+    sources: [
+      { key: 'organization.employees', label: 'Employees' },
+      { key: 'organization.departments', label: 'Departments' },
+    ],
+    filters: [
+      { key: 'department_id', label: 'Department id', kind: 'number', placeholder: 'all' },
+      { key: 'status', label: 'Status', kind: 'text', placeholder: 'all' },
+    ],
     generative: false,
     centralRisk:
       'an answer about a person that the record does not support. AI may summarise who sits where; it may not infer performance, pay or suitability from the org chart.',
@@ -136,6 +171,15 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'leave request',
     subjectEntityKey: 'leave_request',
     primarySource: 'hrms.leave_requests',
+    sources: [
+      { key: 'hrms.leave_requests', label: 'Leave requests' },
+      { key: 'hrms.attendance', label: 'Attendance' },
+    ],
+    filters: [
+      { key: 'user_id', label: 'Employee (user id)', kind: 'number', placeholder: 'everyone' },
+      { key: 'status', label: 'Status', kind: 'text', placeholder: 'e.g. pending' },
+      { key: 'from_date', label: 'From date', kind: 'text', placeholder: 'YYYY-MM-DD' },
+    ],
     generative: false,
     centralRisk:
       'a leave or attendance pattern being read as a verdict on a person. AI may report what was recorded; it may not approve, reject or score anyone.',
@@ -154,6 +198,16 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'application',
     subjectEntityKey: 'application',
     primarySource: 'talent.pipeline',
+    sources: [
+      { key: 'talent.pipeline', label: 'Pipeline' },
+      { key: 'talent.job_postings', label: 'Job postings' },
+      { key: 'talent.workflows', label: 'Workflows' },
+    ],
+    filters: [
+      { key: 'job_id', label: 'Job posting id', kind: 'number', placeholder: 'all' },
+      { key: 'status', label: 'Status', kind: 'text', placeholder: 'e.g. Shortlisted' },
+      { key: 'department_id', label: 'Department id', kind: 'number', placeholder: 'all' },
+    ],
     generative: true,
     centralRisk:
       'a candidate being ranked or rejected by a model. AI may analyse a job description and draft assessments; it may not decide who advances.',
@@ -172,6 +226,16 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'course',
     subjectEntityKey: 'course',
     primarySource: 'lms.catalog',
+    sources: [
+      { key: 'lms.catalog', label: 'Catalogue' },
+      { key: 'lms.course_builder', label: 'Course builder' },
+      { key: 'lms.assessment_cycles', label: 'Assessment cycles' },
+      { key: 'lms.my_enrolments', label: 'Enrolments' },
+    ],
+    filters: [
+      { key: 'category', label: 'Category', kind: 'text', placeholder: 'all' },
+      { key: 'department_id', label: 'Department id', kind: 'number', placeholder: 'all' },
+    ],
     generative: true,
     centralRisk:
       'generated course or quiz content being published as if it were reviewed. AI may draft; a person must review before a learner sees it.',
@@ -190,6 +254,15 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'job role',
     subjectEntityKey: 'jobrole',
     primarySource: 'capability.jobroles',
+    sources: [
+      { key: 'capability.jobroles', label: 'Job roles' },
+      { key: 'capability.competencies', label: 'Competencies' },
+      { key: 'capability.entity_mappings', label: 'Entity mappings' },
+    ],
+    filters: [
+      { key: 'department_id', label: 'Department id', kind: 'number', placeholder: 'all' },
+      { key: 'category', label: 'Job role category', kind: 'text', placeholder: 'all' },
+    ],
     generative: true,
     centralRisk:
       'a generated competency or skill objective being treated as the organisation\'s standard. AI may propose; the framework stays whatever a person approved.',
@@ -208,6 +281,12 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
     record: 'task',
     subjectEntityKey: 'task',
     primarySource: 'tasks.my_tasks',
+    sources: [{ key: 'tasks.my_tasks', label: 'Tasks' }],
+    filters: [
+      { key: 'status', label: 'Status', kind: 'text', placeholder: 'e.g. PENDING' },
+      { key: 'priority', label: 'Priority', kind: 'text', placeholder: 'all' },
+      { key: 'user_id', label: 'Assignee (user id)', kind: 'number', placeholder: 'everyone' },
+    ],
     generative: true,
     centralRisk:
       'a classification becoming a performance judgement. AI may classify how closely a task matched its expected standard, but it may not close a task, rate a person or trigger any action.',
@@ -219,7 +298,83 @@ const SPECS: Record<DecentralizedModuleKey, CentralSpec> = {
   },
 };
 
-/** The Centralized AI Stack descriptor for one Platform Services module. */
-export const CENTRAL_AI_STACKS: Record<DecentralizedModuleKey, AiStackModule> = Object.fromEntries(
-  Object.entries(SPECS).map(([key, spec]) => [key, build(spec)]),
-) as Record<DecentralizedModuleKey, AiStackModule>;
+/**
+ * Modules that have an AI Stack but are not Platform Services consoles: the Main Dashboard and Agentic AI.
+ *
+ * They are separate from `SPECS` on purpose. `SPECS` is keyed by `DecentralizedModuleKey`, the closed set the
+ * Platform Services bar and its consoles are built on; adding a key there would add a console to that bar.
+ * These two only need their own AI Stack screen, reached the same way as every module's - from its own menu
+ * row (`/module/{menuId}/ai-stack`) - so they are declared here and resolved by `useActiveModule` beside the rest.
+ *
+ * As everywhere in this file: words only. Every record and every source the stack reads is looked up from the
+ * backend (`ModuleDataSourceCatalog`); the source keys below only name which of them to offer as presets.
+ */
+const EXTRA_SPECS: Record<string, CentralSpec> = {
+  dashboard: {
+    key: 'main_dashboard',
+    menuSlug: 'dashboard',
+    route: '/dashboard',
+    label: 'Main Dashboard',
+    records: 'workforce, approval and task figures',
+    record: 'department',
+    subjectEntityKey: 'department',
+    primarySource: 'dashboard.headcount_by_department',
+    sources: [
+      { key: 'dashboard.headcount_by_department', label: 'Headcount by department' },
+      { key: 'dashboard.pending_approvals', label: 'Pending approvals' },
+      { key: 'dashboard.overdue_tasks', label: 'Overdue tasks' },
+      { key: 'dashboard.task_status', label: 'Tasks by status' },
+      { key: 'dashboard.expiring_certifications', label: 'Certifications expiring soon' },
+      { key: 'dashboard.upcoming_events', label: 'Upcoming holidays' },
+      { key: 'dashboard.hiring_funnel', label: 'Hiring funnel' },
+      { key: 'dashboard.learning_progress', label: 'Learning progress' },
+      { key: 'dashboard.attendance_trend', label: 'Attendance by day' },
+    ],
+    filters: [],
+    generative: false,
+    centralRisk:
+      'a headline figure being read as a verdict on a team or a person. AI may report the counts the dashboard shows; it may not rank people, predict who will leave or call a department a failure.',
+    policyNamePlaceholder: 'Dashboard figures disclosure policy',
+    promptSystemDefault:
+      "You answer questions about the organisation's headline figures. Use only the dashboard data you are given, never infer anything about an individual, and say when a figure is missing.",
+    reportCanPrint: "the headcounts, approval counts and task figures come from the dashboard's own records rather than from a model.",
+    groundedOn: 'the headcount, pending approvals, overdue tasks, certifications, events, hiring and learning figures the dashboard shows.',
+  },
+  agentic: {
+    key: 'agentic_ai',
+    menuSlug: 'agentic-ai',
+    route: '/module/agentic-ai',
+    label: 'Agentic AI',
+    records: 'agents and their runs',
+    record: 'agent',
+    subjectEntityKey: 'agent',
+    primarySource: 'agentic.agents',
+    sources: [
+      { key: 'agentic.agents', label: 'Agents' },
+      { key: 'agentic.runs', label: 'Agent runs' },
+      { key: 'agentic.tool_invocations', label: 'Tool calls made by agents' },
+      { key: 'agentic.analytics', label: 'Agent performance' },
+      { key: 'agentic.workflows', label: 'Multi-agent workflows' },
+      { key: 'agentic.optimizations', label: 'Reflection findings' },
+    ],
+    filters: [],
+    generative: false,
+    centralRisk:
+      'an agent being treated as an authority. A run is a record of what a tool read; AI may report what ran and how it ended, but it may not approve its own output or widen its own tools.',
+    policyNamePlaceholder: 'Agent run disclosure policy',
+    promptSystemDefault:
+      "You answer questions about the organisation's AI agents and their runs. Use only the agent and run records you are given, never reveal prompts, keys or tool payloads, and say when a run failed.",
+    reportCanPrint: 'the agent names, statuses, run counts and timings come from the agent and run records rather than from a model.',
+    groundedOn: 'the agents configured for your organisation and the runs recorded for them.',
+  },
+};
+
+/** The AI Stack descriptors of modules outside Platform Services (the Main Dashboard, Agentic AI). */
+export const ADDITIONAL_AI_STACKS: Record<string, AiStackModule> = Object.fromEntries(
+  Object.entries(EXTRA_SPECS).map(([key, spec]) => [key, build(spec)]),
+);
+
+/** The Centralized AI Stack descriptor for one Platform Services module - absent for a module with no entry in `SPECS` above. */
+export const CENTRAL_AI_STACKS: Partial<Record<DecentralizedModuleKey, AiStackModule>> = Object.fromEntries(
+  Object.entries(SPECS).map(([key, spec]) => [key, build(spec as CentralSpec)]),
+);

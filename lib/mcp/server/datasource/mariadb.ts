@@ -132,17 +132,18 @@ function getDbConfig() {
   };
 }
 
-const dbConfig = getDbConfig();
-const poolConfig = {
-  connectionLimit: parseNumber(process.env.DB_CONNECTION_LIMIT, DEFAULT_POOL_CONFIG.connectionLimit),
-  acquireTimeout: parseNumber(process.env.DB_ACQUIRE_TIMEOUT, DEFAULT_POOL_CONFIG.acquireTimeout),
-  connectTimeout: parseNumber(process.env.DB_CONNECT_TIMEOUT, DEFAULT_POOL_CONFIG.connectTimeout),
-  resetAfterUse: true,
-  ssl: buildSslConfig(),
-  socketPath: process.env.DB_SOCKET_PATH || undefined,
-} as const;
+function buildPoolConfig() {
+  return {
+    connectionLimit: parseNumber(process.env.DB_CONNECTION_LIMIT, DEFAULT_POOL_CONFIG.connectionLimit),
+    acquireTimeout: parseNumber(process.env.DB_ACQUIRE_TIMEOUT, DEFAULT_POOL_CONFIG.acquireTimeout),
+    connectTimeout: parseNumber(process.env.DB_CONNECT_TIMEOUT, DEFAULT_POOL_CONFIG.connectTimeout),
+    resetAfterUse: true,
+    ssl: buildSslConfig(),
+    socketPath: process.env.DB_SOCKET_PATH || undefined,
+  } as const;
+}
 
-function logDbConfig(prefix: string) {
+function logDbConfig(prefix: string, dbConfig: ReturnType<typeof getDbConfig>, poolConfig: ReturnType<typeof buildPoolConfig>) {
   console.info(prefix, {
     host: dbConfig.host,
     port: dbConfig.port,
@@ -157,13 +158,48 @@ function logDbConfig(prefix: string) {
   });
 }
 
-export const pool = mariadb.createPool({
-  ...dbConfig,
-  ...poolConfig,
-});
+/*
+ * EVERYTHING BELOW IS LAZY ON PURPOSE. Next.js imports this module (via
+ * checkMariaDbHealth/dbQuery) while collecting page data at BUILD time, not
+ * just when a request actually comes in. getDbConfig() throws in production
+ * when DB_* env vars are missing - fine for a real request, fatal for a
+ * build, which has no business touching the database at all and would take
+ * down every other route with it. Resolving the config/pool on first real
+ * use keeps that failure where it belongs: inside a request, not a build.
+ */
+let cachedDbConfig: ReturnType<typeof getDbConfig> | undefined;
+let cachedPoolConfig: ReturnType<typeof buildPoolConfig> | undefined;
+let cachedPool: ReturnType<typeof mariadb.createPool> | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  logDbConfig("[mariadb] Using database config:");
+function resolveDbConfig() {
+  if (!cachedDbConfig) {
+    cachedDbConfig = getDbConfig();
+  }
+  return cachedDbConfig;
+}
+
+function resolvePoolConfig() {
+  if (!cachedPoolConfig) {
+    cachedPoolConfig = buildPoolConfig();
+  }
+  return cachedPoolConfig;
+}
+
+function getPool() {
+  if (!cachedPool) {
+    const dbConfig = resolveDbConfig();
+    const poolConfig = resolvePoolConfig();
+
+    if (process.env.NODE_ENV !== "production") {
+      logDbConfig("[mariadb] Using database config:", dbConfig, poolConfig);
+    }
+
+    cachedPool = mariadb.createPool({
+      ...dbConfig,
+      ...poolConfig,
+    });
+  }
+  return cachedPool;
 }
 
 function isTransientConnectionError(error: any) {
@@ -222,6 +258,9 @@ function classifyConnectionFailure(error: any) {
 }
 
 function buildConnectionDiagnostics(error: any) {
+  const dbConfig = resolveDbConfig();
+  const poolConfig = resolvePoolConfig();
+
   return {
     target: `${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
     user: dbConfig.user,
@@ -255,8 +294,11 @@ export async function checkMariaDbHealth() {
   let conn: any;
 
   try {
-    conn = await pool.getConnection();
+    conn = await getPool().getConnection();
     await conn.query("SELECT 1 AS ok");
+
+    const dbConfig = resolveDbConfig();
+    const poolConfig = resolvePoolConfig();
 
     return {
       ok: true,
@@ -268,13 +310,23 @@ export async function checkMariaDbHealth() {
       socketPath: poolConfig.socketPath || null,
     };
   } catch (error) {
+    // buildConnectionDiagnostics() itself calls resolveDbConfig(), which can
+    // throw (e.g. missing env vars) - guard it so that failure surfaces as
+    // part of this health check's response, not as a second unhandled throw.
+    let diagnostics: ReturnType<typeof buildConnectionDiagnostics> | undefined;
+    try {
+      diagnostics = buildConnectionDiagnostics(error);
+    } catch {
+      // config unresolved - diagnostics stays undefined, target/user fall back below
+    }
+
     return {
       ok: false,
-      target: `${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
-      user: dbConfig.user,
+      target: diagnostics?.target ?? "unresolved",
+      user: diagnostics?.user ?? null,
       durationMs: Date.now() - startedAt,
       failureType: classifyConnectionFailure(error),
-      diagnostics: buildConnectionDiagnostics(error),
+      diagnostics,
     };
   } finally {
     if (conn) {
@@ -289,20 +341,23 @@ async function acquireConnection() {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await pool.getConnection();
+      return await getPool().getConnection();
     } catch (error) {
       lastError = error;
+
+      const dbConfig = cachedDbConfig;
+      const poolConfig = cachedPoolConfig;
 
       console.error("[mariadb] Failed to acquire database connection", {
         attempt,
         maxAttempts,
-        db: {
+        db: dbConfig && {
           host: dbConfig.host,
           port: dbConfig.port,
           database: dbConfig.database,
           user: dbConfig.user,
         },
-        pool: {
+        pool: poolConfig && {
           connectionLimit: poolConfig.connectionLimit,
           acquireTimeout: poolConfig.acquireTimeout,
           connectTimeout: poolConfig.connectTimeout,

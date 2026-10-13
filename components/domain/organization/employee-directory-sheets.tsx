@@ -89,8 +89,40 @@ const CertificatesTab = lazy(() =>
   })),
 )
 
+/**
+ * This person's attendance month - the question this drawer could not answer.
+ *
+ * The drawer already showed an HR user this employee's skills, tasks,
+ * competency ratings, documents and certificates. Whether they turned up was
+ * two screens away, and getting there meant leaving the person you were
+ * looking at, opening the attendance desk and finding them again in a 31-column
+ * grid of everybody.
+ *
+ * INLINE, not the Sheet variant: this drawer IS a Sheet, and a Sheet inside a
+ * Sheet is a stacking and focus-trap problem. `EmployeeAttendanceInline` exists
+ * for exactly the two surfaces that cannot nest one.
+ *
+ * READ ONLY - `canCorrect` is deliberately not passed. Corrections keep one
+ * home and one dialog, on the HR attendance desk, so there stays exactly one
+ * write path into `hrms_attendance_edits`.
+ */
+const EmployeeAttendanceInline = lazy(() =>
+  import('@/domain/hrms/hrit/attendance-management/shared/employee-attendance-inline').then((m) => ({
+    default: m.EmployeeAttendanceInline,
+  })),
+)
+
 const TOP_TABS = [
   { id: 'personal-info', label: 'Personal Information' },
+  /*
+   * Beside Personal Information, because that is where this person's WORKING
+   * HOURS are edited (the `attendance-grid.tsx` roster editor) - and the
+   * roster is what decides whether a punch counts as late and whether a day
+   * counts as worked. The hours and what they produced belong next to each
+   * other; with Attendance two tabs away, somebody could change a Saturday
+   * out-time with no idea what it would re-score.
+   */
+  { id: 'attendance', label: 'Attendance' },
   { id: 'upload-docs', label: 'Upload Document' },
   { id: 'jobrole-skill', label: 'Jobrole Skill' },
   { id: 'jobrole-tasks', label: 'Jobrole Tasks' },
@@ -278,6 +310,17 @@ function EmployeeOverviewSheet({
   const [kabaEmptyReason, setKabaEmptyReason] = useState<string | null>(null)
 
   /*
+   * THE GRAPH-GROUNDED NARRATIVE (Phase 7.4) — a SEPARATE fetch from
+   * `gapData`, on purpose, same "must not share its fate" principle this
+   * file already applies to the self-assessment panel below. A narrative
+   * failure (no AI model configured, generation failed) must not blank the
+   * gap numbers that already rendered successfully, and the reverse: the
+   * numbers are never blocked on the narrative arriving.
+   */
+  const [narrative, setNarrative] = useState<string | null>(null)
+  const [isNarrativeLoading, setIsNarrativeLoading] = useState(false)
+
+  /*
    * TASK READINESS — the Jobrole Tasks tab's second dimension.
    *
    * Loaded ON ITS OWN TAB, like the competency data, rather than with the
@@ -383,6 +426,7 @@ function EmployeeOverviewSheet({
     if (!employee?.id) {
       setKabaItems([])
       setGapData(null)
+      setNarrative(null)
       setHasLoadedKaba(true)
       return
     }
@@ -391,6 +435,7 @@ function EmployeeOverviewSheet({
     setKabaError(null)
     setKabaNotMapped(false)
     setKabaEmptyReason(null)
+    setNarrative(null)
     try {
       const response = await fetchKasbaRatings(employee.id, getLaravelContext())
       setKabaItems(response?.data?.items ?? [])
@@ -408,11 +453,30 @@ function EmployeeOverviewSheet({
        * A failure here does not fail the tab: the items still render, the
        * rolled-up column simply says nothing rather than guessing.
        */
+      let jobroleId: number | undefined
       try {
         const gapRes = await competencyGapService.mine(getLaravelContext(), Number(employee.id))
         setGapData(gapRes?.data ?? null)
+        jobroleId = gapRes?.data?.jobrole_id
       } catch {
         setGapData(null)
+      }
+
+      /*
+       * THE NARRATIVE (Phase 7.4) — graph-grounded, generated, and allowed to
+       * fail on its own. No AI model configured (503) or generation failing
+       * (502) both land here as "no narrative", never as a tab error — the
+       * numbers above already rendered and must not be retracted because the
+       * explanation of them did not arrive.
+       */
+      setIsNarrativeLoading(true)
+      try {
+        const narrativeRes = await competencyGapService.narrative(getLaravelContext(), Number(employee.id), jobroleId)
+        setNarrative(narrativeRes?.data?.narrative ?? null)
+      } catch {
+        setNarrative(null)
+      } finally {
+        setIsNarrativeLoading(false)
       }
 
       // AN EXPECTED EMPTY IS NOT AN ERROR. The endpoint distinguishes "no job
@@ -427,6 +491,7 @@ function EmployeeOverviewSheet({
     } catch (error) {
       setKabaItems([])
       setGapData(null)
+      setNarrative(null)
       setKabaError(error instanceof Error ? error.message : 'Unable to load competency data.')
       setHasLoadedKaba(true)
     } finally {
@@ -873,11 +938,57 @@ function EmployeeOverviewSheet({
                   emptyReason={kabaEmptyReason}
                   ratingRange={kabaRange}
                 />
+                {/*
+                  * THE GRAPH-GROUNDED NARRATIVE (Phase 7.4), rendered as a
+                  * SIBLING of the tab rather than threaded through its props -
+                  * `CompetencyAssessmentTab` owns the numbers; this is a
+                  * separately-sourced explanation of them and fails
+                  * independently (see loadKaba's own comment on this fetch).
+                  * Nothing renders while loading or when there is nothing to
+                  * say - a missing narrative is a normal state, not an error,
+                  * same rule the endpoint itself documents.
+                  */}
+                {!isNarrativeLoading && narrative && (
+                  <div className="mt-4 rounded-2xl border border-border bg-card/40 p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Summary for your manager
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">{narrative}</p>
+                  </div>
+                )}
               </Suspense>
             )}
             {activeTopTab === 'certificates' && (
               <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
                 <CertificatesTab employeeId={mergedEmployee ? Number((mergedEmployee as any).id) : null} />
+              </Suspense>
+            )}
+            {activeTopTab === 'attendance' && (
+              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+                <div className="p-1">
+                  {/*
+                    * key={id} so paging to March for one employee does not
+                    * leave the next one you open sitting in March.
+                    *
+                    * `hasRoster` is NOT passed: this drawer's merged employee
+                    * row carries the 21 roster columns, but deciding
+                    * "has a roster" from them here would be a second answer to
+                    * a question the monthly-report endpoint already answers,
+                    * and the two would disagree the moment the rule changed.
+                    * The hook reads `has_roster` from the server instead.
+                    *
+                    * That answer is load-bearing: the monthly report has no
+                    * `unset` status and reports `weekend` for an employee with
+                    * no roster at all, so without it a never-rostered person's
+                    * month renders as a month of weekends.
+                    */}
+                  <EmployeeAttendanceInline
+                    key={Number((mergedEmployee as any).id)}
+                    userId={Number((mergedEmployee as any).id)}
+                    employeeName={mergedEmployee.full_name}
+                    departmentName={mergedEmployee.department_name}
+                  />
+                </div>
               </Suspense>
             )}
             {activeTopTab === 'capability-progress' && (
@@ -890,7 +1001,7 @@ function EmployeeOverviewSheet({
                 </div>
               </Suspense>
             )}
-            {activeTopTab !== 'personal-info' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && activeTopTab !== 'capability-progress' && activeTopTab !== 'certificates' && (
+            {activeTopTab !== 'personal-info' && activeTopTab !== 'attendance' && activeTopTab !== 'upload-docs' && activeTopTab !== 'jobrole-skill' && activeTopTab !== 'jobrole-tasks' && activeTopTab !== 'responsibility' && activeTopTab !== 'competency' && activeTopTab !== 'capability-progress' && activeTopTab !== 'certificates' && (
               <div className="flex h-full flex-col items-center justify-center space-y-4 text-muted-foreground">
                 <div className="rounded-full bg-muted/50 p-4">
                   <Briefcase className="size-8 opacity-50" />

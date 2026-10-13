@@ -42,7 +42,10 @@ const SYSTEM_STATUS_OPTIONS: TaskStatusOption[] = (
   id: null, name, category, color: null, sort_order: index, is_system: true, active: true,
 }))
 import { MyTaskDetailsDrawer } from './my-task-details-drawer'
-import { CreateTaskModal } from './create-task-modal'
+import { QuickAddTaskBar } from './quick-add-task-bar'
+import { TaskReminderToast } from './task-reminder-toast'
+import { WorkspaceBulkActionBar } from './workspace-bulk-action-bar'
+import { bulkResultMessage } from './bulk-result-message'
 
 const EMPTY_SUMMARY: MyTaskSummary = {
   due_today: 0,
@@ -82,8 +85,9 @@ export function MyTasksView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
-  // const [createOpen, setCreateOpen] = useState(false)
   const [message, setMessage] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -103,6 +107,9 @@ export function MyTasksView() {
 
     setLoading(true)
     setError('')
+    // A selection from a different page/filter/group is about to disappear
+    // from `tasks` - see task-workspace.tsx's identical load()-time reset.
+    setSelectedIds(new Set())
     try {
       const response = await taskService.getMyTasks(context, {
         group,
@@ -138,6 +145,30 @@ export function MyTasksView() {
     setPage(1)
   }
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const toggleAllSelected = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(tasks.map((task) => task.id)) : new Set())
+  }
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const bulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} selected task${selectedIds.size === 1 ? '' : 's'}?`)) return
+    setBulkBusy(true); setError('')
+    try {
+      const response = await taskService.bulkDeleteTasks(getLaravelContext(), Array.from(selectedIds))
+      setMessage(bulkResultMessage('Deleted', response.data))
+      clearSelection(); setReloadKey((value) => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected tasks.')
+    } finally { setBulkBusy(false) }
+  }
+
   const cards = useMemo(() => [
     {
       title: 'Due Today',
@@ -171,13 +202,21 @@ export function MyTasksView() {
 
   return (
     <div className="flex h-full flex-col gap-6">
+      <TaskReminderToast />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Tasks</h1>
           <p className="mt-1 text-sm text-muted-foreground">Your assigned work and verified reporting-line tasks</p>
         </div>
-        {/* <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 size-4" />Assign Task</Button> */}
       </div>
+      {/*
+        The employee's own "jot this down" create path. This screen had no
+        create affordance at all before this — the old "Assign Task" button
+        above opened CreateTaskModal, an assigner's form (department/job-role/
+        skills/KRA/KPA/observer); that stays removed, since this screen is a
+        person's own work, not where someone assigns work to others.
+      */}
+      <QuickAddTaskBar onCreated={() => { setMessage('Task added.'); setReloadKey((value) => value + 1) }} />
       {message && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{message}</div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -268,7 +307,7 @@ export function MyTasksView() {
             <Button variant="outline" onClick={() => setReloadKey((value) => value + 1)}>Try again</Button>
           </div>
         ) : view === 'list' ? (
-          <TaskTable tasks={tasks} onSelect={setSelectedTaskId} />
+          <TaskTable tasks={tasks} onSelect={setSelectedTaskId} selectedIds={selectedIds} onToggle={toggleSelected} onToggleAll={toggleAllSelected} />
         ) : (
           <TaskBoard tasks={tasks} onSelect={setSelectedTaskId} />
         )}
@@ -291,22 +330,34 @@ export function MyTasksView() {
         onClose={() => setSelectedTaskId(null)}
         onUpdated={() => setReloadKey((value) => value + 1)}
       />
-      {/* <CreateTaskModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(text) => { setMessage(text); setReloadKey((value) => value + 1) }}
-      /> */}
+      <WorkspaceBulkActionBar
+        count={selectedIds.size}
+        busy={bulkBusy}
+        people={[]}
+        allowReassign={false}
+        onReassign={() => { /* not offered here */ }}
+        onDelete={() => void bulkDelete()}
+        onClear={clearSelection}
+      />
     </div>
   )
 }
 
-function TaskTable({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string) => void }) {
+function TaskTable({ tasks, onSelect, selectedIds, onToggle, onToggleAll }: {
+  tasks: MyTask[]
+  onSelect: (id: string) => void
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+  onToggleAll: (checked: boolean) => void
+}) {
+  const allSelected = tasks.length > 0 && tasks.every((task) => selectedIds.has(task.id))
   return (
     <div className="overflow-hidden rounded-xl border">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10"><input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="Select all tasks on this page" /></TableHead>
               <TableHead>Task</TableHead>
               <TableHead>Assigned By</TableHead>
               <TableHead>Department</TableHead>
@@ -317,7 +368,8 @@ function TaskTable({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
           </TableHeader>
           <TableBody>
             {tasks.map((task) => (
-              <TableRow key={task.id} className="cursor-pointer" onClick={() => onSelect(task.id)}>
+              <TableRow key={task.id} className={cn('cursor-pointer', selectedIds.has(task.id) && 'bg-primary/5')} onClick={() => onSelect(task.id)}>
+                <TableCell onClick={(event) => event.stopPropagation()}><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => onToggle(task.id)} aria-label={`Select ${task.title}`} /></TableCell>
                 <TableCell><p className="font-medium">{task.title}</p><p className="max-w-sm truncate text-xs text-muted-foreground">{task.description || 'No description'}</p></TableCell>
                 <TableCell>{task.owner}</TableCell>
                 <TableCell>{task.department || '—'}</TableCell>
@@ -327,7 +379,7 @@ function TaskTable({ tasks, onSelect }: { tasks: MyTask[]; onSelect: (id: string
               </TableRow>
             ))}
             {tasks.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="h-44 text-center text-muted-foreground">No tasks match the selected filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-44 text-center text-muted-foreground">No tasks match the selected filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

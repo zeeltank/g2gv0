@@ -60,12 +60,42 @@ const rolePermissions: Record<string, string[]> = {
   ],
 };
 
+/**
+ * The session's `role` is the backend `role_key` (see types/role.ts: nine values), but the
+ * permission table above was written for the original four. Without this, `administrator`,
+ * `hr_manager` and every other new key matched no row and was refused everything - including
+ * `assistant:module-data:read`. Unknown roles fall to `employee`, the least-privileged row.
+ */
+const ROLE_KEY_TO_PERMISSION_ROLE: Record<string, string> = {
+  administrator: "admin",
+  hr_manager: "hr",
+  hr_executive: "hr",
+  department_head: "dept-head",
+  reporting_manager: "employee",
+  executive: "employee",
+  auditor: "employee",
+  recruiter: "employee",
+  employee: "employee",
+};
+
+function permissionRole(role: string | undefined) {
+  if (!role) {
+    return undefined;
+  }
+
+  if (role in rolePermissions) {
+    return role;
+  }
+
+  return ROLE_KEY_TO_PERMISSION_ROLE[role] ?? "employee";
+}
+
 function hasPermission(role: string | undefined, permission: string) {
   if (!role) {
     return false;
   }
 
-  const permissions = rolePermissions[role] || [];
+  const permissions = rolePermissions[permissionRole(role) ?? ""] || [];
   return permissions.includes("*") || permissions.includes(permission);
 }
 

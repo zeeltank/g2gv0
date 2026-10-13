@@ -170,7 +170,7 @@ export function AiStackTemplatesScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchTemplates(module.key)
+    fetchTemplates(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         // Report layouts only. A prompt is a different thing managed on the Prompts tab,

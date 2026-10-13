@@ -150,7 +150,7 @@ export function AiStackPromptsScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchTemplates(module.key)
+    fetchTemplates(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         setRows(next.templates.filter((row) => row.kind === 'prompt'));

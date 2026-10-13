@@ -103,7 +103,7 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchModuleGuardrails(module.key)
+    fetchModuleGuardrails(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         setGuardrails(next);
@@ -116,7 +116,7 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
         setLoading(false);
       });
 
-    fetchAiPolicies(module.key)
+    fetchAiPolicies(module.key, { rollup: true })
       .then((index) => {
         if (!cancelled) setPolicies(index.policies.filter((policy) => policy.status === 1));
       })

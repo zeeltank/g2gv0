@@ -20,9 +20,8 @@ import { organizationService } from '@/services/organization'
 import { Tabs } from '../components'
 import { DepartmentEmployeesPanel } from './department-employees-panel'
 import { DepartmentJobRolesPanel } from './department-job-roles-panel'
-import { SopsTab } from './sops-tab'
-import { PoliciesTab } from './policies-tab'
-import { RulesTab } from './rules-tab'
+import { ProcessTab } from './process-tab'
+import { SignalsHub } from './signals-hub'
 
 /**
  * Display code for a department.
@@ -108,9 +107,8 @@ const DETAIL_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'employees', label: 'Employees' },
   { id: 'jobroles', label: 'Job Roles' },
-  { id: 'sops', label: 'SOPs' },
-  { id: 'policies', label: 'Policies' },
-  { id: 'rules', label: 'Rules' },
+  { id: 'process', label: 'Process' },
+  { id: 'signals', label: 'Signals' },
 ]
 
 
@@ -377,16 +375,12 @@ export function DepartmentDetailsPanel({
           />
         )}
 
-        {activeTab === 'sops' && (
-          <SopsTab department={department} context={context} canManage={canManage} />
+        {activeTab === 'process' && (
+          <ProcessTab department={department} context={context} canManage={canManage} />
         )}
 
-        {activeTab === 'policies' && (
-          <PoliciesTab department={department} context={context} canManage={canManage} />
-        )}
-
-        {activeTab === 'rules' && (
-          <RulesTab department={department} context={context} canManage={canManage} />
+        {activeTab === 'signals' && (
+          <SignalsHub key={department.id} department={department} context={context} canManage={canManage} />
         )}
       </div>
     </aside>

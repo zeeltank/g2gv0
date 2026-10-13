@@ -15,6 +15,7 @@ export interface PlatformServicesAccess {
   audit: boolean
   platform_administration: boolean
   whats_coming: boolean
+  document_library: boolean
   ai: Record<
     | 'providers'
     | 'models'

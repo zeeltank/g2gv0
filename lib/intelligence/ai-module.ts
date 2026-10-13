@@ -178,12 +178,18 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
   return aiRequest<T>(path, (init.method ?? 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE', init.body);
 }
 
-export function fetchModuleUsage(moduleKey: string): Promise<AiModuleUsage> {
-  return call<AiModuleUsage>(`/modules/${encodeURIComponent(moduleKey)}/usage`);
+/**
+ * `rollup: true` is the module-wide view: a top-level module also reads what was recorded under
+ * its screens' keys (the backend derives them from the menu tree). Without it, exactly the key.
+ */
+const rollupQuery = (options?: { rollup?: boolean }) => (options?.rollup ? '?rollup=1' : '');
+
+export function fetchModuleUsage(moduleKey: string, options?: { rollup?: boolean }): Promise<AiModuleUsage> {
+  return call<AiModuleUsage>(`/modules/${encodeURIComponent(moduleKey)}/usage${rollupQuery(options)}`);
 }
 
-export function fetchModuleGuardrails(moduleKey: string): Promise<AiModuleGuardrails> {
-  return call<AiModuleGuardrails>(`/modules/${encodeURIComponent(moduleKey)}/guardrails`);
+export function fetchModuleGuardrails(moduleKey: string, options?: { rollup?: boolean }): Promise<AiModuleGuardrails> {
+  return call<AiModuleGuardrails>(`/modules/${encodeURIComponent(moduleKey)}/guardrails${rollupQuery(options)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +226,8 @@ export type AiModuleActivityStatus = 'completed' | 'failed' | 'denied' | 'skippe
 
 export interface AiModuleActivityEntry {
   id: number;
+  /** The module key the row was written under - a screen's key when the view is rolled up. */
+  module?: string | null;
   operation: string;
   operation_label: string | null;
   capability: string | null;
@@ -234,6 +242,10 @@ export interface AiModuleActivityEntry {
   reference: string | null;
   used: AiModuleActivityUsed;
   result: Record<string, unknown> | null;
+  /** Measured by whoever recorded the row. Null is "not measured", never zero. */
+  duration_ms?: number | null;
+  /** Whether a knowledge graph was consulted. Null is "not measured". */
+  knowledge_graph_used?: boolean | null;
   created_at: string | null;
 }
 
@@ -261,6 +273,8 @@ export interface RecordModuleActivityInput {
   reference?: string | null;
   template_id?: number | null;
   prompt_id?: number | null;
+  duration_ms?: number | null;
+  knowledge_graph_used?: boolean | null;
   agent_id?: string | null;
   agent_name?: string | null;
   agent_run_id?: string | null;
@@ -271,9 +285,10 @@ export interface RecordModuleActivityInput {
 
 export function fetchModuleActivity(
   moduleKey: string,
-  filter: { operation?: string; outcome?: string; subjectId?: number; limit?: number } = {},
+  filter: { operation?: string; outcome?: string; subjectId?: number; limit?: number; rollup?: boolean } = {},
 ): Promise<AiModuleActivity> {
   const params = new URLSearchParams();
+  if (filter.rollup) params.set('rollup', '1');
   if (filter.operation) params.set('operation', filter.operation);
   if (filter.outcome) params.set('outcome', filter.outcome);
   if (filter.subjectId) params.set('subject_id', String(filter.subjectId));

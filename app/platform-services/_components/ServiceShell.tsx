@@ -59,8 +59,8 @@ function ServiceShellContent({ slug, children }: { slug: string; children?: Reac
       backHref="/platform-services"
       eyebrow={
         scopeModule
-          ? `${scopeModule.label} · ${PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services'}`
-          : (PLATFORM_SECTION_LABEL[service.section] ?? 'Platform Services')
+          ? `${scopeModule.label} · ${PLATFORM_SECTION_LABEL[service.section] ?? 'Platform services'}`
+          : (PLATFORM_SECTION_LABEL[service.section] ?? 'Platform services')
       }
       module={scopeModule}
       title={service.name}

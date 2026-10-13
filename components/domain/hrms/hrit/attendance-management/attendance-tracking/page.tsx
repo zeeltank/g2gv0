@@ -17,6 +17,8 @@ import {
   MoreVertical,
   CalendarPlus,
   Building2,
+  ArrowLeft,
+  Eye,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -27,7 +29,7 @@ import {
   AlertDialogFooter,
 } from '@/components/ui/alert-dialog'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAttendance, workModeLabel, type WorkMode } from '@/hooks/use-attendance'
 import { csvText, downloadCsv } from '@/domain/hrms/hrit/payroll-management/shared/payroll-shell'
 import { useAuth } from '@/components/auth/gtg-auth'
@@ -52,6 +54,18 @@ const AttendanceCalendarDrawer = lazy(() =>
 const AttendanceHistoryDrawer = lazy(() =>
   import('@/domain/hrms/hrit/attendance-management/attendance-tracking/components/attendance-history-drawer').then((m) => ({
     default: m.AttendanceHistoryDrawer,
+  })),
+)
+
+/**
+ * Somebody else's attendance month, for the `?employee=<id>` view below.
+ *
+ * INLINE rather than the Sheet variant: this is a whole-page view, not
+ * something layered over the self dashboard.
+ */
+const EmployeeAttendanceInline = lazy(() =>
+  import('@/domain/hrms/hrit/attendance-management/shared/employee-attendance-inline').then((m) => ({
+    default: m.EmployeeAttendanceInline,
   })),
 )
 
@@ -140,7 +154,17 @@ const widgetFallback = (
   </Card>
 )
 
-export function AttendanceDashboard() {
+/**
+ * The signed-in person's own attendance dashboard.
+ *
+ * Renamed from `AttendanceDashboard`, which is now the wrapper at the bottom of
+ * this file that decides between this and the `?employee=<id>` view. The split
+ * is not cosmetic: `useAttendance()` is called unconditionally here, and every
+ * endpoint behind it resolves the subject from the token, so leaving it mounted
+ * while another employee is on screen would fire four requests for the VIEWER's
+ * own attendance that nothing renders.
+ */
+function SelfAttendanceDashboard() {
   const {
     loading,
     processing,
@@ -877,4 +901,92 @@ function formatRecordDate(record: AttendanceRecord) {
     month: 'short',
     year: 'numeric',
   })} (${record.day})`
+}
+
+/* ========================================================================== */
+
+/**
+ * Attendance Tracking: your own, or - with `?employee=<id>` - somebody else's.
+ *
+ * ── WHY THE PARAMETER CANNOT AIM THE SELF DASHBOARD AT ANOTHER PERSON ───────
+ *
+ * `useAttendance()` takes no arguments, and all four endpoints behind it
+ * resolve the subject from the auth token: `ResolvesApiIdentity` states it
+ * outright - "the token decides. The request is never trusted for identity".
+ * So there is no version of this where `?employee=7` makes the punch panel,
+ * the leave balance or the work-mode toggle describe employee 7. Pointing the
+ * existing dashboard at an id would have produced a screen showing YOUR data
+ * under THEIR name, which is worse than not having the feature.
+ *
+ * What the parameter does instead is swap the whole screen for a read-only
+ * month of that employee, read from `/employee-attendance-monthly-report` -
+ * an endpoint that genuinely takes a subject and authorises HR-or-self
+ * server-side (F-159). A non-HR caller asking for somebody else gets a 403
+ * from the server, and the month renders that as an error rather than an empty
+ * month. The gate is not here.
+ *
+ * ── HIDDEN, NOT DISABLED ────────────────────────────────────────────────────
+ *
+ * The punch buttons, the work-mode toggle, the WFH action and the
+ * regularisation drawer do not appear in this branch at all. Greying them out
+ * would invite a click and a support ticket - and worse, every one of them
+ * WRITES AGAINST THE TOKEN, so a control that looked like it belonged to the
+ * employee on screen would punch for the viewer. They are gone because they
+ * cannot be made to mean the right thing here.
+ *
+ * ── THE PARAMETER IS READ ONCE, INTO STATE ──────────────────────────────────
+ *
+ * Going back is a `setState`, not a navigation. `router.push` to this same
+ * pathname with different search params is a documented no-op in this shell
+ * (gtg-page-shell.tsx:166-180), so a Back button built on it would do nothing
+ * and look broken. Reading the param once into initial state and then owning
+ * it locally is also what makes Back work on the first click rather than
+ * leaving a stale `?employee=` in the URL to re-apply itself.
+ */
+export function AttendanceDashboard() {
+  const searchParams = useSearchParams()
+
+  /*
+   * Read once, deliberately - not derived from searchParams on every render.
+   * After "Back to my attendance" the URL still says ?employee=7, and deriving
+   * would immediately put us back into the employee view.
+   */
+  const [viewing, setViewing] = React.useState<number | null>(() => {
+    const raw = searchParams?.get('employee')
+    const parsed = Number(raw)
+    return raw && Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  })
+
+  if (viewing === null) {
+    return <SelfAttendanceDashboard />
+  }
+
+  return (
+    <div className="relative space-y-4 lg:space-y-5">
+      {/* The context bar. Whose month this is, and the way out. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+        <p className="flex items-center gap-2 text-sm text-foreground">
+          <Eye className="size-4 text-primary" aria-hidden="true" />
+          <span>
+            You are looking at <strong>another employee&apos;s</strong> attendance.
+            {' '}Read only &mdash; your own punch controls are not shown here.
+          </span>
+        </p>
+
+        <Button variant="outline" size="sm" onClick={() => setViewing(null)}>
+          <ArrowLeft className="mr-2 size-4" />
+          Back to my attendance
+        </Button>
+      </div>
+
+      <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+        {/*
+          * No name or department is passed - nothing handed this screen a row,
+          * only an id. The component falls back to the name the
+          * monthly-report response carries, so the month is still labelled.
+          */}
+        <EmployeeAttendanceInline key={viewing} userId={viewing} />
+      </Suspense>
+    </div>
+  )
 }

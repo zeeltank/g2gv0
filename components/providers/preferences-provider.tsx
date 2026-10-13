@@ -41,7 +41,7 @@ import { useTheme } from '@/components/providers/theme-provider'
 
 /** Mirrors `UserPreferences::DEFAULTS` on the server. */
 const DEFAULTS: AccountPreferences = {
-  theme: 'system',
+  theme: 'light',
   sidebar_collapsed: true,
   density: 'comfortable',
   locale: 'en-GB',
@@ -61,6 +61,7 @@ const DEFAULTS: AccountPreferences = {
   display_name: '',
   pronouns: '',
   about: '',
+  task_card_color: '',
 
   // `everyone` matches the server, so a failed fetch cannot silently tighten or
   // loosen somebody's privacy relative to what is actually stored.

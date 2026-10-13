@@ -58,7 +58,7 @@ export default function RootLayout({
           *
           * Kept deliberately tiny and wrapped in try/catch: it executes before
           * anything else on the page, so a throw here would be a blank document.
-          * A browser with storage blocked simply falls through to `system`.
+          * A browser with storage blocked simply falls through to `light`.
           *
           * `/login` is excluded from the calculation on purpose — that screen
           * is always light regardless of the stored or system preference (see
@@ -70,7 +70,7 @@ export default function RootLayout({
           */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=window.location.pathname;var t=localStorage.getItem('gtg-theme')||'system';var d=p!=='/login'&&(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches));var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+            __html: `(function(){try{var p=window.location.pathname;var t=localStorage.getItem('gtg-theme')||'light';var d=p!=='/login'&&(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches));var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
           }}
         />
       </head>

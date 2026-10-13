@@ -48,7 +48,9 @@ export function AiStackTabs({ module }: { module: AiStackModule }) {
   );
 
   return (
-    <div className="space-y-5">
+    // The module and tab are declared on the element so the chat can tell exactly which tab of which
+    // module is open (the AI Stack has no menu row of its own to resolve it from).
+    <div className="space-y-5" data-ai-stack-module={module.key} data-ai-stack-tab={activeTab?.id}>
       <div className="flex flex-wrap items-center gap-5 overflow-x-auto border-b border-[#D9E3F1]">
         {tabs.map((tab) => {
           const isActive = activeTab?.id === tab.id;

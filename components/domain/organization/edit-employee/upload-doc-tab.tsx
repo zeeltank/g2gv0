@@ -13,7 +13,7 @@ import { ConfirmDialog } from '@/components/settings/sections/section-primitives
 import { DocumentViewer } from '@/components/shared/business/document-viewer'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { accountService, type AccountDocument } from '@/services/account'
+import { accountService, type AccountDocument, type DocumentTypeChoices } from '@/services/account'
 
 /**
  * An employee's documents, as HR sees them.
@@ -54,7 +54,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
   const employeeId = Number(employee?.id ?? 0)
 
   const [rows, setRows] = useState<AccountDocument[]>([])
-  const [types, setTypes] = useState<{ id: number; document_type: string }[]>([])
+  const [types, setTypes] = useState<DocumentTypeChoices>({ personnel: {}, organization: {} })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,7 +75,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
     try {
       const response = await accountService.employeeDocuments(getLaravelContext(user), employeeId)
       setRows(response.data ?? [])
-      setTypes(response.document_types ?? [])
+      setTypes(response.document_types ?? { personnel: {}, organization: {} })
     } catch (caught) {
       /*
        * A failed fetch is never rendered as "no documents". The two are
@@ -105,8 +105,9 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
       // accepted `file` and this form sent that name, which is a mismatch that
       // has bitten this table before.
       body.append('document', file)
-      body.append('document_title', title.trim())
-      body.append('document_type_id', documentType)
+      body.append('title', title.trim())
+      body.append('document_type', documentType)
+      body.append('category', 'personnel')
 
       await accountService.uploadEmployeeDocument(employeeId, body)
 
@@ -130,7 +131,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = row.file_name || row.document_title || 'document'
+      link.download = row.original_file_name || row.title || 'document'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -158,6 +159,9 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
 
   const canUpload = Boolean(file && title.trim() && documentType) && !uploading
 
+  const typeOptions = Object.entries(types.personnel).map(([value, label]) => ({ value, label }))
+  const typeLabel = (key: string | null) => (key ? (types.personnel[key] ?? types.organization[key] ?? key) : null)
+
   return (
     <div className="flex h-full flex-col gap-8 overflow-y-auto pb-16 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="rounded-xl border bg-surface p-6 shadow-sm">
@@ -171,9 +175,9 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
                 id="doc-type"
                 value={documentType}
                 onChange={setDocumentType}
-                options={types.map((t) => ({ value: String(t.id), label: t.document_type }))}
-                placeholder={types.length === 0 ? 'No document types configured' : 'Select a type'}
-                disabled={uploading || types.length === 0}
+                options={typeOptions}
+                placeholder={typeOptions.length === 0 ? 'No document types configured' : 'Select a type'}
+                disabled={uploading || typeOptions.length === 0}
               />
             </div>
 
@@ -205,7 +209,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
             until somebody does - which is not something the person at this
             screen can guess from a greyed-out control.
           */}
-          {types.length === 0 && !loading && (
+          {typeOptions.length === 0 && !loading && (
             <p className="text-sm text-muted-foreground">
               No staff document types are configured yet, so nothing can be filed. Add them under
               document type settings first.
@@ -269,15 +273,15 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
                     longer exists - eight live rows do. Blank would read as a
                     rendering fault.
                   */}
-                  <TableCell>{row.document_type || '—'}</TableCell>
-                  <TableCell className="font-medium">{row.document_title || '—'}</TableCell>
+                  <TableCell>{typeLabel(row.document_type) || '—'}</TableCell>
+                  <TableCell className="font-medium">{row.title || '—'}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setViewing(row)}
-                        aria-label={`View ${row.document_title ?? 'document'}`}
+                        aria-label={`View ${row.title ?? 'document'}`}
                       >
                         <Eye className="mr-1 size-4" />
                         View
@@ -288,7 +292,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
                         size="sm"
                         disabled={downloadingId !== null}
                         onClick={() => download(row)}
-                        aria-label={`Download ${row.document_title ?? 'document'}`}
+                        aria-label={`Download ${row.title ?? 'document'}`}
                       >
                         {downloadingId === row.id ? (
                           <Loader2 className="mr-1 size-4 animate-spin" />
@@ -303,7 +307,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
                         size="sm"
                         className="text-destructive hover:bg-destructive/10"
                         onClick={() => setPendingDelete(row)}
-                        aria-label={`Remove ${row.document_title ?? 'document'}`}
+                        aria-label={`Remove ${row.title ?? 'document'}`}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -320,9 +324,9 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
         open={viewing !== null}
         onOpenChange={(next) => !next && setViewing(null)}
         documentId={viewing?.id ?? null}
-        title={viewing?.document_title ?? ''}
+        title={viewing?.title ?? ''}
         mimeType={viewing?.mime_type}
-        fileName={viewing?.file_name}
+        fileName={viewing?.original_file_name}
       />
 
       <ConfirmDialog
@@ -331,7 +335,7 @@ export function UploadDocTab({ employee }: UploadDocTabProps) {
           if (!next) setPendingDelete(null)
         }}
         title="Remove this document?"
-        description={`"${pendingDelete?.document_title ?? 'This document'}" will no longer appear on this employee's record, or on their own.`}
+        description={`"${pendingDelete?.title ?? 'This document'}" will no longer appear on this employee's record, or on their own.`}
         confirmLabel="Remove it"
         busy={deleting}
         onConfirm={() => void confirmDelete()}

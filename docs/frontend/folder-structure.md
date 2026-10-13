@@ -155,8 +155,7 @@ Imports flow downward: `app` → `domain` → `shared` → `ui`
 **Pattern:**
 ```typescript
 // components/domain/task/index.ts
-export { TaskBoardView } from './task-board-view'
-export { TaskListView } from './task-list-view'
+export { TaskWorkspace } from './task-workspace'
 export { TaskCalendarView } from './task-calendar-view'
 ```
 

@@ -39,7 +39,7 @@ export default function PlatformServicesConsolePage() {
   return (
     <PlatformShell
       eyebrow="Control plane"
-      title="Platform Services"
+      title="Platform services"
       description="The services this platform provides once and every module uses, and the screens an administrator operates to configure this organisation. Each row says where its screen is today — some are reached through the module navigation, some are their own page, and the ones that are not built yet say so rather than showing an empty screen."
     >
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

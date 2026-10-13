@@ -3,7 +3,7 @@
  *
  * WHY THE LAYOUT IS HERE AND NOT IN THE MENU COMPONENT
  *
- * LMS K-12 folded "Setup & configuration" into Platform Services as a second column
+ * LMS K-12 folded "Setup and configuration" into Platform services as a second column
  * rather than leaving it a third peer section, and its reasoning is worth keeping: a
  * reader does not experience "what the platform provides" and "how this tenant is set
  * up" as two different menus — they experience three columns and have to guess which one
@@ -48,11 +48,11 @@ export function servicesInSection(section: PlatformSection): readonly PlatformSe
  */
 export const PLATFORM_MENU_SECTION: MenuSectionLayout = {
   id: 'platform-services',
-  label: 'Platform Services',
+  label: 'Platform services',
   href: '/platform-services',
   span: 2,
   columns: [
     { items: servicesInSection('services') },
-    { label: 'Setup & configuration', items: servicesInSection('setup') },
+    { label: 'Setup and configuration', items: servicesInSection('setup') },
   ],
 }

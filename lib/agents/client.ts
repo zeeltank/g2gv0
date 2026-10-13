@@ -37,17 +37,19 @@ async function call<T>(path: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' |
   }
 }
 
-export function fetchAgents(filter: { module?: string; status?: AgentStatus } = {}): Promise<Agent[]> {
+export function fetchAgents(filter: { module?: string; status?: AgentStatus; rollup?: boolean } = {}): Promise<Agent[]> {
   const params = new URLSearchParams();
   if (filter.module) params.set('module', filter.module);
+  if (filter.rollup) params.set('rollup', '1');
   if (filter.status) params.set('status', filter.status);
   const query = params.toString();
   return call<{ agents: Agent[] }>(`/tool-agents${query ? `?${query}` : ''}`).then((result) => result.agents);
 }
 
-export function fetchRuns(filter: { module?: string; agentId?: string; limit?: number } = {}): Promise<AgentRun[]> {
+export function fetchRuns(filter: { module?: string; agentId?: string; limit?: number; rollup?: boolean } = {}): Promise<AgentRun[]> {
   const params = new URLSearchParams();
   if (filter.module) params.set('module', filter.module);
+  if (filter.rollup) params.set('rollup', '1');
   if (filter.agentId) params.set('agent_id', filter.agentId);
   if (filter.limit) params.set('limit', String(filter.limit));
   const query = params.toString();

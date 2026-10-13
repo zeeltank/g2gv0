@@ -36,7 +36,7 @@ export default function PlatformServicePage({
 
   if (!service) {
     return (
-      <PlatformShell backHref="/platform-services" eyebrow="Platform Services" title="Not found">
+      <PlatformShell backHref="/platform-services" eyebrow="Platform services" title="Not found">
         <div className="mt-6 rounded-lg border border-border bg-card p-6">
           <p className="text-lg font-semibold text-foreground">
             There is no platform service called &ldquo;{slug}&rdquo;
@@ -49,7 +49,7 @@ export default function PlatformServicePage({
             href="/platform-services"
             className="mt-4 inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
           >
-            Open Platform Services
+            Open Platform services
           </Link>
         </div>
       </PlatformShell>

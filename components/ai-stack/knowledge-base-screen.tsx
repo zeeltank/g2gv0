@@ -103,7 +103,7 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchTemplateOptions(), fetchTemplates(module.key)])
+    Promise.all([fetchTemplateOptions(), fetchTemplates(module.key, { rollup: true })])
       .then(([nextOptions, index]) => {
         if (cancelled) return;
         setOptions(nextOptions);
@@ -359,8 +359,8 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
 
       <AiStackCard className="overflow-hidden">
         <AiStackCardHeading
-          title="Indexed documents"
-          hint="Knowledge assets from hpbrain_knowledge_assets. Held per organisation, not per module — a document indexed here is visible to the whole organisation's AI."
+          title="Indexed documents — organisation-wide"
+          hint={`Knowledge assets from hpbrain_knowledge_assets. This table has no module column, so the same list appears in every module's Knowledge Base: it is not specific to ${module.label}. Only the data sources above are scoped to this module.`}
         />
 
         {documentsError ? (

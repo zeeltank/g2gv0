@@ -6,16 +6,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import type { SearchableOption } from '@/components/ui/searchable-select'
 import { Spinner } from '@/components/ui/spinner'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
-import type { BacklogItem, TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
+import type { BacklogItem, TaskPriorityOption, TaskStatus, TaskStatusOption, WorkspaceScope, WorkspaceTask } from '@/types/task-management'
 import { BacklogBoard } from './backlog-board'
 import { CreateTaskModal } from './create-task-modal'
+import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { PriorityBadge } from './priority-badge'
-import { TaskDutyContext } from './task-duty-context'
+import { TaskReminderToast } from './task-reminder-toast'
+import { WorkspaceBulkActionBar } from './workspace-bulk-action-bar'
+import { bulkResultMessage } from './bulk-result-message'
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pending', 'IN-PROGRESS': 'In Progress', 'ON HOLD': 'On Hold', COMPLETED: 'Completed',
@@ -51,121 +54,23 @@ export function TaskWorkspace() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [view, setView] = useState<WorkspaceView>('list')
+  // Grid-only: which vocabulary TaskGrid builds its columns from.
+  const [groupBy, setGroupBy] = useState<'status' | 'priority'>('status')
+  const [priorityOptions, setPriorityOptions] = useState<TaskPriorityOption[]>([])
   const [backlogAdd, setBacklogAdd] = useState(0)
   const [promoting, setPromoting] = useState<BacklogItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [selected, setSelected] = useState<WorkspaceTask | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [reload, setReload] = useState(0)
-
-  /*
-   * EDITING A TASK, ON THE SCREEN PEOPLE ACTUALLY USE.
-   *
-   * This Sheet offered Approve / Reject / Archive and nothing else, so the
-   * only way to change a task was the My Tasks drawer - which is a different
-   * screen, shows only your own work, and wrote through the legacy web route.
-   *
-   * There are now TWO writes here, and the split is deliberate:
-   *
-   *   EDIT TASK opens CreateTaskModal in edit mode - the assign form, prefilled
-   *   - because that is the form people learned and the one that covers KRA,
-   *   KPA, skills, monitoring points, the project link and dependencies.
-   *
-   *   UPDATE STATUS stays inline, because a status move is not a field edit:
-   *   it follows the workflow's transition rules and carries a remark.
-   *
-   * An earlier revision put eight fields inline here on the grounds that
-   * `updateWorkspaceTask` saves exactly eight. That was true of the endpoint
-   * and wrong for the people using it - it was a second, unfamiliar answer to
-   * "what does a task consist of".
-   */
-  const [editing, setEditing] = useState(false)
-  /** The task whose full edit form is open, or null. */
-  const [editTaskId, setEditTaskId] = useState<string | null>(null)
-  const [savingEdit, setSavingEdit] = useState(false)
-  const [form, setForm] = useState({
-    title: '', description: '', assignee_id: '', owner_id: '',
-    status: '', priority: '', due_date: '', remarks: '',
-  })
-  const [people, setPeople] = useState<Array<{ id: string; name: string }>>([])
-  const [priorityOptions, setPriorityOptions] = useState<string[]>([])
-
-  /**
-   * People and priorities, fetched once the first time an edit is opened.
-   *
-   * Not with the list: the workspace renders fine without them, and most
-   * visits never edit anything. Failures are swallowed into an empty list -
-   * the Select then shows the task's CURRENT value as its only option, so an
-   * edit of the title still saves rather than being blocked by a lookup.
-   */
-  const loadEditOptions = useCallback(async () => {
-    if (people.length && priorityOptions.length) return
-    const context = getLaravelContext()
-    const [users, priorities] = await Promise.allSettled([
-      taskService.getAssignmentUsers(context),
-      taskService.getPriorityOptions(context),
-    ])
-    if (users.status === 'fulfilled') {
-      setPeople(users.value.map((user) => ({
-        id: String(user.id),
-        name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
-      })))
-    }
-    if (priorities.status === 'fulfilled') {
-      setPriorityOptions(priorities.value.data.priorities.map((option) => option.name))
-    }
-  }, [people.length, priorityOptions.length])
-
-  const openEdit = (task: WorkspaceTask) => {
-    setForm({
-      title: task.title,
-      description: task.description ?? '',
-      assignee_id: task.assignee_id ?? '',
-      owner_id: task.owner_id ?? '',
-      // The tenant's own label where there is one, so a custom status round-trips.
-      status: task.status_label ?? task.status,
-      priority: task.priority ?? '',
-      due_date: task.due_date ?? '',
-      remarks: task.remarks ?? '',
-    })
-    setEditing(true); setError(''); setMessage('')
-    void loadEditOptions()
-  }
-
-  const saveEdit = async () => {
-    if (!selected) return
-    if (!form.title.trim()) { setError('A task needs a title.'); return }
-    // assignee_id and owner_id are REQUIRED by the endpoint; saying so here
-    // beats a 422 that names a field the form calls something else.
-    if (!form.assignee_id) { setError('Choose who this task is assigned to.'); return }
-    if (!form.owner_id) { setError('Choose who owns this task.'); return }
-
-    setSavingEdit(true); setError(''); setMessage('')
-    try {
-      const response = await taskService.updateWorkspaceTask(getLaravelContext(), selected.id, {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        assignee_id: form.assignee_id,
-        owner_id: form.owner_id,
-        status: form.status as WorkspaceTask['status'],
-        priority: form.priority as NonNullable<WorkspaceTask['priority']>,
-        ...(form.due_date ? { due_date: form.due_date } : {}),
-        ...(form.remarks.trim() ? { remarks: form.remarks.trim() } : {}),
-      })
-      // The server returns the saved row - show THAT, not the form state, so
-      // anything it normalised (status category, resolved priority) is visible.
-      setSelected(response.data)
-      setMessage(response.message)
-      setEditing(false)
-      setReload((current) => current + 1)
-    } catch (reason) {
-      // 403 for a task you neither own, created nor were assigned; 422 for an
-      // illegal status move. Both are the server's words, shown as they are.
-      setError(reason instanceof Error ? reason.message : 'Unable to save this task.')
-    } finally { setSavingEdit(false) }
-  }
+  // Bulk selection: a Set of task ids, not WorkspaceTask rows - rows live in
+  // `tasks` already, and an id-only selection survives a page's own data
+  // being re-fetched without going stale against a stale WorkspaceTask copy.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [assigneeOptions, setAssigneeOptions] = useState<SearchableOption[]>([])
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setPage(1) }, 300)
@@ -174,6 +79,10 @@ export function TaskWorkspace() {
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
+    // A selection from a different page/filter/scope refers to rows that are
+    // about to disappear from `tasks` - carrying it over would let someone
+    // bulk-act on ids they can no longer see on screen.
+    setSelectedIds(new Set())
     try {
       const response = await taskService.getWorkspace(getLaravelContext(), {
         scope, search: search || undefined, status: status === 'all' ? undefined : status,
@@ -182,6 +91,10 @@ export function TaskWorkspace() {
       setTasks(response.data.tasks); setSummary(response.data.summary)
       setPagination(response.data.pagination)
       setStatusOptions(response.data.filters.status_options)
+      // Already returned by this same call, previously fetched and
+      // discarded - the priority-grouped Grid view needs it to build its
+      // columns, ordered and colored, with no extra network round trip.
+      setPriorityOptions(response.data.filters.priority_options)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load the task workspace.')
     } finally { setLoading(false) }
@@ -235,18 +148,72 @@ The assignee sees this, and it is recorded as the reason.`,
 
     try {
       const response = await taskService.decideWorkspaceTask(getLaravelContext(), task.id, decision, remarks)
-      setMessage(response.message); setSelected(null); setReload((value) => value + 1)
+      setMessage(response.message); setSelectedId(null); setReload((value) => value + 1)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update approval.') }
   }
   const archive = async (task: WorkspaceTask) => {
     if (!window.confirm(`Archive “${task.title}”?`)) return
     try {
       const response = await taskService.archiveWorkspaceTask(getLaravelContext(), task.id)
-      setMessage(response.message); setSelected(null); setReload((value) => value + 1)
+      setMessage(response.message); setSelectedId(null); setReload((value) => value + 1)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to archive task.') }
   }
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const toggleAllSelected = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(tasks.map((task) => task.id)) : new Set())
+  }
+  const clearSelection = () => setSelectedIds(new Set())
+
+  /**
+   * The user picker, fetched once the first time a selection exists rather
+   * than on every Dashboard visit - most visits never bulk-reassign anything.
+   */
+  useEffect(() => {
+    if (!selectedIds.size || assigneeOptions.length) return
+    taskService.getAssignmentUsers(getLaravelContext())
+      .then((users) => setAssigneeOptions(users.map((user) => ({
+        value: String(user.id),
+        label: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
+      }))))
+      .catch(() => { /* the picker shows no options; bulk delete still works */ })
+  }, [selectedIds.size, assigneeOptions.length])
+
+  const bulkReassign = async (assigneeId: string) => {
+    setBulkBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.bulkReassignTasks(getLaravelContext(), Array.from(selectedIds), assigneeId)
+      setMessage(bulkResultMessage('Reassigned', response.data))
+      clearSelection(); setReload((value) => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reassign the selected tasks.')
+    } finally { setBulkBusy(false) }
+  }
+  const bulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} selected task${selectedIds.size === 1 ? '' : 's'}?`)) return
+    setBulkBusy(true); setError(''); setMessage('')
+    try {
+      const response = await taskService.bulkDeleteTasks(getLaravelContext(), Array.from(selectedIds))
+      setMessage(bulkResultMessage('Deleted', response.data))
+      clearSelection(); setReload((value) => value + 1)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete the selected tasks.')
+    } finally { setBulkBusy(false) }
+  }
+
+  // The row behind the open drawer, for the Dashboard-only approve/reject/
+  // archive actions - MyTaskDetailsDrawer fetches the task itself by id, but
+  // approval-chain fields only exist on WorkspaceTask, which is this list.
+  const selectedRow = tasks.find((task) => task.id === selectedId) ?? null
+
   return <div className="space-y-6">
+    <TaskReminderToast />
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-3xl font-bold tracking-tight">Task Management Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Track assignments, reviews, deadlines, and ownership.</p></div>
       <div className="flex flex-wrap items-center gap-2">
@@ -285,6 +252,19 @@ The assignee sees this, and it is recorded as the reason.`,
             {([['list', List, 'List'], ['grid', LayoutGrid, 'Grid'], ['board', CheckSquare, 'Board'], ['analytics', BarChart3, 'Analytics'], ['backlog', ListChecks, 'Backlog']] as const).map(([value, Icon, label]) =>
               <button key={value} type="button" title={label} aria-label={`${label} view`} onClick={() => setView(value)} className={`flex size-8 items-center justify-center rounded-lg transition ${view === value ? 'bg-background text-primary shadow-sm ring-1 ring-primary/10' : 'text-muted-foreground hover:text-foreground'}`}><Icon className="size-4" /></button>)}
           </div>
+          {/* Grid-only: TaskGrid is the component that actually groups tasks
+              into columns (the button labeled "Board" renders the Approvals
+              queue instead). */}
+          {view === 'grid' && (
+            <div className="col-span-full flex h-10 items-center gap-1 rounded-xl border bg-muted/20 p-1 text-xs font-semibold sm:col-span-2 lg:col-span-1">
+              <span className="px-2 text-muted-foreground">Group by</span>
+              {(['status', 'priority'] as const).map((value) => (
+                <button key={value} type="button" onClick={() => setGroupBy(value)} className={`h-8 rounded-lg px-3 capitalize transition ${groupBy === value ? 'bg-background text-primary shadow-sm ring-1 ring-primary/10' : 'text-muted-foreground hover:text-foreground'}`}>
+                  {value}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -297,7 +277,7 @@ The assignee sees this, and it is recorded as the reason.`,
       </div>
     )}
 
-    {view !== 'backlog' && (loading ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card"><Spinner /></div> : !tasks.length ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">No tasks match the selected filters.</div> : view === 'list' ? <TaskTable tasks={tasks} onSelect={setSelected} onArchive={archive} /> : view === 'grid' ? <TaskGrid tasks={tasks} onSelect={setSelected} /> : view === 'board' ? <TaskApprovals tasks={tasks} onSelect={setSelected} onDecision={decide} /> : <TaskAnalytics tasks={tasks} />)}
+    {view !== 'backlog' && (loading ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card"><Spinner /></div> : !tasks.length ? <div className="flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">No tasks match the selected filters.</div> : view === 'list' ? <TaskTable tasks={tasks} onSelect={(task) => setSelectedId(task.id)} onArchive={archive} selectedIds={selectedIds} onToggle={toggleSelected} onToggleAll={toggleAllSelected} /> : view === 'grid' ? <TaskGrid tasks={tasks} onSelect={(task) => setSelectedId(task.id)} groupBy={groupBy} priorityOptions={priorityOptions} /> : view === 'board' ? <TaskApprovals tasks={tasks} onSelect={(task) => setSelectedId(task.id)} onDecision={decide} /> : <TaskAnalytics tasks={tasks} />)}
 
     {/* The Dashboard is org-wide, so the list is almost always longer than one
         page. Same pager the My Tasks list uses. */}
@@ -312,67 +292,26 @@ The assignee sees this, and it is recorded as the reason.`,
       </div>
     )}
 
-    <Sheet open={!!selected} onOpenChange={(open) => { if (!open) { setSelected(null); setEditing(false) } }}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected && <>
-      <SheetHeader><SheetTitle>{selected.title}</SheetTitle><SheetDescription>{selected.project} · {selected.assignee}</SheetDescription></SheetHeader>
-
-      {editing ? (
-        <div className="space-y-4 p-5">
-          {/* MOVING A TASK ALONG, NOT REWRITING IT.
-              Editing the task's own fields is the assign form's job now (the
-              Edit Task button below opens it). What is left here is the pair
-              that form has no place for: a task's status is a workflow move
-              with its own rules, and remarks are the note attached to making
-              it. Keeping them here means the drawer still does everything it
-              did before, without two forms both claiming to edit a task. */}
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-muted-foreground">Status</span>
-            <Select value={form.status} onChange={(value) => setForm((f) => ({ ...f, status: value }))}
-              options={statusOptions.length
-                ? statusOptions.map((option) => ({ value: option.is_system ? option.category : option.name, label: option.name }))
-                : [{ value: form.status, label: form.status }]} />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="edit-remarks" className="text-xs font-semibold text-muted-foreground">Remarks</label>
-            <input id="edit-remarks" value={form.remarks} onChange={(event) => setForm((f) => ({ ...f, remarks: event.target.value }))}
-              placeholder="Why it moved" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" />
-          </div>
-
-          {/* Said before they try it, not after a 422. The server enforces the
-              same rule; this only saves them the round trip. */}
-          <p className="text-xs text-muted-foreground">
-            You can update tasks you own, created, or are assigned to. Status moves follow the
-            workflow — a completed task reopens to In Progress, never back to Pending.
-          </p>
-
-          <div className="flex gap-2">
-            <Button onClick={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Update status'}</Button>
-            <Button variant="outline" onClick={() => { setEditing(false); setError('') }} disabled={savingEdit}>Cancel</Button>
-          </div>
-        </div>
-      ) : (
-      <div className="space-y-5 p-5"><p className="text-sm">{selected.description || 'No description provided.'}</p>
-        <div className="grid grid-cols-2 gap-3 text-sm">{[['Status', statusText(selected)], ['Priority', selected.priority ?? '—'], ['Owner', selected.owner], ['Department', selected.department || '—'], ['Due date', selected.due_date ?? '—'], ['Approval', selected.approved ? 'Approved' : 'Pending']].map(([label, value]) => <div key={label} className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">{label}</p><div className="mt-1 font-medium">{label === 'Priority' ? <PriorityBadge priority={selected.priority} /> : label === 'Status' ? <StatusBadge status={selected.status} label={statusText(selected)} /> : label === 'Approval' ? <StatusBadge status={selected.approved ? 'Approved' : 'Pending'} /> : value}</div></div>)}</div>
-
-        {/* WHETHER THIS TASK REACHES A PROCEDURE, AND WHETHER IT DOES NOT.
-            This drawer showed neither. So an administrator who generated an ESO,
-            assigned the task, and then opened it here saw no hint that the two
-            were never connected — the panel the EMPLOYEE sees would be empty and
-            nothing on the admin side said why. It now states the link either way,
-            which is the only place the failure is visible before a person
-            complains. */}
-        <TaskDutyContext taskId={Number(selected.id)} />
-        {selected.status === 'COMPLETED' && !selected.approved && <div className="flex gap-2"><Button onClick={() => void decide(selected, 'approve')}>Approve</Button><Button variant="outline" onClick={() => void decide(selected, 'reject')}>Reject</Button></div>}
-        <div className="flex flex-wrap gap-2">
-          {/* THE SAME FORM THE TASK WAS CREATED WITH. Same fields, same order,
-              same labels - prefilled and saving an update. */}
-          <Button onClick={() => setEditTaskId(selected.id)}>Edit Task</Button>
-          <Button variant="outline" onClick={() => openEdit(selected)}>Update status</Button>
-          {/* `danger` is not a token here either - globals.css defines
-              --color-destructive, so this button rendered with default text. */}
-          <Button variant="outline" className="text-destructive" onClick={() => void archive(selected)}>Archive Task</Button>
-        </div>
-      </div>
-      )}</>}</SheetContent></Sheet>
+    {/* ONE DRAWER, SHARED WITH MY TASKS. This used to be its own Sheet with a
+        materially thinner feature set than my-task-details-drawer.tsx - the
+        same task record had fewer capabilities (no instructions panel,
+        documents, deadline extensions, repeat, reminder) depending which
+        screen you opened it from. dashboardContext supplies the three things
+        MyTask (what the shared drawer fetches) cannot carry on its own:
+        the approval chain, and the approve/reject/archive actions that only
+        make sense on this org-wide screen. */}
+    <MyTaskDetailsDrawer
+      taskId={selectedId}
+      open={!!selectedId}
+      onClose={() => setSelectedId(null)}
+      onUpdated={() => setReload((current) => current + 1)}
+      dashboardContext={selectedRow ? {
+        approved: selectedRow.approved,
+        onApprove: () => void decide(selectedRow, 'approve'),
+        onReject: () => void decide(selectedRow, 'reject'),
+        onArchive: () => void archive(selectedRow),
+      } : undefined}
+    />
     {/* Assigning a backlog item opens the same drawer that creates every other
         task, pre-filled — one task-creation path in the product. */}
     {promoting && (
@@ -395,51 +334,82 @@ The assignee sees this, and it is recorded as the reason.`,
     )}
 
     <CreateTaskModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(value) => { setMessage(value); setReload((current) => current + 1) }} />
-    {/* Keyed on the task id so opening a different task remounts the form
-        rather than showing the previous one's values while the new task loads. */}
-    {editTaskId && <CreateTaskModal key={editTaskId} isOpen editTaskId={editTaskId}
-      onClose={() => setEditTaskId(null)}
-      onUpdated={(value) => { setEditTaskId(null); setSelected(null); setMessage(value); setReload((current) => current + 1) }} />}
+    <WorkspaceBulkActionBar
+      count={selectedIds.size}
+      busy={bulkBusy}
+      people={assigneeOptions}
+      allowReassign
+      onReassign={(assigneeId) => void bulkReassign(assigneeId)}
+      onDelete={() => void bulkDelete()}
+      onClear={clearSelection}
+    />
   </div>
 }
 
-/**
- * Options that always contain the value currently selected.
- *
- * The assignee and owner lookups can fail or arrive late, and both fields are
- * REQUIRED by the endpoint. Without this, a slow lookup would leave the Select
- * showing nothing while the form held a real id - the user would see an empty
- * required field and assume the task had no assignee.
- */
-function optionsWith(
-  people: Array<{ id: string; name: string }>,
-  currentId: string | null,
-  currentName: string,
-): Array<{ value: string; label: string }> {
-  const options = people.map((person) => ({ value: person.id, label: person.name }))
-  if (currentId && !options.some((option) => option.value === currentId)) {
-    options.unshift({ value: currentId, label: currentName || `User #${currentId}` })
-  }
-  return options
+function TaskTable({ tasks, onSelect, onArchive, selectedIds, onToggle, onToggleAll }: {
+  tasks: WorkspaceTask[]
+  onSelect: (task: WorkspaceTask) => void
+  onArchive: (task: WorkspaceTask) => Promise<void>
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+  onToggleAll: (checked: boolean) => void
+}) {
+  const allSelected = tasks.length > 0 && tasks.every((task) => selectedIds.has(task.id))
+  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="w-10 px-4 py-4"><input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="Select all tasks on this page" /></th><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className={`border-b last:border-0 hover:bg-muted/30 ${selectedIds.has(task.id) ? 'bg-primary/5' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => onToggle(task.id)} aria-label={`Select ${task.title}`} /></td><td className="px-6 py-4"><button onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusText(task)} /></td><td className="whitespace-nowrap px-5 py-4">{formatDueDate(task.due_date)}</td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
 }
 
-function TaskTable({ tasks, onSelect, onArchive }: { tasks: WorkspaceTask[]; onSelect: (task: WorkspaceTask) => void; onArchive: (task: WorkspaceTask) => Promise<void> }) {
-  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-6 py-4"><button onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusText(task)} /></td><td className="whitespace-nowrap px-5 py-4">{formatDueDate(task.due_date)}</td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
+/** HEX equivalents of this grid's own status dots, so both grouping modes render through one inline-style path. */
+const STATUS_DOT_COLORS: Record<string, string> = {
+  todo: '#64748b', progress: '#2563eb', review: '#f59e0b', blocked: '#f43f5e', done: '#10b981',
 }
+/** A custom priority with no color set yet, and the catch-all "no priority" bucket, both read as this rather than no dot at all. */
+const NEUTRAL_DOT_COLOR = '#94a3b8'
 
-function TaskGrid({ tasks, onSelect }: { tasks: WorkspaceTask[]; onSelect: (task: WorkspaceTask) => void }) {
-  const columns = [
-    { id: 'todo', label: 'To Do', dot: 'bg-slate-500', tasks: tasks.filter((task) => task.status === 'PENDING') },
-    { id: 'progress', label: 'In Progress', dot: 'bg-blue-600', tasks: tasks.filter((task) => task.status === 'IN-PROGRESS') },
-    { id: 'review', label: 'Review', dot: 'bg-amber-500', tasks: tasks.filter((task) => task.status === 'COMPLETED' && !task.approved) },
-    { id: 'blocked', label: 'Blocked', dot: 'bg-rose-500', tasks: tasks.filter((task) => task.status === 'ON HOLD') },
-    { id: 'done', label: 'Done', dot: 'bg-emerald-500', tasks: tasks.filter((task) => task.status === 'COMPLETED' && task.approved) },
+function TaskGrid({ tasks, onSelect, groupBy, priorityOptions }: {
+  tasks: WorkspaceTask[]
+  onSelect: (task: WorkspaceTask) => void
+  groupBy: 'status' | 'priority'
+  priorityOptions: TaskPriorityOption[]
+}) {
+  const statusColumns = [
+    { id: 'todo', label: 'To Do', color: STATUS_DOT_COLORS.todo, tasks: tasks.filter((task) => task.status === 'PENDING') },
+    { id: 'progress', label: 'In Progress', color: STATUS_DOT_COLORS.progress, tasks: tasks.filter((task) => task.status === 'IN-PROGRESS') },
+    { id: 'review', label: 'Review', color: STATUS_DOT_COLORS.review, tasks: tasks.filter((task) => task.status === 'COMPLETED' && !task.approved) },
+    { id: 'blocked', label: 'Blocked', color: STATUS_DOT_COLORS.blocked, tasks: tasks.filter((task) => task.status === 'ON HOLD') },
+    { id: 'done', label: 'Done', color: STATUS_DOT_COLORS.done, tasks: tasks.filter((task) => task.status === 'COMPLETED' && task.approved) },
   ]
+
+  // Ordered by the tenant's own sort_order, active levels only - the same
+  // vocabulary the priority picker offers, so a column exists for every
+  // priority a task could actually carry. A trailing catch-all holds tasks
+  // whose priority is null or names a level this grid doesn't know about
+  // (e.g. a now-deactivated custom level), so nothing silently disappears.
+  const knownNames = new Set(priorityOptions.map((option) => option.name))
+  const priorityColumns = [
+    ...priorityOptions
+      .filter((option) => option.active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((option) => ({
+        id: option.id ?? option.name,
+        label: option.name,
+        color: option.color ?? NEUTRAL_DOT_COLOR,
+        tasks: tasks.filter((task) => task.priority === option.name),
+      })),
+    {
+      id: 'unspecified',
+      label: 'No Priority',
+      color: NEUTRAL_DOT_COLOR,
+      tasks: tasks.filter((task) => !task.priority || !knownNames.has(task.priority)),
+    },
+  ]
+
+  const columns = groupBy === 'priority' ? priorityColumns : statusColumns
+
   return <div className="overflow-x-auto rounded-2xl border border-primary/10 bg-card shadow-sm">
-    <div className="grid min-w-[1180px] grid-cols-5">
+    <div className="grid" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(220px, 1fr))`, minWidth: columns.length * 220 }}>
       {columns.map((column) => <section key={column.id} className="min-h-[320px] border-r border-border/60 p-3 last:border-r-0">
         <header className="mb-3 flex items-center justify-between px-1 py-1">
-          <div className="flex items-center gap-2"><span className={`size-1.5 rounded-full ${column.dot}`} /><h3 className="text-xs font-semibold uppercase tracking-[0.08em]">{column.label}</h3></div>
+          <div className="flex items-center gap-2"><span className="size-1.5 rounded-full" style={{ background: column.color }} /><h3 className="text-xs font-semibold uppercase tracking-[0.08em]">{column.label}</h3></div>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{column.tasks.length}</span>
         </header>
         <div className="space-y-3">{column.tasks.map((task) => {
@@ -521,7 +491,66 @@ function TaskApprovals({ tasks, onSelect, onDecision }: {
 
 function TaskAnalytics({ tasks }: { tasks: WorkspaceTask[] }) {
   const statuses = Object.keys(statusLabels) as TaskStatus[]
-  return <div className="grid gap-4 md:grid-cols-2"><Card><CardHeader><CardTitle>Status Distribution</CardTitle></CardHeader><CardContent className="space-y-4">{statuses.map((status) => { const count = tasks.filter((task) => task.status === status).length; return <div key={status}><div className="mb-1 flex items-center justify-between text-sm"><StatusBadge status={status} label={statusLabels[status]} /><span>{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${tasks.length ? count * 100 / tasks.length : 0}%` }} /></div></div> })}</CardContent></Card><Card><CardHeader><CardTitle>Priority Distribution</CardTitle></CardHeader><CardContent className="space-y-4">{['High','Medium','Low'].map((priority) => { const count = tasks.filter((task) => task.priority === priority).length; return <div key={priority} className="flex items-center justify-between rounded-xl border p-3"><PriorityBadge priority={priority} /><span className="text-xl font-bold">{count}</span></div> })}</CardContent></Card></div>
+  return <div className="space-y-4">
+    <div className="grid gap-4 md:grid-cols-2"><Card><CardHeader><CardTitle>Status Distribution</CardTitle></CardHeader><CardContent className="space-y-4">{statuses.map((status) => { const count = tasks.filter((task) => task.status === status).length; return <div key={status}><div className="mb-1 flex items-center justify-between text-sm"><StatusBadge status={status} label={statusLabels[status]} /><span>{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${tasks.length ? count * 100 / tasks.length : 0}%` }} /></div></div> })}</CardContent></Card><Card><CardHeader><CardTitle>Priority Distribution</CardTitle></CardHeader><CardContent className="space-y-4">{['High','Medium','Low'].map((priority) => { const count = tasks.filter((task) => task.priority === priority).length; return <div key={priority} className="flex items-center justify-between rounded-xl border p-3"><PriorityBadge priority={priority} /><span className="text-xl font-bold">{count}</span></div> })}</CardContent></Card></div>
+    <TeamWorkloadPanel />
+  </div>
+}
+
+/**
+ * Per-assignee active/overdue counts, from the real getWorkspaceWorkload
+ * endpoint - already functional, zero backend changes needed, just never
+ * called. Replaces the capability the old task-workload-view.tsx used to
+ * provide (deleted as dead code: wrong generic Task[] type, and a
+ * hardcoded maxCapacity = 5 guess with no server-side backing).
+ *
+ * The bar's scale is relative to the busiest person ON THIS TEAM, derived
+ * from the response itself - not an invented capacity constant. The
+ * endpoint returns no capacity figure at all, so none is shown.
+ */
+function TeamWorkloadPanel() {
+  const [workload, setWorkload] = useState<Array<{ id: string; name: string; active_tasks: number; overdue_tasks: number }>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    // Deferred so the load's first setState lands after this render.
+    queueMicrotask(() => {
+      if (!active) return
+      taskService.getWorkspaceWorkload(getLaravelContext())
+        .then((response) => { if (active) setWorkload(response.data) })
+        .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Unable to load team workload.') })
+        .finally(() => { if (active) setLoading(false) })
+    })
+    return () => { active = false }
+  }, [])
+
+  const maxActive = Math.max(1, ...workload.map((person) => person.active_tasks))
+  const sorted = [...workload].sort((a, b) => b.active_tasks - a.active_tasks)
+
+  return <Card>
+    <CardHeader><CardTitle>Team Workload</CardTitle></CardHeader>
+    <CardContent>
+      {loading ? <div className="flex h-24 items-center justify-center"><Spinner /></div>
+        : error ? <p className="text-sm text-destructive">{error}</p>
+        : !sorted.length ? <p className="text-sm text-muted-foreground">No active assignments to show.</p>
+        : <div className="space-y-4">{sorted.map((person) => (
+          <div key={person.id}>
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="font-medium">{person.name}</span>
+              <span className="text-muted-foreground">
+                {person.active_tasks} active
+                {person.overdue_tasks > 0 && <span className="ml-2 font-semibold text-destructive">{person.overdue_tasks} overdue</span>}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${(person.active_tasks / maxActive) * 100}%` }} />
+            </div>
+          </div>
+        ))}</div>}
+    </CardContent>
+  </Card>
 }
 
 function formatDueDate(value: string | null) {

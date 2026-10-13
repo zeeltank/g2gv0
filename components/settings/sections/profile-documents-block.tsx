@@ -38,16 +38,16 @@ export function ProfileDocumentsBlock() {
   const resolveContext = useLaravelContext()
 
   type Row = Awaited<ReturnType<typeof accountService.documents>>['data'][number]
-  type DocType = { id: number; document_type: string }
+  type DocTypeChoices = Awaited<ReturnType<typeof accountService.documents>>['document_types']
 
   const [rows, setRows] = useState<Row[]>([])
-  const [types, setTypes] = useState<DocType[]>([])
+  const [types, setTypes] = useState<DocTypeChoices>({ personnel: {}, organization: {} })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
-  const [typeId, setTypeId] = useState('')
+  const [documentType, setDocumentType] = useState('')
   const [uploading, setUploading] = useState(false)
 
   const [viewing, setViewing] = useState<AccountDocument | null>(null)
@@ -61,7 +61,7 @@ export function ProfileDocumentsBlock() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = row.file_name || row.document_title || 'document'
+      link.download = row.original_file_name || row.title || 'document'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -90,7 +90,7 @@ export function ProfileDocumentsBlock() {
     try {
       const response = await accountService.documents(context)
       setRows(response.data ?? [])
-      setTypes(response.document_types ?? [])
+      setTypes(response.document_types ?? { personnel: {}, organization: {} })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Your documents could not be loaded.')
     } finally {
@@ -105,16 +105,18 @@ export function ProfileDocumentsBlock() {
   }, [load])
 
   async function upload() {
-    if (!file || !title.trim() || !typeId || uploading) return
+    if (!file || !title.trim() || !documentType || uploading) return
 
     setUploading(true)
     setError(null)
 
     try {
-      await accountService.uploadDocument(resolveContext(), file, title.trim(), Number(typeId))
+      await accountService.uploadDocument(resolveContext(), file, title.trim(), documentType, {
+        category: 'personnel',
+      })
       setFile(null)
       setTitle('')
-      setTypeId('')
+      setDocumentType('')
       await load()
     } catch (caught) {
       /*
@@ -154,7 +156,10 @@ export function ProfileDocumentsBlock() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const canUpload = Boolean(file && title.trim() && typeId) && !uploading
+  const canUpload = Boolean(file && title.trim() && documentType) && !uploading
+
+  /** key -> label, for both the upload Select and the row subtitle. */
+  const typeLabel = (key: string | null) => (key ? (types.personnel[key] ?? types.organization[key] ?? key) : null)
 
   return (
     <SectionBlock
@@ -169,13 +174,10 @@ export function ProfileDocumentsBlock() {
           <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-3">
             <Field label="Type">
               <Select
-                value={typeId}
-                onChange={setTypeId}
+                value={documentType}
+                onChange={setDocumentType}
                 placeholder="Choose"
-                options={types.map((type) => ({
-                  value: String(type.id),
-                  label: type.document_type,
-                }))}
+                options={Object.entries(types.personnel).map(([value, label]) => ({ value, label }))}
               />
             </Field>
 
@@ -230,10 +232,10 @@ export function ProfileDocumentsBlock() {
                   <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
-                      {row.document_title || 'Untitled'}
+                      {row.title || 'Untitled'}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {[row.document_type, size(row.file_size)].filter(Boolean).join(' · ')}
+                      {[typeLabel(row.document_type), size(row.size)].filter(Boolean).join(' · ')}
                     </p>
                   </div>
 
@@ -248,7 +250,7 @@ export function ProfileDocumentsBlock() {
                     size="sm"
                     className="shrink-0 text-xs"
                     onClick={() => setViewing(row)}
-                    aria-label={`View ${row.document_title ?? 'document'}`}
+                    aria-label={`View ${row.title ?? 'document'}`}
                   >
                     <Eye className="mr-1 size-3.5" aria-hidden="true" />
                     View
@@ -269,7 +271,7 @@ export function ProfileDocumentsBlock() {
                     className="shrink-0 text-xs"
                     disabled={downloadingId !== null}
                     onClick={() => void download(row)}
-                    aria-label={`Download ${row.document_title ?? 'document'}`}
+                    aria-label={`Download ${row.title ?? 'document'}`}
                   >
                     <Download className="mr-1 size-3.5" aria-hidden="true" />
                     {downloadingId === row.id ? 'Preparing…' : 'Download'}
@@ -281,7 +283,7 @@ export function ProfileDocumentsBlock() {
                     size="sm"
                     className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => setPendingDelete(row)}
-                    aria-label={`Remove ${row.document_title ?? 'document'}`}
+                    aria-label={`Remove ${row.title ?? 'document'}`}
                   >
                     <Trash2 className="size-3.5" aria-hidden="true" />
                   </Button>
@@ -298,9 +300,9 @@ export function ProfileDocumentsBlock() {
           if (!next) setViewing(null)
         }}
         documentId={viewing?.id ?? null}
-        title={viewing?.document_title ?? ''}
+        title={viewing?.title ?? ''}
         mimeType={viewing?.mime_type}
-        fileName={viewing?.file_name}
+        fileName={viewing?.original_file_name}
       />
 
       <ConfirmDialog
@@ -308,7 +310,7 @@ export function ProfileDocumentsBlock() {
         onOpenChange={(open) => {
           if (!open) setPendingDelete(null)
         }}
-        title={`Remove "${pendingDelete?.document_title ?? 'this document'}"?`}
+        title={`Remove "${pendingDelete?.title ?? 'this document'}"?`}
         description="It is taken off your personnel record. An administrator can restore it, but you will not see it here again."
         confirmLabel="Remove it"
         busy={deleting}

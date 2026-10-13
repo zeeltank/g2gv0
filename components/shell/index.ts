@@ -3,7 +3,7 @@
 export { GtgAppShell } from './gtg-app-shell'
 export { GtgBrandMark } from './gtg-brand-mark'
 export { GtgBreadcrumb } from './gtg-breadcrumb'
-export { default as GtgFloatingToolbar } from './gtg-floating-toolbar'
+export { default as GtgPlatformServicesLauncher } from './gtg-platform-services-launcher'
 export { GtgHeader } from './gtg-header'
 export { GtgPageShell } from './gtg-page-shell'
 export { GtgPageHeader } from './gtg-page-header'

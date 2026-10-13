@@ -28,9 +28,10 @@ import type { Theme } from '@/services/account'
  *   dark    the class is added
  *   system  FOLLOW THE OPERATING SYSTEM, and keep following it
  *
- * `system` is the default and it is not a synonym for light. It listens for
- * changes, so somebody whose machine switches at sunset does too — a snapshot
- * taken once at load would be right in the morning and wrong by evening.
+ * `light` is the default when no preference has been saved. `system` (Match my
+ * device) remains available and listens for changes, so somebody whose machine
+ * switches at sunset does too — a snapshot taken once at load would be right in
+ * the morning and wrong by evening.
  *
  * ── WHY IT WRITES localStorage TOO ──────────────────────────────────────────
  *
@@ -87,20 +88,20 @@ function paint(theme: Theme): 'light' | 'dark' {
 }
 
 function readStoredHint(): Theme {
-  if (typeof window === 'undefined') return 'system'
+  if (typeof window === 'undefined') return 'light'
 
   try {
     const value = window.localStorage.getItem(STORAGE_KEY)
 
-    return value === 'light' || value === 'dark' || value === 'system' ? value : 'system'
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'light'
   } catch {
     // A browser with site data blocked is not a reason to render nothing.
-    return 'system'
+    return 'light'
   }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system')
+  const [theme, setThemeState] = useState<Theme>('light')
   const [resolved, setResolved] = useState<'light' | 'dark'>('light')
 
   // The paint hint, applied before any API call resolves.

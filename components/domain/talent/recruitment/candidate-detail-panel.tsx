@@ -314,7 +314,7 @@ export function CandidateDetailPanel({ candidate, onClose, onViewProfile, onSave
                   <div className="flex items-start gap-3">
                     <div className="size-10 shrink-0 overflow-hidden rounded-full bg-primary/10 text-primary flex items-center justify-center">
                       {(application?.candidate_photo ?? application?.photo) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={application?.candidate_photo ?? application?.photo ?? ''} alt={candidate.name} className="size-full object-cover" />
                       ) : <User className="size-5" />}
                     </div>
