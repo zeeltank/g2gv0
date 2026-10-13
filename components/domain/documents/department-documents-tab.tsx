@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, FileSearch, FolderPlus, Grid2x2, List, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -116,6 +117,20 @@ export function DepartmentDocumentsTab({
 
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
+  // Filter parity with the main Document Library page (document-library-view.tsx) -
+  // same state shape, same components, reused rather than reinvented. No
+  // department-id filter here (unlike the main page): this whole screen is
+  // already scoped to exactly one department via the `department` prop.
+  const [category, setCategory] = useState('')
+  const [documentType, setDocumentType] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [debouncedOwnerName, setDebouncedOwnerName] = useState('')
+  // Defaults true, matching the main page's already-shipped default - see
+  // its own comment for why "This folder" is the deliberate narrowing
+  // choice, not the other way around.
+  const [searchEverywhere, setSearchEverywhere] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [page, setPage] = useState(1)
 
@@ -152,37 +167,58 @@ export function DepartmentDocumentsTab({
   }, [query])
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedOwnerName(ownerName.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [ownerName])
+
+  useEffect(() => {
     setPage(1)
-  }, [debouncedQuery, currentFolderId])
+  }, [debouncedQuery, currentFolderId, category, documentType, dateFrom, dateTo, debouncedOwnerName, searchEverywhere])
+
+  // Guards a slower, older request's response from overwriting a newer
+  // one's - same fix as document-library-view.tsx's own load(), duplicated
+  // rather than shared: this screen already duplicates its small
+  // folder-tree helpers independently of that file on purpose (see
+  // findFolderNode/findFolderPath/flattenFolders above).
+  const requestIdRef = useRef(0)
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+    const isStale = () => requestId !== requestIdRef.current
+
     setLoading(true)
     setError(null)
+
+    // Same "don't silently hide nested-folder results" fix as the main
+    // library page, now with the same visible toggle it has - folder_id is
+    // omitted entirely (not set to 0) to search unfiltered by folder.
+    const everywhere = searchEverywhere && debouncedQuery !== ''
 
     try {
       const response = await accountService.searchDocuments(context, {
         q: debouncedQuery || undefined,
+        category: (category as 'personnel' | 'organization') || undefined,
+        document_type: documentType || undefined,
+        owner_name: debouncedOwnerName || undefined,
         department_id: departmentId,
-        // A typed search looks across this whole department, not just
-        // whichever exact folder happens to be open - the same "don't
-        // silently hide nested-folder results" fix as the main library
-        // page, just without a visible toggle since this screen is
-        // deliberately simpler (one department's folder space only).
-        // Plain browsing (no query) keeps the exact-folder scope.
-        folder_id: debouncedQuery ? undefined : (currentFolderId ?? 0),
+        folder_id: everywhere ? undefined : (currentFolderId ?? 0),
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
         page,
         per_page: PER_PAGE,
       })
+      if (isStale()) return
       setResults(response.data ?? [])
       setTotal(response.meta?.total ?? 0)
       setTypes(response.document_types ?? { personnel: {}, organization: {} })
     } catch (caught) {
+      if (isStale()) return
       setResults([])
       setError(caught instanceof Error ? caught.message : 'Documents could not be loaded.')
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
-  }, [context, debouncedQuery, departmentId, currentFolderId, page])
+  }, [context, debouncedQuery, category, documentType, debouncedOwnerName, departmentId, currentFolderId, dateFrom, dateTo, searchEverywhere, page])
 
   useEffect(() => {
     queueMicrotask(() => void load())
@@ -230,6 +266,15 @@ export function DepartmentDocumentsTab({
 
   const typeLabel = useCallback(
     (key: string | null) => (key ? (types.personnel[key] ?? types.organization[key] ?? key) : null),
+    [types],
+  )
+
+  const typeOptions = useMemo(
+    () => [
+      { value: '', label: 'All types' },
+      ...Object.entries(types.personnel).map(([value, label]) => ({ value, label })),
+      ...Object.entries(types.organization).map(([value, label]) => ({ value, label: `${label} (org)` })),
+    ],
     [types],
   )
 
@@ -433,13 +478,41 @@ export function DepartmentDocumentsTab({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[14rem] max-w-sm flex-1">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${department.name}'s documents…`}
-            aria-label="Search this department's documents"
-          />
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <div className="relative min-w-[14rem] max-w-sm flex-1">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Search ${department.name}'s documents…`}
+              aria-label="Search this department's documents"
+            />
+          </div>
+          <div className="w-36 shrink-0">
+            <Select
+              value={category}
+              onChange={setCategory}
+              options={[
+                { value: '', label: 'All categories' },
+                { value: 'personnel', label: 'Personal' },
+                { value: 'organization', label: 'Organisation' },
+              ]}
+            />
+          </div>
+          <div className="w-44 shrink-0">
+            <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
+          </div>
+          {/* Always visible, unlike the main page's own owner-name field -
+              every result here can have a different owner (this is a
+              whole department's shared space, not a "my documents" view
+              with one single, already-known owner). */}
+          <div className="w-40 shrink-0">
+            <Input
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder="Uploaded by…"
+              aria-label="Search by uploader name"
+            />
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
@@ -470,6 +543,49 @@ export function DepartmentDocumentsTab({
           </Button>
         </div>
       </div>
+
+      {/* Same power-up row as the main library page, same reasoning: date
+          range and the this-folder/everywhere toggle only mean anything
+          once a term is actually typed. */}
+      {debouncedQuery !== '' && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>From</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="Document date from"
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="Document date to"
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+            />
+          </div>
+
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+            <button
+              type="button"
+              onClick={() => setSearchEverywhere(true)}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Everywhere
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchEverywhere(false)}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              This folder
+            </button>
+          </div>
+        </div>
+      )}
 
       <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="Folder path">
         <button
