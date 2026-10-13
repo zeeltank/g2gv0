@@ -15,14 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 /**
@@ -392,77 +384,12 @@ export function SectionEmpty({
 /**
  * ASK BEFORE SOMETHING IRREVERSIBLE.
  *
- * ═══════════════════════════════════════════════════════════════════════════
- * THREE ACTIONS FIRED ON THE FIRST CLICK, WITH NO WAY BACK
- * ═══════════════════════════════════════════════════════════════════════════
- *
- *   "Sign out everywhere else"  ends every other session. One live account holds
- *                               2,140 tokens; there is no undo and no list of
- *                               what was ended.
- *   "Clear" a saved view        deletes it from this browser. The reassurance
- *                               that it is safe sat in a paragraph BELOW the
- *                               button, which is the wrong order.
- *   "Save modules"              switches modules off for the whole organisation,
- *                               removing screens from every administrator's
- *                               navigation, under a label that says "Save".
- *
- * `components/ui/alert-dialog.tsx` existed and was used by sixteen other files.
- * The shape here matches theirs (`LeaveTypesTab`): title, a description that
- * states the CONSEQUENCE rather than asking "are you sure", Cancel, then a
- * destructive confirm.
- *
- * ── THE DESCRIPTION IS THE WHOLE POINT ──────────────────────────────────────
- *
- * "Are you sure?" adds a click and no information. What a person needs is the
- * count and the blast radius — "12 other devices will be signed out" — which is
- * why `description` is required rather than optional.
+ * Moved to components/ui/confirm-dialog.tsx — a true shared primitive now
+ * that the report builder engine needs the same shape outside Settings —
+ * and re-exported here so none of this file's own existing call sites (or
+ * anyone else already importing it from here) need to change.
  */
-export function ConfirmDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  confirmLabel,
-  busy,
-  onConfirm,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description: React.ReactNode
-  confirmLabel: string
-  busy?: boolean
-  onConfirm: () => void
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            className="w-full sm:w-auto"
-            onClick={onConfirm}
-            disabled={busy}
-          >
-            {busy ? 'Working…' : confirmLabel}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
+export { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 /**
  * ONE BROKEN SECTION INSTEAD OF A BLANK ROUTE.
