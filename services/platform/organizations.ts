@@ -29,6 +29,8 @@ export type PlatformOrganization = {
   industry: string | null
   created_at: string | null
   expires_on: string | null
+  /** Whether App\Support\MailGate lets this organisation's own mail actually leave. */
+  outbound_email_enabled: boolean
   people: number
   departments: number
 }
@@ -79,4 +81,10 @@ export const platformOrganizationsService = {
       ...params(context),
       ...input,
     }),
+
+  setOutboundEmail: (context: LaravelContext, id: number, enabled: boolean) =>
+    apiClient.patch<{ status: boolean; message: string; data: { id: number; outbound_email_enabled: boolean } }>(
+      `/platform/organizations/${id}/outbound-email`,
+      { ...params(context), enabled },
+    ),
 }
