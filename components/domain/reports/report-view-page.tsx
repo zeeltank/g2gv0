@@ -120,12 +120,12 @@ export function ReportViewPage({
     })
   }, [load])
 
-  async function refresh(nextPage = page, nextPerPage = perPage) {
+  async function refresh(nextPage = page, nextPerPage = perPage, fresh = false) {
     setRunning(true)
     setError('')
 
     try {
-      const response = await reportBuilderService.run(context, reportId, { page: nextPage, perPage: nextPerPage })
+      const response = await reportBuilderService.run(context, reportId, { page: nextPage, perPage: nextPerPage, fresh })
       setResult(response.data)
       setPage(nextPage)
       setPerPage(nextPerPage)
@@ -243,7 +243,7 @@ export function ReportViewPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={running}>
+          <Button variant="outline" size="sm" onClick={() => void refresh(page, perPage, true)} disabled={running}>
             {running ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="mr-1.5 size-4" aria-hidden="true" />}
             Generate now
           </Button>

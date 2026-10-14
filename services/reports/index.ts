@@ -181,10 +181,10 @@ export const reportBuilderService = {
       bodyParams(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
     ),
 
-  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number }) =>
+  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number; fresh?: boolean }) =>
     apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(
       `/report-builder/${id}/run`,
-      queryParams(context, { page: opts?.page, per_page: opts?.perPage }),
+      queryParams(context, { page: opts?.page, per_page: opts?.perPage, fresh: opts?.fresh ? '1' : undefined }),
     ),
 
   exportUrl: (context: LaravelContext, id: number) =>
