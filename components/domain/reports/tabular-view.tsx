@@ -233,28 +233,42 @@ export function TabularView({
                 </TableCell>
               </TableRow>
             )}
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell, j) => {
-                  const value = String(cell.getValue() ?? '—')
+            {rows.map((row) => {
+              // The same admin-assignable per-employee color Task Calendar
+              // already shows on that person's task cards
+              // (user_preferences.task_card_color, resolved server-side —
+              // see ReportQueryExecutionService::runTabular()'s own
+              // docblock for why no auto-palette fallback is reproduced
+              // here). A light, legible fill rather than Task Calendar's
+              // own solid card fill — a whole dense report row at full
+              // saturation would fight every cell's own text for contrast.
+              const rowColor = (row.original as RowRecord).__row_color as string | undefined
+              const rowStyle = rowColor ? { backgroundColor: `${rowColor}26` } : undefined
 
-                  return (
-                    <TableCell
-                      key={cell.id}
-                      title={j === 0 ? value : undefined}
-                      className={cn(
-                        j === 0
-                          ? 'sticky left-0 z-10 max-w-[280px] truncate bg-card font-medium text-foreground'
-                          : 'whitespace-nowrap',
-                        j < row.getVisibleCells().length - 1 && 'border-r border-border',
-                      )}
-                    >
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))}
+              return (
+                <TableRow key={row.id} style={rowStyle}>
+                  {row.getVisibleCells().map((cell, j) => {
+                    const value = String(cell.getValue() ?? '—')
+
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        title={j === 0 ? value : undefined}
+                        style={j === 0 ? rowStyle : undefined}
+                        className={cn(
+                          j === 0
+                            ? cn('sticky left-0 z-10 max-w-[280px] truncate font-medium text-foreground', !rowColor && 'bg-card')
+                            : 'whitespace-nowrap',
+                          j < row.getVisibleCells().length - 1 && 'border-r border-border',
+                        )}
+                      >
+                        <table.FlexRender cell={cell} />
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
