@@ -44,7 +44,7 @@ export type FilterGroup = { op: 'AND' | 'OR'; conditions: Array<FilterLeaf | Fil
 export type ReportDefinition = {
   secondary_modules?: string[]
   columns?: ReportColumn[]
-  standard_filter?: FieldRef & { preset: string; from?: string | null; to?: string | null }
+  standard_filter?: FieldRef & { preset: string; from?: string | null; to?: string | null; n?: number }
   advanced_filter?: FilterGroup | null
   sort_columns?: Array<FieldRef & { direction: 'asc' | 'desc' }>
   group_by?: FieldRef[]
@@ -68,7 +68,7 @@ export type ReportDetail = {
   updated_at: string | null
 }
 
-export type TabularResult = { rows: Record<string, unknown>[]; total: number; page: number; per_page: number }
+export type TabularResult = { rows: Record<string, unknown>[]; total: number; page: number; per_page: number; latest_date: string | null }
 export type SummaryResult = { groups: Array<Record<string, unknown> & { label: string; count: number }> }
 export type PivotResult = { row_labels: string[]; column_labels: string[]; matrix: number[][]; row_totals: number[]; column_totals: number[] }
 export type ChartResult = { labels: string[]; series: Array<{ name: string; data: number[] }> }
@@ -181,11 +181,21 @@ export const reportBuilderService = {
       bodyParams(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
     ),
 
-  run: (context: LaravelContext, id: number) =>
-    apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(`/report-builder/${id}/run`, queryParams(context)),
+  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number }) =>
+    apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(
+      `/report-builder/${id}/run`,
+      queryParams(context, { page: opts?.page, per_page: opts?.perPage }),
+    ),
 
   exportUrl: (context: LaravelContext, id: number) =>
     buildApiUrl(`/report-builder/${id}/export`, queryParams(context)),
+
+  /** The member rows behind one summary/chart/pivot group — `values` is the group-by field(s) + the clicked group's own label value(s). */
+  drilldown: (context: LaravelContext, id: number, values: Array<FieldRef & { value: string | null }>) =>
+    apiClient.post<{ status: boolean; data: TabularResult; message?: string }>(
+      `/report-builder/${id}/drilldown`,
+      bodyParams(context, { values }),
+    ),
 
   // Sharing
   listShares: (context: LaravelContext, id: number) =>

@@ -20,12 +20,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react'
+import { format } from 'date-fns'
+import { AlertCircle, CalendarIcon, Loader2, Plus, Trash2 } from 'lucide-react'
+import type { DateRange } from 'react-day-picker'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
@@ -57,13 +61,23 @@ const OPERATORS = [
   { value: 'is_not_null', label: 'is not empty' },
 ]
 
+// Matches ReportQueryExecutionService::resolveDatePreset() exactly — a new
+// preset here with no backend case (or vice versa) falls through to "no
+// filter" rather than erroring, so keep these two lists in lockstep.
 const DATE_PRESETS = [
   { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
   { value: 'this_week', label: 'This week' },
+  { value: 'next_week', label: 'Next week' },
+  { value: 'last_7_days', label: 'Last 7 days' },
+  { value: 'last_30_days', label: 'Last 30 days' },
+  { value: 'last_n_days', label: 'Last N days…' },
+  { value: 'next_n_days', label: 'Next N days…' },
   { value: 'this_month', label: 'This month' },
   { value: 'last_month', label: 'Last month' },
   { value: 'this_quarter', label: 'This quarter' },
   { value: 'this_year', label: 'This year' },
+  { value: 'custom', label: 'Custom range…' },
 ]
 
 const AGGREGATES = ['sum', 'avg', 'min', 'max'] as const
@@ -95,6 +109,8 @@ export function ReportBuilderWizard({
   const [filterRows, setFilterRows] = useState<FilterRow[]>([])
   const [datePreset, setDatePreset] = useState<string>('')
   const [dateField, setDateField] = useState<string>('')
+  const [dateN, setDateN] = useState<number>(10)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [groupByField, setGroupByField] = useState('')
   const [chartType, setChartType] = useState<'Pie' | 'VerticalBar' | 'HorizontalBar' | 'Line'>('VerticalBar')
   const [sharingtype, setSharingtype] = useState<'Private' | 'Public'>('Private')
@@ -136,6 +152,12 @@ export function ReportBuilderWizard({
         )
         setDatePreset(report.definition.standard_filter?.preset ?? '')
         setDateField(report.definition.standard_filter?.field ?? '')
+        setDateN(report.definition.standard_filter?.n ?? 10)
+        setDateRange(
+          report.definition.standard_filter?.from
+            ? { from: new Date(report.definition.standard_filter.from), to: report.definition.standard_filter.to ? new Date(report.definition.standard_filter.to) : undefined }
+            : undefined,
+        )
         setGroupByField(report.definition.group_by?.[0]?.field ?? report.definition.chart?.group_by.field ?? '')
         setChartType(report.definition.chart?.type ?? 'VerticalBar')
       } catch (reason) {
@@ -176,6 +198,15 @@ export function ReportBuilderWizard({
 
     if (datePreset && dateField) {
       def.standard_filter = { module: primaryModule, field: dateField, preset: datePreset }
+
+      if (datePreset === 'last_n_days' || datePreset === 'next_n_days') {
+        def.standard_filter.n = dateN
+      }
+
+      if (datePreset === 'custom' && dateRange?.from) {
+        def.standard_filter.from = format(dateRange.from, 'yyyy-MM-dd')
+        def.standard_filter.to = format(dateRange.to ?? dateRange.from, 'yyyy-MM-dd')
+      }
     }
 
     if (reportType === 'summary' && groupByField) {
@@ -191,7 +222,7 @@ export function ReportBuilderWizard({
     }
 
     return def
-  }, [columns, filterOp, filterRows, datePreset, dateField, primaryModule, reportType, groupByField, chartType])
+  }, [columns, filterOp, filterRows, datePreset, dateField, dateN, dateRange, primaryModule, reportType, groupByField, chartType])
 
   async function runPreview() {
     setPreviewError('')
@@ -370,15 +401,50 @@ export function ReportBuilderWizard({
           {step === 'Filters' && (
             <div className="space-y-4">
               {dateFields.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
-                  <div className="space-y-1.5">
-                    <Label>Date field</Label>
-                    <SearchableSelect value={dateField} onChange={setDateField} options={dateFields.map((f) => ({ value: f.key, label: f.label }))} placeholder="None" />
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Date field</Label>
+                      <SearchableSelect value={dateField} onChange={setDateField} options={dateFields.map((f) => ({ value: f.key, label: f.label }))} placeholder="None" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Date range</Label>
+                      <SearchableSelect value={datePreset} onChange={setDatePreset} options={DATE_PRESETS} placeholder="Any time" />
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Date range</Label>
-                    <SearchableSelect value={datePreset} onChange={setDatePreset} options={DATE_PRESETS} placeholder="Any time" />
-                  </div>
+
+                  {(datePreset === 'last_n_days' || datePreset === 'next_n_days') && (
+                    <div className="flex items-center gap-2">
+                      <Label className="shrink-0">{datePreset === 'last_n_days' ? 'Last' : 'Next'}</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={dateN}
+                        onChange={(e) => setDateN(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">days</span>
+                    </div>
+                  )}
+
+                  {datePreset === 'custom' && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-start font-normal">
+                          <CalendarIcon className="mr-2 size-4" aria-hidden="true" />
+                          {dateRange?.from
+                            ? dateRange.to
+                              ? `${format(dateRange.from, 'MMM d, yyyy')} – ${format(dateRange.to, 'MMM d, yyyy')}`
+                              : format(dateRange.from, 'MMM d, yyyy')
+                            : 'Pick a date range'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} defaultMonth={dateRange?.from} />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 </div>
               )}
 
