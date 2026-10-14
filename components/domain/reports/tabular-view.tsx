@@ -47,6 +47,18 @@ import { reportTableFeatures, type ReportTableFeatures } from './data-table-feat
 
 const PAGE_SIZE_OPTIONS = ['10', '20', '25', '30', '40', '50'].map((v) => ({ value: v, label: `${v} / page` }))
 
+// A plain `border-r` on the sticky first column reads as a GLITCH during
+// horizontal scroll, not a pinned pane: the column that just scrolled
+// underneath it is now sharing that exact same boundary line, so its own
+// trailing edge/text can appear to float right up against — or peek out
+// from behind — the sticky column with nothing visually separating "pinned"
+// from "scrolling underneath" (reported live: a drilldown dialog's sticky
+// Task column let the next column's header text show right at its edge
+// with no depth cue, reading as broken rendering). A drop shadow instead of
+// a flat line gives the sticky column real elevation, so scrolled content
+// unambiguously reads as sliding BEHIND it rather than bumping into it.
+const STICKY_COLUMN_SHADOW = 'shadow-[4px_0_6px_-4px_rgba(0,0,0,0.3)]'
+
 type RowRecord = Record<string, unknown>
 
 export function TabularView({
@@ -198,8 +210,8 @@ export function TabularView({
                       aria-sort={header.column.getCanSort() ? ariaSort : undefined}
                       className={cn(
                         'bg-card',
-                        i === 0 ? 'sticky left-0 z-30 max-w-[280px]' : 'whitespace-nowrap',
-                        i < headerGroup.headers.length - 1 && 'border-r border-border',
+                        i === 0 ? cn('sticky left-0 z-30 max-w-[280px]', STICKY_COLUMN_SHADOW) : 'whitespace-nowrap',
+                        i !== 0 && i < headerGroup.headers.length - 1 && 'border-r border-border',
                       )}
                     >
                       {header.isPlaceholder ? null : (
@@ -257,9 +269,9 @@ export function TabularView({
                         style={j === 0 ? rowStyle : undefined}
                         className={cn(
                           j === 0
-                            ? cn('sticky left-0 z-10 max-w-[280px] truncate font-medium text-foreground', !rowColor && 'bg-card')
+                            ? cn('sticky left-0 z-10 max-w-[280px] truncate font-medium text-foreground', STICKY_COLUMN_SHADOW, !rowColor && 'bg-card')
                             : 'whitespace-nowrap',
-                          j < row.getVisibleCells().length - 1 && 'border-r border-border',
+                          j !== 0 && j < row.getVisibleCells().length - 1 && 'border-r border-border',
                         )}
                       >
                         <table.FlexRender cell={cell} />

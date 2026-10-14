@@ -4,7 +4,7 @@ import React from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BookOpen, Layers, Briefcase, ClipboardCheck, Award, User, Target,
-  Filter, Plus, Clock, Users, ArrowRight, CalendarDays, RotateCcw, Network, type LucideIcon } from 'lucide-react'
+  Filter, Plus, Clock, Users, ArrowRight, CalendarDays, RotateCcw, Network, Inbox, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { useCompetencyCommandCenter } from '@/hooks/use-competency'
 import type {
   CompetencyFilters, CompetencyFilterOption, QuickCreateKind,
@@ -44,6 +46,7 @@ const QUEUE_ICONS: Record<string, LucideIcon> = {
   open_assessments: ClipboardCheck,
   expiring_certifications: Award,
   overdue_plans: Target,
+  capability_gaps: Inbox,
 }
 
 const QUICK_ACTIONS: { label: string; icon: LucideIcon; kind: QuickCreateKind }[] = [
@@ -86,12 +89,19 @@ const PROGRESS_TARGET: Record<string, string> = {
   development: 'cm-development-career',
 }
 
+// Every value here is a competency-management submenu id, EXCEPT
+// capability_gaps: that screen lives in the LMS module (it sits beside
+// Course Builder, where its "create/map a course" action actually resolves
+// a flagged gap), not in competency-management. go() below treats a value
+// starting with "/" as an already-module-qualified access link instead of
+// a submenu id, specifically so this one entry can point there.
 const QUEUE_TARGET: Record<string, string> = {
   my_approvals: 'cm-development-career',
   pending_reviews: 'cm-assessments',
   open_assessments: 'cm-assessments',
   expiring_certifications: 'cm-certifications',
   overdue_plans: 'cm-development-career',
+  capability_gaps: LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK,
 }
 
 const nf = (n: number) => n.toLocaleString()
@@ -367,8 +377,18 @@ export function CmCommandCenter() {
   }
 
   const router = useRouter()
-  // Navigate to a sibling competency screen (all are module competency-management leaf menus).
-  const go = (submenuId: string) => router.push(`/module/competency-management/${submenuId}/${submenuId}`)
+  const { resolveAccessLink } = useSidebarNavigation()
+  // Navigate to a sibling competency screen (a competency-management leaf
+  // menu, by its submenu id) OR, when the target is already an access link
+  // (starts with "/" — see capability_gaps in QUEUE_TARGET), to a screen in
+  // a different module entirely, resolved the same way every other
+  // cross-module deep link in this app is.
+  const go = (target: string) =>
+    router.push(
+      target.startsWith('/')
+        ? resolveAccessLink(target)
+        : `/module/competency-management/${target}/${target}`,
+    )
 
   const filterConfig: { key: keyof CompetencyFilters; label: string; options: CompetencyFilterOption[] }[] = [
     { key: 'business_unit', label: 'Business Unit', options: filterOptions?.business_units ?? [] },

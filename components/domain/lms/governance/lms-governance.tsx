@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   Search,
   Users,
@@ -45,6 +45,9 @@ import {
 import { cn } from '@/lib/utils'
 import { useGovernance, type GovernanceTab } from '@/hooks/use-governance'
 import type { GovernanceUser, HealthStatus } from '@/services/lms'
+import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { competencyStudioService, type RemediationConfig } from '@/services/competency/studio'
 import {
   AuditPanel,
   Field,
@@ -85,6 +88,132 @@ const EMPTY_USER = {
   first_name: '', last_name: '', email: '', mobile: '', employee_no: '',
   user_profile_id: '', department_id: '', user_name: '', password: '',
   status: true,
+}
+
+/* ─── Remediation defaults ─────────────────────────────────────────────────
+ *
+ * Tenant default due-date policy for the capability-gap auto-assignment flow
+ * (competency.rating_changed -> learning.auto_assigned). Backed by
+ * `App\Http\Controllers\Api\Competency\CompetencyStudioController`'s
+ * GET/PUT /competency/studio/remediation-config, gated admin+hr on write.
+ *
+ * Self-contained rather than routed through `useGovernance`: this setting
+ * belongs to a different controller than everything else on this screen, and
+ * giving it its own small load/save state is simpler than widening that
+ * hook for one card.
+ */
+function RemediationDefaultsCard() {
+  const { user } = useAuth()
+  const [settings, setSettings] = useState<RemediationConfig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const context = getLaravelContext(user)
+      const response = await competencyStudioService.getRemediationConfig(context)
+      setSettings(response.data?.settings ?? null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load remediation defaults.')
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load()
+    })
+  }, [load])
+
+  const save = async () => {
+    if (!settings) return
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const context = getLaravelContext(user)
+      const response = await competencyStudioService.updateRemediationConfig(context, {
+        due_days_mandatory: settings.due_days_mandatory,
+        due_days_optional: settings.due_days_optional,
+      })
+      setSettings(response.data?.settings ?? settings)
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save remediation defaults.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader className="border-b border-border/60 pb-3">
+        <CardTitle className="text-base">Capability Gap — Remediation Defaults</CardTitle>
+        <p className="mt-1 text-sm text-muted-foreground">
+          When a course is auto-assigned to close a competency gap, this sets how many days a
+          learner gets by default — used whenever the course itself and the requirement&rsquo;s own
+          urgency don&rsquo;t set a tighter deadline.
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 p-5">
+        {loading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : error && !settings ? (
+          <ErrorState title="Couldn't load this setting" description={error} retry={load} />
+        ) : settings ? (
+          <>
+            {error && (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Days to complete — Mandatory gaps
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  className="h-9"
+                  value={settings.due_days_mandatory}
+                  onChange={(e) =>
+                    setSettings({ ...settings, due_days_mandatory: Number(e.target.value) || 1 })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Days to complete — Optional/recommended gaps
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  className="h-9"
+                  value={settings.due_days_optional}
+                  onChange={(e) =>
+                    setSettings({ ...settings, due_days_optional: Number(e.target.value) || 1 })
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" disabled={saving} onClick={() => void save()}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Save defaults
+              </Button>
+              {saved && <span className="text-xs font-semibold text-success">Saved.</span>}
+            </div>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
 }
 
 /* ─── Page ─────────────────────────────────────────────────────────────────── */
@@ -638,6 +767,7 @@ export function LmsGovernance() {
           {/* ── Settings ── */}
           {tab === 'settings' && (
             <div className="flex flex-col gap-6">
+              <RemediationDefaultsCard />
               <Card className="border-border/60 shadow-sm">
                 <CardHeader className="border-b border-border/60 pb-3">
                   <CardTitle className="text-base">Institute Summary</CardTitle>

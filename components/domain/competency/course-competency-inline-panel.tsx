@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -34,6 +34,7 @@ export function CourseCompetencyInlinePanel({
   courseId,
   readOnly = false,
   onCountChange,
+  initialCompetencyId,
 }: {
   courseId: number | null
   readOnly?: boolean
@@ -46,6 +47,16 @@ export function CourseCompetencyInlinePanel({
    * unaffected.
    */
   onCountChange?: (count: number) => void
+  /**
+   * Pre-selects this competency in the "add one" picker below, deep-linked
+   * from the Capability Gap Inbox's "Create a course" action.
+   *
+   * Pre-SELECTS, does not auto-save: this panel's save is the destructive
+   * sync described above, so firing it the instant a draft course exists —
+   * before anyone has looked at the rest of the mapping — would be an
+   * unreviewed write. The admin still presses Add.
+   */
+  initialCompetencyId?: number | null
 }) {
   const { user } = useAuth()
   const [mapped, setMapped] = useState<CourseCompetency[]>([])
@@ -76,6 +87,20 @@ export function CourseCompetencyInlinePanel({
   }, [courseId, user, onCountChange])
 
   useEffect(() => { void load() }, [load])
+
+  // Pre-select the deep-linked competency once it is available to pick and
+  // not already mapped — once only, via the ref below, so it does not
+  // overwrite an admin who has since picked something else themselves.
+  const prefillApplied = useRef(false)
+  useEffect(() => {
+    if (prefillApplied.current) return
+    if (!initialCompetencyId || loading) return
+    const alreadyMapped = mapped.some((m) => m.competency_id === initialCompetencyId)
+    const isPickable = available.some((a) => a.id === initialCompetencyId)
+    if (alreadyMapped || !isPickable) return
+    prefillApplied.current = true
+    queueMicrotask(() => setPicked(String(initialCompetencyId)))
+  }, [initialCompetencyId, loading, mapped, available])
 
   /** Always sends the FULL set — see constraint 1 above. */
   async function sync(nextIds: number[]) {
