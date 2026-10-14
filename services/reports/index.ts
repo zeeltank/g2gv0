@@ -229,6 +229,10 @@ export const reportBuilderService = {
   unshare: (context: LaravelContext, id: number, shareId: number) =>
     apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/shares/${shareId}`, queryParams(context)),
 
+  /** Ad hoc "send by email right now" — distinct from createSchedule, which is only ever a recurring cadence. */
+  sendEmail: (context: LaravelContext, id: number, recipients: string[]) =>
+    apiClient.post<{ status: boolean; message: string }>(`/report-builder/${id}/send-email`, bodyParams(context, { recipients })),
+
   // Scheduled/emailed runs
   listSchedules: (context: LaravelContext, id: number) =>
     apiClient.get<{ status: boolean; data: { schedules: ReportSchedule[] } }>(`/report-builder/${id}/schedules`, queryParams(context)),
