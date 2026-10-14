@@ -20,15 +20,27 @@ export function ReportViewer({
   result,
   definition,
   onPageChange,
+  onPerPageChange,
+  busy,
 }: {
   reportType: ReportType
   result: ReportResult
   definition: ReportDefinition
   onPageChange?: (page: number) => void
+  onPerPageChange?: (perPage: number) => void
+  busy?: boolean
 }) {
   switch (reportType) {
     case 'tabular':
-      return <TabularView result={result as TabularResult} columns={definition.columns ?? []} onPageChange={onPageChange} />
+      return (
+        <TabularView
+          result={result as TabularResult}
+          columns={definition.columns ?? []}
+          onPageChange={onPageChange}
+          onPerPageChange={onPerPageChange}
+          busy={busy}
+        />
+      )
     case 'summary':
       return <SummaryView result={result as SummaryResult} />
     case 'pivot':

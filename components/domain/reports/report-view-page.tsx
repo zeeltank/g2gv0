@@ -75,6 +75,11 @@ export function ReportViewPage({
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [duplicating, setDuplicating] = useState(false)
+  // Page/page-size are view-time only — paging through a tabular report's
+  // rows never writes back to the saved report (ReportController::run()'s
+  // own docblock). Reset to page 1 whenever the report itself changes.
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(25)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
@@ -85,11 +90,12 @@ export function ReportViewPage({
 
     setLoading(true)
     setError('')
+    setPage(1)
 
     try {
       const [detailResponse, runResponse] = await Promise.all([
         reportBuilderService.getReport(context, reportId),
-        reportBuilderService.run(context, reportId),
+        reportBuilderService.run(context, reportId, { page: 1, perPage }),
       ])
 
       setDetail(detailResponse.data)
@@ -99,6 +105,10 @@ export function ReportViewPage({
     } finally {
       setLoading(false)
     }
+    // perPage deliberately excluded — load() only reruns on reportId/context
+    // change (see the effect below); changing perPage alone goes through
+    // changePerPage(), not a full reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context, reportId])
 
   useEffect(() => {
@@ -107,18 +117,28 @@ export function ReportViewPage({
     })
   }, [load])
 
-  async function refresh() {
+  async function refresh(nextPage = page, nextPerPage = perPage) {
     setRunning(true)
     setError('')
 
     try {
-      const response = await reportBuilderService.run(context, reportId)
+      const response = await reportBuilderService.run(context, reportId, { page: nextPage, perPage: nextPerPage })
       setResult(response.data)
+      setPage(nextPage)
+      setPerPage(nextPerPage)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'This report could not be run.')
     } finally {
       setRunning(false)
     }
+  }
+
+  function changePage(nextPage: number) {
+    void refresh(nextPage, perPage)
+  }
+
+  function changePerPage(nextPerPage: number) {
+    void refresh(1, nextPerPage)
   }
 
   async function duplicate() {
@@ -187,6 +207,12 @@ export function ReportViewPage({
           : result && 'labels' in result ? result.labels.length
             : 0
 
+  // The most recent date value among this report's own date columns, over
+  // every filtered row — only tabular results carry this (ReportQueryExecutionService::runTabular).
+  // Surfaced up top so a stale dataset is obvious before anyone wonders why a
+  // "today"/"last 7 days" filter came back empty.
+  const latestDataDate = result && 'latest_date' in result ? result.latest_date : null
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <button
@@ -206,6 +232,11 @@ export function ReportViewPage({
             <Badge variant="navy" className="capitalize">{detail.report_type}</Badge>
           </div>
           {detail.description && <p className="mt-1 text-sm text-muted-foreground">{detail.description}</p>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span>{rowCount} {rowCount === 1 ? 'record' : 'records'}</span>
+            {detail.last_run_at && <span>Last generated {detail.last_run_at}</span>}
+            {latestDataDate && <span className="font-medium text-foreground">Data as of {latestDataDate}</span>}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -256,12 +287,16 @@ export function ReportViewPage({
         </Alert>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        {rowCount} {rowCount === 1 ? 'record' : 'records'}
-        {detail.last_run_at && ` · last generated ${detail.last_run_at}`}
-      </p>
-
-      {result && <ReportViewer reportType={detail.report_type} result={result} definition={detail.definition} />}
+      {result && (
+        <ReportViewer
+          reportType={detail.report_type}
+          result={result}
+          definition={detail.definition}
+          onPageChange={changePage}
+          onPerPageChange={changePerPage}
+          busy={running}
+        />
+      )}
     </div>
   )
 }
