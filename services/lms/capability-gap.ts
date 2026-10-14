@@ -82,6 +82,19 @@ export interface CapabilityGapSummary {
   avg_days_pending: number
 }
 
+/**
+ * The FULL tenant catalog a filter may offer — never narrowed to whatever
+ * happens to be in the currently-loaded list of requests. Departments and
+ * competencies are the tenant's complete set (either could have a request
+ * tomorrow); job roles are scoped to ones that actually carry a competency
+ * requirement, since a role with none defined can never raise one.
+ */
+export interface CapabilityGapFilterOptions {
+  departments: string[]
+  competencies: { id: number; name: string }[]
+  jobroles: { id: number; name: string }[]
+}
+
 export interface CapabilityAffectedEmployee {
   user_id: number
   name: string
@@ -129,6 +142,13 @@ export const capabilityGapInboxService = {
   summary: (context: LaravelContext) =>
     apiClient.get<CapabilityGapApiResponse<CapabilityGapSummary>>(
       `${BASE}/summary`,
+      params(context),
+    ),
+
+  /** GET /competency/course-requests/filter-options — the full tenant catalog. */
+  filterOptions: (context: LaravelContext) =>
+    apiClient.get<CapabilityGapApiResponse<CapabilityGapFilterOptions>>(
+      `${BASE}/filter-options`,
       params(context),
     ),
 
