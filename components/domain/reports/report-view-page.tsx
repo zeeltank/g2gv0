@@ -27,6 +27,7 @@ import {
   type ReportScope,
 } from '@/services/reports'
 import { DrilldownDialog } from './drilldown-dialog'
+import { ReportShareDialog } from './report-share-dialog'
 import { ReportViewer } from './report-viewer'
 import { ScheduleDialog } from './schedule-dialog'
 
@@ -85,6 +86,7 @@ export function ReportViewPage({
   const [perPage, setPerPage] = useState(25)
   const [drilldown, setDrilldown] = useState<{ values: Array<FieldRef & { value: string | null }>; title: string } | null>(null)
   const [schedulingOpen, setSchedulingOpen] = useState(false)
+  const [sharingOpen, setSharingOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
@@ -257,7 +259,7 @@ export function ReportViewPage({
             <Copy className="mr-1.5 size-4" aria-hidden="true" />
             Duplicate
           </Button>
-          <Button variant="outline" size="sm" onClick={onEdit} title="Manage who this report is shared with">
+          <Button variant="outline" size="sm" onClick={() => setSharingOpen(true)} title="Share this report with a teammate, by email, or via WhatsApp">
             <Share2 className="mr-1.5 size-4" aria-hidden="true" />
             Share
           </Button>
@@ -318,6 +320,8 @@ export function ReportViewPage({
       )}
 
       {schedulingOpen && <ScheduleDialog reportId={reportId} onClose={() => setSchedulingOpen(false)} />}
+
+      {sharingOpen && <ReportShareDialog report={detail} onClose={() => setSharingOpen(false)} />}
     </div>
   )
 }
