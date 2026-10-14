@@ -27,6 +27,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   capabilityGapInboxService,
   type CapabilityCourseRequestRow,
+  type CapabilityGapFilterOptions,
   type CapabilityGapSummary,
 } from '@/services/lms/capability-gap'
 
@@ -34,8 +35,11 @@ export type GapInboxTab = 'needs_action' | 'resolved' | 'dismissed'
 
 export interface GapInboxFilters {
   search: string
+  /** Department NAME, or 'All' — hrms_departments has no numeric id on the row. */
   department: string
+  /** Competency ID as a string, or 'All' — filtered by id, not by name. */
   competency: string
+  /** Job role ID as a string, or 'All' — filtered by id, not by name. */
   jobrole: string
   /** 'All' | 'severe' (gap >= 2) | 'moderate' (0 < gap < 2) — computed client-side. */
   severity: string
@@ -77,6 +81,7 @@ export function useCapabilityGapInbox() {
   const [rows, setRows] = useState<CapabilityCourseRequestRow[]>([])
   const [emptyIsExpected, setEmptyIsExpected] = useState(false)
   const [summary, setSummary] = useState<CapabilityGapSummary | null>(null)
+  const [catalog, setCatalog] = useState<CapabilityGapFilterOptions | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<GapInboxTab>('needs_action')
   const [filters, setFilters] = useState<GapInboxFilters>({ ...DEFAULT_FILTERS })
@@ -98,14 +103,18 @@ export function useCapabilityGapInbox() {
       // Fetched with status 'all' and tabbed client-side: a status tab here is
       // a VIEW over one list, not a separate fetch, which keeps the KPI
       // strip's counts (from /summary) and the table rows from disagreeing
-      // about what "all" means.
-      const [listResponse, summaryResponse] = await Promise.all([
+      // about what "all" means. filter-options is the full tenant catalog -
+      // deliberately NOT derived from `rows`, which would only ever offer
+      // departments/competencies that already have an open problem today.
+      const [listResponse, summaryResponse, catalogResponse] = await Promise.all([
         capabilityGapInboxService.list(context, { status: 'all' }),
         capabilityGapInboxService.summary(context),
+        capabilityGapInboxService.filterOptions(context),
       ])
       setRows(listResponse?.data ?? [])
       setEmptyIsExpected(Boolean(listResponse?.empty_is_expected))
       setSummary(summaryResponse?.data ?? null)
+      setCatalog(catalogResponse?.data ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load the capability gap inbox')
       console.error('[useCapabilityGapInbox] load failed:', err)
@@ -209,20 +218,21 @@ export function useCapabilityGapInbox() {
   )
 
   /* ---------------------------------------------------------------- *
-   * Filter options — derived from the rows actually loaded.
+   * Filter options — the tenant's FULL catalog (from /filter-options),
+   * never narrowed to whatever happens to be in `rows`. A department or
+   * competency with zero open requests today must still be selectable, or
+   * "any gaps in Design?" can't even be asked when Design currently has
+   * none.
    * ---------------------------------------------------------------- */
 
-  const distinct = (pick: (r: CapabilityCourseRequestRow) => string | null | undefined) =>
-    Array.from(new Set(rows.map(pick).filter((v): v is string => Boolean(v && v.trim())))).sort(
-      (a, b) => a.localeCompare(b),
-    )
-
-  const departmentOptions = distinct((r) => r.department)
-  const competencyOptions = distinct((r) => r.competency_name)
-  const jobroleOptions = distinct((r) => r.jobrole_name)
+  const departmentOptions = catalog?.departments ?? []
+  const competencyOptions = catalog?.competencies ?? []
+  const jobroleOptions = catalog?.jobroles ?? []
 
   /* ---------------------------------------------------------------- *
-   * Tab + filter predicate.
+   * Tab + filter predicate. Competency/job role filter by ID (the catalog
+   * carries both); department stays name-based - hrms_departments has no
+   * id threaded onto the request row to filter by instead.
    * ---------------------------------------------------------------- */
 
   const tabStatuses: Record<GapInboxTab, CapabilityCourseRequestRow['status'][]> = {
@@ -240,8 +250,8 @@ export function useCapabilityGapInbox() {
     }
 
     if (filters.department !== 'All' && (row.department ?? '') !== filters.department) return false
-    if (filters.competency !== 'All' && row.competency_name !== filters.competency) return false
-    if (filters.jobrole !== 'All' && (row.jobrole_name ?? '') !== filters.jobrole) return false
+    if (filters.competency !== 'All' && String(row.competency_id) !== filters.competency) return false
+    if (filters.jobrole !== 'All' && String(row.jobrole_id ?? '') !== filters.jobrole) return false
     if (filters.mandatoryOnly && !row.is_mandatory) return false
     if (filters.severity !== 'All' && severityBucket(row) !== filters.severity) return false
 
@@ -255,6 +265,11 @@ export function useCapabilityGapInbox() {
 
     return true
   })
+
+  /** How many of DEFAULT_FILTERS' keys are not at their default right now - drives the "N active" badge. */
+  const activeFilterCount = (Object.keys(DEFAULT_FILTERS) as (keyof GapInboxFilters)[]).filter(
+    (key) => key !== 'quickFilter' && key !== 'search' && filters[key] !== DEFAULT_FILTERS[key],
+  ).length
 
   const tabCounts = useMemo(
     () => ({
@@ -282,6 +297,7 @@ export function useCapabilityGapInbox() {
     setFilter,
     resetFilters,
     setQuickFilter,
+    activeFilterCount,
     departmentOptions,
     competencyOptions,
     jobroleOptions,

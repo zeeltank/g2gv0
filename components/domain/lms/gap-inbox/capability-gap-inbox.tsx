@@ -27,9 +27,13 @@
 import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  Briefcase,
+  Building2,
   CalendarClock,
   CheckCircle2,
   Filter,
+  Gauge,
+  GraduationCap,
   Inbox,
   Link2,
   Loader2,
@@ -95,6 +99,7 @@ export function CapabilityGapInbox() {
     setFilter,
     resetFilters,
     setQuickFilter,
+    activeFilterCount,
     departmentOptions,
     competencyOptions,
     jobroleOptions,
@@ -111,6 +116,43 @@ export function CapabilityGapInbox() {
   const [dismissTarget, setDismissTarget] = useState<{ ids: number[]; label: string } | null>(null)
 
   const builderRoute = resolveAccessLink(LMS_COURSE_BUILDER_ACCESS_LINK)
+
+  // One removable chip per active filter, surfaced above the table so a
+  // narrowed view is visible (and undoable) without opening the sidebar -
+  // the sidebar's own selects already show the same state, this is just
+  // the at-a-glance summary of it.
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = []
+    if (filters.department !== 'All') {
+      chips.push({ key: 'department', label: filters.department, onClear: () => setFilter('department', 'All') })
+    }
+    if (filters.competency !== 'All') {
+      const name = competencyOptions.find((c) => String(c.id) === filters.competency)?.name ?? filters.competency
+      chips.push({ key: 'competency', label: name, onClear: () => setFilter('competency', 'All') })
+    }
+    if (filters.jobrole !== 'All') {
+      const name = jobroleOptions.find((r) => String(r.id) === filters.jobrole)?.name ?? filters.jobrole
+      chips.push({ key: 'jobrole', label: name, onClear: () => setFilter('jobrole', 'All') })
+    }
+    if (filters.severity !== 'All') {
+      chips.push({
+        key: 'severity',
+        label: filters.severity === 'severe' ? 'Severe' : 'Moderate',
+        onClear: () => setFilter('severity', 'All'),
+      })
+    }
+    if (filters.daysPending !== 'All') {
+      chips.push({
+        key: 'daysPending',
+        label: `≤ ${filters.daysPending} days pending`,
+        onClear: () => setFilter('daysPending', 'All'),
+      })
+    }
+    if (filters.mandatoryOnly) {
+      chips.push({ key: 'mandatoryOnly', label: 'Mandatory only', onClear: () => setFilter('mandatoryOnly', false) })
+    }
+    return chips
+  }, [filters, competencyOptions, jobroleOptions, setFilter])
 
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedIds.includes(String(row.id))),
@@ -387,6 +429,11 @@ export function CapabilityGapInbox() {
                 onClick={() => setShowFilterSidebar((v) => !v)}
               >
                 <Filter className="size-3.5" /> Filter
+                {activeFilterCount > 0 && (
+                  <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
               </Button>
               {selectedIds.length > 0 && (
                 <div className="flex items-center gap-3">
@@ -444,6 +491,29 @@ export function CapabilityGapInbox() {
             )}
           </div>
 
+          {activeChips.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {activeChips.map((chip) => (
+                <Badge
+                  key={chip.key}
+                  variant="outline"
+                  className="cursor-pointer gap-1.5 border-border bg-muted/40 font-semibold text-foreground"
+                  onClick={chip.onClear}
+                >
+                  {chip.label}
+                  <X className="size-3 text-muted-foreground" />
+                </Badge>
+              ))}
+              <button
+                type="button"
+                className="text-xs font-semibold text-primary hover:underline"
+                onClick={resetFilters}
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
             <DataTable
               columns={columns}
@@ -481,7 +551,14 @@ export function CapabilityGapInbox() {
         {showFilterSidebar && (
           <div className="flex w-full shrink-0 flex-col rounded-xl border border-border/80 bg-card shadow-sm xl:w-[300px]">
             <div className="flex items-center justify-between border-b border-border/40 p-4">
-              <h3 className="font-bold text-foreground">Filters</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-foreground">Filters</h3>
+                {activeFilterCount > 0 && (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] font-black text-primary">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -491,92 +568,118 @@ export function CapabilityGapInbox() {
                 <X className="size-4" />
               </Button>
             </div>
-            <div className="flex flex-1 flex-col gap-5 p-5">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Department
-                </label>
-                <Select
-                  options={[
-                    { label: 'All', value: 'All' },
-                    ...departmentOptions.map((value) => ({ label: value, value })),
-                  ]}
-                  value={filters.department}
-                  onChange={(value) => setFilter('department', String(value))}
-                />
+
+            <div className="flex flex-1 flex-col gap-6 p-5">
+              {/* Scope — WHERE the gap sits */}
+              <div className="flex flex-col gap-4">
+                <h4 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Scope
+                </h4>
+
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <Building2 className="size-3.5 text-muted-foreground" /> Department
+                  </label>
+                  <Select
+                    options={[
+                      { label: 'All', value: 'All' },
+                      ...departmentOptions.map((value) => ({ label: value, value })),
+                    ]}
+                    value={filters.department}
+                    onChange={(value) => setFilter('department', String(value))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <GraduationCap className="size-3.5 text-muted-foreground" /> Competency
+                  </label>
+                  <Select
+                    options={[
+                      { label: 'All', value: 'All' },
+                      ...competencyOptions.map((c) => ({ label: c.name, value: String(c.id) })),
+                    ]}
+                    value={filters.competency}
+                    onChange={(value) => setFilter('competency', String(value))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <Briefcase className="size-3.5 text-muted-foreground" /> Job Role
+                  </label>
+                  <Select
+                    options={[
+                      { label: 'All', value: 'All' },
+                      ...jobroleOptions.map((r) => ({ label: r.name, value: String(r.id) })),
+                    ]}
+                    value={filters.jobrole}
+                    onChange={(value) => setFilter('jobrole', String(value))}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Competency
-                </label>
-                <Select
-                  options={[
-                    { label: 'All', value: 'All' },
-                    ...competencyOptions.map((value) => ({ label: value, value })),
-                  ]}
-                  value={filters.competency}
-                  onChange={(value) => setFilter('competency', String(value))}
-                />
-              </div>
+              <div className="border-t border-border/40" />
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Job Role
-                </label>
-                <Select
-                  options={[
-                    { label: 'All', value: 'All' },
-                    ...jobroleOptions.map((value) => ({ label: value, value })),
-                  ]}
-                  value={filters.jobrole}
-                  onChange={(value) => setFilter('jobrole', String(value))}
-                />
-              </div>
+              {/* Priority — HOW URGENT */}
+              <div className="flex flex-col gap-4">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Priority
+                </h4>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Severity
-                </label>
-                <Select
-                  options={[
-                    { label: 'All', value: 'All' },
-                    { label: 'Severe (mandatory, 5+ affected)', value: 'severe' },
-                    { label: 'Moderate', value: 'moderate' },
-                  ]}
-                  value={filters.severity}
-                  onChange={(value) => setFilter('severity', String(value))}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <Gauge className="size-3.5 text-muted-foreground" /> Severity
+                  </label>
+                  <Select
+                    options={[
+                      { label: 'All', value: 'All' },
+                      { label: 'Severe (mandatory, 5+ affected)', value: 'severe' },
+                      { label: 'Moderate', value: 'moderate' },
+                    ]}
+                    value={filters.severity}
+                    onChange={(value) => setFilter('severity', String(value))}
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Days Pending (at most)
-                </label>
-                <Select
-                  options={[
-                    { label: 'All', value: 'All' },
-                    { label: '7', value: '7' },
-                    { label: '30', value: '30' },
-                    { label: '90', value: '90' },
-                  ]}
-                  value={filters.daysPending}
-                  onChange={(value) => setFilter('daysPending', String(value))}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <CalendarClock className="size-3.5 text-muted-foreground" /> Days Pending (at most)
+                  </label>
+                  <Select
+                    options={[
+                      { label: 'All', value: 'All' },
+                      { label: '7', value: '7' },
+                      { label: '30', value: '30' },
+                      { label: '90', value: '90' },
+                    ]}
+                    value={filters.daysPending}
+                    onChange={(value) => setFilter('daysPending', String(value))}
+                  />
+                </div>
 
-              <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <input
-                  type="checkbox"
-                  className="size-4"
-                  checked={filters.mandatoryOnly}
-                  onChange={(event) => setFilter('mandatoryOnly', event.target.checked)}
-                />
-                Mandatory only
-              </label>
+                <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={filters.mandatoryOnly}
+                    onChange={(event) => setFilter('mandatoryOnly', event.target.checked)}
+                  />
+                  Mandatory only
+                </label>
+              </div>
             </div>
-            <div className="flex items-center justify-between p-5 pt-0">
-              <Button variant="outline" className="rounded-full px-6 font-bold" onClick={resetFilters}>
+
+            <div className="flex items-center justify-between border-t border-border/40 p-5">
+              <span className="text-xs font-medium text-muted-foreground">
+                {rows.length} of {tabCounts[activeTab]} shown
+              </span>
+              <Button
+                variant="outline"
+                className="rounded-full px-6 font-bold"
+                disabled={activeFilterCount === 0}
+                onClick={resetFilters}
+              >
                 Reset
               </Button>
             </div>

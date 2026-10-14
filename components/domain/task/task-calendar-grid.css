@@ -124,9 +124,12 @@
 
 /* "+N more" popover (month view) - FullCalendar's own default is a bare,
    unstyled box with no containment; this app had never styled it, so a
-   crowded day's hidden events spilled out as an unbounded, unreadable list. */
+   crowded day's hidden events spilled out as an unbounded, unreadable list.
+   z-index stays below the task detail Dialog's z-50 (components/ui/dialog.tsx)
+   so clicking a task card here opens its detail dialog on top, not behind -
+   FullCalendar doesn't auto-close this popover on an inner click. */
 .tm-calendar-grid .fc-popover {
-  z-index: 60;
+  z-index: 40;
   border-radius: 0.75rem;
   border: 1px solid var(--border);
   background: var(--popover);
