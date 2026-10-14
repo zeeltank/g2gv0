@@ -11,6 +11,7 @@
  * labels), reused rather than duplicated.
  */
 
+import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -29,6 +30,29 @@ import {
 import { categoricalColor, categoricalColors } from '@/lib/chart-colors'
 import type { ChartResult } from '@/services/reports'
 
+/** Click a legend entry to show/hide that series — built into Recharts (no new dependency), confirmed via direct research as the right call: Recharts was independently validated as "the best fit for standard dashboards" over Nivo/Tremor for this stack, so the quality upgrade here is using more of what it already offers, not switching libraries. */
+function useLegendToggle() {
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+
+  const onLegendClick = (entry: { dataKey?: unknown }) => {
+    const key = typeof entry.dataKey === 'string' || typeof entry.dataKey === 'number' ? String(entry.dataKey) : ''
+    if (!key) return
+
+    setHidden((cur) => {
+      const next = new Set(cur)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const legendFormatter = (value: string) => (
+    <span className={hidden.has(value) ? 'text-muted-foreground line-through' : undefined}>{value}</span>
+  )
+
+  return { hidden, onLegendClick, legendFormatter }
+}
+
 export function ChartView({
   type,
   result,
@@ -46,6 +70,8 @@ export function ChartView({
     })
     return row
   })
+
+  const { hidden, onLegendClick, legendFormatter } = useLegendToggle()
 
   if (result.labels.length === 0) {
     return <p className="py-10 text-center text-sm text-muted-foreground">No data for the current filters.</p>
@@ -88,9 +114,9 @@ export function ChartView({
           <XAxis dataKey="label" tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
           <Tooltip />
-          <Legend />
+          <Legend onClick={onLegendClick} formatter={legendFormatter} wrapperStyle={{ cursor: 'pointer' }} />
           {result.series.map((s, i) => (
-            <Line key={s.name} type="monotone" dataKey={s.name} stroke={categoricalColors[i % categoricalColors.length]} strokeWidth={2} dot={{ r: 3 }} />
+            <Line key={s.name} type="monotone" dataKey={s.name} hide={hidden.has(s.name)} stroke={categoricalColors[i % categoricalColors.length]} strokeWidth={2} dot={{ r: 3 }} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -114,11 +140,12 @@ export function ChartView({
           </>
         )}
         <Tooltip />
-        <Legend />
+        <Legend onClick={onLegendClick} formatter={legendFormatter} wrapperStyle={{ cursor: 'pointer' }} />
         {result.series.map((s, i) => (
           <Bar
             key={s.name}
             dataKey={s.name}
+            hide={hidden.has(s.name)}
             fill={categoricalColors[i % categoricalColors.length]}
             radius={[4, 4, 0, 0]}
             onClick={onSliceClick ? (entry) => onSliceClick((entry as { label?: string }).label ?? '') : undefined}
