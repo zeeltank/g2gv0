@@ -77,7 +77,11 @@ export function TabularView({
               {visibleColumns.map((col, i) => (
                 <TableHead
                   key={`${col.module}.${col.field}`}
-                  className={cn('bg-card', i === 0 ? 'sticky left-0 z-30 max-w-[280px]' : 'whitespace-nowrap')}
+                  className={cn(
+                    'bg-card',
+                    i === 0 ? 'sticky left-0 z-30 max-w-[280px]' : 'whitespace-nowrap',
+                    i < visibleColumns.length - 1 && 'border-r border-border',
+                  )}
                 >
                   {col.label}
                 </TableHead>
@@ -98,6 +102,7 @@ export function TabularView({
                         j === 0
                           ? 'sticky left-0 z-10 max-w-[280px] truncate bg-card font-medium text-foreground'
                           : 'whitespace-nowrap',
+                        j < visibleColumns.length - 1 && 'border-r border-border',
                       )}
                     >
                       {value}

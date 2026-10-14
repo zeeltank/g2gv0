@@ -14,18 +14,21 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, ArrowLeft, Copy, Download, Loader2, Pencil, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CalendarClock, Copy, Download, Loader2, Pencil, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   reportBuilderService,
+  type FieldRef,
   type ReportDetail,
   type ReportResult,
   type ReportScope,
 } from '@/services/reports'
+import { DrilldownDialog } from './drilldown-dialog'
 import { ReportViewer } from './report-viewer'
+import { ScheduleDialog } from './schedule-dialog'
 
 function describeFilter(detail: ReportDetail): string[] {
   const lines: string[] = []
@@ -80,6 +83,8 @@ export function ReportViewPage({
   // own docblock). Reset to page 1 whenever the report itself changes.
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
+  const [drilldown, setDrilldown] = useState<{ values: Array<FieldRef & { value: string | null }>; title: string } | null>(null)
+  const [schedulingOpen, setSchedulingOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
@@ -117,12 +122,12 @@ export function ReportViewPage({
     })
   }, [load])
 
-  async function refresh(nextPage = page, nextPerPage = perPage) {
+  async function refresh(nextPage = page, nextPerPage = perPage, fresh = false) {
     setRunning(true)
     setError('')
 
     try {
-      const response = await reportBuilderService.run(context, reportId, { page: nextPage, perPage: nextPerPage })
+      const response = await reportBuilderService.run(context, reportId, { page: nextPage, perPage: nextPerPage, fresh })
       setResult(response.data)
       setPage(nextPage)
       setPerPage(nextPerPage)
@@ -240,7 +245,7 @@ export function ReportViewPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={running}>
+          <Button variant="outline" size="sm" onClick={() => void refresh(page, perPage, true)} disabled={running}>
             {running ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="mr-1.5 size-4" aria-hidden="true" />}
             Generate now
           </Button>
@@ -255,6 +260,10 @@ export function ReportViewPage({
           <Button variant="outline" size="sm" onClick={onEdit} title="Manage who this report is shared with">
             <Share2 className="mr-1.5 size-4" aria-hidden="true" />
             Share
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setSchedulingOpen(true)} title="Email this report on a schedule">
+            <CalendarClock className="mr-1.5 size-4" aria-hidden="true" />
+            Schedule
           </Button>
           {result && (
             <Button variant="outline" size="sm" asChild>
@@ -295,8 +304,20 @@ export function ReportViewPage({
           onPageChange={changePage}
           onPerPageChange={changePerPage}
           busy={running}
+          onDrilldown={(values, title) => setDrilldown({ values, title })}
         />
       )}
+
+      {drilldown && (
+        <DrilldownDialog
+          reportId={reportId}
+          title={drilldown.title}
+          values={drilldown.values}
+          onClose={() => setDrilldown(null)}
+        />
+      )}
+
+      {schedulingOpen && <ScheduleDialog reportId={reportId} onClose={() => setSchedulingOpen(false)} />}
     </div>
   )
 }

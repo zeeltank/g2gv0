@@ -79,6 +79,28 @@ export type ModuleOption = { key: string; label: string; joinable: string[] }
 
 export type ReportShare = { id: number; viewer_user_id: number; can_edit: boolean; viewer_name: string | null }
 
+export type ReportScheduleFrequency = 'daily' | 'weekly' | 'monthly'
+
+export type ReportSchedule = {
+  id: number
+  frequency: ReportScheduleFrequency
+  day_of_week: number | null
+  day_of_month: number | null
+  time_of_day: string
+  recipients: string[]
+  is_active: boolean
+  last_sent_at: string | null
+}
+
+export type ReportSchedulePayload = {
+  frequency: ReportScheduleFrequency
+  day_of_week?: number | null
+  day_of_month?: number | null
+  time_of_day: string
+  recipients: string[]
+  is_active?: boolean
+}
+
 /*
  * TWO SEPARATE HELPERS, NOT ONE — a real bug caught live (a deployed "Unknown
  * scope" error): `apiClient.get`/`delete` take a `Record<string, string>`
@@ -181,18 +203,18 @@ export const reportBuilderService = {
       bodyParams(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
     ),
 
-  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number }) =>
+  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number; fresh?: boolean }) =>
     apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(
       `/report-builder/${id}/run`,
-      queryParams(context, { page: opts?.page, per_page: opts?.perPage }),
+      queryParams(context, { page: opts?.page, per_page: opts?.perPage, fresh: opts?.fresh ? '1' : undefined }),
     ),
 
   exportUrl: (context: LaravelContext, id: number) =>
     buildApiUrl(`/report-builder/${id}/export`, queryParams(context)),
 
-  /** The member rows behind one summary/chart/pivot group — `values` is the group-by field(s) + the clicked group's own label value(s). */
+  /** The member rows behind one summary/chart/pivot group — `values` is the group-by field(s) + the clicked group's own label value(s). The response's own `columns` (the primary module's default field set, server-chosen) are what to feed TabularView — a drill-down has no report-authored column list of its own. */
   drilldown: (context: LaravelContext, id: number, values: Array<FieldRef & { value: string | null }>) =>
-    apiClient.post<{ status: boolean; data: TabularResult; message?: string }>(
+    apiClient.post<{ status: boolean; data: TabularResult & { columns: ReportColumn[] }; message?: string }>(
       `/report-builder/${id}/drilldown`,
       bodyParams(context, { values }),
     ),
@@ -206,4 +228,20 @@ export const reportBuilderService = {
 
   unshare: (context: LaravelContext, id: number, shareId: number) =>
     apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/shares/${shareId}`, queryParams(context)),
+
+  // Scheduled/emailed runs
+  listSchedules: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: boolean; data: { schedules: ReportSchedule[] } }>(`/report-builder/${id}/schedules`, queryParams(context)),
+
+  createSchedule: (context: LaravelContext, id: number, payload: ReportSchedulePayload) =>
+    apiClient.post<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules`, bodyParams(context, payload)),
+
+  updateSchedule: (context: LaravelContext, id: number, scheduleId: number, payload: ReportSchedulePayload) =>
+    apiClient.put<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules/${scheduleId}`, bodyParams(context, payload)),
+
+  toggleSchedule: (context: LaravelContext, id: number, scheduleId: number, isActive: boolean) =>
+    apiClient.put<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules/${scheduleId}`, bodyParams(context, { is_active: isActive })),
+
+  deleteSchedule: (context: LaravelContext, id: number, scheduleId: number) =>
+    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/schedules/${scheduleId}`, queryParams(context)),
 }
