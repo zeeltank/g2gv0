@@ -79,6 +79,28 @@ export type ModuleOption = { key: string; label: string; joinable: string[] }
 
 export type ReportShare = { id: number; viewer_user_id: number; can_edit: boolean; viewer_name: string | null }
 
+export type ReportScheduleFrequency = 'daily' | 'weekly' | 'monthly'
+
+export type ReportSchedule = {
+  id: number
+  frequency: ReportScheduleFrequency
+  day_of_week: number | null
+  day_of_month: number | null
+  time_of_day: string
+  recipients: string[]
+  is_active: boolean
+  last_sent_at: string | null
+}
+
+export type ReportSchedulePayload = {
+  frequency: ReportScheduleFrequency
+  day_of_week?: number | null
+  day_of_month?: number | null
+  time_of_day: string
+  recipients: string[]
+  is_active?: boolean
+}
+
 /*
  * TWO SEPARATE HELPERS, NOT ONE — a real bug caught live (a deployed "Unknown
  * scope" error): `apiClient.get`/`delete` take a `Record<string, string>`
@@ -206,4 +228,20 @@ export const reportBuilderService = {
 
   unshare: (context: LaravelContext, id: number, shareId: number) =>
     apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/shares/${shareId}`, queryParams(context)),
+
+  // Scheduled/emailed runs
+  listSchedules: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: boolean; data: { schedules: ReportSchedule[] } }>(`/report-builder/${id}/schedules`, queryParams(context)),
+
+  createSchedule: (context: LaravelContext, id: number, payload: ReportSchedulePayload) =>
+    apiClient.post<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules`, bodyParams(context, payload)),
+
+  updateSchedule: (context: LaravelContext, id: number, scheduleId: number, payload: ReportSchedulePayload) =>
+    apiClient.put<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules/${scheduleId}`, bodyParams(context, payload)),
+
+  toggleSchedule: (context: LaravelContext, id: number, scheduleId: number, isActive: boolean) =>
+    apiClient.put<{ status: boolean; message: string; data: ReportSchedule }>(`/report-builder/${id}/schedules/${scheduleId}`, bodyParams(context, { is_active: isActive })),
+
+  deleteSchedule: (context: LaravelContext, id: number, scheduleId: number) =>
+    apiClient.delete<{ status: boolean; message: string }>(`/report-builder/${id}/schedules/${scheduleId}`, queryParams(context)),
 }

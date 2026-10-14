@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, ArrowLeft, Copy, Download, Loader2, Pencil, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CalendarClock, Copy, Download, Loader2, Pencil, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import {
 } from '@/services/reports'
 import { DrilldownDialog } from './drilldown-dialog'
 import { ReportViewer } from './report-viewer'
+import { ScheduleDialog } from './schedule-dialog'
 
 function describeFilter(detail: ReportDetail): string[] {
   const lines: string[] = []
@@ -83,6 +84,7 @@ export function ReportViewPage({
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [drilldown, setDrilldown] = useState<{ values: Array<FieldRef & { value: string | null }>; title: string } | null>(null)
+  const [schedulingOpen, setSchedulingOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
@@ -259,6 +261,10 @@ export function ReportViewPage({
             <Share2 className="mr-1.5 size-4" aria-hidden="true" />
             Share
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setSchedulingOpen(true)} title="Email this report on a schedule">
+            <CalendarClock className="mr-1.5 size-4" aria-hidden="true" />
+            Schedule
+          </Button>
           {result && (
             <Button variant="outline" size="sm" asChild>
               <a href={reportBuilderService.exportUrl(context, reportId)}>
@@ -310,6 +316,8 @@ export function ReportViewPage({
           onClose={() => setDrilldown(null)}
         />
       )}
+
+      {schedulingOpen && <ScheduleDialog reportId={reportId} onClose={() => setSchedulingOpen(false)} />}
     </div>
   )
 }
