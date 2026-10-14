@@ -222,7 +222,7 @@ export const taskService = {
    * - that form is an assigner assigning work to someone else.
    */
   quickAddMyTask: (context: LaravelContext, title: string, dueDate?: string, extra?: {
-    description?: string; time_start?: string; time_end?: string; status?: string; priority?: string
+    description?: string; time_start?: string; time_end?: string; status?: string; priority?: string; remarks?: string
   }) =>
     apiClient.post<{ status: 1; message: string; data: { id: string } }>('/task-management/my-tasks/quick', {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,

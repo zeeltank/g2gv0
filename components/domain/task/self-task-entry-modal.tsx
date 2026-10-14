@@ -43,6 +43,7 @@ const SYSTEM_STATUS_FALLBACK: Array<{ label: string; value: string }> = [
 export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, initialTimeStart, statusOptions }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [completionRemarks, setCompletionRemarks] = useState('')
   const [date, setDate] = useState('')
   const [timeStart, setTimeStart] = useState('')
   const [timeEnd, setTimeEnd] = useState('')
@@ -61,7 +62,7 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
   const [seededOpen, setSeededOpen] = useState(false)
   if (isOpen && !seededOpen) {
     setSeededOpen(true)
-    setTitle(''); setDescription('')
+    setTitle(''); setDescription(''); setCompletionRemarks('')
     setDate(initialDate ?? new Date().toISOString().slice(0, 10))
     setTimeStart(initialTimeStart ?? ''); setTimeEnd('')
     setStatus('PENDING')
@@ -129,6 +130,7 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
         time_start: timeStart || undefined,
         time_end: timeEnd || undefined,
         status,
+        remarks: completionRemarks.trim() || undefined,
       })
 
       let message = response.message
@@ -181,6 +183,11 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
           <div className="space-y-1.5">
             <Label htmlFor="self-task-description">Description</Label>
             <Textarea id="self-task-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
+            <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={3} />
           </div>
 
           {/* Date on its own row, Start/End as a 2-col row below - TimePicker's
