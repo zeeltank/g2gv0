@@ -4,9 +4,9 @@ import { useState } from 'react'
 import type { Department } from '@/lib/gtg-org-data'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { IngestionView } from './ingestion-view'
-import { OpportunitiesView } from './opportunities-view'
 import { PortfolioView } from '@/components/domain/portfolio/portfolio-view'
 import { PartnersView } from '@/components/domain/portfolio/partners-view'
+import { CompanyOpportunities } from '@/components/domain/signals/company-opportunities'
 
 type View = 'opportunities' | 'ingestion' | 'portfolio' | 'partners'
 
@@ -24,6 +24,7 @@ const VIEWS: { id: View; label: string }[] = [
  *  - Ingestion engine: user-supplied documents and URLs, analysed on demand.
  *  - Product Portfolio: company offerings, problem capabilities and tags.
  *  - Partner Network: enterprise ecosystem and channel partners.
+ * ScholarClone's signals are not a tab of their own: they are the ScholarClone view of Company opportunities (choose the product there).
  */
 export function SignalsHub({
   department,
@@ -55,7 +56,7 @@ export function SignalsHub({
         </div>
       </div>
 
-      {view === 'opportunities' && <OpportunitiesView context={context} />}
+      {view === 'opportunities' && <CompanyOpportunities context={context} />}
       {view === 'ingestion' && <IngestionView context={context} />}
       {view === 'portfolio' && <PortfolioView context={context} canManage={canManage} />}
       {view === 'partners' && <PartnersView context={context} canManage={canManage} />}
