@@ -29,7 +29,16 @@ import {
 import { categoricalColor, categoricalColors } from '@/lib/chart-colors'
 import type { ChartResult } from '@/services/reports'
 
-export function ChartView({ type, result }: { type: 'Pie' | 'VerticalBar' | 'HorizontalBar' | 'Line'; result: ChartResult }) {
+export function ChartView({
+  type,
+  result,
+  onSliceClick,
+}: {
+  type: 'Pie' | 'VerticalBar' | 'HorizontalBar' | 'Line'
+  result: ChartResult
+  /** Not wired for Line — recharts has no clean per-point click target there, and no seeded report uses it. */
+  onSliceClick?: (label: string) => void
+}) {
   const data = result.labels.map((label, i) => {
     const row: Record<string, string | number> = { label }
     result.series.forEach((s) => {
@@ -51,7 +60,15 @@ export function ChartView({ type, result }: { type: 'Pie' | 'VerticalBar' | 'Hor
     return (
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
-          <Pie data={data} dataKey={field} nameKey="label" outerRadius={110} label={(entry) => entry.name}>
+          <Pie
+            data={data}
+            dataKey={field}
+            nameKey="label"
+            outerRadius={110}
+            label={(entry) => entry.name}
+            onClick={onSliceClick ? (entry) => onSliceClick((entry as unknown as { label?: string }).label ?? '') : undefined}
+            cursor={onSliceClick ? 'pointer' : undefined}
+          >
             {data.map((entry, i) => (
               <Cell key={entry.label as string} fill={categoricalColor(entry.label as string, result.labels) ?? categoricalColors[i % categoricalColors.length]} />
             ))}
@@ -99,7 +116,14 @@ export function ChartView({ type, result }: { type: 'Pie' | 'VerticalBar' | 'Hor
         <Tooltip />
         <Legend />
         {result.series.map((s, i) => (
-          <Bar key={s.name} dataKey={s.name} fill={categoricalColors[i % categoricalColors.length]} radius={[4, 4, 0, 0]} />
+          <Bar
+            key={s.name}
+            dataKey={s.name}
+            fill={categoricalColors[i % categoricalColors.length]}
+            radius={[4, 4, 0, 0]}
+            onClick={onSliceClick ? (entry) => onSliceClick((entry as { label?: string }).label ?? '') : undefined}
+            cursor={onSliceClick ? 'pointer' : undefined}
+          />
         ))}
       </BarChart>
     </ResponsiveContainer>

@@ -21,10 +21,12 @@ import { Button } from '@/components/ui/button'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   reportBuilderService,
+  type FieldRef,
   type ReportDetail,
   type ReportResult,
   type ReportScope,
 } from '@/services/reports'
+import { DrilldownDialog } from './drilldown-dialog'
 import { ReportViewer } from './report-viewer'
 
 function describeFilter(detail: ReportDetail): string[] {
@@ -80,6 +82,7 @@ export function ReportViewPage({
   // own docblock). Reset to page 1 whenever the report itself changes.
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
+  const [drilldown, setDrilldown] = useState<{ values: Array<FieldRef & { value: string | null }>; title: string } | null>(null)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
@@ -295,6 +298,16 @@ export function ReportViewPage({
           onPageChange={changePage}
           onPerPageChange={changePerPage}
           busy={running}
+          onDrilldown={(values, title) => setDrilldown({ values, title })}
+        />
+      )}
+
+      {drilldown && (
+        <DrilldownDialog
+          reportId={reportId}
+          title={drilldown.title}
+          values={drilldown.values}
+          onClose={() => setDrilldown(null)}
         />
       )}
     </div>

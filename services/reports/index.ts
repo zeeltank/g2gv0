@@ -190,9 +190,9 @@ export const reportBuilderService = {
   exportUrl: (context: LaravelContext, id: number) =>
     buildApiUrl(`/report-builder/${id}/export`, queryParams(context)),
 
-  /** The member rows behind one summary/chart/pivot group — `values` is the group-by field(s) + the clicked group's own label value(s). */
+  /** The member rows behind one summary/chart/pivot group — `values` is the group-by field(s) + the clicked group's own label value(s). The response's own `columns` (the primary module's default field set, server-chosen) are what to feed TabularView — a drill-down has no report-authored column list of its own. */
   drilldown: (context: LaravelContext, id: number, values: Array<FieldRef & { value: string | null }>) =>
-    apiClient.post<{ status: boolean; data: TabularResult; message?: string }>(
+    apiClient.post<{ status: boolean; data: TabularResult & { columns: ReportColumn[] }; message?: string }>(
       `/report-builder/${id}/drilldown`,
       bodyParams(context, { values }),
     ),

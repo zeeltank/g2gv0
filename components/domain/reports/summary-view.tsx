@@ -7,9 +7,11 @@ import type { SummaryResult } from '@/services/reports'
  * One row per group — label, count (always present, see
  * ReportQueryExecutionService::runSummary), plus one column per requested
  * aggregate. This is vtiger's own "summary" report type rendered as a
- * grouped table, the closest flat equivalent to its drill-down list.
+ * grouped table. A group is clickable when the engine's drill-down
+ * endpoint can resolve it (single group-by field — see ReportViewer's own
+ * docblock for why a multi-field group doesn't support this yet).
  */
-export function SummaryView({ result }: { result: SummaryResult }) {
+export function SummaryView({ result, onGroupClick }: { result: SummaryResult; onGroupClick?: (label: string) => void }) {
   if (result.groups.length === 0) {
     return <p className="py-10 text-center text-sm text-muted-foreground">No groups for the current filters.</p>
   }
@@ -30,7 +32,11 @@ export function SummaryView({ result }: { result: SummaryResult }) {
         </TableHeader>
         <TableBody>
           {result.groups.map((group) => (
-            <TableRow key={group.label}>
+            <TableRow
+              key={group.label}
+              className={onGroupClick ? 'cursor-pointer' : undefined}
+              onClick={onGroupClick ? () => onGroupClick(group.label) : undefined}
+            >
               <TableCell className="font-medium text-foreground">{group.label}</TableCell>
               <TableCell className="text-right">{group.count}</TableCell>
               {aggregateKeys.map((key) => (
