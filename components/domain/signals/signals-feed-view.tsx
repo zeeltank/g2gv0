@@ -75,10 +75,12 @@ function fmtDate(value?: string | null, withTime = false) {
   }
 }
 
-export function SignalsFeedView() {
+export function SignalsFeedView({ product }: { product?: string } = {}) {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
+  /** The product chosen in Company opportunities ('all' or none = every product, which cannot start a run). */
+  const productKey = product && product !== 'all' ? product : undefined
 
   // Status & feed data
   const [status, setStatus] = useState<ResearchStatusResponse['data'] | null>(null)
@@ -121,6 +123,7 @@ export function SignalsFeedView() {
       const res = await opportunitiesService.list(context, {
         search: search || undefined,
         feedSection: section === 'all' ? undefined : section,
+        product: productKey,
         page,
       })
       setData(res)
@@ -130,18 +133,18 @@ export function SignalsFeedView() {
     } finally {
       setLoading(false)
     }
-  }, [context, ready, search, section, page])
+  }, [context, ready, search, section, productKey, page])
 
   const loadStatus = useCallback(async () => {
     if (!ready) return
     try {
-      const res = await opportunitiesService.getStatus(context)
+      const res = await opportunitiesService.getStatus(context, productKey)
       setStatus(res.data)
       return res.data
     } catch {
       return null
     }
-  }, [context, ready])
+  }, [context, ready, productKey])
 
   // Initial load
   useEffect(() => {
@@ -172,11 +175,15 @@ export function SignalsFeedView() {
 
   const handleStartScan = async (isCustom = false) => {
     if (!ready) return
+    if (!productKey) {
+      setScanMessage('Choose a product first: a research run is always for one product.')
+      return
+    }
     setScanning(true)
     setScanMessage(null)
     try {
       const params = isCustom ? scanForm : undefined
-      const res = await opportunitiesService.runResearch(context, params)
+      const res = await opportunitiesService.runResearch(context, params, productKey)
       setScanMessage(res.message)
       loadStatus()
     } catch (e) {

@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SelectInput } from '../components'
+import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import {
@@ -145,6 +146,11 @@ function SignalDetail({
 
 /* eslint-disable react-hooks/set-state-in-effect -- Intentional: load on mount / filter change and follow sources that are still processing */
 export function IngestionView({ context }: { context: LaravelContext }) {
+  // Every document and link is added for ONE product, and only that product's documents and findings are shown.
+  const { products, loading: productsLoading, error: productsError } = useProducts(context)
+  const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
+  const selectedProduct = products?.find((p) => p.key === product)
+  const productReady = Boolean(selectedProduct?.ready)
   const [sources, setSources] = useState<IngestionSourceInfo[] | null>(null)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -178,7 +184,8 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
   const loadSources = useCallback(async () => {
     try {
-      const list = (await opportunitiesService.listSources(context)).data
+      if (!product) return null
+      const list = (await opportunitiesService.listSources(context, product)).data
       setSources(list)
       setError('')
       return list
@@ -186,7 +193,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
       setError(errText(cause, 'Failed to load sources.'))
       return null
     }
-  }, [context])
+  }, [context, product])
 
   const loadDetail = useCallback(async (id: number) => {
     setDetailLoading(true)
@@ -201,12 +208,13 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }, [context])
 
   const loadSignals = useCallback(async () => {
+    if (!product) return
     const request = ++signalsRequest.current
     setSignalsLoading(true)
     setSignalsError('')
     try {
       const response = await opportunitiesService.listSignals(context, {
-        sourceId: sourceFilter ? Number(sourceFilter) : undefined, kind: kind || undefined, search: debouncedSearch || undefined, page,
+        sourceId: sourceFilter ? Number(sourceFilter) : undefined, kind: kind || undefined, search: debouncedSearch || undefined, product, page,
       })
       if (request === signalsRequest.current) setSignals(response)
     } catch (cause) {
@@ -214,8 +222,9 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } finally {
       if (request === signalsRequest.current) setSignalsLoading(false)
     }
-  }, [context, sourceFilter, kind, debouncedSearch, page])
+  }, [context, sourceFilter, kind, debouncedSearch, product, page])
 
+  useEffect(() => { setSources(null); setSelectedId(null); setDetail(null); setSourceFilter(''); setPage(1) }, [product])
   useEffect(() => { void loadSources() }, [loadSources])
   useEffect(() => { void loadSignals() }, [loadSignals])
   useEffect(() => { if (selectedId !== null) void loadDetail(selectedId) }, [selectedId, loadDetail])
@@ -290,10 +299,11 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   async function handleFile(file: File | undefined) {
     if (intent === 'market') return handleMarketFile(file)
     if (!file || busy) return
+    if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its documents are analysed with its own ICP.' }); return }
     setNotice(null)
     setBusy('upload')
     try {
-      ingested(await opportunitiesService.upload(context, file))
+      ingested(await opportunitiesService.upload(context, file, product))
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Upload failed.') })
     } finally {
@@ -305,10 +315,11 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
   async function handleUrl() {
     if (!url.trim() || busy) return
+    if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its pages are analysed with its own ICP.' }); return }
     setNotice(null)
     setBusy('url')
     try {
-      ingested(await opportunitiesService.addUrl(context, url.trim()))
+      ingested(await opportunitiesService.addUrl(context, url.trim(), product))
       setUrl('')
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Could not read that page.') })
@@ -375,6 +386,11 @@ export function IngestionView({ context }: { context: LaravelContext }) {
         title="Ingestion engine"
         description="Upload a document or submit one public web page. Signals are generated automatically and appear here as soon as the analysis finishes."
       />
+
+      <section aria-label="Product" className="space-y-2">
+        <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} />
+        <ProductSetupNotice product={selectedProduct} />
+      </section>
 
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 

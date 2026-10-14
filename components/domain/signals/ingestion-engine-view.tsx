@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
+import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
   type IngestionSourceDetail,
@@ -45,6 +46,11 @@ export function IngestionEngineView() {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
+
+  // Every document and link is added for ONE product, and only that product's documents are listed.
+  const { products, loading: productsLoading, error: productsError } = useProducts(context)
+  const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
+  const selectedProduct = products?.find((p) => p.key === product)
 
   // Input state
   const [tab, setTab] = useState<'url' | 'document'>('url')
@@ -66,9 +72,9 @@ export function IngestionEngineView() {
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadSources = useCallback(async () => {
-    if (!ready) return
+    if (!ready || !product) return
     try {
-      const res = await opportunitiesService.listSources(context)
+      const res = await opportunitiesService.listSources(context, product)
       setSources(res.data)
       if (res.data.length > 0 && activeSourceId === null) {
         setActiveSourceId(res.data[0].id)
@@ -76,7 +82,7 @@ export function IngestionEngineView() {
     } catch {
       // Ignored
     }
-  }, [context, ready, activeSourceId])
+  }, [context, ready, activeSourceId, product])
 
   const loadActiveDetail = useCallback(async (sourceId: number) => {
     if (!ready) return
@@ -92,6 +98,12 @@ export function IngestionEngineView() {
       setLoadingDetail(false)
     }
   }, [context, ready])
+
+  // Switching product shows only that product's documents: nothing from the previous one stays on screen.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSources([]); setActiveSourceId(null); setActiveDetail(null)
+  }, [product])
 
   // Initial load
   useEffect(() => {
@@ -129,11 +141,12 @@ export function IngestionEngineView() {
     e.preventDefault()
     const targetUrl = urlInput.trim()
     if (!targetUrl || !ready) return
+    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its pages are analysed with its own ICP.'); return }
 
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const res = await opportunitiesService.addUrl(context, targetUrl)
+      const res = await opportunitiesService.addUrl(context, targetUrl, product)
       setUrlInput('')
       await loadSources()
       setActiveSourceId(res.data.id)
@@ -148,11 +161,12 @@ export function IngestionEngineView() {
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fileInput || !ready) return
+    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its documents are analysed with its own ICP.'); return }
 
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const res = await opportunitiesService.upload(context, fileInput)
+      const res = await opportunitiesService.upload(context, fileInput, product)
       setFileInput(null)
       await loadSources()
       setActiveSourceId(res.data.id)
@@ -208,6 +222,10 @@ export function IngestionEngineView() {
         <p className="mt-1 text-sm text-muted-foreground">
           Provide a company URL or upload documents. The engine extracts intelligence, discovers related public news, and displays results directly below.
         </p>
+        <div className="mt-4 space-y-2">
+          <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} />
+          <ProductSetupNotice product={selectedProduct} />
+        </div>
       </div>
 
       {/* Prominent Input Card at Top */}
