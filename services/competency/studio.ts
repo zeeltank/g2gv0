@@ -448,6 +448,20 @@ export interface ReviewListResponse extends StudioListResponse<MappingReview[]> 
 }
 
 /* ------------------------------------------------------------------ *
+ * Remediation governance — tenant default due-date policy for the
+ * capability-gap auto-assignment flow (competency.rating_changed ->
+ * learning.auto_assigned / capability.course_gap_flagged).
+ * ------------------------------------------------------------------ */
+
+export interface RemediationConfig {
+  due_days_mandatory: number
+  due_days_optional: number
+  auto_assign_enabled: boolean
+  suggest_course_creation_enabled: boolean
+  reflag_cooldown_days: number
+}
+
+/* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 
@@ -641,4 +655,20 @@ export const competencyStudioService = {
       ...withLaravelParams(context),
       ...(ids && ids.length ? { ids } : {}),
     }),
+
+  /* -- remediation governance -- */
+
+  /** GET /competency/studio/remediation-config */
+  getRemediationConfig: (context: LaravelContext) =>
+    apiClient.get<StudioApiResponse<{ settings: RemediationConfig }>>(
+      '/competency/studio/remediation-config',
+      withLaravelParams(context),
+    ),
+
+  /** PUT /competency/studio/remediation-config — admin+hr. Any subset of the keys. */
+  updateRemediationConfig: (context: LaravelContext, settings: Partial<RemediationConfig>) =>
+    apiClient.put<StudioApiResponse<{ settings: RemediationConfig }>>(
+      '/competency/studio/remediation-config',
+      { ...withLaravelParams(context), ...settings },
+    ),
 }

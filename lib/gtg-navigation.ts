@@ -62,6 +62,17 @@ export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
  */
 export const LMS_COURSE_BUILDER_ACCESS_LINK = '/module/lms/administration/course-builder'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
+/**
+ * Capability Gap Inbox — HR/Admin queue of competencies the auto-assignment
+ * reactor could not resolve because no course exists for them yet.
+ *
+ * A sibling of LMS_ASSIGNMENTS_ACCESS_LINK by design: it sits beside
+ * Assignments in Training & Records navigation. Requires a tblmenumaster_g2g
+ * row with this exact access_link before anyone can reach it through the
+ * menu — see content-map-m4.ts for the component this resolves to.
+ */
+export const LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK =
+  '/module/lms/training-and-records/capability-gap-inbox'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
 /**
  * Capability Library - where job roles, skills and competencies are authored.

@@ -115,6 +115,19 @@ export function CreateCoursePage() {
   const requestedId = Number(searchParams.get('course_id'))
   const editingId = Number.isInteger(requestedId) && requestedId > 0 ? requestedId : null
 
+  /*
+   * ?competency_id=N — deep-linked from the Capability Gap Inbox's "Create a
+   * course" action. Pre-selects the competency in the mapping panel below
+   * rather than auto-saving it: the panel's own save is a destructive sync of
+   * a course's WHOLE competency list, so firing it automatically the instant
+   * a draft is created would be one unreviewed write too many.
+   */
+  const requestedCompetencyId = Number(searchParams.get('competency_id'))
+  const prefillCompetencyId =
+    Number.isInteger(requestedCompetencyId) && requestedCompetencyId > 0
+      ? requestedCompetencyId
+      : null
+
   const builder = useCourseBuilder(editingId)
   const {
     step, steps, goNext, goBack, goToStep,
@@ -1254,6 +1267,7 @@ export function CreateCoursePage() {
                       <CourseCompetencyInlinePanel
                         courseId={courseId}
                         onCountChange={setCompetencyCount}
+                        initialCompetencyId={prefillCompetencyId}
                       />
                     </div>
 
