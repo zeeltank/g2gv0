@@ -104,6 +104,23 @@ function Calendar({
           "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button:hover]:bg-primary [&>button:hover]:text-primary-foreground [&>button:focus]:bg-primary [&>button:focus]:text-primary-foreground",
         today: "[&>button]:bg-accent [&>button]:text-accent-foreground",
 
+        /*
+         * Range mode (mode="range", used by the report builder's custom
+         * date-range picker): react-day-picker applies `range_start`/
+         * `range_end` ONLY alongside `selected` (so those two days already
+         * got the solid pill above) but applies `range_middle` to every day
+         * IN BETWEEN *instead of* `selected` — those days had no modifier
+         * styled here at all, so a selected multi-day range rendered as two
+         * solid dots with a gap of plain, unhighlighted days between them,
+         * not a continuous highlighted span. A light fill tint on the cell
+         * itself (not the button) connects edge-to-edge between adjacent
+         * day cells with no gap, with rounded end caps only where the span
+         * actually starts/ends so it reads as one continuous bar.
+         */
+        range_start: "rounded-l-md bg-primary/15",
+        range_middle: "bg-primary/15 [&>button]:bg-transparent [&>button]:text-foreground [&>button:hover]:bg-primary/25",
+        range_end: "rounded-r-md bg-primary/15",
+
         outside: "[&>button]:text-muted-foreground [&>button]:opacity-50",
         disabled: "[&>button]:text-muted-foreground [&>button]:opacity-50 [&>button]:pointer-events-none",
         hidden: "invisible",
