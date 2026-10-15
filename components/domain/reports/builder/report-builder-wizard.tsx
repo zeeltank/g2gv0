@@ -186,6 +186,31 @@ export function ReportBuilderWizard({
     })
   }, [primaryModule, loadFields])
 
+  // A brand-new report (reportId is null — an existing one loads its own
+  // saved `columns` in the effect above and must never be overwritten)
+  // starts the Columns step with a sensible pre-checked set instead of
+  // every field unchecked: reported live as tedious busywork re-picking the
+  // same handful of fields ("Task", "Due Date", "Status", "Assignee", ...)
+  // on every new report. Each field's own `is_default_column` is the
+  // module's hand-curated choice (ReportFieldDefinition::$defaultColumn) -
+  // this only ever RUNS once per fresh field load, guarded by `columns`
+  // still being empty, so it never clobbers a selection the user already
+  // started making.
+  useEffect(() => {
+    if (reportId || columns.length > 0 || fields.length === 0) return
+
+    const defaults = fields.filter((f) => f.is_default_column)
+    if (defaults.length === 0) return
+
+    // queueMicrotask, matching loadFields' own pattern just above — setting
+    // state synchronously in an effect body risks a cascading render; this
+    // defers it one microtask instead.
+    queueMicrotask(() => {
+      setColumns(defaults.map((f) => ({ module: primaryModule, field: f.key, label: f.label, visible: true })))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields, reportId, primaryModule])
+
   const definition: ReportDefinition = useMemo(() => {
     const def: ReportDefinition = { columns }
 
