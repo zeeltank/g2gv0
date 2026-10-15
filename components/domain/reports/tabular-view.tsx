@@ -63,24 +63,31 @@ import { reportTableFeatures, type ReportTableFeatures } from './data-table-feat
 
 const PAGE_SIZE_OPTIONS = ['10', '20', '25', '30', '40', '50'].map((v) => ({ value: v, label: `${v} / page` }))
 
-// Two distinct real bugs on the sticky first column, both reported live
-// against the exact same symptom ("scrolled columns go under the task
-// column"/"the two columns' texts mix together when I scroll"):
+// Real bugs on the sticky first column, all reported live against the same
+// underlying symptom ("the two columns' texts mix together when I scroll"):
 //
 // 1. A plain `border-r` reads as a GLITCH, not a pinned pane: a column that
 //    scrolls underneath (completely normal sticky behavior) shares that same
 //    boundary line, so its own trailing text can appear to float right up
 //    against the sticky column with no depth cue separating "pinned" from
 //    "scrolling underneath". Fixed with a drop shadow instead of a flat line.
-// 2. On fast/continuous scrolling (confirmed by its absence in every
-//    instant-jump scrollLeft test, only showing up on a real trackpad/wheel
-//    gesture) a `position: sticky` table cell with no GPU layer of its own
-//    can repaint one frame stale relative to the column sliding underneath
-//    it — briefly showing BOTH texts overlapping mid-scroll before the
-//    correct opaque frame catches up. `will-change: transform` promotes the
-//    sticky cell to its own compositor layer up front, the standard fix
-//    data-grid libraries (AG Grid, MUI DataGrid) use for exactly this.
-const STICKY_COLUMN_SHADOW = 'shadow-[4px_0_6px_-4px_rgba(0,0,0,0.3)] will-change-transform'
+// 2. On fast/continuous scrolling, a `position: sticky` table cell with no
+//    GPU layer of its own can repaint one frame stale relative to the
+//    column sliding underneath it. `will-change: transform` promotes it to
+//    its own compositor layer, the standard fix data-grid libraries (AG
+//    Grid, MUI DataGrid) use for exactly this.
+// 3. STILL reproduced live after (1)+(2) once resizable columns landed and
+//    rows went from a fixed single-line height to content-driven (the wrap
+//    change just below): with uneven row heights and a `<table>`'s native
+//    per-row stacking, the sticky cell's own paint could still visually
+//    read as sharing space with a neighboring column's content during an
+//    active scroll. `isolate` (its own stacking context, not just a
+//    z-index number compared against siblings) + `[contain:paint]` (this
+//    cell's paint is clipped strictly to its own border box — nothing
+//    outside it can be drawn into that box, and nothing of its own can leak
+//    out either) makes the two cells' paint regions mutually exclusive by
+//    construction, not by hoping z-index/compositing order holds under load.
+const STICKY_COLUMN_SHADOW = 'shadow-[4px_0_6px_-4px_rgba(0,0,0,0.3)] will-change-transform isolate [contain:paint]'
 
 type RowRecord = Record<string, unknown>
 
@@ -349,17 +356,22 @@ export function TabularView({
               return (
                 <TableRow key={row.id} style={rowStyle}>
                   {row.getVisibleCells().map((cell, j) => {
-                    const value = String(cell.getValue() ?? '—')
-
                     return (
                       <TableCell
                         key={cell.id}
-                        title={j === 0 ? value : undefined}
                         style={{ width: cell.column.getSize(), ...(j === 0 ? rowStyle : undefined) }}
+                        // Reported live: truncated text ("...") wasn't
+                        // wanted at all — full text, row growing to fit it.
+                        // whitespace-normal + break-words wraps within the
+                        // column's own (user-resizable) width instead of
+                        // clipping; neither <tr> nor <td> constrains height
+                        // elsewhere, so the row simply grows to the
+                        // tallest wrapped cell, same as any normal <table>.
                         className={cn(
+                          'whitespace-normal align-top break-words',
                           j === 0
-                            ? cn('sticky left-0 z-10 truncate font-medium text-foreground', STICKY_COLUMN_SHADOW, !rowColor && 'bg-card')
-                            : 'overflow-hidden text-ellipsis whitespace-nowrap',
+                            ? cn('sticky left-0 z-10 font-medium text-foreground', STICKY_COLUMN_SHADOW, !rowColor && 'bg-card')
+                            : undefined,
                           j !== 0 && j < row.getVisibleCells().length - 1 && 'border-r border-border',
                         )}
                       >
