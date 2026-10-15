@@ -43,11 +43,14 @@ import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/p
 import { ProductSelector, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ProductProfilePanel } from './product-profile-panel'
 import { ProductIcpEditor } from './product-icp-editor'
+import { ProductSetupSteps } from './product-setup-steps'
+import { apiErrorText } from '@/lib/api-messages'
 
 export function PortfolioView({ context, canManage = true }: { context: LaravelContext; canManage?: boolean }) {
   // The product chosen here (shared with Company opportunities and the Ingestion engine) decides which product's stored configuration is shown.
   const { products, loading: productsLoading, error: productsError, reload: reloadProducts } = useProducts(context)
   const [icpDirty, setIcpDirty] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [product, selectProduct] = useSelectedProduct(context, products, { allowAll: true })
   // Leaving a product with unsaved ICP edits asks first.
   const setProduct = (next: string) => {
@@ -129,7 +132,9 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   }, [context, search, productFilter, readinessFilter, sellableFilter, needFilter, segmentFilter, page])
 
   useEffect(() => {
-    loadData()
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadData() })
+    return () => { live = false }
   }, [loadData])
 
   const handleRefresh = () => {
@@ -160,7 +165,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       await portfolioService.deleteOffer(context, id)
       loadData()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete offer.')
+      setActionError(apiErrorText(err, 'Failed to delete offer.'))
     }
   }
 
@@ -278,6 +283,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       {/* Product selector and the selected product's stored configuration */}
       <div className="space-y-4">
         <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll />
+        {selectedProduct && <ProductSetupSteps product={selectedProduct} />}
+        {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
         {selectedProduct && <ProductProfilePanel product={selectedProduct} />}
         {selectedProduct && <ProductIcpEditor key={selectedProduct.key} context={context} productKey={selectedProduct.key} canEdit={isAdmin} onChanged={reloadProducts} onDirtyChange={setIcpDirty} />}
         {product === 'all' && products && (

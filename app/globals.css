@@ -683,3 +683,98 @@ input:-webkit-autofill:active {
   caret-color: var(--foreground);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/*
+ * ── PREMIUM WORKSPACE (Signals modules only) ────────────────────────────────
+ *
+ * Company Opportunities, Ingestion Engine, Product Portfolio and Partner Network share one warm, light look: ivory ground, white cards,
+ * a restrained gold accent. It is SCOPED to `.g2g-premium` and to light mode, so no other module and no dark-mode colour changes. Only
+ * surfaces, hairlines and decoration move; text colours, the primary blue and every status colour keep the contrast they were checked at.
+ * Motion is short and purposeful and is switched off for people who ask for reduced motion.
+ */
+.g2g-premium {
+  --premium-gold: hsl(41 60% 44%);
+  --premium-gold-soft: hsl(42 72% 94%);
+  --premium-gold-line: hsl(41 55% 62%);
+  min-height: 100%;
+  animation: g2g-premium-enter 220ms ease-out both;
+}
+
+:root:not(.dark) .g2g-premium {
+  --background: hsl(40 36% 98%);
+  --surface-muted: hsl(38 28% 95%);
+  --muted: hsl(38 28% 95%);
+  --secondary: hsl(38 28% 95%);
+  --accent: hsl(38 28% 94%);
+  --border: hsl(36 22% 77%);
+  background: linear-gradient(180deg, hsl(41 55% 96%) 0, hsl(40 36% 98%) 220px, hsl(210 40% 98%) 100%);
+}
+
+/* A card that responds to the pointer: a small lift and a warmer edge. */
+.g2g-premium .premium-card {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.g2g-premium .premium-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -8px hsl(36 40% 30% / 0.22), 0 1px 3px hsl(36 30% 30% / 0.08);
+  border-color: var(--premium-gold-line);
+}
+
+/* The gold hairline under a page title. */
+.g2g-premium .premium-rule {
+  height: 2px;
+  width: 3rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--premium-gold), transparent);
+}
+
+/* The header block of a page: soft pastel wash and gold edge in light mode; a dark panel in dark mode (the title text turns light there). */
+.g2g-premium .premium-hero {
+  border-radius: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+:root:not(.dark) .g2g-premium .premium-hero {
+  background: linear-gradient(120deg, hsl(42 72% 96%), hsl(210 60% 97%) 55%, hsl(270 45% 97%));
+  border-color: hsl(40 40% 84%);
+  box-shadow: 0 1px 0 hsl(0 0% 100%) inset, 0 8px 24px -16px hsl(36 40% 30% / 0.25);
+}
+.dark .g2g-premium .premium-hero {
+  background: linear-gradient(120deg, hsl(222 40% 11%), hsl(222 47% 8%) 60%, hsl(240 30% 11%));
+  border-color: hsl(215 28% 24%);
+}
+
+/* Items entering a list: a short rise and fade, staggered by the order they were given. */
+.g2g-premium .premium-rise {
+  animation: g2g-premium-rise 260ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+/* Disclosure bodies open smoothly. */
+.g2g-premium details[open] > :not(summary) {
+  animation: g2g-premium-enter 180ms ease-out both;
+}
+
+@keyframes g2g-premium-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes g2g-premium-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g2g-premium,
+  .g2g-premium .premium-rise,
+  .g2g-premium details[open] > :not(summary) {
+    animation: none;
+  }
+  .g2g-premium .premium-card {
+    transition: none;
+  }
+  .g2g-premium .premium-card:hover {
+    transform: none;
+  }
+}

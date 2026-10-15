@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { configureHref } from '@/lib/product-selection'
 import { chooseRunDate, formatRunDate } from '@/lib/run-dates'
+import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
@@ -65,15 +66,20 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
   return (
     <div className="@container mx-auto max-w-6xl space-y-5 p-4 @xl:p-6">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Company Opportunities</h1>
-          {selected && <Badge variant="navy" className="text-xs">{selected.label}</Badge>}
-        </div>
-        <p className="text-sm text-muted-foreground">Discover evidence-backed sales opportunities for your selected product.</p>
-      </header>
+      <PremiumHeader
+        title="Company Opportunities"
+        badge={selected ? <Badge variant="navy" className="text-xs">{selected.label}</Badge> : undefined}
+        description="Discover evidence-backed sales opportunities for your selected product."
+      />
 
-      <section aria-label="Product and actions" className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
+      <ol aria-label="How it works" className="flex flex-wrap gap-x-6 gap-y-1 px-1 text-xs text-muted-foreground">
+        <li><span className="font-semibold text-foreground">1</span> Choose a product</li>
+        <li><span className="font-semibold text-foreground">2</span> Check its ICP is ready</li>
+        <li><span className="font-semibold text-foreground">3</span> Generate Signals</li>
+        <li><span className="font-semibold text-foreground">4</span> Review by research date</li>
+      </ol>
+
+      <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
         <div className="flex flex-wrap items-end gap-3">
           <ProductDropdown products={products} loading={loading} error={error} value={product} onChange={setProduct} />
 
@@ -166,6 +172,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               runDate={runDate}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
+              dayInfo={day}
             />
           )}
         </section>

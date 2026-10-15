@@ -162,6 +162,9 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   const [marketResult, setMarketResult] = useState<{ file: string; dryRun: boolean; result: MarketImportResult } | null>(null)
   const [dryRun, setDryRun] = useState(false)
   const [retrying, setRetrying] = useState<number | null>(null)
+  // Synchronous double-submit guards: state only changes on the next render, so rapid clicks would each pass a state check.
+  const busyRef = useRef(false)
+  const retryingRef = useRef(false)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'error' | 'info' | 'warning'; text: string } | null>(null)
 
@@ -281,9 +284,10 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }
 
   async function handleMarketFile(file: File | undefined) {
-    if (!file || busy) return
+    if (!file || busyRef.current) return
     setNotice(null)
     setMarketResult(null)
+    busyRef.current = true
     setBusy('market')
     try {
       const response = await opportunitiesService.importMarket(context, file, { dryRun, label: file.name })
@@ -291,6 +295,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'The market file could not be imported.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       if (marketFileRef.current) marketFileRef.current.value = ''
     }
@@ -298,15 +303,17 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
   async function handleFile(file: File | undefined) {
     if (intent === 'market') return handleMarketFile(file)
-    if (!file || busy) return
+    if (!file || busyRef.current) return
     if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its documents are analysed with its own ICP.' }); return }
     setNotice(null)
+    busyRef.current = true
     setBusy('upload')
     try {
       ingested(await opportunitiesService.upload(context, file, product))
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Upload failed.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       if (fileRef.current) fileRef.current.value = ''
       void loadSources()
@@ -314,9 +321,10 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }
 
   async function handleUrl() {
-    if (!url.trim() || busy) return
+    if (!url.trim() || busyRef.current) return
     if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its pages are analysed with its own ICP.' }); return }
     setNotice(null)
+    busyRef.current = true
     setBusy('url')
     try {
       ingested(await opportunitiesService.addUrl(context, url.trim(), product))
@@ -324,13 +332,15 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Could not read that page.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       void loadSources()
     }
   }
 
   async function retry(id: number) {
-    if (retrying !== null) return
+    if (retryingRef.current) return
+    retryingRef.current = true
     setNotice(null)
     setRetrying(id)
     try {
@@ -339,6 +349,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Could not restart the analysis.') })
     } finally {
+      retryingRef.current = false
       setRetrying(null)
       await loadSources()
       if (selectedId === id) await loadDetail(id)

@@ -38,7 +38,7 @@ export function SignalsHub({
   const [view, setView] = useState<View>(VIEWS[0].id)
 
   return (
-    <div className="@container">
+    <div className="@container g2g-premium">
       <div className="px-4 pt-4 @xl:px-6 @xl:pt-6">
         <div role="tablist" aria-label="Signals views" className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
           {VIEWS.map((v) => (

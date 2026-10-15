@@ -1,5 +1,6 @@
 'use client'
 
+import { PremiumPage } from '@/components/domain/signals/premium-page'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
@@ -14,7 +15,9 @@ export default function ProductPortfolioPage() {
   return (
     <ProtectedLayout>
       <GtgPageShell>
-        <PortfolioView context={context} canManage={canManage} />
+        <PremiumPage>
+          <PortfolioView context={context} canManage={canManage} />
+        </PremiumPage>
       </GtgPageShell>
     </ProtectedLayout>
   )

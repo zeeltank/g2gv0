@@ -103,3 +103,74 @@ describe('One list and the research-date dropdown', () => {
   })
 })
 
+describe('Premium workspace and honest forms', () => {
+  it('wraps all four module pages and the hub in the scoped premium theme', () => {
+    for (const page of ['signals', 'ingestion', 'portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
+    assert.match(read('components/domain/organization/department-management/signals-hub.tsx'), /g2g-premium/)
+  })
+
+  it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {
+    const css = read('app/globals.css')
+    assert.match(css, /:root:not\(\.dark\) \.g2g-premium \{/)
+    assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]*\.g2g-premium/)
+    assert.equal(/^\.g2g-premium[^{]*\{[^}]*--primary:/m.test(css), false, 'the primary colour is not redefined')
+  })
+
+  it('shows failures inline: no native alert() in the four modules', () => {
+    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-view.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
+      assert.equal(/alert\(/.test(read(f)), false, f)
+    }
+  })
+
+  it('starts a new partner blank: no random ID and no invented state, empanelment or margin', () => {
+    const src = read('components/domain/portfolio/partners-view.tsx')
+    assert.equal(/Math\.random\(\)/.test(src), false)
+    const blank = src.slice(src.indexOf('const BLANK_PARTNER'), src.indexOf('export function PartnersView'))
+    for (const invented of ['Delhi', 'GeM', 'Margin Share', 'State Government', 'L1/L2', 'referral_margin_pct']) assert.equal(blank.includes(invented), false, invented)
+  })
+
+  it('has one guided path from configuration to signals on the Product Portfolio', () => {
+    assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /<ProductSetupSteps/)
+    assert.match(read('components/domain/portfolio/product-setup-steps.tsx'), /\/signals\?product=/)
+  })
+
+  it('gives the page header a dark-mode variant, so its light title text is never on the light wash', () => {
+    const css = read('app/globals.css')
+    assert.match(css, /\.dark \.g2g-premium \.premium-hero \{/)
+    // the pastel gradient is only ever applied in light mode
+    const light = css.indexOf(':root:not(.dark) .g2g-premium .premium-hero')
+    assert.ok(light > 0)
+    assert.equal(/(^|\n)\.g2g-premium \.premium-hero \{[^}]*gradient/.test(css), false)
+  })
+
+  // ── defects found by driving the screens in a real browser ──
+  it('the Partner Type select has an explicit empty choice (a blank value must not look like "Regional SI")', () => {
+    const src = read('components/domain/portfolio/partners-view.tsx')
+    assert.match(src, /value=\{formData\.partner_type \?\? ''\}/)
+    assert.match(src, /<option value="">Select a type…<\/option>/)
+    assert.equal(/partner_type \|\| 'Regional SI'/.test(src), false)
+  })
+
+  it('the partner capacity field shows no invented number and allows 0, as the server does', () => {
+    const src = read('components/domain/portfolio/partners-view.tsx')
+    assert.equal(/max_concurrent_deals \?\? 5/.test(src), false)
+    assert.match(src, /min="0"\s+value=\{formData\.max_concurrent_deals \?\? ''\}/)
+  })
+
+  it('double-submit guards are synchronous refs, because a state flag changes only on the next render', () => {
+    const partners = read('components/domain/portfolio/partners-view.tsx')
+    assert.match(partners, /savingRef\.current\) return/)
+    assert.match(partners, /deletingRef\.current\) return/)
+    assert.match(read('components/domain/signals/ingestion-engine-view.tsx'), /submittingRef\.current\) return/)
+    const hub = read('components/domain/organization/department-management/ingestion-view.tsx')
+    assert.match(hub, /busyRef\.current\) return/)
+    assert.match(hub, /retryingRef\.current\) return/)
+  })
+
+  it('the partner "Try again" really reloads the filters and totals, not only the list', () => {
+    const src = read('components/domain/portfolio/partners-view.tsx')
+    assert.match(src, /const loadMeta = useCallback/)
+    assert.match(src, /const handleRefresh = \(\) => \{[^}]*void loadMeta\(\)/)
+  })
+})
+

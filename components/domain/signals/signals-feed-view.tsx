@@ -148,8 +148,9 @@ export function SignalsFeedView({ product }: { product?: string } = {}) {
 
   // Initial load
   useEffect(() => {
-    loadStatus()
-    loadFeed()
+    let live = true
+    Promise.resolve().then(() => { if (live) { void loadStatus(); void loadFeed() } })
+    return () => { live = false }
   }, [loadStatus, loadFeed])
 
   // Poll while research is running
