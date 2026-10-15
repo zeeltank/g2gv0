@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   Briefcase,
@@ -41,8 +41,32 @@ import {
 } from '@/components/ui/dialog'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
+import { apiErrorText } from '@/lib/api-messages'
+import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { Partner, TaxonomyData } from '@/services/portfolio/types'
+
+/**
+ * A new partner starts empty. Nothing is invented for the person: no ID, no state, no empanelment, no margin. (Only the status starts at Active,
+ * which is a choice they can change.) The server judges what is required.
+ */
+const BLANK_PARTNER: Partial<Partner> = {
+  partner_id: '',
+  partner_name: '',
+  partner_type: '',
+  partner_status: 'Active',
+  hq_state: '',
+  states_covered: [],
+  segments_covered: [],
+  needs_addressed: [],
+  procurement_routes: [],
+  offers_authorized: [],
+  empanelments: [],
+  sales_contact_name: '',
+  contact_email: '',
+  contact_phone: '',
+  conflicts: '',
+}
 
 export function PartnersView({
   context,
@@ -65,6 +89,11 @@ export function PartnersView({
 
   // Filters & Pagination
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const listRequest = useRef(0)
+  // Synchronous guards: a state flag only changes on the next render, so rapid clicks in the same moment would each pass an `if (isSaving)` check.
+  const savingRef = useRef(false)
+  const deletingRef = useRef(false)
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [stateFilter, setStateFilter] = useState('')
@@ -79,56 +108,47 @@ export function PartnersView({
   const [isCreating, setIsCreating] = useState(false)
   const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<Partner | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [metaError, setMetaError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   // Form state
-  const [formData, setFormData] = useState<Partial<Partner>>({
-    partner_id: '',
-    partner_name: '',
-    partner_type: 'Regional SI',
-    partner_status: 'Active',
-    hq_state: 'Delhi',
-    states_covered: [],
-    segments_covered: [],
-    needs_addressed: [],
-    procurement_routes: ['Direct', 'GeM'],
-    offers_authorized: [],
-    empanelments: [],
-    delivery_capability: 'L1/L2 Support',
-    max_concurrent_deals: 5,
-    active_deals_now: 0,
-    sales_contact_name: '',
-    contact_email: '',
-    contact_phone: '',
-    commercial_model: 'Margin Share',
-    referral_margin_pct: 15,
-    deal_registration_agreed: true,
-    conflicts: 'None',
-  })
+  const [formData, setFormData] = useState<Partial<Partner>>(BLANK_PARTNER)
 
-  // Load Initial Taxonomy & Stats
-  useEffect(() => {
-    async function loadMeta() {
-      try {
-        const [taxRes, statsRes] = await Promise.all([
-          portfolioService.getTaxonomy(context),
-          portfolioService.getPartnerStats(context),
-        ])
-        setTaxonomy(taxRes.data)
-        setStats(statsRes.data)
-      } catch (e) {
-        console.error('Failed to load partner metadata', e)
-      }
+  // Load the filter options and the totals. Used on mount and by "Try again", so a failure can really be retried.
+  const loadMeta = useCallback(async () => {
+    try {
+      const [taxRes, statsRes] = await Promise.all([
+        portfolioService.getTaxonomy(context),
+        portfolioService.getPartnerStats(context),
+      ])
+      setTaxonomy(taxRes.data)
+      setStats(statsRes.data)
+      setMetaError(null)
+    } catch (e) {
+      setMetaError(apiErrorText(e, 'Could not load the partner filters and totals.'))
     }
-    void loadMeta()
   }, [context])
+
+  useEffect(() => {
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadMeta() })
+    return () => { live = false }
+  }, [loadMeta])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(t)
+  }, [search])
 
   // Load Partners List
   const loadPartners = useCallback(async () => {
+    const request = ++listRequest.current
     try {
       setError(null)
       const res = await portfolioService.getPartners(context, {
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         partner_type: typeFilter || undefined,
         status: statusFilter || undefined,
         state: stateFilter || undefined,
@@ -136,6 +156,7 @@ export function PartnersView({
         page,
         per_page: 12,
       })
+      if (request !== listRequest.current) return
       setPartners(res.data.data)
       setTotalPages(res.data.last_page)
       setTotalCount(res.data.total)
@@ -149,42 +170,22 @@ export function PartnersView({
       setLoading(false)
       setRefreshing(false)
     }
-  }, [context, search, typeFilter, statusFilter, stateFilter, capacityOnly, page])
+  }, [context, debouncedSearch, typeFilter, statusFilter, stateFilter, capacityOnly, page])
 
   useEffect(() => {
-    void loadPartners()
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadPartners() })
+    return () => { live = false }
   }, [loadPartners])
 
   const handleRefresh = () => {
     setRefreshing(true)
     void loadPartners()
-    portfolioService.getPartnerStats(context).then((res) => setStats(res.data)).catch(() => {})
+    void loadMeta()
   }
 
   const handleOpenCreate = () => {
-    setFormData({
-      partner_id: `PT-${Math.floor(100 + Math.random() * 900)}`,
-      partner_name: '',
-      partner_type: 'Regional SI',
-      partner_status: 'Active',
-      hq_state: 'Delhi',
-      states_covered: ['Delhi'],
-      segments_covered: ['State Government'],
-      needs_addressed: [],
-      procurement_routes: ['Direct', 'GeM'],
-      offers_authorized: [],
-      empanelments: ['GeM Registered'],
-      delivery_capability: 'L1/L2 Support',
-      max_concurrent_deals: 5,
-      active_deals_now: 0,
-      sales_contact_name: '',
-      contact_email: '',
-      contact_phone: '',
-      commercial_model: 'Margin Share',
-      referral_margin_pct: 15,
-      deal_registration_agreed: true,
-      conflicts: 'None',
-    })
+    setFormData(BLANK_PARTNER)
     setFormError(null)
     setIsCreating(true)
   }
@@ -201,11 +202,18 @@ export function PartnersView({
     e.preventDefault()
     setFormError(null)
 
-    if (!formData.partner_id || !formData.partner_name) {
-      setFormError('Partner ID and Partner Name are required.')
+    if (savingRef.current) return
+    const missing = [
+      !formData.partner_id?.trim() && 'Partner ID',
+      !formData.partner_name?.trim() && 'Partner name',
+      !formData.partner_type?.trim() && 'Partner type',
+    ].filter(Boolean)
+    if (missing.length > 0) {
+      setFormError(`${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required.`)
       return
     }
 
+    savingRef.current = true
     setIsSaving(true)
     try {
       if (isCreating) {
@@ -218,17 +226,18 @@ export function PartnersView({
       void loadPartners()
       portfolioService.getPartnerStats(context).then((res) => setStats(res.data)).catch(() => {})
     } catch (err) {
-      if (err instanceof ApiError) {
-        setFormError(err.message)
-      } else {
-        setFormError('Failed to save partner record.')
-      }
+      setFormError(apiErrorText(err, 'Failed to save partner record.'))
     } finally {
+      savingRef.current = false
       setIsSaving(false)
     }
   }
 
   const handleDelete = async (partner: Partner) => {
+    if (deletingRef.current) return
+    deletingRef.current = true
+    setIsDeleting(true)
+    setDeleteError(null)
     try {
       await portfolioService.deletePartner(context, partner.id)
       setDeleteConfirmPartner(null)
@@ -236,46 +245,41 @@ export function PartnersView({
       void loadPartners()
       portfolioService.getPartnerStats(context).then((res) => setStats(res.data)).catch(() => {})
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Failed to delete partner')
+      setDeleteError(apiErrorText(err, 'Failed to delete partner'))
+    } finally {
+      deletingRef.current = false
+      setIsDeleting(false)
     }
   }
 
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Partner Network
-            </h1>
-            <Badge variant="outline" className="text-xs">
-              Phase 1
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Manage regional system integrators, distributors, and delivery partners for offer fulfillment.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing || loading}
-          >
-            <RefreshCw className={`mr-2 size-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          {canManage && (
-            <Button size="sm" onClick={handleOpenCreate}>
-              <Plus className="mr-2 size-4" />
-              Add Partner
+      <PremiumHeader
+        title="Partner Network"
+        description="Regional system integrators, distributors and delivery partners who can fulfil your offers. Search, review and keep their details current."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading}>
+              <RefreshCw className={`mr-2 size-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
-          )}
+            {canManage && (
+              <Button size="sm" onClick={handleOpenCreate}>
+                <Plus className="mr-2 size-4" />
+                Add Partner
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {metaError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span>{metaError}</span>
+          <Button size="sm" variant="outline" onClick={handleRefresh}>Try again</Button>
         </div>
-      </div>
+      )}
 
       {/* KPI Stats Banner */}
       {stats && (
@@ -426,7 +430,7 @@ export function PartnersView({
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {partners.map((partner) => {
+          {partners.map((partner, index) => {
             const hasCapacity = partner.capacity_available > 0
             const isGovReady = partner.empanelments?.some((e) =>
               e.toLowerCase().includes('gem') || e.toLowerCase().includes('empanel')
@@ -435,7 +439,8 @@ export function PartnersView({
             return (
               <div
                 key={partner.id}
-                className="flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+                style={{ '--i': Math.min(index, 8) } as React.CSSProperties}
+                className="premium-card premium-rise flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -850,10 +855,11 @@ export function PartnersView({
               <div>
                 <label className="font-medium text-foreground block mb-1">Partner Type</label>
                 <select
-                  value={formData.partner_type || 'Regional SI'}
+                  value={formData.partner_type ?? ''}
                   onChange={(e) => setFormData({ ...formData, partner_type: e.target.value })}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground"
                 >
+                  <option value="">Select a type…</option>
                   {taxonomy?.partner_types &&
                     Object.entries(taxonomy.partner_types).map(([val, label]) => (
                       <option key={val} value={val}>
@@ -897,11 +903,13 @@ export function PartnersView({
                 </label>
                 <Input
                   type="number"
-                  min="1"
-                  value={formData.max_concurrent_deals ?? 5}
-                  onChange={(e) =>
-                    setFormData({ ...formData, max_concurrent_deals: parseInt(e.target.value) || 1 })
-                  }
+                  min="0"
+                  value={formData.max_concurrent_deals ?? ''}
+                  placeholder="e.g. 5"
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value)
+                    setFormData({ ...formData, max_concurrent_deals: e.target.value === '' || Number.isNaN(n) ? undefined : Math.max(0, n) })
+                  }}
                 />
               </div>
 
@@ -918,14 +926,14 @@ export function PartnersView({
                   }
                 />
                 <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Available capacity will be{' '}
-                  <strong>
-                    {Math.max(
-                      0,
-                      (formData.max_concurrent_deals ?? 5) - (formData.active_deals_now ?? 0)
-                    )}{' '}
-                    slots
-                  </strong>
+                  {formData.max_concurrent_deals === undefined ? (
+                    'Enter the maximum to see the available capacity.'
+                  ) : (
+                    <>
+                      Available capacity will be{' '}
+                      <strong>{Math.max(0, formData.max_concurrent_deals - (formData.active_deals_now ?? 0))} slots</strong>
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -1022,16 +1030,18 @@ export function PartnersView({
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
           <div className="flex justify-end gap-2 pt-3">
-            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmPartner(null)}>
+            <Button variant="outline" size="sm" disabled={isDeleting} onClick={() => { setDeleteError(null); setDeleteConfirmPartner(null) }}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               size="sm"
+              disabled={isDeleting}
               onClick={() => deleteConfirmPartner && void handleDelete(deleteConfirmPartner)}
             >
-              Delete Partner
+              {isDeleting ? 'Deleting…' : 'Delete Partner'}
             </Button>
           </div>
         </DialogContent>

@@ -30,7 +30,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { ApiError } from '@/services/core'
+import { apiErrorText } from '@/lib/api-messages'
+import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
@@ -57,6 +58,8 @@ export function IngestionEngineView() {
   const [urlInput, setUrlInput] = useState('')
   const [fileInput, setFileInput] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)   // synchronous double-submit guard (state alone updates a render later)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Recent sources list & active source selection
@@ -107,14 +110,16 @@ export function IngestionEngineView() {
 
   // Initial load
   useEffect(() => {
-    loadSources()
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadSources() })
+    return () => { live = false }
   }, [loadSources])
 
   // Load detail when active source changes
   useEffect(() => {
-    if (activeSourceId) {
-      loadActiveDetail(activeSourceId)
-    }
+    let live = true
+    if (activeSourceId) Promise.resolve().then(() => { if (live) void loadActiveDetail(activeSourceId) })
+    return () => { live = false }
   }, [activeSourceId, loadActiveDetail])
 
   // Polling for generating source
@@ -140,9 +145,11 @@ export function IngestionEngineView() {
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const targetUrl = urlInput.trim()
-    if (!targetUrl || !ready) return
+    if (!targetUrl || !ready || submittingRef.current) return
+    setActionError(null)
     if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its pages are analysed with its own ICP.'); return }
 
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -152,17 +159,20 @@ export function IngestionEngineView() {
       setActiveSourceId(res.data.id)
       pollCount.current = 0
     } catch (err) {
-      setSubmitError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to ingest URL')
+      setSubmitError(apiErrorText(err, 'Failed to ingest URL'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!fileInput || !ready) return
+    if (!fileInput || !ready || submittingRef.current) return
+    setActionError(null)
     if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its documents are analysed with its own ICP.'); return }
 
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -172,8 +182,9 @@ export function IngestionEngineView() {
       setActiveSourceId(res.data.id)
       pollCount.current = 0
     } catch (err) {
-      setSubmitError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to ingest document')
+      setSubmitError(apiErrorText(err, 'Failed to ingest document'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -185,7 +196,7 @@ export function IngestionEngineView() {
       pollCount.current = 0
       loadActiveDetail(activeDetail.id)
     } catch (err) {
-      alert(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to trigger retry')
+      setActionError(apiErrorText(err, 'Failed to trigger retry'))
     }
   }
 
@@ -203,29 +214,24 @@ export function IngestionEngineView() {
         setActiveSourceId(null)
       }
     } catch (err) {
-      alert(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to delete source')
+      setActionError(apiErrorText(err, 'Failed to delete source'))
     }
   }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="border-b border-border pb-6">
-        <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <UploadCloud className="size-5" />
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Ingestion Engine
-          </h1>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Provide a company URL or upload documents. The engine extracts intelligence, discovers related public news, and displays results directly below.
-        </p>
-        <div className="mt-4 space-y-2">
+      <div className="space-y-4">
+        <PremiumHeader
+          title="Ingestion Engine"
+          badge={<UploadCloud className="size-5 text-primary" aria-hidden="true" />}
+          description="Add a public web page or a document. Choose the product first: it is analysed with that product's own ICP, and the signals it yields are saved for that product only. Nothing is processed until you submit."
+        />
+        <div className="space-y-2">
           <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} />
           <ProductSetupNotice product={selectedProduct} />
         </div>
+        {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
       </div>
 
       {/* Prominent Input Card at Top */}

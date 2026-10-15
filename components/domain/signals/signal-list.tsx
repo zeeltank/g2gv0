@@ -20,7 +20,7 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e ins
  * changes (after a run finishes or a person refreshes).
  */
 export function SignalList({
-  context, productKey, productLabel, runDate, refreshKey, onTotal,
+  context, productKey, productLabel, runDate, refreshKey, onTotal, dayInfo,
 }: {
   context: LaravelContext
   productKey: string
@@ -29,11 +29,17 @@ export function SignalList({
   runDate: string | null
   refreshKey: number
   onTotal?: (total: number | null) => void
+  /** What that day's runs did (from the run history), used to explain an empty day. */
+  dayInfo?: { searches: number; sources: number; organisations: number; rejected: number; note: string | null } | null
 }) {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(1)
+  const [view, setView] = useState<'all' | 'immediate_action' | 'watchlist'>('all')
+  const [status, setStatus] = useState('')
   const [data, setData] = useState<OpportunityListResponse | null>(null)
+  // The two view counts, taken from the unfiltered listing (a filtered listing would count only itself).
+  const [counts, setCounts] = useState<{ immediate: number; watchlist: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -46,7 +52,7 @@ export function SignalList({
   // Another product or another day: start from page one with nothing of the previous view on screen.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1); setData(null); setError(null); setActionError(null)
+    setPage(1); setData(null); setError(null); setActionError(null); setView('all'); setStatus(''); setCounts(null)
   }, [productKey, runDate])
 
   const load = useCallback(async () => {
@@ -58,8 +64,9 @@ export function SignalList({
     setLoading(true)
     try {
       // Signals that have passed their closing date are part of that day's results, so they are included.
-      const res = await opportunitiesService.list(context, { product: productKey, runDate, search: debounced || undefined, page, expired: 'include' })
+      const res = await opportunitiesService.list(context, { product: productKey, runDate, search: debounced || undefined, feedSection: view === 'all' ? undefined : view, reviewStatus: status || undefined, page, expired: 'include' })
       setData(res)
+      if (view === 'all' && !status && !debounced) setCounts({ immediate: res.summary.immediate ?? 0, watchlist: res.summary.watchlist ?? 0 })
       setError(null)
       onTotal?.(res.meta.total)
     } catch (e) {
@@ -68,7 +75,7 @@ export function SignalList({
     } finally {
       setLoading(false)
     }
-  }, [context, productKey, runDate, debounced, page, onTotal])
+  }, [context, productKey, runDate, debounced, view, status, page, onTotal])
 
   useEffect(() => {
     let live = true
@@ -96,16 +103,52 @@ export function SignalList({
 
   return (
     <div className="space-y-4" aria-busy={loading}>
-      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search these signals…" aria-label="Search signals" className="h-9 w-full max-w-sm text-sm" />
+      <div className="flex flex-wrap items-center gap-3">
+        <div role="radiogroup" aria-label="Which signals" className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5 text-sm">
+          {([['all', 'All', 'Every signal saved on this date'], ['immediate_action', 'Approach now', 'A school is asking for, hiring for, or tendering for what we sell'], ['watchlist', 'Watching', 'Events that usually lead to a purchase, and schools worth keeping an eye on']] as const).map(([id, label, hint]) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={view === id}
+              title={hint}
+              onClick={() => { setView(id); setPage(1) }}
+              className={`rounded-md px-3 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {label}
+              {counts && id !== 'all' && <span className="ml-1.5 text-xs text-muted-foreground">{id === 'immediate_action' ? counts.immediate : counts.watchlist}</span>}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Review status"
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1) }}
+          className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="">Any status</option>
+          <option value="New">New</option>
+          <option value="Reviewed">Reviewed</option>
+          <option value="Follow-up">Contacted</option>
+          <option value="Dismissed">Not relevant</option>
+        </select>
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search these signals…" aria-label="Search signals" className="h-9 w-full max-w-xs text-sm" />
+      </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
       {items.length === 0 ? (
         <EmptyState
-          title={debounced ? 'No signals match this search' : 'No qualified signals on this date'}
-          description={debounced ? 'Try a different search.' : `The ${formatRunDate(runDate)} research finished, but no ${productLabel} opportunity had enough evidence to qualify. Nothing was made up to fill the list.`}
+          title={debounced || view !== 'all' || status ? 'No signals match these filters' : 'No qualified signals on this date'}
+          description={debounced || view !== 'all' || status ? 'Try a different filter or search.' : `The ${formatRunDate(runDate)} research finished, but no ${productLabel} opportunity had enough evidence to qualify. Nothing was made up to fill the list.`}
+          action={!debounced && view === 'all' && !status && dayInfo ? (
+            <div className="max-w-xl space-y-1 text-left text-xs text-muted-foreground">
+              <p>What the run did: {dayInfo.searches} searches, {dayInfo.sources} pages found, {dayInfo.organisations} organisations looked at, {dayInfo.rejected} failed the checks.</p>
+              {dayInfo.note && <p className="break-words">{dayInfo.note}</p>}
+            </div>
+          ) : undefined}
         />
       ) : (
         <div className="space-y-4">
-          {items.map((o) => <SignalCard key={o.id} o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} />)}
+          {items.map((o, i) => <div key={o.id} className="premium-rise" style={{ '--i': Math.min(i, 8) } as React.CSSProperties}><SignalCard o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} /></div>)}
           {data.meta.last_page > 1 && (
             <div className="flex items-center justify-center gap-3 text-sm">
               <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button>

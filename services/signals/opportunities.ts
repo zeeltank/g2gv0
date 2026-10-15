@@ -319,7 +319,19 @@ export interface RunDatesResponse {
   data: {
     product: string
     timezone: string
-    dates: { date: string; runs: number; status: 'success' | 'partial'; last_completed_at: string | null; qualified: number }[]
+    dates: {
+      date: string
+      runs: number
+      status: 'success' | 'partial'
+      last_completed_at: string | null
+      qualified: number
+      /** What the day's runs did, so an empty day can say why. */
+      searches: number
+      sources: number
+      organisations: number
+      rejected: number
+      note: string | null
+    }[]
   }
 }
 

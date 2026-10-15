@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   FileUp,
   Flame,
@@ -23,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
 import { ApiError } from '@/services/core'
 import {
   opportunitiesService,
@@ -403,15 +405,42 @@ function dateLabel(e?: SignalAssessment['evidence']): string {
 function IdentityLine({ id }: { id?: SignalAssessment['identity'] }) {
   if (!id) return null
   if (id.status === 'target_exact') {
-    return <p className="text-xs text-emerald-700">Target school{id.crm_ref ? ` · CRM lead ${id.crm_ref}` : ''}: name and place match.</p>
+    return <p className="text-xs text-emerald-700 dark:text-emerald-400">Target school{id.crm_ref ? ` · CRM lead ${id.crm_ref}` : ''}: name and place match.</p>
   }
   if (id.status === 'target_possible') {
-    return <p className="text-xs text-amber-700">Possibly {id.account_name ?? 'a target school'}{id.crm_ref ? ` (${id.crm_ref})` : ''}: please confirm. {id.reasons[0]}</p>
+    return <p className="text-xs text-amber-700 dark:text-amber-400">Possibly {id.account_name ?? 'a target school'}{id.crm_ref ? ` (${id.crm_ref})` : ''}: please confirm. {id.reasons[0]}</p>
   }
   return (
     <p className="text-xs text-muted-foreground">
       {id.for_scan_target === false ? `Not the school you searched for (${id.scan_target}): a different organisation.` : 'Not on your target list.'}
     </p>
+  )
+}
+
+function EvidencePanel({ summary }: { summary: EvidenceSummary }) {
+  const columns = [
+    { key: 'verified', title: 'Verified in the source', dot: 'bg-emerald-500', lines: summary.verified, empty: 'Nothing could be confirmed directly.' },
+    { key: 'inferred', title: 'Our reading', dot: 'bg-amber-500', lines: summary.inferred, empty: 'No inference was needed.' },
+    { key: 'missing', title: 'Not established', dot: 'bg-slate-400', lines: summary.missing, empty: 'No gaps recorded.' },
+  ] as const
+
+  return (
+    <details className="group rounded-xl bg-muted/40 text-xs">
+      <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-3 py-2 font-medium text-foreground">
+        <span>Evidence at a glance <span className="font-normal text-muted-foreground">· {summary.verified.length} verified · {summary.inferred.length} our reading · {summary.missing.length} not established</span></span>
+        <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="grid gap-3 px-3 pb-3 sm:grid-cols-3">
+        {columns.map((col) => (
+          <div key={col.key} className="space-y-1">
+            <p className="flex items-center gap-1.5 font-medium text-foreground"><span className={`size-2 rounded-full ${col.dot}`} aria-hidden="true" />{col.title}</p>
+            {col.lines.length === 0
+              ? <p className="text-muted-foreground">{col.empty}</p>
+              : <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground">{col.lines.map((l) => <li key={l}>{l}</li>)}</ul>}
+          </div>
+        ))}
+      </div>
+    </details>
   )
 }
 
@@ -422,10 +451,10 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
   const intent = o.buying_intent ? INTENT[o.buying_intent] : null
   const src = c?.source ?? (o.source_url ? { text: 'Source', url: o.source_url } : null)
   const pull = a?.sales_pull ?? []
-  const unverified = a?.unverified ?? []
+  const evidence = summariseEvidence(o)
 
   return (
-    <article className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+    <article className="premium-card space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className={`gap-1 ${strength.className}`}>
           {o.strength === 'hot' && <Flame className="size-3" />}
@@ -482,13 +511,8 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
       )}
       {o.strength_reason && <p className="text-xs text-muted-foreground">Why {strength.label.toLowerCase()}: {o.strength_reason}</p>}
 
-      {/* 8. What remains unverified */}
-      {unverified.length > 0 && (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none font-medium text-foreground">Not yet verified ({unverified.length})</summary>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5">{unverified.map((u) => <li key={u}>{u}</li>)}</ul>
-        </details>
-      )}
+      {/* 8. What is verified, what is our reading, and what is not established */}
+      <EvidencePanel summary={evidence} />
 
       <IdentityLine id={a?.identity} />
 
@@ -510,6 +534,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {a?.evidence ? <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>
             : <span className="ml-2">· {o.source_published_at ? `Published ${fmtDay(o.source_published_at)}` : 'No publication date on the source'}</span>}
           {runDateLabel && <span className="ml-2">· Found in the {runDateLabel} run</span>}
+          {typeof o.days_left === 'number' && <span className="ml-2">· {o.days_left < 0 ? 'Past its closing date' : o.days_left === 0 ? 'Closes today' : `${o.days_left} day${o.days_left === 1 ? '' : 's'} left`}</span>}
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" disabled={o.review_status === 'Reviewed'} onClick={() => onAct(o, 'review')}>Mark reviewed</Button>
