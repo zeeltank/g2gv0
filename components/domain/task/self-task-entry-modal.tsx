@@ -185,11 +185,6 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
             <Textarea id="self-task-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
-            <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={3} />
-          </div>
-
           {/* Date on its own row, Start/End as a 2-col row below - TimePicker's
               two-dropdown layout is wider than the native <input type="time">
               it replaces and no longer fits a 3-up grid. */}
@@ -222,6 +217,11 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
           <div className="space-y-1.5">
             <Label htmlFor="self-task-status">Status</Label>
             <Select id="self-task-status" value={status} onChange={setStatus} options={statusChoices} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
+            <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={3} />
           </div>
 
           <div className="space-y-1.5">
