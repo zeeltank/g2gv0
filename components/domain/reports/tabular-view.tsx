@@ -47,17 +47,24 @@ import { reportTableFeatures, type ReportTableFeatures } from './data-table-feat
 
 const PAGE_SIZE_OPTIONS = ['10', '20', '25', '30', '40', '50'].map((v) => ({ value: v, label: `${v} / page` }))
 
-// A plain `border-r` on the sticky first column reads as a GLITCH during
-// horizontal scroll, not a pinned pane: the column that just scrolled
-// underneath it is now sharing that exact same boundary line, so its own
-// trailing edge/text can appear to float right up against — or peek out
-// from behind — the sticky column with nothing visually separating "pinned"
-// from "scrolling underneath" (reported live: a drilldown dialog's sticky
-// Task column let the next column's header text show right at its edge
-// with no depth cue, reading as broken rendering). A drop shadow instead of
-// a flat line gives the sticky column real elevation, so scrolled content
-// unambiguously reads as sliding BEHIND it rather than bumping into it.
-const STICKY_COLUMN_SHADOW = 'shadow-[4px_0_6px_-4px_rgba(0,0,0,0.3)]'
+// Two distinct real bugs on the sticky first column, both reported live
+// against the exact same symptom ("scrolled columns go under the task
+// column"/"the two columns' texts mix together when I scroll"):
+//
+// 1. A plain `border-r` reads as a GLITCH, not a pinned pane: a column that
+//    scrolls underneath (completely normal sticky behavior) shares that same
+//    boundary line, so its own trailing text can appear to float right up
+//    against the sticky column with no depth cue separating "pinned" from
+//    "scrolling underneath". Fixed with a drop shadow instead of a flat line.
+// 2. On fast/continuous scrolling (confirmed by its absence in every
+//    instant-jump scrollLeft test, only showing up on a real trackpad/wheel
+//    gesture) a `position: sticky` table cell with no GPU layer of its own
+//    can repaint one frame stale relative to the column sliding underneath
+//    it — briefly showing BOTH texts overlapping mid-scroll before the
+//    correct opaque frame catches up. `will-change: transform` promotes the
+//    sticky cell to its own compositor layer up front, the standard fix
+//    data-grid libraries (AG Grid, MUI DataGrid) use for exactly this.
+const STICKY_COLUMN_SHADOW = 'shadow-[4px_0_6px_-4px_rgba(0,0,0,0.3)] will-change-transform'
 
 type RowRecord = Record<string, unknown>
 
