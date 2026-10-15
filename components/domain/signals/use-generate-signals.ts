@@ -42,6 +42,7 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
   const [activeRun, setActiveRun] = useState<ResearchRun | null>(null)
   const [notice, setNotice] = useState<GenerateNotice | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [completedCount, setCompletedCount] = useState(0)   // runs this screen saw finish: the screen then jumps to the new day
   const inFlight = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const followRef = useRef<(runId: number, attempt?: number) => void>(() => {})
@@ -65,6 +66,7 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
     if (run) setActiveRun(run)
     setNotice(run ? describeFinishedRun(run) : { tone: 'warning', text: fallback ?? 'The run is still going in the background. Check back shortly.' })
     setRefreshKey((k) => k + 1)
+    setCompletedCount((n) => n + 1)
     void loadStatus()
   }, [loadStatus])
 
@@ -150,5 +152,5 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
     }
   }, [context, productKey, products, running, follow, loadStatus])
 
-  return { status, running, activeRun, notice, refreshKey, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null) }
+  return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null) }
 }

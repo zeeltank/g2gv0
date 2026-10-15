@@ -208,7 +208,7 @@ export function ScholarSignalsView({ embedded = false, refreshKey = 0 }: { embed
     }
   }
 
-  const act = async (opp: Opportunity, action: 'follow-up' | 'dismiss') => {
+  const act = async (opp: Opportunity, action: 'follow-up' | 'dismiss' | 'review') => {
     try {
       await opportunitiesService.act(context, opp.id, action)
       loadFeed()
@@ -415,7 +415,7 @@ function IdentityLine({ id }: { id?: SignalAssessment['identity'] }) {
   )
 }
 
-function SignalCard({ o, onAct }: { o: Opportunity; onAct: (o: Opportunity, a: 'follow-up' | 'dismiss') => void }) {
+export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: (o: Opportunity, a: 'follow-up' | 'dismiss' | 'review') => void; runDateLabel?: string | null }) {
   const c = o.card
   const a = o.assessment
   const strength = STRENGTH[o.strength ?? 'watch']
@@ -507,9 +507,12 @@ function SignalCard({ o, onAct }: { o: Opportunity; onAct: (o: Opportunity, a: '
             </a>
           ) : src?.text}
           {a?.source_reliability && <span className="ml-2">· {SOURCE_WORDS[a.source_reliability.class] ?? 'Source'} ({a.source_reliability.reliability} reliability)</span>}
-          {a?.evidence && <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>}
+          {a?.evidence ? <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>
+            : <span className="ml-2">· {o.source_published_at ? `Published ${fmtDay(o.source_published_at)}` : 'No publication date on the source'}</span>}
+          {runDateLabel && <span className="ml-2">· Found in the {runDateLabel} run</span>}
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" disabled={o.review_status === 'Reviewed'} onClick={() => onAct(o, 'review')}>Mark reviewed</Button>
           <Button size="sm" variant="outline" disabled={o.review_status === 'Follow-up'} onClick={() => onAct(o, 'follow-up')}>Contacted</Button>
           <Button size="sm" variant="ghost" onClick={() => onAct(o, 'dismiss')}>Not relevant</Button>
         </div>

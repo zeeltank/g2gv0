@@ -63,3 +63,43 @@ describe('Routes and navigation', () => {
     assert.match(tools, /Automatic daily generation is off/)
   })
 })
+
+describe('One list and the research-date dropdown', () => {
+  const screen = read('components/domain/signals/company-opportunities.tsx')
+  const list = read('components/domain/signals/signal-list.tsx')
+
+  it('has no Sales cards / Full detail toggle and shows one list', () => {
+    assert.equal(/Sales cards|Full detail|LAYOUT_KEY|pickLayout/.test(screen), false)
+    assert.match(screen, /<SignalList/)
+    assert.equal(/ScholarSignalsView|<OpportunitiesView/.test(screen), false)
+  })
+
+  it('offers dates only: each option is the formatted date and nothing else', () => {
+    assert.match(screen, /<option key=\{d\.date\} value=\{d\.date\}>\{formatRunDate\(d\.date\)\}<\/option>/)
+    const dropdown = screen.slice(screen.indexOf('id="run-date"'), screen.indexOf('</select>'))
+    assert.equal(/Success|status|partial/i.test(dropdown), false)
+  })
+
+  it('takes its dates from the backend history, not from the clock', () => {
+    assert.match(screen, /getRunDates\(context, key\)/)
+    assert.equal(/new Date\(|Date\.now\(/.test(screen), false)
+  })
+
+  it('choosing a date only reads: neither the date change nor the list can start research', () => {
+    const onChange = screen.slice(screen.indexOf('id="run-date"'), screen.indexOf('</select>'))
+    assert.equal(/generate|runResearch/.test(onChange), false)
+    assert.equal(/runResearch|generateSignals|\.generate\(/.test(list), false)
+    assert.match(list, /opportunitiesService\.list\(/)
+  })
+
+  it('has one place that starts research: the Generate Signals button', () => {
+    assert.equal((screen.match(/run\.generate\(\)/g) ?? []).length, 1)
+    assert.match(screen, /Generate Signals/)
+  })
+
+  it('keeps the review actions on each signal', () => {
+    const card = read('components/domain/signals/scholar-signals-view.tsx')
+    for (const label of ['Mark reviewed', 'Contacted', 'Not relevant']) assert.ok(card.includes(label), label)
+  })
+})
+
