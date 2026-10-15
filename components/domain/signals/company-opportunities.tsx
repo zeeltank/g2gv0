@@ -1,48 +1,66 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Settings2, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { configureHref } from '@/lib/product-selection'
-import { OpportunitiesView } from '@/components/domain/organization/department-management/opportunities-view'
+import { chooseRunDate, formatRunDate } from '@/lib/run-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
-import { ScholarSignalsView } from '@/components/domain/signals/scholar-signals-view'
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
+import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
+import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
 
-type Layout = 'cards' | 'detail'
-const LAYOUT_KEY = 'g2g_company_opportunities_layout'
+type RunDate = RunDatesResponse['data']['dates'][number]
 
 /**
- * Company Opportunities: pick a product, optionally open its details and ICP, press Generate Signals, read that product's stored
- * opportunities. One explicit product is always selected ("All products" is not offered); the list, the readiness, the configuration link
- * and the run all follow it together. Records come from the backend list filtered by the stored product, never from a run response.
+ * Company Opportunities: pick a product, optionally open its details and ICP, press Generate Signals, then read what that product's successful
+ * research runs saved, one day at a time. One explicit product is always selected ("All products" is not offered). Choosing a product or a day
+ * only reads stored rows; research starts only from the Generate Signals button.
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const { products, loading, error } = useProducts(context)
   const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
   const selected = products?.find((p) => p.key === product) ?? null
   const run = useGenerateSignals(context, selected ? selected.key : null, products)
-  const [layout, setLayout] = useState<Layout>('cards')
+
+  const [dates, setDates] = useState<RunDate[] | null>(null)
+  const [datesError, setDatesError] = useState<string | null>(null)
+  const [runDate, setRunDate] = useState<string | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const seenCompleted = useRef(0)
+
+  // The product's successful-run dates, read from the stored runs. Another product starts clean; a finished run jumps to its (newest) day.
+  const key = selected?.key ?? null
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDates(null); setDatesError(null); setRunDate(null); setTotal(null)
+    seenCompleted.current = run.completedCount
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(LAYOUT_KEY)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved === 'cards' || saved === 'detail') setLayout(saved)
-    } catch { /* not remembered */ }
-  }, [])
-
-  const pickLayout = (next: Layout) => {
-    setLayout(next)
-    try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* not remembered */ }
-  }
+    if (!key) return
+    let live = true
+    const jump = run.completedCount !== seenCompleted.current
+    seenCompleted.current = run.completedCount
+    opportunitiesService.getRunDates(context, key)
+      .then((res) => {
+        if (!live) return
+        setDates(res.data.dates)
+        setDatesError(null)
+        setRunDate((current) => chooseRunDate(res.data.dates, current, jump))
+      })
+      .catch((e) => { if (live) setDatesError(e instanceof Error ? e.message : 'Could not load the research dates.') })
+    return () => { live = false }
+  }, [context, key, run.refreshKey, run.completedCount])
 
   const ready = Boolean(selected?.ready)
+  const day = dates?.find((d) => d.date === runDate) ?? null
   const stage = run.activeRun?.stage_message
 
   return (
@@ -110,30 +128,46 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         </Notice>
       )}
 
-      {product === 'scholarclone' && (
-        <div className="flex justify-end">
-          <div role="radiogroup" aria-label="ScholarClone layout" className="inline-flex gap-0.5 rounded-lg bg-muted/60 p-0.5 text-xs">
-            {([['cards', 'Sales cards'], ['detail', 'Full detail']] as const).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="radio"
-                aria-checked={layout === id}
-                onClick={() => pickLayout(id)}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${layout === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {selected && (
-        <section aria-label={`${selected.label} opportunities`} aria-live="polite">
-          {selected.key === 'scholarclone' && layout === 'cards'
-            ? <ScholarSignalsView key={selected.key} embedded refreshKey={run.refreshKey} />
-            : <div className="-mx-4 @xl:-mx-6"><OpportunitiesView key={selected.key} context={context} product={selected.key} embedded refreshKey={run.refreshKey} /></div>}
+        <section aria-label={`${selected.label} signals`} className="space-y-4">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            {dates && dates.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="run-date" className="text-xs font-medium text-muted-foreground">Research date</label>
+                <select
+                  id="run-date"
+                  value={runDate ?? ''}
+                  onChange={(e) => setRunDate(e.target.value)}
+                  className="h-10 min-w-48 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {dates.map((d) => <option key={d.date} value={d.date}>{formatRunDate(d.date)}</option>)}
+                </select>
+              </div>
+            ) : (
+              (datesError || dates === null) && <p className="text-sm text-muted-foreground" role="status">{datesError ?? 'Loading research dates…'}</p>
+            )}
+            {day && (
+              <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
+                {day.status === 'partial' ? 'Finished with limits' : 'Completed'}
+                {day.runs > 1 ? ` · ${day.runs} runs` : ''}
+                {total !== null ? ` · ${total} ${total === 1 ? 'signal' : 'signals'}` : ''}
+              </p>
+            )}
+          </div>
+
+          {dates === null && !datesError ? (
+            <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
+          ) : (
+            <SignalList
+              key={selected.key}
+              context={context}
+              productKey={selected.key}
+              productLabel={selected.label}
+              runDate={runDate}
+              refreshKey={run.refreshKey}
+              onTotal={setTotal}
+            />
+          )}
         </section>
       )}
 

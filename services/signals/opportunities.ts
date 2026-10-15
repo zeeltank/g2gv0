@@ -314,6 +314,15 @@ export interface ResearchStatusResponse {
   }
 }
 
+export interface RunDatesResponse {
+  status: number
+  data: {
+    product: string
+    timezone: string
+    dates: { date: string; runs: number; status: 'success' | 'partial'; last_completed_at: string | null; qualified: number }[]
+  }
+}
+
 export interface OpportunityQuery {
   search?: string
   category?: string
@@ -330,6 +339,8 @@ export interface OpportunityQuery {
   includeSamples?: boolean
   claimLevel?: string
   businessFit?: string
+  /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
+  runDate?: string
   /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
   product?: string
   needCode?: string
@@ -496,6 +507,10 @@ export const opportunitiesService = {
   getStatus: (c: LaravelContext, product?: string) =>
     apiClient.get<ResearchStatusResponse>('/signals/research/status', product && product !== 'all' ? { ...base(c), product } : base(c)),
 
+  /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
+  getRunDates: (c: LaravelContext, product: string) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product }),
+
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
   getProviders: (c: LaravelContext) => apiClient.get<ProvidersResponse>('/signals/providers', base(c)),
@@ -527,6 +542,7 @@ export const opportunitiesService = {
     if (q.claimLevel) params.claim_level = q.claimLevel
     if (q.businessFit) params.business_fit = q.businessFit
     if (q.product && q.product !== 'all') params.product = q.product
+    if (q.runDate) params.run_date = q.runDate
     if (q.needCode) params.need_code = q.needCode
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },

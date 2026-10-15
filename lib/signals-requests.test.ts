@@ -55,4 +55,20 @@ describe('Signals requests', () => {
     await opportunitiesService.getStatus(ctx, 'all')
     assert.equal(calls[1].url.searchParams.has('product'), false)
   })
+
+  it('reads a past day by the run date, with the product, and never as a run', async () => {
+    await opportunitiesService.list(ctx, { product: 'scholarclone', runDate: '2026-10-14', expired: 'include' })
+    const q = calls[0].url.searchParams
+    assert.equal(q.get('run_date'), '2026-10-14')
+    assert.equal(q.get('product'), 'scholarclone')
+    assert.equal(calls[0].method, 'GET')
+    assert.equal(calls.some((c) => /research\/run$/.test(c.url.pathname)), false)
+  })
+
+  it('asks for the successful-run dates of one product (a read)', async () => {
+    await opportunitiesService.getRunDates(ctx, 'enterprise_brain')
+    assert.equal(calls[0].method, 'GET')
+    assert.match(calls[0].url.pathname, /\/signals\/research\/dates$/)
+    assert.equal(calls[0].url.searchParams.get('product'), 'enterprise_brain')
+  })
 })
