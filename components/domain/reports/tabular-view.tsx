@@ -20,9 +20,25 @@
  * headers, which is what the shadcn Table primitives already render; the
  * one accessibility addition that DOES apply to a sortable table's headers
  * is `aria-sort`, added below.
+ *
+ * DRAG TO REORDER / RESIZE
+ *
+ * Reported live as missing: drag a header to reorder columns (plain HTML5
+ * drag-and-drop — native `draggable`, no new dependency), drag a header's
+ * right edge to resize it Excel-style (TanStack's own columnResizing +
+ * columnSizing features, data-table-features.ts). Both are left fully
+ * UNCONTROLLED (no React state mirrors them) — `table.setColumnOrder()`/the
+ * resize handler already mutate TanStack's own internal state and this
+ * component re-renders off that the same way it always has for every other
+ * uncontrolled table concern (page index, etc.), so there is nothing to wire
+ * up beyond calling them. Whichever column ends up first is automatically
+ * the sticky/pinned one (`i === 0`/`j === 0` below keys off RENDER position,
+ * not a fixed field) — this is also how "make Assignee the pinned column"
+ * is satisfied: drag it to the front.
  */
 
 import { useMemo, useState } from 'react'
+import type { DragEvent } from 'react'
 import {
   type ColumnDef,
   type RowData,
@@ -89,6 +105,8 @@ export function TabularView({
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
   const [quickFilter, setQuickFilter] = useState('')
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null)
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null)
 
   const tanColumns = useMemo<ColumnDef<ReportTableFeatures, RowRecord>[]>(
     () => visibleColumns.map((col) => {
@@ -133,7 +151,46 @@ export function TabularView({
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     state: { sorting, columnVisibility },
+    columnResizeMode: 'onChange',
+    columnResizeDirection: 'ltr',
+    defaultColumn: { size: 220, minSize: 80, maxSize: 640 },
   })
+
+  // Drag a header anywhere onto another header to move it there — native
+  // HTML5 DnD, not a library: `columnOrder` is read fresh from the table's
+  // own state (NOT re-derived from `tanColumns`/`visibleColumns`, which
+  // never change order themselves) so a drag always starts from whatever
+  // order the table is ACTUALLY showing right now, including the result of
+  // an earlier drag or a natural (never-yet-reordered) default.
+  function onHeaderDragStart(e: DragEvent, columnId: string) {
+    setDraggedColumnId(columnId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function onHeaderDragOver(e: DragEvent, columnId: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (columnId !== dragOverColumnId) setDragOverColumnId(columnId)
+  }
+
+  function onHeaderDrop(e: DragEvent, targetColumnId: string) {
+    e.preventDefault()
+    setDragOverColumnId(null)
+    if (!draggedColumnId || draggedColumnId === targetColumnId) {
+      setDraggedColumnId(null)
+      return
+    }
+
+    // table.getState() is gone in TanStack Table v9 — table.atoms.<slice>.get()
+    // reads one resolved state slice directly (data-table-features.ts's own
+    // migration note applies here too).
+    const liveOrder = table.atoms.columnOrder.get()
+    const currentOrder = liveOrder.length > 0 ? liveOrder : table.getAllLeafColumns().map((c) => c.id)
+    const next = currentOrder.filter((id: string) => id !== draggedColumnId)
+    next.splice(next.indexOf(targetColumnId), 0, draggedColumnId)
+    table.setColumnOrder(next)
+    setDraggedColumnId(null)
+  }
 
   if (result.rows.length === 0) {
     return (
@@ -203,40 +260,65 @@ export function TabularView({
       </div>
 
       <div className={cn('max-h-[70vh] overflow-auto transition-opacity', busy && 'pointer-events-none opacity-60')}>
-        <Table>
+        <Table style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
           <TableHeader className="sticky top-0 z-20 bg-card">
             {headerGroups.map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header, i) => {
                   const sortDirection = header.column.getIsSorted()
                   const ariaSort = sortDirection === 'asc' ? 'ascending' : sortDirection === 'desc' ? 'descending' : 'none'
+                  const isDragging = draggedColumnId === header.column.id
+                  const isDragOver = dragOverColumnId === header.column.id && draggedColumnId !== header.column.id
 
                   return (
                     <TableHead
                       key={header.id}
                       aria-sort={header.column.getCanSort() ? ariaSort : undefined}
+                      draggable
+                      onDragStart={(e) => onHeaderDragStart(e, header.column.id)}
+                      onDragOver={(e) => onHeaderDragOver(e, header.column.id)}
+                      onDragLeave={() => setDragOverColumnId((cur) => (cur === header.column.id ? null : cur))}
+                      onDrop={(e) => onHeaderDrop(e, header.column.id)}
+                      onDragEnd={() => { setDraggedColumnId(null); setDragOverColumnId(null) }}
+                      style={{ width: header.getSize() }}
                       className={cn(
+                        'relative cursor-grab select-none active:cursor-grabbing',
                         'bg-card',
-                        i === 0 ? cn('sticky left-0 z-30 max-w-[280px]', STICKY_COLUMN_SHADOW) : 'whitespace-nowrap',
+                        i === 0 ? cn('sticky left-0 z-30', STICKY_COLUMN_SHADOW) : 'whitespace-nowrap',
                         i !== 0 && i < headerGroup.headers.length - 1 && 'border-r border-border',
+                        isDragging && 'opacity-40',
+                        isDragOver && 'bg-primary/10',
                       )}
                     >
                       {header.isPlaceholder ? null : (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className={cn('inline-flex items-center gap-1', header.column.getCanSort() && 'cursor-pointer select-none hover:text-foreground')}
+                          className={cn('inline-flex max-w-full items-center gap-1 truncate', header.column.getCanSort() && 'cursor-pointer hover:text-foreground')}
                           disabled={!header.column.getCanSort()}
                         >
                           <table.FlexRender header={header} />
                           {header.column.getCanSort() && (
                             sortDirection === 'asc'
-                              ? <ChevronUp className="size-3.5" aria-hidden="true" />
+                              ? <ChevronUp className="size-3.5 shrink-0" aria-hidden="true" />
                               : sortDirection === 'desc'
-                                ? <ChevronDown className="size-3.5" aria-hidden="true" />
-                                : <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden="true" />
+                                ? <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+                                : <ChevronsUpDown className="size-3.5 shrink-0 opacity-40" aria-hidden="true" />
                           )}
                         </button>
+                      )}
+
+                      {header.column.getCanResize() && (
+                        <div
+                          draggable={false}
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            'absolute right-0 top-0 z-10 h-full w-2 cursor-col-resize touch-none select-none',
+                            header.column.getIsResizing() ? 'bg-primary' : 'hover:bg-primary/40',
+                          )}
+                        />
                       )}
                     </TableHead>
                   )
@@ -273,11 +355,11 @@ export function TabularView({
                       <TableCell
                         key={cell.id}
                         title={j === 0 ? value : undefined}
-                        style={j === 0 ? rowStyle : undefined}
+                        style={{ width: cell.column.getSize(), ...(j === 0 ? rowStyle : undefined) }}
                         className={cn(
                           j === 0
-                            ? cn('sticky left-0 z-10 max-w-[280px] truncate font-medium text-foreground', STICKY_COLUMN_SHADOW, !rowColor && 'bg-card')
-                            : 'whitespace-nowrap',
+                            ? cn('sticky left-0 z-10 truncate font-medium text-foreground', STICKY_COLUMN_SHADOW, !rowColor && 'bg-card')
+                            : 'overflow-hidden text-ellipsis whitespace-nowrap',
                           j !== 0 && j < row.getVisibleCells().length - 1 && 'border-r border-border',
                         )}
                       >

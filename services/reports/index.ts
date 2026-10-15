@@ -74,7 +74,7 @@ export type PivotResult = { row_labels: string[]; column_labels: string[]; matri
 export type ChartResult = { labels: string[]; series: Array<{ name: string; data: number[] }> }
 export type ReportResult = TabularResult | SummaryResult | PivotResult | ChartResult
 
-export type ModuleField = { key: string; label: string; type: string; groupable: boolean; aggregatable: boolean; is_custom_field: boolean }
+export type ModuleField = { key: string; label: string; type: string; groupable: boolean; aggregatable: boolean; is_custom_field: boolean; is_default_column: boolean }
 export type ModuleOption = { key: string; label: string; joinable: string[] }
 
 export type ReportShare = { id: number; viewer_user_id: number; can_edit: boolean; viewer_name: string | null }
