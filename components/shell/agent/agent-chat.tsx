@@ -63,6 +63,8 @@ interface AgentChatProps {
    * falling back to questions about other modules.
    */
   suggestedPrompts?: string[]
+  /** The module/page the chat is working in; titles the starter questions ("In <label>"). */
+  contextLabel?: string | null
   messages: Message[]
   isLoading?: boolean
   error?: string | null
@@ -74,6 +76,7 @@ interface AgentChatProps {
 
 export function AgentChat({
   suggestedPrompts,
+  contextLabel,
   messages,
   isLoading = false,
   error,
@@ -86,6 +89,9 @@ export function AgentChat({
   const {
     supportedLanguages,
     isSupported,
+    isSpeechSupported,
+    speakReplies,
+    setSpeakReplies,
     language,
     setLanguage,
     transcript,
@@ -107,6 +113,15 @@ export function AgentChat({
       ),
     [messages]
   )
+
+  // Read an answer aloud once, when it arrives (never for messages already on screen).
+  const spokenIdRef = useRef<string | null>(latestAssistantMessage?.id ?? null)
+  useEffect(() => {
+    if (!latestAssistantMessage || spokenIdRef.current === latestAssistantMessage.id) return
+    spokenIdRef.current = latestAssistantMessage.id
+    if (speakReplies && latestAssistantMessage.content) speakText(latestAssistantMessage.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestAssistantMessage, speakReplies])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -145,40 +160,22 @@ export function AgentChat({
             )}
             <SuggestedPrompts
               prompts={suggestedPrompts ?? SUGGESTED_PROMPTS}
+              label={contextLabel ? `In ${contextLabel}` : 'Suggested prompts'}
+              disabled={isLoading}
               onSelect={(prompt) => {
                 if (!isLoading) {
                   onSendMessage?.(prompt)
                 }
               }}
             />
-            {chatActions && chatActions.available.length > 0 && (
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-medium text-foreground">Actions on this page</p>
-                <div className="flex flex-col gap-1.5">
-                  {chatActions.available.map((action) => (
-                    <Button
-                      key={action.key}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      title={action.description}
-                      onClick={() => chatActions.start(action.key)}
-                      className="h-8 justify-start px-3 text-xs"
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="space-y-4 py-5">
             {messages.map((message) =>
               message.action ? (
                 <div key={message.id} className="flex gap-3">
-                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
-                    <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                    <BotIcon className="size-4" aria-hidden="true" />
                   </div>
                   <div className="min-w-0 max-w-[88%] flex-1">
                     <ActionCard messageId={message.id} />
@@ -193,15 +190,15 @@ export function AgentChat({
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
-                    <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                    <BotIcon className="size-4" aria-hidden="true" />
                   </div>
                 )}
                 <div
                   className={cn(
                     'max-w-[88%] whitespace-pre-wrap break-words rounded-3xl px-4 py-3 text-sm leading-7 shadow-sm',
                     message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'border border-[#0D6EFD]/10 bg-[#0D6EFD] text-white shadow-[0_12px_30px_rgba(13,110,253,0.18)]'
                       : message.variant === 'error'
                         ? 'border border-destructive/20 bg-destructive/10 text-destructive'
                         : 'border border-border/70 bg-card text-foreground shadow-[0_8px_30px_rgba(15,23,42,0.06)]'
@@ -309,8 +306,8 @@ export function AgentChat({
                   ) : null}
                 </div>
                 {message.role === 'user' && (
-                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-border/60">
-                    <User className="size-4 text-secondary-foreground" aria-hidden="true" />
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-[0_4px_14px_rgba(15,23,42,0.05)]">
+                    <User className="size-4 text-muted-foreground" aria-hidden="true" />
                   </div>
                 )}
               </div>
@@ -318,8 +315,8 @@ export function AgentChat({
             )}
             {isLoading && (
               <div className="flex justify-start gap-3">
-                <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
-                  <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                  <BotIcon className="size-4" aria-hidden="true" />
                 </div>
                 <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -351,7 +348,7 @@ export function AgentChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about employees, attendance, leave, learning, competencies, hiring, tasks or reports..."
+            placeholder="Ask about employees, attendance, leave, learning, or hiring…"
             disabled={isLoading}
             className={cn(
               'h-11 min-w-0 flex-1 rounded-2xl border border-input bg-background px-4 py-2 text-sm text-foreground shadow-sm',
@@ -365,10 +362,11 @@ export function AgentChat({
             disabled={!input.trim() || isLoading}
             aria-label="Send message"
             className={cn(
-              'flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm',
+              'flex size-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_12px_28px_rgba(13,110,253,0.22)]',
               'transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              'hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
+              'hover:brightness-[1.03] disabled:cursor-not-allowed disabled:opacity-50'
             )}
+            style={{ background: 'var(--accent-gradient)' }}
           >
             <Send className="size-4" aria-hidden="true" />
           </button>
@@ -428,9 +426,22 @@ export function AgentChat({
           </Button>
         </div>
 
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={speakReplies}
+              disabled={!isSpeechSupported}
+              onChange={(event) => setSpeakReplies(event.target.checked)}
+              className="size-3.5 rounded border-border"
+            />
+            Read replies aloud
+          </label>
+        </div>
+
         {isRecording ? (
           <div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-destructive">
-            Recording in progress...
+            Listening… speak now
           </div>
         ) : null}
       </div>

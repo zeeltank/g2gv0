@@ -60,6 +60,8 @@
 
 :root {
   --radius: 0.5rem;
+  /* Same accent as the LMS K12 assistant (chat avatar, send button, header icon). */
+  --accent-gradient: linear-gradient(135deg, #0D6EFD 0%, #7ED957 100%);
 
   --background: hsl(210 40% 98%);
   --foreground: hsl(222 47% 11%);
