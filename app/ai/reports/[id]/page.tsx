@@ -359,7 +359,10 @@ export default function AiReportPage() {
             {deliveries.map((delivery) => (
               <li key={delivery.id} className="flex flex-wrap gap-x-3">
                 <span>{delivery.recipient_name || delivery.recipient_email}</span>
-                <span className="text-muted-foreground">{delivery.recipient_email}</span>
+                <span className="text-muted-foreground">
+                  {delivery.channel === 'sms' ? 'SMS · ' : ''}
+                  {delivery.recipient_email}
+                </span>
                 <span className={delivery.status === 'failed' ? 'text-destructive' : ''}>{delivery.status}</span>
                 <span className="text-muted-foreground">{formatMoment(delivery.sent_at ?? delivery.created_at)}</span>
                 {delivery.error ? <span className="text-xs text-destructive">{delivery.error}</span> : null}

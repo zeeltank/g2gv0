@@ -6,9 +6,15 @@ import type {
   Partner,
   TaxonomyData,
   SignalMatchingResponse,
+  ProductsResponse,
 } from './types'
 
 export const portfolioService = {
+  /** The configured products with their stored offers, ICP and what is missing. */
+  async getProducts(context: LaravelContext): Promise<ProductsResponse> {
+    return apiClient.get('/portfolio/products', withLaravelParams(context))
+  },
+
   async getTaxonomy(context: LaravelContext): Promise<{ status: number; data: TaxonomyData }> {
     return apiClient.get('/portfolio/taxonomy', withLaravelParams(context))
   },

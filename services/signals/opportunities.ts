@@ -78,7 +78,21 @@ export interface MarketScores {
 }
 
 /** The plain-English face of a lead, built on the server (CardPresenter). The client never re-derives it. */
+export interface OpportunityAccount {
+  /** CRM lead number: look the contact up there (phone and email are not copied into signals). */
+  crm_ref: string | null
+  crm_owner: string | null
+  contact_name: string | null
+  city: string | null
+  icp_status: 'candidate' | 'low_fit' | 'unscored' | 'disqualified' | string
+  icp_tier: 'A' | 'B' | 'C' | null
+}
+
 export interface OpportunityCardFace {
+  /** One plain sentence: who needs what and why now. Null for leads written before this existed. */
+  needs_line: string | null
+  /** The CRM school this lead is about, when it is on the target list. */
+  account: OpportunityAccount | null
   urgency_band: 'act_this_week' | 'act_this_month' | 'nurture'
   urgency_line: string
   organisation_line: string
@@ -92,7 +106,49 @@ export interface OpportunityCardFace {
   written_plainly: boolean
 }
 
+export type SignalStrength = 'hot' | 'warm' | 'watch'
+
+export type BuyingIntentLevel = 'explicit' | 'strong' | 'moderate' | 'weak' | 'unconfirmed'
+
+/** The separate assessments behind a ScholarClone signal. Built and verified on the server; the client only displays them. */
+export interface SignalAssessment {
+  source_reliability?: { class: 'official' | 'job_post' | 'social_post' | 'third_party'; reliability: 'high' | 'medium' | 'low'; host: string }
+  evidence?: {
+    quote_verified: boolean
+    read_as: 'page_text' | 'search_snippet'
+    sources_naming_school: number
+    stated_or_inferred: 'stated' | 'inferred'
+    date_status: 'event_date_stated' | 'source_date_only' | 'undated'
+    /** The date the SOURCE was published (null when unknown). Never the day it was retrieved. */
+    source_published_at?: string | null
+    date_provenance?: 'structured_data' | 'meta_tag' | 'time_element' | 'visible_absolute' | 'visible_relative' | 'search_provider' | null
+    date_confidence?: 'high' | 'medium' | null
+    retrieved_at?: string | null
+    inference_reasoning: string | null
+  }
+  /** Is this organisation one of the target schools? Decided on name, place and website together. */
+  identity?: {
+    status: 'target_exact' | 'target_possible' | 'unrelated'
+    account_id: number | null
+    account_name: string | null
+    crm_ref: string | null
+    reasons: string[]
+    scan_target?: string
+    for_scan_target?: boolean
+  }
+  buying_intent?: { level: BuyingIntentLevel; meaning: string; indicators: { indicator: string; tier: string; quote: string }[] }
+  sales_pull?: { category: string; label: string; basis: 'observed' | 'inferred'; rationale: string; quote: string | null }[]
+  product_fit?: { part: string; what_it_does: string; reason: string } | null
+  unverified?: string[]
+  opportunity?: { strength: SignalStrength; reason: string; age_days: number | null } | null
+}
+
 export interface Opportunity {
+  /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */
+  strength?: SignalStrength
+  strength_reason?: string | null
+  buying_intent?: BuyingIntentLevel | null
+  assessment?: SignalAssessment | null
   card?: OpportunityCardFace
   id: number
   company_id: number
@@ -148,6 +204,8 @@ export interface Opportunity {
   fetch_level?: FetchLevel | null
   evidence_note?: string | null
   business_fit?: 'eb' | 'scholar' | 'g2g' | 'multiple' | null
+  /** The product this record is stored for (null = unassigned or several products). */
+  product?: string | null
   candidate_need_codes?: string[]
   buyer_segment?: string | null
   buyer_type?: string | null
@@ -210,11 +268,14 @@ export type ResearchStage = 'preparing' | 'searching' | 'collecting' | 'analyzin
 
 export interface ResearchRun {
   id: number
+  product_key?: string | null
   report_date: string | null
   trigger: 'scheduled' | 'manual'
   status: RunStatus
   stage?: ResearchStage | string | null
   stage_message?: string | null
+  /** The run's heartbeat: changes whenever the backend saves progress. */
+  updated_at?: string | null
   started_at: string | null
   completed_at: string | null
   duration_ms: number | null
@@ -243,11 +304,38 @@ export interface ResearchStatusResponse {
       ai_configured: boolean
       research_enabled: boolean
     }
+    /** Present when a product was asked about: whether it is configured for discovery, and what is still missing. */
+    product?: { key: string; label: string; ready: boolean; missing: string[] } | null
     running: boolean
+    /** Another product's run holds the organisation's single run slot. */
+    busy_elsewhere?: boolean
     latest_run: ResearchRun | null
     last_successful_run: ResearchRun | null
     next_scheduled_at: string | null
+    /** The daily run time (HH:MM in `timezone`). */
+    daily_time?: string
     timezone: string
+  }
+}
+
+export interface RunDatesResponse {
+  status: number
+  data: {
+    product: string
+    timezone: string
+    dates: {
+      date: string
+      runs: number
+      status: 'success' | 'partial'
+      last_completed_at: string | null
+      qualified: number
+      /** What the day's runs did, so an empty day can say why. */
+      searches: number
+      sources: number
+      organisations: number
+      rejected: number
+      note: string | null
+    }[]
   }
 }
 
@@ -267,6 +355,10 @@ export interface OpportunityQuery {
   includeSamples?: boolean
   claimLevel?: string
   businessFit?: string
+  /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
+  runDate?: string
+  /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
+  product?: string
   needCode?: string
 }
 
@@ -341,6 +433,8 @@ export type ProcessingStatus = 'uploaded' | 'generating' | 'completed' | 'comple
 
 export interface IngestionSourceInfo {
   id: number
+  /** The product this document or link was added for (null = added before products were recorded). */
+  product_key?: string | null
   type: 'file' | 'url'
   name: string
   url: string | null
@@ -426,7 +520,12 @@ export const opportunitiesService = {
   saveProfile: (c: LaravelContext, profile: Partial<ProductProfile>) =>
     apiClient.put<ProfileResponse>(`/signals/product-profile?${qs(c)}`, profile),
 
-  getStatus: (c: LaravelContext) => apiClient.get<ResearchStatusResponse>('/signals/research/status', base(c)),
+  getStatus: (c: LaravelContext, product?: string) =>
+    apiClient.get<ResearchStatusResponse>('/signals/research/status', product && product !== 'all' ? { ...base(c), product } : base(c)),
+
+  /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
+  getRunDates: (c: LaravelContext, product: string) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product }),
 
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
@@ -441,8 +540,8 @@ export const opportunitiesService = {
   getRunSources: (c: LaravelContext, runId: number) =>
     apiClient.get<{ status: number; data: ResearchSourceInfo[] }>(`/signals/research/runs/${runId}/sources`, base(c)),
 
-  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }) =>
-    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, customParams ?? {}),
+  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string) =>
+    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}) }),
 
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: '10' }
@@ -458,6 +557,8 @@ export const opportunitiesService = {
     if (q.includeSamples) params.include_samples = '1'
     if (q.claimLevel) params.claim_level = q.claimLevel
     if (q.businessFit) params.business_fit = q.businessFit
+    if (q.product && q.product !== 'all') params.product = q.product
+    if (q.runDate) params.run_date = q.runDate
     if (q.needCode) params.need_code = q.needCode
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },
@@ -485,23 +586,27 @@ export const opportunitiesService = {
     apiClient.post<{ status: number; data: { lead_id: string; created: boolean } }>(`/signals/opportunities/${id}/promote-to-crm?${qs(c)}`, {}),
 
   // ── ingestion ──
-  listSources: (c: LaravelContext) => apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', base(c)),
+  /** `product` lists only the documents added for that product (ones added before products were recorded count as ScholarClone's). */
+  listSources: (c: LaravelContext, product?: string) =>
+    apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', product ? { ...base(c), product } : base(c)),
 
   getSource: (c: LaravelContext, id: number) =>
     apiClient.get<{ status: number; data: IngestionSourceDetail }>(`/signals/ingestion/sources/${id}`, base(c)),
 
-  upload: (c: LaravelContext, file: File) => {
+  upload: (c: LaravelContext, file: File, product?: string) => {
     const form = new FormData()
     form.append('file', file)
+    if (product) form.append('product', product)
     return apiClient.postForm<IngestResponse>(`/signals/ingestion/upload?${qs(c)}`, form)
   },
 
-  addUrl: (c: LaravelContext, url: string) =>
-    apiClient.post<IngestResponse>(`/signals/ingestion/url?${qs(c)}`, { url }),
+  addUrl: (c: LaravelContext, url: string, product?: string) =>
+    apiClient.post<IngestResponse>(`/signals/ingestion/url?${qs(c)}`, { url, ...(product ? { product } : {}) }),
 
-  listSignals: (c: LaravelContext, q: { sourceId?: number; kind?: string; search?: string; page?: number } = {}) => {
+  listSignals: (c: LaravelContext, q: { sourceId?: number; kind?: string; search?: string; product?: string; page?: number } = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: '12' }
     if (q.sourceId) params.source_id = String(q.sourceId)
+    if (q.product) params.product = q.product
     if (q.kind) params.kind = q.kind
     if (q.search) params.search = q.search
     return apiClient.get<IngestionSignalListResponse>('/signals/ingestion/findings', params)

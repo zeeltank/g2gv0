@@ -1,16 +1,18 @@
 'use client'
 
+import { PremiumPage } from '@/components/domain/signals/premium-page'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { SignalsFeedView } from '@/components/domain/signals/signals-feed-view'
+import { SignalsPageContent } from '@/components/domain/signals/signals-page-content'
 
 export default function SignalsPage() {
   return (
     <ProtectedLayout>
       <GtgAppShell initialActive={{ moduleId: 'signals', menuId: 'signals', submenuId: 'signals' }}>
-        <SignalsFeedView />
+        <PremiumPage>
+          <SignalsPageContent />
+        </PremiumPage>
       </GtgAppShell>
     </ProtectedLayout>
   )
 }
-

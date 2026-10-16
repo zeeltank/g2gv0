@@ -40,8 +40,25 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/portfolio/types'
+import { ProductSelector, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
+import { ProductProfilePanel } from './product-profile-panel'
+import { ProductIcpEditor } from './product-icp-editor'
+import { ProductSetupSteps } from './product-setup-steps'
+import { apiErrorText } from '@/lib/api-messages'
 
 export function PortfolioView({ context, canManage = true }: { context: LaravelContext; canManage?: boolean }) {
+  // The product chosen here (shared with Company opportunities and the Ingestion engine) decides which product's stored configuration is shown.
+  const { products, loading: productsLoading, error: productsError, reload: reloadProducts } = useProducts(context)
+  const [icpDirty, setIcpDirty] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [product, selectProduct] = useSelectedProduct(context, products, { allowAll: true })
+  // Leaving a product with unsaved ICP edits asks first.
+  const setProduct = (next: string) => {
+    if (next !== product && icpDirty && !window.confirm('You have unsaved changes to this ICP. Switch product and discard them?')) return
+    setIcpDirty(false)
+    selectProduct(next)
+  }
+  const selectedProduct = products?.find((p) => p.key === product)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -115,7 +132,9 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   }, [context, search, productFilter, readinessFilter, sellableFilter, needFilter, segmentFilter, page])
 
   useEffect(() => {
-    loadData()
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadData() })
+    return () => { live = false }
   }, [loadData])
 
   const handleRefresh = () => {
@@ -146,7 +165,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       await portfolioService.deleteOffer(context, id)
       loadData()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete offer.')
+      setActionError(apiErrorText(err, 'Failed to delete offer.'))
     }
   }
 
@@ -196,6 +215,15 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       setReadinessSaving(false)
     }
   }
+
+  // Choosing a product narrows the offer list below to that product's portfolio group.
+  useEffect(() => {
+    if (!products || product === null) return
+    const name = products.find((p) => p.key === product)?.portfolio_name ?? ''
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProductFilter(product === 'all' ? '' : name)
+    setPage(1)
+  }, [product, products])
 
   return (
     <div className="space-y-6 p-4 @xl:p-6 max-w-7xl mx-auto">
@@ -251,6 +279,25 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
           </button>
         </div>
       )}
+
+      {/* Product selector and the selected product's stored configuration */}
+      <div className="space-y-4">
+        <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll />
+        {selectedProduct && <ProductSetupSteps product={selectedProduct} />}
+        {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
+        {selectedProduct && <ProductProfilePanel product={selectedProduct} />}
+        {selectedProduct && <ProductIcpEditor key={selectedProduct.key} context={context} productKey={selectedProduct.key} canEdit={isAdmin} onChanged={reloadProducts} onDirtyChange={setIcpDirty} />}
+        {product === 'all' && products && (
+          <ul className="grid gap-2 @3xl:grid-cols-3" aria-label="Products">
+            {products.map((p) => (
+              <li key={p.key} className="rounded-lg border border-border/60 bg-card p-3 text-sm">
+                <button type="button" className="text-left font-medium text-foreground underline-offset-2 hover:underline" onClick={() => setProduct(p.key)}>{p.label}</button>
+                <p className="text-xs text-muted-foreground">{p.offers.length} offers · {p.ready ? 'ready for discovery' : 'needs setup'} · {p.opportunities_count} opportunities</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* KPI Stats Cards */}
       {stats && (

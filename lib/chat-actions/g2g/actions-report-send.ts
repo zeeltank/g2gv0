@@ -45,7 +45,8 @@ export interface SendReportDeps {
 export function defaultSendReportDeps(): Omit<SendReportDeps, 'record'> {
   return {
     listReports: fetchRecentReports,
-    listRecipients: async (q) => (await searchReportRecipients(q)).recipients,
+    // This action e-mails, so only people with an address on file are offered.
+    listRecipients: async (q) => (await searchReportRecipients(q)).recipients.filter((person) => person.email !== null),
     sendReport: sendChatReport,
     listDeliveries: async (reportId) => (await fetchReportDeliveries(reportId)).deliveries,
   }
@@ -90,7 +91,7 @@ export function sendReportAction(deps: SendReportDeps): ChatActionDefinition<G2g
         options: async (): Promise<ActionOption[]> =>
           (await deps.listRecipients('')).map((person) => ({
             value: String(person.id),
-            label: `${person.name} <${person.email}>`,
+            label: `${person.name}${person.email ? ` <${person.email}>` : ''}`,
           })),
       },
       { key: 'note', label: 'Note', type: 'textarea', maxLength: 500, placeholder: 'Optional message to include' },
