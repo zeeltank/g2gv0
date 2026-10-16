@@ -21,7 +21,7 @@ export interface DocumentUploadDropzoneProps {
 }
 
 /**
- * Hand-rolled drag-and-drop (matches `ingestion-view.tsx`'s convention, not
+ * Hand-rolled drag-and-drop (matches `ingestion-engine-view.tsx`'s convention, not
  * `react-dropzone` — not a dependency here), multi-file AND
  * recursive-folder aware.
  *

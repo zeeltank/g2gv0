@@ -460,6 +460,12 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
           <SectionCard title="Description">
             <p className="text-sm text-foreground">{opportunity.description || '—'}</p>
           </SectionCard>
+
+          {opportunity.closeReason && (
+            <SectionCard title="Reason Lost">
+              <p className="text-sm text-foreground">{opportunity.closeReason}</p>
+            </SectionCard>
+          )}
         </div>
       )}
 

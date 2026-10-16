@@ -36,7 +36,7 @@ const emptyForm = (defaultOrganizationId: string | undefined, salesStages: CrmPi
   name: '', organizationId: defaultOrganizationId ?? null, campaignId: null, amount: null, currency: '',
   closingDate: '', salesStage: salesStages.find((s) => s.isDefault)?.value ?? salesStages[0]?.value ?? '',
   probability: null, leadSource: '', potentialType: '', nextStep: '',
-  forecastCategory: '', description: '', assignedTo: '',
+  forecastCategory: '', description: '', closeReason: '', assignedTo: '',
 })
 
 export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, defaultOrganizationId, picklists }: Props) {
@@ -59,7 +59,7 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
           salesStage: opportunity.salesStage ?? '', probability: opportunity.probability,
           leadSource: opportunity.leadSource ?? '', potentialType: opportunity.potentialType ?? '',
           nextStep: opportunity.nextStep ?? '', forecastCategory: opportunity.forecastCategory ?? '',
-          description: opportunity.description ?? '', assignedTo: opportunity.assignedTo ?? '',
+          description: opportunity.description ?? '', closeReason: opportunity.closeReason ?? '', assignedTo: opportunity.assignedTo ?? '',
         }
       : emptyForm(defaultOrganizationId, picklists.salesStage))
     setError('')
@@ -72,6 +72,10 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
   const submit = async () => {
     if (!form.name?.trim() || !form.assignedTo) {
       setError('Opportunity Name and Assigned To are required.')
+      return
+    }
+    if (form.salesStage === 'Closed Lost' && opportunity?.salesStage !== 'Closed Lost' && !form.closeReason?.trim()) {
+      setError('Say why this opportunity was lost - it is the only way the pipeline learns from it.')
       return
     }
     if (!isLaravelContextReady(context)) {
@@ -158,6 +162,19 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
               <Input id="opp-closing-date" type="date" value={form.closingDate ?? ''} onChange={(e) => set('closingDate', e.target.value)} />
             </div>
           </div>
+
+          {form.salesStage === 'Closed Lost' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="opp-close-reason">Reason Lost *</Label>
+              <Textarea
+                id="opp-close-reason"
+                rows={2}
+                value={form.closeReason ?? ''}
+                onChange={(e) => set('closeReason', e.target.value)}
+                placeholder="Why did this opportunity not close? (price, timing, competitor, no budget…)"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">

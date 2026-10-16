@@ -3,24 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Calendar, DollarSign, FileText, Loader2, MapPin, Pencil, User,
+  AlertTriangle, ArrowLeft, Calendar, DollarSign, Download, FileText, Loader2, MapPin, Pencil, User, Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { KPICard } from '@/components/shared/business/kpi-card'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { EmptyState } from '@/components/ui/empty-state'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { useInvoicePdfDownload } from '@/hooks/use-invoice-pdf-download'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
 import type {
-  CrmInvoice, CrmInvoiceLineItemInput, CrmInvoiceStatusHistoryEntry, CrmPicklistValue, CrmProduct, CrmTaxRate,
+  CrmEmailLinkEntry, CrmInvoice, CrmInvoiceLineItemInput, CrmInvoicePaymentEntry, CrmInvoiceStatusHistoryEntry,
+  CrmPicklistValue, CrmProduct, CrmTaxRate,
 } from '@/types/crm'
 import { CreateInvoiceModal } from './create-invoice-modal'
+import { CrmEmailTab } from './crm-email-tab'
 import { QuoteLineItemTable } from './quote-line-item-table'
+import { RecordInvoicePaymentDialog } from './record-invoice-payment-dialog'
+import { SendEmailDialog } from './send-email-dialog'
 import { useAssignableEmployees } from './lead-employees'
 
 interface Props {
@@ -30,12 +36,22 @@ interface Props {
   invoiceStages: CrmPicklistValue[]
 }
 
-type Tab = 'details' | 'line-items' | 'history' | 'custom'
+type Tab = 'details' | 'line-items' | 'payments' | 'history' | 'emails' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'line-items', label: 'Line Items' },
+  { id: 'payments', label: 'Payments' },
   { id: 'history', label: 'Stage History' },
+  { id: 'emails', label: 'Emails' },
 ]
+
+function paymentStatusVariant(status: CrmInvoice['paymentStatus']): 'success' | 'warning' | 'default' {
+  switch (status) {
+    case 'Paid': return 'success'
+    case 'Partially Paid': return 'warning'
+    default: return 'default'
+  }
+}
 
 function money(currency: string | null, n: number): string {
   return `${currency ?? ''} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`.trim()
@@ -58,6 +74,7 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const employees = useAssignableEmployees(context, true)
+  const pdfDownload = useInvoicePdfDownload()
 
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
@@ -72,6 +89,14 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
   const [stageHistory, setStageHistory] = useState<CrmInvoiceStatusHistoryEntry[]>([])
   const [stageHistoryLoading, setStageHistoryLoading] = useState(true)
   const [changingStage, setChangingStage] = useState(false)
+
+  const [payments, setPayments] = useState<CrmInvoicePaymentEntry[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
+
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -107,9 +132,33 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
     }
   }, [context, invoice.id])
 
+  const loadPayments = useCallback(async () => {
+    setPaymentsLoading(true)
+    try {
+      const response = await crmService.getInvoicePayments(context, invoice.id)
+      setPayments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setPaymentsLoading(false)
+    }
+  }, [context, invoice.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getInvoiceEmails(context, invoice.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, invoice.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadLineItems(); void loadStageHistory() })
-  }, [loadLineItems, loadStageHistory])
+    queueMicrotask(() => { void loadLineItems(); void loadStageHistory(); void loadPayments(); void loadEmails() })
+  }, [loadLineItems, loadStageHistory, loadPayments, loadEmails])
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
@@ -181,11 +230,27 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
             <FileText className="size-5" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-foreground">{invoice.subject}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground">{invoice.subject}</h1>
+              <StatusBadge variant={paymentStatusVariant(invoice.paymentStatus)}>{invoice.paymentStatus}</StatusBadge>
+              {invoice.isOverdue && (
+                <StatusBadge variant="error">
+                  <AlertTriangle className="size-3" aria-hidden="true" />
+                  Overdue
+                </StatusBadge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{invoice.invoiceStage || 'Invoice'} · {invoice.invoiceNo}</p>
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" disabled={pdfDownload.busy} onClick={() => void pdfDownload.download(invoice.id, invoice.invoiceNo)}>
+            {pdfDownload.busy ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : <Download className="mr-1.5 size-4" aria-hidden="true" />}
+            Download PDF
+          </Button>
+          <Button variant="outline" onClick={() => setComposeEmailOpen(true)}>
+            Email Customer
+          </Button>
           <Button onClick={() => setEditOpen(true)}>
             <Pencil className="mr-1.5 size-4" aria-hidden="true" />
             Edit
@@ -194,6 +259,7 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
       </div>
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+      {pdfDownload.error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{pdfDownload.error}</div>}
 
       <div className="flex gap-1 border-b border-border">
         {tabs.map((t) => (
@@ -210,13 +276,21 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
 
       {tab === 'details' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
             <KPICard label="Subtotal" value={money(invoice.currency, invoice.subtotal)} size="sm" />
             <KPICard label="Discount" value={invoice.discountAmount > 0 ? `-${money(invoice.currency, invoice.discountAmount)}` : '—'} size="sm" />
             <KPICard label="Tax" value={invoice.taxTotal > 0 ? money(invoice.currency, invoice.taxTotal) : '—'} size="sm" />
             <KPICard label="Shipping" value={invoice.shippingHandlingAmount > 0 ? money(invoice.currency, invoice.shippingHandlingAmount) : '—'} size="sm" />
             <KPICard label="Adjustment" value={invoice.adjustment !== 0 ? money(invoice.currency, invoice.adjustment) : '—'} size="sm" />
             <KPICard label="Total" value={money(invoice.currency, invoice.total)} size="sm" variant="primary" icon={<DollarSign className="size-4" aria-hidden="true" />} />
+            <KPICard label="Paid" value={invoice.amountPaid > 0 ? money(invoice.currency, invoice.amountPaid) : '—'} size="sm" />
+            <KPICard
+              label="Balance Due"
+              value={money(invoice.currency, invoice.balanceDue)}
+              size="sm"
+              variant={invoice.balanceDue > 0 ? (invoice.isOverdue ? 'danger' : 'warning') : 'success'}
+              icon={<Wallet className="size-4" aria-hidden="true" />}
+            />
           </div>
 
           <SectionCard
@@ -318,6 +392,58 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
         </SectionCard>
       )}
 
+      {tab === 'payments' && (
+        <SectionCard
+          title="Payments"
+          description="A manual ledger of what was actually collected against this invoice - not a payment gateway."
+          actions={(
+            <Button size="sm" onClick={() => setRecordPaymentOpen(true)}>
+              <Wallet className="mr-1.5 size-4" aria-hidden="true" />
+              Record Payment
+            </Button>
+          )}
+        >
+          {paymentsLoading && (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading payments…
+            </div>
+          )}
+          {!paymentsLoading && payments.length === 0 && (
+            <EmptyState
+              icon={<Wallet className="size-8" aria-hidden="true" />}
+              title="No payments recorded yet"
+              description={`Balance due: ${money(invoice.currency, invoice.balanceDue)}`}
+              action={(
+                <Button size="sm" onClick={() => setRecordPaymentOpen(true)}>
+                  <Wallet className="mr-1.5 size-4" aria-hidden="true" />
+                  Record Payment
+                </Button>
+              )}
+            />
+          )}
+          {!paymentsLoading && payments.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {payments.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                  <div>
+                    <p className="font-medium text-foreground">{money(invoice.currency, p.amount)}{p.method ? ` · ${p.method}` : ''}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.reference ? `Ref: ${p.reference} · ` : ''}{p.createdByName || 'Unknown'} · {p.paidOn || p.createdAt}
+                    </p>
+                    {p.note && <p className="mt-1 text-xs text-muted-foreground">{p.note}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
@@ -346,6 +472,21 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
         onSaved={(message) => { setNotice(message); setEditOpen(false); onSaved() }}
         invoice={invoice}
         invoiceStages={invoiceStages}
+      />
+      <RecordInvoicePaymentDialog
+        isOpen={recordPaymentOpen}
+        onClose={() => setRecordPaymentOpen(false)}
+        onRecorded={(message) => { setNotice(message); setRecordPaymentOpen(false); void loadPayments(); onSaved() }}
+        invoiceId={invoice.id}
+        currency={invoice.currency}
+        balanceDue={invoice.balanceDue}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="INVOICE"
+        linkedId={invoice.id}
       />
     </div>
   )

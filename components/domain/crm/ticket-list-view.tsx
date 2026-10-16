@@ -27,6 +27,7 @@ import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
+import { TicketSlaBadge } from './ticket-sla-badge'
 
 type SortKey = 'title' | 'status' | 'priority' | 'created_at'
 
@@ -202,17 +203,18 @@ export function TicketListView() {
               <TableHead>Organization</TableHead>
               <SortHead label="Status" sortKey="status" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Priority" sortKey="priority" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+              <TableHead>SLA</TableHead>
               <TableHead>Assigned To</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading tickets…
               </TableCell></TableRow>
             )}
             {!isLoading && tickets.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                 No tickets yet. Click “Add Ticket” to create one.
               </TableCell></TableRow>
             )}
@@ -225,6 +227,7 @@ export function TicketListView() {
                 <TableCell>{ticket.organizationName || '—'}</TableCell>
                 <TableCell>{ticket.status || '—'}</TableCell>
                 <TableCell>{ticket.priority || '—'}</TableCell>
+                <TableCell><TicketSlaBadge status={ticket.slaStatus} dueAt={ticket.slaDueAt} escalatedAt={ticket.slaEscalatedAt} /></TableCell>
                 <TableCell>{ticket.assignedToName || '—'}</TableCell>
               </TableRow>
             ))}

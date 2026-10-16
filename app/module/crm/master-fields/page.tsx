@@ -19,7 +19,10 @@ import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { Button } from '@/components/ui/button'
+import { CrmLeadCaptureAdmin } from '@/domain/crm/crm-lead-capture-admin'
+import { CrmLeadRoutingAdmin } from '@/domain/crm/crm-lead-routing-admin'
 import { CrmPicklistAdmin } from '@/domain/crm/crm-picklist-admin'
+import { CrmSlaPolicyAdmin } from '@/domain/crm/crm-sla-policy-admin'
 import { CrmTaxRateAdmin } from '@/domain/crm/crm-tax-rate-admin'
 
 const MASTER_FIELDS_ACTIVE_NAV = { moduleId: '199', menuId: '200', submenuId: '201' }
@@ -30,7 +33,7 @@ const breadcrumbItems = [
   { label: 'Master Fields' },
 ]
 
-type Tab = 'picklists' | 'tax-rates' | 'custom'
+type Tab = 'picklists' | 'tax-rates' | 'lead-routing' | 'lead-capture' | 'sla-policies' | 'custom'
 
 export default function CrmMasterFieldsRoute() {
   const [tab, setTab] = useState<Tab>('picklists')
@@ -51,6 +54,9 @@ export default function CrmMasterFieldsRoute() {
               {([
                 { id: 'picklists' as const, label: 'Picklist Values' },
                 { id: 'tax-rates' as const, label: 'Tax Rates' },
+                { id: 'lead-routing' as const, label: 'Lead Scoring & Assignment' },
+                { id: 'lead-capture' as const, label: 'Web-to-Lead' },
+                { id: 'sla-policies' as const, label: 'SLA Policies' },
                 { id: 'custom' as const, label: 'Custom Fields' },
               ]).map((t) => (
                 <button
@@ -67,6 +73,12 @@ export default function CrmMasterFieldsRoute() {
             {tab === 'picklists' && <CrmPicklistAdmin />}
 
             {tab === 'tax-rates' && <CrmTaxRateAdmin />}
+
+            {tab === 'lead-routing' && <CrmLeadRoutingAdmin />}
+
+            {tab === 'lead-capture' && <CrmLeadCaptureAdmin />}
+
+            {tab === 'sla-policies' && <CrmSlaPolicyAdmin />}
 
             {tab === 'custom' && (
               <div className="space-y-3 rounded-lg border border-dashed border-border p-10 text-center">

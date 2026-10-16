@@ -23,6 +23,7 @@ import { CrmDocumentTab } from './crm-document-tab'
 import { CrmEmailTab } from './crm-email-tab'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmScheduleTab } from './crm-schedule-tab'
+import { TicketSlaBadge } from './ticket-sla-badge'
 
 interface Props {
   ticket: CrmTicket
@@ -171,6 +172,12 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
       await crmService.addTicketComment(context, ticket.id, newComment.trim())
       setNewComment('')
       void loadComments()
+      // A comment can be this ticket's first response (Sales & Marketing gap-closure, Wave 4) -
+      // that changes firstResponseAt/slaStatus/slaDueAt, all shown on the Details tab from the
+      // `ticket` prop, not from anything loadComments() refetches. Without this, the SLA badge
+      // silently stayed stale until the user navigated away and back - same refresh changeStatus()
+      // above already does for exactly the same reason (its own change affects Details-tab fields).
+      onSaved()
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : 'Unable to add that comment.')
     } finally {
@@ -255,6 +262,19 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
               <ReadField label="Hours" value={ticket.hours !== null ? <IconValue icon={Clock}>{ticket.hours}</IconValue> : null} />
               <ReadField label="Days" value={ticket.days !== null ? <IconValue icon={Clock}>{ticket.days}</IconValue> : null} />
               <ReadField label="Assigned To" value={assignedToName && <IconValue icon={User}>{assignedToName}</IconValue>} />
+              <ReadField
+                label="SLA"
+                value={(
+                  <div className="space-y-1">
+                    <TicketSlaBadge status={ticket.slaStatus} dueAt={ticket.slaDueAt} escalatedAt={ticket.slaEscalatedAt} />
+                    {ticket.slaDueAt && <p className="text-xs text-muted-foreground">Due {ticket.slaDueAt}</p>}
+                    {ticket.firstResponseAt && <p className="text-xs text-muted-foreground">First response {ticket.firstResponseAt}</p>}
+                    {ticket.slaEscalatedAt && (
+                      <p className="text-xs font-medium text-warning">Escalated {ticket.slaEscalatedAt}</p>
+                    )}
+                  </div>
+                )}
+              />
             </dl>
           </SectionCard>
 

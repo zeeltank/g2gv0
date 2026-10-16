@@ -71,8 +71,16 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
   const set = <K extends keyof LeadPayload>(key: K, value: LeadPayload[K]) => setForm((f) => ({ ...f, [key]: value }))
 
   const submit = async () => {
-    if (!form.lastName?.trim() || !form.assignedTo) {
-      setError('Last Name and Assigned To are required.')
+    if (!form.lastName?.trim()) {
+      setError('Last Name is required.')
+      return
+    }
+    // Editing an existing lead still needs an explicit owner - only a brand-new lead can be
+    // left blank, falling back to the round-robin rotation if a tenant has turned one on
+    // (Sales & Marketing gap-closure, Wave 2); the backend returns a clear message if no
+    // rotation is configured.
+    if (lead && !form.assignedTo) {
+      setError('Assigned To is required.')
       return
     }
 
@@ -198,12 +206,12 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
           </div>
 
           <div className="space-y-1.5">
-            <Label>Assigned To *</Label>
+            <Label>Assigned To{lead ? ' *' : ''}</Label>
             <SearchableSelect
               value={form.assignedTo ?? ''}
               onChange={(v) => set('assignedTo', v)}
               options={employees.map((e) => ({ value: e.id, label: e.name }))}
-              placeholder="Choose an employee…"
+              placeholder={lead ? 'Choose an employee…' : 'Leave blank to auto-assign, if configured…'}
             />
           </div>
 

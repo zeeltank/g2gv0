@@ -39,7 +39,7 @@ import { DepartmentDeleteMergeDialog } from './department-delete-merge-dialog'
 import { DepartmentEmployeesPanel } from './department-employees-panel'
 import { DepartmentJobRolesPanel } from './department-job-roles-panel'
 import { ProcessTab } from './process-tab'
-import { SignalsHub } from './signals-hub'
+import { DepartmentSignalsPanel } from './department-signals-panel'
 import { DepartmentDocumentsTab } from '@/domain/documents/department-documents-tab'
 
 /**
@@ -80,7 +80,7 @@ const TABS = [
   { id: 'employees', label: 'Employees' },
   { id: 'jobroles', label: 'Job Roles' },
   { id: 'process', label: 'Process' },
-  { id: 'signals', label: 'Signals' },
+  { id: 'org-signals', label: 'Org Signals' },
   { id: 'documents', label: 'Documents' },
 ]
 
@@ -464,8 +464,8 @@ export function DepartmentDetailPage({
 
         {activeTab === 'process' && <ProcessTab department={department} context={context} canManage={canManage} />}
 
-        {activeTab === 'signals' && (
-          <SignalsHub key={department.id} department={department} context={context} canManage={canManage} />
+        {activeTab === 'org-signals' && (
+          <DepartmentSignalsPanel key={department.id} department={department} context={context} />
         )}
 
         {activeTab === 'documents' && (

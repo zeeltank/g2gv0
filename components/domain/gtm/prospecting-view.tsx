@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Pencil, Plus, Search, Sparkles, Trash2, Upload, UserPlus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ExternalLink, Loader2, Pencil, Plus, Search, Sparkles, Target, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,10 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import {
   ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, CONTACT_STATUSES, gtmService, isMasked,
   type AccountDetail, type ContactPatch, type GtmAccount, type GtmCandidate, type GtmContact, type GtmDirectory,
 } from '@/services/gtm/gtm'
+import type { CrossLinkedCrmOrganization } from '@/components/domain/crm/crm-cross-links-tab'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 import { ImportContactsDialog } from './import-contacts-dialog'
 
@@ -237,6 +240,8 @@ function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose
 }
 
 function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose: () => void; onChanged: () => void }) {
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
   const [detail, setDetail] = useState<AccountDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [contact, setContact] = useState({ full_name: '', title: '', email: '', role_in_deal: '' })
@@ -244,10 +249,15 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
   const [busy, setBusy] = useState(false)
   const [directory, setDirectory] = useState<GtmDirectory | null>(null)
   const [editingAccount, setEditingAccount] = useState(false)
+  // Sales & Marketing unification, Phase 7: only the CRM-organization half of
+  // the cross-link - the Signals half is already shown in depth by the
+  // "Buying signals" section below, duplicating it here would be noise.
+  const [crmOrg, setCrmOrg] = useState<CrossLinkedCrmOrganization | null>(null)
 
   useEffect(() => {
     if (id === null) return
     void gtmService.directory().then((r) => setDirectory(r.data)).catch(() => setDirectory(null))
+    void gtmService.getAccountCrossModuleLinks(id).then((r) => setCrmOrg(r.data.crm_organization)).catch(() => setCrmOrg(null))
   }, [id])
 
   const load = useCallback(async () => {
@@ -296,6 +306,17 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
                 {ACCOUNT_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <Badge variant="outline">source: {detail.account.source}</Badge>
+              {crmOrg && (
+                <button
+                  type="button"
+                  onClick={() => router.push(resolveAccessLink('/module/crm/marketing/organizations') + `/${crmOrg.id}`)}
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary hover:bg-primary/10"
+                  title="This account is also a CRM Organization"
+                >
+                  <Target className="size-3" aria-hidden="true" />
+                  Also in CRM
+                </button>
+              )}
               <Button size="sm" variant="outline" className="ml-auto text-destructive" disabled={busy}
                 onClick={() => { if (window.confirm(`Remove ${detail.account.name} from your accounts?`)) void run(() => gtmService.deleteAccount(detail.account.id), onClose) }}>
                 <Trash2 className="mr-1 size-3.5" />Remove

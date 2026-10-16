@@ -7,6 +7,7 @@
  */
 
 import { apiClient } from '@/services/core'
+import type { AccountCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 
 export const ACCOUNT_STAGES = ['target', 'engaged', 'opportunity', 'customer', 'churned', 'disqualified'] as const
 export type AccountStage = (typeof ACCOUNT_STAGES)[number]
@@ -187,6 +188,9 @@ export const gtmService = {
 
   getAccount: (id: number) => apiClient.get<Env<AccountDetail>>(`/gtm/accounts/${id}`),
 
+  // Sales & Marketing unification, Phase 7.
+  getAccountCrossModuleLinks: (id: number) => apiClient.get<Env<AccountCrossModuleLinks>>(`/gtm/accounts/${id}/cross-module-links`),
+
   createAccount: (input: AccountInput) => apiClient.post<Env<{ account: GtmAccount }>>('/gtm/accounts', input),
 
   promoteCompany: (companyId: number) =>
@@ -344,7 +348,8 @@ export interface MethodologyScore {
 
 export interface DealDetail {
   deal: GtmDeal
-  account: { id: number; name: string; stage: string; industry: string | null } | null
+  account: { id: number; name: string; stage: string; industry: string | null; crm_organization_id: number | null } | null
+  crm_opportunity_id: string | null
   contacts: GtmContact[]
   activities: GtmActivity[]
   history: { from_stage: string | null; to_stage: string; note: string | null; changed_at: string }[]
@@ -400,6 +405,10 @@ export const dealService = {
     apiClient.post<Env<MethodologyScore & { analysis_id: number; provider: string; model: string }>>(`/gtm/deals/${id}/score`, methodology_slug ? { methodology_slug } : {}),
   discovery: (id: number, notes: string) =>
     apiClient.post<Env<{ result: Record<string, unknown>; analysis_id: number; provider: string; model: string; integrity: { quotes_dropped: number; note: string | null } }>>(`/gtm/deals/${id}/discovery`, { notes }),
+  // Sales & Marketing unification, Phase 3: the explicit "Convert to CRM Opportunity" bridge.
+  // Only callable once the deal is won; idempotent (created:false on repeat).
+  convertToCrm: (id: number) =>
+    apiClient.post<Env<{ crm_organization_id: string; crm_opportunity_id: string | null; created: boolean }>>(`/gtm/deals/${id}/convert-to-crm`, {}),
 }
 
 export const OUTREACH_STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'sending', 'sent', 'failed', 'cancelled'] as const

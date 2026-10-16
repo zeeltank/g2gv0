@@ -169,12 +169,19 @@ export function OpportunityKanbanView() {
     const current = opportunities.find((o) => o.id === opportunityId)
     if (!current || current.salesStage === stage || movingId) return
 
+    let closeReason: string | undefined
+    if (stage === 'Closed Lost') {
+      const reason = window.prompt('Why was this opportunity lost? (required)')
+      if (!reason || !reason.trim()) return
+      closeReason = reason.trim()
+    }
+
     setMovingId(opportunityId)
     // Optimistic - the board feels instant, and a failure below reverts it.
     setOpportunities((prev) => prev.map((o) => (o.id === opportunityId ? { ...o, salesStage: stage } : o)))
 
     try {
-      await crmService.changeOpportunityStage(context, opportunityId, { salesStage: stage })
+      await crmService.changeOpportunityStage(context, opportunityId, { salesStage: stage, closeReason })
       void load()
     } catch (reason) {
       setOpportunities((prev) => prev.map((o) => (o.id === opportunityId ? { ...o, salesStage: current.salesStage } : o)))

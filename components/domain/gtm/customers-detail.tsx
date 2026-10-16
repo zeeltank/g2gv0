@@ -112,7 +112,7 @@ function CustomerBody({ id }: { id: number }) {
         )}
       </Section>
 
-      <Section title="Deals">
+      <Section title="GTM Deals">
         {extraError ? <p className="text-sm text-destructive">{extraError}</p> : !deals ? <Skeleton className="h-10" /> : deals.length === 0 ? <p className="text-sm text-muted-foreground">No deals recorded for this account.</p> : (
           <ul className="space-y-1 text-sm">{deals.map((x) => <li key={x.id}>{x.name} <Badge variant="outline">{x.stage}</Badge> <span className="text-xs text-muted-foreground">{fmtAmount(x.amount, x.currency)}</span></li>)}</ul>
         )}

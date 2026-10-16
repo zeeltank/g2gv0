@@ -253,7 +253,7 @@ export function DocumentLibraryView() {
   const isElevated = isRole(user?.role) && isHrAdmin(user.role)
 
   // Debounced so every keystroke doesn't fire a request - same inline
-  // pattern this codebase already uses (see ingestion-view.tsx).
+  // pattern this codebase already uses (see ingestion-engine-view.tsx).
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300)
     return () => clearTimeout(timer)
