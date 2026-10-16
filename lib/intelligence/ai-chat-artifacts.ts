@@ -93,19 +93,31 @@ export function generateChatReport(moduleKey: string, message: string): Promise<
 export interface ReportRecipient {
   id: number
   name: string
-  email: string
+  /** From the user's record; null when none (or not a valid address) is on file. */
+  email: string | null
+  /** Digits only, from the user's record; null when none (or not a plausible number) is on file. */
+  mobile: string | null
   role: string | null
   department: string | null
 }
 
-export type DeliveryStatus = 'queued' | 'sent' | 'failed' | 'duplicate'
+export type DeliveryChannel = 'email' | 'sms' | 'whatsapp'
+
+/** `prepared`: a WhatsApp message ready to open from the sender's own WhatsApp - not sent by the server. */
+export type DeliveryStatus = 'queued' | 'sent' | 'failed' | 'duplicate' | 'prepared'
 
 export interface SendResultRow {
   recipient_user_id: number
   name: string
-  email: string
+  email: string | null
+  mobile?: string | null
+  channel?: DeliveryChannel
   status: DeliveryStatus
   error: string | null
+  /** WhatsApp without a connected account: the click-to-chat link that opens the prepared message. */
+  link?: string
+  /** WhatsApp/SMS sent by the server: the provider's message id. */
+  message_id?: string
 }
 
 export interface SendReportResult {
@@ -114,6 +126,8 @@ export interface SendReportResult {
   sent: number
   failed: number
   duplicate: number
+  prepared?: number
+  channel?: DeliveryChannel
   results: SendResultRow[]
 }
 
@@ -121,7 +135,9 @@ export interface ReportDelivery {
   id: number
   recipient_user_id: number | null
   recipient_name: string | null
+  /** The address the message went to: an e-mail address, or the mobile number for SMS. */
   recipient_email: string
+  channel?: DeliveryChannel
   status: DeliveryStatus
   error: string | null
   sent_by: number | null
@@ -139,7 +155,7 @@ export interface SavedReportSummary {
   url_path: string
 }
 
-export async function searchReportRecipients(q: string): Promise<{ recipients: ReportRecipient[]; max_recipients: number }> {
+export async function searchReportRecipients(q: string): Promise<{ recipients: ReportRecipient[]; max_recipients: number; sms_configured?: boolean; whatsapp_configured?: boolean }> {
   const query = new URLSearchParams()
   if (q.trim()) query.set('q', q.trim())
 
@@ -150,12 +166,14 @@ export async function searchReportRecipients(q: string): Promise<{ recipients: R
 export function sendChatReport(
   reportId: number,
   recipientIds: number[],
-  options: { note?: string; requestKey?: string } = {},
+  options: { note?: string; requestKey?: string; channel?: DeliveryChannel; reportUrl?: string } = {},
 ): Promise<SendReportResult> {
   return aiRequest<SendReportResult>(`/chat/reports/${reportId}/send`, 'POST', {
     recipient_ids: recipientIds,
     note: options.note?.trim() || undefined,
     request_key: options.requestKey,
+    channel: options.channel,
+    report_url: options.reportUrl,
   })
 }
 

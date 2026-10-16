@@ -53,7 +53,11 @@ export function useVoiceInteraction() {
   const [isRecording, setIsRecording] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Read each new answer aloud (off by default, as in LMS K12).
+  const [speakReplies, setSpeakReplies] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  const isSpeechSupported = typeof window !== 'undefined' && Boolean(window.speechSynthesis)
 
   const isSupported = useMemo(
     () =>
@@ -151,6 +155,9 @@ export function useVoiceInteraction() {
   return {
     supportedLanguages: SUPPORTED_LANGUAGES,
     isSupported,
+    isSpeechSupported,
+    speakReplies,
+    setSpeakReplies,
     language,
     setLanguage,
     transcript,

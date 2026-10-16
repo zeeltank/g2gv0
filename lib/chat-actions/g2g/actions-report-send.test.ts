@@ -16,8 +16,8 @@ function deps(overrides: Partial<SendReportDeps> = {}) {
   const value: SendReportDeps = {
     listReports: async (m) => { calls.reportsFor.push(m); return [{ id: 12, title: 'Course status', module_key: m, row_count: 3, created_at: '2026-10-08', url_path: '/ai/reports/12' }] },
     listRecipients: async () => [
-      { id: 28, name: 'Asha Rao', email: 'asha@org.test', role: null, department: null },
-      { id: 29, name: 'Ben Roy', email: 'ben@org.test', role: null, department: null },
+      { id: 28, name: 'Asha Rao', email: 'asha@org.test', mobile: null, role: null, department: null },
+      { id: 29, name: 'Ben Roy', email: 'ben@org.test', mobile: null, role: null, department: null },
     ],
     sendReport: async (reportId, ids, options) => {
       calls.sent.push({ reportId, ids, options })

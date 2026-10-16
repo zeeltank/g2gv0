@@ -14,6 +14,8 @@ import { PlatformServicesSubheader } from '@/components/shell/platform-services-
 import PlatformServicesLauncher from '@/components/shell/gtg-platform-services-launcher'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { AgentPanel } from '@/components/shell/agent/agent-drawer'
+import { describeWorkspaceContext } from '@/components/shell/agent/describe-context'
+import type { WorkspaceContextInfo } from '@/components/shell/agent/workspace-chrome'
 import type { Message as AgentMessage } from '@/components/shell/agent/agent-chat'
 import { loadContentRoute, COMING_SOON_CONTENT, type ContentRoute } from '@/hooks/use-content-map'
 import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
@@ -363,8 +365,9 @@ export function GtgAppShell({
   const pageMenuId = active?.submenuId && /^\d+$/.test(active.submenuId) ? Number(active.submenuId) : null
   // Stored with the page they were made for, so a previous page's questions can never be
   // shown on the next one while its own are still loading.
-  const [pagePromptState, setPagePromptState] = useState<{ path: string; prompts: string[] } | null>(null)
+  const [pagePromptState, setPagePromptState] = useState<{ path: string; prompts: string[]; context: WorkspaceContextInfo | null } | null>(null)
   const pagePrompts = pagePromptState?.path === pathname ? pagePromptState.prompts : null
+  const pageWorkspaceContext = pagePromptState?.path === pathname ? pagePromptState.context : null
 
   /*
    * PAGE ENTITIES. The kinds of record a page lists that the chat can find and open ("show this
@@ -444,10 +447,14 @@ export function GtgAppShell({
         // page itself are offered; never a generic list.
         const usable = context !== null && (moduleChatKey || aiStack || context.scope === 'page' || context.scope === 'tab')
         const fromServer = usable && context ? context.suggestions.map((suggestion) => suggestion.prompt) : []
-        setPagePromptState({ path: pathname, prompts: records.length > 0 ? records : fromServer })
+        setPagePromptState({
+          path: pathname,
+          prompts: records.length > 0 ? records : fromServer,
+          context: describeWorkspaceContext(context, pageSnapshot),
+        })
       })
       .catch(() => {
-        if (!cancelled) setPagePromptState({ path: pathname, prompts: [] })
+        if (!cancelled) setPagePromptState({ path: pathname, prompts: [], context: null })
       })
 
     return () => {
@@ -742,6 +749,16 @@ export function GtgAppShell({
       },
     }
   }, [moduleChatKey, actionRegistry, actionFlows, availableActions, setFlow, startAction, refreshApprovals, pendingApprovals, myRequests, runApproved, setAgentOpen, router])
+
+  /** Starts a fresh conversation: clears the transcript and the server-side thread it was continuing. */
+  const handleNewChat = useCallback(() => {
+    agentMessagesRef.current = []
+    lastConversationIdRef.current = null
+    agentSessionIdRef.current = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setAgentMessages([])
+    setAgentError(null)
+    window.speechSynthesis?.cancel()
+  }, [])
 
   const handleAgentSendMessage = useCallback(async (message: string, moduleOverride?: string | null) => {
     const trimmed = message.trim()
@@ -1252,7 +1269,7 @@ export function GtgAppShell({
             </div>
             <aside aria-label="AI Agent Panel" className="flex-shrink-0 border-l border-border bg-background overflow-hidden transition-[width] duration-300"
               style={{ width: agentOpenState ? 'var(--agent-panel-width)' : '0px', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' }}>
-              <div className="h-full">
+              <div className="h-full p-3">
                 {agentOpenState && (
                   <ChatActionsContext.Provider value={chatActionsApi}>
                   <AgentPanel
@@ -1260,7 +1277,10 @@ export function GtgAppShell({
                     messages={agentMessages}
                     isLoading={agentLoading}
                     error={agentError}
+                    context={pageWorkspaceContext}
+                    contextLoading={pageContextOn && pagePromptState?.path !== pathname}
                     onClose={() => setAgentOpen(false)}
+                    onNewChat={handleNewChat}
                     onSendMessage={handleAgentSendMessage}
                     onOpenEntity={openEntity}
                   />
