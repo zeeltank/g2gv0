@@ -274,6 +274,8 @@ export interface ResearchRun {
   status: RunStatus
   stage?: ResearchStage | string | null
   stage_message?: string | null
+  /** The run's heartbeat: changes whenever the backend saves progress. */
+  updated_at?: string | null
   started_at: string | null
   completed_at: string | null
   duration_ms: number | null
@@ -305,6 +307,8 @@ export interface ResearchStatusResponse {
     /** Present when a product was asked about: whether it is configured for discovery, and what is still missing. */
     product?: { key: string; label: string; ready: boolean; missing: string[] } | null
     running: boolean
+    /** Another product's run holds the organisation's single run slot. */
+    busy_elsewhere?: boolean
     latest_run: ResearchRun | null
     last_successful_run: ResearchRun | null
     next_scheduled_at: string | null

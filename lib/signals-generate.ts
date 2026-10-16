@@ -85,3 +85,44 @@ export async function generateSignals(args: {
 
   return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null }
 }
+
+export interface GenerateHandlers {
+  /** The lock was already held (a click or run is in flight): tell the person instead of doing nothing. */
+  busy: () => void
+  /** Accepted: show an immediate response before the first request returns. */
+  begin: () => void
+  /** Refused with a reason (not ready, providers, already running). The lock has been released before this is called. */
+  refused: (outcome: Extract<GenerateOutcome, { started: false }>) => void
+  /** The backend accepted the run. The lock stays held until the caller follows the run to its end and releases it. */
+  started: (outcome: Extract<GenerateOutcome, { started: true }>) => void
+  /** The request failed. The lock has been released before this is called. */
+  failed: (error: unknown) => void
+}
+
+/**
+ * One click on Generate Signals. `guard` is a ref-like object checked and set synchronously, so a rapid second click cannot start a second
+ * request (React state alone updates too late for that). The guard is released on every path that does not hand a run to the caller:
+ * refusal and failure. Nothing here ever leaves it held without a run being followed.
+ */
+export async function runGuardedGenerate(guard: { current: boolean }, args: Parameters<typeof generateSignals>[0], on: GenerateHandlers): Promise<void> {
+  if (guard.current) {
+    on.busy()
+
+    return
+  }
+  guard.current = true
+  on.begin()
+  try {
+    const outcome = await generateSignals(args)
+    if (!outcome.started) {
+      guard.current = false
+      on.refused(outcome)
+
+      return
+    }
+    on.started(outcome)
+  } catch (e) {
+    guard.current = false
+    on.failed(e)
+  }
+}

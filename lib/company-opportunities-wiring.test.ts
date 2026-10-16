@@ -92,8 +92,9 @@ describe('One list and the research-date dropdown', () => {
     assert.match(list, /opportunitiesService\.list\(/)
   })
 
-  it('has one place that starts research: the Generate Signals button', () => {
-    assert.equal((screen.match(/run\.generate\(\)/g) ?? []).length, 1)
+  it('starts research only from a click: the Generate Signals button, and Retry on a failed run', () => {
+    assert.equal((screen.match(/run\.generate\(\)/g) ?? []).length, 2)
+    assert.match(screen, /<ResearchProgress[^>]*onRetry=/)
     assert.match(screen, /Generate Signals/)
   })
 
