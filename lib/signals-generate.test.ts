@@ -4,7 +4,7 @@
  */
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
-import { decideGenerate, generateSignals, type GenerateProduct, type GenerateService, type GenerateStatus } from './signals-generate'
+import { decideGenerate, generateSignals, runGuardedGenerate, type GenerateProduct, type GenerateService, type GenerateStatus } from './signals-generate'
 import type { LaravelContext } from './laravel-context'
 
 const ctx = { token: 't', subInstituteId: '6', syear: '', userId: '1', organizationId: '', orgType: '', profileId: '1' } as LaravelContext
@@ -125,5 +125,83 @@ describe('generateSignals', () => {
   it('lets a transport error reach the screen instead of pretending a run started', async () => {
     const service: GenerateService = { getStatus: async () => { throw new Error('network down') }, runResearch: async () => { throw new Error('unreachable') } }
     await assert.rejects(generateSignals({ context: ctx, choice: 'scholarclone', products, running: false, service }), /network down/)
+  })
+})
+
+describe('runGuardedGenerate (one click)', () => {
+  const handlers = () => {
+    const log: string[] = []
+
+    return {
+      log,
+      on: {
+        busy: () => log.push('busy'), begin: () => log.push('begin'),
+        refused: (o: { reason: string }) => log.push('refused:' + o.reason), started: (o: { runId: number | null }) => log.push('started:' + o.runId),
+        failed: (e: unknown) => log.push('failed:' + (e instanceof Error ? e.message : '?')),
+      },
+    }
+  }
+  const args = (service: GenerateService, choice = 'scholarclone') => ({ context: ctx, choice, products, running: false, service })
+
+  it('gives an immediate response, then starts exactly one run for the exact product', async () => {
+    const { service, calls } = stub(okStatus)
+    const guard = { current: false }
+    const h = handlers()
+    await runGuardedGenerate(guard, args(service), h.on)
+    assert.deepEqual(h.log, ['begin', 'started:77'])
+    assert.deepEqual(calls.run, ['scholarclone'])
+    assert.equal(guard.current, true, 'held while the started run is followed')
+  })
+
+  it('rapid repeated clicks send one request and the rest are told it is already starting', async () => {
+    const { service, calls } = stub(okStatus)
+    const guard = { current: false }
+    const h = handlers()
+    await Promise.all([1, 2, 3, 4].map(() => runGuardedGenerate(guard, args(service), h.on)))
+    assert.equal(calls.run.length, 1)
+    assert.deepEqual(h.log.filter((l) => l === 'busy').length, 3)
+  })
+
+  it('an invalid product is explained, sends nothing, and leaves the button usable', async () => {
+    const { service, calls } = stub(okStatus)
+    const guard = { current: false }
+    const h = handlers()
+    await runGuardedGenerate(guard, args(service, 'enterprise_brain'), h.on)
+    assert.deepEqual(h.log, ['begin', 'refused:not_ready'])
+    assert.equal(calls.run.length, 0)
+    assert.equal(guard.current, false)
+  })
+
+  it('a refusal because a run is going releases the lock, so the click is never silently ignored later', async () => {
+    const { service } = stub((p) => ({ ...okStatus(p), running: true }))
+    const guard = { current: false }
+    const h = handlers()
+    await runGuardedGenerate(guard, args(service), h.on)
+    assert.deepEqual(h.log, ['begin', 'refused:running'])
+    assert.equal(guard.current, false)
+  })
+
+  it('a failed request shows its error, releases the lock, and a retry then works', async () => {
+    let fail = true
+    const { service } = stub(okStatus)
+    const flaky: GenerateService = { ...service, runResearch: async (c, p, k) => { if (fail) throw new Error('Server error 500'); return service.runResearch(c, p, k) } }
+    const guard = { current: false }
+    const h = handlers()
+    await runGuardedGenerate(guard, args(flaky), h.on)
+    assert.deepEqual(h.log, ['begin', 'failed:Server error 500'])
+    assert.equal(guard.current, false)
+
+    fail = false
+    await runGuardedGenerate(guard, args(flaky), h.on)
+    assert.deepEqual(h.log.slice(2), ['begin', 'started:77'])
+  })
+
+  it('a status check that fails also releases the lock', async () => {
+    const service: GenerateService = { getStatus: async () => { throw new Error('Network error') }, runResearch: async () => ({ message: '' }) }
+    const guard = { current: false }
+    const h = handlers()
+    await runGuardedGenerate(guard, args(service), h.on)
+    assert.equal(guard.current, false)
+    assert.deepEqual(h.log, ['begin', 'failed:Network error'])
   })
 })

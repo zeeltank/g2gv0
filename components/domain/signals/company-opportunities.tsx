@@ -13,6 +13,7 @@ import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
+import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
 import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
@@ -62,7 +63,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
   const ready = Boolean(selected?.ready)
   const day = dates?.find((d) => d.date === runDate) ?? null
-  const stage = run.activeRun?.stage_message
+  // What the bar shows: the run being followed, else the product's latest run (so a failed or finished run is still visible after a reload).
+  const latest = run.status?.latest_run ?? null
+  const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped') ? latest : null)
 
   return (
     <div className="@container mx-auto max-w-6xl space-y-5 p-4 @xl:p-6">
@@ -119,13 +122,6 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         )}
       </section>
 
-      {run.running && (
-        <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-          <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-          <span className="min-w-0 break-words"><span className="font-medium">Generating signals for {selected?.label}.</span> {stage ?? 'Preparing the searches…'}</span>
-        </div>
-      )}
-
       {run.notice && (
         <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
           <span>{run.notice.text}</span>
@@ -152,7 +148,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             ) : (
               (datesError || dates === null) && <p className="text-sm text-muted-foreground" role="status">{datesError ?? 'Loading research dates…'}</p>
             )}
-            {day && (
+            <ResearchProgress run={shownRun} onRetry={() => void run.generate()} retryDisabled={run.running || !selected?.ready} />
+            {day && !shownRun && (
               <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
                 {day.status === 'partial' ? 'Finished with limits' : 'Completed'}
                 {day.runs > 1 ? ` · ${day.runs} runs` : ''}
