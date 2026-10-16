@@ -414,7 +414,7 @@ export interface IngestionSourceDetail extends IngestionSourceInfo {
 function base(context: LaravelContext): Record<string, string> {
   return {
     sub_institute_id: context.subInstituteId,
-    ...(context.token ? { type: 'api', token: context.token } : {}),
+    ...(context.token ? { token: context.token } : {}),
   }
 }
 
@@ -478,6 +478,11 @@ export const opportunitiesService = {
 
   act: (c: LaravelContext, id: number, action: 'review' | 'dismiss' | 'follow-up', notes?: string) =>
     apiClient.patch<{ status: number; data: Opportunity }>(`/signals/opportunities/${id}/${action}?${qs(c)}`, notes ? { notes } : {}),
+
+  // Sales & Marketing unification, Phase 4: promote an unqualified signal into a CRM Lead.
+  // Idempotent (created:false on repeat) - see Docs/sales-marketing-merge/DECISIONS.md.
+  promoteToCrm: (c: LaravelContext, id: number) =>
+    apiClient.post<{ status: number; data: { lead_id: string; created: boolean } }>(`/signals/opportunities/${id}/promote-to-crm?${qs(c)}`, {}),
 
   // ── ingestion ──
   listSources: (c: LaravelContext) => apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', base(c)),

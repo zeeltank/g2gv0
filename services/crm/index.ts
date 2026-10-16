@@ -10,6 +10,7 @@
 import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
+import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 import type {
   CampaignListQuery,
   CrmAddCommentResponse,
@@ -44,9 +45,20 @@ import type {
   ConvertLeadPayload,
   ConvertLeadResponse,
   CrmBulkActionResponse,
+  CrmCampaignSendPayload,
+  CrmCampaignSendResponse,
+  CrmCampaignSendSummaryResponse,
   CrmDuplicateGroupsResponse,
   CrmImportResponse,
   CrmItemType,
+  CrmLeadAssignmentSettingsResponse,
+  CrmLeadCaptureSettingsResponse,
+  CrmLeadCaptureUpdatePayload,
+  CrmLeadScoringRule,
+  CrmSlaPoliciesResponse,
+  CrmSlaPolicy,
+  CrmLeadScoringRulePayload,
+  CrmLeadScoringRulesResponse,
   CrmMergeResponse,
   CrmModule,
   CrmOpportunityContactsResponse,
@@ -129,6 +141,8 @@ import type {
   CrmInvoiceListQuery,
   CrmInvoiceListResponse,
   CrmInvoicePayload,
+  CrmInvoicePaymentPayload,
+  CrmInvoicePaymentsResponse,
   CrmInvoiceResponse,
   CrmInvoiceStageChangePayload,
   CrmInvoiceStatusHistoryResponse,
@@ -231,6 +245,40 @@ export const crmService = {
 
   importLeads: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/leads/import', { rows, ...baseParams(context) }),
+
+  // ── Lead scoring & assignment (Sales & Marketing gap-closure, Wave 2) ─
+  getLeadScoringRules: (context: LaravelContext) =>
+    apiClient.get<CrmLeadScoringRulesResponse>('/crm/leads/scoring-rules', baseParams(context)),
+
+  createLeadScoringRule: (context: LaravelContext, payload: CrmLeadScoringRulePayload) =>
+    apiClient.post<{ status: number; message: string; data: CrmLeadScoringRule }>('/crm/leads/scoring-rules', { ...payload, ...baseParams(context) }),
+
+  updateLeadScoringRule: (context: LaravelContext, id: string, payload: Partial<{ points: number; isActive: boolean }>) =>
+    apiClient.put<{ status: number; message: string; data: CrmLeadScoringRule }>(`/crm/leads/scoring-rules/${id}`, { ...payload, ...baseParams(context) }),
+
+  deleteLeadScoringRule: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/leads/scoring-rules/${id}`, baseParams(context)),
+
+  getLeadAssignmentSettings: (context: LaravelContext) =>
+    apiClient.get<CrmLeadAssignmentSettingsResponse>('/crm/leads/assignment-settings', baseParams(context)),
+
+  updateLeadAssignmentSettings: (context: LaravelContext, isEnabled: boolean) =>
+    apiClient.put<{ status: number; message: string }>('/crm/leads/assignment-settings', { isEnabled, ...baseParams(context) }),
+
+  addLeadRotationMember: (context: LaravelContext, userId: string) =>
+    apiClient.post<{ status: number; message: string }>('/crm/leads/assignment-settings/members', { userId: Number(userId), ...baseParams(context) }),
+
+  removeLeadRotationMember: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/leads/assignment-settings/members/${id}`, baseParams(context)),
+
+  getLeadCaptureSettings: (context: LaravelContext) =>
+    apiClient.get<CrmLeadCaptureSettingsResponse>('/crm/leads/capture-settings', baseParams(context)),
+
+  updateLeadCaptureSettings: (context: LaravelContext, payload: CrmLeadCaptureUpdatePayload) =>
+    apiClient.put<CrmLeadCaptureSettingsResponse>('/crm/leads/capture-settings', { ...payload, ...baseParams(context) }),
+
+  regenerateLeadCaptureKey: (context: LaravelContext) =>
+    apiClient.post<CrmLeadCaptureSettingsResponse>('/crm/leads/capture-settings/regenerate-key', { ...baseParams(context) }),
 
   // ── Organizations ──────────────────────────────────────────────────
   getOrganizations: (context: LaravelContext, query: OrganizationListQuery = {}) =>
@@ -384,6 +432,13 @@ export const crmService = {
     apiClient.put<{ status: number; message: string }>(`/crm/campaigns/${id}/targets/${targetRowId}`, {
       responseStatus, ...baseParams(context),
     }),
+
+  // ── Campaign send (Sales & Marketing gap-closure, Wave 5) ─────────────
+  getCampaignSendSummary: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmCampaignSendSummaryResponse>(`/crm/campaigns/${id}/send-summary`, baseParams(context)),
+
+  sendCampaign: (context: LaravelContext, id: string, payload: CrmCampaignSendPayload) =>
+    apiClient.post<CrmCampaignSendResponse>(`/crm/campaigns/${id}/send`, { ...payload, ...baseParams(context) }),
 
   bulkDeleteCampaigns: (context: LaravelContext, ids: string[]) =>
     apiClient.post<CrmBulkActionResponse>('/crm/campaigns/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
@@ -910,6 +965,15 @@ export const crmService = {
   getInvoiceLineItems: (context: LaravelContext, id: string) =>
     apiClient.get<CrmInvoiceLineItemsResponse>(`/crm/invoices/${id}/line-items`, baseParams(context)),
 
+  downloadInvoicePdf: (context: LaravelContext, id: string): Promise<Blob> =>
+    apiClient.getBlob(`/crm/invoices/${id}/pdf`, baseParams(context)),
+
+  getInvoicePayments: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmInvoicePaymentsResponse>(`/crm/invoices/${id}/payments`, baseParams(context)),
+
+  recordInvoicePayment: (context: LaravelContext, id: string, payload: CrmInvoicePaymentPayload) =>
+    apiClient.post<CrmInvoiceResponse>(`/crm/invoices/${id}/payments`, { ...payload, ...baseParams(context) }),
+
   bulkDeleteInvoices: (context: LaravelContext, ids: string[]) =>
     apiClient.post<CrmBulkActionResponse>('/crm/invoices/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
 
@@ -1071,6 +1135,23 @@ export const crmService = {
 
   importTickets: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/tickets/import', { rows, ...baseParams(context) }),
+
+  // ── Support SLA policies (Sales & Marketing gap-closure, Wave 4) ──────
+  getSlaPolicies: (context: LaravelContext) =>
+    apiClient.get<CrmSlaPoliciesResponse>('/crm/sla-policies', baseParams(context)),
+
+  /** Create-or-update, keyed by priority - the backend upserts, so the caller never needs to know whether one already exists. */
+  saveSlaPolicy: (context: LaravelContext, priority: string, responseHours: number) =>
+    apiClient.post<{ status: number; message: string; data: CrmSlaPolicy }>('/crm/sla-policies', { priority, responseHours, ...baseParams(context) }),
+
+  deleteSlaPolicy: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/sla-policies/${id}`, baseParams(context)),
+
+  /** Wave 6: who to escalate a breach to, and whether it reassigns the ticket. */
+  updateSlaEscalation: (context: LaravelContext, id: string, escalateToUserId: string | null, autoReassignOnBreach: boolean) =>
+    apiClient.patch<{ status: number; message: string; data: CrmSlaPolicy }>(`/crm/sla-policies/${id}/escalation`, {
+      escalateToUserId, autoReassignOnBreach, ...baseParams(context),
+    }),
 
   // ── FAQ ──────────────────────────────────────────────────────────────
   getFaqs: (context: LaravelContext, query: CrmFaqListQuery = {}) =>
@@ -1234,6 +1315,8 @@ export const crmService = {
     apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/opportunities/${id}/emails`, baseParams(context)),
   getTicketEmails: (context: LaravelContext, id: string) =>
     apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/tickets/${id}/emails`, baseParams(context)),
+  getInvoiceEmails: (context: LaravelContext, id: string) =>
+    apiClient.get<CrmEmailLinkEntriesResponse>(`/crm/invoices/${id}/emails`, baseParams(context)),
 
   // ── Email Templates ──────────────────────────────────────────────────
   getEmailTemplates: (context: LaravelContext, query: CrmEmailTemplateListQuery = {}) =>
@@ -1302,6 +1385,10 @@ export const crmService = {
     apiClient.get<{ status: number; message: string; data: LinkedProject[] }>(`/crm/organizations/${id}/projects`, baseParams(context)),
   getOpportunityProjects: (context: LaravelContext, id: string) =>
     apiClient.get<{ status: number; message: string; data: LinkedProject[] }>(`/crm/opportunities/${id}/projects`, baseParams(context)),
+
+  // Sales & Marketing unification, Phase 7.
+  getOrganizationCrossModuleLinks: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: number; message: string; data: OrganizationCrossModuleLinks }>(`/crm/organizations/${id}/cross-module-links`, baseParams(context)),
 }
 
 export type { Lead }

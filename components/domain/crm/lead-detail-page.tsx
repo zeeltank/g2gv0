@@ -22,6 +22,7 @@ import { CrmEmailTab } from './crm-email-tab'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmHistoryTab } from './crm-history-tab'
 import { CrmScheduleTab } from './crm-schedule-tab'
+import { LEAD_SCORING_FIELD_LABEL, LEAD_SCORING_OPERATOR_LABEL } from './lead-scoring-labels'
 import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmPicklistValue } from '@/types/crm'
 
 interface Props {
@@ -223,6 +224,26 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
               <ReadField label="Lead Source" value={lead.leadSource} />
               <ReadField label="Lead Status" value={lead.leadStatus} />
               <ReadField label="Rating" value={lead.rating && <IconValue icon={Star}>{lead.rating}</IconValue>} />
+              <ReadField
+                label="Lead Score"
+                value={(
+                  <div className="space-y-1">
+                    <StatusBadge variant={lead.leadScore >= 50 ? 'success' : lead.leadScore > 0 ? 'default' : 'inactive'}>
+                      {lead.leadScore} pts
+                    </StatusBadge>
+                    {lead.leadScoreBasis.length > 0 && (
+                      <ul className="space-y-0.5 text-xs text-muted-foreground">
+                        {lead.leadScoreBasis.map((b) => (
+                          <li key={b.ruleId}>
+                            {LEAD_SCORING_FIELD_LABEL[b.fieldKey] ?? b.fieldKey} {LEAD_SCORING_OPERATOR_LABEL[b.operator] ?? b.operator}
+                            {b.operator !== 'is_not_empty' ? ` "${b.value}"` : ''}: {b.points >= 0 ? '+' : ''}{b.points}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              />
               <ReadField label="Annual Revenue" value={lead.annualRevenue != null ? String(lead.annualRevenue) : null} />
               <ReadField label="Number of Employees" value={lead.numberOfEmp && <IconValue icon={Users}>{lead.numberOfEmp}</IconValue>} />
             </dl>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, LayoutGrid, List, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, CheckCircle2, LayoutGrid, List, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +61,7 @@ export function DealsView() {
   return (
     <div className="p-6">
       <GtmPageHeader
-        title="Deals"
+        title="GTM Deals (Pipeline)"
         description="Your pipeline. Counts and values are totals of your deal records, shown per currency. Health flags come from fixed rules, not from AI."
         actions={<Button onClick={() => setCreating(true)}><Plus className="mr-1 size-4" />New deal</Button>}
       />
@@ -207,12 +207,14 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
   const [note, setNote] = useState({ type: 'note', subject: '' })
   const [coach, setCoach] = useState<Row | null>(null)
   const [discovery, setDiscovery] = useState<{ result: Row; integrity: { note: string | null } } | null>(null)
+  const [convertedOpportunityId, setConvertedOpportunityId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (id === null) return
     try {
       const res = (await dealService.get(id)).data
       setD(res)
+      setConvertedOpportunityId(res.crm_opportunity_id)
       setEdit({
         next_step: res.deal.next_step ?? '', next_step_due: res.deal.next_step_due ?? '', expected_close_date: res.deal.expected_close_date ?? '',
         name: res.deal.name, amount: res.deal.amount ? String(Number(res.deal.amount)) : '', currency: res.deal.currency ?? '',
@@ -285,6 +287,33 @@ function DealDialog({ id, onClose, onChanged }: { id: number | null; onClose: ()
                 <Button size="sm" variant="outline" className="ml-auto text-destructive" disabled={busy !== null}
                   onClick={() => { if (window.confirm(`Remove the deal "${deal.name}"?`)) void run('del', () => dealService.remove(deal.id), onClose) }}><Trash2 className="mr-1 size-3.5" />Remove</Button>
               </div>
+              {deal.stage === 'won' && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-3">
+                  {d.account?.crm_organization_id ? (
+                    <>
+                      <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                      <span className="text-sm text-muted-foreground">Converted to CRM.</span>
+                      <Link href={`/module/crm/marketing/organizations/${d.account.crm_organization_id}`} className="text-sm text-primary underline">View Organization</Link>
+                      {convertedOpportunityId && (
+                        <Link href={`/module/crm/sales/opportunities/${convertedOpportunityId}`} className="text-sm text-primary underline">View Opportunity</Link>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm text-muted-foreground">Promote this won deal into a real CRM Organization and Opportunity.</span>
+                      <Button size="sm" variant="outline" className="ml-auto" disabled={busy !== null}
+                        onClick={() => run('convert', async () => {
+                          const r = await dealService.convertToCrm(deal.id)
+                          setConvertedOpportunityId(r.data.crm_opportunity_id)
+                        })}
+                      >
+                        {busy === 'convert' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <ArrowUpRight className="mr-1 size-3.5" />}
+                        Convert to CRM Opportunity
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </section>
 
             {open && (

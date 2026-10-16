@@ -164,7 +164,7 @@ function CurrencyBlock({ currency, total, periods, weighted }: { currency: strin
       </div>
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs text-muted-foreground"><tr><th className="p-3">Expected close month</th><th className="p-3">Deals</th><th className="p-3">Pipeline</th><th className="p-3">Best case</th><th className="p-3">Commit</th><th className="p-3">Weighted</th></tr></thead>
+          <thead className="bg-muted/50 text-left text-xs text-muted-foreground"><tr><th className="p-3">Expected close month</th><th className="p-3">GTM Deals</th><th className="p-3">Pipeline</th><th className="p-3">Best case</th><th className="p-3">Commit</th><th className="p-3">Weighted</th></tr></thead>
           <tbody>
             {periods.map((p) => (
               <tr key={p.period} className="border-t border-border">

@@ -102,7 +102,7 @@ export interface SignalQuery {
 function base(context: LaravelContext): Record<string, string> {
   return {
     sub_institute_id: context.subInstituteId,
-    ...(context.token ? { type: 'api', token: context.token } : {}),
+    ...(context.token ? { token: context.token } : {}),
   }
 }
 

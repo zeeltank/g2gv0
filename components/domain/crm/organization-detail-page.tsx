@@ -31,6 +31,7 @@ import { SendEmailDialog } from './send-email-dialog'
 import { CrmHistoryTab } from './crm-history-tab'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
+import { CrmOrganizationCrossLinksTab, type OrganizationCrossModuleLinks } from './crm-cross-links-tab'
 
 interface Props {
   organization: Organization
@@ -39,7 +40,7 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'custom'
+type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'cross_links' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'hierarchy', label: 'Hierarchy' },
@@ -51,6 +52,7 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'emails', label: 'Emails' },
   { id: 'history', label: 'History' },
   { id: 'projects', label: 'Projects' },
+  { id: 'cross_links', label: 'GTM & Signals' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
@@ -140,6 +142,8 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [historyLoading, setHistoryLoading] = useState(true)
   const [linkedProjects, setLinkedProjects] = useState<LinkedProject[]>([])
   const [linkedProjectsLoading, setLinkedProjectsLoading] = useState(true)
+  const [crossLinks, setCrossLinks] = useState<OrganizationCrossModuleLinks | null>(null)
+  const [crossLinksLoading, setCrossLinksLoading] = useState(true)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -232,12 +236,24 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
     }
   }, [context, organization.id])
 
+  const loadCrossLinks = useCallback(async () => {
+    setCrossLinksLoading(true)
+    try {
+      const response = await crmService.getOrganizationCrossModuleLinks(context, organization.id)
+      setCrossLinks(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setCrossLinksLoading(false)
+    }
+  }, [context, organization.id])
+
   useEffect(() => {
     queueMicrotask(() => {
       void loadOpportunities(); void loadQuotes(); void loadComments()
-      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects()
+      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects(); void loadCrossLinks()
     })
-  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects])
+  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects, loadCrossLinks])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -453,6 +469,12 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
       {tab === 'projects' && (
         <SectionCard title="Linked Projects" description="Task Management projects tied to this organization.">
           <CrmProjectsTab projects={linkedProjects} loading={linkedProjectsLoading} />
+        </SectionCard>
+      )}
+
+      {tab === 'cross_links' && (
+        <SectionCard title="GTM & Signals" description="Where this same organization also shows up, matched by name - these are three separate records, not one, so changes on one side don't update the others.">
+          <CrmOrganizationCrossLinksTab links={crossLinks} loading={crossLinksLoading} />
         </SectionCard>
       )}
 

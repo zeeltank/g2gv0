@@ -20,6 +20,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  UserPlus,
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import Link from 'next/link'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
@@ -97,6 +99,8 @@ export function SignalsFeedView() {
   const [reviewNoteModal, setReviewNoteModal] = useState<{ opp: Opportunity; action: 'review' | 'dismiss' | 'follow-up' } | null>(null)
   const [reviewNoteText, setReviewNoteText] = useState('')
   const [matchingModalOpp, setMatchingModalOpp] = useState<Opportunity | null>(null)
+  const [promotedLeads, setPromotedLeads] = useState<Record<number, string>>({})
+  const [promotingId, setPromotingId] = useState<number | null>(null)
 
   // Custom scan form state
   const [showFilters, setShowFilters] = useState(false)
@@ -194,6 +198,19 @@ export function SignalsFeedView() {
       loadFeed()
     } catch (e) {
       alert(e instanceof ApiError || e instanceof Error ? e.message : 'Action failed')
+    }
+  }
+
+  const handlePromote = async (opp: Opportunity) => {
+    if (!ready) return
+    setPromotingId(opp.id)
+    try {
+      const res = await opportunitiesService.promoteToCrm(context, opp.id)
+      setPromotedLeads((prev) => ({ ...prev, [opp.id]: res.data.lead_id }))
+    } catch (e) {
+      alert(e instanceof ApiError || e instanceof Error ? e.message : 'Failed to promote this signal to a CRM lead')
+    } finally {
+      setPromotingId(null)
     }
   }
 
@@ -814,15 +831,41 @@ export function SignalsFeedView() {
                     </Button>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setMatchingModalOpp(opp)}
-                    className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
-                  >
-                    <Briefcase className="size-3.5" />
-                    Match Offers & Partners
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {promotedLeads[opp.id] ? (
+                      <Link
+                        href={`/module/crm/marketing/leads/${promotedLeads[opp.id]}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                        Promoted to CRM &middot; View Lead
+                      </Link>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={promotingId === opp.id}
+                        onClick={() => void handlePromote(opp)}
+                        className="gap-1.5"
+                      >
+                        {promotingId === opp.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <UserPlus className="size-3.5" />
+                        )}
+                        Promote to CRM Lead
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMatchingModalOpp(opp)}
+                      className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                    >
+                      <Briefcase className="size-3.5" />
+                      Match Offers & Partners
+                    </Button>
+                  </div>
                 </div>
               </div>
             )

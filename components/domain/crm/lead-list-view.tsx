@@ -24,7 +24,7 @@ import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 
-type SortKey = 'first_name' | 'last_name' | 'company' | 'email' | 'lead_status' | 'lead_source' | 'rating' | 'created_at'
+type SortKey = 'first_name' | 'last_name' | 'company' | 'email' | 'lead_status' | 'lead_source' | 'rating' | 'lead_score' | 'created_at'
 
 const LEAD_IMPORT_HEADER_MAP: Record<string, string> = {
   salutation: 'salutation', 'first name': 'firstName', 'last name': 'lastName',
@@ -245,16 +245,17 @@ export function LeadListView() {
               <SortHead label="Status" sortKey="lead_status" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Source" sortKey="lead_source" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/leads:table-cell" />
               <SortHead label="Rating" sortKey="rating" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @lg/leads:table-cell" />
+              <SortHead label="Score" sortKey="lead_score" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading leads…
               </TableCell></TableRow>
             )}
             {!isLoading && leads.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                 No leads yet. Click “Add Lead” to create one.
               </TableCell></TableRow>
             )}
@@ -283,6 +284,11 @@ export function LeadListView() {
                 </TableCell>
                 <TableCell className="hidden @md/leads:table-cell">{lead.leadSource || '—'}</TableCell>
                 <TableCell className="hidden @lg/leads:table-cell">{lead.rating || '—'}</TableCell>
+                <TableCell>
+                  {lead.leadScore > 0
+                    ? <StatusBadge variant={lead.leadScore >= 50 ? 'success' : 'default'}>{lead.leadScore}</StatusBadge>
+                    : <span className="text-muted-foreground">0</span>}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
