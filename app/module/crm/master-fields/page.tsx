@@ -18,6 +18,8 @@ import { ArrowUpRight } from 'lucide-react'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { Button } from '@/components/ui/button'
 import { CrmLeadCaptureAdmin } from '@/domain/crm/crm-lead-capture-admin'
 import { CrmLeadRoutingAdmin } from '@/domain/crm/crm-lead-routing-admin'
@@ -25,18 +27,16 @@ import { CrmPicklistAdmin } from '@/domain/crm/crm-picklist-admin'
 import { CrmSlaPolicyAdmin } from '@/domain/crm/crm-sla-policy-admin'
 import { CrmTaxRateAdmin } from '@/domain/crm/crm-tax-rate-admin'
 
-const MASTER_FIELDS_ACTIVE_NAV = { moduleId: '199', menuId: '200', submenuId: '201' }
-
-const breadcrumbItems = [
-  { label: 'Home', href: '/' },
-  { label: 'CRM' },
-  { label: 'Master Fields' },
-]
+// Menu row 202 ("Master Fields") is a direct child of 199 ("Sales & Marketing"),
+// not nested under Marketing/Leads - confirmed against tblmenumaster_g2g.
+const MASTER_FIELDS_ACTIVE_NAV = { moduleId: '199', menuId: '202', submenuId: '' }
 
 type Tab = 'picklists' | 'tax-rates' | 'lead-routing' | 'lead-capture' | 'sla-policies' | 'custom'
 
 export default function CrmMasterFieldsRoute() {
   const [tab, setTab] = useState<Tab>('picklists')
+  const { modules } = useSidebarNavigation()
+  const breadcrumbItems = resolveBreadcrumb(MASTER_FIELDS_ACTIVE_NAV, modules)
 
   return (
     <ProtectedLayout>

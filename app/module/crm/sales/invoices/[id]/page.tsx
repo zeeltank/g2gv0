@@ -11,7 +11,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_INVOICES_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_INVOICES_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { InvoiceDetailPage } from '@/domain/crm/invoice-detail-page'
 import type { CrmInvoice, CrmPicklistValue } from '@/types/crm'
@@ -21,7 +21,7 @@ export default function CrmInvoiceDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_INVOICES_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -58,9 +58,7 @@ export default function CrmInvoiceDetailRoute() {
   const backToInvoices = () => router.push(resolveAccessLink(CRM_INVOICES_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Invoices', href: CRM_INVOICES_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: invoice ? invoice.subject : '...' },
   ]
 

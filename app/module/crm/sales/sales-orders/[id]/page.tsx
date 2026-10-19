@@ -11,6 +11,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { SalesOrderDetailPage } from '@/domain/crm/sales-order-detail-page'
 import type { CrmPicklistValue, CrmSalesOrder } from '@/types/crm'
@@ -22,7 +23,7 @@ export default function CrmSalesOrderDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_SALES_ORDERS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -59,9 +60,7 @@ export default function CrmSalesOrderDetailRoute() {
   const backToSalesOrders = () => router.push(resolveAccessLink(CRM_SALES_ORDERS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Sales Orders', href: CRM_SALES_ORDERS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: salesOrder ? salesOrder.subject : '...' },
   ]
 

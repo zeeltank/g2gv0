@@ -16,6 +16,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { AssetDetailPage } from '@/domain/crm/asset-detail-page'
 import type { CrmAsset } from '@/types/crm'
@@ -27,7 +28,7 @@ export default function CrmAssetDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_ASSETS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -56,9 +57,7 @@ export default function CrmAssetDetailRoute() {
   const backToAssets = () => router.push(resolveAccessLink(CRM_ASSETS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Assets', href: CRM_ASSETS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: asset ? asset.assetName : '...' },
   ]
 

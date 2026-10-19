@@ -11,7 +11,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_OPPORTUNITIES_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_OPPORTUNITIES_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { OpportunityDetailPage } from '@/domain/crm/opportunity-detail-page'
 import type { CrmOpportunity, CrmPicklistValue } from '@/types/crm'
@@ -21,7 +21,7 @@ export default function CrmOpportunityDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_OPPORTUNITIES_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -64,9 +64,7 @@ export default function CrmOpportunityDetailRoute() {
   const backToOpportunities = () => router.push(resolveAccessLink(CRM_OPPORTUNITIES_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Opportunities', href: CRM_OPPORTUNITIES_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: opportunity ? opportunity.name : '...' },
   ]
 

@@ -17,6 +17,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { ServiceContractDetailPage } from '@/domain/crm/service-contract-detail-page'
 import type { CrmServiceContract } from '@/types/crm'
@@ -28,7 +29,7 @@ export default function CrmServiceContractDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_SERVICE_CONTRACTS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -57,9 +58,7 @@ export default function CrmServiceContractDetailRoute() {
   const backToServiceContracts = () => router.push(resolveAccessLink(CRM_SERVICE_CONTRACTS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Service Contracts', href: CRM_SERVICE_CONTRACTS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: serviceContract ? serviceContract.subject : '...' },
   ]
 
