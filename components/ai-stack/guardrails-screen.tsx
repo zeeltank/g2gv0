@@ -151,7 +151,7 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
       <AiStackHeader
         icon={ShieldAlert}
         title={`${module.label} AI guardrails`}
-        summary={`What the ${module.label} module's AI is allowed to do, what a person has to approve, and which requests a rule refused.`}
+        summary={`What the ${module.label} module's AI is allowed to do, what a person has to approve, and which requests were refused or failed.`}
         loading={loading}
         onRefresh={reload}
       />
@@ -187,8 +187,14 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
           {
             key: 'refusals',
             label: 'Refusals',
-            value: guardrails ? guardrails.refusals.length : '—',
-            hint: 'requests a rule stopped',
+            value:
+              guardrails && guardrails.refusals_metered !== false
+                ? guardrails.refusal_counts.reduce((sum, row) => sum + row.count, 0)
+                : '—',
+            hint:
+              guardrails && guardrails.refusals_metered === false
+                ? 'not metered for this module'
+                : 'refused or failed requests',
           },
         ]}
       />
@@ -432,7 +438,7 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
 
       <AiStackCard className="overflow-hidden">
         <AiStackCardHeading
-          title="Requests a rule refused"
+          title="Requests refused or failed"
           hint={`${module.label} generations that did not complete, with the verdict the governance layer recorded.`}
         />
 
@@ -446,11 +452,21 @@ export function AiStackGuardrailsScreen({ module }: { module: AiStackModule }) {
           </div>
         )}
 
-        {!guardrails || guardrails.refusals.length === 0 ? (
+        {!guardrails ? (
+          error ? null : <p className="px-5 py-6 text-sm text-slate-500">Loading…</p>
+        ) : guardrails.refusals_metered === false ? (
+          <p className="flex items-start gap-2 px-5 py-6 text-sm text-slate-500">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-slate-400" />
+            <span>
+              Not measured. No metered AI consumer is linked to {module.label}, so refused and failed requests are not
+              recorded for it; an empty list here would not mean there were none.
+            </span>
+          </p>
+        ) : guardrails.refusals.length === 0 ? (
           <p className="flex items-start gap-2 px-5 py-6 text-sm text-slate-500">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
             <span>
-              Nothing has been refused for {module.label}. That is either a clean record or an unused one — the{' '}
+              Nothing has been refused or failed for {module.label}. That is either a clean record or an unused one — the{' '}
               <strong>Usage &amp; Cost</strong> tab says which, by showing how much has been asked of {module.label}{' '}
               AI at all.
             </span>

@@ -237,8 +237,43 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
 ];
 
+/**
+ * Modules and tools learned at runtime, for a module added after this file was written.
+ *
+ * The lists above are the hand-studied modules. A module the backend registered later (see
+ * `lib/ai-stack/generic.ts`) reports its own read-only sources, and those are registered here so the
+ * Automations tab can offer, validate and run them exactly like the built-in ones. The server still
+ * re-checks every tool against the module's catalogue, so this narrows a form and widens nothing.
+ */
+const dynamicModules = new Map<string, AgentModule>();
+const dynamicTools = new Map<string, AgentTool>();
+
+export function registerDynamicModule(
+  module: AgentModule,
+  sources: Array<{ key: string; label: string; description: string }>,
+): void {
+  if (AGENT_MODULES.some((known) => known.key === module.key)) return;
+
+  dynamicModules.set(module.key, module);
+
+  for (const source of sources) {
+    if (AGENT_TOOLS.some((tool) => tool.key === source.key)) continue;
+
+    dynamicTools.set(source.key, {
+      key: source.key,
+      label: source.label,
+      description: `${source.description} Changes nothing.`,
+      module: module.key,
+      risk: 'read',
+      kind: 'mcp',
+      available: true,
+      exampleInput: { limit: 50 },
+    });
+  }
+}
+
 export function findModule(key: string): AgentModule | undefined {
-  return AGENT_MODULES.find((module) => module.key === key);
+  return AGENT_MODULES.find((module) => module.key === key) ?? dynamicModules.get(key);
 }
 
 export function isKnownModule(key: string): boolean {
@@ -252,13 +287,13 @@ export function rbacModuleKey(module: AgentModuleKey): string {
 
 /** Tools a Create Agent form may offer for one module: the module's own plus shared. */
 export function toolsForModule(module: AgentModuleKey): AgentTool[] {
-  return AGENT_TOOLS.filter(
+  return [...AGENT_TOOLS, ...dynamicTools.values()].filter(
     (tool) => tool.module === module || ROLLS_UP_TO[tool.module] === module || tool.module === SHARED_MODULE,
   );
 }
 
 export function findTool(key: string): AgentTool | undefined {
-  return AGENT_TOOLS.find((tool) => tool.key === key);
+  return AGENT_TOOLS.find((tool) => tool.key === key) ?? dynamicTools.get(key);
 }
 
 /** The reason an allow-list is not acceptable for a module, or null if it is. */

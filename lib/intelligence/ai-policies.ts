@@ -48,8 +48,6 @@ export interface AiPolicyModuleOption {
 export interface AiPolicyRow {
   id: number
   sub_institute_id: number | null
-  /** A platform worked example (shown with an "example" pill by the module AI Stack). */
-  is_example?: number
   /** A shared baseline policy. Visible to every organisation, editable by none. */
   is_platform: boolean
   editable: boolean

@@ -114,15 +114,15 @@ export function AiStackApprovalsScreen({ module }: { module: AiStackModule }) {
 
       <AiStackMetrics
         metrics={[
-          { key: 'total', label: 'Requests', value: requests.length, hint: `${module.label} actions` },
-          { key: 'pending', label: 'Waiting', value: counts.pending, hint: 'for an administrator' },
-          { key: 'completed', label: 'Completed', value: counts.completed, hint: 'ran successfully' },
-          { key: 'failed', label: 'Failed', value: counts.failed, hint: 'recorded, not hidden' },
-          { key: 'rejected', label: 'Rejected', value: counts.rejected, hint: 'nothing was saved' },
+          { key: 'total', label: 'Requests', value: error ? '—' : requests.length, hint: `${module.label} actions` },
+          { key: 'pending', label: 'Waiting', value: error ? '—' : counts.pending, hint: 'for an administrator' },
+          { key: 'completed', label: 'Completed', value: error ? '—' : counts.completed, hint: 'ran successfully' },
+          { key: 'failed', label: 'Failed', value: error ? '—' : counts.failed, hint: 'recorded, not hidden' },
+          { key: 'rejected', label: 'Rejected', value: error ? '—' : counts.rejected, hint: 'nothing was saved' },
         ]}
       />
 
-      {requests.length === 0 && !loading ? (
+      {requests.length === 0 && !loading && !error ? (
         <AiStackEmpty icon={ShieldCheck} title="No actions proposed yet">
           When the assistant proposes a change from a {module.label} screen and it is sent for approval, it appears here
           with its decision and outcome.

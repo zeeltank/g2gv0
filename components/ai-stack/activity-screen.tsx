@@ -100,8 +100,10 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
   const stats = useMemo(() => {
     const completed = entries.filter((entry) => entry.status === 'completed').length;
     const failed = entries.filter((entry) => entry.status === 'failed' || entry.status === 'denied').length;
-    const withAi = entries.filter((entry) => Object.keys(entry.used).length > 0).length;
-    const people = new Set(entries.map((entry) => entry.actor_id ?? entry.actor_label ?? 'unknown'));
+    // An entry used AI when it names an AI capability or an AI Stack record; a chat answer names the capability only.
+    const withAi = entries.filter((entry) => entry.capability !== null || Object.keys(entry.used).length > 0).length;
+    // Only rows that name who did it: a missing actor is unknown, not one more person.
+    const people = new Set(entries.flatMap((entry) => (entry.actor_id ?? entry.actor_label) === null ? [] : [entry.actor_id ?? entry.actor_label]));
 
     return { completed, failed, withAi, people: people.size };
   }, [entries]);
@@ -160,15 +162,16 @@ export function AiStackActivityScreen({ module }: { module: AiStackModule }) {
 
       <AiStackMetrics
         metrics={[
-          { key: 'total', label: 'Recorded', value: activity?.total ?? 0, hint: `${module.label} operations` },
-          { key: 'shown', label: 'Shown', value: entries.length, hint: `newest ${PAGE}` },
-          { key: 'completed', label: 'Completed', value: stats.completed, hint: 'of those shown' },
-          { key: 'failed', label: 'Failed or denied', value: stats.failed, hint: 'recorded, not hidden' },
-          { key: 'with-ai', label: 'Used AI', value: stats.withAi, hint: 'named an AI record' },
+          // Until a read has succeeded there is nothing to count: a failed request is not "0 recorded".
+          { key: 'total', label: 'Recorded', value: activity ? activity.total : '—', hint: `${module.label} operations` },
+          { key: 'shown', label: 'Shown', value: activity ? entries.length : '—', hint: `newest ${PAGE}` },
+          { key: 'completed', label: 'Completed', value: activity ? stats.completed : '—', hint: 'of those shown' },
+          { key: 'failed', label: 'Failed or denied', value: activity ? stats.failed : '—', hint: 'recorded, not hidden' },
+          { key: 'with-ai', label: 'Used AI', value: activity ? stats.withAi : '—', hint: 'named an AI capability or record' },
         ]}
       />
 
-      {entries.length === 0 && !loading ? (
+      {activity && entries.length === 0 && !loading && !error ? (
         <AiStackEmpty icon={History} title="Nothing recorded yet">
           The ledger fills as people use {module.label} AI. Build a {module.label} report, or draft with AI on a{' '}
           {module.label} screen, and the operation appears here with whatever AI Stack record it used.
@@ -301,7 +304,7 @@ function UsedCell({ entry }: { entry: AiModuleActivityEntry }) {
   }
 
   if (parts.length === 0) {
-    return <span className="text-xs text-slate-400">no AI record — ran without one</span>;
+    return <span className="text-xs text-slate-400">no template, prompt or agent recorded</span>;
   }
 
   return (
@@ -377,7 +380,7 @@ function EntryDetail({ entry, onClose }: { entry: AiModuleActivityEntry; onClose
             <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">AI Stack records used</p>
             {Object.keys(entry.used).length === 0 ? (
               <p className="mt-1 text-sm text-slate-500">
-                None. This operation ran without an AI capability, and is recorded that way.
+                No template, prompt, agent or workflow was recorded for this operation.{entry.capability ? ` Capability: ${entry.capability}.` : ''}
               </p>
             ) : (
               <ul className="mt-2 space-y-2">

@@ -79,6 +79,8 @@ export function AgentManagement({
   const body = (() => {
     if ((agents.loading && !agents.data) || (runs.loading && !runs.data)) return <LoadingState label="Loading agents" />;
     if (agents.error && !agents.data) return <ErrorState message={agents.error} onRetry={refresh} />;
+    // Run counts come from the run log; if that read failed they are unknown, not zero.
+    if (runs.error && !runs.data) return <ErrorState message={`The run log could not be read: ${runs.error}`} onRetry={refresh} />;
 
     switch (tab) {
       case 'library':

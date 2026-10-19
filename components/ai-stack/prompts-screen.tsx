@@ -119,6 +119,7 @@ export function AiStackPromptsScreen({ module }: { module: AiStackModule }) {
   const [rows, setRows] = useState<AiTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [optionsError, setOptionsError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -139,7 +140,8 @@ export function AiStackPromptsScreen({ module }: { module: AiStackModule }) {
         if (!cancelled) setOptions(next);
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'The request failed.');
+        // Its own message: the list below succeeding must not erase the fact that the options did not load.
+        if (!cancelled) setOptionsError(cause instanceof Error ? cause.message : 'The prompt options could not be loaded.');
       });
 
     return () => {
@@ -294,8 +296,9 @@ export function AiStackPromptsScreen({ module }: { module: AiStackModule }) {
 
       {notice && <AiStackNotice>{notice}</AiStackNotice>}
       {error && <AiStackError onRetry={reload}>{error}</AiStackError>}
+      {optionsError && <AiStackError onRetry={reload}>{optionsError}</AiStackError>}
 
-      {rows.length === 0 && !loading ? (
+      {rows.length === 0 && !loading && !error ? (
         <AiStackEmpty
           icon={Terminal}
           title={`No ${module.label} prompts yet`}

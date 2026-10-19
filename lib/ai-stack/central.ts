@@ -4,13 +4,13 @@ import type { DecentralizedModuleKey } from '@/lib/platform/access-links';
 /**
  * The Centralized AI Stack — one per top-level module, reached from Platform Services.
  *
- * WHY THESE ARE NOT THE PER-SCREEN DESCRIPTORS BESIDE THEM
+ * ONE DESCRIPTOR PER MODULE, NOT PER SCREEN
  *
- * `lib/ai-stack/task-my-tasks.ts` and its siblings describe ONE screen's AI, and that stack
- * used to be mounted inside the screen. This describes the whole module, keyed by the
- * module's own `ai_modules` row (`talent_management`, `lms`, …), so a module gets an AI
- * Stack whether or not any of its screens ever had one. The two are different scopes with
- * different keys: nothing saved here lands on a screen's stack and vice versa.
+ * An AI Stack used to be mounted inside nine individual screens, each with its own
+ * descriptor. Those embeds and descriptors were removed (they were unreferenced duplicates
+ * of this file). This describes the whole module, keyed by the module's own `ai_modules` row
+ * (`talent_management`, `lms`, …), so a module gets an AI Stack whether or not any of its
+ * screens ever had one.
  *
  * WHAT IS DECLARED AND WHAT IS LOOKED UP
  *
@@ -26,7 +26,7 @@ import type { DecentralizedModuleKey } from '@/lib/platform/access-links';
  * row, so it would resolve to no module at all.
  */
 
-interface CentralSpec {
+export interface CentralSpec {
   /** The `ai_modules` key of the top-level module. */
   key: string;
   menuSlug: string;
@@ -53,7 +53,7 @@ interface CentralSpec {
   groundedOn: string;
 }
 
-function build(spec: CentralSpec): AiStackModule {
+export function buildAiStack(spec: CentralSpec): AiStackModule {
   const reportOperation = `${spec.key}_register_report`;
   const agentOperation = `${spec.key}_agent_run`;
 
@@ -84,14 +84,19 @@ function build(spec: CentralSpec): AiStackModule {
     },
 
     presets: [
-      {
-        name: `${spec.label} reader`,
-        description: `Reads ${spec.label} ${spec.records} for your organisation. Changes nothing.`,
-        module: spec.key,
-        tools_allowed: [spec.primarySource],
-        instructions: `Report ${spec.records} exactly as recorded. Never infer anything about a person from a list of ${spec.records} alone.`,
-        status: 'active',
-      },
+      // A module with no readable source has nothing to read, so it offers no reader (an empty tool name is not a tool).
+      ...(spec.primarySource
+        ? [
+            {
+              name: `${spec.label} reader`,
+              description: `Reads ${spec.label} ${spec.records} for your organisation. Changes nothing.`,
+              module: spec.key,
+              tools_allowed: [spec.primarySource],
+              instructions: `Report ${spec.records} exactly as recorded. Never infer anything about a person from a list of ${spec.records} alone.`,
+              status: 'active' as const,
+            },
+          ]
+        : []),
       ...spec.sources
         .filter((source) => source.key !== spec.primarySource)
         .map((source) => ({
@@ -371,10 +376,10 @@ const EXTRA_SPECS: Record<string, CentralSpec> = {
 
 /** The AI Stack descriptors of modules outside Platform Services (the Main Dashboard, Agentic AI). */
 export const ADDITIONAL_AI_STACKS: Record<string, AiStackModule> = Object.fromEntries(
-  Object.entries(EXTRA_SPECS).map(([key, spec]) => [key, build(spec)]),
+  Object.entries(EXTRA_SPECS).map(([key, spec]) => [key, buildAiStack(spec)]),
 );
 
 /** The Centralized AI Stack descriptor for one Platform Services module - absent for a module with no entry in `SPECS` above. */
 export const CENTRAL_AI_STACKS: Partial<Record<DecentralizedModuleKey, AiStackModule>> = Object.fromEntries(
-  Object.entries(SPECS).map(([key, spec]) => [key, build(spec as CentralSpec)]),
+  Object.entries(SPECS).map(([key, spec]) => [key, buildAiStack(spec as CentralSpec)]),
 );

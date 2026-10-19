@@ -153,7 +153,7 @@ export interface AiPageSource {
   error: string | null
 }
 
-export type AiPageExampleStatus = 'ready' | 'empty' | 'no_data' | 'unmapped'
+export type AiPageExampleStatus = 'ready' | 'empty' | 'error' | 'no_data' | 'unmapped'
 
 export interface AiPageExample {
   page: { id: number; title: string; route: string; breadcrumb: string[] }
@@ -177,7 +177,7 @@ export interface AiPageExample {
 export interface AiPageExamples {
   module: { key: string; label: string }
   generated_at: string
-  coverage: { pages: number; ready: number; empty: number; no_data: number; unmapped: number }
+  coverage: { pages: number; ready: number; empty: number; error?: number; no_data: number; unmapped: number }
   pages: AiPageExample[]
 }
 
