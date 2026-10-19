@@ -212,19 +212,18 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
   }
 
+  /*
+   * Signals/Ingestion/Portfolio/Partners used to have no real menu row at
+   * all, so this returned fake string ids ('signals', 'portfolio', ...) just
+   * to give the sidebar *something* stable to highlight. Sales & Marketing's
+   * Signals branch (tblmenumaster_g2g id 489 and its real children) gives
+   * them genuine rows now, already walked into `keyByPath` below like every
+   * other screen - the fake branches only shadowed that correct, rights-
+   * aware, connection-safe resolution with a value that could never match a
+   * real node, which is why these 4 routes' breadcrumbs stayed stuck on
+   * "Home" even after the menu tree had fully loaded.
+   */
   const parseRoutePath = (pathname: string): ActiveNav | null => {
-    if (pathname.startsWith('/signals')) {
-      return { moduleId: 'signals', menuId: 'signals', submenuId: 'signals' }
-    }
-    if (pathname.startsWith('/ingestion')) {
-      return { moduleId: 'ingestion', menuId: 'ingestion', submenuId: 'ingestion' }
-    }
-    if (pathname.startsWith('/portfolio')) {
-      return { moduleId: 'portfolio', menuId: 'portfolio', submenuId: 'portfolio' }
-    }
-    if (pathname.startsWith('/partners')) {
-      return { moduleId: 'partners', menuId: 'partners', submenuId: 'partners' }
-    }
     return keyByPath.get(pathname) ?? null
   }
 

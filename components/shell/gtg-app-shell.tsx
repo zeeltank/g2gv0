@@ -1255,14 +1255,12 @@ export function GtgAppShell({
                   careers and assessment pages already work this way.
                 */}
                 <div className="@container/content w-full min-h-full p-6">
+                  <GtgBreadcrumbFromContext />
                   {children ?? (
-                    <>
-                      <GtgBreadcrumbFromContext />
-                      {/* A SKELETON, NEVER A DIFFERENT SCREEN. Until the URL
-                          resolves to a menu row, there is nothing truthful to
-                          render — this is where the dashboard used to flash. */}
-                      {active ? <ContentRenderer active={active} /> : <ContentSkeleton />}
-                    </>
+                    /* A SKELETON, NEVER A DIFFERENT SCREEN. Until the URL
+                       resolves to a menu row, there is nothing truthful to
+                       render — this is where the dashboard used to flash. */
+                    (active ? <ContentRenderer active={active} /> : <ContentSkeleton />)
                   )}
                 </div>
               </main>

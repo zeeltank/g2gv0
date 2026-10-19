@@ -11,7 +11,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_PURCHASE_ORDERS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_PURCHASE_ORDERS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { PurchaseOrderDetailPage } from '@/domain/crm/purchase-order-detail-page'
 import type { CrmPicklistValue, CrmPurchaseOrder } from '@/types/crm'
@@ -21,7 +21,7 @@ export default function CrmPurchaseOrderDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_PURCHASE_ORDERS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -58,9 +58,7 @@ export default function CrmPurchaseOrderDetailRoute() {
   const backToPurchaseOrders = () => router.push(resolveAccessLink(CRM_PURCHASE_ORDERS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Purchase Orders', href: CRM_PURCHASE_ORDERS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: purchaseOrder ? purchaseOrder.subject : '...' },
   ]
 

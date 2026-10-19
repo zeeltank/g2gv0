@@ -14,7 +14,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_CAMPAIGNS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_CAMPAIGNS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { CampaignDetailPage } from '@/domain/crm/campaign-detail-page'
 import type { Campaign, CrmPicklistValue } from '@/types/crm'
@@ -26,7 +26,7 @@ export default function CrmCampaignDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink } = useSidebarNavigation()
+  const { resolveAccessLink, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
@@ -65,8 +65,7 @@ export default function CrmCampaignDetailRoute() {
   const backToCampaigns = () => router.push(resolveAccessLink(CRM_CAMPAIGNS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
+    ...resolveBreadcrumb(CAMPAIGNS_ACTIVE_NAV, modules),
     { label: 'Campaigns', href: CRM_CAMPAIGNS_ACCESS_LINK },
     { label: campaign ? campaign.name : '...' },
   ]

@@ -16,6 +16,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { TicketDetailPage } from '@/domain/crm/ticket-detail-page'
 import type { CrmPicklistValue, CrmTicket } from '@/types/crm'
@@ -27,7 +28,7 @@ export default function CrmTicketDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_TICKETS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -68,9 +69,7 @@ export default function CrmTicketDetailRoute() {
   const backToTickets = () => router.push(resolveAccessLink(CRM_TICKETS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Tickets', href: CRM_TICKETS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: ticket ? ticket.title : '...' },
   ]
 

@@ -22,7 +22,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_LEADS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_LEADS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { LeadDetailPage } from '@/domain/crm/lead-detail-page'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
@@ -34,7 +34,7 @@ export default function CrmLeadDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink } = useSidebarNavigation()
+  const { resolveAccessLink, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
 
   const [lead, setLead] = useState<Lead | null>(null)
@@ -80,9 +80,7 @@ export default function CrmLeadDetailRoute() {
   const backToLeads = () => router.push(resolveAccessLink(CRM_LEADS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Leads', href: CRM_LEADS_ACCESS_LINK },
+    ...resolveBreadcrumb(LEADS_ACTIVE_NAV, modules),
     { label: lead ? `${lead.firstName ? lead.firstName + ' ' : ''}${lead.lastName}` : '...' },
   ]
 

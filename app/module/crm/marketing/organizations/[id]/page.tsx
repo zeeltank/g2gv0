@@ -14,7 +14,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_ORGANIZATIONS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_ORGANIZATIONS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { OrganizationDetailPage } from '@/domain/crm/organization-detail-page'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
@@ -26,7 +26,7 @@ export default function CrmOrganizationDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink } = useSidebarNavigation()
+  const { resolveAccessLink, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
 
   const [organization, setOrganization] = useState<Organization | null>(null)
@@ -65,8 +65,7 @@ export default function CrmOrganizationDetailRoute() {
   const backToOrganizations = () => router.push(resolveAccessLink(CRM_ORGANIZATIONS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
+    ...resolveBreadcrumb(ORGANIZATIONS_ACTIVE_NAV, modules),
     { label: 'Organizations', href: CRM_ORGANIZATIONS_ACCESS_LINK },
     { label: organization ? organization.name : '...' },
   ]

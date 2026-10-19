@@ -21,7 +21,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_PRODUCTS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_PRODUCTS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { ProductDetailPage } from '@/domain/crm/product-detail-page'
 import type { CrmPicklistValue, CrmProduct, CrmTaxRate } from '@/types/crm'
@@ -31,7 +31,7 @@ export default function CrmProductDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_PRODUCTS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -72,9 +72,7 @@ export default function CrmProductDetailRoute() {
   const backToProducts = () => router.push(resolveAccessLink(CRM_PRODUCTS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Products', href: CRM_PRODUCTS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: product ? product.name : '...' },
   ]
 

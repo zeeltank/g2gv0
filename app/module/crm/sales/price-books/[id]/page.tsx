@@ -16,7 +16,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_PRICE_BOOKS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_PRICE_BOOKS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { PriceBookDetailPage } from '@/domain/crm/price-book-detail-page'
 import type { CrmPriceBook } from '@/types/crm'
@@ -26,7 +26,7 @@ export default function CrmPriceBookDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink, parseRoutePath } = useSidebarNavigation()
+  const { resolveAccessLink, parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(CRM_PRICE_BOOKS_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -55,9 +55,7 @@ export default function CrmPriceBookDetailRoute() {
   const backToPriceBooks = () => router.push(resolveAccessLink(CRM_PRICE_BOOKS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Price Books', href: CRM_PRICE_BOOKS_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: priceBook ? priceBook.name : '...' },
   ]
 
