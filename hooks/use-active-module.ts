@@ -40,9 +40,15 @@
 
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 
 import { ADDITIONAL_AI_STACKS, CENTRAL_AI_STACKS } from '@/lib/ai-stack/central'
+import { genericAiStack } from '@/lib/ai-stack/generic'
+import { registerDynamicModule } from '@/lib/agents/registry'
+import { resolveModule } from '@/lib/intelligence/ai-module-registry'
+import { useAuth } from '@/hooks/use-auth'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { ROLE_GROUPS } from '@/types/role'
 import type { DecentralizedModuleKey } from '@/lib/platform/access-links'
 import type { NavModule } from '@/lib/gtg-navigation'
 import type { AiStackModule } from '@/components/ai-stack/ai-stack-module'
@@ -131,8 +137,9 @@ function moduleIdFromRoute(pathname: string): string | null {
 export function useActiveModule(explicitModuleId?: string | null): ActiveModuleResult {
   const pathname = usePathname()
   const { modules, loading, parseRoutePath } = useSidebarNavigation()
+  const { user } = useAuth()
 
-  return useMemo<ActiveModuleResult>(() => {
+  const base = useMemo<ActiveModuleResult>(() => {
     const empty: ActiveModuleResult = {
       loading,
       navModule: null,
@@ -163,4 +170,45 @@ export function useActiveModule(explicitModuleId?: string | null): ActiveModuleR
       stack: resolved ? resolved.stack : null,
     }
   }, [explicitModuleId, loading, modules, parseRoutePath, pathname])
+
+  /*
+   * A module with no hand-written descriptor is not a module without an AI Stack: it may simply be
+   * newer than this file. Ask the backend which module the menu row is - it registers a new one from
+   * the menu tree - and build the stack from what it says it can read. This is what makes adding a
+   * module a menu change and not a code change. Only administrators can reach the AI API, so only they
+   * ask; for everyone else (and for a menu that is not a module) the answer stays "no stack".
+   */
+  const needsResolve = base.navModule !== null && base.stack === null
+  const canAsk = Boolean(user) && ROLE_GROUPS.admin.includes(user!.role as never)
+  const resolution = useQuery({
+    queryKey: ['ai-module-resolve', base.navModule?.id ?? null],
+    queryFn: async () => {
+      const result = await resolveModule(base.navModule!.id)
+
+      if (result.registered) {
+        registerDynamicModule(
+          { key: result.key, label: result.label, description: result.label },
+          result.sources.map((source) => ({ key: source.key, label: source.label, description: source.description })),
+        )
+      }
+
+      return result
+    },
+    enabled: needsResolve && canAsk,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+
+  const dynamicStack = useMemo<AiStackModule | null>(
+    () => (resolution.data && resolution.data.registered ? genericAiStack(resolution.data) : null),
+    [resolution.data],
+  )
+
+  if (!needsResolve) return base
+
+  return {
+    ...base,
+    loading: base.loading || (canAsk && resolution.isPending),
+    stack: dynamicStack,
+  }
 }

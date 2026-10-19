@@ -228,6 +228,11 @@ export function AiStackAutomationsScreen({ module }: { module: AiStackModule }) 
           </button>
         </div>
 
+        {runs.error && (
+          <p className="mt-4 rounded-xl border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700">
+            Run history could not be read: {runs.error}. “Last run” is not shown until it can be.
+          </p>
+        )}
         {agents.error && !agents.data && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700">
             {agents.error}
@@ -367,6 +372,7 @@ interface Stage {
 function BoundAgentPanel({ module, agent: bound }: { module: AiStackModule; agent: AiStackBoundAgent }) {
   const [manifest, setManifest] = useState<AgentManifestRow | null>(null);
   const [manifestError, setManifestError] = useState('');
+  const [readErrors, setReadErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState<Record<string, string>>(() =>
@@ -425,6 +431,17 @@ function BoundAgentPanel({ module, agent: bound }: { module: AiStackModule; agen
         approvalList.status === 'fulfilled'
           ? (approvalList.value.approvals ?? []).filter((approval) => approval.workflow_key === bound.workflowKey)
           : [],
+      );
+      // An empty list from a read that FAILED must not read as "no runs" or "nothing waiting".
+      setReadErrors(
+        [
+          runList.status === 'rejected'
+            ? `The run log could not be read: ${runList.reason instanceof Error ? runList.reason.message : 'request failed'}.`
+            : '',
+          approvalList.status === 'rejected'
+            ? `The approval queue could not be read: ${approvalList.reason instanceof Error ? approvalList.reason.message : 'request failed'}.`
+            : '',
+        ].filter(Boolean),
       );
       setLoading(false);
     });
@@ -538,6 +555,12 @@ function BoundAgentPanel({ module, agent: bound }: { module: AiStackModule; agen
             {manifestError}
           </p>
         )}
+        {readErrors.map((message) => (
+          <p key={message} className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/70 px-3 py-2 text-xs leading-5 text-red-700">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            {message}
+          </p>
+        ))}
 
         {manifest && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

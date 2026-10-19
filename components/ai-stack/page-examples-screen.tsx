@@ -48,6 +48,7 @@ import type { AiStackModule } from './ai-stack-module';
 const STATUS: Record<AiPageExampleStatus, { label: string; tone: 'green' | 'amber' | 'gray' | 'red'; dot: string }> = {
   ready: { label: 'Live data', tone: 'green', dot: 'bg-emerald-500' },
   empty: { label: 'No records yet', tone: 'amber', dot: 'bg-amber-500' },
+  error: { label: 'Could not be read', tone: 'red', dot: 'bg-red-500' },
   no_data: { label: 'No data behind this page', tone: 'gray', dot: 'bg-slate-400' },
   unmapped: { label: 'Not mapped yet', tone: 'red', dot: 'bg-red-500' },
 };
