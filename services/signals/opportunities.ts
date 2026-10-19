@@ -239,7 +239,8 @@ export interface MarketImportResult {
 export interface OpportunityListResponse {
   status: number
   data: Opportunity[]
-  meta: { page: number; per_page: number; total: number; last_page: number }
+  /** `resolved_run_date`: with `latestSaved`, the research day the rows came from (null when the product has none). */
+  meta: { page: number; per_page: number; total: number; last_page: number; resolved_run_date?: string | null }
   summary: {
     total: number
     new: number
@@ -340,6 +341,8 @@ export interface RunDatesResponse {
 }
 
 export interface OpportunityQuery {
+  /** The newest research day that has saved signals, instead of a chosen day (the screen's fallback). Reads stored rows only. */
+  latestSaved?: boolean
   search?: string
   category?: string
   kind?: string
@@ -559,6 +562,7 @@ export const opportunitiesService = {
     if (q.businessFit) params.business_fit = q.businessFit
     if (q.product && q.product !== 'all') params.product = q.product
     if (q.runDate) params.run_date = q.runDate
+    if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },

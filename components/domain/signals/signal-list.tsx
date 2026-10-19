@@ -11,6 +11,8 @@ import { formatRunDate } from '@/lib/run-dates'
 import { ApiError } from '@/services/core'
 import { opportunitiesService, type Opportunity, type OpportunityListResponse } from '@/services/signals/opportunities'
 import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
+import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
+import { wantsFallback } from '@/lib/signal-fallback'
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
@@ -136,16 +138,29 @@ export function SignalList({
       </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
       {items.length === 0 ? (
-        <EmptyState
-          title={debounced || view !== 'all' || status ? 'No signals match these filters' : 'No qualified signals on this date'}
-          description={debounced || view !== 'all' || status ? 'Try a different filter or search.' : `The ${formatRunDate(runDate)} research finished, but no ${productLabel} opportunity had enough evidence to qualify. Nothing was made up to fill the list.`}
-          action={!debounced && view === 'all' && !status && dayInfo ? (
-            <div className="max-w-xl space-y-1 text-left text-xs text-muted-foreground">
-              <p>What the run did: {dayInfo.searches} searches, {dayInfo.sources} pages found, {dayInfo.organisations} organisations looked at, {dayInfo.rejected} failed the checks.</p>
-              {dayInfo.note && <p className="break-words">{dayInfo.note}</p>}
-            </div>
-          ) : undefined}
-        />
+        wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: true }) ? (
+          <FallbackSignals
+            context={context}
+            productKey={productKey}
+            productLabel={productLabel}
+            chosenDate={runDate}
+            refreshKey={refreshKey}
+            empty={
+              <EmptyState
+                title={`No saved ${productLabel} signals yet`}
+                description={`Nothing has been saved for ${productLabel} yet, so there is nothing to show. Press Generate Signals, and make sure its target schools have verified websites so research can read their official sites.`}
+                action={dayInfo ? (
+                  <div className="max-w-xl space-y-1 text-left text-xs text-muted-foreground">
+                    <p>What the {formatRunDate(runDate)} run did: {dayInfo.searches} searches, {dayInfo.sources} pages found, {dayInfo.organisations} organisations looked at, {dayInfo.rejected} failed the checks.</p>
+                    {dayInfo.note && <p className="break-words">{dayInfo.note}</p>}
+                  </div>
+                ) : undefined}
+              />
+            }
+          />
+        ) : (
+          <EmptyState title="No signals match these filters" description="Try a different filter or search." />
+        )
       ) : (
         <div className="space-y-4">
           {items.map((o, i) => <div key={o.id} className="premium-rise" style={{ '--i': Math.min(i, 8) } as React.CSSProperties}><SignalCard o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} /></div>)}
