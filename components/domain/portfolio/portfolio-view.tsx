@@ -43,6 +43,8 @@ import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/p
 import { ProductSelector, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ProductProfilePanel } from './product-profile-panel'
 import { ProductIcpEditor } from './product-icp-editor'
+import { ProductFormDialog } from './product-form-dialog'
+import { deleteConfirmation } from '@/lib/product-form'
 import { ProductSetupSteps } from './product-setup-steps'
 import { apiErrorText } from '@/lib/api-messages'
 
@@ -87,6 +89,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const [detailLoading, setDetailLoading] = useState(false)
   const [editOffer, setEditOffer] = useState<ProductOffer | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  // Bumped whenever a product is added, changed or removed, so the ICP's product picker reads the portfolio again.
+  const [catalogVersion, setCatalogVersion] = useState(0)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
 
@@ -159,14 +163,27 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!canManage || !confirm('Are you sure you want to delete this offer?')) return
+  const handleDelete = async (offer: ProductOffer) => {
+    if (!canManage || !window.confirm(deleteConfirmation(offer.name))) return
+    setActionError(null)
     try {
-      await portfolioService.deleteOffer(context, id)
+      await portfolioService.deleteOffer(context, offer.id)
       loadData()
+      setCatalogVersion((v) => v + 1)
+      reloadProducts()
     } catch (err) {
-      setActionError(apiErrorText(err, 'Failed to delete offer.'))
+      // An ICP that still lists the product keeps it: the server says which ICP, and nothing is removed.
+      setActionError(apiErrorText(err, 'Failed to delete the product.'))
     }
+  }
+
+  const handleSaved = () => {
+    setCreateOpen(false)
+    setEditOffer(null)
+    setActionError(null)
+    loadData()
+    setCatalogVersion((v) => v + 1)
+    reloadProducts()
   }
 
   const loadReadinessLog = async (offerId: number) => {
@@ -264,7 +281,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
 
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="size-3.5 mr-1.5" />
-                Add Offer
+                Add Product
               </Button>
             </>
           )}
@@ -286,7 +303,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         {selectedProduct && <ProductSetupSteps product={selectedProduct} />}
         {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
         {selectedProduct && <ProductProfilePanel product={selectedProduct} />}
-        {selectedProduct && <ProductIcpEditor key={selectedProduct.key} context={context} productKey={selectedProduct.key} canEdit={isAdmin} onChanged={reloadProducts} onDirtyChange={setIcpDirty} />}
+        {selectedProduct && <ProductIcpEditor key={selectedProduct.key} context={context} productKey={selectedProduct.key} canEdit={isAdmin} onChanged={reloadProducts} onDirtyChange={setIcpDirty} onCreateProduct={() => setCreateOpen(true)} catalogVersion={catalogVersion} />}
         {product === 'all' && products && (
           <ul className="grid gap-2 @3xl:grid-cols-3" aria-label="Products">
             {products.map((p) => (
@@ -536,9 +553,14 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                       <Eye className="size-3.5 mr-1" /> View
                     </Button>
                     {canManage && (
-                      <Button variant="ghost" size="sm" onClick={() => setEditOffer(offer)}>
-                        <Edit2 className="size-3.5" />
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => setEditOffer(offer)} aria-label={`Edit ${offer.name}`}>
+                          <Edit2 className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => void handleDelete(offer)} aria-label={`Delete ${offer.name}`} className="text-destructive hover:text-destructive">
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -767,6 +789,14 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
           </div>
         </DialogContent>
       </Dialog>
+      <ProductFormDialog
+        context={context}
+        taxonomy={taxonomy}
+        product={editOffer}
+        open={createOpen || editOffer !== null}
+        onClose={() => { setCreateOpen(false); setEditOffer(null) }}
+        onSaved={handleSaved}
+      />
     </div>
   )
 }

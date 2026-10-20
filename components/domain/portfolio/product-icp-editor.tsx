@@ -11,6 +11,8 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { fromConfig, rid, toConfig, type FormState, type Row } from '@/lib/icp-form'
 import { productIcpService, type IcpEditorState } from '@/services/signals/product-icp'
+import { IcpProductPicker } from './icp-product-picker'
+import { IcpComparison } from './icp-comparison'
 
 /*
  * The Ideal Customer Profile of ONE product. It edits the product's own ICP only (the product is the address), starts empty when the
@@ -57,11 +59,15 @@ function Section({ title, hint, problems, children, action }: { title: string; h
 }
 
 export function ProductIcpEditor({
-  context, productKey, canEdit, onChanged, onDirtyChange,
+  context, productKey, canEdit, onChanged, onDirtyChange, onCreateProduct, catalogVersion = 0,
 }: {
   context: LaravelContext
   productKey: string
   canEdit: boolean
+  /** Opens the Product Portfolio's "Add product" form, so a new product can be created and then chosen here. */
+  onCreateProduct?: () => void
+  /** Changes when the portfolio changes, so the picker and the comparison read it again. */
+  catalogVersion?: number
   /** Called after the ICP was saved or its status changed, so the product's readiness can be re-read. */
   onChanged: () => void
   onDirtyChange?: (dirty: boolean) => void
@@ -113,7 +119,7 @@ export function ProductIcpEditor({
 
   const partKeys = form.parts.map((p) => p.key.trim()).filter(Boolean)
   const about = (prefix: string) => problems.filter((p) => p.startsWith(prefix))
-  const known = ['label', 'industry_label', 'pitch', 'guidance', 'buyer_types', 'regions', 'priority_cities', 'competitors', 'vendor_phrases', 'parts', 'triggers', 'queries', 'disqualifiers', 'must_have', 'per_run']
+  const known = ['offer_ids', 'label', 'industry_label', 'pitch', 'guidance', 'buyer_types', 'regions', 'priority_cities', 'competitors', 'vendor_phrases', 'parts', 'triggers', 'queries', 'disqualifiers', 'must_have', 'per_run']
   const other = problems.filter((p) => !known.some((k) => p.startsWith(k)))
   const { product, profile } = state
   const isActive = profile?.status === 'active'
@@ -231,12 +237,35 @@ export function ProductIcpEditor({
         </Section>
 
         <Section
+          title="Products in this ICP"
+          hint="The products from your Product Portfolio that this ICP is for. Choose one, several or none: nothing is added for you."
+          problems={about('offer_ids')}
+        >
+          <IcpProductPicker
+            context={context}
+            chosen={form.offer_ids}
+            disabled={disabled}
+            catalogVersion={catalogVersion}
+            onChange={(next) => set({ offer_ids: next })}
+            onCreate={canEdit ? onCreateProduct : undefined}
+          />
+        </Section>
+
+        <Section
           title="Product parts"
           hint="What the product is made of. A signal must be tied to one of these."
           problems={about('parts')}
           action={<Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => addRow('parts', { key: '', what: '' })}><Plus className="mr-1 size-3.5" /> Add part</Button>}
         >
-          {form.parts.length === 0 && <p className="text-sm text-muted-foreground">No parts yet. If none are listed, the offers in the Product Portfolio are used.</p>}
+          {form.parts.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              {form.offer_ids === null
+                ? 'No parts yet. This ICP has no product list, so the offers stored for its product in the Product Portfolio are used.'
+                : form.offer_ids.length > 0
+                  ? 'No parts of its own. The products chosen above stand in for them.'
+                  : 'No parts yet, and no products chosen. Add a part or choose a product so a signal can be matched to something.'}
+            </p>
+          )}
           {form.parts.map((p) => (
             <div key={p._id} className="grid gap-2 @xl:grid-cols-[12rem_1fr_auto]">
               <Input aria-label="Part key" placeholder="key_name" value={p.key} disabled={disabled} onChange={(e) => editRow('parts', p._id, { key: e.target.value })} />
@@ -363,6 +392,8 @@ export function ProductIcpEditor({
         </Section>
 
         {other.length > 0 && <Section title="Other problems" problems={other}><span /></Section>}
+
+        <IcpComparison context={context} productKey={productKey} offerIds={form.offer_ids ?? []} dirty={dirty} catalogVersion={catalogVersion} />
 
         {message && (
           <p role={message.tone === 'error' ? 'alert' : 'status'} className={`text-sm ${message.tone === 'error' ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>{message.text}</p>

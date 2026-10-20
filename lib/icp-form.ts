@@ -28,6 +28,8 @@ export interface FormState {
   must_have: Row<FormRule>[]
   catalogue: string
   accounts: string
+  /** The portfolio products chosen for this ICP. null = the ICP has no list yet (an older ICP, which then uses its product's offers); [] = none chosen. */
+  offer_ids: string[] | null
 }
 
 let seq = 0
@@ -61,6 +63,7 @@ export function fromConfig(config: IcpConfig, name: string): FormState {
     })),
     catalogue: config.per_run?.catalogue == null ? '' : String(config.per_run.catalogue),
     accounts: config.per_run?.accounts == null ? '' : String(config.per_run.accounts),
+    offer_ids: Array.isArray(config.offer_ids) ? [...config.offer_ids] : null,
   }
 }
 
@@ -105,6 +108,8 @@ export function toConfig(f: FormState): IcpConfig {
       ...(f.catalogue.trim() === '' ? {} : { catalogue: num(f.catalogue) as number }),
       ...(f.accounts.trim() === '' ? {} : { accounts: num(f.accounts) as number }),
     },
+    // Sent only when the person has a list (an empty list is a real choice: none). An older ICP with no list stays as it is.
+    ...(f.offer_ids === null ? {} : { offer_ids: f.offer_ids }),
   }
 }
 
