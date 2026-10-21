@@ -117,6 +117,7 @@ export interface DocumentCardGridProps {
   onOpenFolder?: (folder: DocumentFolderNode) => void
   onDeleteFolder?: (folder: DocumentFolderNode) => void
   onMoveFolder?: (folder: DocumentFolderNode) => void
+  onShareFolder?: (folder: DocumentFolderNode) => void
   /** Double-click the name to rename. Gated by `canManageFolder`. */
   onRenameFolder?: (folder: DocumentFolderNode, name: string) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
@@ -142,6 +143,7 @@ export interface DocumentCardGridProps {
 
 export function DocumentCardGrid({
   documents,
+  typeLabel,
   downloadingId,
   size = 'large',
   onOpen,
@@ -156,6 +158,7 @@ export function DocumentCardGrid({
   onOpenFolder,
   onDeleteFolder,
   onMoveFolder,
+  onShareFolder,
   onRenameFolder,
   canManageFolder,
   onToggleStar,
@@ -295,11 +298,17 @@ export function DocumentCardGrid({
                     <FolderOpen aria-hidden="true" />
                     Open
                   </ContextMenuItem>
-                  {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+                  {canManage && (onMoveFolder || onShareFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
                   {canManage && onMoveFolder && (
                     <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
                       <FolderInput aria-hidden="true" />
                       Move
+                    </ContextMenuItem>
+                  )}
+                  {canManage && onShareFolder && (
+                    <ContextMenuItem onClick={() => deferToNextTick(() => onShareFolder(folder))}>
+                      <Share2 aria-hidden="true" />
+                      Share
                     </ContextMenuItem>
                   )}
                   {canManage && onCutFolder && (
@@ -438,6 +447,11 @@ export function DocumentCardGrid({
                         </h3>
                       )}
                       <p className={cn('mt-1 truncate text-muted-foreground', cfg.meta)}>{source}</p>
+                      {cfg.showSnippet && typeLabel(doc.document_type) && (
+                        <Badge variant="muted" className="mt-1 text-[10px]">
+                          {typeLabel(doc.document_type)}
+                        </Badge>
+                      )}
                     </div>
 
                     {cfg.showSnippet && doc.snippet && (

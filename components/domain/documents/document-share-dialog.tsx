@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
+import { Toast } from '@/components/ui/toast'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { accountService, type DocumentShare } from '@/services/account'
 import { taskService } from '@/services/task'
@@ -30,6 +31,19 @@ export interface ShareableDocument {
   owner_name?: string | null
 }
 
+/** `ShareableDocument`'s folder-shaped twin - `DocumentFolderNode` already satisfies this structurally. */
+export interface ShareableFolder {
+  id: number
+  name: string
+  visibility: 'private' | 'department' | 'organization' | null
+  department_id: number | null
+  owner_name?: string | null
+}
+
+export type ShareTarget =
+  | { type: 'document'; item: ShareableDocument }
+  | { type: 'folder'; item: ShareableFolder }
+
 const ROLE_OPTIONS: SearchableOption[] = [
   { value: 'view', label: 'Viewer' },
   { value: 'edit', label: 'Editor' },
@@ -42,43 +56,42 @@ const GENERAL_ACCESS_OPTIONS: SearchableOption[] = [
 ]
 
 export interface DocumentShareDialogProps {
-  document: ShareableDocument | null
+  target: ShareTarget | null
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Reuses document-library-view.tsx's own already-fetched list — no reason to fetch departments twice. */
   departmentOptions: SearchableOption[]
-  /** The document's visibility/department just changed — let the caller refresh its list so the new audience is reflected. */
+  /** The target's visibility/department just changed — let the caller refresh its list so the new audience is reflected. */
   onVisibilityChanged: () => void
 }
 
 /**
  * Google Drive's own Share dialog, same two halves: a "People with access"
- * list (per-person Viewer/Editor grants — DocumentShareController, the write
- * side of `view_principals`, see that migration's own docblock) and a
- * "General access" control underneath it (the document's existing coarse
- * visibility, just finally editable after creation instead of only at
- * upload time). Both write through the one `canManage()` gate the backend
- * already enforces — this dialog is only ever opened for a document the
- * viewer can manage, same `canDelete`-named owner check every other
- * dialog-opening action in this domain already uses.
+ * list (per-person Viewer/Editor grants) and a "General access" control
+ * underneath it (the target's own coarse visibility). Works on either a
+ * document or a folder - folder sharing is real/dynamic (see
+ * DocumentAccess::effectiveViewPrincipalsForDocument()'s own docblock on the
+ * backend): a document added to an already-shared folder later inherits its
+ * shares automatically, no action needed here when that happens.
  *
- * Mounted fresh per document - the caller keys this on `document?.id` (see
+ * Mounted fresh per target - the caller keys this on `target?.item.id` (see
  * document-library-view.tsx's render call), so every piece of state below
- * can read its own starting value straight from the `document` prop via a
- * lazy initializer instead of a reset effect: a genuinely different
- * document means a genuinely new mount, not the same instance being told to
- * forget what it knew. The share/people fetch below rides the same mount -
- * NOT the Dialog's own onOpenChange, which only fires for interactions the
- * Dialog itself initiates (Escape, overlay click, its own trigger). This is
- * opened from a context-menu action outside the Dialog entirely, which just
- * flips the `open` prop from the parent - Radix never calls onOpenChange
- * for that, so a fetch hung off it would silently never run.
+ * can read its own starting value straight from the `target` prop via a
+ * lazy initializer instead of a reset effect: a genuinely different target
+ * means a genuinely new mount, not the same instance being told to forget
+ * what it knew. The share/people fetch below rides the same mount - NOT the
+ * Dialog's own onOpenChange, which only fires for interactions the Dialog
+ * itself initiates (Escape, overlay click, its own trigger). This is opened
+ * from a context-menu action outside the Dialog entirely, which just flips
+ * the `open` prop from the parent - Radix never calls onOpenChange for
+ * that, so a fetch hung off it would silently never run.
  */
-export function DocumentShareDialog({ document, open, onOpenChange, departmentOptions, onVisibilityChanged }: DocumentShareDialogProps) {
+export function DocumentShareDialog({ target, open, onOpenChange, departmentOptions, onVisibilityChanged }: DocumentShareDialogProps) {
   const [shares, setShares] = useState<DocumentShare[]>([])
   const [sharesLoaded, setSharesLoaded] = useState(false)
   const [sharesLoading, setSharesLoading] = useState(false)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
   const [people, setPeople] = useState<SearchableOption[]>([])
   const [pickerUserId, setPickerUserId] = useState('')
   const [pickerRole, setPickerRole] = useState<'view' | 'edit'>('view')
@@ -86,31 +99,35 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
   const [removingId, setRemovingId] = useState<number | null>(null)
 
   const [visibility, setVisibility] = useState<'private' | 'department' | 'organization'>(
-    () => (document?.visibility as 'private' | 'department' | 'organization' | null) ?? 'private',
+    () => (target?.item.visibility as 'private' | 'department' | 'organization' | null) ?? 'private',
   )
-  const [departmentId, setDepartmentId] = useState(() => (document?.department_id ? String(document.department_id) : ''))
+  const [departmentId, setDepartmentId] = useState(() => (target?.item.department_id ? String(target.item.department_id) : ''))
   // The last value actually saved - starts equal to the prop's own value,
   // then tracks the dialog's own successful saves from there. Comparing
-  // against this instead of the `document` prop directly matters because
-  // the prop is a snapshot from whenever this dialog was opened: the parent
+  // against this instead of the `target` prop directly matters because the
+  // prop is a snapshot from whenever this dialog was opened: the parent
   // list refetches after a save (onVisibilityChanged), but THIS dialog
-  // instance's own `document` prop never gets handed a fresher object, so
+  // instance's own `target` prop never gets handed a fresher object, so
   // comparing straight against it would leave "Save" looking clickable
   // forever even right after a save that genuinely succeeded.
   const [savedVisibility, setSavedVisibility] = useState(visibility)
   const [savedDepartmentId, setSavedDepartmentId] = useState(departmentId)
   const [savingAccess, setSavingAccess] = useState(false)
 
+  const label = target?.type === 'folder' ? target.item.name : target?.item.title
+  const noun = target?.type === 'folder' ? 'folder' : 'document'
+
   const loadShares = () => {
-    if (!document || sharesLoaded || sharesLoading) return
+    if (!target || sharesLoaded || sharesLoading) return
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) return
 
     setSharesLoading(true); setError('')
-    Promise.all([
-      accountService.getDocumentShares(context, document.id),
-      taskService.getAssignmentUsers(context),
-    ]).then(([sharesResponse, users]) => {
+    const sharesRequest = target.type === 'folder'
+      ? accountService.getFolderShares(context, target.item.id)
+      : accountService.getDocumentShares(context, target.item.id)
+
+    Promise.all([sharesRequest, taskService.getAssignmentUsers(context)]).then(([sharesResponse, users]) => {
       setShares(sharesResponse.data.shares)
       setPeople(users.map((user) => ({
         value: String(user.id),
@@ -118,14 +135,14 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
       })))
       setSharesLoaded(true)
     }).catch((reason) => {
-      setError(reason instanceof Error ? reason.message : 'Unable to load sharing for this document.')
+      setError(reason instanceof Error ? reason.message : `Unable to load sharing for this ${noun}.`)
     }).finally(() => {
       setSharesLoading(false)
     })
   }
 
   // Runs once per mount - which, thanks to the key-based remount above, is
-  // once per genuinely different document, regardless of how `open` got
+  // once per genuinely different target, regardless of how `open` got
   // flipped to true.
   useEffect(() => {
     loadShares()
@@ -133,33 +150,45 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
   }, [])
 
   const refreshShares = async () => {
-    if (!document) return
+    if (!target) return
     try {
-      const response = await accountService.getDocumentShares(getLaravelContext(), document.id)
+      const response = target.type === 'folder'
+        ? await accountService.getFolderShares(getLaravelContext(), target.item.id)
+        : await accountService.getDocumentShares(getLaravelContext(), target.item.id)
       setShares(response.data.shares)
     } catch { /* the action that just ran still succeeded; the list just won't reflect it until reopened */ }
   }
 
   const addShare = async () => {
-    if (!document || !pickerUserId) return
+    if (!target || !pickerUserId) return
     setSharing(true); setError('')
+    const pickedName = people.find((p) => p.value === pickerUserId)?.label ?? 'that person'
     try {
-      await accountService.shareDocument(getLaravelContext(), document.id, Number(pickerUserId), pickerRole === 'edit')
+      if (target.type === 'folder') {
+        await accountService.shareFolder(getLaravelContext(), target.item.id, Number(pickerUserId), pickerRole === 'edit')
+      } else {
+        await accountService.shareDocument(getLaravelContext(), target.item.id, Number(pickerUserId), pickerRole === 'edit')
+      }
       setPickerUserId(''); setPickerRole('view')
       await refreshShares()
+      setToast(`Shared with ${pickedName}.`)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to share this document.')
+      setError(reason instanceof Error ? reason.message : `Unable to share this ${noun}.`)
     } finally {
       setSharing(false)
     }
   }
 
-  /** Changing a row's role is just sharing again - share() is an upsert keyed on (document, viewer). */
+  /** Changing a row's role is just sharing again - share() is an upsert keyed on (target, viewer). */
   const changeRole = async (share: DocumentShare, canEdit: boolean) => {
-    if (!document) return
+    if (!target) return
     setError('')
     try {
-      await accountService.shareDocument(getLaravelContext(), document.id, share.viewer_user_id, canEdit)
+      if (target.type === 'folder') {
+        await accountService.shareFolder(getLaravelContext(), target.item.id, share.viewer_user_id, canEdit)
+      } else {
+        await accountService.shareDocument(getLaravelContext(), target.item.id, share.viewer_user_id, canEdit)
+      }
       await refreshShares()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to change that role.')
@@ -167,10 +196,14 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
   }
 
   const removeShare = async (share: DocumentShare) => {
-    if (!document) return
+    if (!target) return
     setRemovingId(share.id); setError('')
     try {
-      await accountService.unshareDocument(getLaravelContext(), document.id, share.id)
+      if (target.type === 'folder') {
+        await accountService.unshareFolder(getLaravelContext(), target.item.id, share.id)
+      } else {
+        await accountService.unshareDocument(getLaravelContext(), target.item.id, share.id)
+      }
       await refreshShares()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to remove that share.')
@@ -180,16 +213,22 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
   }
 
   const saveGeneralAccess = async () => {
-    if (!document) return
+    if (!target) return
     setSavingAccess(true); setError('')
+    const access = {
+      visibility,
+      department_id: visibility === 'department' && departmentId ? Number(departmentId) : null,
+    }
     try {
-      await accountService.updateDocument(getLaravelContext(), document.id, {
-        visibility,
-        department_id: visibility === 'department' && departmentId ? Number(departmentId) : null,
-      })
+      if (target.type === 'folder') {
+        await accountService.updateFolderAccess(getLaravelContext(), target.item.id, access)
+      } else {
+        await accountService.updateDocument(getLaravelContext(), target.item.id, access)
+      }
       setSavedVisibility(visibility)
       setSavedDepartmentId(visibility === 'department' ? departmentId : '')
       onVisibilityChanged()
+      setToast('General access updated.')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to update general access.')
     } finally {
@@ -220,8 +259,12 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
             button and the page behind it. pr-6 then reserves that button's
             own width so the ellipsis always lands clear of it, never under it. */}
         <DialogHeader className="min-w-0">
-          <DialogTitle className="truncate pr-6">Share &quot;{document?.title ?? 'document'}&quot;</DialogTitle>
-          <DialogDescription>Choose who can open this document, and what they can do.</DialogDescription>
+          <DialogTitle className="truncate pr-6">Share &quot;{label ?? noun}&quot;</DialogTitle>
+          <DialogDescription>
+            {target?.type === 'folder'
+              ? 'Choose who can open this folder and everything in it, and what they can do.'
+              : 'Choose who can open this document, and what they can do.'}
+          </DialogDescription>
         </DialogHeader>
 
         {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">{error}</p>}
@@ -247,9 +290,9 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
 
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">People with access</p>
-          {document?.owner_name && (
+          {target?.item.owner_name && (
             <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-sm">{document.owner_name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">{target.item.owner_name}</span>
               <span className="shrink-0 text-xs text-muted-foreground">Owner</span>
             </div>
           )}
@@ -310,6 +353,8 @@ export function DocumentShareDialog({ document, open, onOpenChange, departmentOp
           </Button>
         </div>
       </DialogContent>
+
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </Dialog>
   )
 }

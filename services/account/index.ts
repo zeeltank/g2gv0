@@ -665,6 +665,14 @@ export const accountService = {
   renameFolder: (context: LaravelContext, id: number, name: string) =>
     apiClient.patch<{ status: number; message?: string }>(`/documents/folders/${id}`, { ...params(context), name }),
 
+  /** A folder's own "General access" (visibility/department) - independent of per-person folder sharing below. */
+  updateFolderAccess: (context: LaravelContext, id: number, access: { visibility: 'private' | 'department' | 'organization'; department_id: number | null }) =>
+    apiClient.patch<{ status: number; message?: string }>(`/documents/folders/${id}`, {
+      ...params(context),
+      visibility: access.visibility,
+      department_id: access.department_id,
+    }),
+
   moveFolder: (context: LaravelContext, id: number, parentId: number | null) =>
     apiClient.post<{ status: number; message?: string }>(`/documents/folders/${id}/move`, {
       ...params(context),
@@ -682,6 +690,10 @@ export const accountService = {
       `/documents/folders/${id}/duplicate`,
       { ...params(context), ...(destinationParentId ? { destination_parent_id: destinationParentId } : {}) },
     ),
+
+  /** deleteFolder() now cascades - this is the real count behind the confirm dialog shown before committing to it. */
+  getFolderDeletePreview: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: { folders: number; documents: number } }>(`/documents/folders/${id}/delete-preview`, params(context)),
 
   deleteFolder: (context: LaravelContext, id: number) =>
     apiClient.delete<{ status: number; message?: string }>(`/documents/folders/${id}`, params(context)),
@@ -851,6 +863,23 @@ export const accountService = {
   unshareDocument: (context: LaravelContext, id: number, shareId: number) =>
     apiClient.delete<{ status: number; message?: string }>(
       `/account/documents/${id}/shares/${shareId}`,
+      params(context) as Record<string, string>,
+    ),
+
+  /** Per-person FOLDER sharing - document sharing's twin, one level up the tree. Real/dynamic: documents added to the folder later inherit these shares too. */
+  getFolderShares: (context: LaravelContext, id: number) =>
+    apiClient.get<{ status: number; data: { shares: DocumentShare[] } }>(`/account/documents/folders/${id}/shares`, params(context)),
+
+  shareFolder: (context: LaravelContext, id: number, viewerUserId: number, canEdit: boolean) =>
+    apiClient.post<{ status: number; message?: string }>(`/account/documents/folders/${id}/shares`, {
+      ...params(context),
+      viewer_user_id: viewerUserId,
+      can_edit: canEdit,
+    }),
+
+  unshareFolder: (context: LaravelContext, id: number, shareId: number) =>
+    apiClient.delete<{ status: number; message?: string }>(
+      `/account/documents/folders/${id}/shares/${shareId}`,
       params(context) as Record<string, string>,
     ),
 
