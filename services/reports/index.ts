@@ -79,6 +79,22 @@ export type ModuleOption = { key: string; label: string; joinable: string[] }
 
 export type ReportShare = { id: number; viewer_user_id: number; can_edit: boolean; viewer_name: string | null }
 
+export type MobileChannel = 'sms' | 'whatsapp' | 'both'
+
+/** A person of the organisation; the number itself never reaches the browser (only whether one is on record). */
+export type ReportMobileRecipient = { id: number; name: string; has_mobile: boolean; mobile_hint: string | null }
+
+export type ReportMobileResult = {
+  recipient_user_id: number
+  name: string
+  mobile: string
+  channel: 'sms' | 'whatsapp'
+  /** `prepared` = a WhatsApp click-to-chat link, NOT sent by the server. */
+  status: 'sent' | 'failed' | 'duplicate' | 'prepared'
+  error: string | null
+  link?: string
+}
+
 export type ReportScheduleFrequency = 'daily' | 'weekly' | 'monthly'
 
 export type ReportSchedule = {
@@ -232,6 +248,24 @@ export const reportBuilderService = {
   /** Ad hoc "send by email right now" — distinct from createSchedule, which is only ever a recurring cadence. */
   sendEmail: (context: LaravelContext, id: number, recipients: string[]) =>
     apiClient.post<{ status: boolean; message: string }>(`/report-builder/${id}/send-email`, bodyParams(context, { recipients })),
+
+  /** People to send a report to by SMS/WhatsApp, and whether this organisation has each channel set up. */
+  mobileRecipients: (context: LaravelContext, id: number, q: string) =>
+    apiClient.get<{
+      status: boolean
+      data: { recipients: ReportMobileRecipient[]; max_recipients: number; sms_configured: boolean; whatsapp_configured: boolean }
+    }>(`/report-builder/${id}/mobile-recipients`, queryParams(context, { q })),
+
+  /** Ad hoc send by SMS, WhatsApp or both. Each channel is attempted on its own; results name the channel. */
+  sendMobile: (context: LaravelContext, id: number, payload: { recipientIds: number[]; channel: MobileChannel; note?: string; requestKey: string; reportUrl?: string }) =>
+    apiClient.post<{
+      status: boolean
+      message: string
+      data: { sent: number; failed: number; duplicate: number; prepared: number; results: ReportMobileResult[] }
+    }>(
+      `/report-builder/${id}/send-mobile`,
+      bodyParams(context, { recipient_ids: payload.recipientIds, channel: payload.channel, note: payload.note, request_key: payload.requestKey, report_url: payload.reportUrl }),
+    ),
 
   // Scheduled/emailed runs
   listSchedules: (context: LaravelContext, id: number) =>

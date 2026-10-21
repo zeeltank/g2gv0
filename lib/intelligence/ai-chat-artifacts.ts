@@ -103,6 +103,9 @@ export interface ReportRecipient {
 
 export type DeliveryChannel = 'email' | 'sms' | 'whatsapp'
 
+/** What the Send dialog may ask for: one channel, or SMS and WhatsApp together (each attempted on its own). */
+export type SendChannel = DeliveryChannel | 'both'
+
 /** `prepared`: a WhatsApp message ready to open from the sender's own WhatsApp - not sent by the server. */
 export type DeliveryStatus = 'queued' | 'sent' | 'failed' | 'duplicate' | 'prepared'
 
@@ -166,7 +169,7 @@ export async function searchReportRecipients(q: string): Promise<{ recipients: R
 export function sendChatReport(
   reportId: number,
   recipientIds: number[],
-  options: { note?: string; requestKey?: string; channel?: DeliveryChannel; reportUrl?: string } = {},
+  options: { note?: string; requestKey?: string; channel?: SendChannel; reportUrl?: string } = {},
 ): Promise<SendReportResult> {
   return aiRequest<SendReportResult>(`/chat/reports/${reportId}/send`, 'POST', {
     recipient_ids: recipientIds,
