@@ -461,6 +461,11 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {strength.label}
         </Badge>
         {intent && <Badge variant="outline" className={intent.className} title={a?.buying_intent?.meaning}>{intent.label}</Badge>}
+        {o.signal_family && (
+          <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary" title={o.signal_family.examples}>
+            {o.signal_family.label}
+          </Badge>
+        )}
         <h2 className="text-base font-semibold">{c?.organisation_line ?? o.company_name}</h2>
         {o.review_status !== 'New' && <Badge variant="secondary">{o.review_status === 'Follow-up' ? 'Contacted' : o.review_status}</Badge>}
       </div>
@@ -480,6 +485,24 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Fits:</span> {a.product_fit.what_it_does}. {a.product_fit.reason}
             </p>
+          )}
+          {o.relevant_offer_name && !a?.product_fit && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Matched product:</span> {o.relevant_offer_name}
+            </p>
+          )}
+          {o.matched_offers && o.matched_offers.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {o.matched_offers.slice(0, 3).map((mo) => (
+                <div key={mo.offer_id} className="rounded border border-border/40 bg-background/50 p-1.5 text-xs">
+                  <div className="flex items-center justify-between font-medium">
+                    <span className="text-foreground">{mo.offer_name ?? mo.offer_id}</span>
+                    {mo.match_score !== null && <span className="font-semibold text-primary">{mo.match_score}% fit</span>}
+                  </div>
+                  {mo.rationale && <p className="mt-0.5 text-xs text-muted-foreground">{mo.rationale}</p>}
+                </div>
+              ))}
+            </div>
           )}
           {pull.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">

@@ -58,6 +58,8 @@ export type PipelineStatus = 'NEW' | 'REVIEWING' | 'ENGAGED' | 'WON' | 'LOST' | 
 export interface MatchedOffer {
   offer_id: string
   offer_name: string | null
+  offer_category?: string | null
+  rationale?: string | null
   match_score: number | null
   matched_need_codes: string[]
   readiness_status: string | null
@@ -184,6 +186,8 @@ export interface Opportunity {
   feed_section?: 'immediate_action' | 'watchlist' | 'market_intelligence' | 'competitor_intelligence' | 'top_actions' | string | null
   relevant_offer_id?: string | null
   relevant_offer_name?: string | null
+  /** The ten-family classification of what kind of signal this is (code, label, examples). */
+  signal_family?: { code: string; label: string; examples: string } | null
   ingestion_source_id?: number | null
   review_notes?: string | null
   sources?: OpportunitySource[]

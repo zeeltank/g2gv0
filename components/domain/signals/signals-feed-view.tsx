@@ -619,6 +619,12 @@ export function SignalsFeedView({ product }: { product?: string } = {}) {
                       <Badge variant="outline">{opp.signal_kind_label}</Badge>
                     )}
 
+                    {opp.signal_family && (
+                      <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary text-xs" title={opp.signal_family.examples}>
+                        {opp.signal_family.label}
+                      </Badge>
+                    )}
+
                     <Badge variant="outline" className="bg-muted/40">
                       {opp.category_label}
                     </Badge>
@@ -751,6 +757,23 @@ export function SignalsFeedView({ product }: { product?: string } = {}) {
                     <p className="mt-1 text-xs leading-relaxed text-foreground">
                       {opp.product_fit}
                     </p>
+                    {opp.matched_offers && opp.matched_offers.length > 0 && (
+                      <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
+                        {opp.matched_offers.slice(0, 3).map((mo) => (
+                          <div key={mo.offer_id} className="rounded bg-muted/40 p-1.5 text-xs">
+                            <div className="flex items-center justify-between font-medium">
+                              <span className="text-foreground">{mo.offer_name ?? mo.offer_id}</span>
+                              {mo.match_score !== null && (
+                                <span className="font-semibold text-primary">{mo.match_score}% fit</span>
+                              )}
+                            </div>
+                            {mo.rationale && (
+                              <p className="mt-0.5 text-xs text-muted-foreground italic">{mo.rationale}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
