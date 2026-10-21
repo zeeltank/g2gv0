@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { ReportMobileSend } from './report-mobile-send'
 import { reportBuilderService, type ReportDetail, type ReportShare } from '@/services/reports'
 import { taskService } from '@/services/task'
 
@@ -293,6 +294,8 @@ export function ReportShareDialog({ report, onClose }: { report: ReportDetail; o
               Send now
             </Button>
           </section>
+
+          <ReportMobileSend report={report} />
 
           <section className="space-y-2 border-t border-border pt-3">
             <p className="text-xs font-medium text-muted-foreground">Share via WhatsApp or other apps</p>

@@ -10,15 +10,16 @@ import { describeAiError } from '@/lib/intelligence/client'
 import {
   searchReportRecipients,
   sendChatReport,
-  type DeliveryChannel,
+  type SendChannel,
   type ReportRecipient,
   type SendReportResult,
 } from '@/lib/intelligence/ai-chat-artifacts'
 
-const CHANNELS: Array<{ key: DeliveryChannel; label: string; contact: 'email' | 'mobile'; missing: string }> = [
+const CHANNELS: Array<{ key: SendChannel; label: string; contact: 'email' | 'mobile'; missing: string }> = [
   { key: 'email', label: 'Email', contact: 'email', missing: 'no email address' },
   { key: 'sms', label: 'SMS', contact: 'mobile', missing: 'no mobile number' },
   { key: 'whatsapp', label: 'WhatsApp', contact: 'mobile', missing: 'no mobile number' },
+  { key: 'both', label: 'SMS + WhatsApp', contact: 'mobile', missing: 'no mobile number' },
 ]
 
 const field =
@@ -63,7 +64,7 @@ function SendReportDialogBody({
   const [peopleError, setPeopleError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Record<number, ReportRecipient>>({})
   const [note, setNote] = useState('')
-  const [channel, setChannel] = useState<DeliveryChannel>('email')
+  const [channel, setChannel] = useState<SendChannel>('email')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SendReportResult | null>(null)
@@ -105,7 +106,7 @@ function SendReportDialogBody({
   const channelInfo = CHANNELS.find((item) => item.key === channel) ?? CHANNELS[0]
   /** Chosen people with nothing on file for each method, so the dialog can say exactly who blocks it. */
   const lacking = useMemo(() => {
-    const out = {} as Record<DeliveryChannel, ReportRecipient[]>
+    const out = {} as Record<SendChannel, ReportRecipient[]>
     for (const item of CHANNELS) out[item.key] = chosen.filter((person) => !person[item.contact])
     return out
   }, [chosen])
@@ -160,13 +161,13 @@ function SendReportDialogBody({
         {result ? (
           <div className="space-y-2 text-sm" role="status">
             <p className="font-medium">
-              {result.prepared
+              {result.prepared && !result.sent && !result.failed
                 ? `${result.prepared} WhatsApp message${result.prepared === 1 ? '' : 's'} ready - open each one to send it from your WhatsApp.`
-                : `${result.sent} sent${result.failed ? `, ${result.failed} failed` : ''}${result.duplicate ? `, ${result.duplicate} already sent a moment ago` : ''}.`}
+                : `${result.sent} sent${result.failed ? `, ${result.failed} failed` : ''}${result.prepared ? `, ${result.prepared} WhatsApp ready to open` : ''}${result.duplicate ? `, ${result.duplicate} already sent a moment ago` : ''}.`}
             </p>
             <ul className="max-h-60 space-y-1 overflow-auto">
               {result.results.map((row) => (
-                <li key={row.recipient_user_id} className="flex items-start gap-2">
+                <li key={`${row.recipient_user_id}:${row.channel ?? 'email'}`} className="flex items-start gap-2">
                   {row.status === 'sent' || row.status === 'prepared' ? (
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
                   ) : (
@@ -175,7 +176,7 @@ function SendReportDialogBody({
                   <span>
                     {row.name}{' '}
                     <span className="text-muted-foreground">
-                      {row.channel && row.channel !== 'email' ? row.mobile : `<${row.email}>`}
+                      {row.channel && row.channel !== 'email' ? `${row.channel === 'sms' ? 'SMS' : 'WhatsApp'} ${row.mobile ?? ''}` : `<${row.email}>`}
                     </span>{' '}
                     - {row.status === 'prepared' ? 'ready to send' : row.status}
                     {row.link ? (
@@ -266,7 +267,7 @@ function SendReportDialogBody({
               </div>
               {smsUnavailable ? (
                 <p className="text-xs text-amber-700" role="alert">
-                  SMS is not set up for this organisation, so nothing can be sent by SMS. An administrator can add a gateway under Settings → Integrations. Use Email or WhatsApp meanwhile.
+                  SMS is not set up for this organisation, so nothing can be sent by SMS. An administrator can add a gateway under Platform Services → Integrations. Use Email or WhatsApp meanwhile.
                 </p>
               ) : blocked.length > 0 ? (
                 <p className="text-xs text-amber-700" role="alert">
@@ -279,7 +280,13 @@ function SendReportDialogBody({
                 </p>
               ) : channel === 'whatsapp' ? (
                 <p className="text-xs text-amber-700">
-                  WhatsApp Business is not connected for this organisation, so nothing is sent automatically. You get a link per person that opens your own WhatsApp with the message ready. An administrator can connect it under Settings → Integrations.
+                  WhatsApp Business is not connected for this organisation, so nothing is sent automatically. You get a link per person that opens your own WhatsApp with the message ready. An administrator can connect it under Platform Services → Integrations.
+                </p>
+              ) : channel === 'both' ? (
+                <p className="text-xs text-muted-foreground">
+                  Sends by SMS and by WhatsApp. Each channel is attempted on its own and reported separately, so one failing never stops the other.
+                  {!smsConfigured ? ' SMS is not set up for this organisation, so it will be reported as failed.' : ''}
+                  {!whatsappConfigured ? ' WhatsApp Business is not connected, so you get a link to open it from your own WhatsApp.' : ''}
                 </p>
               ) : channel === 'sms' ? (
                 <p className="text-xs text-muted-foreground">SMS carries a short message with the report link (recipients sign in to open it).</p>
