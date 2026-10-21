@@ -75,10 +75,24 @@ function stepIndex(step: DocumentProcessingStep): number {
 // narrow window to see (and animate) an intermediate step at all. Polling
 // more often doesn't change WHAT is shown, only raises the odds of actually
 // observing a real step the backend already reported - still never a timer
-// faking progress, see this file's own docblock above. MAX_POLLS raised to
-// hold the ~30s overall ceiling.
+// faking progress, see this file's own docblock above.
 const POLL_MS = 500
-const MAX_POLLS = 60 // ~30s — matches the reference's own 30-attempt fallback; the document is already usable regardless (see ProcessDocumentPipelineJob's docblock)
+
+// A WALL-CLOCK deadline, not an attempt count. This used to be `attempts >=
+// 60` (60 * POLL_MS = "~30s", per the comment that used to sit here) - but
+// that arithmetic only holds if each `getDocument()` round-trip is instant.
+// It isn't: `attempts` only increments once a poll's own await resolves, so
+// the real cycle time is POLL_MS + however long that fetch actually took.
+// Confirmed directly (2026-10-21): with the queue worker that advances
+// `processing_step` not running, polling against this app's own dev server
+// ran for 150+ real seconds without ever hitting the old counter-based
+// ceiling, because each fetch itself was taking 1-2s under load - 5x the
+// intended wait before the dialog gave up and closed. A document is already
+// filed and searchable the moment it's uploaded (`processing_status`, set
+// synchronously) regardless of whether this background classification step
+// ever completes - so there is no good reason for this UI to ever make
+// someone wait appreciably longer than the ~30s it always claimed.
+const MAX_WAIT_MS = 30_000
 const CREEP_MS = 450 // how often the bar nudges itself forward between real backend updates
 const CREEP_CAP = 99 // never claims done on its own — only `finished` is allowed to reach 100
 const CREEP_RATE = 0.045 // fraction of the remaining distance to CREEP_CAP closed on each tick — always a positive step, so it can never go fully still
@@ -125,11 +139,9 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
     if (documentId === null) return
 
     let cancelled = false
-    let attempts = 0
+    const deadline = Date.now() + MAX_WAIT_MS
 
     const poll = async () => {
-      attempts++
-
       try {
         const response = await accountService.getDocument(resolveContext(), documentId)
         if (cancelled) return
@@ -144,10 +156,10 @@ export function DocumentProcessingProgress({ documentId, fileName, onFinished }:
         }
       } catch {
         // A missed poll isn't fatal — the next tick tries again. Only
-        // running out of attempts ends the wait (see below).
+        // running out the deadline ends the wait (see below).
       }
 
-      if (attempts >= MAX_POLLS) {
+      if (Date.now() >= deadline) {
         if (!finishedRef.current) {
           finishedRef.current = true
           onFinished({ timedOut: true, failed: false })
