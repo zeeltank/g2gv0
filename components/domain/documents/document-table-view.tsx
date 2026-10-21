@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils'
 import type { DocumentFolderNode, DocumentSearchHit } from '@/services/account'
 import { formatFileDate, formatFileSize } from './documents-ui'
+import { HighlightedSnippet } from './highlighted-snippet'
 
 /**
  * The Drive-style table list view (Name / Type / Size / Modified columns,
@@ -59,6 +60,7 @@ export interface DocumentTableViewProps {
   onOpenFolder?: (folder: DocumentFolderNode) => void
   onDeleteFolder?: (folder: DocumentFolderNode) => void
   onMoveFolder?: (folder: DocumentFolderNode) => void
+  onShareFolder?: (folder: DocumentFolderNode) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
 
   /* ── cut/copy/paste, starring — same shape as DocumentCardGrid's own ────── */
@@ -92,6 +94,7 @@ export function DocumentTableView({
   onOpenFolder,
   onDeleteFolder,
   onMoveFolder,
+  onShareFolder,
   canManageFolder,
   onToggleStar,
   onCut,
@@ -181,6 +184,11 @@ export function DocumentTableView({
                       <FolderInput className="size-3.5" aria-hidden="true" />
                     </Button>
                   )}
+                  {canManageFolder?.(folder) && onShareFolder && (
+                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onShareFolder(folder)} aria-label={`Share folder ${folder.name}`}>
+                      <Share2 className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
                   {canManageFolder?.(folder) && onCutFolder && (
                     <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCutFolder(folder)} aria-label={`Cut folder ${folder.name}`}>
                       <Scissors className="size-3.5" aria-hidden="true" />
@@ -221,11 +229,17 @@ export function DocumentTableView({
                 <FolderOpen aria-hidden="true" />
                 Open
               </ContextMenuItem>
-              {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+              {canManage && (onMoveFolder || onShareFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
               {canManage && onMoveFolder && (
                 <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
                   <FolderInput aria-hidden="true" />
                   Move
+                </ContextMenuItem>
+              )}
+              {canManage && onShareFolder && (
+                <ContextMenuItem onClick={() => deferToNextTick(() => onShareFolder(folder))}>
+                  <Share2 aria-hidden="true" />
+                  Share
                 </ContextMenuItem>
               )}
               {canManage && onCutFolder && (
@@ -293,10 +307,17 @@ export function DocumentTableView({
                           {doc.processing_status === 'failed' ? 'Failed' : 'Processing'}
                         </Badge>
                       )}
+                      {doc.snippet && (
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          <HighlightedSnippet text={doc.snippet} />
+                        </span>
+                      )}
                     </span>
                   </button>
                 </TableCell>
-                <TableCell className="hidden @lg/docs:table-cell text-sm text-muted-foreground">{label ?? '—'}</TableCell>
+                <TableCell className="hidden @lg/docs:table-cell text-sm text-muted-foreground">
+                  {label ? <Badge variant="muted">{label}</Badge> : '—'}
+                </TableCell>
                 <TableCell className="hidden @md/docs:table-cell text-sm text-muted-foreground">{size ?? '—'}</TableCell>
                 <TableCell className="hidden @sm/docs:table-cell text-sm text-muted-foreground">{date ?? '—'}</TableCell>
                 <TableCell className="text-right">

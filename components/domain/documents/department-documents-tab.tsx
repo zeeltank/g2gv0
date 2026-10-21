@@ -27,8 +27,9 @@ import { DocumentFolderTree } from '@/domain/documents/document-folder-tree'
 import { assignFolderIds, type DiscoveredFile } from '@/domain/documents/document-folder-upload'
 import { DocumentProcessingProgress } from '@/domain/documents/document-processing-progress'
 import { DocumentBatchUploadProgress, type BatchFileState } from '@/domain/documents/document-batch-upload-progress'
+import { Toast } from '@/components/ui/toast'
 import { DocumentUploadDropzone } from '@/domain/documents/document-upload-dropzone'
-import { Notice, Surface } from '@/domain/documents/documents-ui'
+import { describeFolderContents, Notice, Surface } from '@/domain/documents/documents-ui'
 
 type ViewMode = 'grid' | 'list'
 const PER_PAGE = 24
@@ -145,6 +146,7 @@ export function DepartmentDocumentsTab({
   const [batchFiles, setBatchFiles] = useState<BatchFileState[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
+  const [uploadToast, setUploadToast] = useState<string | null>(null)
 
   const [viewing, setViewing] = useState<AccountDocument | null>(null)
   const [detailDoc, setDetailDoc] = useState<DocumentSearchHit | null>(null)
@@ -156,6 +158,8 @@ export function DepartmentDocumentsTab({
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<DocumentFolderNode | null>(null)
+  const [folderDeletePreview, setFolderDeletePreview] = useState<{ folders: number; documents: number } | null>(null)
+  const [loadingFolderPreview, setLoadingFolderPreview] = useState(false)
   const [deletingFolder, setDeletingFolder] = useState(false)
   const [movingFolder, setMovingFolder] = useState<DocumentFolderNode | null>(null)
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('')
@@ -384,6 +388,15 @@ export function DepartmentDocumentsTab({
     void load()
   }
 
+  function finishBatch({ succeededCount, failedCount }: { succeededCount: number; failedCount: number }) {
+    if (failedCount === 0) {
+      setUploadOpen(false)
+      setBatchFiles(null)
+      setUploadToast(`${succeededCount} file${succeededCount === 1 ? '' : 's'} uploaded — reading and classifying in the background.`)
+    }
+    // failedCount > 0: dialog stays open on purpose, same reasoning as the main library page.
+  }
+
   async function download(doc: DocumentSearchHit) {
     setDownloadingId(doc.id)
     try {
@@ -424,6 +437,21 @@ export function DepartmentDocumentsTab({
     }
   }
 
+  function openDeleteFolderConfirm(folder: DocumentFolderNode) {
+    setPendingDeleteFolder(folder)
+    setFolderDeletePreview(null)
+    setLoadingFolderPreview(true)
+    void accountService
+      .getFolderDeletePreview(context, folder.id)
+      .then((res) => {
+        if (res.status === 1) setFolderDeletePreview(res.data)
+      })
+      .catch(() => {
+        // The preview is a courtesy, not load-bearing.
+      })
+      .finally(() => setLoadingFolderPreview(false))
+  }
+
   async function confirmDeleteFolder() {
     if (!pendingDeleteFolder || deletingFolder) return
     setDeletingFolder(true)
@@ -431,6 +459,7 @@ export function DepartmentDocumentsTab({
     try {
       const response = await accountService.deleteFolder(context, pendingDeleteFolder.id)
       setPendingDeleteFolder(null)
+      setFolderDeletePreview(null)
       if (response.status === 1) {
         await loadFolderTree()
       } else {
@@ -439,6 +468,7 @@ export function DepartmentDocumentsTab({
     } catch (caught) {
       setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That folder could not be removed.' })
       setPendingDeleteFolder(null)
+      setFolderDeletePreview(null)
     } finally {
       setDeletingFolder(false)
     }
@@ -663,7 +693,7 @@ export function DepartmentDocumentsTab({
               canDelete={canDelete}
               folders={currentSubfolders}
               onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
-              onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+              onDeleteFolder={openDeleteFolderConfirm}
               onMoveFolder={(folder) => {
                 setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
                 setMovingFolder(folder)
@@ -681,7 +711,7 @@ export function DepartmentDocumentsTab({
               canDelete={canDelete}
               folders={currentSubfolders}
               onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
-              onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+              onDeleteFolder={openDeleteFolderConfirm}
               onMoveFolder={(folder) => {
                 setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
                 setMovingFolder(folder)
@@ -732,7 +762,7 @@ export function DepartmentDocumentsTab({
           {processingDoc ? (
             <DocumentProcessingProgress documentId={processingDoc.id} fileName={processingDoc.fileName} onFinished={finishProcessing} />
           ) : batchFiles ? (
-            <DocumentBatchUploadProgress files={batchFiles} />
+            <DocumentBatchUploadProgress files={batchFiles} onFinished={finishBatch} />
           ) : (
             <DocumentUploadDropzone types={types} uploading={uploading} onUpload={upload} />
           )}
@@ -804,13 +834,26 @@ export function DepartmentDocumentsTab({
 
       <ConfirmDialog
         open={pendingDeleteFolder !== null}
-        onOpenChange={(open) => { if (!open) setPendingDeleteFolder(null) }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteFolder(null)
+            setFolderDeletePreview(null)
+          }
+        }}
         title={`Remove folder "${pendingDeleteFolder?.name ?? ''}"?`}
-        description="Empty it first — move or remove everything inside, then this folder can be deleted."
+        description={
+          loadingFolderPreview
+            ? 'Checking what’s inside…'
+            : folderDeletePreview && (folderDeletePreview.folders > 0 || folderDeletePreview.documents > 0)
+              ? `This also removes ${describeFolderContents(folderDeletePreview)} inside it. Documents can be restored from the bin afterward; the folder itself cannot.`
+              : 'This folder is empty.'
+        }
         confirmLabel="Remove it"
         busy={deletingFolder}
         onConfirm={() => void confirmDeleteFolder()}
       />
+
+      <Toast message={uploadToast} onDismiss={() => setUploadToast(null)} />
     </div>
   )
 }

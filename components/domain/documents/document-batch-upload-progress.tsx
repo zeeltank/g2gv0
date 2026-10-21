@@ -45,7 +45,13 @@ function creepPercent(elapsedMs: number): number {
   return Math.min(UPLOADING_CAP, progress * UPLOADING_CAP)
 }
 
-export function DocumentBatchUploadProgress({ files }: { files: BatchFileState[] }) {
+export interface DocumentBatchUploadProgressProps {
+  files: BatchFileState[]
+  /** Fires exactly once, the moment every file has settled (done or error) - mirrors DocumentProcessingProgress's own `onFinished` convention for the single-file case. */
+  onFinished?: (outcome: { succeededCount: number; failedCount: number }) => void
+}
+
+export function DocumentBatchUploadProgress({ files, onFinished }: DocumentBatchUploadProgressProps) {
   const done = files.filter((f) => f.status === 'done').length
   const failed = files.filter((f) => f.status === 'error').length
   const finished = files.length > 0 && done + failed === files.length
@@ -58,6 +64,11 @@ export function DocumentBatchUploadProgress({ files }: { files: BatchFileState[]
 
   const [, bumpTick] = useState(0)
 
+  // Guards against firing more than once per mount - callers remount this
+  // component fresh for every new batch (batchFiles is reset to null between
+  // uploads in all 3 callers), so a plain ref (not state) is enough.
+  const finishedRef = useRef(false)
+
   useEffect(() => {
     for (const f of files) {
       if (f.status === 'uploading' && !startedAt.current.has(f.key)) {
@@ -65,6 +76,14 @@ export function DocumentBatchUploadProgress({ files }: { files: BatchFileState[]
       }
     }
   }, [files])
+
+  useEffect(() => {
+    if (finished && !finishedRef.current) {
+      finishedRef.current = true
+      onFinished?.({ succeededCount: done, failedCount: failed })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished, done, failed])
 
   useEffect(() => {
     if (finished) return

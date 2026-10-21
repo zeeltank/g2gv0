@@ -21,6 +21,16 @@ export function formatFileDate(value: string | null) {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+/** "3 subfolders and 12 documents" — the real pre-computed count shown in a folder's delete confirmation, from `getFolderDeletePreview()`. Empty string when the folder has nothing under it. */
+export function describeFolderContents(counts: { folders: number; documents: number }): string {
+  const parts: string[] = []
+
+  if (counts.folders > 0) parts.push(`${counts.folders} subfolder${counts.folders === 1 ? '' : 's'}`)
+  if (counts.documents > 0) parts.push(`${counts.documents} document${counts.documents === 1 ? '' : 's'}`)
+
+  return parts.join(' and ')
+}
+
 /**
  * `document_type` options from both buckets, deduped by key.
  *
