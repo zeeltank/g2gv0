@@ -88,6 +88,8 @@ export interface TaxonomyData {
   needs: Record<string, string>
   segments: Record<string, string>
   signals: Record<string, string>
+  /** The ten signal families (what kind of event a signal is about): label, what it covers, and why it matters. */
+  signal_families?: Record<string, { label: string; examples: string; relevance: string }>
   parent_products: Record<string, string>
   readiness_statuses: Record<string, string>
   partner_sellable_readiness: string[]
@@ -139,5 +141,56 @@ export interface SignalMatchingResponse {
     geography: string
   }
   offer_matches: OfferMatchResult[]
+}
+
+/** One product as stored: its portfolio offers, its ICP and what is still missing for discovery. */
+export interface ProductInfo {
+  key: string
+  label: string
+  business_fit: string
+  /** The name the Product Portfolio uses for this product (its `parent_product`). */
+  portfolio_name: string | null
+  offers: Array<{
+    id: number
+    offer_id: string
+    name: string
+    what_it_does: string | null
+    readiness_status: string | null
+    needs_solved: string[] | null
+    primary_segments: string[] | null
+    trigger_signals: string[] | null
+    pricing_model: string | null
+    typical_deal_band: string | null
+  }>
+  icp: null | {
+    profile_id: number | null
+    source: 'database' | 'template' | null
+    name: string | null
+    pitch: string | null
+    ideal_customer: string | null
+    buyer_types: string[]
+    regions: string[]
+    triggers: string[]
+    parts: Record<string, string>
+    searches: number
+  }
+  target_accounts: number
+  contacts: number
+  ready: boolean
+  /** ready | needs_setup (no usable active ICP, or parts missing) | invalid (a saved ICP fails validation) */
+  state: 'ready' | 'needs_setup' | 'invalid'
+  next_step: string | null
+  draft_icp: { id: number; name: string } | null
+  missing: string[]
+  opportunities_count: number
+  research_runs_count: number
+}
+
+export interface ProductsResponse {
+  status: number
+  data: {
+    products: ProductInfo[]
+    company_profile: { name: string | null; description: string | null; target_industries: string[] | null; target_markets: string[] | null } | null
+  }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import { AttendeeEmailInput } from './attendee-email-input'
 import { MemberPicker } from './member-picker'
 import { RecurrenceRulePicker } from './recurrence-rule-picker'
 import { addOneHourToDateTimeLocal } from './time-follow'
+import { LinkedRecordPicker, type LinkedRecordType } from '@/components/domain/crm/linked-record-picker'
 import type { RecurrenceRule } from '@/types/task-management'
 
 interface Props {
@@ -23,6 +24,9 @@ interface Props {
   onCreated: (message: string) => void
   /** Pre-fills start/end when opened from a calendar day-cell click. */
   initialDate?: string
+  /** Pre-fills the "Link to a record" picker — e.g. opened from a CRM
+   *  record's own Schedule tab (CrmScheduleTab). */
+  initialLink?: { type: LinkedRecordType; id: string; label: string }
 }
 
 /**
@@ -34,7 +38,8 @@ interface Props {
  * real user — the calendar's "Add Task" button opens SelfTaskEntryModal
  * instead, which never reaches this endpoint at all.
  */
-export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Props) {
+export function CreateEventModal({ isOpen, onClose, onCreated, initialDate, initialLink }: Props) {
+  const context = useMemo(() => getLaravelContext(), [])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
@@ -54,6 +59,8 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
   // existing superset, worth keeping rather than a regression to fix.
   const [attendeeUserIds, setAttendeeUserIds] = useState<string[]>([])
   const [employeeOptions, setEmployeeOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [linkedType, setLinkedType] = useState<LinkedRecordType | null>(null)
+  const [linkedId, setLinkedId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -94,6 +101,8 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
     setIsPrivate(false)
     setAttendeeEmails([])
     setAttendeeUserIds([])
+    setLinkedType(initialLink?.type ?? null)
+    setLinkedId(initialLink?.id ?? null)
     setError('')
   } else if (!isOpen && seededOpen) {
     setSeededOpen(false)
@@ -121,6 +130,8 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
         end_at: endAt.replace('T', ' '),
         all_day: allDay,
         visibility: isPrivate ? 'PRIVATE' : 'PUBLIC',
+        linked_type: linkedType ?? undefined,
+        linked_id: linkedId ?? undefined,
       })
 
       let message = response.message
@@ -216,6 +227,14 @@ export function CreateEventModal({ isOpen, onClose, onCreated, initialDate }: Pr
                 {!allDay && <TimePicker value={endAt.slice(11)} onChange={(next) => setEndAt(`${endAt.slice(0, 10)}T${next}`)} />}
               </div>
             </div>
+
+            <LinkedRecordPicker
+              context={context}
+              type={linkedType}
+              id={linkedId}
+              onChange={(type, id) => { setLinkedType(type); setLinkedId(id) }}
+              caption={initialLink ? `Linking to: ${initialLink.label}` : undefined}
+            />
 
             <RecurrenceRulePicker value={recurrence} onChange={setRecurrence} />
 

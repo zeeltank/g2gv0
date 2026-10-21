@@ -16,9 +16,13 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, CrmTicket, CrmTicketComment, CrmTicketStatusHistoryEntry } from '@/types/crm'
+import type { CrmEmailLinkEntry, CrmLinkedDocument, CrmPicklistValue, CrmTicket, CrmTicketComment, CrmTicketStatusHistoryEntry } from '@/types/crm'
 import { CreateTicketModal } from './create-ticket-modal'
 import { useAssignableEmployees } from './lead-employees'
+import { CrmDocumentTab } from './crm-document-tab'
+import { CrmEmailTab } from './crm-email-tab'
+import { SendEmailDialog } from './send-email-dialog'
+import { CrmScheduleTab } from './crm-schedule-tab'
 
 interface Props {
   ticket: CrmTicket
@@ -28,11 +32,14 @@ interface Props {
   ticketPriorities: CrmPicklistValue[]
 }
 
-type Tab = 'details' | 'comments' | 'history' | 'custom'
+type Tab = 'details' | 'comments' | 'history' | 'schedule' | 'documents' | 'emails' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'comments', label: 'Comments' },
   { id: 'history', label: 'History' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'emails', label: 'Emails' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -76,6 +83,12 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
   const [history, setHistory] = useState<CrmTicketStatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
 
+  const [documents, setDocuments] = useState<CrmLinkedDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(true)
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -107,9 +120,33 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
     }
   }, [context, ticket.id])
 
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await crmService.getTicketDocuments(context, ticket.id)
+      setDocuments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [context, ticket.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getTicketEmails(context, ticket.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, ticket.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadComments(); void loadHistory() })
-  }, [loadComments, loadHistory])
+    queueMicrotask(() => { void loadComments(); void loadHistory(); void loadDocuments(); void loadEmails() })
+  }, [loadComments, loadHistory, loadDocuments, loadEmails])
 
   const changeStatus = async (status: string) => {
     if (!isLaravelContextReady(context) || status === ticket.status) return
@@ -298,6 +335,25 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
         </SectionCard>
       )}
 
+      {tab === 'schedule' && (
+        <CrmScheduleTab linkedType="TICKET" linkedId={ticket.id} recordLabel={ticket.title} />
+      )}
+
+      {tab === 'documents' && (
+        <CrmDocumentTab
+          documents={documents}
+          loading={documentsLoading}
+          onUpload={async (file) => {
+            await crmService.attachTicketDocument(context, ticket.id, file)
+            void loadDocuments()
+          }}
+        />
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
@@ -327,6 +383,14 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
         ticket={ticket}
         ticketStatuses={ticketStatuses}
         ticketPriorities={ticketPriorities}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="TICKET"
+        linkedId={ticket.id}
+        defaultToAddress={null}
       />
     </div>
   )

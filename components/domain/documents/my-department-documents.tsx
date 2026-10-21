@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, ChevronRight, FileSearch, FolderPlus, Grid2x2, List, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -79,6 +80,16 @@ export function MyDepartmentDocuments() {
 
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
+  // Filter parity with the main Document Library page - same state shape,
+  // same components. No department-id filter (unlike the main page): this
+  // screen is already scoped to the caller's own department server-side.
+  const [category, setCategory] = useState('')
+  const [documentType, setDocumentType] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [debouncedOwnerName, setDebouncedOwnerName] = useState('')
+  const [searchEverywhere, setSearchEverywhere] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [page, setPage] = useState(1)
 
@@ -118,41 +129,62 @@ export function MyDepartmentDocuments() {
   }, [query])
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedOwnerName(ownerName.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [ownerName])
+
+  useEffect(() => {
     setPage(1)
-  }, [debouncedQuery, currentFolderId])
+  }, [debouncedQuery, currentFolderId, category, documentType, dateFrom, dateTo, debouncedOwnerName, searchEverywhere])
+
+  // Guards a slower, older request's response from overwriting a newer
+  // one's - same fix as document-library-view.tsx's own load(), duplicated
+  // rather than shared, same reasoning as department-documents-tab.tsx.
+  const requestIdRef = useRef(0)
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+    const isStale = () => requestId !== requestIdRef.current
+
     const context = resolveContext()
     if (!isLaravelContextReady(context)) {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
       return
     }
 
     setLoading(true)
     setError(null)
 
+    // Same "don't silently hide nested-folder results" fix as the main
+    // library page and the admin department tab, now with the same
+    // visible toggle they have.
+    const everywhere = searchEverywhere && debouncedQuery !== ''
+
     try {
       const response = await accountService.myDepartmentDocuments(context, {
         q: debouncedQuery || undefined,
-        // Same "don't silently hide nested-folder results" fix as the main
-        // library page and the admin department tab - a typed search looks
-        // across the whole department; plain browsing (no query) keeps the
-        // exact-folder scope.
-        folder_id: debouncedQuery ? undefined : (currentFolderId ?? 0),
+        category: (category as 'personnel' | 'organization') || undefined,
+        document_type: documentType || undefined,
+        owner_name: debouncedOwnerName || undefined,
+        folder_id: everywhere ? undefined : (currentFolderId ?? 0),
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
         page,
         per_page: PER_PAGE,
       })
+      if (isStale()) return
       setResults(response.data ?? [])
       setTotal(response.meta?.total ?? 0)
       setTypes(response.document_types ?? { personnel: {}, organization: {} })
       setDepartmentId(response.department_id)
     } catch (caught) {
+      if (isStale()) return
       setResults([])
       setError(caught instanceof Error ? caught.message : 'Documents could not be loaded.')
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
-  }, [resolveContext, debouncedQuery, currentFolderId, page])
+  }, [resolveContext, debouncedQuery, category, documentType, debouncedOwnerName, currentFolderId, dateFrom, dateTo, searchEverywhere, page])
 
   useEffect(() => {
     queueMicrotask(() => void load())
@@ -202,6 +234,15 @@ export function MyDepartmentDocuments() {
 
   const typeLabel = useCallback(
     (key: string | null) => (key ? (types.personnel[key] ?? types.organization[key] ?? key) : null),
+    [types],
+  )
+
+  const typeOptions = useMemo(
+    () => [
+      { value: '', label: 'All types' },
+      ...Object.entries(types.personnel).map(([value, label]) => ({ value, label })),
+      ...Object.entries(types.organization).map(([value, label]) => ({ value, label: `${label} (org)` })),
+    ],
     [types],
   )
 
@@ -423,6 +464,30 @@ export function MyDepartmentDocuments() {
           <div className="relative min-w-[14rem] flex-1 basis-64">
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your department's documents…" aria-label="Search" />
           </div>
+          <div className="w-36 shrink-0">
+            <Select
+              value={category}
+              onChange={setCategory}
+              options={[
+                { value: '', label: 'All categories' },
+                { value: 'personnel', label: 'Personal' },
+                { value: 'organization', label: 'Organisation' },
+              ]}
+            />
+          </div>
+          <div className="w-44 shrink-0">
+            <Select value={documentType} onChange={setDocumentType} options={typeOptions} />
+          </div>
+          {/* Always visible - every result in this shared department space
+              can have a different owner, unlike a "my documents" view. */}
+          <div className="w-40 shrink-0">
+            <Input
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder="Uploaded by…"
+              aria-label="Search by uploader name"
+            />
+          </div>
           <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
             <button
               type="button"
@@ -442,6 +507,49 @@ export function MyDepartmentDocuments() {
             </button>
           </div>
         </div>
+
+        {/* Same power-up row as the main library page: date range and the
+            this-folder/everywhere toggle only mean anything once a term is
+            actually typed. */}
+        {debouncedQuery !== '' && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>From</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Document date from"
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Document date to"
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setSearchEverywhere(true)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Everywhere
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchEverywhere(false)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${!searchEverywhere ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                This folder
+              </button>
+            </div>
+          </div>
+        )}
       </Surface>
 
       <div className="flex min-w-0 items-stretch gap-4">

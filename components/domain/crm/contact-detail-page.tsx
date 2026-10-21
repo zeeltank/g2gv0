@@ -15,10 +15,16 @@ import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { Contact, CrmOpportunity, CrmPicklistValue, CrmQuote } from '@/types/crm'
+import type { Contact, CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
 import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
+import { CommentThread } from './comment-thread'
+import { CrmDocumentTab } from './crm-document-tab'
+import { CrmEmailTab } from './crm-email-tab'
+import { SendEmailDialog } from './send-email-dialog'
+import { CrmHistoryTab } from './crm-history-tab'
+import { CrmScheduleTab } from './crm-schedule-tab'
 
 interface Props {
   contact: Contact
@@ -27,11 +33,16 @@ interface Props {
   picklists: { salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'opportunities' | 'quotes' | 'custom'
+type Tab = 'details' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'opportunities', label: 'Opportunities' },
   { id: 'quotes', label: 'Quotes' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'comments', label: 'Comments' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'emails', label: 'Emails' },
+  { id: 'history', label: 'History' },
 ]
 
 function IconValue({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
@@ -106,6 +117,16 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
   const [quotes, setQuotes] = useState<CrmQuote[]>([])
   const [quotesLoading, setQuotesLoading] = useState(true)
 
+  const [comments, setComments] = useState<CrmComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [documents, setDocuments] = useState<CrmLinkedDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(true)
+  const [emails, setEmails] = useState<CrmEmailLinkEntry[]>([])
+  const [emailsLoading, setEmailsLoading] = useState(true)
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false)
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -137,9 +158,57 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
     }
   }, [context, contact.id])
 
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true)
+    try {
+      const response = await crmService.getContactComments(context, contact.id)
+      setComments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [context, contact.id])
+
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await crmService.getContactDocuments(context, contact.id)
+      setDocuments(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [context, contact.id])
+
+  const loadEmails = useCallback(async () => {
+    setEmailsLoading(true)
+    try {
+      const response = await crmService.getContactEmails(context, contact.id)
+      setEmails(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setEmailsLoading(false)
+    }
+  }, [context, contact.id])
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getContactHistory(context, contact.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, contact.id])
+
   useEffect(() => {
-    queueMicrotask(() => { void loadOpportunities(); void loadQuotes() })
-  }, [loadOpportunities, loadQuotes])
+    queueMicrotask(() => { void loadOpportunities(); void loadQuotes(); void loadComments(); void loadDocuments(); void loadEmails(); void loadHistory() })
+  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -322,6 +391,44 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
         </SectionCard>
       )}
 
+      {tab === 'schedule' && (
+        <CrmScheduleTab
+          linkedType="CONTACT"
+          linkedId={contact.id}
+          recordLabel={`${contact.firstName ? `${contact.firstName} ` : ''}${contact.lastName}`}
+        />
+      )}
+
+      {tab === 'comments' && (
+        <SectionCard title="Comments">
+          <CommentThread
+            comments={comments}
+            loading={commentsLoading}
+            onAdd={async (text) => {
+              await crmService.addContactComment(context, contact.id, text)
+              void loadComments()
+            }}
+          />
+        </SectionCard>
+      )}
+
+      {tab === 'documents' && (
+        <CrmDocumentTab
+          documents={documents}
+          loading={documentsLoading}
+          onUpload={async (file) => {
+            await crmService.attachContactDocument(context, contact.id, file)
+            void loadDocuments()
+          }}
+        />
+      )}
+
+      {tab === 'emails' && (
+        <CrmEmailTab emails={emails} loading={emailsLoading} onCompose={() => setComposeEmailOpen(true)} />
+      )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
+
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
@@ -364,6 +471,14 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
         defaultToNumber={contact.mobile || contact.phone}
         relatedType="contact"
         relatedId={contact.id}
+      />
+      <SendEmailDialog
+        isOpen={composeEmailOpen}
+        onClose={() => setComposeEmailOpen(false)}
+        onSent={(message) => { setNotice(message); setComposeEmailOpen(false); void loadEmails() }}
+        linkedType="CONTACT"
+        linkedId={contact.id}
+        defaultToAddress={contact.email}
       />
     </div>
   )

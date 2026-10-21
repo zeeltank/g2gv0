@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SelectInput } from '../components'
+import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import {
@@ -34,7 +35,7 @@ import {
 } from '@/services/signals/opportunities'
 import { Fact, FieldLabel, GroupHeading, Notice, Placeholder, SectionHeader, SignalsPage, Surface } from './signals-ui'
 
-const ACCEPT = '.pdf,.docx,.txt,.xlsx,.xls'
+const ACCEPT = '.pdf,.docx,.txt,.csv,.xlsx,.xls'
 const FORMATS = ['PDF', 'DOCX', 'TXT', 'XLSX']
 /** A structured demand-side file goes to the market import, not to AI analysis. Excel is not read yet. */
 const MARKET_ACCEPT = '.json,.csv'
@@ -145,6 +146,11 @@ function SignalDetail({
 
 /* eslint-disable react-hooks/set-state-in-effect -- Intentional: load on mount / filter change and follow sources that are still processing */
 export function IngestionView({ context }: { context: LaravelContext }) {
+  // Every document and link is added for ONE product, and only that product's documents and findings are shown.
+  const { products, loading: productsLoading, error: productsError } = useProducts(context)
+  const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
+  const selectedProduct = products?.find((p) => p.key === product)
+  const productReady = Boolean(selectedProduct?.ready)
   const [sources, setSources] = useState<IngestionSourceInfo[] | null>(null)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -156,6 +162,9 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   const [marketResult, setMarketResult] = useState<{ file: string; dryRun: boolean; result: MarketImportResult } | null>(null)
   const [dryRun, setDryRun] = useState(false)
   const [retrying, setRetrying] = useState<number | null>(null)
+  // Synchronous double-submit guards: state only changes on the next render, so rapid clicks would each pass a state check.
+  const busyRef = useRef(false)
+  const retryingRef = useRef(false)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'error' | 'info' | 'warning'; text: string } | null>(null)
 
@@ -178,7 +187,8 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
   const loadSources = useCallback(async () => {
     try {
-      const list = (await opportunitiesService.listSources(context)).data
+      if (!product) return null
+      const list = (await opportunitiesService.listSources(context, product)).data
       setSources(list)
       setError('')
       return list
@@ -186,7 +196,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
       setError(errText(cause, 'Failed to load sources.'))
       return null
     }
-  }, [context])
+  }, [context, product])
 
   const loadDetail = useCallback(async (id: number) => {
     setDetailLoading(true)
@@ -201,12 +211,13 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }, [context])
 
   const loadSignals = useCallback(async () => {
+    if (!product) return
     const request = ++signalsRequest.current
     setSignalsLoading(true)
     setSignalsError('')
     try {
       const response = await opportunitiesService.listSignals(context, {
-        sourceId: sourceFilter ? Number(sourceFilter) : undefined, kind: kind || undefined, search: debouncedSearch || undefined, page,
+        sourceId: sourceFilter ? Number(sourceFilter) : undefined, kind: kind || undefined, search: debouncedSearch || undefined, product, page,
       })
       if (request === signalsRequest.current) setSignals(response)
     } catch (cause) {
@@ -214,8 +225,9 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } finally {
       if (request === signalsRequest.current) setSignalsLoading(false)
     }
-  }, [context, sourceFilter, kind, debouncedSearch, page])
+  }, [context, sourceFilter, kind, debouncedSearch, product, page])
 
+  useEffect(() => { setSources(null); setSelectedId(null); setDetail(null); setSourceFilter(''); setPage(1) }, [product])
   useEffect(() => { void loadSources() }, [loadSources])
   useEffect(() => { void loadSignals() }, [loadSignals])
   useEffect(() => { if (selectedId !== null) void loadDetail(selectedId) }, [selectedId, loadDetail])
@@ -272,9 +284,10 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }
 
   async function handleMarketFile(file: File | undefined) {
-    if (!file || busy) return
+    if (!file || busyRef.current) return
     setNotice(null)
     setMarketResult(null)
+    busyRef.current = true
     setBusy('market')
     try {
       const response = await opportunitiesService.importMarket(context, file, { dryRun, label: file.name })
@@ -282,6 +295,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'The market file could not be imported.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       if (marketFileRef.current) marketFileRef.current.value = ''
     }
@@ -289,14 +303,17 @@ export function IngestionView({ context }: { context: LaravelContext }) {
 
   async function handleFile(file: File | undefined) {
     if (intent === 'market') return handleMarketFile(file)
-    if (!file || busy) return
+    if (!file || busyRef.current) return
+    if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its documents are analysed with its own ICP.' }); return }
     setNotice(null)
+    busyRef.current = true
     setBusy('upload')
     try {
-      ingested(await opportunitiesService.upload(context, file))
+      ingested(await opportunitiesService.upload(context, file, product))
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Upload failed.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       if (fileRef.current) fileRef.current.value = ''
       void loadSources()
@@ -304,22 +321,26 @@ export function IngestionView({ context }: { context: LaravelContext }) {
   }
 
   async function handleUrl() {
-    if (!url.trim() || busy) return
+    if (!url.trim() || busyRef.current) return
+    if (!product || !productReady) { setNotice({ tone: 'error', text: 'Choose a configured product first: its pages are analysed with its own ICP.' }); return }
     setNotice(null)
+    busyRef.current = true
     setBusy('url')
     try {
-      ingested(await opportunitiesService.addUrl(context, url.trim()))
+      ingested(await opportunitiesService.addUrl(context, url.trim(), product))
       setUrl('')
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Could not read that page.') })
     } finally {
+      busyRef.current = false
       setBusy(null)
       void loadSources()
     }
   }
 
   async function retry(id: number) {
-    if (retrying !== null) return
+    if (retryingRef.current) return
+    retryingRef.current = true
     setNotice(null)
     setRetrying(id)
     try {
@@ -328,6 +349,7 @@ export function IngestionView({ context }: { context: LaravelContext }) {
     } catch (cause) {
       setNotice({ tone: 'error', text: errText(cause, 'Could not restart the analysis.') })
     } finally {
+      retryingRef.current = false
       setRetrying(null)
       await loadSources()
       if (selectedId === id) await loadDetail(id)
@@ -375,6 +397,11 @@ export function IngestionView({ context }: { context: LaravelContext }) {
         title="Ingestion engine"
         description="Upload a document or submit one public web page. Signals are generated automatically and appear here as soon as the analysis finishes."
       />
+
+      <section aria-label="Product" className="space-y-2">
+        <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} />
+        <ProductSetupNotice product={selectedProduct} />
+      </section>
 
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 

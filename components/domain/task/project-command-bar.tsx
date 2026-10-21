@@ -29,8 +29,9 @@
  */
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  AlertTriangle, ArrowLeft, Briefcase, ChevronDown, Layers, MoreVertical, Pencil, Users,
+  AlertTriangle, ArrowLeft, Briefcase, Building2, ChevronDown, Layers, MoreVertical, Pencil, Users,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { cn } from '@/lib/utils'
 import { PriorityBadge } from './priority-badge'
 import { projectStatusVariant } from './workstream-health'
@@ -222,6 +224,9 @@ function Vital({
  * shrink. Rendered into a popover on wide screens and a sheet on narrow ones.
  */
 export function ProjectFacts({ project }: { project: ProjectRecord }) {
+  const router = useRouter()
+  const { resolveAccessLink } = useSidebarNavigation()
+
   return (
     <div className="space-y-4">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -229,7 +234,31 @@ export function ProjectFacts({ project }: { project: ProjectRecord }) {
         <Meta label="Sponsor" value={project.sponsor} />
         <Meta label="Timeline" value={`${project.start_date ?? '—'} → ${project.due_date ?? '—'}`} />
         <Meta label="Category" value={project.category} />
-        <Meta label="Client" value={project.client_name} />
+        {/*
+         * CRM<->Project link (2026-10). `crm_organization_id` set means this
+         * project IS the Organization's own work, not just a same-named
+         * client - so it is a link to that Organization's detail page, not
+         * plain text. Falls back to the free-text `client_name` for every
+         * project created before this link existed, or never tied to a CRM
+         * Organization at all.
+         */}
+        {project.crm_organization_id ? (
+          <div className="flex flex-col gap-1.5">
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</dt>
+            <dd className="text-sm font-medium text-foreground">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                onClick={() => router.push(`${resolveAccessLink('/module/crm/marketing/organizations')}/${project.crm_organization_id}`)}
+              >
+                <Building2 className="size-3.5" aria-hidden="true" />
+                {project.crm_organization_name ?? project.client_name ?? 'View organization'}
+              </button>
+            </dd>
+          </div>
+        ) : (
+          <Meta label="Client" value={project.client_name} />
+        )}
         <Meta label="Budget" value={project.budget_estimate ? Number(project.budget_estimate).toLocaleString() : null} />
         <Meta label="Team size" value={project.team_size} />
         <Meta label="Members" value={String(project.members_count)} />

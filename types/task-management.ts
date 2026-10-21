@@ -588,7 +588,15 @@ export interface ProjectRecord {
   department_id: string | null; department: string | null; sponsor_id: string | null; sponsor: string | null
   manager_id: string | null; manager: string | null; team_size: string | null; priority: ProjectPriority
   status: ProjectStatus; start_date: string | null; due_date: string | null; budget_estimate: string | null
-  client_name: string | null; regulatory_flags: string[]; members_count: number; tasks_total: number
+  client_name: string | null
+  /**
+   * The CRM<->Project link (2026-10): nullable FKs onto crm_organizations/
+   * crm_opportunities. `*_name` is denormalized server-side the same way
+   * every other CRM cross-link in this app is - never resolved client-side.
+   */
+  crm_organization_id: string | null; crm_organization_name: string | null
+  crm_opportunity_id: string | null; crm_opportunity_name: string | null
+  regulatory_flags: string[]; members_count: number; tasks_total: number
   tasks_completed: number; progress: number
   /**
    * The arithmetic behind `progress`, so the number is answerable.
@@ -620,6 +628,8 @@ export interface ProjectPayload {
   department_ids?: string[]
   manager_id: string; team_size?: string; member_ids: string[]; priority: ProjectPriority; status?: ProjectStatus
   start_date: string; due_date: string; budget_estimate?: string; client_name?: string; regulatory_flags: string[]
+  /** CRM<->Project link (2026-10) - both optional, independent of each other. */
+  crm_organization_id?: string; crm_opportunity_id?: string
 }
 export interface ProjectOptions {
   users: Array<{ id: string; name: string }>
@@ -847,6 +857,17 @@ export interface CalendarEntriesResponse {
   data: { entries: CalendarEntry[] }
 }
 
+/**
+ * CRM Schedule tab feed (Activities/Calendar gap) — same CalendarEvent
+ * shape as everywhere else in this module, filtered server-side to one
+ * linked_type+linked_id pair instead of a date range.
+ */
+export interface LinkedCalendarEventsResponse {
+  status: 1
+  message: string
+  data: { entries: CalendarEvent[] }
+}
+
 export interface CalendarEvent {
   id: string
   title: string
@@ -874,6 +895,16 @@ export interface CalendarEventPayload {
   all_day?: boolean
   owner_id?: string
   visibility?: 'PUBLIC' | 'PRIVATE'
+  /**
+   * Activities/Calendar gap: which record this event is booked against, if
+   * any. A plain string rather than a literal union - the backend's own
+   * `eventRules()` whitelist (9 values as of this phase: the 4 original
+   * task-management types plus LEAD/CONTACT/ORGANIZATION/OPPORTUNITY/
+   * TICKET) is the real source of truth, and a union here would need
+   * editing every time that list grows.
+   */
+  linked_type?: string | null
+  linked_id?: string | null
 }
 
 /* ── Recurrence (Phase 2) ──────────────────────────────────────────────

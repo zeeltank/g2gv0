@@ -75,10 +75,12 @@ function fmtDate(value?: string | null, withTime = false) {
   }
 }
 
-export function SignalsFeedView() {
+export function SignalsFeedView({ product }: { product?: string } = {}) {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
+  /** The product chosen in Company opportunities ('all' or none = every product, which cannot start a run). */
+  const productKey = product && product !== 'all' ? product : undefined
 
   // Status & feed data
   const [status, setStatus] = useState<ResearchStatusResponse['data'] | null>(null)
@@ -121,6 +123,7 @@ export function SignalsFeedView() {
       const res = await opportunitiesService.list(context, {
         search: search || undefined,
         feedSection: section === 'all' ? undefined : section,
+        product: productKey,
         page,
       })
       setData(res)
@@ -130,23 +133,24 @@ export function SignalsFeedView() {
     } finally {
       setLoading(false)
     }
-  }, [context, ready, search, section, page])
+  }, [context, ready, search, section, productKey, page])
 
   const loadStatus = useCallback(async () => {
     if (!ready) return
     try {
-      const res = await opportunitiesService.getStatus(context)
+      const res = await opportunitiesService.getStatus(context, productKey)
       setStatus(res.data)
       return res.data
     } catch {
       return null
     }
-  }, [context, ready])
+  }, [context, ready, productKey])
 
   // Initial load
   useEffect(() => {
-    loadStatus()
-    loadFeed()
+    let live = true
+    Promise.resolve().then(() => { if (live) { void loadStatus(); void loadFeed() } })
+    return () => { live = false }
   }, [loadStatus, loadFeed])
 
   // Poll while research is running
@@ -172,11 +176,15 @@ export function SignalsFeedView() {
 
   const handleStartScan = async (isCustom = false) => {
     if (!ready) return
+    if (!productKey) {
+      setScanMessage('Choose a product first: a research run is always for one product.')
+      return
+    }
     setScanning(true)
     setScanMessage(null)
     try {
       const params = isCustom ? scanForm : undefined
-      const res = await opportunitiesService.runResearch(context, params)
+      const res = await opportunitiesService.runResearch(context, params, productKey)
       setScanMessage(res.message)
       loadStatus()
     } catch (e) {
@@ -611,6 +619,12 @@ export function SignalsFeedView() {
                       <Badge variant="outline">{opp.signal_kind_label}</Badge>
                     )}
 
+                    {opp.signal_family && (
+                      <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary text-xs" title={opp.signal_family.examples}>
+                        {opp.signal_family.label}
+                      </Badge>
+                    )}
+
                     <Badge variant="outline" className="bg-muted/40">
                       {opp.category_label}
                     </Badge>
@@ -743,6 +757,23 @@ export function SignalsFeedView() {
                     <p className="mt-1 text-xs leading-relaxed text-foreground">
                       {opp.product_fit}
                     </p>
+                    {opp.matched_offers && opp.matched_offers.length > 0 && (
+                      <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
+                        {opp.matched_offers.slice(0, 3).map((mo) => (
+                          <div key={mo.offer_id} className="rounded bg-muted/40 p-1.5 text-xs">
+                            <div className="flex items-center justify-between font-medium">
+                              <span className="text-foreground">{mo.offer_name ?? mo.offer_id}</span>
+                              {mo.match_score !== null && (
+                                <span className="font-semibold text-primary">{mo.match_score}% fit</span>
+                              )}
+                            </div>
+                            {mo.rationale && (
+                              <p className="mt-0.5 text-xs text-muted-foreground italic">{mo.rationale}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

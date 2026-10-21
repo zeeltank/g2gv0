@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, HelpCircle, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
-import type { CrmFaq, CrmPicklistValue } from '@/types/crm'
+import { crmService } from '@/services/crm'
+import type { CrmAuditEntry, CrmFaq, CrmPicklistValue } from '@/types/crm'
 import { CreateFaqModal } from './create-faq-modal'
+import { CrmHistoryTab } from './crm-history-tab'
 
 interface Props {
   faq: CrmFaq
@@ -24,13 +27,36 @@ const STATUS_VARIANT: Record<string, 'inactive' | 'active' | 'error'> = {
   Draft: 'inactive', Published: 'active', Obsolete: 'error',
 }
 
-type Tab = 'details' | 'custom'
-const BASE_TABS: Array<{ id: Tab; label: string }> = [{ id: 'details', label: 'Details' }]
+type Tab = 'details' | 'history' | 'custom'
+const BASE_TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'details', label: 'Details' },
+  { id: 'history', label: 'History' },
+]
 
 export function FaqDetailPage({ faq, onSaved, onBack, categories, statuses }: Props) {
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState('')
+
+  const context = useMemo(() => getLaravelContext(), [])
+  const [history, setHistory] = useState<CrmAuditEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await crmService.getFaqHistory(context, faq.id)
+      setHistory(response.data)
+    } catch {
+      /* the tab still renders, just empty */
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [context, faq.id])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadHistory() })
+  }, [loadHistory])
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -110,6 +136,8 @@ export function FaqDetailPage({ faq, onSaved, onBack, categories, statuses }: Pr
           </SectionCard>
         </div>
       )}
+
+      {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
       <div className={tab === 'custom' ? '' : 'hidden'}>

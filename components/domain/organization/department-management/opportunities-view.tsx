@@ -75,6 +75,9 @@ type Filters = {
 }
 const EMPTY: Filters = { search: '', category: '', kind: '', priority: '', qualification: '', reviewStatus: '', reportDate: '', expiry: '', claimLevel: '', businessFit: '', includeSamples: false }
 
+/** Display names for the stored product keys (the keys themselves come from the backend). */
+const PRODUCT_NAMES: Record<string, string> = { scholarclone: 'ScholarClone', enterprise_brain: 'Enterprise Brain', g2g: 'G2G' }
+
 const PRIORITY_VARIANT = { High: 'destructive', Medium: 'warning', Low: 'muted' } as const
 
 function fmt(value?: string | null, withTime = true) {
@@ -190,12 +193,14 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
       <article className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className={`text-sm font-medium ${URGENCY_TONE[c?.urgency_band ?? 'nurture']}`}>{c?.urgency_line ?? 'Keep an eye on this'}</p>
-          <span className="text-xs text-muted-foreground">
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            {o.product && <Badge variant="muted" title="The product this opportunity is for">{PRODUCT_NAMES[o.product] ?? o.product}</Badge>}
             Found {fmt(o.first_discovered_at, false)}{o.review_status !== 'New' ? ` · ${o.review_status}` : ''}
           </span>
         </div>
 
-        <h4 className="break-words text-base font-semibold leading-snug text-foreground">{c?.organisation_line ?? o.company_name}</h4>
+        {c?.needs_line && <p className="break-words text-base font-semibold leading-snug text-foreground">{c.needs_line}</p>}
+        <h4 className={c?.needs_line ? 'break-words text-sm font-medium leading-snug text-muted-foreground' : 'break-words text-base font-semibold leading-snug text-foreground'}>{c?.organisation_line ?? o.company_name}</h4>
 
         <div className="space-y-1">
           <p className="break-words text-sm font-semibold leading-snug text-foreground">{c?.headline || o.observed_event}</p>
@@ -228,6 +233,14 @@ function OpportunityCard({ o, onOpen, onMatch }: { o: Opportunity; onOpen: (o: O
             </a>
           ) : (c?.source.text ?? '')}
         </p>
+
+        {c?.account?.crm_ref && (
+          <p className="text-xs text-muted-foreground">
+            In your CRM as <span className="font-medium text-foreground">{c.account.crm_ref}</span>
+            {c.account.crm_owner ? ` · owner ${c.account.crm_owner}` : ''}
+            {c.account.contact_name ? ` · contact ${c.account.contact_name}` : ''}
+          </p>
+        )}
 
         <details className="group rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
           <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">Details for our team</summary>
@@ -333,7 +346,7 @@ function OpportunityDetail({ o, busy, onAct, onMatch }: { o: Opportunity; busy: 
   )
 }
 
-function RunLine({ run, context }: { run: ResearchRun; context: LaravelContext }) {
+export function RunLine({ run, context }: { run: ResearchRun; context: LaravelContext }) {
   const tone = run.status === 'failed' ? 'destructive' : run.status === 'skipped' ? 'muted' : run.status === 'partial' ? 'warning' : 'success'
   const [sources, setSources] = useState<ResearchSourceInfo[] | null>(null)
   const [openSources, setOpenSources] = useState(false)
@@ -390,7 +403,15 @@ function RunLine({ run, context }: { run: ResearchRun; context: LaravelContext }
  * state from effects/timers by design.
  */
 /* eslint-disable react-hooks/set-state-in-effect -- Intentional: fetch-on-filter-change and run polling */
-export function OpportunitiesView({ context }: { context: LaravelContext }) {
+/**
+ * `product` is the product chosen in Company opportunities: a product key lists only that product's records and is the product a research run
+ * is for; 'all' (or none) lists every product and cannot start a run, because a run is always for one product.
+ *
+ * `embedded`: only the persisted opportunities (filters, list, detail, actions). The run controls, status and advanced tools belong to the
+ * Company opportunities screen around it, which also bumps `refreshKey` after a run so this list re-reads what the backend stored.
+ */
+export function OpportunitiesView({ context, product, embedded = false, refreshKey = 0 }: { context: LaravelContext; product?: string; embedded?: boolean; refreshKey?: number }) {
+  const productKey = product && product !== 'all' ? product : undefined
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(1)
@@ -429,7 +450,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         qualification: filters.qualification || undefined, reviewStatus: filters.reviewStatus || undefined,
         reportDate: filters.reportDate || undefined, page,
         expired: filters.expiry || undefined, includeSamples: filters.includeSamples,
-        claimLevel: filters.claimLevel || undefined, businessFit: filters.businessFit || undefined,
+        claimLevel: filters.claimLevel || undefined, businessFit: filters.businessFit || undefined, product: productKey,
       })
       if (request === requestRef.current) setList(response)
     } catch (cause) {
@@ -437,20 +458,20 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
     } finally {
       if (request === requestRef.current) setLoading(false)
     }
-  }, [context, debounced, filters.category, filters.kind, filters.priority, filters.qualification, filters.reviewStatus, filters.reportDate, filters.expiry, filters.includeSamples, filters.claimLevel, filters.businessFit, page])
+  }, [context, debounced, filters.category, filters.kind, filters.priority, filters.qualification, filters.reviewStatus, filters.reportDate, filters.expiry, filters.includeSamples, filters.claimLevel, filters.businessFit, productKey, page])
 
   const loadStatus = useCallback(async () => {
     try {
-      const response = await opportunitiesService.getStatus(context)
+      const response = await opportunitiesService.getStatus(context, productKey)
       setStatus(response.data)
       return response.data
     } catch {
       return null
     }
-  }, [context])
+  }, [context, productKey])
 
-  useEffect(() => { void load() }, [load])
-  useEffect(() => { void loadStatus() }, [loadStatus])
+  useEffect(() => { void load() }, [load, refreshKey])
+  useEffect(() => { if (!embedded) void loadStatus() }, [loadStatus, embedded])
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
 
   const poll = useCallback((runId: number, attempt: number) => {
@@ -505,6 +526,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
 
   // Resume running state from sessionStorage across page navigation or refresh
   useEffect(() => {
+    if (embedded) return
     try {
       const stored = sessionStorage.getItem(storageKey)
       if (stored) {
@@ -528,23 +550,27 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         }
       }
     } catch { /* ignore */ }
-  }, [context, poll, storageKey])
+  }, [context, poll, storageKey, embedded])
 
   // Sync if status shows a run is in progress and polling hasn't started yet
   useEffect(() => {
-    if (status?.running && !running && status.latest_run?.id && !activeRunIdRef.current) {
+    if (!embedded && status?.running && !running && status.latest_run?.id && !activeRunIdRef.current) {
       setRunning(true)
       setActiveRun(status.latest_run)
       poll(status.latest_run.id, 0)
     }
-  }, [status?.running, status?.latest_run, running, poll])
+  }, [status?.running, status?.latest_run, running, poll, embedded])
 
   async function runNow() {
     if (running) return
+    if (!productKey) {
+      setNotice({ tone: 'error', text: 'Choose a product first: a research run is always for one product.' })
+      return
+    }
     setNotice(null)
     setRunning(true)
     try {
-      const res = await opportunitiesService.runResearch(context)
+      const res = await opportunitiesService.runResearch(context, undefined, productKey)
       const runId = res.data?.run_id ?? res.data?.run?.id
       if (runId) {
         setActiveRun(res.data?.run ?? null)
@@ -597,13 +623,17 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
 
   const set = (patch: Partial<Filters>) => { setFilters((f) => ({ ...f, ...patch })); setPage(1) }
   const req = status?.requirements
-  const blocked = Boolean(req && (!req.profile_complete || !req.search_configured || !req.ai_configured))
+  // A run is for one product, and that product's own ICP is what it needs (not the company profile). 'All products' cannot run.
+  const productNotReady = Boolean(productKey && status?.product && !status.product.ready)
+  const blocked = !productKey || productNotReady || Boolean(req && (!req.search_configured || !req.ai_configured))
   const active = Object.values(filters).some(Boolean)
   const latest = status?.latest_run
   const last = status?.last_successful_run
 
   return (
     <SignalsPage>
+      {!embedded && (
+        <>
       <SectionHeader
         title="Company opportunities"
         description="Public, source-backed signals that companies may need your product. These are leads to verify, not confirmed buyers."
@@ -634,13 +664,11 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
           </dl>
         </Surface>
 
-        {req && (!req.profile_complete || !req.search_configured || !req.ai_configured) && !running && (
-          <Notice tone="warning" action={<Button size="sm" onClick={() => {
-            if (!req.profile_complete) setProfileOpen(true)
-            else setProvidersOpen(true)
-          }}>Set up</Button>}>
-            {!req.profile_complete ? `Profile is incomplete. Still needed: ${(req.profile_missing || []).map(m => m.replace(/_/g, ' ')).join(', ')}.` :
-             !req.search_configured ? 'Search provider is not configured. Set up the SIGNALS_SEARCH_DRIVER environment variable.' :
+        {!productKey && !running && <Notice tone="info">Showing every product. Pick one product above to run research for it.</Notice>}
+        {productNotReady && !running && <Notice tone="warning">{status?.product?.label} cannot be researched yet: {(status?.product?.missing ?? []).join('; ')}.</Notice>}
+        {req && (!req.search_configured || !req.ai_configured) && !running && (
+          <Notice tone="warning" action={<Button size="sm" onClick={() => setProvidersOpen(true)}>Set up</Button>}>
+            {!req.search_configured ? 'Search provider is not configured. Set up the SIGNALS_SEARCH_DRIVER environment variable.' :
              'AI provider is not configured. Save a credential in the AI Providers screen or environment.'}
           </Notice>
         )}
@@ -662,6 +690,9 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         </div>
       </section>
 
+        </>
+      )}
+
       <section aria-label="Opportunities" className="space-y-4">
         <GroupHeading title="Opportunities" aside={list ? `${list.meta.total} total` : undefined} />
 
@@ -670,7 +701,6 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
             <div className="@xl:col-span-2 @3xl:col-span-3">
               <Input aria-label="Search opportunities" placeholder="Search company, title or event" value={filters.search} onChange={(e) => set({ search: e.target.value })} />
             </div>
-            <SelectInput value={filters.businessFit} onChange={(v) => set({ businessFit: v })} options={[{ value: '', label: 'All product lines' }, { value: 'eb', label: 'Enterprise Brain' }, { value: 'scholar', label: 'Scholar' }, { value: 'g2g', label: 'G2G' }, { value: 'multiple', label: 'Multiple' }]} />
             <SelectInput value={filters.claimLevel} onChange={(v) => set({ claimLevel: v })} options={[{ value: '', label: 'All evidence levels' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'inference', label: 'Inference' }, { value: 'hypothesis', label: 'Hypothesis' }]} />
             <SelectInput value={filters.reviewStatus} onChange={(v) => set({ reviewStatus: v })} options={[{ value: '', label: 'All review states' }, ...['New', 'Reviewed', 'Follow-up', 'Dismissed'].map((q) => ({ value: q, label: q }))]} />
             {((list?.summary.samples ?? 0) > 0 || filters.includeSamples) && (
@@ -698,7 +728,7 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
               title={running ? 'Researching companies…' : latest?.status === 'success' || latest?.status === 'partial' ? 'No qualifying opportunities found' : 'No opportunities yet'}
               description={running ? 'Searching public sources and qualifying findings. This can take a few minutes.'
                 : latest?.status === 'success' || latest?.status === 'partial' ? `The last research run reviewed ${latest.sources_found} sources across ${latest.companies_researched} companies, but found no company activity with enough confirmed evidence to qualify. All source records are preserved in the Report History.`
-                : blocked ? 'Complete the setup above, then research will run daily at the scheduled time.' : 'No market signals yet. Research runs automatically at the scheduled time, or click Run Research Now. To load your own demand-side file, use Ingestion engine → Market signals.'}
+                : blocked ? (productKey ? 'Complete the setup above, then research can run for this product.' : 'Pick a product to run research for it.') : 'No opportunities are stored for this product yet. Press Generate Signals above when you want research to run. To load your own demand-side file, use Ingestion engine → Market signals.'}
             />
           )
         ) : (
@@ -724,6 +754,8 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
         </DialogContent>
       </Dialog>
 
+      {!embedded && (
+        <>
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>Daily research history</DialogTitle><DialogDescription>Every run is kept, including skipped and failed ones.</DialogDescription></DialogHeader>
@@ -743,6 +775,9 @@ export function OpportunitiesView({ context }: { context: LaravelContext }) {
       </Dialog>
 
       <ProductProfileDialog open={profileOpen} context={context} onOpenChange={setProfileOpen} onSaved={() => { void loadStatus(); setNotice({ tone: 'info', text: 'Product profile saved.' }) }} />
+
+        </>
+      )}
 
       <BusinessOpportunityMatchingModal
         open={matchingOpportunity !== null}
