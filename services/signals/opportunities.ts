@@ -140,7 +140,16 @@ export interface SignalAssessment {
   }
   buying_intent?: { level: BuyingIntentLevel; meaning: string; indicators: { indicator: string; tier: string; quote: string }[] }
   sales_pull?: { category: string; label: string; basis: 'observed' | 'inferred'; rationale: string; quote: string | null }[]
-  product_fit?: { part: string; what_it_does: string; reason: string } | null
+  product_fit?: {
+    part: string; what_it_does: string; reason: string
+    /** Added with child-product research: older signals have none of these. */
+    kind?: 'child_product' | 'product_part'; name?: string; parent_product?: string; solves?: string[]; needs_further_research?: boolean
+  } | null
+  /** direct_evidence | strong_indicator | weak_indicator | needs_further_research, decided on the server from what it verified. */
+  evidence_class?: string
+  research_status?: 'verified' | 'reviewable' | 'needs_further_research'
+  missing_evidence?: string[]
+  provenance?: { public_fact?: { quote: string; source_url: string; source_title: string }; interpretation?: Record<string, string> }
   unverified?: string[]
   opportunity?: { strength: SignalStrength; reason: string; age_days: number | null } | null
 }

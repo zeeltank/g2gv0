@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
+import { evidenceBadge, fitHeading } from '@/lib/signal-evidence'
 import { ApiError } from '@/services/core'
 import {
   opportunitiesService,
@@ -451,6 +452,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
   const a = o.assessment
   const strength = STRENGTH[o.strength ?? 'watch']
   const intent = o.buying_intent ? INTENT[o.buying_intent] : null
+  const evClass = evidenceBadge(a?.evidence_class)
   const src = c?.source ?? (o.source_url ? { text: 'Source', url: o.source_url } : null)
   const pull = a?.sales_pull ?? []
   const evidence = summariseEvidence(o)
@@ -485,6 +487,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {strength.label}
         </Badge>
         {intent && <Badge variant="outline" className={intent.className} title={a?.buying_intent?.meaning}>{intent.label}</Badge>}
+        {evClass && <Badge variant="outline" className={evClass.className} title={evClass.help}>{evClass.label}</Badge>}
         {o.signal_family && (
           <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary" title={o.signal_family.examples}>
             {o.signal_family.label}
@@ -507,7 +510,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           <p className="text-sm">{c?.so_what ?? o.likely_problem}</p>
           {a?.product_fit && (
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Fits:</span> {a.product_fit.what_it_does}. {a.product_fit.reason}
+              <span className="font-medium text-foreground">Fits:</span> {fitHeading(a.product_fit) ? `${fitHeading(a.product_fit)} — ` : ''}{a.product_fit.what_it_does}. {a.product_fit.reason}
             </p>
           )}
           {o.relevant_offer_name && !a?.product_fit && (
