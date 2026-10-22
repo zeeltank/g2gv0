@@ -655,6 +655,7 @@ export function MyDepartmentDocuments() {
             </Surface>
           ) : viewMode === 'grid' ? (
             <DocumentCardGrid
+              foldersFirst={debouncedQuery === ''}
               documents={results}
               typeLabel={typeLabel}
               downloadingId={downloadingId}
@@ -673,6 +674,7 @@ export function MyDepartmentDocuments() {
             />
           ) : (
             <DocumentTableView
+              foldersFirst={debouncedQuery === ''}
               documents={results}
               typeLabel={typeLabel}
               downloadingId={downloadingId}
