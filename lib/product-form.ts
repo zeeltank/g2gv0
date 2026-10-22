@@ -12,8 +12,13 @@ export interface ProductFormState {
   readiness_status: string
   what_it_does: string
   modules_components: string
+  /** Target customers: codes from the list the person ticked, and their own entries ("Other"), in one list. */
   primary_segments: string[]
-  needs_solved: string[]
+  /** Customer problems solved, in the person's own words: one per line. */
+  problems: string
+  /** Older problem codes (N01...) a product already carries. Kept as they are; the person can remove them. */
+  legacy_needs: string[]
+  /** Buying events: signal families ticked, older event codes, and the person's own entries ("Other"), in one list. */
   trigger_signals: string[]
   proof_points: string
   pricing_model: string
@@ -27,9 +32,50 @@ export interface ProductFormState {
 export type ProductFormErrors = Partial<Record<keyof ProductFormState, string>>
 
 export const emptyProductForm = (): ProductFormState => ({
-  offer_id: '', name: '', parent_product: '', readiness_status: '', what_it_does: '', modules_components: '', primary_segments: [], needs_solved: [], trigger_signals: [],
+  offer_id: '', name: '', parent_product: '', readiness_status: '', what_it_does: '', modules_components: '', primary_segments: [], problems: '', legacy_needs: [], trigger_signals: [],
   proof_points: '', pricing_model: '', typical_deal_band: '', deployment_model: '', implementation_effort: '', delivery_owner: '', notes: '',
 })
+
+/** An older problem code such as N13. */
+export const LEGACY_NEED = /^N\d{2}$/
+
+export const MAX_PROBLEMS = 60
+export const MAX_PROBLEM_LENGTH = 400
+export const MAX_ENTRY_LENGTH = 160
+
+/** A product's stored problem list as the form holds it: older codes kept apart, the person's own words one per line. */
+export function splitNeeds(list: string[]): { codes: string[]; text: string } {
+  const codes = list.filter((n) => LEGACY_NEED.test(n))
+
+  return { codes, text: list.filter((n) => !LEGACY_NEED.test(n)).join('\n') }
+}
+
+/** The problems typed in the text box: one per line, trimmed, without blanks or repeats. */
+export function problemLines(text: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (line === '' || seen.has(line.toLowerCase())) continue
+    seen.add(line.toLowerCase())
+    out.push(line)
+  }
+
+  return out
+}
+
+/** The entries in a list that are not on the known list: what the person added themselves ("Other"). */
+export const customEntries = (list: string[], known: string[]): string[] => list.filter((x) => !known.includes(x))
+
+/** Adds the person's own entry once (ignoring case), trimmed and no longer than the server allows. Blank adds nothing. */
+export function addCustom(list: string[], raw: string): string[] {
+  const entry = raw.trim().slice(0, MAX_ENTRY_LENGTH)
+  if (entry === '' || list.some((x) => x.toLowerCase() === entry.toLowerCase())) return list
+
+  return [...list, entry]
+}
+
+export const removeEntry = (list: string[], entry: string): string[] => list.filter((x) => x !== entry)
 
 export const fromOffer = (o: ProductOffer): ProductFormState => ({
   offer_id: o.offer_id,
@@ -39,7 +85,8 @@ export const fromOffer = (o: ProductOffer): ProductFormState => ({
   what_it_does: o.what_it_does ?? '',
   modules_components: o.modules_components ?? '',
   primary_segments: [...(o.primary_segments ?? [])],
-  needs_solved: [...(o.needs_solved ?? [])],
+  problems: splitNeeds(o.needs_solved ?? []).text,
+  legacy_needs: splitNeeds(o.needs_solved ?? []).codes,
   trigger_signals: [...(o.trigger_signals ?? [])],
   proof_points: o.proof_points ?? '',
   pricing_model: o.pricing_model ?? '',
@@ -63,6 +110,9 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
   else if (f.name.trim().length > 191) e.name = 'At most 191 characters.'
   if (!f.parent_product.trim()) e.parent_product = 'Choose a category.'
   if (!f.readiness_status.trim()) e.readiness_status = 'Choose a status.'
+  const problems = problemLines(f.problems)
+  if (problems.length + f.legacy_needs.length > MAX_PROBLEMS) e.problems = `At most ${MAX_PROBLEMS} problems.`
+  else if (problems.some((p) => p.length > MAX_PROBLEM_LENGTH)) e.problems = `Each problem can be up to ${MAX_PROBLEM_LENGTH} characters. Put each one on its own line.`
   if (f.pricing_model.length > 191) e.pricing_model = 'At most 191 characters.'
   if (f.typical_deal_band.length > 50) e.typical_deal_band = 'At most 50 characters.'
   if (f.deployment_model.length > 100) e.deployment_model = 'At most 100 characters.'
@@ -84,7 +134,8 @@ export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<
     what_it_does: text(f.what_it_does),
     modules_components: text(f.modules_components),
     primary_segments: f.primary_segments,
-    needs_solved: f.needs_solved,
+    // Older codes the product already had, then the problems in the person's own words.
+    needs_solved: [...f.legacy_needs, ...problemLines(f.problems)],
     trigger_signals: f.trigger_signals,
     proof_points: text(f.proof_points),
     pricing_model: text(f.pricing_model),

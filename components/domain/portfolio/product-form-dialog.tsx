@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Loader2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorText } from '@/lib/api-messages'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { emptyProductForm, fromOffer, serverErrors, toggle, toPayload, validateProductForm, type ProductFormErrors, type ProductFormState } from '@/lib/product-form'
+import { addCustom, customEntries, emptyProductForm, fromOffer, removeEntry, serverErrors, toggle, toPayload, validateProductForm, type ProductFormErrors, type ProductFormState } from '@/lib/product-form'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductOffer, TaxonomyData } from '@/services/portfolio/types'
@@ -26,20 +26,67 @@ function Field({ id, label, hint, error, required, children }: { id: string; lab
   )
 }
 
-function CheckList({ legend, hint, options, value, onChange, disabled }: { legend: string; hint?: string; options: Record<string, string>; value: string[]; onChange: (next: string[]) => void; disabled: boolean }) {
+interface PickOption { code: string; label: string; detail?: string; title?: string }
+
+/**
+ * A tickable list with an "Other" box: the person can tick from the list or type their own entry, which is kept with the ticked ones. Entries from an
+ * older list (`legacy`) that the product already carries stay visible and removable. All lists share one layout, so their columns line up.
+ */
+function PickList({ legend, hint, options, legacy = {}, value, onChange, disabled, otherLabel }: {
+  legend: string; hint: string; options: PickOption[]; legacy?: Record<string, string>; value: string[]; onChange: (next: string[]) => void; disabled: boolean; otherLabel: string
+}) {
+  const [draft, setDraft] = useState('')
+  const known = options.map((o) => o.code)
+  const older = value.filter((v) => !known.includes(v) && v in legacy)
+  const own = customEntries(value, [...known, ...Object.keys(legacy)])
+  const add = () => { onChange(addCustom(value, draft)); setDraft('') }
+
   return (
-    <fieldset className="space-y-1">
-      <legend className="text-xs font-medium text-foreground">{legend}</legend>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-input bg-background p-2">
-        {Object.entries(options).map(([code, label]) => (
-          <label key={code} className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
-            <input type="checkbox" className="mt-1" checked={value.includes(code)} disabled={disabled} onChange={() => onChange(toggle(value, code))} />
-            <span className="min-w-0 break-words">{label}</span>
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
+      <legend className="mb-0.5 text-xs font-medium text-foreground">{legend}</legend>
+      <p className="min-h-8 text-xs text-muted-foreground">{hint}</p>
+      <div className="h-56 space-y-1 overflow-y-auto rounded-md border border-input bg-background p-2">
+        {options.map((o) => (
+          <label key={o.code} title={o.title} className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-muted/50">
+            <input type="checkbox" className="mt-1" checked={value.includes(o.code)} disabled={disabled} onChange={() => onChange(toggle(value, o.code))} />
+            <span className="min-w-0 break-words">
+              {o.label}
+              {o.detail && <span className="block text-xs text-muted-foreground">{o.detail}</span>}
+            </span>
           </label>
         ))}
-        {Object.keys(options).length === 0 && <p className="text-xs text-muted-foreground">No options are available.</p>}
+        {options.length === 0 && <p className="text-xs text-muted-foreground">No options are available. Use Other to add your own.</p>}
       </div>
+
+      <div className="flex items-center gap-2">
+        <Input
+          aria-label={otherLabel}
+          placeholder={otherLabel}
+          value={draft}
+          disabled={disabled}
+          maxLength={160}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        />
+        <Button type="button" size="sm" variant="outline" disabled={disabled || draft.trim() === ''} onClick={add}><Plus className="mr-1 size-3.5" /> Add</Button>
+      </div>
+
+      {(own.length > 0 || older.length > 0) && (
+        <ul aria-label={`${legend}: your own and older entries`} className="flex flex-wrap gap-1.5">
+          {own.map((e) => (
+            <li key={e} className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-xs">
+              <span className="min-w-0 break-words">{e}</span>
+              {!disabled && <button type="button" aria-label={`Remove ${e}`} className="rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onChange(removeEntry(value, e))}><X className="size-3" /></button>}
+            </li>
+          ))}
+          {older.map((e) => (
+            <li key={e} className="flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs text-muted-foreground" title="An older code this product already carries">
+              <span className="min-w-0 break-words">{legacy[e]} <span className="opacity-70">(older)</span></span>
+              {!disabled && <button type="button" aria-label={`Remove ${legacy[e]}`} className="rounded-full hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onChange(removeEntry(value, e))}><X className="size-3" /></button>}
+            </li>
+          ))}
+        </ul>
+      )}
     </fieldset>
   )
 }
@@ -96,6 +143,12 @@ export function ProductFormDialog({
     }
   }
 
+  // The lists the person ticks from. Buying events are the ten signal families, each with what it covers.
+  const segmentOptions = useMemo<PickOption[]>(() => Object.entries(taxonomy?.segments ?? {}).map(([code, label]) => ({ code, label })), [taxonomy])
+  const eventOptions = useMemo<PickOption[]>(
+    () => Object.entries(taxonomy?.signal_families ?? {}).map(([code, f]) => ({ code, label: f.label, detail: f.examples, title: f.relevance })),
+    [taxonomy],
+  )
   const categories = taxonomy?.parent_products ?? {}
   const statuses = taxonomy?.readiness_statuses ?? {}
   const deployments = taxonomy?.deployment_models ?? {}
@@ -141,10 +194,41 @@ export function ProductFormDialog({
             <Textarea id="pf-modules" rows={2} value={form.modules_components} disabled={busy} onChange={(e) => set({ modules_components: e.target.value })} />
           </Field>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <CheckList legend="Target customers" hint="Who it is sold to." options={taxonomy?.segments ?? {}} value={form.primary_segments} disabled={busy} onChange={(v) => set({ primary_segments: v })} />
-            <CheckList legend="Customer problems solved" options={taxonomy?.needs ?? {}} value={form.needs_solved} disabled={busy} onChange={(v) => set({ needs_solved: v })} />
-            <CheckList legend="Buying events it responds to" options={taxonomy?.signals ?? {}} value={form.trigger_signals} disabled={busy} onChange={(v) => set({ trigger_signals: v })} />
+          <Field id="pf-problems" label="Customer problems solved" error={errors.problems} hint="Describe the problems this product solves, in your own words, one per line. The ICP comparison and signal matching read this.">
+            <Textarea id="pf-problems" rows={4} value={form.problems} disabled={busy} onChange={(e) => set({ problems: e.target.value })} placeholder={'For example:\nFee collection is slow during admissions\nParents cannot see attendance'} />
+          </Field>
+          {form.legacy_needs.length > 0 && (
+            <ul aria-label="Older problem codes this product carries" className="flex flex-wrap items-center gap-1.5 text-xs">
+              <li className="text-muted-foreground">Older problem codes:</li>
+              {form.legacy_needs.map((c) => (
+                <li key={c} className="flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-muted-foreground">
+                  <span>{taxonomy?.needs?.[c] ?? c}</span>
+                  <button type="button" disabled={busy} aria-label={`Remove ${taxonomy?.needs?.[c] ?? c}`} className="rounded-full hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => set({ legacy_needs: form.legacy_needs.filter((x) => x !== c) })}><X className="size-3" /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="grid items-start gap-4 md:grid-cols-2">
+            <PickList
+              legend="Target customers"
+              hint="Who it is sold to. Tick from the list, or add your own under Other."
+              options={segmentOptions}
+              value={form.primary_segments}
+              disabled={busy}
+              onChange={(v) => set({ primary_segments: v })}
+              otherLabel="Other target customer, then Add"
+            />
+            <PickList
+              legend="Buying events it responds to"
+              hint="The kinds of event that show a customer needs this product. Tick from the list, or add your own under Other."
+              options={eventOptions}
+              legacy={taxonomy?.signals ?? {}}
+              value={form.trigger_signals}
+              disabled={busy}
+              onChange={(v) => set({ trigger_signals: v })}
+              otherLabel="Other buying event, then Add"
+            />
           </div>
 
           <Field id="pf-proof" label="Benefits and proof" error={errors.proof_points} hint="Results, references or evidence you can stand behind.">

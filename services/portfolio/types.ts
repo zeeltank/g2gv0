@@ -88,6 +88,8 @@ export interface TaxonomyData {
   needs: Record<string, string>
   segments: Record<string, string>
   signals: Record<string, string>
+  /** The ten signal families (what kind of event a signal is about): label, what it covers, and why it matters. */
+  signal_families?: Record<string, { label: string; examples: string; relevance: string }>
   parent_products: Record<string, string>
   readiness_statuses: Record<string, string>
   partner_sellable_readiness: string[]

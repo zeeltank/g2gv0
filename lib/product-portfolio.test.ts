@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { deleteConfirmation, emptyProductForm, fromOffer, serverErrors, toggle, toPayload, validateProductForm } from './product-form'
+import { addCustom, customEntries, deleteConfirmation, emptyProductForm, fromOffer, problemLines, removeEntry, serverErrors, splitNeeds, toggle, toPayload, validateProductForm } from './product-form'
 import { addProduct, comparisonScope, notChosen, removeProduct, scoreLabel, scoreTone } from './icp-products'
 import { fromConfig, toConfig } from './icp-form'
 import type { ProductOffer } from '@/services/portfolio/types'
@@ -66,6 +66,35 @@ describe('product form', () => {
   it('toggles a taxonomy code on and off', () => {
     assert.deepEqual(toggle(['A'], 'B'), ['A', 'B'])
     assert.deepEqual(toggle(['A', 'B'], 'A'), ['B'])
+  })
+
+  it('splits legacy need codes from free-text problems and cleans problem lines', () => {
+    const split = splitNeeds(['N13', 'Fee collection is slow', 'N02', 'Parents lack visibility'])
+    assert.deepEqual(split.codes, ['N13', 'N02'])
+    assert.equal(split.text, 'Fee collection is slow\nParents lack visibility')
+
+    assert.deepEqual(problemLines('  Fee collection is slow  \n\n Parents lack visibility \nfee collection is slow '), [
+      'Fee collection is slow',
+      'Parents lack visibility',
+    ])
+  })
+
+  it('handles custom "Other" entries with trimming and deduplication', () => {
+    const initial = ['EXP', 'LEAD']
+    const next = addCustom(initial, '  Custom Event  ')
+    assert.deepEqual(next, ['EXP', 'LEAD', 'Custom Event'])
+    assert.deepEqual(addCustom(next, 'custom event'), next)
+    assert.deepEqual(addCustom(next, '   '), next)
+    assert.deepEqual(removeEntry(next, 'Custom Event'), initial)
+    assert.deepEqual(customEntries(next, ['EXP', 'LEAD']), ['Custom Event'])
+  })
+
+  it('validates free-text customer problems limits', () => {
+    const f = { ...valid(), problems: 'A'.repeat(401) }
+    assert.ok(validateProductForm(f, 'create').problems)
+
+    const manyProblems = Array.from({ length: 61 }, (_, i) => `Problem ${i}`).join('\n')
+    assert.ok(validateProductForm({ ...valid(), problems: manyProblems }, 'create').problems)
   })
 
   it('asks before deleting, names the product, and says an ICP keeps it from being deleted', () => {
