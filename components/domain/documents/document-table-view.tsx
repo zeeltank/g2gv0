@@ -56,6 +56,8 @@ export interface DocumentTableViewProps {
   onMove?: (doc: DocumentSearchHit) => void
   onShare?: (doc: DocumentSearchHit) => void
   canDelete: (doc: DocumentSearchHit) => boolean
+  /** Default (true): folders first, same browsing convention as DocumentCardGrid. See that prop's own docblock for why an active search passes false instead. */
+  foldersFirst?: boolean
   folders?: DocumentFolderNode[]
   onOpenFolder?: (folder: DocumentFolderNode) => void
   onDeleteFolder?: (folder: DocumentFolderNode) => void
@@ -90,6 +92,7 @@ export function DocumentTableView({
   onMove,
   onShare,
   canDelete,
+  foldersFirst = true,
   folders = [],
   onOpenFolder,
   onDeleteFolder,
@@ -111,6 +114,144 @@ export function DocumentTableView({
   const selectedCount = selectedKeys?.size ?? 0
   const allSelected = totalRows > 0 && selectedCount >= totalRows
   const someSelected = selectedCount > 0 && !allSelected
+
+  // Hoisted out of the JSX below (rather than left inline, where it used to
+  // sit unconditionally before the documents map) so `foldersFirst` can
+  // place this same set of rows either before or after documents without
+  // duplicating ~130 lines of row/context-menu markup for the two orders.
+  const folderRows = folders.map((folder) => {
+    const folderKey = `folder-${folder.id}`
+    const canManage = canManageFolder?.(folder) ?? false
+    return (
+    <ContextMenu key={folderKey}>
+    <ContextMenuTrigger asChild>
+    <TableRow className={cn('group', selectedKeys?.has(folderKey) && 'bg-primary/5')}>
+      {onToggleSelect && (
+        <TableCell>
+          <Checkbox
+            size="sm"
+            checked={selectedKeys?.has(folderKey) ?? false}
+            onCheckedChange={() => onToggleSelect(folderKey)}
+            aria-label={`Select ${folder.name}`}
+          />
+        </TableCell>
+      )}
+      <TableCell>
+        <button
+          type="button"
+          onClick={() => onOpenFolder?.(folder)}
+          className="flex min-w-0 items-center gap-3 text-left outline-none"
+        >
+          <span className="relative h-[20px] w-[25px] shrink-0 overflow-visible">
+            <FolderIcon3D size={0.25} interactive={false} />
+          </span>
+          <span className="truncate text-sm font-medium text-foreground">{folder.name}</span>
+        </button>
+      </TableCell>
+      <TableCell className="hidden @lg/docs:table-cell text-sm text-muted-foreground">
+        {folder.visibility === 'organization' ? 'Organisation folder' : folder.visibility === 'department' ? 'Department folder' : 'Private folder'}
+      </TableCell>
+      <TableCell className="hidden @md/docs:table-cell text-sm text-muted-foreground">
+        {folder.children.length > 0 ? `${folder.children.length} subfolder${folder.children.length === 1 ? '' : 's'}` : '—'}
+      </TableCell>
+      <TableCell className="hidden @sm/docs:table-cell text-sm text-muted-foreground">—</TableCell>
+      <TableCell className="text-right">
+        <span className="inline-flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          {hasClipboard && onPasteIntoFolder && canManageFolder?.(folder) && (
+            <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onPasteIntoFolder(folder)} aria-label={`Paste into ${folder.name}`}>
+              <ClipboardPaste className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          {canManageFolder?.(folder) && onMoveFolder && (
+            <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onMoveFolder(folder)} aria-label={`Move folder ${folder.name}`}>
+              <FolderInput className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          {canManageFolder?.(folder) && onShareFolder && (
+            <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onShareFolder(folder)} aria-label={`Share folder ${folder.name}`}>
+              <Share2 className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          {canManageFolder?.(folder) && onCutFolder && (
+            <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCutFolder(folder)} aria-label={`Cut folder ${folder.name}`}>
+              <Scissors className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          {onCopyFolder && (
+            <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCopyFolder(folder)} aria-label={`Copy folder ${folder.name}`}>
+              <Copy className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+          {canManageFolder?.(folder) && onDeleteFolder && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => onDeleteFolder(folder)}
+              aria-label={`Remove folder ${folder.name}`}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
+        </span>
+      </TableCell>
+    </TableRow>
+    </ContextMenuTrigger>
+    <ContextMenuContent className="w-48">
+      {hasClipboard && onPasteIntoFolder && canManage && (
+        <>
+          <ContextMenuItem onClick={() => onPasteIntoFolder(folder)}>
+            <ClipboardPaste aria-hidden="true" />
+            Paste
+            <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+      <ContextMenuItem onClick={() => onOpenFolder?.(folder)}>
+        <FolderOpen aria-hidden="true" />
+        Open
+      </ContextMenuItem>
+      {canManage && (onMoveFolder || onShareFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+      {canManage && onMoveFolder && (
+        <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
+          <FolderInput aria-hidden="true" />
+          Move
+        </ContextMenuItem>
+      )}
+      {canManage && onShareFolder && (
+        <ContextMenuItem onClick={() => deferToNextTick(() => onShareFolder(folder))}>
+          <Share2 aria-hidden="true" />
+          Share
+        </ContextMenuItem>
+      )}
+      {canManage && onCutFolder && (
+        <ContextMenuItem onClick={() => onCutFolder(folder)}>
+          <Scissors aria-hidden="true" />
+          Cut
+          <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
+      {onCopyFolder && (
+        <ContextMenuItem onClick={() => onCopyFolder(folder)}>
+          <Copy aria-hidden="true" />
+          Copy
+          <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
+      {canManage && onDeleteFolder && (
+        <ContextMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={() => deferToNextTick(() => onDeleteFolder(folder))}
+        >
+          <Trash2 aria-hidden="true" />
+          Delete
+        </ContextMenuItem>
+      )}
+    </ContextMenuContent>
+    </ContextMenu>
+    )
+  })
 
   return (
     <div className="@container/docs overflow-x-auto rounded-xl border border-border bg-card">
@@ -136,139 +277,7 @@ export function DocumentTableView({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {folders.map((folder) => {
-            const folderKey = `folder-${folder.id}`
-            const canManage = canManageFolder?.(folder) ?? false
-            return (
-            <ContextMenu key={folderKey}>
-            <ContextMenuTrigger asChild>
-            <TableRow className={cn('group', selectedKeys?.has(folderKey) && 'bg-primary/5')}>
-              {onToggleSelect && (
-                <TableCell>
-                  <Checkbox
-                    size="sm"
-                    checked={selectedKeys?.has(folderKey) ?? false}
-                    onCheckedChange={() => onToggleSelect(folderKey)}
-                    aria-label={`Select ${folder.name}`}
-                  />
-                </TableCell>
-              )}
-              <TableCell>
-                <button
-                  type="button"
-                  onClick={() => onOpenFolder?.(folder)}
-                  className="flex min-w-0 items-center gap-3 text-left outline-none"
-                >
-                  <span className="relative h-[20px] w-[25px] shrink-0 overflow-visible">
-                    <FolderIcon3D size={0.25} interactive={false} />
-                  </span>
-                  <span className="truncate text-sm font-medium text-foreground">{folder.name}</span>
-                </button>
-              </TableCell>
-              <TableCell className="hidden @lg/docs:table-cell text-sm text-muted-foreground">
-                {folder.visibility === 'organization' ? 'Organisation folder' : folder.visibility === 'department' ? 'Department folder' : 'Private folder'}
-              </TableCell>
-              <TableCell className="hidden @md/docs:table-cell text-sm text-muted-foreground">
-                {folder.children.length > 0 ? `${folder.children.length} subfolder${folder.children.length === 1 ? '' : 's'}` : '—'}
-              </TableCell>
-              <TableCell className="hidden @sm/docs:table-cell text-sm text-muted-foreground">—</TableCell>
-              <TableCell className="text-right">
-                <span className="inline-flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                  {hasClipboard && onPasteIntoFolder && canManageFolder?.(folder) && (
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onPasteIntoFolder(folder)} aria-label={`Paste into ${folder.name}`}>
-                      <ClipboardPaste className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canManageFolder?.(folder) && onMoveFolder && (
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onMoveFolder(folder)} aria-label={`Move folder ${folder.name}`}>
-                      <FolderInput className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canManageFolder?.(folder) && onShareFolder && (
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onShareFolder(folder)} aria-label={`Share folder ${folder.name}`}>
-                      <Share2 className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canManageFolder?.(folder) && onCutFolder && (
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCutFolder(folder)} aria-label={`Cut folder ${folder.name}`}>
-                      <Scissors className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {onCopyFolder && (
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => onCopyFolder(folder)} aria-label={`Copy folder ${folder.name}`}>
-                      <Copy className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canManageFolder?.(folder) && onDeleteFolder && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => onDeleteFolder(folder)}
-                      aria-label={`Remove folder ${folder.name}`}
-                    >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                </span>
-              </TableCell>
-            </TableRow>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-48">
-              {hasClipboard && onPasteIntoFolder && canManage && (
-                <>
-                  <ContextMenuItem onClick={() => onPasteIntoFolder(folder)}>
-                    <ClipboardPaste aria-hidden="true" />
-                    Paste
-                    <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                </>
-              )}
-              <ContextMenuItem onClick={() => onOpenFolder?.(folder)}>
-                <FolderOpen aria-hidden="true" />
-                Open
-              </ContextMenuItem>
-              {canManage && (onMoveFolder || onShareFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
-              {canManage && onMoveFolder && (
-                <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
-                  <FolderInput aria-hidden="true" />
-                  Move
-                </ContextMenuItem>
-              )}
-              {canManage && onShareFolder && (
-                <ContextMenuItem onClick={() => deferToNextTick(() => onShareFolder(folder))}>
-                  <Share2 aria-hidden="true" />
-                  Share
-                </ContextMenuItem>
-              )}
-              {canManage && onCutFolder && (
-                <ContextMenuItem onClick={() => onCutFolder(folder)}>
-                  <Scissors aria-hidden="true" />
-                  Cut
-                  <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
-                </ContextMenuItem>
-              )}
-              {onCopyFolder && (
-                <ContextMenuItem onClick={() => onCopyFolder(folder)}>
-                  <Copy aria-hidden="true" />
-                  Copy
-                  <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
-                </ContextMenuItem>
-              )}
-              {canManage && onDeleteFolder && (
-                <ContextMenuItem
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  onClick={() => deferToNextTick(() => onDeleteFolder(folder))}
-                >
-                  <Trash2 aria-hidden="true" />
-                  Delete
-                </ContextMenuItem>
-              )}
-            </ContextMenuContent>
-            </ContextMenu>
-            )
-          })}
+          {foldersFirst && folderRows}
 
           {documents.map((doc) => {
             const size = formatFileSize(doc.size)
@@ -434,6 +443,8 @@ export function DocumentTableView({
               </ContextMenu>
             )
           })}
+
+          {!foldersFirst && folderRows}
         </TableBody>
       </Table>
     </div>

@@ -104,6 +104,16 @@ export interface DocumentCardGridProps {
   downloadingId: number | null
   /** Extra large / large / medium / small — purely a tile-density preset, see `SIZE_CONFIG`. */
   size?: GridCardSize
+  /**
+   * Default (true): folders first, matching every ordinary file browser -
+   * that's what you want while navigating a folder tree. Pass false for an
+   * active content search, where a folder is never itself a match (only
+   * what's inside one can be) - what the person actually searched for
+   * should lead, not a folder that merely happens to still be in view.
+   * CSS `order`, not a reshuffled render order, so this is a one-line
+   * toggle rather than restructuring how folders/documents are mapped.
+   */
+  foldersFirst?: boolean
   /** The eye icon — a quick inline preview. */
   onOpen: (doc: DocumentSearchHit) => void
   /** Clicking the card body — the full detail panel (classification, versions, related, activity log). */
@@ -152,6 +162,7 @@ export function DocumentCardGrid({
   typeLabel,
   downloadingId,
   size = 'large',
+  foldersFirst = true,
   onOpen,
   onOpenDetails,
   onDownload,
@@ -211,7 +222,7 @@ export function DocumentCardGrid({
           const folderKey = `folder-${folder.id}`
           const isRenaming = renamingKey === folderKey
           return (
-            <li key={folderKey} className="group relative aspect-square">
+            <li key={folderKey} className={cn('group relative aspect-square', !foldersFirst && 'order-2')}>
               {onToggleSelect && (
                 <div
                   className={cn(
