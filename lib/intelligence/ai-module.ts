@@ -40,6 +40,8 @@ export interface AiModuleTurnDetail {
   total?: number;
   avg_duration_ms?: number | null;
   max_duration_ms?: number | null;
+  /** How many answers carried a latency; the averages cover only those. */
+  latency_samples?: number;
   by_status?: Record<string, number>;
   by_intent?: Array<{ intent: string; count: number }>;
 }
@@ -67,8 +69,10 @@ export interface AiModuleRate {
 }
 
 export interface AiModuleTokens {
-  outputs: number;
-  reviewed: number;
+  /** Null when nothing is metered for this module: unknown, not zero. */
+  outputs: number | null;
+  /** Null: G2G records no review flag, so how many were reviewed is not known. */
+  reviewed: number | null;
   prompt_tokens: number | null;
   completion_tokens: number | null;
   avg_latency_ms: number | null;
@@ -163,6 +167,8 @@ export interface AiModuleGuardrails {
   module: AiModuleIdentity;
   capabilities: Record<string, boolean>;
   review: AiModuleReview;
+  /** False when no metered consumer is linked to the module: an empty list then means "not measured". */
+  refusals_metered?: boolean;
   refusals: AiModuleRefusal[];
   refusal_counts: Array<{ status: string; count: number }>;
 }
@@ -417,6 +423,8 @@ export interface AiModuleProviderOption {
   key: string;
   label: string;
   default_model: string | null;
+  /** Whether a credential for this provider resolves for the organisation now (saved key or platform key). */
+  has_credential?: boolean;
   models: AiModuleModelOption[];
 }
 

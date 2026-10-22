@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -891,6 +892,31 @@ export function LearningDeliveryWorkspace() {
     authoringSaving, saveChapter, saveContent, removeChapter, removeContent,
     message, error, dismiss,
   } = useMyLearning()
+
+  /*
+   * ?course_id=N opens a specific course directly, bypassing the picker.
+   *
+   * Deep-linked from two places that cannot assume the learner would ever
+   * find it by browsing: the notification bell's `action_url` on
+   * `learning.auto_assigned` (services/notifications.ts already turns that
+   * into a router.push with the query string intact), and the capability-gap
+   * learning panel's "Open course" button
+   * (cm-gap-learning-panel.tsx). Only acts once, and only while nothing is
+   * selected yet — it must not fight a learner who has since picked a
+   * different course from the list.
+   */
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    if (courseId) return
+    const requested = Number(searchParams.get('course_id'))
+    if (Number.isInteger(requested) && requested > 0) {
+      selectCourse(requested)
+    }
+    // Intentionally only re-runs when the param itself changes - selectCourse
+    // and courseId are read, not depended on, so picking a DIFFERENT course
+    // manually afterwards does not get silently overridden on a re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const { user } = useAuth()
 

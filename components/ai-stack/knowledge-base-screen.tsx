@@ -255,7 +255,7 @@ export function AiStackKnowledgeBaseScreen({ module }: { module: AiStackModule }
 
       <AiStackModuleExample module={module} sources={sources} />
 
-      {sources.length === 0 ? (
+      {sources.length === 0 && error ? null : sources.length === 0 ? (
         <AiStackEmpty icon={Database} title={`No ${module.label} knowledge sources registered`}>
           The backend reported no read-only {module.label} tools. Until one is registered, {module.label} AI has no{' '}
           {module.records} to ground an answer in.

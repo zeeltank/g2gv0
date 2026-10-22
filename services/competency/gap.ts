@@ -16,6 +16,29 @@ import { withLaravelParams } from '@/lib/laravel-context'
 /** Three states, kept apart deliberately. `unmeasured` is not a score. */
 export type CompetencyState = 'met' | 'gap' | 'unmeasured'
 
+/**
+ * The course the gap-remediation reactor assigned for THIS competency, when
+ * one existed to teach it. `learning.auto_assigned` is the event that creates
+ * this; `source` is always 'capability_gap' for a row that arrived this way.
+ *
+ * Every field here is read defensively — this is an EXTENSION of a payload
+ * that already ships without it, so a backend not yet carrying these columns
+ * must degrade to `assigned_course: null` rather than throw.
+ */
+export interface GapRemediationAssignment {
+  assignment_id: number
+  course_id: number
+  course_name: string
+  assignment_type: 'Mandatory' | 'Recommended' | 'Optional'
+  /** Null is a real, honest state — "no deadline set" — never "on track". */
+  due_date: string | null
+  /** Exactly the three `RemediationDueDate` constants, or null when due_date is null. */
+  due_date_basis: 'course_sla' | 'requirement_urgency' | 'tenant_default' | null
+  progress: number
+  status: string
+  source: string
+}
+
 export interface CompetencyGapRow {
   competency_id: number
   competency_name: string
@@ -29,6 +52,18 @@ export interface CompetencyGapRow {
   gap: number | null
   /** 0–1. How much of the competency's weight the level speaks for. */
   coverage: number
+  /**
+   * Set when the capability-gap reactor found a course and assigned it
+   * automatically. Absent/null on a backend that has not wired this
+   * extension yet, or on a row with no gap to remediate — never treat
+   * absence as an error.
+   */
+  assigned_course?: GapRemediationAssignment | null
+  /**
+   * True only when the backend LOOKED for a course for this gap and found
+   * none — distinct from "not checked". Absent is not the same as false.
+   */
+  no_course_available?: boolean
 }
 
 export interface MandatoryItemBelow {

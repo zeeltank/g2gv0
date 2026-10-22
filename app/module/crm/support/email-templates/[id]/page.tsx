@@ -19,6 +19,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { EmailTemplateDetailPage } from '@/domain/crm/email-template-detail-page'
 import type { CrmEmailTemplate } from '@/types/crm'
@@ -30,7 +31,7 @@ export default function CrmEmailTemplateDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { parseRoutePath } = useSidebarNavigation()
+  const { parseRoutePath, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const activeNav = parseRoutePath(EMAIL_TEMPLATES_ACCESS_LINK) ?? { moduleId: '199', menuId: '', submenuId: '' }
 
@@ -59,9 +60,7 @@ export default function CrmEmailTemplateDetailRoute() {
   const backToTemplates = () => router.push(EMAIL_TEMPLATES_ACCESS_LINK)
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
-    { label: 'Email Templates', href: EMAIL_TEMPLATES_ACCESS_LINK },
+    ...resolveBreadcrumb(activeNav, modules),
     { label: template ? template.name : '...' },
   ]
 

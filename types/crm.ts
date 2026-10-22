@@ -67,6 +67,10 @@ export interface Lead {
   leadSource: string | null
   leadStatus: string | null
   rating: string | null
+  /** Server-computed only (App\Domain\Crm\Leads\LeadScorer) - never accepted in a payload. */
+  leadScore: number
+  /** Which active scoring rule(s) matched and how many points each contributed - explainability, not a black-box number. */
+  leadScoreBasis: CrmLeadScoreBasisEntry[]
   annualRevenue: number | null
   numberOfEmp: string | null
   emailOptOut: boolean
@@ -89,7 +93,7 @@ export interface Lead {
 }
 
 export type LeadPayload = Partial<
-  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy'>
 >
 
 export interface LeadListResponse {
@@ -105,6 +109,100 @@ export interface LeadResponse {
   status: number
   message: string
   data: Lead
+}
+
+// ── Lead scoring & assignment (Sales & Marketing gap-closure, Wave 2) ────
+
+export type CrmLeadScoringField = 'lead_source' | 'industry' | 'country' | 'rating' | 'lead_status' | 'annual_revenue' | 'number_of_emp'
+export type CrmLeadScoringOperator = 'equals' | 'not_equals' | 'contains' | 'is_not_empty' | 'greater_than' | 'less_than'
+
+export interface CrmLeadScoreBasisEntry {
+  ruleId: string
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value: string | null
+  points: number
+}
+
+export interface CrmLeadScoringRule {
+  id: string
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value: string | null
+  points: number
+  isActive: boolean
+}
+
+export interface CrmLeadScoringRulesResponse {
+  status: number
+  message: string
+  data: {
+    rules: CrmLeadScoringRule[]
+    fields: CrmLeadScoringField[]
+    operators: CrmLeadScoringOperator[]
+    numericOperators: CrmLeadScoringOperator[]
+  }
+}
+
+export interface CrmLeadScoringRulePayload {
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value?: string | null
+  points: number
+}
+
+export interface CrmLeadAssignmentMember {
+  id: string
+  userId: string
+  userName: string
+  isActive: boolean
+}
+
+export interface CrmLeadAssignmentSettings {
+  isEnabled: boolean
+  lastAssignedUserId: string | null
+  members: CrmLeadAssignmentMember[]
+}
+
+export interface CrmLeadAssignmentSettingsResponse {
+  status: number
+  message: string
+  data: CrmLeadAssignmentSettings
+}
+
+// ── Public web-to-lead capture (Sales & Marketing gap-closure, Wave 3) ───
+
+export interface CrmLeadCaptureSettings {
+  isEnabled: boolean
+  publicKey: string | null
+  defaultLeadSource: string
+  defaultAssignedTo: string | null
+  submissionsCount: number
+  lastSubmissionAt: string | null
+}
+
+export interface CrmLeadCaptureSettingsResponse {
+  status: number
+  message: string
+  data: CrmLeadCaptureSettings
+}
+
+export interface CrmLeadCaptureUpdatePayload {
+  isEnabled?: boolean
+  defaultLeadSource?: string
+  defaultAssignedTo?: string | null
+}
+
+/** The anonymous visitor's own submission - deliberately a much smaller shape than LeadPayload (no internal fields like assignedTo/leadStatus reach this form at all). */
+export interface PublicLeadCaptureSubmission {
+  firstName?: string
+  lastName: string
+  email?: string
+  phone?: string
+  company?: string
+  message?: string
+  /** Honeypot - always left empty by a real visitor; never shown to one. */
+  website?: string
 }
 
 export interface LeadListQuery {
@@ -331,6 +429,50 @@ export interface CampaignListQuery {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   campaignStatus?: string
+}
+
+// ── Campaign send (Sales & Marketing gap-closure, Wave 5) ────────────────
+
+export interface CrmCampaignSendSummary {
+  totalTargets: number
+  /** Real, confirmed deliveries. */
+  sentCount: number
+  /** Queued/attempted but not yet confirmed delivered (e.g. sending is switched off, or the daily cap was hit). */
+  pendingCount: number
+  /** Never yet attempted - a fresh "Send" click would reach these. */
+  remainingCount: number
+  lastSentAt: string | null
+  sendingEnabled: boolean
+}
+
+export interface CrmCampaignSendSummaryResponse {
+  status: number
+  message: string
+  data: CrmCampaignSendSummary
+}
+
+export interface CrmCampaignSendPayload {
+  subject: string
+  body: string
+  templateId?: string
+}
+
+export interface CrmCampaignSendResult {
+  sent: number
+  notSent: number
+  failed: number
+  alreadyHandled: number
+  skippedNoEmail: number
+  skippedOptedOut: number
+  totalTargets: number
+  truncated: boolean
+  batchLimit: number
+}
+
+export interface CrmCampaignSendResponse {
+  status: number
+  message: string
+  data: CrmCampaignSendResult
 }
 
 // ── Bulk actions (shared across all 4 modules) ───────────────────────────
@@ -601,6 +743,8 @@ export interface CrmOpportunity {
   nextStep: string | null
   forecastCategory: string | null
   description: string | null
+  /** Required by the backend the moment salesStage is set to "Closed Lost" (and wasn't already). */
+  closeReason: string | null
   convertedFromGtmDealId: string | null
   assignedTo: string | null
   createdBy: string | null
@@ -659,6 +803,8 @@ export interface CrmOpportunityStageChangePayload {
   amount?: number | null
   probability?: number | null
   closingDate?: string | null
+  /** Required when salesStage is "Closed Lost" and the opportunity wasn't already lost. */
+  closeReason?: string | null
 }
 
 export interface CrmOpportunityStageHistoryEntry {
@@ -1218,6 +1364,14 @@ export interface CrmInvoice {
   taxTotal: number
   /** Server-authoritative - recomputed from line items (or copied from the source Sales Order via fromSalesOrder()) on every save, never trusted from the client. */
   total: number
+  /** Server-authoritative - the SUM of this invoice's own payment ledger (see recordPayment), never a client-set value. */
+  amountPaid: number
+  /** Computed, never stored - total - amountPaid. */
+  balanceDue: number
+  /** Computed: 'Unpaid' | 'Partially Paid' | 'Paid'. */
+  paymentStatus: 'Unpaid' | 'Partially Paid' | 'Paid'
+  /** Computed: balanceDue > 0 and dueDate has passed. */
+  isOverdue: boolean
   billingStreet: string | null
   billingCity: string | null
   billingState: string | null
@@ -1249,10 +1403,36 @@ export type CrmInvoicePayload = Partial<
   Omit<
     CrmInvoice,
     'id' | 'legacyId' | 'invoiceNo' | 'salesOrderNo' | 'organizationName' | 'contactName' | 'assignedToName'
-    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
+    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total' | 'amountPaid' | 'balanceDue' | 'paymentStatus' | 'isOverdue'
     | 'createdAt' | 'updatedAt' | 'createdBy'
   >
 >
+
+export interface CrmInvoicePaymentEntry {
+  id: string
+  amount: number
+  method: string | null
+  reference: string | null
+  paidOn: string | null
+  note: string | null
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmInvoicePaymentsResponse {
+  status: number
+  message: string
+  data: CrmInvoicePaymentEntry[]
+}
+
+export interface CrmInvoicePaymentPayload {
+  amount: number
+  method?: string | null
+  reference?: string | null
+  paidOn?: string | null
+  note?: string | null
+}
 
 export interface CrmInvoiceListResponse {
   status: number
@@ -1471,6 +1651,14 @@ export interface CrmTicket {
   solution: string | null
   hours: number | null
   days: number | null
+  /** Set once, on the ticket's first comment - never moved by any comment after that. */
+  firstResponseAt: string | null
+  /** Computed on every read from created_at + the tenant's SLA policy for this priority - never stored, never trusted from a payload. */
+  slaDueAt: string | null
+  slaStatus: 'no_policy' | 'within_sla' | 'breached' | 'met'
+  slaResponseHours: number | null
+  /** Sales & Marketing gap-closure, Wave 6: set once by the hourly sweep the moment this ticket's SLA breaches unanswered - never cleared, never guessed. */
+  slaEscalatedAt: string | null
   assignedTo: string | null
   assignedToName: string | null
   createdAt: string | null
@@ -1481,9 +1669,29 @@ export type CrmTicketPayload = Partial<
   Omit<
     CrmTicket,
     'id' | 'legacyId' | 'ticketNo' | 'organizationName' | 'contactName' | 'productName'
-    | 'assetName' | 'serviceContractNo' | 'assignedToName' | 'createdAt' | 'updatedAt'
+    | 'assetName' | 'serviceContractNo' | 'assignedToName' | 'firstResponseAt' | 'slaDueAt' | 'slaStatus' | 'slaResponseHours'
+    | 'slaEscalatedAt' | 'createdAt' | 'updatedAt'
   >
 >
+
+// ── Support SLA policies (Sales & Marketing gap-closure, Wave 4) ─────────
+
+export interface CrmSlaPolicy {
+  id: string
+  priority: string
+  responseHours: number
+  /** Sales & Marketing gap-closure, Wave 6: who, besides the ticket's own assignee, gets told on breach. */
+  escalateToUserId: string | null
+  escalateToName: string | null
+  /** Opt-in: when true AND an escalation contact is set, a breach reassigns the ticket to them, not just notifies them. */
+  autoReassignOnBreach: boolean
+}
+
+export interface CrmSlaPoliciesResponse {
+  status: number
+  message: string
+  data: { policies: CrmSlaPolicy[]; priorities: string[] }
+}
 
 export interface CrmTicketListResponse {
   status: number
@@ -1688,7 +1896,7 @@ export interface CrmLinkedDocumentResponse {
 
 // ── Emails ───────────────────────────────────────────────────────────────
 
-export type CrmEmailLinkedType = 'LEAD' | 'CONTACT' | 'ORGANIZATION' | 'OPPORTUNITY' | 'TICKET'
+export type CrmEmailLinkedType = 'LEAD' | 'CONTACT' | 'ORGANIZATION' | 'OPPORTUNITY' | 'TICKET' | 'INVOICE'
 
 export interface CrmEmail {
   id: string

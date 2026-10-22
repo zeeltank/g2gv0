@@ -2,17 +2,24 @@
 
 import { useState } from 'react'
 import { ChevronDown, History, RefreshCw, Settings2, ShieldCheck } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
-import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
+import { opportunitiesService, type ResearchRun, type ResearchSourceInfo, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import { ProductProfileDialog } from '@/components/domain/organization/department-management/product-profile-dialog'
 import { ProviderStatusPanel } from '@/components/domain/organization/department-management/provider-status-panel'
-import { RunLine } from '@/components/domain/organization/department-management/opportunities-view'
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
+function fmt(value?: string | null, withTime = true) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  })
+}
+const errText = (cause: unknown, fallback: string) => (cause instanceof ApiError || cause instanceof Error ? cause.message : fallback)
 
 /**
  * The secondary tools of Company opportunities, folded away until wanted: provider connectivity, the report history of the selected product,
@@ -89,5 +96,63 @@ export function AdvancedTools({
 
       <ProductProfileDialog open={profileOpen} context={context} onOpenChange={setProfileOpen} onSaved={onChanged} />
     </details>
+  )
+}
+
+/**
+ * Relocated from the now-deleted department-local opportunities-view.tsx (Sales & Marketing
+ * merge, Phase 5: that file's own department-scoping was dead code, replaced by a focused
+ * DepartmentSignalsPanel - this one piece, the research-run row with its expandable source
+ * list, wasn't department-specific at all and is still needed here, its only remaining caller.
+ */
+function RunLine({ run, context }: { run: ResearchRun; context: LaravelContext }) {
+  const tone = run.status === 'failed' ? 'destructive' : run.status === 'skipped' ? 'muted' : run.status === 'partial' ? 'warning' : 'success'
+  const [sources, setSources] = useState<ResearchSourceInfo[] | null>(null)
+  const [openSources, setOpenSources] = useState(false)
+  const [sourcesError, setSourcesError] = useState('')
+
+  async function toggle() {
+    const next = !openSources
+    setOpenSources(next)
+    if (next && sources === null) {
+      try {
+        setSources((await opportunitiesService.getRunSources(context, run.id)).data)
+      } catch (cause) {
+        setSourcesError(errText(cause, 'Could not load the sources.'))
+      }
+    }
+  }
+
+  return (
+    <li className="space-y-1 py-3 text-sm first:pt-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-foreground">{fmt(run.report_date, false)}</span>
+        <Badge variant={tone}>{run.status}</Badge>
+        <Badge variant="muted">{run.trigger}</Badge>
+        <span className="ml-auto text-xs text-muted-foreground">{fmt(run.started_at)}</span>
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {run.sources_found} sources · {run.companies_researched} companies · {run.opportunities_qualified} qualified ({run.opportunities_new} new)
+        {run.queries_failed > 0 && ` · ${run.queries_failed}/${run.queries_run} searches failed`}
+      </p>
+      {run.error_message && <p className="text-xs leading-relaxed text-foreground">{run.error_message}</p>}
+      {run.sources_found > 0 && (
+        <>
+          <button type="button" onClick={() => void toggle()} className="text-xs font-medium text-primary hover:underline">{openSources ? 'Hide sources' : 'View sources'}</button>
+          {openSources && (
+            <ul className="mt-2 space-y-2 rounded-lg bg-muted/40 p-3">
+              {sourcesError && <li className="text-xs text-destructive">{sourcesError}</li>}
+              {sources === null && !sourcesError && <li className="text-xs text-muted-foreground">Loading…</li>}
+              {sources?.map((src, i) => (
+                <li key={i} className="min-w-0 text-xs leading-relaxed">
+                  <a href={src.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium text-primary hover:underline">{src.title}</a>
+                  <span className="block break-all text-muted-foreground">{src.domain} · published {fmt(src.published_at, false)} · {src.page_fetched ? 'full page read' : 'search excerpt'}{src.cited ? ' · cited by a signal' : ''}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </li>
   )
 }

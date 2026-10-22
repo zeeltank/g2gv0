@@ -21,7 +21,7 @@ export interface DocumentUploadDropzoneProps {
 }
 
 /**
- * Hand-rolled drag-and-drop (matches `ingestion-view.tsx`'s convention, not
+ * Hand-rolled drag-and-drop (matches `ingestion-engine-view.tsx`'s convention, not
  * `react-dropzone` — not a dependency here), multi-file AND
  * recursive-folder aware.
  *
@@ -59,6 +59,7 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
   // network phase afterward. Both disable the dropzone for the same reason:
   // the file list isn't stable yet.
   const [extracting, setExtracting] = useState(false)
+  const filesInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   const typeOptions: SearchableOption[] = documentTypeOptions(types)
@@ -88,14 +89,14 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
 
   const summary =
     files.length === 0
-      ? 'Drop files or a folder here, or click to browse'
+      ? 'Drag files or a folder here'
       : directoryPaths.length > 0
         ? `${files.length} file${files.length === 1 ? '' : 's'} across ${directoryPaths.length} folder${directoryPaths.length === 1 ? '' : 's'}`
         : `${files.length} file${files.length === 1 ? '' : 's'} selected`
 
   return (
     <div className="grid gap-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <label
+      <div
         onDragOver={(e) => {
           e.preventDefault()
           if (!uploading) setDragging(true)
@@ -106,17 +107,8 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
           setDragging(false)
           void filesFromDataTransfer(e.dataTransfer).then(setDiscovered)
         }}
-        className={`flex min-w-0 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring ${dragging ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/40'} ${uploading ? 'pointer-events-none opacity-70' : ''}`}
+        className={`flex min-w-0 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${dragging ? 'border-primary bg-primary/5' : 'border-border bg-card'} ${uploading ? 'pointer-events-none opacity-70' : ''}`}
       >
-        <input
-          type="file"
-          multiple
-          accept={ACCEPT}
-          aria-label="Choose files to upload"
-          className="sr-only"
-          onChange={(e) => e.target.files && setDiscovered(filesFromFileList(e.target.files))}
-          disabled={uploading}
-        />
         <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
           {uploading ? <Loader2 className="size-5 animate-spin" /> : <Upload className="size-5" />}
         </span>
@@ -131,25 +123,51 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
             </Badge>
           ))}
         </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={uploading}
-          onClick={(e) => {
-            e.preventDefault()
-            folderInputRef.current?.click()
-          }}
-        >
-          <FolderUp className="mr-1.5 size-3.5" aria-hidden="true" />
-          Choose a folder
-        </Button>
-        {/* The dialog this button opens shows the browser's own "Open"/"Select Folder" chrome,
-            not an "Upload" button — no web page can relabel that native dialog (see this
-            component's docblock). This line exists so that reads as expected, not as a bug. */}
-        <span className="text-xs text-muted-foreground">
-          Your browser&apos;s picker says &quot;Open&quot; or &quot;Select Folder&quot; — that&apos;s normal, just confirm your folder there.
+        {/* Two co-equal, explicitly labeled pickers - not one big implicit
+            click target plus one small button. A single <input> can't offer
+            both "pick several files" and "pick a whole folder" at once
+            (webkitdirectory fixes an input to folder-only), so each gets its
+            own button and its own hidden input; drag-and-drop above still
+            auto-detects either via filesFromDataTransfer(). */}
+        <span className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploading}
+            onClick={() => filesInputRef.current?.click()}
+          >
+            <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
+            Upload files
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploading}
+            onClick={() => folderInputRef.current?.click()}
+          >
+            <FolderUp className="mr-1.5 size-3.5" aria-hidden="true" />
+            Upload folder
+          </Button>
         </span>
+        {/* The dialog either button opens shows the browser's own native chrome
+            ("Open" / "Select Folder"), not an "Upload" button - no web page can
+            relabel that native dialog. This line exists so that reads as
+            expected, not as a bug. */}
+        <span className="text-xs text-muted-foreground">
+          Your browser&apos;s picker says &quot;Open&quot; or &quot;Select Folder&quot; — that&apos;s normal, just confirm your choice there.
+        </span>
+        <input
+          ref={filesInputRef}
+          type="file"
+          multiple
+          accept={ACCEPT}
+          aria-label="Choose files to upload"
+          className="sr-only"
+          onChange={(e) => e.target.files && setDiscovered(filesFromFileList(e.target.files))}
+          disabled={uploading}
+        />
         <input
           ref={folderInputRef}
           type="file"
@@ -162,7 +180,7 @@ export function DocumentUploadDropzone({ types, uploading, onUpload }: DocumentU
           disabled={uploading}
         />
         <span className="text-xs text-muted-foreground">Up to 50 MB per file.</span>
-      </label>
+      </div>
 
       <div className="flex flex-col justify-center gap-4 rounded-xl border border-border bg-card p-4">
         <FieldLabel label="Type (optional — AI can work this out)">

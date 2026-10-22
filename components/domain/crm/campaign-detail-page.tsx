@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
@@ -14,6 +14,7 @@ import { CAMPAIGN_STATUS_VARIANT } from './campaign-list-view'
 import { CreateCampaignModal } from './create-campaign-modal'
 import { CampaignTargetManager } from './campaign-target-manager'
 import { CrmHistoryTab } from './crm-history-tab'
+import { SendCampaignDialog } from './send-campaign-dialog'
 
 interface Props {
   campaign: Campaign
@@ -41,6 +42,7 @@ function Field({ label, value }: { label: string; value: string | number | null 
 export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Props) {
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const context = useMemo(() => getLaravelContext(), [])
@@ -104,6 +106,10 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSendOpen(true)}>
+            <Send className="mr-1.5 size-4" aria-hidden="true" />
+            Send Campaign
+          </Button>
           <Button onClick={() => setEditOpen(true)}>
             <Pencil className="mr-1.5 size-4" aria-hidden="true" />
             Edit
@@ -198,6 +204,18 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
         onSaved={(message) => { setNotice(message); setEditOpen(false); onSaved() }}
         campaign={campaign}
         picklists={picklists}
+      />
+      <SendCampaignDialog
+        isOpen={sendOpen}
+        // Deliberately NOT refreshed from onSent (fired the instant a send completes, while
+        // this dialog is still showing its own result breakdown) - onSaved() triggers the same
+        // full-reload-unmounts-and-remounts-the-page pattern this effort already found and
+        // fixed once in ticket-detail-page.tsx's postComment(), which here would silently close
+        // this dialog before the user ever sees what happened. Refreshing on actual dismissal
+        // (Cancel, Done, or the backdrop) is harmless even when nothing was sent.
+        onClose={() => { setSendOpen(false); onSaved(); void loadHistory() }}
+        onSent={() => {}}
+        campaignId={campaign.id}
       />
     </div>
   )

@@ -14,7 +14,7 @@ import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { BreadcrumbItemsProvider, GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_CONTACTS_ACCESS_LINK } from '@/lib/gtg-navigation'
+import { CRM_CONTACTS_ACCESS_LINK, resolveBreadcrumb } from '@/lib/gtg-navigation'
 import { crmService } from '@/services/crm'
 import { ContactDetailPage } from '@/domain/crm/contact-detail-page'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
@@ -26,7 +26,7 @@ export default function CrmContactDetailRoute() {
   const id = params?.id ?? ''
 
   const router = useRouter()
-  const { resolveAccessLink } = useSidebarNavigation()
+  const { resolveAccessLink, modules } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
 
   const [contact, setContact] = useState<Contact | null>(null)
@@ -65,8 +65,7 @@ export default function CrmContactDetailRoute() {
   const backToContacts = () => router.push(resolveAccessLink(CRM_CONTACTS_ACCESS_LINK))
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'CRM' },
+    ...resolveBreadcrumb(CONTACTS_ACTIVE_NAV, modules),
     { label: 'Contacts', href: CRM_CONTACTS_ACCESS_LINK },
     { label: contact ? `${contact.firstName ? contact.firstName + ' ' : ''}${contact.lastName}` : '...' },
   ]

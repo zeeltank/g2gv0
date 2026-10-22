@@ -90,6 +90,7 @@ export function mapTaskToEvent(
   task: WorkspaceTask,
   feedColour: (userId: string) => ColourClasses,
   feedColorByUserId: Map<string, string | null>,
+  viewerId: string,
 ): EventInput | null {
   const span = taskSpan(task)
   if (!span) return null
@@ -123,6 +124,16 @@ export function mapTaskToEvent(
     allDay = false
   }
 
+  // Reported live: an admin assigning a task to someone else via "Assign
+  // Task" had no way to tell whose chip was whose on the calendar grid -
+  // the chip's only per-assignee signal was its accent COLOR (set above),
+  // which requires memorizing a legend. Self-tasks (the common case: you
+  // only ever see your own calendar) stay exactly as before - the name is
+  // only appended when the assignee is someone OTHER than the viewer,
+  // same "is this mine" condition mapEntryToEvent already uses for EVENT.
+  const isOwnTask = task.assignee_id === viewerId
+  const assigneeSuffix = !isOwnTask && task.assignee ? ` — ${task.assignee}` : ''
+
   const extendedProps: CalendarGridExtendedProps = {
     kind: 'TASK',
     refId: task.id,
@@ -132,12 +143,12 @@ export function mapTaskToEvent(
     cardStatus,
     projectName: project,
     departmentName: task.department || null,
-    hint: hintFor(task.title, project || 'Not in a project', span.start, span.end),
+    hint: hintFor(task.title, project || 'Not in a project', span.start, span.end, isOwnTask ? null : task.assignee),
   }
 
   return {
     id: taskEventId(task.id),
-    title: task.title,
+    title: `${task.title}${assigneeSuffix}`,
     start,
     end,
     allDay,
@@ -229,10 +240,11 @@ function statusClassName(entry: CalendarEntry): string {
   return 'bg-secondary/60 text-secondary-foreground border border-border'
 }
 
-/** Hover text that says what the chip covers, matching the old single-day-list tooltip. */
-function hintFor(title: string, where: string, start: Date, end: Date): string {
+/** Hover text that says what the chip covers, matching the old single-day-list tooltip. `assignee` is null for the viewer's own tasks and every non-TASK entry — only worth stating when it isn't already obvious. */
+function hintFor(title: string, where: string, start: Date, end: Date, assignee?: string | null): string {
   const when = !isSameDay(start, end) ? ` (${format(start, 'd MMM')} - ${format(end, 'd MMM')})` : ''
-  return `${where} - ${title}${when}`
+  const who = assignee ? ` - Assigned to ${assignee}` : ''
+  return `${where} - ${title}${when}${who}`
 }
 
 /**

@@ -56,6 +56,8 @@ const SIZE_CONFIG: Record<
     title: string
     meta: string
     showSnippet: boolean
+    /** Lines of snippet text shown before truncating — only read when `showSnippet` is true. Bigger tiles have more real vertical room inside their fixed `aspect-square` footprint, so they show more. */
+    snippetLines: string
   }
 > = {
   xlarge: {
@@ -65,6 +67,7 @@ const SIZE_CONFIG: Record<
     title: 'text-lg',
     meta: 'text-sm',
     showSnippet: true,
+    snippetLines: 'line-clamp-5',
   },
   large: {
     cols: 'grid-cols-[repeat(auto-fill,minmax(190px,1fr))]',
@@ -73,6 +76,7 @@ const SIZE_CONFIG: Record<
     title: 'text-base',
     meta: 'text-xs',
     showSnippet: true,
+    snippetLines: 'line-clamp-4',
   },
   medium: {
     cols: 'grid-cols-[repeat(auto-fill,minmax(148px,1fr))]',
@@ -81,6 +85,7 @@ const SIZE_CONFIG: Record<
     title: 'text-sm',
     meta: 'text-[11px]',
     showSnippet: false,
+    snippetLines: 'line-clamp-3',
   },
   small: {
     cols: 'grid-cols-[repeat(auto-fill,minmax(114px,1fr))]',
@@ -89,6 +94,7 @@ const SIZE_CONFIG: Record<
     title: 'text-xs',
     meta: 'text-[11px]',
     showSnippet: false,
+    snippetLines: 'line-clamp-3',
   },
 }
 
@@ -117,6 +123,7 @@ export interface DocumentCardGridProps {
   onOpenFolder?: (folder: DocumentFolderNode) => void
   onDeleteFolder?: (folder: DocumentFolderNode) => void
   onMoveFolder?: (folder: DocumentFolderNode) => void
+  onShareFolder?: (folder: DocumentFolderNode) => void
   /** Double-click the name to rename. Gated by `canManageFolder`. */
   onRenameFolder?: (folder: DocumentFolderNode, name: string) => void
   canManageFolder?: (folder: DocumentFolderNode) => boolean
@@ -142,6 +149,7 @@ export interface DocumentCardGridProps {
 
 export function DocumentCardGrid({
   documents,
+  typeLabel,
   downloadingId,
   size = 'large',
   onOpen,
@@ -156,6 +164,7 @@ export function DocumentCardGrid({
   onOpenFolder,
   onDeleteFolder,
   onMoveFolder,
+  onShareFolder,
   onRenameFolder,
   canManageFolder,
   onToggleStar,
@@ -263,7 +272,7 @@ export function DocumentCardGrid({
                         />
                       ) : (
                         <h3
-                          className={cn('line-clamp-1 font-semibold leading-tight text-foreground', cfg.title, onRenameFolder && canManage && 'cursor-text')}
+                          className={cn('line-clamp-1 break-words font-semibold leading-tight text-foreground', cfg.title, onRenameFolder && canManage && 'cursor-text')}
                           onClick={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => {
                             if (!onRenameFolder || !canManage) return
@@ -295,11 +304,17 @@ export function DocumentCardGrid({
                     <FolderOpen aria-hidden="true" />
                     Open
                   </ContextMenuItem>
-                  {canManage && (onMoveFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
+                  {canManage && (onMoveFolder || onShareFolder || onCutFolder || onCopyFolder || onDeleteFolder) && <ContextMenuSeparator />}
                   {canManage && onMoveFolder && (
                     <ContextMenuItem onClick={() => deferToNextTick(() => onMoveFolder(folder))}>
                       <FolderInput aria-hidden="true" />
                       Move
+                    </ContextMenuItem>
+                  )}
+                  {canManage && onShareFolder && (
+                    <ContextMenuItem onClick={() => deferToNextTick(() => onShareFolder(folder))}>
+                      <Share2 aria-hidden="true" />
+                      Share
                     </ContextMenuItem>
                   )}
                   {canManage && onCutFolder && (
@@ -426,7 +441,7 @@ export function DocumentCardGrid({
                         />
                       ) : (
                         <h3
-                          className={cn('line-clamp-2 font-semibold leading-tight text-foreground', cfg.title, onRename && canModify && 'cursor-text')}
+                          className={cn('line-clamp-2 break-words font-semibold leading-tight text-foreground', cfg.title, onRename && canModify && 'cursor-text')}
                           onClick={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => {
                             if (!onRename || !canModify) return
@@ -438,10 +453,20 @@ export function DocumentCardGrid({
                         </h3>
                       )}
                       <p className={cn('mt-1 truncate text-muted-foreground', cfg.meta)}>{source}</p>
+                      {cfg.showSnippet && typeLabel(doc.document_type) && (
+                        <Badge variant="muted" className="mt-1 text-[10px]">
+                          {typeLabel(doc.document_type)}
+                        </Badge>
+                      )}
                     </div>
 
                     {cfg.showSnippet && doc.snippet && (
-                      <p className="line-clamp-3 rounded-md bg-muted/50 px-2 py-1.5 text-left text-[11px] leading-snug text-muted-foreground">
+                      <p
+                        className={cn(
+                          cfg.snippetLines,
+                          'break-words rounded-md bg-muted/50 px-2 py-1.5 text-left text-[11px] leading-snug text-muted-foreground',
+                        )}
+                      >
                         <HighlightedSnippet text={doc.snippet} />
                       </p>
                     )}

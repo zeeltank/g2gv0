@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Toast } from '@/components/ui/toast'
 import {
   Dialog,
   DialogContent,
@@ -67,14 +68,14 @@ import { organizationService } from '@/services/organization'
 import { useDocumentClipboard } from '@/hooks/use-document-clipboard'
 import { DocumentCardGrid, type GridCardSize } from './document-card-grid'
 import { DocumentDetailDialog } from './document-detail-dialog'
-import { DocumentShareDialog, type ShareableDocument } from './document-share-dialog'
+import { DocumentShareDialog, type ShareTarget } from './document-share-dialog'
 import { DocumentFolderTree } from './document-folder-tree'
 import { assignFolderIds, type DiscoveredFile } from './document-folder-upload'
 import { DocumentProcessingProgress } from './document-processing-progress'
 import { DocumentBatchUploadProgress, type BatchFileState } from './document-batch-upload-progress'
 import { DocumentTableView } from './document-table-view'
 import { DocumentUploadDropzone } from './document-upload-dropzone'
-import { DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
+import { describeFolderContents, DocumentsPage, Notice, SectionHeader, Surface } from './documents-ui'
 
 type ViewMode = 'grid' | 'list'
 type Scope = 'mine' | 'visible' | 'trash' | 'recent' | 'starred'
@@ -213,6 +214,7 @@ export function DocumentLibraryView() {
   const [uploading, setUploading] = useState(false)
   const [generatingForm16, setGeneratingForm16] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
+  const [uploadToast, setUploadToast] = useState<string | null>(null)
 
   const [viewing, setViewing] = useState<AccountDocument | null>(null)
   const [detailDoc, setDetailDoc] = useState<DocumentSearchHit | null>(null)
@@ -232,12 +234,14 @@ export function DocumentLibraryView() {
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<DocumentFolderNode | null>(null)
+  const [folderDeletePreview, setFolderDeletePreview] = useState<{ folders: number; documents: number } | null>(null)
+  const [loadingFolderPreview, setLoadingFolderPreview] = useState(false)
   const [deletingFolder, setDeletingFolder] = useState(false)
   const [movingDoc, setMovingDoc] = useState<DocumentSearchHit | null>(null)
   const [movingFolder, setMovingFolder] = useState<DocumentFolderNode | null>(null)
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('')
   const [moving, setMoving] = useState(false)
-  const [sharingDoc, setSharingDoc] = useState<ShareableDocument | null>(null)
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
 
   // Multi-select, for bulk move/copy/delete — keyed `doc-<id>`/`folder-<id>`,
@@ -253,7 +257,7 @@ export function DocumentLibraryView() {
   const isElevated = isRole(user?.role) && isHrAdmin(user.role)
 
   // Debounced so every keystroke doesn't fire a request - same inline
-  // pattern this codebase already uses (see ingestion-view.tsx).
+  // pattern this codebase already uses (see ingestion-engine-view.tsx).
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300)
     return () => clearTimeout(timer)
@@ -682,6 +686,18 @@ export function DocumentLibraryView() {
     void load()
   }
 
+  function finishBatch({ succeededCount, failedCount }: { succeededCount: number; failedCount: number }) {
+    if (failedCount === 0) {
+      setUploadOpen(false)
+      setBatchFiles(null)
+      setUploadToast(`${succeededCount} file${succeededCount === 1 ? '' : 's'} uploaded — reading and classifying in the background.`)
+    }
+    // failedCount > 0: the dialog stays open on purpose - the per-row list in
+    // DocumentBatchUploadProgress is the only place a user can see which
+    // file(s) failed and why; auto-closing on a partial failure would hide
+    // exactly the thing they'd need to act on.
+  }
+
   /** April-March, matching the server's own convention (MyHrController::leaveYear()). */
   function currentFinancialYear(): number {
     const now = new Date()
@@ -770,6 +786,22 @@ export function DocumentLibraryView() {
     }
   }
 
+  function openDeleteFolderConfirm(folder: DocumentFolderNode) {
+    setPendingDeleteFolder(folder)
+    setFolderDeletePreview(null)
+    setLoadingFolderPreview(true)
+    void accountService
+      .getFolderDeletePreview(resolveContext(), folder.id)
+      .then((res) => {
+        if (res.status === 1) setFolderDeletePreview(res.data)
+      })
+      .catch(() => {
+        // The preview is a courtesy, not load-bearing - delete still works
+        // (and still shows what it actually removed afterward) if this fails.
+      })
+      .finally(() => setLoadingFolderPreview(false))
+  }
+
   async function confirmDeleteFolder() {
     if (!pendingDeleteFolder || deletingFolder) return
     setDeletingFolder(true)
@@ -777,6 +809,7 @@ export function DocumentLibraryView() {
     try {
       const response = await accountService.deleteFolder(resolveContext(), pendingDeleteFolder.id)
       setPendingDeleteFolder(null)
+      setFolderDeletePreview(null)
       if (response.status === 1) {
         await loadFolderTree()
       } else {
@@ -785,6 +818,7 @@ export function DocumentLibraryView() {
     } catch (caught) {
       setNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'That folder could not be removed.' })
       setPendingDeleteFolder(null)
+      setFolderDeletePreview(null)
     } finally {
       setDeletingFolder(false)
     }
@@ -1793,16 +1827,17 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
             setMovingDoc(doc)
           }}
-          onShare={(doc) => { setSharingDoc(doc); setShareDialogOpen(true) }}
+          onShare={(doc) => { setShareTarget({ type: 'document', item: doc }); setShareDialogOpen(true) }}
           onRename={(doc, title) => void renameDocumentHandler(doc, title)}
           canDelete={canDelete}
           folders={displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
-          onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+          onDeleteFolder={openDeleteFolderConfirm}
           onMoveFolder={(folder) => {
             setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
             setMovingFolder(folder)
           }}
+          onShareFolder={(folder) => { setShareTarget({ type: 'folder', item: folder }); setShareDialogOpen(true) }}
           onRenameFolder={(folder, name) => void renameFolderHandler(folder, name)}
           canManageFolder={canManageFolderClient}
           onToggleStar={(doc) => void toggleStar(doc)}
@@ -1829,15 +1864,16 @@ export function DocumentLibraryView() {
             setMoveTargetFolderId(currentFolderId ? String(currentFolderId) : '')
             setMovingDoc(doc)
           }}
-          onShare={(doc) => { setSharingDoc(doc); setShareDialogOpen(true) }}
+          onShare={(doc) => { setShareTarget({ type: 'document', item: doc }); setShareDialogOpen(true) }}
           canDelete={canDelete}
           folders={displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
-          onDeleteFolder={(folder) => setPendingDeleteFolder(folder)}
+          onDeleteFolder={openDeleteFolderConfirm}
           onMoveFolder={(folder) => {
             setMoveTargetFolderId(folder.parent_id ? String(folder.parent_id) : '')
             setMovingFolder(folder)
           }}
+          onShareFolder={(folder) => { setShareTarget({ type: 'folder', item: folder }); setShareDialogOpen(true) }}
           canManageFolder={canManageFolderClient}
           onToggleStar={(doc) => void toggleStar(doc)}
           onCut={(doc) => clipboard.cut('document', doc.id, doc.title ?? 'Document')}
@@ -1900,7 +1936,7 @@ export function DocumentLibraryView() {
               onFinished={finishProcessing}
             />
           ) : batchFiles ? (
-            <DocumentBatchUploadProgress files={batchFiles} />
+            <DocumentBatchUploadProgress files={batchFiles} onFinished={finishBatch} />
           ) : (
             <DocumentUploadDropzone types={types} uploading={uploading} onUpload={upload} />
           )}
@@ -2004,16 +2040,16 @@ export function DocumentLibraryView() {
         onDownload={() => {
           if (detailDoc) void download(detailDoc)
         }}
-        onShare={(detail) => { setSharingDoc(detail); setShareDialogOpen(true) }}
+        onShare={(detail) => { setShareTarget({ type: 'document', item: detail }); setShareDialogOpen(true) }}
       />
 
       <DocumentShareDialog
-        key={sharingDoc?.id ?? 'none'}
-        document={sharingDoc}
+        key={shareTarget ? `${shareTarget.type}-${shareTarget.item.id}` : 'none'}
+        target={shareTarget}
         open={shareDialogOpen}
         onOpenChange={(open) => {
           setShareDialogOpen(open)
-          if (!open) setSharingDoc(null)
+          if (!open) setShareTarget(null)
         }}
         departmentOptions={departmentOptions}
         onVisibilityChanged={() => void load()}
@@ -2034,10 +2070,19 @@ export function DocumentLibraryView() {
       <ConfirmDialog
         open={pendingDeleteFolder !== null}
         onOpenChange={(open) => {
-          if (!open) setPendingDeleteFolder(null)
+          if (!open) {
+            setPendingDeleteFolder(null)
+            setFolderDeletePreview(null)
+          }
         }}
         title={`Remove folder "${pendingDeleteFolder?.name ?? ''}"?`}
-        description="Empty it first — move or remove everything inside, then this folder can be deleted."
+        description={
+          loadingFolderPreview
+            ? 'Checking what’s inside…'
+            : folderDeletePreview && (folderDeletePreview.folders > 0 || folderDeletePreview.documents > 0)
+              ? `This also removes ${describeFolderContents(folderDeletePreview)} inside it. Documents can be restored from the bin afterward; the folder itself cannot.`
+              : 'This folder is empty.'
+        }
         confirmLabel="Remove it"
         busy={deletingFolder}
         onConfirm={() => void confirmDeleteFolder()}
@@ -2047,11 +2092,13 @@ export function DocumentLibraryView() {
         open={bulkDeleteOpen}
         onOpenChange={(open) => setBulkDeleteOpen(open)}
         title={`Remove ${selected.size} item${selected.size === 1 ? '' : 's'}?`}
-        description="Documents are taken off your personnel record and can be restored from the bin; a folder must already be empty to be removed this way."
+        description="Documents are taken off your personnel record and can be restored from the bin. A folder is removed along with everything inside it."
         confirmLabel="Remove them"
         busy={bulkBusy}
         onConfirm={() => void bulkDelete()}
       />
+
+      <Toast message={uploadToast} onDismiss={() => setUploadToast(null)} />
     </DocumentsPage>
   )
 }

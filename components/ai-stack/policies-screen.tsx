@@ -324,7 +324,7 @@ export function AiStackPoliciesScreen({ module }: { module: AiStackModule }) {
         </AiStackError>
       )}
 
-      {rows.length === 0 && !loading ? (
+      {rows.length === 0 && !loading && !error ? (
         <AiStackEmpty
           icon={ShieldCheck}
           title={`No ${module.label} AI policies yet`}
@@ -366,7 +366,6 @@ export function AiStackPoliciesScreen({ module }: { module: AiStackModule }) {
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
                         <div className="flex flex-col gap-1">
                           <span>{policy.policy_type}</span>
-                          {policy.is_example ? <AiStackPill tone="blue">example</AiStackPill> : null}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-600">
@@ -616,6 +615,10 @@ export function AiStackPoliciesScreen({ module }: { module: AiStackModule }) {
             <legend className="px-1 text-sm font-semibold text-slate-900">
               Allowed AI uses in {module.label}
             </legend>
+            <p className="mb-3 text-xs text-slate-500">
+              These record what the organisation permits. Today the resolver refuses a request only for an AI-Free policy;
+              an individual rule is recorded policy, not a per-feature block.
+            </p>
             {ruleCatalogue.length === 0 ? (
               <p className="text-sm text-slate-500">
                 The rule catalogue came back empty, so there is nothing to permit or refuse yet.

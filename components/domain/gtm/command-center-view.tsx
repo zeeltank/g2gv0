@@ -98,9 +98,9 @@ export function CommandCenterView() {
 
       {data.deals && (
         <>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Deals</h2>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">GTM Deals</h2>
           <section className="mb-6 grid gap-3 md:grid-cols-4">
-            <StatTile label="Open deals" value={data.deals.open_count} tag={<MeasuredTag />} hint={data.deals.open_count === 0 ? 'None yet — create one in Deals.' : undefined} />
+            <StatTile label="Open deals" value={data.deals.open_count} tag={<MeasuredTag />} hint={data.deals.open_count === 0 ? 'None yet — create one in GTM Deals.' : undefined} />
             <StatTile label="Open value" value={money(data.deals.open_value_by_currency)} tag={<MeasuredTag />} hint={data.deals.open_without_amount > 0 ? `${data.deals.open_without_amount} open deal(s) have no amount and are not counted.` : 'Shown per currency; never added across currencies.'} />
             <StatTile label="Deals needing attention" value={data.deals.flagged_count} tag={<MeasuredTag />} tone={data.deals.flagged_count > 0 ? 'warn' : undefined} hint={`${data.deals.no_next_step_count} with no next step. Rule-based flags.`} />
             <StatTile label="Won, last 30 days" value={data.deals.won_30d.count} tag={<MeasuredTag />} hint={`${money(data.deals.won_30d.value_by_currency)} · ${data.deals.lost_30d.count} lost`} />

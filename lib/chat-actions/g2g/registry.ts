@@ -235,6 +235,10 @@ export function createG2gActionRegistry(): ActionRegistry<G2gActionApp> {
   return new ActionRegistry<G2gActionApp>([
     // any module with an AI Stack: email a saved report to real people of this organisation (the API enforces who may)
     sendReportAction({ ...defaultSendReportDeps(), record }),
+    // the same report by SMS or WhatsApp, through the organisation's own gateway / WhatsApp Business account
+    sendReportAction({ ...defaultSendReportDeps(), record }, 'sms'),
+    sendReportAction({ ...defaultSendReportDeps(), record }, 'whatsapp'),
+    sendReportAction({ ...defaultSendReportDeps(), record }, 'both'),
     // any module with an AI Stack: a draft template for that module (the API enforces who may)
     createTemplateAction({
       // This module's read-only sources, from the catalogue the Templates tab itself uses.

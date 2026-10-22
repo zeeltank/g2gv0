@@ -6,7 +6,7 @@ const MyTasksView = createLazyComponent(() => import('@/domain/task/my-tasks-vie
 const ProjectsListView = createLazyComponent(() => import('@/domain/task/projects-list-view').then((m) => ({ default: m.ProjectsListView })))
 const DependenciesView = createLazyComponent(() => import('@/domain/task/dependencies-view').then((m) => ({ default: m.DependenciesView })))
 const TaskCalendarView = createLazyComponent(() => import('@/domain/task/task-calendar-view').then((m) => ({ default: m.TaskCalendarView })))
-const TmReports = createLazyComponent(() => import('@/domain/task/tm-reports').then((m) => ({ default: m.TmReports })))
+const TmReportsShell = createLazyComponent(() => import('@/domain/task/tm-reports-shell').then((m) => ({ default: m.TmReportsShell })))
 const TmStatusManagement = createLazyComponent(() => import('@/domain/task/tm-status-management').then((m) => ({ default: m.TmStatusManagement })))
 const TmPriorityManagement = createLazyComponent(() => import('@/domain/task/tm-priority-management').then((m) => ({ default: m.TmPriorityManagement })))
 const TmPermissions = createLazyComponent(() => import('@/domain/task/tm-permissions').then((m) => ({ default: m.TmPermissions })))
@@ -35,7 +35,7 @@ export const M6_CONTENT: ContentRoute[] = [
   { accessLink: '/module/task-management/projects-and-workstreams', menuId: '212', component: ProjectsListView }, // Projects & Workstreams
   { accessLink: '/module/task-management/dependencies-and-workstreams', menuId: '213', component: DependenciesView }, // Dependencies & Workstreams
   { accessLink: '/module/task-management/task-calendar', menuId: '214', component: TaskCalendarView }, // Task Calendar
-  { accessLink: '/module/task-management/reports-and-analysis', menuId: '215', component: TmReports },
+  { accessLink: '/module/task-management/reports-and-analysis', menuId: '215', component: TmReportsShell }, // Reports & Analysis — now the generic report builder engine (Docs/reports-engine/PLAN.md Phase 1), not the old flat Productivity/Delays/Learning screen
 
   {accessLink: '/module/task-management/task-status', submenuId: '217', component: TmStatusManagement }, // Status Management
   { accessLink: '/module/task-management/task-priority', submenuId: '218', component: TmPriorityManagement }, // Priority Management

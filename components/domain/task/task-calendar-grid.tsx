@@ -90,7 +90,7 @@ export function TaskCalendarGrid({
 
   const events = useMemo<EventInput[]>(() => {
     const taskEvents = tasks
-      .map((task) => mapTaskToEvent(task, feedColour, feedColorByUserId))
+      .map((task) => mapTaskToEvent(task, feedColour, feedColorByUserId, viewerId))
       .filter((event): event is EventInput => event !== null)
     const entryEvents = entries.map((entry) => mapEntryToEvent(entry, viewerId, feedColorByUserId, feedColour))
     return [...taskEvents, ...entryEvents]

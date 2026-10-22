@@ -62,6 +62,17 @@ export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
  */
 export const LMS_COURSE_BUILDER_ACCESS_LINK = '/module/lms/administration/course-builder'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
+/**
+ * Capability Gap Inbox — HR/Admin queue of competencies the auto-assignment
+ * reactor could not resolve because no course exists for them yet.
+ *
+ * A sibling of LMS_ASSIGNMENTS_ACCESS_LINK by design: it sits beside
+ * Assignments in Training & Records navigation. Requires a tblmenumaster_g2g
+ * row with this exact access_link before anyone can reach it through the
+ * menu — see content-map-m4.ts for the component this resolves to.
+ */
+export const LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK =
+  '/module/lms/training-and-records/capability-gap-inbox'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
 /**
  * Capability Library - where job roles, skills and competencies are authored.
@@ -165,6 +176,16 @@ export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
 export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
 export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
+/**
+ * AgAgentWorkspace - a full working screen for ONE agent (Launch/History
+ * tabs + run results), reached by appending `?agent=<id>` to this same
+ * access_link. It used to have no real tblmenumaster_g2g row at all (every
+ * catalogue agent's "Open X" button pointed at a legacy module-code path,
+ * '/module/m7/ag-agent-workspace/...', that this app's content-map never
+ * resolved) - see 2026_11_28_090000_create_agentic_workspace_menu_row.php
+ * on hp_erp, which created this real row.
+ */
+export const AG_AGENT_WORKSPACE_ACCESS_LINK = '/module/agentic-ai/agent-workspace'
 
 export type BreadcrumbItem = {
   label: string

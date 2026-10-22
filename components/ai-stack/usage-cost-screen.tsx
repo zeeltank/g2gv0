@@ -132,7 +132,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           {
             key: 'questions',
             label: `${module.label} questions`,
-            value: conversations?.available ? (conversations.turn_detail.total ?? 0) : '—',
+            value: conversations?.available && conversations.turn_detail.total !== undefined ? conversations.turn_detail.total : '—',
             hint: conversations?.available
               ? `across ${conversations.total.toLocaleString('en-IN')} conversations`
               : 'unavailable',
@@ -150,12 +150,15 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
               conversations?.available && conversations.turn_detail.avg_duration_ms
                 ? `${(conversations.turn_detail.avg_duration_ms / 1000).toFixed(1)}s`
                 : '—',
-            hint: 'per question',
+            hint:
+              conversations?.available && conversations.turn_detail.latency_samples !== undefined
+                ? `per question, over ${conversations.turn_detail.latency_samples} timed answer${conversations.turn_detail.latency_samples === 1 ? '' : 's'}`
+                : 'per question',
           },
           {
             key: 'agent-runs',
             label: 'Tool-agent runs',
-            value: runs ? runs.length : '—',
+            value: runs ? (runs.length >= 200 ? '200+' : runs.length) : '—',
             hint: runsError ? 'store unreachable' : `${module.label} tool agents`,
           },
           {
@@ -186,7 +189,10 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           ) : (
             <dl className="divide-y divide-slate-100">
               <Row label="Conversations" value={conversations.total.toLocaleString('en-IN')} />
-              <Row label="Questions asked" value={(conversations.turn_detail.total ?? 0).toLocaleString('en-IN')} />
+              <Row
+                label="Questions asked"
+                value={conversations.turn_detail.total === undefined ? 'not recorded' : conversations.turn_detail.total.toLocaleString('en-IN')}
+              />
               <Row label="Distinct people" value={conversations.distinct_users.toLocaleString('en-IN')} />
               <Row label="First activity" value={formatWhen(conversations.first_activity)} />
               <Row label="Last activity" value={formatWhen(conversations.last_activity)} />
@@ -210,7 +216,9 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           />
           {!conversations?.available || !(conversations.turn_detail.by_intent ?? []).length ? (
             <p className="px-5 py-6 text-sm text-slate-500">
-              No questions have been classified for {module.label} yet.
+              {conversations?.available
+                ? 'The intent of a question is not recorded for this estate, so there is no breakdown to show.'
+                : 'Conversation records could not be read, so no breakdown is shown.'}
             </p>
           ) : (
             <ul className="divide-y divide-slate-100">
@@ -266,8 +274,11 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
                   label="Generations"
                   value={(generation?.available ? generation.total : 0).toLocaleString('en-IN')}
                 />
-                <Row label="Outputs produced" value={tokens.outputs.toLocaleString('en-IN')} />
-                <Row label="Reviewed by a person" value={tokens.reviewed.toLocaleString('en-IN')} />
+                <Row label="Outputs produced" value={tokens.outputs === null ? 'not metered' : tokens.outputs.toLocaleString('en-IN')} />
+                <Row
+                  label="Reviewed by a person"
+                  value={tokens.reviewed === null ? 'not tracked' : tokens.reviewed.toLocaleString('en-IN')}
+                />
                 <Row
                   label="Prompt tokens"
                   value={tokens.prompt_tokens === null ? 'not recorded' : tokens.prompt_tokens.toLocaleString('en-IN')}
@@ -287,9 +298,11 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
                       ? `no model bound to ${module.label}`
                       : tokens.rate.input_per_1k === null && tokens.rate.output_per_1k === null
                         ? `${tokens.rate.label} — no price published`
-                        : `${tokens.rate.label} — ${formatUsd(tokens.rate.input_per_1k ?? 0)} in / ${formatUsd(
-                            tokens.rate.output_per_1k ?? 0,
-                          )} out per 1k`
+                        : `${tokens.rate.label} — ${
+                            tokens.rate.input_per_1k === null ? 'no input price' : formatUsd(tokens.rate.input_per_1k)
+                          } in / ${
+                            tokens.rate.output_per_1k === null ? 'no output price' : formatUsd(tokens.rate.output_per_1k)
+                          } out per 1k`
                   }
                 />
                 <Row

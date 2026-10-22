@@ -39,11 +39,12 @@ describe('Routes and navigation', () => {
     assert.match(read('app/signals/page.tsx'), /SignalsPageContent/)
   })
 
-  it('keeps the hub tabs and has no separate ScholarClone tab', () => {
-    const hub = read('components/domain/organization/department-management/signals-hub.tsx')
-    for (const label of ['Company opportunities', 'Ingestion engine', 'Product Portfolio', 'Partner Network']) assert.ok(hub.includes(label), label)
-    assert.equal(/ScholarClone signals|id: 'scholar'/i.test(hub), false)
-  })
+  // The former "keeps the hub tabs and has no separate ScholarClone tab" test lived here,
+  // reading the department-local signals-hub.tsx. Sales & Marketing merge, Phase 5 retired
+  // that file (it destructured `department` and never used it - the same unscoped feed on
+  // every department's page); its 4 tabs already have their own real top-level routes,
+  // covered by "keeps the four routes" above, and this file's actual per-department signals
+  // now come from DepartmentSignalsPanel, outside this test's scope.
 
   it('offers no "All products" choice and never passes "all" to a run on the Company opportunities screen', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
@@ -105,9 +106,8 @@ describe('One list and the research-date dropdown', () => {
 })
 
 describe('Premium workspace and honest forms', () => {
-  it('wraps all four module pages and the hub in the scoped premium theme', () => {
+  it('wraps all four module pages in the scoped premium theme', () => {
     for (const page of ['signals', 'ingestion', 'portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
-    assert.match(read('components/domain/organization/department-management/signals-hub.tsx'), /g2g-premium/)
   })
 
   it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {
@@ -163,9 +163,9 @@ describe('Premium workspace and honest forms', () => {
     assert.match(partners, /savingRef\.current\) return/)
     assert.match(partners, /deletingRef\.current\) return/)
     assert.match(read('components/domain/signals/ingestion-engine-view.tsx'), /submittingRef\.current\) return/)
-    const hub = read('components/domain/organization/department-management/ingestion-view.tsx')
-    assert.match(hub, /busyRef\.current\) return/)
-    assert.match(hub, /retryingRef\.current\) return/)
+    // The department-local ingestion-view.tsx this also checked is retired (Sales & Marketing
+    // merge, Phase 5) - its guards aren't tested here any more because the file is gone, not
+    // because the pattern stopped mattering.
   })
 
   it('the partner "Try again" really reloads the filters and totals, not only the list', () => {

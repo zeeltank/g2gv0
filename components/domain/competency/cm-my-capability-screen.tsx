@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ClipboardList, UserRound, WifiOff } from 'lucide-react'
 import { CmMyCapability } from './cm-my-capability'
+import { CmGapLearningPanel } from './cm-gap-learning-panel'
 import { CmCapabilityProgress } from './cm-capability-progress'
 // The employee's own assessment, below their capability. Mounted here rather
 // than on a new menu because this screen ALREADY means 'my own capability' and
@@ -289,6 +290,14 @@ export function CmMyCapabilityScreen() {
   return (
     <div className="flex flex-col gap-8">
       <CmMyCapability gap={gap} />
+      {/*
+       * Sibling panel, directly under the gap table — reads the SAME `gap`
+       * object rather than fetching again. `assigned_course` /
+       * `no_course_available` ride on the same CompetencyGapRow this screen
+       * already has in hand, so there is no second request to fail
+       * independently of the table above it.
+       */}
+      <CmGapLearningPanel gap={gap} />
       {/* Takes no props. It cannot be pointed at another person because it
           accepts no subject — the endpoints behind it have no user_id. */}
       {selfRating}
