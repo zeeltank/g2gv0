@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
@@ -19,6 +19,7 @@ import {
   GraduationCap,
   Image as ImageIcon,
   Loader2,
+  Maximize2,
   Pencil,
   Plus,
   Lock,
@@ -270,6 +271,127 @@ function CoursePicker({
 
 /* ─── Lesson viewer ────────────────────────────────────────────────────────── */
 
+/*
+ * The full-screen interactive course (deck, videos, checklist, resources) is a page on the course storage that opens in its own tab.
+ * It is opened WITH its opener link on purpose: that page reports how far the learner got (postMessage), and this tab saves it through the
+ * same progress call every other lesson uses, so a learner who finishes the course in the other tab finds this lesson ticked without pressing
+ * anything. Only the course storage host is trusted for this; any other link keeps the plain "opens in a new tab" card.
+ */
+const COURSE_PLAYER_HOSTS = ['s3-triz.fra1.digitaloceanspaces.com']
+const COURSE_PLAYER_PATH = '/interactive/_player/course.html'
+
+function interactiveCourseOrigin(src: string): string | null {
+  try {
+    const url = new URL(src)
+    const trusted = url.protocol === 'https:' && COURSE_PLAYER_HOSTS.includes(url.hostname)
+    return trusted && url.pathname.endsWith(COURSE_PLAYER_PATH) ? url.origin : null
+  } catch {
+    return null
+  }
+}
+
+function InteractiveCourseLauncher({
+  lesson,
+  src,
+  origin,
+  onProgress,
+  onComplete,
+}: {
+  lesson: FlatLesson
+  src: string
+  origin: string
+  onProgress: () => void
+  onComplete: () => void
+}) {
+  const [percent, setPercent] = useState<number | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const lastStep = useRef(-1)
+  const box = useRef<HTMLDivElement>(null)
+  const completed = lesson.status === 'completed'
+
+  // The player is told which lesson it belongs to and where to report; it only ever reports to this page's own address.
+  const withContext = React.useCallback(
+    (embed: boolean) => {
+      const url = new URL(src)
+      url.searchParams.set('lesson', String(lesson.id))
+      url.searchParams.set('from', window.location.origin)
+      if (embed) url.searchParams.set('embed', '1')
+      return url.toString()
+    },
+    [src, lesson.id],
+  )
+
+  const frameSrc = typeof window === 'undefined' ? null : withContext(true)
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== origin) return
+      const data = event.data as { src?: string; lesson?: string | number; type?: string; percent?: number; step?: number } | null
+      if (!data || data.src !== 'g2g-course' || String(data.lesson) !== String(lesson.id)) return
+      if (typeof data.percent === 'number') setPercent(data.percent)
+      if (data.type === 'completed') {
+        if (!completed) onComplete()
+        return
+      }
+      // One save per step, and never once the lesson is already complete (it must not slip back to "in progress").
+      if (data.type === 'progress' && !completed && typeof data.step === 'number' && data.step !== lastStep.current) {
+        lastStep.current = data.step
+        onProgress()
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [origin, lesson.id, completed, onProgress, onComplete])
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === box.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void box.current?.requestFullscreen?.()
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          {completed ? <CheckCircle2 className="size-4 text-emerald-500" /> : <PlayCircle className="size-4 text-primary" />}
+          Interactive course
+          {percent !== null && !completed ? <span className="text-xs font-normal text-muted-foreground">{percent}% done</span> : null}
+          {completed ? <span className="text-xs font-normal text-emerald-600">Completed</span> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={toggleFullscreen}>
+            <Maximize2 className="size-3.5" /> Full screen
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(withContext(false), '_blank')}>
+            <ExternalLink className="size-3.5" /> New tab
+          </Button>
+        </div>
+      </div>
+      <div ref={box} className="overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
+        {frameSrc ? (
+          <iframe
+            title={lesson.title ?? 'Interactive course'}
+            src={frameSrc}
+            allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+            className={fullscreen ? 'h-screen w-screen' : 'h-[74vh] min-h-[540px] w-full'}
+          />
+        ) : (
+          <Skeleton className="h-[74vh] min-h-[540px] w-full" />
+        )}
+      </div>
+      {percent !== null && !completed ? <Progress value={percent} className="h-1.5" /> : null}
+      <p className="text-xs text-muted-foreground">
+        Learn here or in full screen. Your place is saved, and the lesson is marked complete for you when you finish.
+      </p>
+    </div>
+  )
+}
+
 function LessonViewer({
   lesson,
   onComplete,
@@ -357,6 +479,19 @@ function LessonViewer({
           </Button>
         </a>
       </div>
+    )
+  }
+
+  const courseOrigin = interactiveCourseOrigin(src)
+  if (courseOrigin) {
+    return (
+      <InteractiveCourseLauncher
+        lesson={lesson}
+        src={src}
+        origin={courseOrigin}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
     )
   }
 
@@ -928,8 +1063,38 @@ export function LearningDeliveryWorkspace() {
   const enrolmentStatus = courses.find((entry) => entry.id === courseId)?.enrollment_status ?? null
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = isHrAdmin(user?.role)
-  const canAuthor = canModerate
+  // The learning screen is view-only for everyone: chapters and lessons are edited in the Course Builder, not while someone is learning.
+  const canAuthor = false
   const [activeTab, setActiveTab] = useState('learn')
+
+  // When a lesson is completed while the learner is on it, show a clear Next button and move on after a short countdown.
+  const [advance, setAdvance] = useState<{ lessonId: number; secs: number } | null>(null)
+  const advanceIn = advance && currentLesson && advance.lessonId === currentLesson.id ? advance.secs : null
+  const goNextRef = useRef(goNext)
+  const currentIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    goNextRef.current = goNext
+    currentIdRef.current = currentLesson?.id ?? null
+  })
+  useEffect(() => {
+    if (!advance) return
+    const timer = setTimeout(() => {
+      if (advance.secs <= 1) {
+        setAdvance(null)
+        // Only move on if the learner is still on the lesson that just finished.
+        if (advance.lessonId === currentIdRef.current) goNextRef.current()
+      } else {
+        setAdvance({ ...advance, secs: advance.secs - 1 })
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [advance])
+  const completeLesson = (lesson: FlatLesson) => {
+    void markLesson(lesson, 'completed')
+    if (hasNext) setAdvance({ lessonId: lesson.id, secs: 5 })
+    // Last lesson done and the course has an assessment: take the learner to it.
+    else if ((assessments?.length ?? 0) > 0) setActiveTab('assessments')
+  }
 
   /**
    * The quiz panel, so the Assessments tab can take the learner to it.
@@ -1077,9 +1242,28 @@ export function LearningDeliveryWorkspace() {
                 <div className="flex flex-col gap-4">
                   <LessonViewer
                     lesson={currentLesson}
-                    onComplete={() => void markLesson(currentLesson, 'completed')}
+                    onComplete={() => completeLesson(currentLesson)}
                     onPositionSave={(seconds) => void markLesson(currentLesson, 'in-progress', seconds)}
                   />
+
+                  {currentLesson.status === 'completed' && hasNext && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                      <div className="flex items-center gap-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                        <CheckCircle2 className="size-4 text-emerald-600" />
+                        Lesson complete{advanceIn !== null ? `. The next lesson starts in ${advanceIn}s` : ''}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {advanceIn !== null && (
+                          <Button variant="ghost" size="sm" onClick={() => setAdvance(null)}>
+                            Stay here
+                          </Button>
+                        )}
+                        <Button size="sm" className="gap-1" onClick={() => { setAdvance(null); goNext() }}>
+                          Next lesson <ChevronRight className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1109,7 +1293,7 @@ export function LearningDeliveryWorkspace() {
                     variant={currentLesson.status === 'completed' ? 'outline' : 'default'}
                     className="gap-2 self-start"
                     disabled={savingProgress || currentLesson.status === 'completed'}
-                    onClick={() => void markLesson(currentLesson, 'completed')}
+                    onClick={() => completeLesson(currentLesson)}
                   >
                     {savingProgress ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                     {currentLesson.status === 'completed' ? 'Completed' : 'Mark as complete'}
