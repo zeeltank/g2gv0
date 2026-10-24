@@ -224,7 +224,20 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * "Home" even after the menu tree had fully loaded.
    */
   const parseRoutePath = (pathname: string): ActiveNav | null => {
-    return keyByPath.get(pathname) ?? null
+    const exact = keyByPath.get(pathname)
+    if (exact) return exact
+
+    // Detail and task routes belong to the nearest real menu row. This keeps
+    // the sidebar and breadcrumb anchored to My Learning when a learner opens
+    // its dedicated assessment page, without inventing a second menu record.
+    let closest: { path: string; active: ActiveNav } | null = null
+    for (const [path, active] of keyByPath) {
+      if (pathname.startsWith(`${path}/`) && (!closest || path.length > closest.path.length)) {
+        closest = { path, active }
+      }
+    }
+
+    return closest?.active ?? null
   }
 
   const resolveAccessLink = (accessLink: string): string => {

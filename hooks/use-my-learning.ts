@@ -63,7 +63,7 @@ export interface MyLearningState {
 
   /* Progress */
   savingProgress: boolean
-  markLesson: (lesson: FlatLesson, status: ContentStatus, positionSeconds?: number) => Promise<void>
+  markLesson: (lesson: FlatLesson, status: ContentStatus, positionSeconds?: number) => Promise<boolean>
 
   /* Assessments */
   assessments: LearningAssessment[]
@@ -283,7 +283,7 @@ export function useMyLearning(): MyLearningState {
 
   const markLesson = useCallback(
     async (lesson: FlatLesson, status: ContentStatus, positionSeconds?: number) => {
-      if (!courseId) return
+      if (!courseId) return false
 
       const context = resolveContext()
       setSavingProgress(true)
@@ -333,8 +333,10 @@ export function useMyLearning(): MyLearningState {
               : course,
           ),
         )
+        return true
       } catch (saveError) {
         setError(toMessage(saveError, 'Failed to save your progress.'))
+        return false
       } finally {
         setSavingProgress(false)
       }
