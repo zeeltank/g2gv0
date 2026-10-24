@@ -996,7 +996,6 @@ export function LearningDeliveryWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  const { user } = useAuth()
   const router = useRouter()
 
   // Admin/HR may author content; the API enforces the same rule.
