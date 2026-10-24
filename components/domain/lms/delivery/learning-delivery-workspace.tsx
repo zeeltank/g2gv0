@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowLeft,
+  Award,
   BookOpen,
   CheckCircle2,
   ChevronLeft,
@@ -40,15 +41,17 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
 import {
   AuthoringDeleteDialog,
   ChapterFormSheet,
   type AuthoringTarget,
 } from './course-authoring'
-import type {
-  Discussion,
-  LearningAssessment,
+import {
+  lmsCertificateService,
+  type Discussion,
+  type LearningAssessment,
   LearningCourseSummary,
   LearningNote,
 } from '@/services/lms'
@@ -607,18 +610,14 @@ function AssessmentsTab({
   assessments,
   loading,
   onTakeQuiz,
+  onDownloadCertificate,
+  downloadingCert,
 }: {
   assessments: LearningAssessment[]
   loading: boolean
-  /**
-   * Take the learner to the quiz.
-   *
-   * This tab listed every paper with a "Not started" badge and NO action of any
-   * kind, so a learner looking at the screen named Assessments had no way to
-   * start one from it — the only working control was in the right rail, which
-   * is not where you look when you have clicked "Assessments".
-   */
   onTakeQuiz: () => void
+  onDownloadCertificate?: () => void
+  downloadingCert?: boolean
 }) {
   if (loading) {
     return (
@@ -690,19 +689,33 @@ function AssessmentsTab({
             )}
           </div>
 
-          <Button
-            size="sm"
-            variant={assessment.passed ? 'outline' : 'default'}
-            className="w-fit gap-2"
-            onClick={onTakeQuiz}
-          >
-            <ClipboardCheck className="size-3.5" />
-            {assessment.passed
-              ? 'Review your result'
-              : assessment.attempt_count > 0
-                ? 'Try again'
-                : 'Take this assessment'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={assessment.passed ? 'outline' : 'default'}
+              className="w-fit gap-2"
+              onClick={onTakeQuiz}
+            >
+              <ClipboardCheck className="size-3.5" />
+              {assessment.passed
+                ? 'Review your result'
+                : assessment.attempt_count > 0
+                  ? 'Try again'
+                  : 'Take this assessment'}
+            </Button>
+            {assessment.passed && onDownloadCertificate && (
+              <Button
+                size="sm"
+                variant="default"
+                className="w-fit gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={downloadingCert}
+                onClick={onDownloadCertificate}
+              >
+                {downloadingCert ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                Download certificate
+              </Button>
+            )}
+          </div>
 
           {assessment.attempts.length > 0 && (
             <div className="flex flex-col gap-1 rounded-md bg-muted/30 p-2">
@@ -929,8 +942,34 @@ export function LearningDeliveryWorkspace() {
     notes, notesLoading, createNote, updateNote, deleteNote,
     discussions, discussionsLoading, postDiscussion, replyToDiscussion, deleteDiscussion,
     authoringSaving, saveChapter, saveContent, removeChapter, removeContent,
+    certificates, courseCertificate, claimCertificate, claimingCertificate,
     message, error, dismiss,
   } = useMyLearning()
+  const { user } = useAuth()
+  const [downloadingCert, setDownloadingCert] = useState(false)
+
+  const handleDownloadCertificate = async () => {
+    if (!courseId) return
+    const context = getLaravelContext(user)
+    if (!isLaravelContextReady(context)) return
+
+    setDownloadingCert(true)
+    try {
+      let targetId = courseCertificate?.id
+      if (!targetId) {
+        const claimRes = await claimCertificate()
+        if (!claimRes.ok) return
+        const listRes = await lmsCertificateService.list(context, { courseId })
+        const found = listRes.data?.find((c) => c.course_id === courseId)
+        targetId = found?.id
+      }
+      if (targetId) {
+        window.open(lmsCertificateService.downloadUrl(context, targetId), '_blank', 'noopener')
+      }
+    } finally {
+      setDownloadingCert(false)
+    }
+  }
 
   /*
    * ?course_id=N opens a specific course directly, bypassing the picker.
@@ -957,7 +996,6 @@ export function LearningDeliveryWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  const { user } = useAuth()
   const router = useRouter()
 
   // Admin/HR may author content; the API enforces the same rule.
@@ -1071,11 +1109,29 @@ export function LearningDeliveryWorkspace() {
             </p>
           </div>
         </div>
-        {due && (
-          <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <Clock className="size-3.5" /> Due {due}
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {(courseCertificate || courseComplete || detail?.certificate_available) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/50"
+              disabled={downloadingCert || claimingCertificate}
+              onClick={() => void handleDownloadCertificate()}
+            >
+              {downloadingCert || claimingCertificate ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Award className="size-3.5 text-emerald-600" />
+              )}
+              {courseCertificate ? 'Download certificate' : 'Claim certificate'}
+            </Button>
+          )}
+          {due && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Clock className="size-3.5" /> Due {due}
+            </div>
+          )}
+        </div>
       </div>
 
       {message && (
@@ -1129,23 +1185,41 @@ export function LearningDeliveryWorkspace() {
                     onPositionSave={(seconds) => void markLesson(currentLesson, 'in-progress', seconds)}
                   />
 
-                  {courseComplete && (assessments?.length ?? 0) > 0 && (
-                    <Card className="w-full min-w-0 overflow-hidden border-primary/20 bg-gradient-to-r from-primary/[0.09] via-card to-card shadow-sm">
+                  {courseComplete && (
+                    <Card className="w-full min-w-0 overflow-hidden border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.08] via-card to-card shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-start gap-3">
-                          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                            <ClipboardCheck className="size-4" />
+                          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm">
+                            <Award className="size-4" />
                           </span>
                           <div>
                             <p className="text-sm font-bold text-foreground">Course complete</p>
                             <p className="mt-0.5 text-sm text-muted-foreground">
-                              Your assessment is ready whenever you are. It opens in a focused, distraction-free space.
+                              {courseCertificate
+                                ? 'Congratulations! Your certificate of completion has been issued and is available for download.'
+                                : 'You have completed all lessons in this course. You can now download your certificate of completion.'}
                             </p>
                           </div>
                         </div>
-                        <Button className="shrink-0 gap-2" onClick={goToQuiz}>
-                          Start assessment <ChevronRight className="size-4" />
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            className="shrink-0 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            disabled={downloadingCert || claimingCertificate}
+                            onClick={() => void handleDownloadCertificate()}
+                          >
+                            {downloadingCert || claimingCertificate ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Download className="size-4" />
+                            )}
+                            Download certificate
+                          </Button>
+                          {(assessments?.length ?? 0) > 0 && (
+                            <Button variant="outline" className="shrink-0 gap-2" onClick={goToQuiz}>
+                              {courseCertificate ? 'Review assessment' : 'Start assessment'} <ChevronRight className="size-4" />
+                            </Button>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   )}
@@ -1365,6 +1439,8 @@ export function LearningDeliveryWorkspace() {
                   assessments={assessments}
                   loading={assessmentsLoading}
                   onTakeQuiz={goToQuiz}
+                  onDownloadCertificate={() => void handleDownloadCertificate()}
+                  downloadingCert={downloadingCert || claimingCertificate}
                 />
               )}
 

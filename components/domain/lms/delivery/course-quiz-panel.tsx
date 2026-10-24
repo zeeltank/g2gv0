@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Award,
   CheckCircle2,
+  Download,
   ClipboardList,
   Clock,
   Loader2,
@@ -36,6 +37,8 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
+  lmsCertificateService,
+  type LearningCertificate,
   lmsQuizService,
   type QuizAnswers,
   type QuizOverview,
@@ -72,6 +75,8 @@ export function CourseQuizPanel({
   const [answers, setAnswers] = useState<QuizAnswers>({})
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<QuizSubmitResponse | null>(null)
+  const [certificate, setCertificate] = useState<LearningCertificate | null>(null)
+  const [downloadingCert, setDownloadingCert] = useState(false)
   /**
    * A past attempt, opened for review.
    *
@@ -98,6 +103,15 @@ export function CourseQuizPanel({
       const response = await lmsQuizService.overview(context, courseId)
       setOverview(response.data)
       setError(null)
+      if (response.data?.passed) {
+        void lmsCertificateService
+          .list(context, { courseId })
+          .then((res) => {
+            const found = res.data?.find((c) => c.course_id === courseId) ?? null
+            setCertificate(found)
+          })
+          .catch(() => {})
+      }
     } catch (loadError) {
       setError(toMessage(loadError, 'Failed to load the quiz.'))
     } finally {
@@ -161,11 +175,58 @@ export function CourseQuizPanel({
       setQuestions([])
       setAttemptId(null)
       await load()
-      if (response.data.passed) onPassed?.()
+      if (response.data.passed) {
+        onPassed?.()
+        void lmsCertificateService
+          .list(context, { courseId })
+          .then((res) => {
+            const found = res.data?.find((c) => c.course_id === courseId) ?? null
+            setCertificate(found)
+          })
+          .catch(() => {})
+      }
     } catch (submitError) {
       setError(toMessage(submitError, 'Could not submit the quiz.'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const onDownloadCertificate = async () => {
+    const context = getLaravelContext(user)
+    if (!isLaravelContextReady(context)) {
+      setError('Your session has expired. Sign in again.')
+      return
+    }
+
+    setDownloadingCert(true)
+    setError(null)
+
+    try {
+      let targetId = certificate?.id
+      if (!targetId) {
+        const listRes = await lmsCertificateService.list(context, { courseId })
+        const found = listRes.data?.find((c) => c.course_id === courseId)
+        if (found) {
+          targetId = found.id
+          setCertificate(found)
+        } else {
+          const issueRes = await lmsCertificateService.issue(context, courseId)
+          targetId = issueRes.data?.id
+          setCertificate(issueRes.data ?? null)
+        }
+      }
+
+      if (targetId) {
+        const url = lmsCertificateService.downloadUrl(context, targetId)
+        window.open(url, '_blank', 'noopener')
+      } else {
+        setError('Certificate could not be loaded.')
+      }
+    } catch (downloadError) {
+      setError(toMessage(downloadError, 'Failed to download certificate.'))
+    } finally {
+      setDownloadingCert(false)
     }
   }
 
@@ -309,10 +370,21 @@ export function CourseQuizPanel({
             )}
 
             {result.certificate_available && (
-              <p className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                <Award className="size-4 shrink-0" />
-                Your certificate is now available.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-primary/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold text-primary">
+                  <Award className="size-4 shrink-0" />
+                  Your certificate is now available.
+                </p>
+                <Button
+                  size="sm"
+                  className="gap-2 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+                  disabled={downloadingCert}
+                  onClick={() => void onDownloadCertificate()}
+                >
+                  {downloadingCert ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                  Download certificate
+                </Button>
+              </div>
             )}
           </div>
 
@@ -477,10 +549,22 @@ export function CourseQuizPanel({
         )}
 
         {overview.passed ? (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-            <Award className="size-4 shrink-0" />
-            You passed with {Math.round(overview.best_percent ?? 0)}%. Your certificate is available.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-emerald-500/10 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <Award className="size-4 shrink-0" />
+              You passed with {Math.round(overview.best_percent ?? 0)}%. Your certificate is available.
+            </p>
+            <Button
+              size="sm"
+              variant="default"
+              className="gap-2 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={downloadingCert}
+              onClick={() => void onDownloadCertificate()}
+            >
+              {downloadingCert ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+              Download certificate
+            </Button>
+          </div>
         ) : locked ? (
           /* The server's own sentence, not one guessed here. */
           <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
