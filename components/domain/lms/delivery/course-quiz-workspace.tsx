@@ -18,7 +18,7 @@ export function CourseQuizWorkspace() {
 
   if (!Number.isInteger(courseId) || courseId <= 0) {
     return (
-      <div className="p-6">
+      <div className="w-full min-w-0 pt-2">
         <ErrorState
           title="Choose a course first"
           description="Open a course from My Learning before starting its assessment."
@@ -31,8 +31,8 @@ export function CourseQuizWorkspace() {
   const coursePath = `${LEARNING_PATH}?course_id=${courseId}`
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 lg:py-10">
-      <div className="flex items-center justify-between gap-3">
+    <main className="flex w-full min-w-0 flex-col gap-6 pt-2">
+      <div className="flex w-full min-w-0 items-center justify-between gap-3">
         <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.push(coursePath)}>
           <ArrowLeft className="size-4" />
           Back to course
@@ -40,12 +40,12 @@ export function CourseQuizWorkspace() {
         <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Assessment</span>
       </div>
 
-      <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-primary/[0.08] via-card to-card shadow-sm">
+      <Card className="w-full min-w-0 overflow-hidden border-primary/15 bg-gradient-to-br from-primary/[0.08] via-card to-card shadow-sm">
         <CardContent className="flex flex-col gap-4 p-6 sm:p-8">
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
             <ClipboardCheck className="size-5" />
           </span>
-          <div className="max-w-2xl">
+          <div className="w-full min-w-0">
             <p className="text-sm font-semibold text-primary">Course assessment</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Put your learning into practice
@@ -57,7 +57,7 @@ export function CourseQuizWorkspace() {
         </CardContent>
       </Card>
 
-      <CourseQuizPanel courseId={courseId} onPassed={() => router.refresh()} />
+      <div className="w-full min-w-0"><CourseQuizPanel courseId={courseId} onPassed={() => router.refresh()} /></div>
     </main>
   )
 }
