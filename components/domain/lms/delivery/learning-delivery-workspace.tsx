@@ -138,7 +138,7 @@ function CoursePicker({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">My Learning</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -147,7 +147,7 @@ function CoursePicker({
       </div>
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-40 rounded-xl" />
           ))}
@@ -159,7 +159,7 @@ function CoursePicker({
           description="Enrol from the learning catalogue to start learning."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {courses.map((course) => {
             const due = formatDate(course.end_date)
             const overdue =
@@ -321,7 +321,7 @@ function InteractiveCourseLauncher({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex w-full min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           {completed ? <CheckCircle2 className="size-4 text-emerald-500" /> : <PlayCircle className="size-4 text-primary" />}
@@ -338,7 +338,7 @@ function InteractiveCourseLauncher({
           </Button>
         </div>
       </div>
-      <div ref={box} className="overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
+      <div ref={box} className="w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
         {frameSrc ? (
           <iframe
             title={lesson.title ?? 'Interactive course'}
@@ -497,7 +497,7 @@ function NotesTab({
   const [editDraft, setEditDraft] = useState('')
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4">
         <label htmlFor="new-note" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
           New note{currentLesson ? ` on "${currentLesson.title}"` : ''}
@@ -535,7 +535,7 @@ function NotesTab({
           description="Notes you take while learning are saved to your account."
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3">
           {notes.map((note) => (
             <div key={note.id} className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
               <div className="flex items-start justify-between gap-3">
@@ -641,7 +641,7 @@ function AssessmentsTab({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex w-full min-w-0 flex-col gap-3">
       {assessments.map((assessment) => (
         <div key={assessment.id} className="flex flex-col gap-3 rounded-lg border border-border/60 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -808,7 +808,7 @@ function DiscussionsTab({
           description="Be the first to ask a question about this course."
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3">
           {discussions.map((thread) => {
             const isAuthor = String(thread.user_id) === String(currentUserId)
 
@@ -1010,7 +1010,7 @@ export function LearningDeliveryWorkspace() {
 
   if (!courseId) {
     return (
-      <div className="p-6">
+      <div className="w-full min-w-0 pt-2">
         <CoursePicker
           courses={courses}
           loading={coursesLoading}
@@ -1024,7 +1024,7 @@ export function LearningDeliveryWorkspace() {
 
   if (detailError && !detailLoading) {
     return (
-      <div className="p-6">
+      <div className="w-full min-w-0 pt-2">
         <ErrorState title="Couldn't load this course" description={detailError} retry={reload} />
       </div>
     )
@@ -1044,8 +1044,8 @@ export function LearningDeliveryWorkspace() {
   ]
 
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex w-full min-w-0 flex-col gap-5 pt-2">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button
             variant="ghost"
@@ -1091,8 +1091,8 @@ export function LearningDeliveryWorkspace() {
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4">
-          <div className="flex items-center gap-6 border-b border-border/60">
+      <div className="flex w-full min-w-0 flex-col gap-4">
+          <div className="flex w-full min-w-0 items-center gap-6 overflow-x-auto border-b border-border/60">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1122,7 +1122,7 @@ export function LearningDeliveryWorkspace() {
           ) : (
             <>
               {activeTab === 'learn' && currentLesson && (
-                <div className="flex flex-col gap-4">
+                <div className="flex w-full min-w-0 flex-col gap-4">
                   <LessonViewer
                     lesson={currentLesson}
                     onComplete={() => void completeLesson(currentLesson)}
@@ -1130,7 +1130,7 @@ export function LearningDeliveryWorkspace() {
                   />
 
                   {courseComplete && (assessments?.length ?? 0) > 0 && (
-                    <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/[0.09] via-card to-card shadow-sm">
+                    <Card className="w-full min-w-0 overflow-hidden border-primary/20 bg-gradient-to-r from-primary/[0.09] via-card to-card shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-start gap-3">
                           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -1151,7 +1151,7 @@ export function LearningDeliveryWorkspace() {
                   )}
 
                   {currentLesson.status === 'completed' && hasNext && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                    <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                       <div className="flex items-center gap-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
                         <CheckCircle2 className="size-4 text-emerald-600" />
                         Lesson complete{advanceIn !== null ? `. The next lesson starts in ${advanceIn}s` : ''}
@@ -1169,7 +1169,7 @@ export function LearningDeliveryWorkspace() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                         {currentLesson.chapterName}
@@ -1206,7 +1206,7 @@ export function LearningDeliveryWorkspace() {
               )}
 
               {activeTab === 'contents' && (
-                <div className="flex flex-col gap-4">
+                <div className="flex w-full min-w-0 flex-col gap-4">
                   {canAuthor && (
                     <Button
                       variant="outline"

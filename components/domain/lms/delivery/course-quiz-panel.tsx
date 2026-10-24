@@ -170,7 +170,7 @@ export function CourseQuizPanel({
   }
 
   if (loading) {
-    return <Skeleton className="h-40 rounded-xl" />
+    return <Skeleton className="h-40 w-full rounded-xl" />
   }
 
   // Most courses have no quiz. Say nothing rather than showing an empty card.
@@ -182,7 +182,7 @@ export function CourseQuizPanel({
 
   if (review) {
     return (
-      <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
+      <Card className="w-full min-w-0 overflow-hidden rounded-xl border-border/80 shadow-sm">
         <CardContent className="flex flex-col gap-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-bold tracking-tight text-foreground">
@@ -256,7 +256,7 @@ export function CourseQuizPanel({
 
   if (result) {
     return (
-      <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
+      <Card className="w-full min-w-0 overflow-hidden rounded-xl border-border/80 shadow-sm">
         <CardContent className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
             {result.passed ? (
@@ -333,7 +333,7 @@ export function CourseQuizPanel({
     }).length
 
     return (
-      <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
+      <Card className="w-full min-w-0 overflow-hidden rounded-xl border-border/80 shadow-sm">
         <CardContent className="flex flex-col gap-5 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold tracking-tight text-foreground">
@@ -438,7 +438,7 @@ export function CourseQuizPanel({
   const locked = !overview.can_start
 
   return (
-    <Card className="overflow-hidden rounded-xl border-border/80 shadow-sm">
+    <Card className="w-full min-w-0 overflow-hidden rounded-xl border-border/80 shadow-sm">
       <CardContent className="flex flex-col gap-4 p-5">
         <div className="flex items-start gap-3">
           <span
