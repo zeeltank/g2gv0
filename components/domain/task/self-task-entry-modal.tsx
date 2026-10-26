@@ -159,20 +159,36 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-md">
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Add Task</DialogTitle>
           <DialogDescription>Your own work for the day - not an assignment to someone else.</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
-          <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3 text-sm">
-            <span className="flex items-center gap-2 text-muted-foreground"><ListTodo className="size-4" />Activity type</span>
-            <span className="font-medium">Task</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3 text-sm">
-            <span className="flex items-center gap-2 text-muted-foreground"><User className="size-4" />Assigned to</span>
-            <span className="font-medium">You</span>
+        {/*
+         * Reported live: the form was a single vertical stack in a narrow
+         * (sm:max-w-md) dialog, forcing a scroll to reach "Add Task" on any
+         * normal-height window. Widening alone wouldn't have fixed that - 9
+         * stacked field groups still scroll regardless of box width - so
+         * this pairs the fields that are actually short enough to sit side
+         * by side, same @container/form + container-query-grid mechanism
+         * create-task-modal.tsx's own "Assign Task" already uses (that
+         * form's `@2xl/form:grid-cols-12` is scaled for a MUCH larger field
+         * set; a plain 2-up grid is this form's own equivalent, not a
+         * smaller copy of the same 12-column system it doesn't need).
+         * Title/Description/Completion Remarks stay full-width - a textarea
+         * or free-text input reads worse split narrow.
+         */}
+        <div className="@container/form min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+          <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
+            <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3 text-sm">
+              <span className="flex items-center gap-2 text-muted-foreground"><ListTodo className="size-4" />Activity type</span>
+              <span className="font-medium">Task</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3 text-sm">
+              <span className="flex items-center gap-2 text-muted-foreground"><User className="size-4" />Assigned to</span>
+              <span className="font-medium">You</span>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -185,12 +201,19 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
             <Textarea id="self-task-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
           </div>
 
-          {/* Date on its own row, Start/End as a 2-col row below - TimePicker's
-              two-dropdown layout is wider than the native <input type="time">
-              it replaces and no longer fits a 3-up grid. */}
-          <div className="space-y-1.5">
-            <Label htmlFor="self-task-date">Date</Label>
-            <Input id="self-task-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          {/* Date paired with Status (both one compact control each); Start/End
+              stay their own pair - TimePicker's two-dropdown layout is wider
+              than the native <input type="time"> it replaces and doesn't fit
+              a 3-up row even at this form's new width. */}
+          <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="self-task-date">Date</Label>
+              <Input id="self-task-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="self-task-status">Status</Label>
+              <Select id="self-task-status" value={status} onChange={setStatus} options={statusChoices} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -215,39 +238,36 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="self-task-status">Status</Label>
-            <Select id="self-task-status" value={status} onChange={setStatus} options={statusChoices} />
-          </div>
-
-          <div className="space-y-1.5">
             <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
             <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={3} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Project (optional)</Label>
-            <SearchableSelect
-              value={projectId}
-              onChange={setProjectId}
-              options={projectOptions}
-              placeholder="No project"
-              searchPlaceholder="Search projects…"
-            />
-          </div>
-
-          {projectId && (
+          <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Workstream (optional)</Label>
+              <Label>Project (optional)</Label>
               <SearchableSelect
-                value={workstreamId}
-                onChange={setWorkstreamId}
-                options={workstreamOptions}
-                placeholder={workstreamsLoading ? 'Loading…' : 'No workstream'}
-                searchPlaceholder="Search workstreams…"
-                disabled={workstreamsLoading}
+                value={projectId}
+                onChange={setProjectId}
+                options={projectOptions}
+                placeholder="No project"
+                searchPlaceholder="Search projects…"
               />
             </div>
-          )}
+
+            {projectId && (
+              <div className="space-y-1.5">
+                <Label>Workstream (optional)</Label>
+                <SearchableSelect
+                  value={workstreamId}
+                  onChange={setWorkstreamId}
+                  options={workstreamOptions}
+                  placeholder={workstreamsLoading ? 'Loading…' : 'No workstream'}
+                  searchPlaceholder="Search workstreams…"
+                  disabled={workstreamsLoading}
+                />
+              </div>
+            )}
+          </div>
 
           {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
         </div>
