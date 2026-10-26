@@ -280,6 +280,17 @@ export interface OpportunityListResponse {
 
 export type ResearchStage = 'preparing' | 'searching' | 'collecting' | 'analyzing' | 'saving' | 'completed' | 'failed'
 
+export interface RunStageStats {
+  queries: { planned: number; attempted: number; succeeded: number; failed: number; skipped: number }
+  results: { returned: number; dropped_too_old: number; screened_out: number; kept: number }
+  pages: { fetched: number; failed: number }
+  candidates: { proposed: number; rejected_before_gate: number; rejected_by_gate: number }
+  outcome: { new: number; updated: number; unchanged_existing: number; qualified_total: number }
+  errors_by_stage: Record<string, Record<string, number>>
+  zero_reasons: { code: string; label: string; count: number }[]
+  next_action: string
+}
+
 export interface ResearchRun {
   id: number
   product_key?: string | null
@@ -298,6 +309,10 @@ export interface ResearchRun {
   sources_found: number
   companies_researched: number
   opportunities_qualified: number
+  /** Stage-by-stage accounting of the run (null for runs made before it existed). Every number is a counter the run kept. */
+  stage_stats?: RunStageStats | null
+  /** False when the backend has no stage_stats column yet (its migration has not been applied): the breakdown is then unavailable, not empty. */
+  stage_stats_persisted?: boolean
   opportunities_new: number
   opportunities_rejected: number
   search_provider: string | null
