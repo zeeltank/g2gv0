@@ -176,8 +176,12 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
          * form's `@2xl/form:grid-cols-12` is scaled for a MUCH larger field
          * set; a plain 2-up grid is this form's own equivalent, not a
          * smaller copy of the same 12-column system it doesn't need).
-         * Title/Description/Completion Remarks stay full-width - a textarea
-         * or free-text input reads worse split narrow.
+         * Title stays full-width (free text reads worse split narrow);
+         * Description/Completion Remarks are the one exception to "textareas
+         * don't pair well" - paired anyway because together they were the
+         * single biggest remaining source of height (confirmed still
+         * forcing a scroll at this point), both resizable by drag so
+         * starting smaller costs nothing a user can't immediately undo.
          */}
         <div className="@container/form min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
           <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
@@ -196,9 +200,22 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
             <Input id="self-task-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What did you work on?" autoFocus />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="self-task-description">Description</Label>
-            <Textarea id="self-task-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+          {/* Description paired with Completion Remarks - both optional free
+              text, and the biggest single source of the form's own height
+              (still reported needing a scroll at this point: each stacked
+              textarea alone was the same vertical cost as 4-5 compact field
+              rows). Both resizable (the drag handle in Textarea's own
+              corner), so starting at 2 rows loses nothing a user can't
+              immediately reclaim by dragging. */}
+          <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="self-task-description">Description</Label>
+              <Textarea id="self-task-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={2} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
+              <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={2} />
+            </div>
           </div>
 
           {/* Date paired with Status (both one compact control each); Start/End
@@ -235,11 +252,6 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
                 onChange={(next) => { setTimeEnd(next); if (!timeStart) setTimeStart('09:00') }}
               />
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="self-task-completion-remarks">Completion Remarks (optional)</Label>
-            <Textarea id="self-task-completion-remarks" value={completionRemarks} onChange={(event) => setCompletionRemarks(event.target.value)} rows={3} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
