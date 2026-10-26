@@ -73,6 +73,14 @@ export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/ass
  */
 export const LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK =
   '/module/lms/training-and-records/capability-gap-inbox'
+/**
+ * Simulation Learning - the gallery of interactive simulations an organisation has, and the player that plays them.
+ *
+ * A level-2 row under LMS, created by hp_erp's 2026_12_03_090100_create_simulation_learning_menu_row migration. Rights are the matrix on that
+ * row (view to browse and play, add to add a simulation, edit for a new version or a card, delete to remove one); content-map-m4.ts resolves
+ * this link to SimulationLearning. The backend resolves the row by this exact link, never by id - the ids differ between hosts.
+ */
+export const LMS_SIMULATION_LEARNING_ACCESS_LINK = '/module/lms/simulation-learning'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
 /**
  * Capability Library - where job roles, skills and competencies are authored.

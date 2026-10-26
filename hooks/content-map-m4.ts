@@ -5,6 +5,7 @@ const LearningCatalog = createLazyComponent(() => import('@/domain/lms/catalog')
 const CreateCoursePage = createLazyComponent(() => import('@/domain/lms/course-builder/create-course-page').then((m) => ({ default: m.CreateCoursePage })))
 const LearningAssignments = createLazyComponent(() => import('@/domain/lms/assignments').then((m) => ({ default: m.LearningAssignments })))
 const CapabilityGapInbox = createLazyComponent(() => import('@/domain/lms/gap-inbox').then((m) => ({ default: m.CapabilityGapInbox })))
+const SimulationLearning = createLazyComponent(() => import('@/domain/lms/simulations').then((m) => ({ default: m.SimulationLearning })))
 const LearningDeliveryWorkspace = createLazyComponent(() => import('@/domain/lms/delivery').then((m) => ({ default: m.LearningDeliveryWorkspace })))
 const SessionsCalendar = createLazyComponent(() => import('@/domain/lms/sessions').then((m) => ({ default: m.SessionsCalendar })))
 const CertificationsRecords = createLazyComponent(() => import('@/domain/lms/records').then((m) => ({ default: m.CertificationsRecords })))
@@ -22,6 +23,9 @@ export const M4_CONTENT: ContentRoute[] = [
   { accessLink: '/module/lms/learning/learning-catalog', submenuId: '182', component: LearningCatalog }, // Learning Catalog
   { accessLink: '/module/lms/learning/my-learning', submenuId: '209', component: LearningDeliveryWorkspace }, // My Learning
   { accessLink: '/module/lms/learning/my-assessment', submenuId: '301', component: CmMyAssessment }, // My Assessment — beside My Learning, added 2026-08-26
+  // Simulation Learning — no submenuId on purpose: the tblmenumaster_g2g row is created by hp_erp's
+  // 2026_12_03_090100 migration and its id differs between hosts, so it is matched by access_link only.
+  { accessLink: '/module/lms/simulation-learning', component: SimulationLearning }, // Simulation Learning
   { accessLink: '/module/lms/administration/course-builder', submenuId: '84', component: CreateCoursePage }, // Course Builder
   { accessLink: '/module/lms/training-and-records/assignments', submenuId: '81', component: LearningAssignments }, // Assignments
   // Capability Gap Inbox — no submenuId yet: needs a tblmenumaster_g2g row
