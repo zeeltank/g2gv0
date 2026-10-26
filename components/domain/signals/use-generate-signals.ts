@@ -29,7 +29,16 @@ export function describeFinishedRun(run: ResearchRun): GenerateNotice {
     }
   }
   if (run.opportunities_qualified === 0) {
-    return { tone: 'info', text: `Finished: checked ${run.sources_found} sources, but no opportunity had enough evidence to qualify.` }
+    const stats = run.stage_stats
+    // The run's own reasons, biggest first, only when the backend recorded them.
+    const why = stats?.zero_reasons?.slice(0, 3).map((r) => `${r.label} (${r.count})`).join(' ') ?? ''
+    const searches = stats ? ` ${stats.queries.succeeded} of ${stats.queries.attempted} searches worked, ${stats.results.returned} results, ${stats.pages.fetched} pages read.` : ''
+
+    return {
+      tone: 'info',
+      text: `Finished: checked ${run.sources_found} sources, but no opportunity had enough evidence to qualify.${searches}${why ? ` Why: ${why}` : ''}`,
+      nextStep: stats?.next_action ?? null,
+    }
   }
 
   return { tone: 'success', text: `Finished: ${run.opportunities_qualified} qualified (${run.opportunities_new} new) from ${run.sources_found} sources.` }
