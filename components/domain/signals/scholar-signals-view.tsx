@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { discoveryLabel } from '@/lib/signal-run-notice'
 import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
 import { evidenceBadge, fitHeading } from '@/lib/signal-evidence'
 import { ApiError } from '@/services/core'
@@ -583,7 +584,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {a?.source_reliability && <span className="ml-2">· {SOURCE_WORDS[a.source_reliability.class] ?? 'Source'} ({a.source_reliability.reliability} reliability)</span>}
           {a?.evidence ? <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>
             : <span className="ml-2">· {o.source_published_at ? `Published ${fmtDay(o.source_published_at)}` : 'No publication date on the source'}</span>}
-          {runDateLabel && <span className="ml-2">· Found in the {runDateLabel} run</span>}
+          {discoveryLabel(o.discovered_on_report_date, runDateLabel) && <span className="ml-2">· {discoveryLabel(o.discovered_on_report_date, runDateLabel)}</span>}
           {typeof o.days_left === 'number' && <span className="ml-2">· {o.days_left < 0 ? 'Past its closing date' : o.days_left === 0 ? 'Closes today' : `${o.days_left} day${o.days_left === 1 ? '' : 's'} left`}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
