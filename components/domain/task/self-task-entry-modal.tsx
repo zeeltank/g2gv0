@@ -183,7 +183,7 @@ export function SelfTaskEntryModal({ isOpen, onClose, onCreated, initialDate, in
          * forcing a scroll at this point), both resizable by drag so
          * starting smaller costs nothing a user can't immediately undo.
          */}
-        <div className="@container/form min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+        <div className="@container/form g2g-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
           <div className="grid grid-cols-1 gap-3 @lg/form:grid-cols-2">
             <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3 text-sm">
               <span className="flex items-center gap-2 text-muted-foreground"><ListTodo className="size-4" />Activity type</span>
