@@ -6,6 +6,7 @@ import { ApiError } from '@/services/core'
 import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import type { ProductInfo } from '@/services/portfolio/types'
 import { runGuardedGenerate } from '@/lib/signals-generate'
+import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
 
 const POLL_MS = 2500
 // A run always reaches an end state on the backend (finished, failed, or closed by the reaper within ~15 minutes), so the poll runs until it sees one.
@@ -13,36 +14,11 @@ const POLL_MS = 2500
 const POLL_MAX = 960
 const POLL_FAILURES_MAX = 12   // consecutive failed polls (about 30 s) before the screen says it lost contact
 
-export type GenerateNotice = { tone: 'error' | 'info' | 'warning' | 'success'; text: string; missing?: string[]; nextStep?: string | null }
+export type GenerateNotice = RunNotice
 
 const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
-/** What a finished run honestly says, from the run row the backend holds (never from invented results). */
-export function describeFinishedRun(run: ResearchRun): GenerateNotice {
-  if (run.status === 'failed' || run.status === 'skipped') {
-    return { tone: 'error', text: run.error_message ?? run.stage_message ?? 'The run did not complete.' }
-  }
-  if (run.status === 'partial') {
-    return {
-      tone: 'warning',
-      text: `Finished with limits: ${run.stage_message ?? 'some searches or sources could not be read.'} ${run.opportunities_qualified} qualified (${run.opportunities_new} new).`,
-    }
-  }
-  if (run.opportunities_qualified === 0) {
-    const stats = run.stage_stats
-    // The run's own reasons, biggest first, only when the backend recorded them.
-    const why = stats?.zero_reasons?.slice(0, 3).map((r) => `${r.label} (${r.count})`).join(' ') ?? ''
-    const searches = stats ? ` ${stats.queries.succeeded} of ${stats.queries.attempted} searches worked, ${stats.results.returned} results, ${stats.pages.fetched} pages read.` : ''
-
-    return {
-      tone: 'info',
-      text: `Finished: checked ${run.sources_found} sources, but no opportunity had enough evidence to qualify.${searches}${why ? ` Why: ${why}` : ''}`,
-      nextStep: stats?.next_action ?? null,
-    }
-  }
-
-  return { tone: 'success', text: `Finished: ${run.opportunities_qualified} qualified (${run.opportunities_new} new) from ${run.sources_found} sources.` }
-}
+export { describeFinishedRun }
 
 /**
  * Generate Signals for one product. Starts nothing unless the selected product is valid and ready (see generateSignals), allows one run at a

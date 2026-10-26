@@ -181,6 +181,8 @@ export interface Opportunity {
   qualification: Qualification
   confidence: Level
   review_status: ReviewStatus
+  /** True when the signal was first discovered on the research day it is listed under; false when that day's run only re-observed it; null when there is no run date. */
+  discovered_on_report_date?: boolean | null
   primary_source: OpportunitySource | null
   source_count: number
   source_published_at: string | null
@@ -281,12 +283,29 @@ export interface OpportunityListResponse {
 export type ResearchStage = 'preparing' | 'searching' | 'collecting' | 'analyzing' | 'saving' | 'completed' | 'failed'
 
 export interface RunStageStats {
-  queries: { planned: number; attempted: number; succeeded: number; failed: number; skipped: number }
+  queries: { planned: number; attempted: number; succeeded: number; with_results: number | null; empty: number | null; failed: number; cache_hits: number; skipped: number; skipped_by_reason: Record<string, number> }
   results: { returned: number; dropped_too_old: number; screened_out: number; kept: number }
-  pages: { fetched: number; failed: number }
+  /** `skipped`: sources whose page was deliberately not requested (an unreadable social host); not a read and not a failure. The maps are null when the run did not record them. */
+  pages: {
+    fetched: number
+    failed: number
+    blocked_by_robots?: number
+    skipped?: number | null
+    skipped_by_reason?: Record<string, number> | null
+    failed_by_category?: Record<string, number> | null
+    failed_by_host_class?: Record<string, number> | null
+  }
   candidates: { proposed: number; rejected_before_gate: number; rejected_by_gate: number }
   outcome: { new: number; updated: number; unchanged_existing: number; qualified_total: number }
   errors_by_stage: Record<string, Record<string, number>>
+  /** Registry sources SELECTED vs searches that really RAN against them. `null` = this run kept no registry record (unavailable, not zero). `verified` is always false: searching a source never verifies it. */
+  registry?: { selected: number; eligible: number; attempted: number; searched: number; succeeded_with_results: number | null; succeeded_empty: number | null; failed: number; served_from_cache: number; skipped_other: number; not_selected_reason: string | null; verified: boolean } | null
+  /** Verified sources read directly (feed or announcement listing). `null` = the run did not do that. */
+  direct?: { sources_selected: number; listings_read: number; items_found: number; items_read: number; items_skipped_seen: number; refused_robots: number; failed_by_category: Record<string, number>; by_source?: { id: string; name: string; method: string | null; found: number; read: number; failed: number }[] } | null
+  /** Schools with no verified website that were searched by name. `null` = no record for this run. Candidate sites are never verified by this step. */
+  name_search?: { skipped_missing_context: number; schools_selected: number; searches_run: number; schools_with_candidate_site: number; candidate_sites: number; candidate_sites_verified: number } | null
+  /** Verification runs only: the hard ceilings and what was used/refused. null on ordinary runs. */
+  budget?: { limits: Record<string, number> | null; used: Record<string, number>; refused: Record<string, number> } | null
   zero_reasons: { code: string; label: string; count: number }[]
   next_action: string
 }
