@@ -40,6 +40,7 @@ export function summariseEvidence(o: Opportunity): EvidenceSummary {
   if (a) {
     if (!published) out.missing.push('No publication date on the source, so how recent this is is unknown.')
     if (e?.read_as === 'search_snippet') out.missing.push('Only a search snippet was read, not the whole page.')
+    if (e && !e.quote_verified) out.missing.push('The quoted wording is not verified on the page itself (it was seen in a search snippet only).')
     if (a.identity?.status === 'target_possible') out.missing.push('Which school this is has not been confirmed.')
     if (a.identity?.status === 'unrelated') out.missing.push('It is not on your target list.')
     if (stated.length === 0 && a.buying_intent) out.missing.push('Nothing in the source shows a purchase process: this is a possible need.')

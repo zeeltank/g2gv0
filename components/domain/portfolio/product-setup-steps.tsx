@@ -16,7 +16,7 @@ export function setupSteps(product: ProductInfo): { key: string; title: string; 
     },
     {
       key: 'icp', title: 'Ideal customer profile', state: icpState,
-      detail: icpState === 'done' ? 'Active and valid' : icpState === 'problem' ? 'A saved ICP fails validation: fix it below' : product.draft_icp ? 'Saved but not active: activate it below' : 'Not configured: fill it in below, then activate',
+      detail: icpState === 'done' ? 'Active and valid' : icpState === 'problem' ? 'A saved ICP fails validation: fix it in the ICP tab' : product.draft_icp ? 'Saved but not active: activate it in the ICP tab' : 'Not configured: fill it in on the ICP tab, then activate',
     },
     {
       key: 'accounts', title: 'Target accounts', state: product.target_accounts > 0 ? 'done' : 'todo', optional: true,

@@ -13,6 +13,10 @@ import { opportunitiesService, type Opportunity, type OpportunityListResponse } 
 import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
 import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
 import { wantsFallback } from '@/lib/signal-fallback'
+import { rangeText } from '@/lib/signal-dates'
+
+/** Signals shown per page. */
+export const SIGNALS_PER_PAGE = 5
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
@@ -66,7 +70,7 @@ export function SignalList({
     setLoading(true)
     try {
       // Signals that have passed their closing date are part of that day's results, so they are included.
-      const res = await opportunitiesService.list(context, { product: productKey, runDate, search: debounced || undefined, feedSection: view === 'all' ? undefined : view, reviewStatus: status || undefined, page, expired: 'include' })
+      const res = await opportunitiesService.list(context, { product: productKey, runDate, search: debounced || undefined, feedSection: view === 'all' ? undefined : view, reviewStatus: status || undefined, page, perPage: SIGNALS_PER_PAGE, expired: 'include' })
       setData(res)
       if (view === 'all' && !status && !debounced) setCounts({ immediate: res.summary.immediate ?? 0, watchlist: res.summary.watchlist ?? 0 })
       setError(null)
@@ -138,7 +142,7 @@ export function SignalList({
       </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
       {items.length === 0 ? (
-        wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: true }) ? (
+        wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: !loading }) ? (
           <FallbackSignals
             context={context}
             productKey={productKey}
@@ -148,7 +152,7 @@ export function SignalList({
             empty={
               <EmptyState
                 title={`No saved ${productLabel} signals yet`}
-                description={`Nothing has been saved for ${productLabel} yet, so there is nothing to show. Press Generate Signals, and make sure its target schools have verified websites so research can read their official sites.`}
+                description={`Press Generate Signals to run research for ${productLabel}. Its results are kept here by date.`}
                 action={dayInfo ? (
                   <div className="max-w-xl space-y-1 text-left text-xs text-muted-foreground">
                     <p>What the {formatRunDate(runDate)} run did: {dayInfo.searches} searches, {dayInfo.sources} pages found, {dayInfo.organisations} organisations looked at, {dayInfo.rejected} failed the checks.</p>
@@ -159,18 +163,24 @@ export function SignalList({
             }
           />
         ) : (
-          <EmptyState title="No signals match these filters" description="Try a different filter or search." />
+          <EmptyState
+            title="No signals match these filters"
+            description="Try a different filter or search."
+          />
         )
       ) : (
         <div className="space-y-4">
           {items.map((o, i) => <div key={o.id} className="premium-rise" style={{ '--i': Math.min(i, 8) } as React.CSSProperties}><SignalCard o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} /></div>)}
-          {data.meta.last_page > 1 && (
-            <div className="flex items-center justify-center gap-3 text-sm">
-              <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-muted-foreground">Page {page} of {data.meta.last_page}</span>
-              <Button size="sm" variant="outline" disabled={page >= data.meta.last_page || loading} onClick={() => setPage(page + 1)}>Next</Button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground" aria-live="polite">{rangeText(data.meta.page, data.meta.per_page, data.meta.total) ?? ''}</span>
+            {data.meta.last_page > 1 && (
+              <div className="flex items-center gap-3">
+                <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button>
+                <span className="text-muted-foreground">Page {page} of {data.meta.last_page}</span>
+                <Button size="sm" variant="outline" disabled={page >= data.meta.last_page || loading} onClick={() => setPage(page + 1)}>Next</Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -5,6 +5,20 @@ import type { ProductOffer } from '@/services/portfolio/types'
  * value the person did not type, empty optional fields go to the server as null, and the checks mirror the server's (which stays the authority).
  */
 
+export interface IndividualIcpFormState {
+  enabled: boolean
+  label: string
+  industry_label: string
+  pitch: string
+  guidance: string
+  buyer_types: string
+  regions: string
+  priority_cities: string
+  competitors: string
+  disqualifiers: string
+  must_have: string
+}
+
 export interface ProductFormState {
   offer_id: string
   name: string
@@ -27,13 +41,30 @@ export interface ProductFormState {
   implementation_effort: string
   delivery_owner: string
   notes: string
+  /** Individual Ideal Customer Profile (ICP) for this specific sub-product */
+  icp: IndividualIcpFormState
 }
 
-export type ProductFormErrors = Partial<Record<keyof ProductFormState, string>>
+export type ProductFormErrors = Partial<Record<keyof ProductFormState | 'icp_label' | 'icp_industry_label', string>>
+
+export const emptyIndividualIcp = (): IndividualIcpFormState => ({
+  enabled: false,
+  label: '',
+  industry_label: '',
+  pitch: '',
+  guidance: '',
+  buyer_types: '',
+  regions: '',
+  priority_cities: '',
+  competitors: '',
+  disqualifiers: '',
+  must_have: '',
+})
 
 export const emptyProductForm = (): ProductFormState => ({
   offer_id: '', name: '', parent_product: '', readiness_status: '', what_it_does: '', modules_components: '', primary_segments: [], problems: '', legacy_needs: [], trigger_signals: [],
   proof_points: '', pricing_model: '', typical_deal_band: '', deployment_model: '', implementation_effort: '', delivery_owner: '', notes: '',
+  icp: emptyIndividualIcp(),
 })
 
 /** An older problem code such as N13. */
@@ -77,25 +108,41 @@ export function addCustom(list: string[], raw: string): string[] {
 
 export const removeEntry = (list: string[], entry: string): string[] => list.filter((x) => x !== entry)
 
-export const fromOffer = (o: ProductOffer): ProductFormState => ({
-  offer_id: o.offer_id,
-  name: o.name,
-  parent_product: o.parent_product ?? '',
-  readiness_status: o.readiness_status ?? '',
-  what_it_does: o.what_it_does ?? '',
-  modules_components: o.modules_components ?? '',
-  primary_segments: [...(o.primary_segments ?? [])],
-  problems: splitNeeds(o.needs_solved ?? []).text,
-  legacy_needs: splitNeeds(o.needs_solved ?? []).codes,
-  trigger_signals: [...(o.trigger_signals ?? [])],
-  proof_points: o.proof_points ?? '',
-  pricing_model: o.pricing_model ?? '',
-  typical_deal_band: o.typical_deal_band ?? '',
-  deployment_model: o.deployment_model ?? '',
-  implementation_effort: o.implementation_effort ?? '',
-  delivery_owner: o.delivery_owner ?? '',
-  notes: o.notes ?? '',
-})
+export function fromOffer(o: ProductOffer): ProductFormState {
+  const icpData = (o.individual_icp || o.icp_config) as Record<string, any> | undefined
+  return {
+    offer_id: o.offer_id,
+    name: o.name,
+    parent_product: o.parent_product ?? '',
+    readiness_status: o.readiness_status ?? '',
+    what_it_does: o.what_it_does ?? '',
+    modules_components: o.modules_components ?? '',
+    primary_segments: [...(o.primary_segments ?? [])],
+    problems: splitNeeds(o.needs_solved ?? []).text,
+    legacy_needs: splitNeeds(o.needs_solved ?? []).codes,
+    trigger_signals: [...(o.trigger_signals ?? [])],
+    proof_points: o.proof_points ?? '',
+    pricing_model: o.pricing_model ?? '',
+    typical_deal_band: o.typical_deal_band ?? '',
+    deployment_model: o.deployment_model ?? '',
+    implementation_effort: o.implementation_effort ?? '',
+    delivery_owner: o.delivery_owner ?? '',
+    notes: o.notes ?? '',
+    icp: icpData ? {
+      enabled: true,
+      label: icpData.label ?? `${o.name} ICP`,
+      industry_label: icpData.industry_label ?? '',
+      pitch: icpData.pitch ?? '',
+      guidance: icpData.guidance ?? '',
+      buyer_types: Array.isArray(icpData.buyer_types) ? icpData.buyer_types.join('\n') : (icpData.buyer_types ?? ''),
+      regions: Array.isArray(icpData.regions) ? icpData.regions.join('\n') : (icpData.regions ?? ''),
+      priority_cities: Array.isArray(icpData.priority_cities) ? icpData.priority_cities.join('\n') : (icpData.priority_cities ?? ''),
+      competitors: Array.isArray(icpData.competitors) ? icpData.competitors.join('\n') : (icpData.competitors ?? ''),
+      disqualifiers: Array.isArray(icpData.disqualifiers) ? icpData.disqualifiers.map((d: any) => typeof d === 'string' ? d : (d?.label ?? '')).join('\n') : '',
+      must_have: Array.isArray(icpData.must_have) ? icpData.must_have.map((m: any) => typeof m === 'string' ? m : (m?.label ?? '')).join('\n') : '',
+    } : emptyIndividualIcp(),
+  }
+}
 
 const ID = /^[A-Za-z0-9._-]{1,50}$/
 
@@ -119,6 +166,11 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
   if (f.implementation_effort.length > 100) e.implementation_effort = 'At most 100 characters.'
   if (f.delivery_owner.length > 100) e.delivery_owner = 'At most 100 characters.'
 
+  if (f.icp && f.icp.enabled) {
+    if (f.icp.label && f.icp.label.length > 100) e.icp_label = 'At most 100 characters.'
+    if (f.icp.industry_label && f.icp.industry_label.length > 120) e.icp_industry_label = 'At most 120 characters.'
+  }
+
   return e
 }
 
@@ -126,7 +178,7 @@ const text = (v: string): string | null => (v.trim() === '' ? null : v.trim())
 
 /** The body for POST (create) or PUT (edit: the Offer ID never changes). */
 export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     ...(mode === 'create' ? { offer_id: f.offer_id.trim() } : {}),
     name: f.name.trim(),
     parent_product: f.parent_product.trim(),
@@ -145,6 +197,25 @@ export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<
     delivery_owner: text(f.delivery_owner),
     notes: text(f.notes),
   }
+
+  if (f.icp && (f.icp.enabled || f.icp.label.trim() || f.icp.industry_label.trim() || f.icp.pitch.trim())) {
+    const lines = (t: string) => t.split('\n').map((l) => l.trim()).filter(Boolean)
+    payload.icp_config = {
+      label: f.icp.label.trim() || `${f.name.trim()} ICP`,
+      industry_label: f.icp.industry_label.trim() || undefined,
+      pitch: f.icp.pitch.trim() || undefined,
+      guidance: f.icp.guidance.trim() || undefined,
+      buyer_types: lines(f.icp.buyer_types),
+      regions: lines(f.icp.regions),
+      priority_cities: lines(f.icp.priority_cities),
+      competitors: lines(f.icp.competitors),
+      disqualifiers: lines(f.icp.disqualifiers).map((l) => ({ label: l, phrases: [l] })),
+      must_have: lines(f.icp.must_have).map((l) => ({ op: '=', label: l })),
+      offer_ids: [f.offer_id.trim()],
+    }
+  }
+
+  return payload
 }
 
 /** The server's field errors (`ApiError.errors`: `{ field: [message] }`) as one message per field. */
@@ -162,3 +233,21 @@ export const deleteConfirmation = (name: string): string =>
 
 /** Adds or removes one code from a list (for the multi-select checkboxes). */
 export const toggle = (list: string[], code: string): string[] => (list.includes(code) ? list.filter((c) => c !== code) : [...list, code])
+
+/** The guided steps of the Add / Edit product form, in order. The last one is the review. */
+export const WIZARD_STEPS = [
+  { key: 'basics', title: 'Basic details' },
+  { key: 'customer', title: 'Ideal customer' },
+  { key: 'problems', title: 'Problems and buying events' },
+  { key: 'commercial', title: 'Pricing and delivery (optional)' },
+  { key: 'review', title: 'Review and save' },
+] as const
+
+/** Which form fields each step owns, so "Next" can check only the step in front of the person. */
+export const STEP_FIELDS: ReadonlyArray<ReadonlyArray<keyof ProductFormState>> = [
+  ['offer_id', 'name', 'parent_product', 'readiness_status', 'what_it_does', 'modules_components'],
+  ['primary_segments'],
+  ['problems', 'trigger_signals'],
+  ['proof_points', 'pricing_model', 'typical_deal_band', 'deployment_model', 'implementation_effort', 'delivery_owner', 'notes'],
+  [],
+]

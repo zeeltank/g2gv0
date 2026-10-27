@@ -8,6 +8,7 @@ import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { PartnersView } from '@/components/domain/portfolio/partners-view'
+import { SignalsFrame } from '@/components/domain/signals/signals-frame'
 
 const PARTNERS_ACCESS_LINK = '/partners'
 
@@ -23,7 +24,9 @@ export default function PartnerNetworkPage() {
       <GtgPageShell initialActive={activeNav}>
         <GtgBreadcrumbFromContext />
         <PremiumPage>
-          <PartnersView context={context} canManage={canManage} />
+          <SignalsFrame active="partners">
+            <PartnersView context={context} canManage={canManage} />
+          </SignalsFrame>
         </PremiumPage>
       </GtgPageShell>
     </ProtectedLayout>

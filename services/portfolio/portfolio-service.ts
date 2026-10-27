@@ -7,12 +7,18 @@ import type {
   TaxonomyData,
   SignalMatchingResponse,
   ProductsResponse,
+  ResearchContext,
 } from './types'
 
 export const portfolioService = {
   /** The configured products with their stored offers, ICP and what is missing. */
   async getProducts(context: LaravelContext): Promise<ProductsResponse> {
     return apiClient.get('/portfolio/products', withLaravelParams(context))
+  },
+
+  /** The saved product details and ICP a run for this product would use (read-only; starts nothing). */
+  async getResearchContext(context: LaravelContext, key: string): Promise<{ status: number; data: { research_context: ResearchContext } }> {
+    return apiClient.get(`/portfolio/products/${encodeURIComponent(key)}`, withLaravelParams(context))
   },
 
   async getTaxonomy(context: LaravelContext): Promise<{ status: number; data: TaxonomyData }> {

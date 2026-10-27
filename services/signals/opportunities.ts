@@ -114,6 +114,8 @@ export type BuyingIntentLevel = 'explicit' | 'strong' | 'moderate' | 'weak' | 'u
 
 /** The separate assessments behind a ScholarClone signal. Built and verified on the server; the client only displays them. */
 export interface SignalAssessment {
+  /** What the source itself showed about the requested place (absent when the run was not limited to a region). */
+  region?: { requested: string | null; status: 'confirmed' | 'unconfirmed'; matched: string | null; basis: string } | null
   source_reliability?: { class: 'official' | 'job_post' | 'social_post' | 'third_party'; reliability: 'high' | 'medium' | 'low'; host: string }
   evidence?: {
     quote_verified: boolean
@@ -317,6 +319,17 @@ export interface RunStageStats {
   name_search?: { skipped_missing_context: number; schools_selected: number; searches_run: number; schools_with_candidate_site: number; candidate_sites: number; candidate_sites_verified: number } | null
   /** Verification runs only: the hard ceilings and what was used/refused. null on ordinary runs. */
   budget?: { limits: Record<string, number> | null; used: Record<string, number>; refused: Record<string, number> } | null
+  /** The geography this run was limited to, with what its sources showed. null = All Regions (or an older run). */
+  region?: { label: string; places: number; confirmed: number; unconfirmed: number; outside: number } | null
+  /** Counts only: why candidates were rejected, in more detail than the code (for example quote not found vs. the source not naming the school). null = not recorded. */
+  rejection_detail?: Record<string, Record<string, number>> | null
+  /** AI calls that failed in this run. null = not recorded. */
+  ai?: { main_failed: number; followup_failed: number } | null
+  /** Budgets reached: pages beyond the page cap left unread, or the run's time limit. null = not recorded. */
+  limits?: { pages_cap_reached: number; pages_time_limited: number; time_limited: boolean } | null
+  /** Did the research finish what it set out to do? 'incomplete' (an AI failure, a time or page limit) is different from 'completed_no_qualified'. */
+  completion?: 'completed' | 'completed_no_qualified' | 'incomplete'
+  completion_reasons?: string[]
   zero_reasons: { code: string; label: string; count: number }[]
   next_action: string
 }
@@ -418,6 +431,8 @@ export interface OpportunityQuery {
   businessFit?: string
   /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
   runDate?: string
+  /** Page size (the server allows up to 50). Defaults to 10. */
+  perPage?: number
   /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
   product?: string
   needCode?: string
@@ -575,7 +590,40 @@ function base(context: LaravelContext): Record<string, string> {
 
 const qs = (context: LaravelContext) => new URLSearchParams(base(context)).toString()
 
+export type IcpCriterionStatus = 'Matched' | 'Not found' | 'Needs review' | 'Excluded'
+
+export interface IcpCriterionRow {
+  kind: 'must_have' | 'exclusion'
+  criterion: string
+  status: IcpCriterionStatus
+  evidence_available: boolean
+  /** Only ever a stored value: a recorded fact, the text that was checked, or a flag a person set. */
+  evidence: { kind: 'account_fact' | 'recorded_text' | 'account_flag'; text: string } | null
+  source: { label: string | null; url: string | null; ref: string | null } | null
+  reason: string
+}
+
+/** One stored opportunity laid next to its product's ICP. Read-only; the qualification it shows was decided by the server when the signal was stored. */
+export interface IcpComparisonResponse {
+  status: number
+  data: {
+    available: boolean
+    reason?: string
+    product: { key: string; label: string; custom?: boolean } | null
+    icp: { profile_id: number | null; name: string | null; version: number | null; status: string | null; source: string | null } | null
+    stored_result: { qualification: string | null; claim_level: string | null; evidence_class: string | null; research_status: string | null; note: string }
+    evidence: { available: boolean; quote: string | null; source_title: string | null; source_url: string | null; quote_verified: boolean | null; read_as: string | null; missing_evidence: string[] }
+    account_linked?: boolean
+    criteria: IcpCriterionRow[]
+    summary: Record<IcpCriterionStatus, number> | null
+    notes: string[]
+  }
+}
+
 export const opportunitiesService = {
+  getIcpComparison: (c: LaravelContext, id: number) =>
+    apiClient.get<IcpComparisonResponse>(`/signals/opportunities/${id}/icp-comparison`, base(c)),
+
   getProfile: (c: LaravelContext) => apiClient.get<ProfileResponse>('/signals/product-profile', base(c)),
 
   saveProfile: (c: LaravelContext, profile: Partial<ProductProfile>) =>
@@ -601,11 +649,11 @@ export const opportunitiesService = {
   getRunSources: (c: LaravelContext, runId: number) =>
     apiClient.get<{ status: number; data: ResearchSourceInfo[] }>(`/signals/research/runs/${runId}/sources`, base(c)),
 
-  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string) =>
-    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}) }),
+  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[]) =>
+    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}) }),
 
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
-    const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: '10' }
+    const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }
     if (q.search) params.search = q.search
     if (q.category) params.category = q.category
     if (q.kind) params.kind = q.kind

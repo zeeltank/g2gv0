@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Briefcase,
@@ -9,19 +11,17 @@ import {
   DownloadCloud,
   Edit2,
   Eye,
-  Filter,
-  Layers,
   Loader2,
+  MoreHorizontal,
   Package,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
-  Tag,
   Trash2,
-  XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -40,27 +40,18 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/portfolio/types'
-import { ProductSelector, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
-import { ProductProfilePanel } from './product-profile-panel'
-import { ProductIcpEditor } from './product-icp-editor'
+import { useProducts } from '@/components/domain/signals/product-selector'
+import { configureHref, icpHref } from '@/lib/product-selection'
+import { IcpStatusBadge } from './icp-status-badge'
+import { NewProductDialog } from './new-product-dialog'
 import { ProductFormDialog } from './product-form-dialog'
 import { deleteConfirmation } from '@/lib/product-form'
-import { ProductSetupSteps } from './product-setup-steps'
 import { apiErrorText } from '@/lib/api-messages'
 
 export function PortfolioView({ context, canManage = true }: { context: LaravelContext; canManage?: boolean }) {
-  // The product chosen here (shared with Company opportunities and the Ingestion engine) decides which product's stored configuration is shown.
+  const router = useRouter()
   const { products, loading: productsLoading, error: productsError, reload: reloadProducts } = useProducts(context)
-  const [icpDirty, setIcpDirty] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [product, selectProduct] = useSelectedProduct(context, products, { allowAll: true })
-  // Leaving a product with unsaved ICP edits asks first.
-  const setProduct = (next: string) => {
-    if (next !== product && icpDirty && !window.confirm('You have unsaved changes to this ICP. Switch product and discard them?')) return
-    setIcpDirty(false)
-    selectProduct(next)
-  }
-  const selectedProduct = products?.find((p) => p.key === product)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -89,8 +80,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const [detailLoading, setDetailLoading] = useState(false)
   const [editOffer, setEditOffer] = useState<ProductOffer | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  // Bumped whenever a product is added, changed or removed, so the ICP's product picker reads the portfolio again.
-  const [catalogVersion, setCatalogVersion] = useState(0)
+  // A NEW top-level product (its own ICP), as opposed to createOpen, which adds an offer inside an existing product group.
+  const [newProductOpen, setNewProductOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
 
@@ -169,7 +160,6 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     try {
       await portfolioService.deleteOffer(context, offer.id)
       loadData()
-      setCatalogVersion((v) => v + 1)
       reloadProducts()
     } catch (err) {
       // An ICP that still lists the product keeps it: the server says which ICP, and nothing is removed.
@@ -177,13 +167,22 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     }
   }
 
-  const handleSaved = () => {
+  const handleSaved = (saved?: ProductOffer, created?: boolean) => {
     setCreateOpen(false)
     setEditOffer(null)
     setActionError(null)
     loadData()
-    setCatalogVersion((v) => v + 1)
     reloadProducts()
+    if (created && saved?.parent_product) {
+      const match = products?.find((p) =>
+        p.portfolio_name === saved.parent_product ||
+        p.label === saved.parent_product ||
+        p.offers.some((o) => (o as any).parent_product === saved.parent_product)
+      )
+      if (match) {
+        router.push(icpHref(match.key))
+      }
+    }
   }
 
   const loadReadinessLog = async (offerId: number) => {
@@ -233,139 +232,104 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     }
   }
 
-  // Choosing a product narrows the offer list below to that product's portfolio group.
+  // An older link, /portfolio?product=<key>, opens that product's own page (it used to select a tab on this page).
   useEffect(() => {
-    if (!products || product === null) return
-    const name = products.find((p) => p.key === product)?.portfolio_name ?? ''
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProductFilter(product === 'all' ? '' : name)
-    setPage(1)
-  }, [product, products])
+    if (!products) return
+    const linked = new URLSearchParams(window.location.search).get('product')
+    if (linked && products.some((p) => p.key === linked)) router.replace(configureHref(linked))
+  }, [products, router])
 
   return (
-    <div className="space-y-6 p-4 @xl:p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge variant="navy" className="gap-1">
-              <Package className="size-3" /> Foundation Data
-            </Badge>
-            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-              Product Portfolio
-            </h1>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Offer-level catalog across G2G Core, Enterprise Brain, Scholar K-12, Higher Ed, and Bundles.
-          </p>
+    <div className="space-y-5">
+      {/* Header: one primary action; the rest sit in the menu */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-4">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">Each product has its own ideal customer profile. Open a product to see or change it.</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading}>
-            <RefreshCw className={`size-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-
-          {canManage && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTriggerImport}
-                disabled={importing}
-                title="Sync from G2G_Foundation_Data_Portfolio_Partners.xlsx"
-              >
-                <DownloadCloud className={`size-3.5 mr-1.5 ${importing ? 'animate-spin' : ''}`} />
-                {importing ? 'Syncing...' : 'Sync Excel'}
-              </Button>
-
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-3.5 mr-1.5" />
-                Add Product
-              </Button>
-            </>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setNewProductOpen(true)} title="Create a separate product with its own ideal customer profile">
+              <Plus className="mr-1.5 size-3.5" />
+              New Product
+            </Button>
           )}
+          {canManage && (
+            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} title="Add an offer to a product group">
+              <Plus className="mr-1.5 size-3.5" />
+              Add Product
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Portfolio actions"><MoreHorizontal className="size-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={refreshing || loading} onSelect={handleRefresh}>
+                <RefreshCw className={`mr-2 size-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem disabled={importing} onSelect={() => void handleTriggerImport()} title="Sync from G2G_Foundation_Data_Portfolio_Partners.xlsx">
+                  <DownloadCloud className={`mr-2 size-4 ${importing ? 'animate-spin' : ''}`} /> {importing ? 'Syncing...' : 'Sync Excel'}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       {importMsg && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary flex items-center justify-between">
           <span>{importMsg}</span>
-          <button type="button" onClick={() => setImportMsg(null)} className="text-xs font-bold ml-2">
+          <button type="button" onClick={() => setImportMsg(null)} aria-label="Dismiss" className="text-xs font-bold ml-2">
             ×
           </button>
         </div>
       )}
 
-      {/* Product selector and the selected product's stored configuration */}
-      <div className="space-y-4">
-        <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll />
-        {selectedProduct && <ProductSetupSteps product={selectedProduct} />}
-        {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
-        {selectedProduct && <ProductProfilePanel product={selectedProduct} />}
-        {selectedProduct && <ProductIcpEditor key={selectedProduct.key} context={context} productKey={selectedProduct.key} canEdit={isAdmin} onChanged={reloadProducts} onDirtyChange={setIcpDirty} onCreateProduct={() => setCreateOpen(true)} catalogVersion={catalogVersion} />}
-        {product === 'all' && products && (
-          <ul className="grid gap-2 @3xl:grid-cols-3" aria-label="Products">
+      {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
+
+      {/* Products: one compact card each. Details and the ICP open on the product's own page. */}
+      <section aria-label="Products" className="space-y-2">
+        {productsLoading && !products ? (
+          <div className="grid gap-3 @3xl:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
+        ) : productsError || !products ? (
+          <p role="alert" className="text-sm text-destructive">{productsError ?? 'Products unavailable.'}</p>
+        ) : (
+          <ul className="grid gap-3 @3xl:grid-cols-3">
             {products.map((p) => (
-              <li key={p.key} className="rounded-lg border border-border/60 bg-card p-3 text-sm">
-                <button type="button" className="text-left font-medium text-foreground underline-offset-2 hover:underline" onClick={() => setProduct(p.key)}>{p.label}</button>
-                <p className="text-xs text-muted-foreground">{p.offers.length} offers · {p.ready ? 'ready for discovery' : 'needs setup'} · {p.opportunities_count} opportunities</p>
+              <li key={p.key} className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-foreground">{p.label}{p.custom && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}</h2>
+                    <IcpStatusBadge product={p} />
+                  </div>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                    {p.icp?.ideal_customer ? `For ${p.icp.ideal_customer}` : 'No ideal customer saved yet.'}
+                    {p.icp && p.icp.buyer_types.length > 0 ? ` · Buyers: ${p.icp.buyer_types.slice(0, 3).join(', ')}` : ''}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{p.offers.length} offer{p.offers.length === 1 ? '' : 's'} · {p.opportunities_count} opportunit{p.opportunities_count === 1 ? 'y' : 'ies'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button asChild size="sm" variant="outline"><Link href={configureHref(p.key)}><Eye className="mr-1.5 size-3.5" /> View details</Link></Button>
+                  <Button asChild size="sm" variant={p.ready ? 'ghost' : 'default'}><Link href={icpHref(p.key)}><Edit2 className="mr-1.5 size-3.5" /> {isAdmin ? 'Edit ICP' : 'View ICP'}</Link></Button>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
-      {/* KPI Stats Cards */}
+      {/* Offer totals, in one line */}
       {stats && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Offers
-            </div>
-            <div className="mt-1 text-2xl font-bold text-foreground">{stats.total_offers}</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Across 5 parent products</div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Partner Sellable
-            </div>
-            <div className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {stats.partner_sellable}
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Live, Proven on real data, or Built
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Readiness Confirmed
-            </div>
-            <div className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.readiness_confirmed}
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Human-verified production status</div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              G2G Core / EB Split
-            </div>
-            <div className="mt-1 text-sm font-semibold text-foreground flex items-center gap-2">
-              <span>G2G: {stats.by_parent_product['G2G'] ?? 0}</span>
-              <span>·</span>
-              <span>EB: {stats.by_parent_product['EB'] ?? 0}</span>
-              <span>·</span>
-              <span>K12: {stats.by_parent_product['Scholar K-12'] ?? 0}</span>
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              HE: {stats.by_parent_product['HE'] ?? 0} · Bundles: {stats.by_parent_product['Bundle'] ?? 0}
-            </div>
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground" aria-label="Offer totals">
+          <span className="font-semibold text-foreground">{stats.total_offers}</span> offers ·{' '}
+          <span className="font-semibold text-foreground">{stats.partner_sellable}</span> partner-sellable ·{' '}
+          <span className="font-semibold text-foreground">{stats.readiness_confirmed}</span> readiness confirmed
+        </p>
       )}
+
+      <h2 className="text-sm font-semibold text-foreground">Offers</h2>
 
       {/* Filter Toolbar */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -409,8 +373,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
             className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="">All Readiness States</option>
-            <option value="yes">Partner Sellable Only (9)</option>
-            <option value="no">In Development / Pilot / Concept (16)</option>
+            <option value="yes">Partner Sellable Only</option>
+            <option value="no">In Development / Pilot / Concept</option>
           </select>
 
           <select
@@ -553,14 +517,16 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                       <Eye className="size-3.5 mr-1" /> View
                     </Button>
                     {canManage && (
-                      <>
-                        <Button variant="ghost" size="sm" onClick={() => setEditOffer(offer)} aria-label={`Edit ${offer.name}`}>
-                          <Edit2 className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => void handleDelete(offer)} aria-label={`Delete ${offer.name}`} className="text-destructive hover:text-destructive">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${offer.name}`}><MoreHorizontal className="size-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => setEditOffer(offer)} aria-label={`Edit ${offer.name}`}><Edit2 className="mr-2 size-4" /> Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => void handleDelete(offer)} aria-label={`Delete ${offer.name}`} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 size-4" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 </div>
@@ -629,6 +595,34 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                     {detailOffer.what_it_does || 'No functional overview available.'}
                   </p>
                 </section>
+
+                {/* Individual Ideal Customer Profile (ICP) for sub-product */}
+                {((detailOffer as any).individual_icp || (detailOffer as any).icp_config) && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                        Individual Ideal Customer Profile (ICP)
+                      </h4>
+                      <Badge variant="outline" className="text-[10px]">Sub-Product ICP</Badge>
+                    </div>
+                    {((detailOffer as any).individual_icp?.label || (detailOffer as any).icp_config?.label) && (
+                      <p className="text-xs font-semibold text-foreground">
+                        {((detailOffer as any).individual_icp?.label || (detailOffer as any).icp_config?.label)}
+                      </p>
+                    )}
+                    {((detailOffer as any).individual_icp?.industry_label || (detailOffer as any).icp_config?.industry_label) && (
+                      <p className="text-xs text-foreground">
+                        <span className="font-medium text-muted-foreground">Target Profile: </span>
+                        {((detailOffer as any).individual_icp?.industry_label || (detailOffer as any).icp_config?.industry_label)}
+                      </p>
+                    )}
+                    {((detailOffer as any).individual_icp?.pitch || (detailOffer as any).icp_config?.pitch) && (
+                      <p className="text-xs text-muted-foreground italic">
+                        &ldquo;{((detailOffer as any).individual_icp?.pitch || (detailOffer as any).icp_config?.pitch)}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {detailOffer.modules_components && (
                   <section className="space-y-1">
@@ -789,10 +783,17 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
           </div>
         </DialogContent>
       </Dialog>
+      <NewProductDialog
+        context={context}
+        open={newProductOpen}
+        onClose={() => setNewProductOpen(false)}
+        onCreated={(key) => { setNewProductOpen(false); reloadProducts(); router.push(icpHref(key)) }}
+      />
       <ProductFormDialog
         context={context}
         taxonomy={taxonomy}
         product={editOffer}
+        products={products}
         open={createOpen || editOffer !== null}
         onClose={() => { setCreateOpen(false); setEditOffer(null) }}
         onSaved={handleSaved}

@@ -58,6 +58,56 @@ describe('product form', () => {
     assert.deepEqual(p.needs_solved, ['N13'])
   })
 
+  it('serializes individual ICP into icp_config when enabled or populated', () => {
+    const f = {
+      ...valid(),
+      offer_id: 'SUB-FEES',
+      name: 'Fee Intelligence',
+      icp: {
+        enabled: true,
+        label: 'Fee Intelligence ICP',
+        industry_label: 'Mid-size private schools',
+        pitch: 'Automated reconciliation for school trustees',
+        guidance: 'Focus on admissions seasons',
+        buyer_types: 'Trustee\nPrincipal',
+        regions: 'Maharashtra\nGujarat',
+        priority_cities: 'Mumbai\nPune',
+        competitors: 'Legacy ERP',
+        disqualifiers: 'Government schools',
+        must_have: 'Student count > 500',
+      },
+    }
+    const p = toPayload(f, 'create') as any
+    assert.ok(p.icp_config)
+    assert.equal(p.icp_config.label, 'Fee Intelligence ICP')
+    assert.equal(p.icp_config.industry_label, 'Mid-size private schools')
+    assert.equal(p.icp_config.pitch, 'Automated reconciliation for school trustees')
+    assert.deepEqual(p.icp_config.offer_ids, ['SUB-FEES'])
+    assert.deepEqual(p.icp_config.regions, ['Maharashtra', 'Gujarat'])
+    assert.deepEqual(p.icp_config.buyer_types, ['Trustee', 'Principal'])
+  })
+
+  it('extracts existing individual ICP from an offer when editing', () => {
+    const o = offer({
+      offer_id: 'SUB-01',
+      name: 'Sub Product 1',
+      individual_icp: {
+        label: 'Custom Sub ICP',
+        industry_label: 'Target segment',
+        pitch: 'Unique value proposition',
+        regions: ['North', 'West'],
+        buyer_types: ['Buyer A'],
+      },
+    })
+    const f = fromOffer(o)
+    assert.equal(f.icp.enabled, true)
+    assert.equal(f.icp.label, 'Custom Sub ICP')
+    assert.equal(f.icp.industry_label, 'Target segment')
+    assert.equal(f.icp.pitch, 'Unique value proposition')
+    assert.equal(f.icp.regions, 'North\nWest')
+    assert.equal(f.icp.buyer_types, 'Buyer A')
+  })
+
   it('shows the server\'s field errors next to the field', () => {
     assert.deepEqual(serverErrors({ name: ['The name field is required.'], offer_id: 'taken' }), { name: 'The name field is required.', offer_id: 'taken' })
     assert.deepEqual(serverErrors(undefined), {})
@@ -175,10 +225,13 @@ describe('Product Portfolio wiring', () => {
     assert.match(view, /setActionError\(apiErrorText\(err, 'Failed to delete the product\.'\)\)/)
   })
 
-  it('a change to the portfolio refreshes the list, the products and the ICP picker', () => {
-    assert.match(view, /setCatalogVersion\(\(v\) => v \+ 1\)/)
-    assert.match(view, /catalogVersion=\{catalogVersion\}/)
-    assert.match(view, /onCreateProduct=\{\(\) => setCreateOpen\(true\)\}/)
+  it('a change to the portfolio refreshes the list and the products; the product page also refreshes the ICP picker', () => {
+    assert.match(view, /reloadProducts\(\)/)
+    const detail = read('components/domain/portfolio/product-detail-view.tsx')
+    assert.match(detail, /setCatalogVersion\(\(v\) => v \+ 1\)/)
+    assert.match(detail, /catalogVersion=\{catalogVersion\}/)
+    assert.match(detail, /onCreateProduct=\{\(\) => setCreateOpen\(true\)\}/)
+    assert.match(detail, /productKey=\{product\.key\}|productKey=\{product\.key\}/)
   })
 
   it('the ICP editor has a searchable picker, not an automatic list, and a comparison', () => {
@@ -187,6 +240,13 @@ describe('Product Portfolio wiring', () => {
     assert.match(picker, /role="combobox"/)
     assert.match(picker, /if \(q === ''\)/)
     assert.doesNotMatch(editor, /product\.offers\.map/)
+  })
+
+  it('the ICP form is five collapsible sections that hide their content instead of removing it', () => {
+    for (const t of ['1. Ideal Customer', '2. Buyer / Decision Maker', '3. Problems and Outcomes', '4. Buying Triggers', '5. Qualification Rules']) assert.match(editor, new RegExp(t.replace(/[.\/]/g, '\$&')))
+    assert.match(editor, /hidden=\{!shown\}/)
+    assert.match(editor, /aria-expanded=\{shown\}/)
+    assert.match(editor, /productIcpService\.save/)
   })
 
   it('the picker reads only the signed-in organisation\'s portfolio through the API and never hard-codes products', () => {

@@ -29,6 +29,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { discoveryLabel } from '@/lib/signal-run-notice'
 import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
 import { evidenceBadge, fitHeading } from '@/lib/signal-evidence'
+import { OpportunityIcpComparison } from '@/components/domain/signals/opportunity-icp-comparison'
 import { ApiError } from '@/services/core'
 import {
   opportunitiesService,
@@ -96,6 +97,7 @@ export function ScholarSignalsView({ embedded = false, refreshKey = 0 }: { embed
         feedSection: TABS.find((t) => t.key === tab)!.section,
         product: PRODUCT,
         page,
+        perPage: 5,
       })
       setData(res)
       setError(null)
@@ -546,6 +548,11 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
         </Badge>
         {intent && <Badge variant="outline" className={intent.className} title={a?.buying_intent?.meaning}>{intent.label}</Badge>}
         {evClass && <Badge variant="outline" className={evClass.className} title={evClass.help}>{evClass.label}</Badge>}
+        {a?.region && (
+          <Badge variant="outline" className={a.region.status === 'confirmed' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'} title={a.region.status === 'confirmed' ? `The source itself names ${a.region.matched}.` : `The source does not name the requested place (${a.region.requested}); it is kept because only a country was requested.`}>
+            {a.region.status === 'confirmed' ? `Region: ${a.region.matched}` : 'Region not named in source'}
+          </Badge>
+        )}
         {o.signal_family && (
           <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary" title={o.signal_family.examples}>
             {o.signal_family.label}
@@ -608,6 +615,10 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
         </div>
       </div>
 
+      {/* Evidence and the finer detail stay folded until asked for, so each card is short. */}
+      <details className="group rounded-xl border border-border/60 px-3 py-2">
+        <summary className="cursor-pointer text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Evidence and details</summary>
+        <div className="mt-2 space-y-3">
       {/* 5. Is there evidence of buying intent? */}
       {a?.buying_intent && (
         <p className="text-xs text-muted-foreground">
@@ -627,11 +638,16 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
 
       <IdentityLine id={a?.identity} />
 
+      <OpportunityIcpComparison opportunityId={o.id} />
+
       {c?.account && (
         <p className="text-xs text-muted-foreground">
           On the target list{c.account.crm_ref ? ` · CRM lead ${c.account.crm_ref}` : ''}{c.account.crm_owner ? ` · owner ${c.account.crm_owner}` : ''}
         </p>
       )}
+
+        </div>
+      </details>
 
       {/* 2. Where did it come from? */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">

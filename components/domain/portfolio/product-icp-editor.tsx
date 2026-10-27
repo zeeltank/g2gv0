@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronDown, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,35 @@ function Section({ title, hint, problems, children, action }: { title: string; h
   )
 }
 
+/**
+ * One collapsible part of the ICP. Closed content stays in the page (hidden, not removed), so a collapsed section keeps every value and is still
+ * saved with the rest. A section with problems is shown open so nothing the server rejected is hidden.
+ */
+function Group({ id, title, summary, problems, open, onToggle, children }: { id: string; title: string; summary: string; problems: number; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  const shown = open || problems > 0
+  return (
+    <section id={`icp-${id}`} aria-label={title} className="rounded-xl border border-border/60">
+      <button
+        type="button"
+        aria-expanded={shown}
+        aria-controls={`icp-${id}-body`}
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">{title}</span>
+          <span className="block truncate text-xs text-muted-foreground">{summary}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          {problems > 0 && <Badge variant="destructive">{problems} to fix</Badge>}
+          <ChevronDown className={`size-4 text-muted-foreground transition-transform ${shown ? 'rotate-180' : ''}`} aria-hidden />
+        </span>
+      </button>
+      <div id={`icp-${id}-body`} hidden={!shown} className="space-y-4 border-t border-border/60 p-4">{children}</div>
+    </section>
+  )
+}
+
 export function ProductIcpEditor({
   context, productKey, canEdit, onChanged, onDirtyChange, onCreateProduct, catalogVersion = 0,
 }: {
@@ -80,6 +109,7 @@ export function ProductIcpEditor({
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState<null | 'check' | 'save' | 'activate' | 'status'>(null)
   const requestRef = useRef(0)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ ideal: true })
 
   const apply = useCallback((s: IcpEditorState) => {
     const f = fromConfig(s.config, s.profile?.name ?? '')
@@ -123,6 +153,28 @@ export function ProductIcpEditor({
   const other = problems.filter((p) => !known.some((k) => p.startsWith(k)))
   const { product, profile } = state
   const isActive = profile?.status === 'active'
+  const lines = (v: string) => v.split('\n').map((x) => x.trim()).filter(Boolean).length
+  const groups = [
+    { id: 'ideal', title: '1. Ideal Customer', problems: [...about('label'), ...about('industry_label'), ...about('pitch'), ...about('guidance'), ...about('regions'), ...about('priority_cities')].length,
+      summary: form.industry_label.trim() || 'Not set yet' },
+    { id: 'buyer', title: '2. Buyer / Decision Maker', problems: about('buyer_types').length,
+      summary: lines(form.buyer_types) > 0 ? `${lines(form.buyer_types)} customer type${lines(form.buyer_types) === 1 ? '' : 's'}` : 'None set' },
+    { id: 'problems', title: '3. Problems and Outcomes', problems: [...about('offer_ids'), ...about('parts')].length,
+      summary: `${form.parts.length} product part${form.parts.length === 1 ? '' : 's'} · ${form.offer_ids === null ? 'all of the product\'s offers' : `${form.offer_ids.length} product${form.offer_ids.length === 1 ? '' : 's'} chosen`}` },
+    { id: 'triggers', title: '4. Buying Triggers', problems: [...about('triggers'), ...about('queries'), ...about('per_run')].length,
+      summary: `${form.triggers.length} signal${form.triggers.length === 1 ? '' : 's'} · ${form.queries.length} search${form.queries.length === 1 ? '' : 'es'}` },
+    { id: 'rules', title: '5. Qualification Rules', problems: [...about('must_have'), ...about('disqualifiers'), ...about('competitors'), ...about('vendor_phrases')].length,
+      summary: `${form.must_have.length} criteri${form.must_have.length === 1 ? 'on' : 'a'} · ${form.disqualifiers.length} exclusion${form.disqualifiers.length === 1 ? '' : 's'}` },
+  ]
+  const toggleGroup = (id: string) => setOpenGroups((o) => ({ ...o, [id]: !(o[id] || (groups.find((g) => g.id === id)?.problems ?? 0) > 0) }))
+  const editGroup = (id: string) => {
+    setOpenGroups((o) => ({ ...o, [id]: true }))
+    window.requestAnimationFrame(() => document.getElementById(`icp-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+  const groupProps = (id: string) => {
+    const g = groups.find((x) => x.id === id)!
+    return { id, title: g.title, summary: g.summary, problems: g.problems, open: Boolean(openGroups[id]), onToggle: () => toggleGroup(id) }
+  }
 
   async function run(kind: 'check' | 'save' | 'activate', activate = false) {
     if (!form || busy) return
@@ -211,11 +263,24 @@ export function ProductIcpEditor({
       )}
       {!canEdit && <p className="text-sm text-muted-foreground">Only administrators can change an ICP. You can read it here.</p>}
 
+      <ul aria-label="ICP summary" className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-5">
+        {groups.map((g) => (
+          <li key={g.id} className="flex flex-col justify-between gap-1 rounded-lg bg-muted/40 p-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">{g.title}</p>
+              <p className="truncate text-xs text-muted-foreground">{g.summary}</p>
+            </div>
+            <Button type="button" size="xs" variant="ghost" className="self-start" onClick={() => editGroup(g.id)}>{canEdit ? 'Edit' : 'View'}</Button>
+          </li>
+        ))}
+      </ul>
+
       <form
         className="space-y-4"
         onSubmit={(e) => { e.preventDefault(); void run('save') }}
         aria-busy={busy !== null}
       >
+        <Group {...groupProps('ideal')}>
         <Section title="Who this product is for" problems={[...about('label'), ...about('industry_label'), ...about('pitch'), ...about('guidance')]}>
           <div className="grid gap-3 @xl:grid-cols-2">
             <Field label="Profile name" hint="Your own name for this ICP. Defaults to the ICP name below."><Input value={form.name} disabled={disabled} onChange={(e) => set({ name: e.target.value })} maxLength={120} /></Field>
@@ -228,13 +293,21 @@ export function ProductIcpEditor({
           </div>
         </Section>
 
-        <Section title="Customer types and geography" problems={[...about('buyer_types'), ...about('regions'), ...about('priority_cities')]} hint="One per line.">
-          <div className="grid gap-3 @xl:grid-cols-3">
-            <Field label="Customer types"><Textarea value={form.buyer_types} disabled={disabled} onChange={(e) => set({ buyer_types: e.target.value })} rows={3} placeholder="one per line" /></Field>
+        <Section title="Geography" problems={[...about('regions'), ...about('priority_cities')]} hint="One per line.">
+          <div className="grid gap-3 @xl:grid-cols-2">
             <Field label="Regions served" hint="States or areas you can serve."><Textarea value={form.regions} disabled={disabled} onChange={(e) => set({ regions: e.target.value })} rows={3} /></Field>
             <Field label="Priority cities"><Textarea value={form.priority_cities} disabled={disabled} onChange={(e) => set({ priority_cities: e.target.value })} rows={3} /></Field>
           </div>
         </Section>
+        </Group>
+
+        <Group {...groupProps('buyer')}>
+        <Section title="Customer types" problems={about('buyer_types')} hint="The kinds of organisation that buy this, one per line. The ICP stores no separate decision-maker roles, so none are asked for here.">
+          <Field label="Customer types"><Textarea value={form.buyer_types} disabled={disabled} onChange={(e) => set({ buyer_types: e.target.value })} rows={3} placeholder="one per line" /></Field>
+        </Section>
+        </Group>
+
+        <Group {...groupProps('problems')}>
 
         <Section
           title="Products in this ICP"
@@ -275,6 +348,9 @@ export function ProductIcpEditor({
           ))}
         </Section>
 
+        </Group>
+
+        <Group {...groupProps('triggers')}>
         <Section
           title="Business needs and buying signals"
           hint="Each event that shows a customer needs this product: where it shows up, what the need is, and the words that signal it."
@@ -340,6 +416,9 @@ export function ProductIcpEditor({
           </div>
         </Section>
 
+        </Group>
+
+        <Group {...groupProps('rules')}>
         <Section
           title="Exclusions"
           hint="Organisations that must never be returned, found by these words in their name or news."
@@ -391,9 +470,10 @@ export function ProductIcpEditor({
           ))}
         </Section>
 
-        {other.length > 0 && <Section title="Other problems" problems={other}><span /></Section>}
-
         <IcpComparison context={context} productKey={productKey} offerIds={form.offer_ids ?? []} dirty={dirty} catalogVersion={catalogVersion} />
+        </Group>
+
+        {other.length > 0 && <Section title="Other problems" problems={other}><span /></Section>}
 
         {message && (
           <p role={message.tone === 'error' ? 'alert' : 'status'} className={`text-sm ${message.tone === 'error' ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>{message.text}</p>

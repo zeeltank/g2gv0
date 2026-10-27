@@ -207,10 +207,28 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   if (identity !== loadedFor) {
     setLoadedFor(identity)
-    setAccount(null)
-    setProfile(null)
-    setPreferences(DEFAULTS)
-    setLoaded(false)
+    let rehydrated = false
+    if (identity && typeof window !== 'undefined') {
+      try {
+        const cached = window.sessionStorage.getItem(`gtg-account-me:${identity}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          setAccount(parsed)
+          setPreferences(parsed.preferences ?? DEFAULTS)
+          setProfile(parsed.profile ?? null)
+          setLoaded(true)
+          rehydrated = true
+        }
+      } catch {
+        // Storage unavailable
+      }
+    }
+    if (!rehydrated) {
+      setAccount(null)
+      setProfile(null)
+      setPreferences(DEFAULTS)
+      setLoaded(false)
+    }
     setError(null)
   }
 
@@ -251,6 +269,13 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
           setProfile(response.data.profile)
           setTheme(response.data.preferences.theme)
           setLoaded(true)
+          if (identity && typeof window !== 'undefined') {
+            try {
+              window.sessionStorage.setItem(`gtg-account-me:${identity}`, JSON.stringify(response.data))
+            } catch {
+              // Storage unavailable
+            }
+          }
         })
         .catch((caught: unknown) => {
           if (!active) return
