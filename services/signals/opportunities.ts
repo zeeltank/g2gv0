@@ -223,6 +223,17 @@ export interface Opportunity {
   score_reasoning?: string | null
   is_sample?: boolean
   matched_offers?: MatchedOffer[]
+  promoted_lead_id?: string | null
+  promoted_lead_no?: string | null
+  promoted_lead_status?: string | null
+  crm_qualification?: {
+    can_promote: boolean
+    promotion_requirements_met: boolean
+    outreach_ready: boolean
+    verified_fields: string[]
+    missing_for_outreach: string[]
+    enrichment_status: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
+  }
 }
 
 /** Result of one structured market import (POST /signals/market/import). */

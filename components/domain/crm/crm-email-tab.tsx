@@ -17,7 +17,8 @@
  * instead of a flat comment bubble.
  */
 
-import { Loader2, Mail, Send } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, Loader2, Mail, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -33,6 +34,7 @@ interface Props {
 function statusVariant(status: string | null): 'success' | 'error' | 'pending' | 'default' {
   switch (status) {
     case 'Sent': return 'success'
+    case 'Received': return 'success'
     case 'Failed': return 'error'
     case 'Queued':
     case 'Sending': return 'pending'
@@ -41,6 +43,12 @@ function statusVariant(status: string | null): 'success' | 'error' | 'pending' |
 }
 
 export function CrmEmailTab({ emails, loading, onCompose }: Props) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id))
+  }
+
   return (
     <SectionCard
       title="Emails"
@@ -73,21 +81,74 @@ export function CrmEmailTab({ emails, loading, onCompose }: Props) {
       )}
       {!loading && emails.length > 0 && (
         <div className="divide-y divide-border rounded-lg border border-border">
-          {emails.map((row) => (
-            <div key={row.id} className="space-y-1.5 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="truncate text-sm font-medium text-foreground">{row.subject}</p>
-                <StatusBadge variant={statusVariant(row.status)}>{row.status ?? 'Draft'}</StatusBadge>
+          {emails.map((row) => {
+            const isInbound = row.direction === 'inbound' || row.status === 'Received'
+            const isExpanded = expandedId === row.id
+
+            return (
+              <div
+                key={row.id}
+                className="cursor-pointer space-y-1.5 p-3.5 transition-colors hover:bg-muted/30"
+                onClick={() => toggleExpand(row.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(row.id) }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {isInbound ? (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400" title="Inbound Reply">
+                        <ArrowDownLeft className="size-3.5" />
+                      </span>
+                    ) : (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" title="Outbound Outreach">
+                        <ArrowUpRight className="size-3.5" />
+                      </span>
+                    )}
+                    <p className="text-sm font-semibold text-foreground">{row.subject}</p>
+                    <span className="text-xs text-muted-foreground">#{row.id}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge variant={statusVariant(row.status)}>{row.status ?? 'Draft'}</StatusBadge>
+                    {isExpanded ? (
+                      <ChevronUp className="size-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="size-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {isInbound ? (
+                    <span><strong>From:</strong> {row.fromAddress || 'Prospect'}</span>
+                  ) : (
+                    <span><strong>To:</strong> {row.toAddress}</span>
+                  )}
+                  {isInbound && <span><strong>To:</strong> {row.toAddress}</span>}
+                  <span>&middot;</span>
+                  <span>{row.createdByName || (isInbound ? 'Customer' : 'Scholar Clone')}</span>
+                  <span>&middot;</span>
+                  <span>{row.sentAt || row.createdAt}</span>
+                </div>
+
+                {row.status === 'Failed' && row.failureReason && (
+                  <p className="text-xs text-destructive">{row.failureReason}</p>
+                )}
+
+                {/* Expanded Email Body Preview */}
+                {isExpanded && row.body && (
+                  <div className="mt-2.5 rounded-md border border-border/70 bg-muted/40 p-3 text-xs leading-relaxed text-foreground whitespace-pre-wrap font-sans">
+                    {row.body}
+                  </div>
+                )}
+                {!isExpanded && row.body && (
+                  <p className="line-clamp-1 text-xs text-muted-foreground italic">
+                    {row.body.replace(/\n+/g, ' ')}
+                  </p>
+                )}
               </div>
-              <p className="truncate text-xs text-muted-foreground">To {row.toAddress}</p>
-              {row.status === 'Failed' && row.failureReason && (
-                <p className="text-xs text-destructive">{row.failureReason}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {row.createdByName || 'Unknown'} · {row.sentAt || row.createdAt}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </SectionCard>

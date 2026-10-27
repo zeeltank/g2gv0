@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, Building2, CheckCircle2, Globe, Loader2,
+  AlertCircle, ArrowLeft, Building2, CheckCircle2, Globe, Loader2,
   Mail, MapPin, Pencil, Phone, Repeat, Star, Tag, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -124,6 +124,13 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
     queueMicrotask(() => { void loadComments(); void loadDocuments(); void loadEmails(); void loadHistory() })
   }, [loadComments, loadDocuments, loadEmails, loadHistory])
 
+  useEffect(() => {
+    if (tab === 'comments') void loadComments()
+    if (tab === 'documents') void loadDocuments()
+    if (tab === 'emails') void loadEmails()
+    if (tab === 'history') void loadHistory()
+  }, [tab, loadComments, loadDocuments, loadEmails, loadHistory])
+
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
@@ -163,11 +170,22 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
             {(lead.firstName?.[0] ?? lead.lastName[0] ?? '?').toUpperCase()}
           </div>
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
-              {lead.firstName ? `${lead.firstName} ` : ''}{lead.lastName}
+            <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold text-foreground">
+              {lead.hasRealName ? (
+                <span>{lead.firstName ? `${lead.firstName} ` : ''}{lead.lastName}</span>
+              ) : (
+                <>
+                  <span>{lead.company || lead.lastName}</span>
+                  <StatusBadge variant="warning">Contact Name Needed</StatusBadge>
+                </>
+              )}
               {lead.converted && <StatusBadge variant="success">Converted</StatusBadge>}
             </h1>
-            <p className="text-sm text-muted-foreground">{lead.company || 'No company'} · {lead.leadNo}</p>
+            <p className="text-sm text-muted-foreground">
+              {lead.hasRealName ? `${lead.company || 'No company'} · ` : ''}
+              {lead.leadNo}
+              {lead.leadSource && ` · Source: ${lead.leadSource}`}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -185,6 +203,45 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       </div>
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+
+      {/* Enrichment & Outreach Qualification Status Banner */}
+      {lead.isQualifiedForOutreach === false && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-foreground space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <AlertCircle className="size-4" />
+              Enrichment Status: {lead.enrichmentStatus ?? 'Needs Review'} &middot; Not Qualified for Outreach
+            </span>
+            <StatusBadge variant="warning">Outreach Paused</StatusBadge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This lead originated from <strong>Signals</strong>. Company names must not be treated as person surnames. Automated outreach is blocked until required contact details are verified.
+          </p>
+          {lead.missingFields && lead.missingFields.length > 0 && (
+            <div className="text-xs">
+              <span className="font-medium text-foreground">Missing required details:</span>
+              <ul className="list-disc pl-5 mt-1 space-y-0.5 text-amber-800 dark:text-amber-300">
+                {lead.missingFields.map((f, i) => (
+                  <li key={i}>{f === 'a real contact name' ? 'Verified contact person name (School name is currently placeholder)' : f}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground italic">
+            Click <strong>Edit</strong> to provide the verified contact person's name and designation. Once completed, the lead becomes Qualified for Outreach and the follow-up cadence will initiate.
+          </p>
+        </div>
+      )}
+
+      {lead.isQualifiedForOutreach === true && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <span className="flex items-center gap-2 font-medium">
+            <CheckCircle2 className="size-4" />
+            Enrichment Status: Complete &middot; Qualified for Outreach
+          </span>
+          <StatusBadge variant="success">Outreach Ready</StatusBadge>
+        </div>
+      )}
 
       {lead.converted && convertedTargets.length > 0 && (
         <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
