@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { SimulationCard, SimulationRights, SimulationStatus } from '@/services/lms/simulations'
 
-import { CategoryIcon, DifficultyBars, MetaItem, ProgressPill, StatusPill } from './simulation-bits'
+import { CategoryIcon, DifficultyBars, ExperimentMark, MetaItem, ProgressPill, StatusPill } from './simulation-bits'
 import { SimulationCover } from './simulation-cover'
 import { cardNumber, categoryLabelOf, difficultyOf, minutesLabel, missionsLabel } from './simulation-format'
 
@@ -116,7 +116,10 @@ export function SimulationGalleryCard({
 
         <div className="flex flex-1 flex-col px-2 pb-1 pt-4">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="line-clamp-2 min-w-0 text-base font-semibold leading-snug tracking-tight text-foreground">{simulation.title}</h3>
+            <div className="flex min-w-0 items-start gap-2.5">
+              <ExperimentMark size="md" className="mt-0.5" />
+              <h3 className="line-clamp-2 min-w-0 text-base font-semibold leading-snug tracking-tight text-foreground">{simulation.title}</h3>
+            </div>
             {hasMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
