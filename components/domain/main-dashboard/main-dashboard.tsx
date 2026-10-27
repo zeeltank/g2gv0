@@ -4,6 +4,7 @@ import { useAuth } from '@/components/auth/gtg-auth'
 import { HrDashboard } from './hr/hr-dashboard'
 import { MeDashboard } from './me/me-dashboard'
 import { NextStepsPanel } from '@/components/domain/onboarding/next-steps-panel'
+import { IntelligenceSummaryPanel } from '@/components/domain/intelligence'
 import { isHrAdmin } from '@/types/role'
 
 /**
@@ -53,6 +54,8 @@ export function MainDashboard() {
     return (
       <>
         <NextStepsPanel />
+        {/* ADDED: a separate Intelligence panel beside the dashboard; the dashboard below is unchanged. */}
+        <IntelligenceSummaryPanel />
         <HrDashboard />
       </>
     )
