@@ -85,11 +85,16 @@ export interface Lead {
   convertedOrganizationId: string | null
   convertedContactId: string | null
   convertedOpportunityId: string | null
+  sourceCompanyOpportunityId?: string | null
   description: string | null
   assignedTo: string | null
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  missingFields?: string[]
+  hasRealName?: boolean
+  enrichmentStatus?: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
+  isQualifiedForOutreach?: boolean
 }
 
 export type LeadPayload = Partial<
@@ -1954,6 +1959,8 @@ export interface CrmEmailLinkEntry {
   subject: string
   body: string
   toAddress: string
+  fromAddress?: string | null
+  direction?: 'inbound' | 'outbound' | string | null
   templateId: string | null
   templateName: string | null
   status: string | null

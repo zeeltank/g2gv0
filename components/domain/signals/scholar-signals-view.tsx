@@ -450,6 +450,63 @@ function EvidencePanel({ summary }: { summary: EvidenceSummary }) {
   )
 }
 
+function LeadQualificationPanel({ q }: { q?: Opportunity['crm_qualification'] }) {
+  if (!q) return null
+
+  const isComplete = q.enrichment_status === 'Complete'
+  const isPartial = q.enrichment_status === 'Partially Complete'
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-xs space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+        <span className="font-semibold text-foreground flex items-center gap-1.5">
+          <span className={`size-2 rounded-full ${q.outreach_ready ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+          Lead Qualification &amp; Required Information
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={`text-[10px] px-2 py-0.5 ${
+            isComplete ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' :
+            isPartial ? 'bg-blue-500/10 text-blue-600 border-blue-500/30' :
+            'bg-amber-500/10 text-amber-600 border-amber-500/30'
+          }`}>
+            Enrichment: {q.enrichment_status}
+          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+            {q.can_promote ? 'Ready for CRM Promotion' : 'Incomplete'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            ✓ Verified in research (Ready to promote):
+          </p>
+          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-muted-foreground">
+            {q.verified_fields.map((f, i) => (
+              <li key={i}>{f}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            ⚠ Missing before outreach (Needs CRM Enrichment):
+          </p>
+          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-muted-foreground">
+            {q.missing_for_outreach.map((f, i) => (
+              <li key={i}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground italic pt-1">
+        * Company name and research signal are sufficient to promote to CRM Intake. Surnames, phone numbers, and emails are never guessed or hardcoded; missing fields will be enriched safely via CRM automation.
+      </p>
+    </div>
+  )
+}
+
 export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: (o: Opportunity, a: 'follow-up' | 'dismiss' | 'review') => void; runDateLabel?: string | null }) {
   const c = o.card
   const a = o.assessment
@@ -465,7 +522,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
   // (SignalList and this file's own list), and promoting isn't a review-status action like the
   // other three buttons here, it creates a real crm_leads row via LeadFactory.
   const [promoting, setPromoting] = useState(false)
-  const [promotedLeadId, setPromotedLeadId] = useState<string | null>(null)
+  const [promotedLeadId, setPromotedLeadId] = useState<string | null>(o.promoted_lead_id ?? null)
   const [promoteError, setPromoteError] = useState<string | null>(null)
   const handlePromote = async () => {
     const context = getLaravelContext()
@@ -573,6 +630,9 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
       )}
       {o.strength_reason && <p className="text-xs text-muted-foreground">Why {strength.label.toLowerCase()}: {o.strength_reason}</p>}
 
+      {/* Lead Qualification & Enrichment Panel */}
+      <LeadQualificationPanel q={o.crm_qualification} />
+
       {/* 8. What is verified, what is our reading, and what is not established */}
       <EvidencePanel summary={evidence} />
 
@@ -613,7 +673,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
               className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
             >
               <CheckCircle2 className="size-3.5" />
-              Promoted &middot; View Lead
+              Promoted &middot; View Lead{o.promoted_lead_no ? ` (${o.promoted_lead_no})` : ''}
             </NextLink>
           ) : (
             <Button size="sm" variant="outline" disabled={promoting} onClick={() => void handlePromote()} className="gap-1.5">
