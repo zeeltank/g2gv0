@@ -31,7 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { apiErrorText } from '@/lib/api-messages'
-import { PremiumHeader } from '@/components/domain/signals/premium-page'
+import { SectionBar } from '@/components/domain/signals/signals-header'
 import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
@@ -219,12 +219,10 @@ export function IngestionEngineView() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="space-y-4">
-        <PremiumHeader
-          title="Ingestion Engine"
-          badge={<UploadCloud className="size-5 text-primary" aria-hidden="true" />}
+        <SectionBar
           description="Add a public web page or a document. Choose the product first: it is analysed with that product's own ICP, and the signals it yields are saved for that product only. Nothing is processed until you submit."
         />
         <div className="space-y-2">

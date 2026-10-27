@@ -6,26 +6,41 @@ import { strict as assert } from 'node:assert'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { configureHref } from './product-selection'
+import { configureHref, icpHref, icpStatus, resolveTab } from './product-selection'
 
 const root = join(__dirname, '..')
 const read = (p: string) => readFileSync(join(root, p), 'utf8')
 
 describe('Product Details & ICP link', () => {
-  it('opens the existing Product Portfolio on the selected product', () => {
-    assert.equal(configureHref('scholarclone'), '/portfolio?product=scholarclone')
-    assert.equal(configureHref('enterprise_brain'), '/portfolio?product=enterprise_brain')
-    assert.equal(configureHref('g2g'), '/portfolio?product=g2g')
+  it('opens that one product\'s own page, not the whole Product Portfolio', () => {
+    assert.equal(configureHref('scholarclone'), '/portfolio/scholarclone')
+    assert.equal(configureHref('enterprise_brain'), '/portfolio/enterprise_brain')
+    assert.equal(configureHref('g2g'), '/portfolio/g2g')
   })
 
-  it('points at a route that exists, and the portfolio reads ?product=', () => {
+  it('points at a route that exists, and the old ?product= link still lands on that product', () => {
+    assert.ok(existsSync(join(root, 'app/portfolio/[product]/page.tsx')))
     assert.ok(existsSync(join(root, 'app/portfolio/page.tsx')))
-    assert.match(read('components/domain/signals/product-selector.tsx'), /URLSearchParams\(window\.location\.search\)\.get\('product'\)/)
+    assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /router\.replace\(configureHref\(linked\)\)/)
+  })
+
+  it('has an ICP link that opens the ICP tab, and falls back to the overview for an unknown tab', () => {
+    assert.equal(icpHref('g2g'), '/portfolio/g2g?tab=icp')
+    assert.equal(resolveTab('icp'), 'icp')
+    assert.equal(resolveTab('nonsense'), 'overview')
+    assert.equal(resolveTab(null), 'overview')
+  })
+
+  it('reads the ICP status only from the stored state', () => {
+    assert.equal(icpStatus({ state: 'ready', draft_icp: null }).key, 'ready')
+    assert.equal(icpStatus({ state: 'needs_setup', draft_icp: { id: 1 } }).key, 'draft')
+    assert.equal(icpStatus({ state: 'needs_setup', draft_icp: null }).key, 'incomplete')
+    assert.equal(icpStatus({ state: 'invalid', draft_icp: null }).key, 'invalid')
   })
 
   it('is what the Company opportunities screen links to, for the selected product only', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /configureHref\(selected\.key\)/)
+    assert.match(src, /icpHref\(selected\.key\)/)
   })
 })
 
@@ -65,7 +80,7 @@ describe('Routes and navigation', () => {
   })
 })
 
-describe('One list and the research-date dropdown', () => {
+describe('One list and the research-date selector', () => {
   const screen = read('components/domain/signals/company-opportunities.tsx')
   const list = read('components/domain/signals/signal-list.tsx')
 
@@ -75,10 +90,11 @@ describe('One list and the research-date dropdown', () => {
     assert.equal(/ScholarSignalsView|<OpportunitiesView/.test(screen), false)
   })
 
-  it('offers dates only: each option is the formatted date and nothing else', () => {
-    assert.match(screen, /<option key=\{d\.date\} value=\{d\.date\}>\{formatRunDate\(d\.date\)\}<\/option>/)
-    const dropdown = screen.slice(screen.indexOf('id="run-date"'), screen.indexOf('</select>'))
-    assert.equal(/Success|status|partial/i.test(dropdown), false)
+  it('offers dates via a 3-day radiogroup and a date picker', () => {
+    assert.match(screen, /role="radiogroup" aria-label="Signal date"/)
+    assert.match(screen, /type="date"/)
+    assert.match(screen, /Back to the last 3 days/)
+    assert.match(screen, /formatRunDate\(d\)/)
   })
 
   it('takes its dates from the backend history, not from the clock', () => {
@@ -87,14 +103,14 @@ describe('One list and the research-date dropdown', () => {
   })
 
   it('choosing a date only reads: neither the date change nor the list can start research', () => {
-    const onChange = screen.slice(screen.indexOf('id="run-date"'), screen.indexOf('</select>'))
-    assert.equal(/generate|runResearch/.test(onChange), false)
+    const pickFn = screen.slice(screen.indexOf('const pick ='), screen.indexOf('return ('))
+    assert.equal(/generate|runResearch/.test(pickFn), false)
     assert.equal(/runResearch|generateSignals|\.generate\(/.test(list), false)
     assert.match(list, /opportunitiesService\.list\(/)
   })
 
   it('starts research only from a click: the Generate Signals button, and Retry on a failed run', () => {
-    assert.equal((screen.match(/run\.generate\(\)/g) ?? []).length, 2)
+    assert.equal((screen.match(/run\.generate\(regions\)/g) ?? []).length, 2)
     assert.match(screen, /<ResearchProgress[^>]*onRetry=/)
     assert.match(screen, /Generate Signals/)
   })
@@ -131,7 +147,7 @@ describe('Premium workspace and honest forms', () => {
   })
 
   it('has one guided path from configuration to signals on the Product Portfolio', () => {
-    assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /<ProductSetupSteps/)
+    assert.match(read('components/domain/portfolio/product-detail-view.tsx'), /<ProductSetupSteps/)
     assert.match(read('components/domain/portfolio/product-setup-steps.tsx'), /\/signals\?product=/)
   })
 

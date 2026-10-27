@@ -1,4 +1,5 @@
 import type { LaravelContext } from '@/lib/laravel-context'
+import type { RegionSelection } from '@/lib/region-scope'
 
 /*
  * "Generate Signals": the rules that decide whether a research run may start, kept apart from the screen so they can be tested.
@@ -31,7 +32,7 @@ export interface GenerateStatus {
 
 export interface GenerateService {
   getStatus: (c: LaravelContext, product?: string) => Promise<{ data: GenerateStatus }>
-  runResearch: (c: LaravelContext, params: undefined, product?: string) => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
+  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[]) => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
 }
 
 const refuse = (reason: GenerateRefusal, message: string, missing: string[] = [], nextStep: string | null = null): GenerateOutcome =>
@@ -65,6 +66,8 @@ export async function generateSignals(args: {
   products: GenerateProduct[] | null
   running: boolean
   service: GenerateService
+  /** The places this request is limited to ([] or absent = All Regions). Sent with the request; saved nowhere. */
+  regions?: RegionSelection[]
 }): Promise<GenerateOutcome> {
   const local = decideGenerate(args.choice, args.products, args.running)
   if (!local.ok) return local.outcome
@@ -81,7 +84,7 @@ export async function generateSignals(args: {
       : 'No AI provider is configured for this organisation.')
   }
 
-  const res = await args.service.runResearch(args.context, undefined, product.key)
+  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions)
 
   return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null }
 }

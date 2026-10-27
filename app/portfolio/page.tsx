@@ -8,6 +8,7 @@ import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { PortfolioView } from '@/components/domain/portfolio/portfolio-view'
+import { SignalsFrame } from '@/components/domain/signals/signals-frame'
 
 const PORTFOLIO_ACCESS_LINK = '/portfolio'
 
@@ -23,7 +24,9 @@ export default function ProductPortfolioPage() {
       <GtgPageShell initialActive={activeNav}>
         <GtgBreadcrumbFromContext />
         <PremiumPage>
-          <PortfolioView context={context} canManage={canManage} />
+          <SignalsFrame active="portfolio">
+            <PortfolioView context={context} canManage={canManage} />
+          </SignalsFrame>
         </PremiumPage>
       </GtgPageShell>
     </ProtectedLayout>

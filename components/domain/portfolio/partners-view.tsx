@@ -42,7 +42,7 @@ import {
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { apiErrorText } from '@/lib/api-messages'
-import { PremiumHeader } from '@/components/domain/signals/premium-page'
+import { SectionBar } from '@/components/domain/signals/signals-header'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { Partner, TaxonomyData } from '@/services/portfolio/types'
 
@@ -255,8 +255,7 @@ export function PartnersView({
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
-      <PremiumHeader
-        title="Partner Network"
+      <SectionBar
         description="Regional system integrators, distributors and delivery partners who can fulfil your offers. Search, review and keep their details current."
         actions={
           <>

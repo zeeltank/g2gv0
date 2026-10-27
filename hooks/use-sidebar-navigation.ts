@@ -5,13 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { sidebarService } from '@/services/navigation/sidebar'
-import type { SidebarMenuNode } from '@/services/navigation/sidebar'
+import type { SidebarMenuNode, SidebarMenuResponse } from '@/services/navigation/sidebar'
 import {
   getRouteByAccessLink,
   type NavNode,
   type NavModule,
   type ActiveNav,
 } from '@/lib/gtg-navigation'
+import { collapseSignalsNav } from '@/lib/signals-nav'
 
 type FlatNode = {
   id: number
@@ -117,6 +118,11 @@ export interface SidebarNavigationResult {
   /** null when nothing is mapped — the caller must decline to navigate, not guess. */
   getRoutePath: (active: ActiveNav) => string | null
   parseRoutePath: (pathname: string) => ActiveNav | null
+  /**
+   * The Signals screens (their routes) this user's menu contained before they were folded into the single Signals entry; null when the menu has no
+   * Signals group. The Signals header shows a tab for each.
+   */
+  signalsTabs: string[] | null
   /** Resolves a known tblmenumaster_g2g access_link against the caller's live, rights-filtered tree; falls back to '/dashboard' if the profile can't see it. */
   resolveAccessLink: (accessLink: string) => string
 }
@@ -132,9 +138,35 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
 
+  const cacheKey = context.subInstituteId && context.profileId
+    ? `gtg-sidebar-cache:${context.subInstituteId}:${context.profileId}`
+    : null
+
+  const initialData = useMemo(() => {
+    if (!cacheKey || typeof window === 'undefined') return undefined
+    try {
+      const stored = window.sessionStorage.getItem(cacheKey)
+      if (stored) {
+        return JSON.parse(stored) as SidebarMenuResponse
+      }
+    } catch {
+      // Storage unavailable
+    }
+    return undefined
+  }, [cacheKey])
+
   const query = useQuery({
     queryKey: ['sidebar-navigation', context.token, context.subInstituteId, context.profileId],
-    queryFn: () => sidebarService.getMenu(context),
+    queryFn: async () => {
+      const res = await sidebarService.getMenu(context)
+      if (cacheKey && res?.data && typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify(res))
+        } catch {}
+      }
+      return res
+    },
+    initialData,
     enabled: ready,
     staleTime: 5 * 60 * 1000,
   })
@@ -168,12 +200,16 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * revoking it is supposed to mean. /dashboard itself stays reachable by URL,
    * so this removes the link, not the page.
    */
-  const modules = useMemo(() => {
+  const collapsed = useMemo(() => {
     // Signals, Ingestion Engine, Product Portfolio and Partner Network used to be injected here as
     // standalone sidebar links. They are intentionally no longer added; their routes and pages
     // are untouched (see parseRoutePath below), and Intelligence Loop comes from the server menu.
-    return buildModuleTree(query.data?.data ?? [])
+    //
+    // The four child rows of the Signals entry are folded into it HERE, in code: they are now tabs on the Signals screen. The database
+    // rows are not touched, and each route still resolves (see `owners` below).
+    return collapseSignalsNav(buildModuleTree(query.data?.data ?? []))
   }, [query.data])
+  const modules = collapsed.modules
 
   const sidebarModules = useMemo(
     () => modules.filter((module) => !SIDEBAR_HIDDEN_ACCESS_LINKS.has(module.accessLink ?? '')),
@@ -205,8 +241,13 @@ export function useSidebarNavigation(): SidebarNavigationResult {
       }
     }
 
+    // The folded-away Signals screens resolve to the Signals entry, so the sidebar highlight and the breadcrumb stay on it.
+    for (const [path, active] of Object.entries(collapsed.owners)) {
+      if (!keyByPath.has(path)) keyByPath.set(path, active)
+    }
+
     return { pathByKey, keyByPath }
-  }, [modules])
+  }, [modules, collapsed.owners])
 
   const getRoutePath = (active: ActiveNav): string | null => {
     return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
@@ -241,7 +282,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   }
 
   const resolveAccessLink = (accessLink: string): string => {
-    if (accessLink === '/signals') return '/signals'
+    if (accessLink === '/signals' || accessLink === '/module/crm/signals') return '/signals'
     if (accessLink === '/ingestion') return '/ingestion'
     if (accessLink === '/portfolio') return '/portfolio'
     if (accessLink === '/partners') return '/partners'
@@ -256,5 +297,6 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     getRoutePath,
     parseRoutePath,
     resolveAccessLink,
+    signalsTabs: collapsed.tabs,
   }
 }

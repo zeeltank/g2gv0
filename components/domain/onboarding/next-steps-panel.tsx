@@ -44,7 +44,15 @@ export function NextStepsPanel() {
   const { user } = useAuth()
   const { resolveAccessLink } = useSidebarNavigation()
 
-  const [steps, setSteps] = useState<NextStep[]>([])
+  const cacheKey = user?.id ? `gtg-next-steps:${user.id}` : null
+  const [steps, setSteps] = useState<NextStep[]>(() => {
+    if (typeof window === 'undefined' || !user?.id) return []
+    try {
+      const stored = window.sessionStorage.getItem(`gtg-next-steps:${user.id}`)
+      if (stored) return JSON.parse(stored) as NextStep[]
+    } catch {}
+    return []
+  })
   const [busy, setBusy] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -55,7 +63,13 @@ export function NextStepsPanel() {
 
     try {
       const response = await nextStepsService.get(context)
-      setSteps(response.data?.steps ?? [])
+      const list = response.data?.steps ?? []
+      setSteps(list)
+      if (cacheKey && typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify(list))
+        } catch {}
+      }
     } catch {
       // A dashboard must not break because its guidance could not load. There
       // is no error state here by design: guidance is an extra, and a red box
@@ -64,7 +78,7 @@ export function NextStepsPanel() {
     } finally {
       setLoaded(true)
     }
-  }, [user])
+  }, [user, cacheKey])
 
   useEffect(() => {
     queueMicrotask(() => {

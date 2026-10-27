@@ -6,6 +6,7 @@ import { ApiError } from '@/services/core'
 import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import type { ProductInfo } from '@/services/portfolio/types'
 import { runGuardedGenerate } from '@/lib/signals-generate'
+import type { RegionSelection } from '@/lib/region-scope'
 import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
 
 const POLL_MS = 2500
@@ -115,9 +116,9 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [productKey, loadStatus, follow])
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (regions?: RegionSelection[]) => {
     await runGuardedGenerate(inFlight, {
-      context, choice: productKey, running,
+      context, choice: productKey, running, regions,
       products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step })) ?? null,
       service: opportunitiesService,
     }, {

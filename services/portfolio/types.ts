@@ -33,6 +33,8 @@ export interface ProductOffer {
   partner_sellable: boolean
   notes?: string | null
   is_user_edited?: boolean
+  individual_icp?: Record<string, unknown> | null
+  icp_config?: Record<string, unknown> | null
   bundled_offer_details?: {
     id: number
     offer_id: string
@@ -147,6 +149,10 @@ export interface SignalMatchingResponse {
 export interface ProductInfo {
   key: string
   label: string
+  /** True for a product this organisation created itself (not one of the built-in products). */
+  custom?: boolean
+  /** Why signals cannot be generated for this product yet (an own product whose generation is not switched on), or null. */
+  generation_note?: string | null
   business_fit: string
   /** The name the Product Portfolio uses for this product (its `parent_product`). */
   portfolio_name: string | null
@@ -173,6 +179,8 @@ export interface ProductInfo {
     triggers: string[]
     parts: Record<string, string>
     searches: number
+    /** The portfolio products this ICP lists, by Offer ID (null for an older ICP that has no list). */
+    offer_ids?: string[] | null
   }
   target_accounts: number
   contacts: number
@@ -184,6 +192,18 @@ export interface ProductInfo {
   missing: string[]
   opportunities_count: number
   research_runs_count: number
+}
+
+/** What a run for one product will be built from: which saved product details and ICP fields exist, what each is used for, and what is missing. */
+export interface ResearchContext {
+  product: { key: string | null; label: string | null; custom: boolean }
+  icp: { source: 'database' | 'template' | null; profile_id: number | null; name: string | null; version: number | null; regions: string[]; saved: boolean } | null
+  product_fields: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  icp_fields: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  /** Saved on the product but not read by research (pricing, deal size, deployment, delivery owner, notes, company profile). */
+  kept_for_people?: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  offer_count: number
+  warnings: string[]
 }
 
 export interface ProductsResponse {

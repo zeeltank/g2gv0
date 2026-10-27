@@ -121,7 +121,14 @@ export interface IcpCheckResult {
   data: { valid: boolean; problems: string[]; activation_blockers: string[] }
 }
 
+/** The product after it was created, as the products list describes it. */
+export interface CreatedProduct { status: number; message: string; data: { product: ProductInfo } }
+
 export const productIcpService = {
+  /** Creates a NEW top-level product for the organisation (administrators only). It has its own ICP; no offer or group is touched. */
+  createProduct: (c: LaravelContext, body: { key: string; label: string }) =>
+    apiClient.post<CreatedProduct>(`/signals/icp/products?${qs(c)}`, body),
+
   get: (c: LaravelContext, product: string) => apiClient.get<{ status: number; data: IcpEditorState }>(path(product), base(c)),
 
   /** Checks the ICP on the server. Nothing is saved. */

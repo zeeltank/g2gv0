@@ -18,6 +18,7 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
   const breakdown = stats
     ? ` ${stats.queries.succeeded} of ${stats.queries.attempted} searches worked${stats.queries.with_results !== null && stats.queries.empty !== null ? ` (${stats.queries.with_results} with results, ${stats.queries.empty} empty)` : ''}${stats.queries.cache_hits > 0 ? `, ${stats.queries.cache_hits} reused from the cache` : ''}, ${stats.results.returned} results, ${stats.pages.fetched} pages read in full.`
     : ' The stage-by-stage breakdown is not available for this run.'
+  const region = stats?.region ? ` Limited to ${stats.region.label}${stats.region.outside > 0 ? ` (${stats.region.outside} candidate${stats.region.outside === 1 ? '' : 's'} left out: the source did not name that place)` : ''}.` : ''
   const registry = stats?.registry
     ? ` ${stats.registry.searched} of ${stats.registry.selected} chosen registry sources were searched (searching does not verify a source).`
     : ''
@@ -31,8 +32,16 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
   if (run.status === 'partial') {
     return {
       tone: 'warning',
-      text: `Finished with limits: ${run.stage_message ?? 'some searches or sources could not be read.'} ${run.opportunities_qualified} qualified (${run.opportunities_new} new).${breakdown}${registry}${direct}${named}`,
+      text: `Finished with limits: ${run.stage_message ?? 'some searches or sources could not be read.'} ${run.opportunities_qualified} qualified (${run.opportunities_new} new).${region}${breakdown}${registry}${direct}${named}`,
       nextStep: stats?.next_action ?? null,
+    }
+  }
+  if (run.opportunities_qualified === 0 && stats?.completion === 'incomplete') {
+    // Not the same as "found nothing": the research did not finish, so absence of signals proves nothing.
+    return {
+      tone: 'warning',
+      text: `The research did not finish everything it set out to do (${(stats.completion_reasons ?? []).join(', ').replace(/_/g, ' ') || 'a limit was reached'}), so no signal qualified yet.${region}${breakdown}${registry}${direct}${named}`,
+      nextStep: stats.next_action ?? null,
     }
   }
   if (run.opportunities_qualified === 0) {
@@ -41,7 +50,7 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
 
     return {
       tone: 'info',
-      text: `Finished: ${run.sources_found} sources found, but no opportunity had enough evidence to qualify.${breakdown}${registry}${direct}${named}${why ? ` Why: ${why}` : ''}`,
+      text: `Finished: ${run.sources_found} sources found, but no opportunity had enough evidence to qualify.${region}${breakdown}${registry}${direct}${named}${why ? ` Why: ${why}` : ''}`,
       nextStep: stats?.next_action ?? null,
     }
   }

@@ -104,17 +104,14 @@ describe('progress bar wiring', () => {
   const hook = read('components/domain/signals/use-generate-signals.ts')
   const bar = read('components/domain/signals/research-progress.tsx')
 
-  it('sits in the same row as the research-date dropdown, right after it, and wraps on narrow screens', () => {
-    const row = screen.slice(screen.indexOf('id="run-date"'))
-    assert.ok(row.indexOf('<ResearchProgress') > 0 && row.indexOf('<ResearchProgress') < row.indexOf('<SignalList'))
-    assert.match(screen, /flex flex-wrap items-end gap-x-4 gap-y-2/)
-    assert.match(bar, /basis-72/)
+  it('sits under the product selector and before the signal list', () => {
+    assert.ok(screen.indexOf('<ResearchProgress') > 0 && screen.indexOf('<ResearchProgress') < screen.indexOf('<SignalList'))
     assert.match(bar, /break-words/)
   })
 
   it('offers an explicit Retry for a failed run that starts nothing by itself', () => {
     assert.match(bar, /onClick=\{onRetry\}/)
-    assert.match(screen, /onRetry=\{\(\) => void run\.generate\(\)\}/)
+    assert.match(screen, /onRetry=\{\(\) => void run\.generate\(regions\)\}/)
     assert.doesNotMatch(bar, /generate\(|useGenerateSignals/)
   })
 
@@ -142,8 +139,8 @@ describe('progress bar wiring', () => {
   })
 
   it('does not start research when a date is chosen: the date select only sets state', () => {
-    assert.match(screen, /onChange=\{\(e\) => setRunDate\(e\.target\.value\)\}/)
-    assert.equal((screen.match(/run\.generate\(\)/g) ?? []).length, 2)   // the Generate button and the Retry button, nothing else
+    assert.match(screen, /pick\(e\.target\.value\)/)
+    assert.equal((screen.match(/run\.generate\(regions\)/g) ?? []).length, 2)   // the Generate button and the Retry button, nothing else
   })
 
   it('does not let a double click start two runs (a ref guards it, not async state)', () => {

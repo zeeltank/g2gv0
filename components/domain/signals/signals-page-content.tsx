@@ -1,6 +1,7 @@
 'use client'
 
 import { CompanyOpportunities } from '@/components/domain/signals/company-opportunities'
+import { SignalsFrame } from '@/components/domain/signals/signals-frame'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { useAuth } from '@/components/auth/gtg-auth'
 
@@ -12,5 +13,9 @@ export function SignalsPageContent() {
   const { user } = useAuth()
   const context = getLaravelContext(user)
 
-  return <CompanyOpportunities context={context} />
+  return (
+    <SignalsFrame active="opportunities">
+      <CompanyOpportunities context={context} />
+    </SignalsFrame>
+  )
 }

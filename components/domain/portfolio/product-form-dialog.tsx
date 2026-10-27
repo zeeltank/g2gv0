@@ -11,7 +11,11 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { addCustom, customEntries, emptyProductForm, fromOffer, removeEntry, serverErrors, toggle, toPayload, validateProductForm, type ProductFormErrors, type ProductFormState } from '@/lib/product-form'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
-import type { ProductOffer, TaxonomyData } from '@/services/portfolio/types'
+import type { ProductInfo, ProductOffer, TaxonomyData } from '@/services/portfolio/types'
+import type { FormState } from '@/lib/icp-form'
+import { buildIcpConfig, emptyIcpForm, emptyIcpLines, icpTouched, slugKey, type IcpLines } from '@/lib/product-icp-draft'
+import { productIcpService } from '@/services/signals/product-icp'
+import { ProductIcpSection } from './product-icp-section'
 
 const selectCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
@@ -92,11 +96,15 @@ function PickList({ legend, hint, options, legacy = {}, value, onChange, disable
 }
 
 /**
- * Create or edit one product in the Product Portfolio. The tenant comes from the sign-in, never from this form; the Offer ID cannot change once
- * a product exists; and the server's validation is shown next to the field it concerns. Nothing is filled in on the person's behalf.
+ * Create or edit one product in the Product Portfolio, as ONE form in two clearly separate parts:
+ *   1. Product details: what the product is and offers (the 15 fields the portfolio has always had).
+ *   2. Individual Ideal Customer Profile: which customers suit THIS product. Saved to this product's own ICP through the ICP API, never to a
+ *      group's or another product's ICP, and saved as a DRAFT: it is only activated from the product's ICP page, by an explicit action.
+ * The tenant comes from the sign-in; the Offer ID cannot change once a product exists; the server's validation is shown next to the field it
+ * concerns; success is shown only after the server confirms. Nothing is filled in on the person's behalf.
  */
 export function ProductFormDialog({
-  context, taxonomy, product, open, onClose, onSaved,
+  context, taxonomy, product, open, onClose, onSaved, products = null,
 }: {
   context: LaravelContext
   taxonomy: TaxonomyData | null
@@ -105,20 +113,31 @@ export function ProductFormDialog({
   open: boolean
   onClose: () => void
   onSaved: (saved: ProductOffer, created: boolean) => void
+  /** The organisation's products, to find the own ICP an existing product already has. */
+  products?: ProductInfo[] | null
 }) {
   const mode = product ? 'edit' : 'create'
   const [form, setForm] = useState<ProductFormState>(emptyProductForm)
   const [errors, setErrors] = useState<ProductFormErrors>({})
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [icp, setIcp] = useState<FormState>(emptyIcpForm)
+  const [icpLines, setIcpLines] = useState<IcpLines>(emptyIcpLines)
+  const [icpProblems, setIcpProblems] = useState<string[]>([])
+  // The product was saved but its ICP was not: the person is told exactly that and can close.
+  const [partial, setPartial] = useState<{ saved: ProductOffer; created: boolean; text: string } | null>(null)
 
   useEffect(() => {
     if (!open) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(product ? fromOffer(product) : emptyProductForm()); setErrors({}); setMessage(''); setBusy(false)
+    setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines()); setIcpProblems([]); setPartial(null)
   }, [open, product])
 
   const set = (patch: Partial<ProductFormState>) => setForm((f) => ({ ...f, ...patch }))
+  // An existing product that already has its own ICP (a product of its own whose ICP lists it) is edited on its ICP page, not here.
+  const linked = product ? (products ?? []).find((p) => p.custom && p.icp?.offer_ids?.includes(product.offer_id)) ?? null : null
+  const wantsIcp = !linked && icpTouched(icp, icpLines)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -129,18 +148,43 @@ export function ProductFormDialog({
       setMessage('Fix the highlighted fields.')
       return
     }
+    if (wantsIcp && icp.label.trim() === '') {
+      setIcpProblems(['ICP name: give the ICP a name, or clear the ICP section.'])
+      setMessage('Fix the Individual ICP section.')
+      return
+    }
     setBusy(true)
     setMessage('')
+    setIcpProblems([])
+    let saved: ProductOffer
     try {
       const body = toPayload(form, mode)
       const res = product ? await portfolioService.updateOffer(context, product.id, body as Partial<ProductOffer>) : await portfolioService.createOffer(context, body as Partial<ProductOffer>)
-      onSaved(res.data, !product)
+      saved = res.data
     } catch (err) {
       setErrors(serverErrors(err instanceof ApiError ? err.errors : undefined))
       setMessage(apiErrorText(err, 'Could not save the product.'))
-    } finally {
       setBusy(false)
+      return
     }
+
+    // The ICP is a separate record on the server. The product is already saved; if the ICP cannot be, say exactly that (never "saved").
+    if (wantsIcp) {
+      const key = slugKey(saved.offer_id)
+      try {
+        await productIcpService.createProduct(context, { key, label: saved.name })
+        const config = buildIcpConfig(icp, icpLines, { offer_id: saved.offer_id, name: saved.name, what_it_does: saved.what_it_does })
+        await productIcpService.save(context, key, { config, name: icp.label.trim(), note: 'Created with the product', activate: false })
+      } catch (err) {
+        const problems = err instanceof ApiError && err.errors ? Object.values(err.errors).flat().map(String) : []
+        setIcpProblems(problems)
+        setPartial({ saved, created: !product, text: `The product was saved, but its ICP was not: ${apiErrorText(err, 'the ICP could not be saved')}. The ICP is not active and nothing was changed on any other product. You can create it from the product's page.` })
+        setBusy(false)
+        return
+      }
+    }
+    setBusy(false)
+    onSaved(saved, !product)
   }
 
   // The lists the person ticks from. Buying events are the ten signal families, each with what it covers.
@@ -154,7 +198,7 @@ export function ProductFormDialog({
   const deployments = taxonomy?.deployment_models ?? {}
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) onClose() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) { if (partial) onSaved(partial.saved, partial.created); else onClose() } }}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? `Edit ${product.name}` : 'Add a product'}</DialogTitle>
@@ -164,6 +208,7 @@ export function ProductFormDialog({
         </DialogHeader>
 
         <form onSubmit={(e) => void submit(e)} className="space-y-4" aria-busy={busy}>
+          <h3 className="text-sm font-semibold text-foreground">Product details</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field id="pf-id" label="Product ID" required error={errors.offer_id} hint={mode === 'edit' ? 'The ID cannot be changed.' : 'A short unique code, for example MY-01.'}>
               <Input id="pf-id" value={form.offer_id} disabled={busy || mode === 'edit'} onChange={(e) => set({ offer_id: e.target.value })} maxLength={50} />
@@ -257,10 +302,28 @@ export function ProductFormDialog({
             <Textarea id="pf-notes" rows={2} value={form.notes} disabled={busy} onChange={(e) => set({ notes: e.target.value })} />
           </Field>
 
+          <ProductIcpSection
+            form={icp}
+            lines={icpLines}
+            onForm={(patch) => setIcp((f) => ({ ...f, ...patch }))}
+            onLines={(patch) => setIcpLines((l) => ({ ...l, ...patch }))}
+            disabled={busy}
+            problems={icpProblems}
+            linked={linked ? { key: linked.key, label: linked.label } : null}
+            editing={mode === 'edit'}
+          />
+
           {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
+          {partial && <p role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">{partial.text}</p>}
           <div className="flex justify-end gap-2 border-t border-border/60 pt-3">
-            <Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 size-4 animate-spin" />}{product ? 'Save changes' : 'Add product'}</Button>
+            {partial ? (
+              <Button type="button" onClick={() => onSaved(partial.saved, partial.created)}>Close</Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
+                <Button type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 size-4 animate-spin" />}{product ? 'Save changes' : 'Add product'}</Button>
+              </>
+            )}
           </div>
         </form>
       </DialogContent>
