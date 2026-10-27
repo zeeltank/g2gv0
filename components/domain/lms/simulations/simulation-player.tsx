@@ -5,10 +5,26 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Button } from '@/components/ui/button'
-import { SIM_FRAME_SANDBOX, parseRuntimeMessage, postToRuntime, runtimeFrameUrl } from '@/lib/simulation-host'
+import {
+  SIM_FRAME_SANDBOX,
+  answerAssetRequest,
+  assetCreditLines,
+  createAssetLoader,
+  creditKindFor,
+  creditsOpenByDefault,
+  creditsSummary,
+  parseRuntimeMessage,
+  postToRuntime,
+  runtimeFrameUrl,
+  type AssetLoader,
+  type AssetModelRef,
+  type HostMessage,
+} from '@/lib/simulation-host'
 import { cn } from '@/lib/utils'
 import { describeSimulationError } from '@/hooks/use-simulations'
 import { simulationService, type SimulationCard, type SimulationDetail, type SimulationProgress } from '@/services/lms/simulations'
+
+import { ExperimentMark } from './simulation-bits'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -86,6 +102,24 @@ export function SimulationPlayer({
   useEffect(() => {
     onProgressRef.current = onProgress
   }, [onProgress])
+  // The specification the runtime was sent, for the message handler: it decides which 3D model and image files the frame may be given.
+  const detailRef = useRef<SimulationDetail | null>(null)
+  useEffect(() => {
+    detailRef.current = detail
+  }, [detail])
+  // The files downloaded for this player (up to 3 at a time across all requests). Dropped with it, and closing the player stops a download
+  // that is still running. The registered kind of a file (from the credits) sets how much of it may be read: 3 MB for an image, 25 MB for a model.
+  const assetLoader = useRef<AssetLoader | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    assetLoader.current = createAssetLoader((sha256) =>
+      simulationService.assetFile(id, sha256, { kind: creditKindFor(detailRef.current?.assets, sha256), signal: controller.signal }),
+    )
+    return () => {
+      controller.abort()
+      assetLoader.current = null
+    }
+  }, [id])
 
   /* ------------------------------------------------------------------ saving */
 
@@ -179,20 +213,51 @@ export function SimulationPlayer({
     postToRuntime(frameRef.current, { type: 'init', spec: detail.spec, resume: detail.progress?.snapshot ?? undefined })
   }, [ready, detail, attempt])
 
+  /**
+   * The runtime asks for 3D model and image files by hash, in requests of at most 8 and whenever it needs more. Only a hash that the
+   * specification this page holds names is fetched (anything else is answered "missing" without a request); at most three downloads run at
+   * once for the whole player, so a later request is accepted while an earlier one is still downloading and its files take the next free
+   * slots; each file is fetched once; and each answer is its own message, sent as that file arrives. A file's bytes are transferred, not
+   * copied - the loader hands out a private copy, so the ones it keeps stay whole. An answer goes only to the window that asked, and only
+   * while that frame is still this player's.
+   */
+  const serveAssets = useCallback((models: AssetModelRef[], asker: Window) => {
+    try {
+      const reply = (message: HostMessage, transfer?: Transferable[]): boolean => {
+        const frame = frameRef.current
+        if (!mounted.current || !frame || frame.contentWindow !== asker) return false
+        return postToRuntime(frame, message, transfer)
+      }
+      void answerAssetRequest({
+        spec: detailRef.current?.spec,
+        assets: detailRef.current?.assets,
+        models,
+        loader: assetLoader.current,
+        reply,
+        onFailure: (err) => {
+          if (mounted.current) console.warn('[SimulationPlayer] a 3D model or image could not be loaded:', err)
+        },
+      })
+    } catch (err) {
+      console.warn('[SimulationPlayer] a request for 3D models or images could not be handled:', err)
+    }
+  }, [])
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== frameRef.current?.contentWindow) return
+      const frameWindow = frameRef.current?.contentWindow
+      if (!frameWindow || event.source !== frameWindow) return
       const message = parseRuntimeMessage(event.data, lessonId)
       if (!message) return
       if (message.type === 'ready') setReady(true)
       else if (message.type === 'spec') setVerdict({ ok: message.ok, issues: message.issues })
       else if (message.type === 'progress' || message.type === 'completed') {
         handleProgress(message.type, message.step, message.percent, message.snapshot)
-      }
+      } else if (message.type === 'assets-needed') serveAssets(message.models, frameWindow)
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [lessonId, handleProgress])
+  }, [lessonId, handleProgress, serveAssets])
 
   /* ------------------------------------------------------------ window behaviour */
 
@@ -244,6 +309,7 @@ export function SimulationPlayer({
   const failed = detailError ?? (timedOut && !ready ? 'The simulation player did not start. It may be blocked or not installed on this site.' : null)
   const unplayable = verdict && !verdict.ok
   const starting = !failed && !unplayable && !verdict?.ok
+  const creditLines = failed || unplayable ? [] : assetCreditLines(detail?.assets)
 
   return createPortal(
     <div
@@ -260,6 +326,7 @@ export function SimulationPlayer({
           <span className="sr-only sm:hidden">Back to simulations</span>
         </Button>
         <span className="h-5 w-px bg-border" aria-hidden="true" />
+        <ExperimentMark size="sm" />
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{simulation.title}</h2>
 
         <span className="flex items-center gap-3 text-xs text-muted-foreground" aria-live="polite">
@@ -344,6 +411,34 @@ export function SimulationPlayer({
           </div>
         )}
       </div>
+
+      {creditLines.length > 0 && (
+        <details open={creditsOpenByDefault(creditLines.length)} className="shrink-0 border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none hover:text-foreground">{creditsSummary(creditLines.length)}</summary>
+          <ul aria-label="3D model and image credits" className="mt-1 flex max-h-40 flex-wrap gap-x-4 gap-y-0.5 overflow-y-auto">
+            {creditLines.map((line) => (
+              <li key={line.key}>
+                {line.text}
+                {line.href && (
+                  <>
+                    {' · '}
+                    <a
+                      href={line.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={line.name ? `Source of ${line.name}` : undefined}
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      Source
+                    </a>
+                  </>
+                )}
+                {line.sourceText && ` · Source: ${line.sourceText}`}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>,
     document.body,
   )

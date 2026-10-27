@@ -16,7 +16,7 @@ import {
   type SimulationStatus,
 } from '@/services/lms/simulations'
 
-import { CategoryIcon, DifficultyBars, MetaItem, ProgressPill, StatusPill } from './simulation-bits'
+import { CategoryIcon, DifficultyBars, ExperimentMark, MetaItem, ProgressPill, StatusPill } from './simulation-bits'
 import { SimulationCover } from './simulation-cover'
 import { cardNumber, categoryLabelOf, difficultyOf, minutesLabel, missionsLabel, readSpec, startLabel } from './simulation-format'
 import { manageOptionsFor, type SimulationCardActions } from './simulation-gallery-card'
@@ -160,7 +160,10 @@ function DetailBody({
         </div>
 
         <div className="space-y-2">
-          <SheetTitle className="text-2xl font-bold leading-tight tracking-tight text-foreground">{card.title}</SheetTitle>
+          <div className="flex items-center gap-3">
+            <ExperimentMark size="lg" />
+            <SheetTitle className="text-2xl font-bold leading-tight tracking-tight text-foreground">{card.title}</SheetTitle>
+          </div>
           <SheetDescription className={cn('text-sm leading-relaxed', !(card.subtitle ?? card.summary) && 'sr-only')}>
             {card.subtitle ?? card.summary ?? `${card.title} simulation`}
           </SheetDescription>

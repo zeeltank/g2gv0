@@ -10,6 +10,7 @@
  * roles. The list response carries the caller's rights as `can`, so the screen shows exactly the actions the server will accept.
  */
 
+import { SHA256_PATTERN, assetByteLimit, knownAssetMime, resolveAssetKind, type AssetFile, type AssetKind } from '@/lib/simulation-host'
 import { apiClient } from '@/services/core'
 
 export interface SimulationEnvelope<T> {
@@ -102,8 +103,29 @@ export interface SimulationSpecPreview {
   [key: string]: unknown
 }
 
+/**
+ * The credit of one 3D model or image a specification names (`data.assets[]` of GET /lms/simulations/{id}; `SimulationStore::assetCredits`
+ * in hp_erp). One entry per file the server has registered for the simulation's owner or the platform, in the order the specification names
+ * them; a name with no registered file is left out, and the storage path is never sent.
+ */
+export interface SimulationAssetCredit {
+  /** SHA-256 of the file: what the specification names and what the file is fetched by. */
+  sha256: string
+  /** A 3D model or an image. A server that predates images does not send it; the screen then treats the file as a model. */
+  kind?: AssetKind
+  name: string
+  bytes: number
+  licence: string | null
+  /** The attribution line (who made it). */
+  credit: string | null
+  /** Where it came from. Not trusted to be a web address: the screen links it only when it is https. */
+  source_url: string | null
+}
+
 export interface SimulationDetail extends SimulationCard {
   spec: SimulationSpecPreview
+  /** Credits of the models and images `spec.assets` names. A server that predates 3D models does not send it. */
+  assets?: SimulationAssetCredit[]
   can: SimulationRights
 }
 
@@ -153,6 +175,37 @@ export interface SimulationProgressReport {
 
 const BASE = '/lms/simulations'
 
+/**
+ * GET /lms/simulations/{id}/assets/{sha256} - the file (a .glb model or an image) the simulation's current specification names, from the
+ * private bucket, with what it is. Sent with the caller's Bearer token like every other call here (the organisation is the token's). The
+ * server answers 404 for any hash the specification does not name.
+ *
+ * At most 25 MB is read for a model and 3 MB for an image - checked against Content-Length and against what actually arrives. It is an image
+ * when `kind` (the registered kind, from the credits) says so or the response's Content-Type is `image/*`, so a wrong hint cannot lift the
+ * limit. Anything other than a 200 is an error (an ApiError carrying the status, or a ResponseTooLargeError with `code: 'too_large'`).
+ * `mime` is the response's type only when it is a known image or model type.
+ */
+export async function fetchSimulationAssetFile(
+  simulationId: number,
+  sha256: string,
+  { kind, signal }: { kind?: AssetKind; signal?: AbortSignal } = {},
+): Promise<AssetFile> {
+  if (!Number.isInteger(simulationId) || simulationId <= 0 || !SHA256_PATTERN.test(sha256)) {
+    throw new Error('That is not a file of a simulation.')
+  }
+  const { bytes, contentType } = await apiClient.getFile(`${BASE}/${simulationId}/assets/${sha256}`, {
+    accept: 'model/gltf-binary, image/*',
+    maxBytes: (type) => assetByteLimit(kind, type),
+    signal,
+  })
+  return { bytes, kind: resolveAssetKind(kind, contentType), mime: knownAssetMime(contentType) }
+}
+
+/** The bytes alone of fetchSimulationAssetFile, for a caller that does not need to know what the file is. */
+export async function fetchSimulationAsset(simulationId: number, sha256: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  return (await fetchSimulationAssetFile(simulationId, sha256, { signal })).bytes
+}
+
 export const simulationService = {
   /** GET /lms/simulations - what this person may see: the organisation's own plus the platform ones it has switched on. */
   list: (search?: string) =>
@@ -164,6 +217,12 @@ export const simulationService = {
       `${BASE}/${id}`,
       version ? { version: String(version) } : undefined,
     ),
+
+  /** GET /lms/simulations/{id}/assets/{sha256} - the bytes of one file the specification names. See fetchSimulationAssetFile. */
+  asset: fetchSimulationAsset,
+
+  /** The same, with what the file is (model or image) and its known type. */
+  assetFile: fetchSimulationAssetFile,
 
   /** GET /lms/simulations/{id}/versions - edit right. */
   versions: (id: number) => apiClient.get<SimulationEnvelope<SimulationVersionsData>>(`${BASE}/${id}/versions`),
