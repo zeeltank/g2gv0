@@ -65,7 +65,7 @@ export async function hashAssets(
 /* ------------------------------------------------------------------------------------------------------------------- the filler */
 
 export interface FillResult {
-  /** A copy of the specification with each package file's `sha256` (and, for an image, its `kind`) written in. The original is untouched. */
+  /** A copy of the specification with each package file's `sha256` (and, for an image or an HDR sky, its `kind`) written in. The original is untouched. */
   spec: Record<string, unknown>
   problems: SpecIssue[]
   /** Files the manifest lists that the specification never names: they are not uploaded. */
@@ -80,7 +80,7 @@ const short = (hash: string): string => `${hash.slice(0, 10)}...`
  * Writes each package file's fingerprint into the specification's `assets.models` entry of the same id.
  *
  *  - an entry with no `sha256` gets the file's; one with the file's (in any case) is kept; one with another is a problem, said in words;
- *  - an image the specification lists without `kind` gets `"kind": "image"` (a missing kind means a model), and a kind that disagrees with
+ *  - an image or an HDR sky the specification lists without `kind` gets `"kind": "image"` or `"kind": "hdr"` (a missing kind means a model), and a kind that disagrees with
  *    the manifest is a problem;
  *  - an entry that names no package file but carries a well-formed `sha256` is left alone - it may name a file already registered for
  *    the organisation or the platform, which the server checks on save; with no `sha256` either, it is a problem.
@@ -141,9 +141,9 @@ export function fillAssetHashes(
     }
 
     if (entry.kind === undefined) {
-      if (asset.kind === 'image') entry.kind = 'image'
+      if (asset.kind === 'image' || asset.kind === 'hdr') entry.kind = asset.kind
     } else if (entry.kind !== asset.kind) {
-      problems.push({ path: `${at}.kind`, message: `is "${String(entry.kind)}" but manifest.json lists "${asset.file}" as ${asset.kind === 'image' ? 'an image' : 'a model'}.` })
+      problems.push({ path: `${at}.kind`, message: `is "${String(entry.kind)}" but manifest.json lists "${asset.file}" as ${asset.kind === 'image' ? 'an image' : asset.kind === 'hdr' ? 'an HDR sky' : 'a model'}.` })
     }
   })
 
