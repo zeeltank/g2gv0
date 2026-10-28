@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, CalendarClock, DollarSign, FileCheck2, FileText, Loader2, Package, Pencil, Percent,
-  Plus, Send, Tag, Trash2, TrendingUp, User,
+  Plus, Send, Sparkles, Tag, Trash2, TrendingUp, User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -427,6 +427,27 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               icon={<Percent className="size-4" aria-hidden="true" />}
             />
           </div>
+
+          {opportunity.probability !== null && (
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Win Probability</span>
+                <span className="text-sm font-semibold tabular-nums">{opportunity.probability}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${opportunity.probability >= 70 ? 'bg-green-500' : opportunity.probability >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  style={{ width: `${opportunity.probability}%` }}
+                />
+              </div>
+              <div className="flex justify-end">
+                <span className="inline-flex items-center gap-1 text-xs text-purple-500">
+                  <Sparkles className="size-3" />
+                  AI-assisted scoring
+                </span>
+              </div>
+            </div>
+          )}
 
           <SectionCard title="Opportunity Details">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

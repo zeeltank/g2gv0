@@ -32,6 +32,7 @@ import { CrmHistoryTab } from './crm-history-tab'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
 import { CrmOrganizationCrossLinksTab, type OrganizationCrossModuleLinks } from './crm-cross-links-tab'
+import { Account360 } from './account-360'
 
 interface Props {
   organization: Organization
@@ -40,12 +41,13 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'cross_links' | 'custom'
+type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'cross_links' | 'account_360' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'hierarchy', label: 'Hierarchy' },
   { id: 'opportunities', label: 'Opportunities' },
   { id: 'quotes', label: 'Quotes' },
+  { id: 'account_360', label: 'Account 360' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'comments', label: 'Comments' },
   { id: 'documents', label: 'Documents' },
@@ -475,6 +477,12 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
       {tab === 'cross_links' && (
         <SectionCard title="GTM & Signals" description="Where this same organization also shows up, matched by name - these are three separate records, not one, so changes on one side don't update the others.">
           <CrmOrganizationCrossLinksTab links={crossLinks} loading={crossLinksLoading} />
+        </SectionCard>
+      )}
+
+      {tab === 'account_360' && (
+        <SectionCard title="Account 360" description="Full relationship view — contacts, opportunities, signals, campaigns, knowledge sources and explicit entity relationships for this account.">
+          <Account360 organizationId={organization.id} context={context} />
         </SectionCard>
       )}
 
