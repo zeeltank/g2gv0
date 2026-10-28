@@ -79,12 +79,11 @@ describe('Individual ICP of a product', () => {
     assert.ok(slugKey('A very long product identifier here').length <= 20)
   })
 
-  it('saves the product first, then creates the product record and saves its ICP as a DRAFT through the real APIs, and reports a partial failure honestly', () => {
+  it('saves the sub-product with its individual ICP directly and never creates a top-level product in the master product list', () => {
     const src = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.ok(src.indexOf('portfolioService.createOffer') < src.indexOf('productIcpService.createProduct'))
-    assert.ok(src.indexOf('productIcpService.createProduct') < src.indexOf('productIcpService.save'))
-    assert.match(src, /activate: false/)
-    assert.match(src, /The product was saved, but its ICP was not/)
+    assert.match(src, /portfolioService\.(createOffer|updateOffer)/)
+    assert.match(src, /icpConfig/)
+    assert.doesNotMatch(src, /productIcpService\.createProduct/)
     assert.doesNotMatch(src, /localStorage|sessionStorage/)
   })
 })
