@@ -46,7 +46,12 @@ let seq = 0
 export const rid = () => ++seq
 
 
-export const lines = (v: string) => v.split(/[\n,]/).map((x) => x.trim()).filter(Boolean)
+/**
+ * One item per line. A SHORT line may also hold several items separated by commas ("a, b, c"); a long line is one sentence and is kept whole, so
+ * a sentence with commas is never torn into pieces.
+ */
+export const lines = (v: string) =>
+  v.split('\n').flatMap((line) => { const t = line.trim(); return t.length <= 60 ? t.split(',') : [t] }).map((x) => x.trim()).filter(Boolean)
 const join = (v?: string[] | null) => (v ?? []).join('\n')
 
 export function fromConfig(config: IcpConfig, name: string): FormState {

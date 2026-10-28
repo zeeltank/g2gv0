@@ -27,12 +27,16 @@ export const emptyIcpForm = (): FormState => ({
   parts: [], triggers: [], queries: [], disqualifiers: [], must_have: [], catalogue: '', accounts: '', offer_ids: [],
 })
 
-/** A short lower-case key from a Product ID ("MY-01" -> "my_01"): letters, digits and underscores, starting with a letter, at most 20 characters. */
+/**
+ * A short lower-case key from a Product ID ("MY-01" -> "my_01"): letters, digits and underscores, starting with a letter, 3 to 20 characters (the
+ * server's rule). An ID too short to be a key on its own ("P3") gets a prefix ("prod_p3").
+ */
 export function slugKey(offerId: string): string {
   const s = offerId.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const withLetter = /^[a-z]/.test(s) ? s : `p_${s}`
+  const key = withLetter.slice(0, 20).replace(/_+$/, '')
 
-  return withLetter.slice(0, 20).replace(/_+$/, '')
+  return key.length >= 3 ? key : `prod_${key}`
 }
 
 const oneLine = (v: string, max: number) => v.replace(/\s+/g, ' ').trim().slice(0, max)
@@ -48,7 +52,7 @@ export function icpTouched(form: FormState, l: IcpLines): boolean {
  */
 export function buildIcpConfig(form: FormState, l: IcpLines, offer: { offer_id: string; name: string; what_it_does?: string | null }): IcpConfig {
   const part = slugKey(offer.offer_id) || 'product'
-  const triggerLines = lines(l.triggers.replace(/,/g, ';')).flatMap((t) => t.split(';')).map((t) => t.trim()).filter(Boolean)
+  const triggerLines = l.triggers.split('\n').flatMap((t) => (t.trim().length <= 60 ? t.split(/[;,]/) : t.split(';'))).map((t) => t.trim()).filter(Boolean)
   const queryLines = l.queries.split('\n').map((q) => q.trim()).filter(Boolean)
   const exclusionLines = l.exclusions.split('\n').map((q) => q.trim()).filter(Boolean)
 

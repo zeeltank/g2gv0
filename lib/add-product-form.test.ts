@@ -73,6 +73,9 @@ describe('Individual ICP of a product', () => {
   it('makes valid product keys from product ids', () => {
     assert.equal(slugKey('MY-01'), 'my_01')
     assert.equal(slugKey('01-ABC'), 'p_01_abc')
+    // the server wants 3 to 20 characters starting with a letter: a short ID such as P3 must still make a valid key
+    for (const id of ['P3', 'P1', 'A', '7', 'X-', 'G2G-01', 'EB-1']) assert.match(slugKey(id), /^[a-z][a-z0-9_]{2,19}$/, id)
+    assert.equal(slugKey('P3'), 'prod_p3')
     assert.ok(slugKey('A very long product identifier here').length <= 20)
   })
 
