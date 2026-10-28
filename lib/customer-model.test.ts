@@ -71,3 +71,33 @@ describe('Long lines are kept whole, short comma lists still split', () => {
     assert.match(s, /key = made\.data\?\.product\?\.key \|\| key/)
   })
 })
+
+describe('A long product description fits the ICP part (500 characters)', () => {
+  it('is kept whole up to 500 characters, and cut at a whole word beyond that', async () => {
+    const { buildIcpConfig, emptyIcpForm, emptyIcpLines } = await import('./product-icp-draft')
+    const long = 'Scholar Learn combines a Learning Management System (LMS) with Personalised Adaptive Learning (PAL). It supports teaching and learning through curriculum-aligned resources, teacher teaching-support, end-to-end assessments, learning progress tracking, and adaptive learning experiences that respond to student progress where supported.'
+    const cfg = buildIcpConfig({ ...emptyIcpForm(), label: 'x', industry_label: 'schools' }, emptyIcpLines(), { offer_id: 'P3', name: 'Scholar Learn', what_it_does: long })
+    const what = Object.values(cfg.parts ?? {})[0] as string
+    assert.equal(what, long, 'a 330-character description now fits whole')
+    assert.equal(Object.keys(cfg.parts ?? {})[0], 'prod_p3')
+    const huge = `${long} ${long} ${long}`
+    const cut = Object.values(buildIcpConfig({ ...emptyIcpForm(), label: 'x', industry_label: 'schools' }, emptyIcpLines(), { offer_id: 'P3', name: 'Scholar Learn', what_it_does: huge }).parts ?? {})[0] as string
+    assert.ok(cut.length <= 500 && huge.startsWith(cut) && !/\s$/.test(cut))
+  })
+})
+
+describe('Add or edit product: nothing gets stuck half-way', () => {
+  const s = read('components/domain/portfolio/product-form-dialog.tsx')
+  it('uses a product that already exists instead of creating it twice, and shortens a long name for the card', () => {
+    assert.match(s, /\(products \?\? \[\]\)\.some\(\(p\) => p\.key === key\)/)
+    assert.match(s, /already have a product with this key\|this product already exists/)
+    assert.match(s, /fitWords\(saved\.name, 50\)/)
+  })
+  it('says how to finish when the ICP step fails', () => {
+    assert.match(s, /choose Edit ICP/)
+  })
+  it('guidance allows 1,500 characters in both forms', () => {
+    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{1500\}/)
+    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{1500\}/)
+  })
+})

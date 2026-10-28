@@ -13,7 +13,7 @@ import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductInfo, ProductOffer, TaxonomyData } from '@/services/portfolio/types'
 import type { FormState } from '@/lib/icp-form'
-import { buildIcpConfig, emptyIcpForm, emptyIcpLines, icpTouched, slugKey, type IcpLines } from '@/lib/product-icp-draft'
+import { buildIcpConfig, emptyIcpForm, emptyIcpLines, fitWords, icpTouched, slugKey, type IcpLines } from '@/lib/product-icp-draft'
 import { productIcpService } from '@/services/signals/product-icp'
 import { ProductIcpSection } from './product-icp-section'
 
@@ -209,16 +209,25 @@ export function ProductFormDialog({
     // The ICP is a separate record on the server. The product is already saved; if the ICP cannot be, say exactly that (never "saved").
     if (wantsIcp) {
       let key = slugKey(saved.offer_id)
+      const label = fitWords(saved.name, 50)   // the product's name on the portfolio cards is at most 50 characters
       try {
-        // The server has the last word on the key (it fixes one that is too short); the ICP is saved under the key it created.
-        const made = await productIcpService.createProduct(context, { key, label: saved.name })
-        key = made.data?.product?.key || key
+        // The product may already exist from an earlier try that stopped after it was created: then it is used as it is, never created twice.
+        if (!(products ?? []).some((p) => p.key === key)) {
+          try {
+            // The server has the last word on the key (it fixes one that is too short); the ICP is saved under the key it created.
+            const made = await productIcpService.createProduct(context, { key, label })
+            key = made.data?.product?.key || key
+          } catch (err) {
+            const said = err instanceof ApiError && err.errors ? Object.values(err.errors).flat().map(String).join(' ') : ''
+            if (!/already have a product with this key|this product already exists/i.test(said)) throw err
+          }
+        }
         const config = buildIcpConfig(icp, icpLines, { offer_id: saved.offer_id, name: saved.name, what_it_does: saved.what_it_does })
         await productIcpService.save(context, key, { config, name: icp.label.trim(), note: 'Created with the product', activate: false })
       } catch (err) {
         const problems = err instanceof ApiError && err.errors ? Object.values(err.errors).flat().map(String) : []
         setIcpProblems(problems)
-        setPartial({ saved, created: !product, text: `The product was saved, but its ICP was not: ${apiErrorText(err, 'the ICP could not be saved')}. The ICP is not active and nothing was changed on any other product. You can create it from the product's page.` })
+        setPartial({ saved, created: !product, text: `The product was saved, but its ICP was not: ${apiErrorText(err, 'the ICP could not be saved')}. The ICP is not active and nothing was changed on any other product. To finish it: open Product Portfolio, find the "${label}" card at the top and choose Edit ICP (or edit this product again and save).` })
         setBusy(false)
         return
       }

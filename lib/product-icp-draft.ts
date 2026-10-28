@@ -41,6 +41,17 @@ export function slugKey(offerId: string): string {
 
 const oneLine = (v: string, max: number) => v.replace(/\s+/g, ' ').trim().slice(0, max)
 
+/** The server keeps a part's description to 500 characters. A longer product description is cut at the last whole word that fits. */
+const PART_MAX = 500
+export function fitWords(v: string, max: number): string {
+  const t = oneLine(v, 100000)
+  if (t.length <= max) return t
+  const cut = t.slice(0, max)
+  const space = cut.lastIndexOf(' ')
+
+  return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, '')
+}
+
 /** True when the person typed anything in the ICP section (an untouched section creates nothing). */
 export function icpTouched(form: FormState, l: IcpLines): boolean {
   return [form.label, form.industry_label, form.pitch, form.guidance, form.buyer_types, form.regions, l.triggers, l.queries, l.exclusions].some((v) => v.trim() !== '')
@@ -58,7 +69,7 @@ export function buildIcpConfig(form: FormState, l: IcpLines, offer: { offer_id: 
 
   const draft: FormState = {
     ...form,
-    parts: [{ _id: rid(), key: part, what: oneLine(offer.what_it_does || offer.name, 300) }],
+    parts: [{ _id: rid(), key: part, what: fitWords(offer.what_it_does || offer.name, PART_MAX) }],
     triggers: triggerLines.map((t, i) => ({
       _id: rid(), key: `${part}_t${i + 1}`.slice(0, 40), source: l.source, part, decay: l.freshness, pain: oneLine(t, 160), phrases: oneLine(t, 80),
     })),
