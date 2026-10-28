@@ -47,3 +47,27 @@ describe('Add product: the ICP is checked before the product is saved', () => {
     assert.match(s, /Fix the Individual ICP section\. Nothing was saved\./)
   })
 })
+
+describe('Long lines are kept whole, short comma lists still split', () => {
+  it('a sentence with commas is one item; "a, b, c" is three', async () => {
+    const { lines } = await import('./icp-form')
+    const sentence = 'Priority Gujarat markets: Ahmedabad, Surat, Vadodara, Rajkot, Gandhinagar, and other districts with suitable target schools.'
+    assert.deepEqual(lines(sentence), [sentence])
+    assert.deepEqual(lines('Gujarat, Maharashtra'), ['Gujarat', 'Maharashtra'])
+    assert.deepEqual(lines('Gujarat\nMaharashtra\n\n'), ['Gujarat', 'Maharashtra'])
+  })
+
+  it('a trigger sentence with commas stays one trigger', async () => {
+    const { buildIcpConfig, emptyIcpForm, emptyIcpLines } = await import('./product-icp-draft')
+    const l = emptyIcpLines()
+    const t = 'School publishes a tender for an LMS, digital-learning platform, or learning technology.'
+    l.triggers = `${t}\nSchool announces a digital-learning programme`
+    const cfg = buildIcpConfig({ ...emptyIcpForm(), label: 'x', industry_label: 'schools' }, l, { offer_id: 'P3', name: 'Scholar Learn' })
+    assert.equal(Object.keys(cfg.triggers ?? {}).length, 2)
+  })
+
+  it('after the server creates the product, the ICP is saved under the key the server returned', () => {
+    const s = read('components/domain/portfolio/product-form-dialog.tsx')
+    assert.match(s, /key = made\.data\?\.product\?\.key \|\| key/)
+  })
+})

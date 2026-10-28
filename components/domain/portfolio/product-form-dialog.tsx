@@ -208,9 +208,11 @@ export function ProductFormDialog({
 
     // The ICP is a separate record on the server. The product is already saved; if the ICP cannot be, say exactly that (never "saved").
     if (wantsIcp) {
-      const key = slugKey(saved.offer_id)
+      let key = slugKey(saved.offer_id)
       try {
-        await productIcpService.createProduct(context, { key, label: saved.name })
+        // The server has the last word on the key (it fixes one that is too short); the ICP is saved under the key it created.
+        const made = await productIcpService.createProduct(context, { key, label: saved.name })
+        key = made.data?.product?.key || key
         const config = buildIcpConfig(icp, icpLines, { offer_id: saved.offer_id, name: saved.name, what_it_does: saved.what_it_does })
         await productIcpService.save(context, key, { config, name: icp.label.trim(), note: 'Created with the product', activate: false })
       } catch (err) {
