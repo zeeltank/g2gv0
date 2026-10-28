@@ -17,8 +17,8 @@ export const portfolioService = {
   },
 
   /** The saved product details and ICP a run for this product would use (read-only; starts nothing). */
-  async getResearchContext(context: LaravelContext, key: string): Promise<{ status: number; data: { research_context: ResearchContext } }> {
-    return apiClient.get(`/portfolio/products/${encodeURIComponent(key)}`, withLaravelParams(context))
+  async getResearchContext(context: LaravelContext, key: string, regions?: { country: string; state?: string; city?: string }[]): Promise<{ status: number; data: { research_context: ResearchContext } }> {
+    return apiClient.get(`/portfolio/products/${encodeURIComponent(key)}`, withLaravelParams(context, regions && regions.length > 0 ? { regions: JSON.stringify(regions) } : undefined))
   },
 
   async getTaxonomy(context: LaravelContext): Promise<{ status: number; data: TaxonomyData }> {

@@ -13,7 +13,7 @@ import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
-import { regionLabel, type RegionSelection } from '@/lib/region-scope'
+import { commitPending, emptyDraft, previewRegions, regionLabel, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ResearchContextNotice } from '@/components/domain/signals/research-context-notice'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
@@ -43,12 +43,14 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const [total, setTotal] = useState<number | null>(null)
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
   const [regions, setRegions] = useState<RegionSelection[]>([])
+  const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
+  const [regionProblems, setRegionProblems] = useState<string[]>([])
   const seenCompleted = useRef(0)
 
   const key = selected?.key ?? null
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([])
+    setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
     seenCompleted.current = run.completedCount
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -76,6 +78,17 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const dayRun = dates?.find((d) => d.date === day) ?? null
   const latest = run.status?.latest_run ?? null
   const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped') ? latest : null)
+  // Generate Signals and Retry use the places added AND a country typed but not added. An unusable half-filled place stops the run and says why:
+  // it is never turned into another region, and never dropped without a word.
+  const generate = () => {
+    const c = commitPending(regions, draft)
+    if (c.problems.length > 0) { setRegionProblems(c.problems); return }
+    setRegionProblems([])
+    setRegions(c.list)
+    setDraft(emptyDraft())
+    void run.generate(c.list)
+  }
+  const effective = previewRegions(regions, draft)
   const pick = (d: string) => { setPicked(d === today ? null : d); setTotal(null) }
 
   return (
@@ -83,13 +96,13 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
         <div className="flex flex-wrap items-end gap-3">
           <ProductDropdown products={products} loading={loading} error={error} value={product} onChange={setProduct} />
-          <RegionSelector value={regions} onChange={setRegions} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
+          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
           <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-stretch sm:items-end gap-1">
             <Button
               type="button"
               size="lg"
               className="h-10 w-full sm:w-auto min-w-48"
-              onClick={() => void run.generate(regions)}
+              onClick={generate}
               disabled={!selected || run.running}
               aria-describedby="generate-hint"
             >
@@ -97,7 +110,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               {run.running ? 'Generating…' : 'Generate Signals'}
             </Button>
             <span id="generate-hint" className="text-xs text-muted-foreground">
-              {run.running ? 'Research is running. This can take a few minutes.' : selected ? `Runs research for ${selected.label} only${regions.length > 0 ? `, in ${regionLabel(regions)}` : ''}.` : 'Choose a product.'}
+              {run.running ? 'Research is running. This can take a few minutes.' : selected ? `Runs research for ${selected.label} only${effective.length > 0 ? `, in ${regionLabel(effective)}` : ''}.` : 'Choose a product.'}
             </span>
           </div>
         </div>
@@ -113,10 +126,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
         )}
 
-        {selected && <ResearchContextNotice context={context} productKey={selected.key} refreshKey={run.refreshKey} />}
+        {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
+        {selected && <ResearchContextNotice context={context} productKey={selected.key} regions={effective} refreshKey={run.refreshKey} />}
 
         {/* The run's real progress, right under the product it belongs to. */}
-        <ResearchProgress run={shownRun} onRetry={() => void run.generate(regions)} retryDisabled={run.running || !selected?.ready} />
+        <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !selected?.ready} />
         {run.notice && (
           <div className="mt-3">
             <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>

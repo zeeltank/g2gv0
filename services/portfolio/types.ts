@@ -196,6 +196,8 @@ export interface ProductInfo {
 
 /** What a run for one product will be built from: which saved product details and ICP fields exist, what each is used for, and what is missing. */
 export interface ResearchContext {
+  /** The geography the next run will use and where it comes from: the request, the ICP's saved regions (the default), or no region. */
+  region?: { source: 'request' | 'saved ICP' | 'All Regions'; label: string; places: number; saved_regions: string[]; note: string }
   product: { key: string | null; label: string | null; custom: boolean }
   icp: { source: 'database' | 'template' | null; profile_id: number | null; name: string | null; version: number | null; regions: string[]; saved: boolean } | null
   product_fields: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
