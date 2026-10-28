@@ -132,6 +132,10 @@ export const productIcpService = {
 
   get: (c: LaravelContext, product: string) => apiClient.get<{ status: number; data: IcpEditorState }>(path(product), base(c)),
 
+  /** Checks an ICP's settings on the server before the product exists (no product needed). Nothing is saved. */
+  checkConfig: (c: LaravelContext, config: IcpConfig) =>
+    apiClient.post<{ status: number; data: { valid: boolean; problems: string[] } }>(`/signals/icp/validate?${qs(c)}`, { config }),
+
   /** Checks the ICP on the server. Nothing is saved. */
   check: (c: LaravelContext, product: string, config: IcpConfig) =>
     apiClient.post<IcpCheckResult>(`${path(product)}/validate?${qs(c)}`, { config }),

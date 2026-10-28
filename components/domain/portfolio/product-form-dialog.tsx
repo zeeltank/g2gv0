@@ -176,6 +176,24 @@ export function ProductFormDialog({
     setBusy(true)
     setMessage('')
     setIcpProblems([])
+    // Check the ICP on the server BEFORE the product is saved, so a problem in it never leaves a saved product with no ICP. If the check itself cannot
+    // be made (offline, no permission), carry on: the save below still reports exactly what happens.
+    if (wantsIcp) {
+      try {
+        const cfg = buildIcpConfig(icp, icpLines, { offer_id: form.offer_id.trim() || 'new', name: form.name.trim(), what_it_does: form.what_it_does })
+        const { offer_ids: _omit, ...checkable } = cfg   // the product is not in the portfolio yet
+        void _omit
+        const res = await productIcpService.checkConfig(context, checkable)
+        if (!res.data.valid) {
+          setIcpProblems(res.data.problems)
+          setMessage('Fix the Individual ICP section. Nothing was saved.')
+          setBusy(false)
+          return
+        }
+      } catch {
+        // not blocking
+      }
+    }
     let saved: ProductOffer
     try {
       const body = toPayload(form, mode)
