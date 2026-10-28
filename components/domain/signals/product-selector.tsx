@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
-import { resolveSelection } from '@/lib/product-selection'
+import { choiceOf, resolveSelection } from '@/lib/product-selection'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductInfo, ProductsResponse } from '@/services/portfolio/types'
 
@@ -50,14 +50,14 @@ export function useProducts(context: LaravelContext) {
  * The selected product, remembered per organisation in this browser (and settable by `?product=`). The saved or linked value is only
  * used if it names a real configured product; otherwise `fallback` applies.
  */
-export function useSelectedProduct(context: LaravelContext, products: ProductInfo[] | null, opts: { allowAll: boolean }) {
+export function useSelectedProduct(context: LaravelContext, products: ProductInfo[] | null, opts: { allowAll: boolean; /** The screen can run one sub-product of a product. */ allowSub?: boolean }) {
   const [choice, setChoice] = useState<ProductChoice | null>(null)
 
   useEffect(() => {
     if (!products || choice !== null) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setChoice(resolveSelection(readStored(context), products, opts.allowAll))
-  }, [products, choice, context, opts.allowAll])
+    setChoice(resolveSelection(readStored(context), products, opts.allowAll, opts.allowSub ?? false))
+  }, [products, choice, context, opts.allowAll, opts.allowSub])
 
   const select = useCallback((next: ProductChoice) => {
     setChoice(next)
@@ -125,7 +125,7 @@ export function ProductSetupNotice({ product }: { product: ProductInfo | undefin
  * read its records and reach its setup) and says so.
  */
 export function ProductDropdown({
-  products, loading, error, value, onChange, id = 'product-select',
+  products, loading, error, value, onChange, id = 'product-select', allowSub = false,
 }: {
   products: ProductInfo[] | null
   loading: boolean
@@ -133,6 +133,8 @@ export function ProductDropdown({
   value: ProductChoice | null
   onChange: (next: ProductChoice) => void
   id?: string
+  /** List each product's sub-products under it, so one of them can be run on its own. */
+  allowSub?: boolean
 }) {
   if (loading && !products) return <Skeleton className="h-10 w-64 rounded-lg" aria-label="Loading products" />
   if (error || !products) return <p className="text-sm text-destructive" role="alert">{error ?? 'Products unavailable.'}</p>
@@ -146,7 +148,16 @@ export function ProductDropdown({
         onChange={(e) => onChange(e.target.value)}
         className="h-10 min-w-56 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {products.map((p) => <option key={p.key} value={p.key}>{p.label}{p.ready ? '' : ' (ICP setup required)'}</option>)}
+        {products.map((p) => (
+          [
+            <option key={p.key} value={p.key}>{p.label}{p.ready ? '' : ' (ICP setup required)'}</option>,
+            ...(allowSub ? p.offers.map((o) => (
+              <option key={`${p.key}::${o.offer_id}`} value={choiceOf(p.key, o.offer_id)} disabled={o.icp_ready === false}>
+                {'  ↳ '}{o.name} ({o.offer_id}){o.icp_ready === false ? ' — add its Individual ICP first' : ''}
+              </option>
+            )) : []),
+          ]
+        ))}
       </select>
     </div>
   )

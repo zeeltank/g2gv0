@@ -5,7 +5,7 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import type { ProductInfo } from '@/services/portfolio/types'
-import { runGuardedGenerate } from '@/lib/signals-generate'
+import { runGuardedGenerate, type GenerateSub } from '@/lib/signals-generate'
 import type { RegionSelection } from '@/lib/region-scope'
 import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
 
@@ -21,11 +21,20 @@ const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e in
 
 export { describeFinishedRun }
 
+/** The sub-product chosen on the screen, with whether its own ICP is ready (read from what the server says about the product's offers). */
+function subOf(products: ProductInfo[] | null, productKey: string | null, offerId: string | null): GenerateSub | null {
+  if (!offerId) return null
+  const o = products?.find((p) => p.key === productKey)?.offers.find((x) => x.offer_id === offerId)
+  if (!o) return { offer_id: offerId, name: offerId, ready: false, missing: ['that sub-product was not found'] }
+
+  return { offer_id: o.offer_id, name: o.name, ready: o.icp_ready !== false, missing: o.icp_missing ?? [] }
+}
+
 /**
  * Generate Signals for one product. Starts nothing unless the selected product is valid and ready (see generateSignals), allows one run at a
  * time, follows the run to its end, then bumps `refreshKey` so the lists re-read what the backend stored.
  */
-export function useGenerateSignals(context: LaravelContext, productKey: string | null, products: ProductInfo[] | null) {
+export function useGenerateSignals(context: LaravelContext, productKey: string | null, products: ProductInfo[] | null, offerId: string | null = null) {
   const [status, setStatus] = useState<ResearchStatusResponse['data'] | null>(null)
   const [running, setRunning] = useState(false)
   const [activeRun, setActiveRun] = useState<ResearchRun | null>(null)
@@ -114,11 +123,12 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
       }
     })()
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [productKey, loadStatus, follow])
+  }, [productKey, offerId, loadStatus, follow])
 
   const generate = useCallback(async (regions?: RegionSelection[]) => {
     await runGuardedGenerate(inFlight, {
       context, choice: productKey, running, regions,
+      sub: subOf(products, productKey, offerId),
       products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step })) ?? null,
       service: opportunitiesService,
     }, {
@@ -153,7 +163,7 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
         setNotice({ tone: 'error', text: errText(e, 'Could not start the run.') })
       },
     })
-  }, [context, productKey, products, running, follow, loadStatus])
+  }, [context, productKey, offerId, products, running, follow, loadStatus])
 
   return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null) }
 }
