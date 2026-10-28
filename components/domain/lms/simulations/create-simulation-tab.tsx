@@ -455,7 +455,7 @@ export function CreateTab({
                             {unused && <span className="block text-[11px] text-muted-foreground">Not used by the simulation, so not uploaded</span>}
                           </td>
                           <td className="px-2 py-2 font-mono text-[11px]">{asset.id}</td>
-                          <td className="whitespace-nowrap px-2 py-2">{asset.kind === 'image' ? 'Image' : '3D model'}</td>
+                          <td className="whitespace-nowrap px-2 py-2">{asset.kind === 'image' ? 'Image' : asset.kind === 'hdr' ? 'HDR sky' : '3D model'}</td>
                           <td className="whitespace-nowrap px-2 py-2 tabular-nums">{formatBytes(asset.size)}</td>
                           <td className="px-2 py-1.5">
                             <Input

@@ -37,6 +37,8 @@ export const PACKAGE_LIMITS = {
   packageBytes: 100 * MB,
   modelBytes: 25 * MB,
   imageBytes: 2 * MB,
+  /** An HDR sky (a Radiance .hdr: the light of a place); a 1K one is about 1.5 MB and a 2K one about 5 MB. */
+  hdrBytes: 8 * MB,
   /** The server's cap on a specification (see MAX_SPEC_BYTES in the Add dialog). */
   specBytes: 1_000_000,
   manifestBytes: 256 * 1024,
@@ -50,7 +52,7 @@ export const PACKAGE_LIMITS = {
   sourceChars: 500,
 } as const
 
-export type PackageAssetKind = 'model' | 'image'
+export type PackageAssetKind = 'model' | 'image' | 'hdr'
 
 export type PackageProblemCode =
   | 'not-a-zip'
@@ -108,6 +110,10 @@ const ID_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/
 const ARCHIVE_EXTENSIONS = new Set(['zip', 'jar', 'war', '7z', 'rar', 'gz', 'tgz', 'tar', 'bz2', 'xz', 'lzma', 'z', 'cab', 'iso', 'apk', 'dmg'])
 const MODEL_EXTENSIONS = new Set(['glb'])
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp'])
+const HDR_EXTENSIONS = new Set(['hdr'])
+/** The cap on a file of this kind (the server holds a model to 25 MB, a picture to 2 MB and an HDR sky to 8 MB). */
+const capFor = (kind: PackageAssetKind): number => (kind === 'hdr' ? PACKAGE_LIMITS.hdrBytes : kind === 'image' ? PACKAGE_LIMITS.imageBytes : PACKAGE_LIMITS.modelBytes)
+const kindWords = (kind: PackageAssetKind): string => (kind === 'hdr' ? 'an HDR sky' : kind === 'image' ? 'an image' : 'a model')
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -387,6 +393,10 @@ export function sniffAsset(bytes: Uint8Array): Sniffed | { archive: true } | { b
   if (at(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { kind: 'image', mime: 'image/png', label: 'a PNG image' }
   if (at(0xff, 0xd8, 0xff)) return { kind: 'image', mime: 'image/jpeg', label: 'a JPEG image' }
   if (at(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return { kind: 'image', mime: 'image/webp', label: 'a WebP image' }
+  // a Radiance HDR: "#?RADIANCE" or "#?RGBE" and a newline
+  const radiance = [0x23, 0x3f, 0x52, 0x41, 0x44, 0x49, 0x41, 0x4e, 0x43, 0x45, 0x0a]
+  const rgbe = [0x23, 0x3f, 0x52, 0x47, 0x42, 0x45, 0x0a]
+  if (at(...radiance) || at(...rgbe)) return { kind: 'hdr', mime: 'image/vnd.radiance', label: 'a Radiance HDR image' }
   return null
 }
 
@@ -495,18 +505,18 @@ export function readManifest(manifest: Record<string, unknown>): { assets: Manif
     files.add(file.toLowerCase())
 
     const kind = entry.kind
-    if (kind !== 'model' && kind !== 'image') bad(`${at}.kind`, 'must be "model" or "image"')
+    if (kind !== 'model' && kind !== 'image' && kind !== 'hdr') bad(`${at}.kind`, 'must be "model", "image" or "hdr"')
     else if (file !== '' && !fileProblem) {
       const extension = extensionOf(file)
-      const fits = kind === 'model' ? MODEL_EXTENSIONS.has(extension) : IMAGE_EXTENSIONS.has(extension)
-      if (!fits) bad(`${at}.kind`, kind === 'model' ? `"${shown(file)}" is listed as a model, but a model file ends in .glb` : `"${shown(file)}" is listed as an image, but an image file ends in .png, .jpg or .webp`)
+      const fits = kind === 'model' ? MODEL_EXTENSIONS.has(extension) : kind === 'hdr' ? HDR_EXTENSIONS.has(extension) : IMAGE_EXTENSIONS.has(extension)
+      if (!fits) bad(`${at}.kind`, kind === 'model' ? `"${shown(file)}" is listed as a model, but a model file ends in .glb` : kind === 'hdr' ? `"${shown(file)}" is listed as an HDR sky, but an HDR file ends in .hdr` : `"${shown(file)}" is listed as an image, but an image file ends in .png, .jpg or .webp`)
     }
 
     const name = text(entry, 'name', PACKAGE_LIMITS.nameChars, at) || baseNameOf(file).replace(/\.[^.]*$/, '')
     assets.push({
       id,
       file,
-      kind: kind === 'image' ? 'image' : 'model',
+      kind: kind === 'image' ? 'image' : kind === 'hdr' ? 'hdr' : 'model',
       name,
       licence: text(entry, 'licence', PACKAGE_LIMITS.licenceChars, at),
       credit: text(entry, 'credit', PACKAGE_LIMITS.creditChars, at),
@@ -584,9 +594,9 @@ export async function readPackage(input: Uint8Array | ArrayBuffer): Promise<Read
     // Declared sizes are held to their caps now, before anything is unpacked.
     for (const asset of listed) {
       const entry = byName.get(asset.file)
-      const cap = asset.kind === 'image' ? PACKAGE_LIMITS.imageBytes : PACKAGE_LIMITS.modelBytes
+      const cap = capFor(asset.kind)
       if (entry && entry.size > cap) {
-        problems.push({ code: 'oversize', path: asset.file, message: `"${shown(asset.file)}" is ${formatBytes(entry.size)}; ${asset.kind === 'image' ? 'an image' : 'a model'} may be at most ${formatBytes(cap)}.` })
+        problems.push({ code: 'oversize', path: asset.file, message: `"${shown(asset.file)}" is ${formatBytes(entry.size)}; ${kindWords(asset.kind)} may be at most ${formatBytes(cap)}.` })
       }
     }
     const readme = byName.get(README_FILE)
@@ -605,7 +615,7 @@ export async function readPackage(input: Uint8Array | ArrayBuffer): Promise<Read
     const assets: PackageAsset[] = []
     for (const asset of listed) {
       await yieldToPage()
-      const cap = asset.kind === 'image' ? PACKAGE_LIMITS.imageBytes : PACKAGE_LIMITS.modelBytes
+      const cap = capFor(asset.kind)
       const data = extract(bytes, byName.get(asset.file) as ZipEntry, dataEnd, cap)
       const found = sniffAsset(data)
       const label = shown(asset.file)
@@ -614,9 +624,9 @@ export async function readPackage(input: Uint8Array | ArrayBuffer): Promise<Read
       } else if (found && 'broken' in found) {
         problems.push({ code: 'asset', path: asset.file, message: `"${label}" ${found.broken}.` })
       } else if (!found) {
-        problems.push({ code: 'asset', path: asset.file, message: `"${label}" is not a model or image this system takes. Use a binary glTF (.glb) for a model and a PNG, JPEG or WebP for an image.` })
+        problems.push({ code: 'asset', path: asset.file, message: `"${label}" is not a model, image or HDR sky this system takes. Use a binary glTF (.glb) for a model, a PNG, JPEG or WebP for an image and a Radiance .hdr for an HDR sky.` })
       } else if (found.kind !== asset.kind) {
-        problems.push({ code: 'asset', path: asset.file, message: `"${label}" is ${found.label}, but manifest.json lists it as ${asset.kind === 'model' ? 'a model' : 'an image'}.` })
+        problems.push({ code: 'asset', path: asset.file, message: `"${label}" is ${found.label}, but manifest.json lists it as ${kindWords(asset.kind)}.` })
       } else {
         assets.push({ ...asset, size: data.length, bytes: data })
       }

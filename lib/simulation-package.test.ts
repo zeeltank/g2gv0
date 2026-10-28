@@ -321,7 +321,7 @@ describe('hostile archives: caught while unpacking', () => {
     const v1 = glb(64)
     new DataView(v1.buffer).setUint32(4, 1, true)
     assert.ok(says(await refused(zip({ ...goodFiles(), 'assets/eye.glb': v1 })), /glTF version 1/))
-    assert.ok(says(await refused(zip({ ...goodFiles(), 'assets/eye.glb': strToU8('just text') })), /not a model or image this system takes/))
+    assert.ok(says(await refused(zip({ ...goodFiles(), 'assets/eye.glb': strToU8('just text') })), /not a model, image or HDR sky this system takes/))
   })
 })
 
@@ -384,7 +384,7 @@ describe('what the manifest requires of the zip', () => {
     assert.match(text, /"spec": must be "simulation\.json"/)
     assert.match(text, /assets\[0\]\.id: must be lowercase letters/)
     assert.match(text, /assets\[2\]\.id: "dup" is used twice/)
-    assert.match(text, /assets\[3\]\.kind: must be "model" or "image"/)
+    assert.match(text, /assets\[3\]\.kind: must be "model", "image" or "hdr"/)
     assert.match(text, /assets\[4\]\.kind: "assets\/y\.png" is listed as a model, but a model file ends in \.glb/)
     assert.match(text, /assets\[5\]\.file: "manifest\.json" is one of the package's own files/)
   })
@@ -418,6 +418,12 @@ describe('pathProblem', () => {
 })
 
 describe('sniffAsset', () => {
+  it('knows a Radiance HDR from "#?RADIANCE" or "#?RGBE" and a newline, and nothing that only starts like one', () => {
+    assert.deepEqual(sniffAsset(strToU8('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 512 +X 1024\n')), { kind: 'hdr', mime: 'image/vnd.radiance', label: 'a Radiance HDR image' })
+    assert.deepEqual(sniffAsset(strToU8('#?RGBE\nFORMAT=32-bit_rle_rgbe\n\n-Y 512 +X 1024\n')), { kind: 'hdr', mime: 'image/vnd.radiance', label: 'a Radiance HDR image' })
+    for (const text of ['#?RADIANCE', '#?RADIANCEX\n', '# RADIANCE\n', '#?RGBE', '#!/bin/sh\n']) assert.equal(sniffAsset(strToU8(text)), null, text)
+  })
+
   it('knows a model and the three image types from their first bytes, and says what they are', () => {
     assert.deepEqual(sniffAsset(glb()), { kind: 'model', mime: 'model/gltf-binary', label: 'a binary glTF (.glb) 3D model' })
     assert.deepEqual(sniffAsset(png()), { kind: 'image', mime: 'image/png', label: 'a PNG image' })

@@ -14,6 +14,7 @@ import { afterEach, describe, it } from 'node:test'
 import {
   ASSET_NOT_IN_SPEC_REASON,
   MAX_ASSET_BYTES,
+  MAX_HDR_BYTES,
   MAX_IMAGE_BYTES,
   MAX_MODELS_PER_REQUEST,
   answerAssetRequest,
@@ -713,6 +714,22 @@ describe('the download of one file', () => {
     assert.equal(calls.length, 0)
   })
 
+  it('says an HDR sky is an HDR sky from the registered kind or from Radiance\'s own type (which is also an image/ type), before anything is called an image', () => {
+    assert.equal(resolveAssetKind('hdr', null), 'hdr')
+    assert.equal(resolveAssetKind(undefined, 'image/vnd.radiance'), 'hdr')
+    assert.equal(resolveAssetKind('image', 'image/vnd.radiance'), 'image', 'a registered image is not turned into a sky by a response type')
+    assert.equal(resolveAssetKind('hdr', 'image/png'), 'hdr')
+    assert.equal(buildAssetMessage(A, new ArrayBuffer(1), { contentType: 'image/vnd.radiance' }).kind, 'hdr')
+    assert.equal(buildAssetMessage(A, new ArrayBuffer(1), { credit: credit({ kind: 'hdr' }) }).kind, 'hdr')
+    assert.equal(buildAssetMessage(A, new ArrayBuffer(1), { contentType: 'image/vnd.radiance' }).mime, 'image/vnd.radiance')
+    assert.equal(readAssetCredits([{ sha256: A, kind: 'hdr', name: 'Sky' }])[0].kind, 'hdr')
+  })
+  it('holds an HDR sky to 8 MB, a model to 25 MB and an image to 3 MB', () => {
+    assert.equal(MAX_HDR_BYTES, 8 * MB)
+    assert.equal(assetByteLimit('hdr', null), 8 * MB)
+    assert.equal(assetByteLimit(undefined, 'image/vnd.radiance'), 8 * MB)
+    assert.equal(assetByteLimit('hdr', 'image/png'), 8 * MB)
+  })
   it('holds a model to 25 MB and an image to 3 MB', () => {
     assert.equal(MAX_ASSET_BYTES, 25 * MB)
     assert.equal(MAX_IMAGE_BYTES, 3 * MB)

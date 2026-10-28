@@ -44,14 +44,17 @@ export const MAX_ASSET_DOWNLOADS_IN_PARALLEL = 3
 export const MAX_ASSET_BYTES = 25 * 1024 * 1024
 /** The largest image (photograph or diagram) this page will download. */
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024
+/** The largest HDR sky (a Radiance .hdr: the light of a place) this page will download; the server holds one to 8 MB. */
+export const MAX_HDR_BYTES = 8 * 1024 * 1024
 const MAX_MODEL_ID_CHARS = 200
 
-/** What a registered file is: a 3D model (`.glb`) or a picture. A file whose kind is not said is a model. */
-export type AssetKind = 'model' | 'image'
+/** What a registered file is: a 3D model (`.glb`), a picture, or an HDR sky (a Radiance `.hdr`). A file whose kind is not said is a model. */
+export type AssetKind = 'model' | 'image' | 'hdr'
 
 /** The file types handed to the runtime with a `mime`: the ones the API serves for models and images. Any other type is not passed on. */
 const KNOWN_MODEL_MIMES: ReadonlySet<string> = new Set(['model/gltf-binary'])
 const KNOWN_IMAGE_MIMES: ReadonlySet<string> = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif', 'image/svg+xml'])
+const KNOWN_HDR_MIMES: ReadonlySet<string> = new Set(['image/vnd.radiance'])
 
 /** The media type of a Content-Type value, lower-case and without parameters ("Image/PNG; charset=x" -> "image/png"); null when there is none. */
 export function mediaType(contentType: string | null | undefined): string | null {
@@ -63,21 +66,26 @@ export function mediaType(contentType: string | null | undefined): string | null
 /** The media type of a response when it is a known image or model type, otherwise null (nothing is guessed from an unfamiliar type). */
 export function knownAssetMime(contentType: string | null | undefined): string | null {
   const type = mediaType(contentType)
-  return type !== null && (KNOWN_MODEL_MIMES.has(type) || KNOWN_IMAGE_MIMES.has(type)) ? type : null
+  return type !== null && (KNOWN_MODEL_MIMES.has(type) || KNOWN_IMAGE_MIMES.has(type) || KNOWN_HDR_MIMES.has(type)) ? type : null
 }
 
 /**
- * What a file is, from what is known of it. A file that either the registered kind or the type of the response says is an image is an image
- * (so it gets the stricter size limit); everything else is a model, which is also what a file with no kind recorded has always been.
+ * What a file is, from what is known of it. A file that either the registered kind or the type of the response says is an HDR sky is one (Radiance's own type is
+ * `image/vnd.radiance`, which is also why it must be asked before the pictures); one that says it is an image is an image (so it gets the stricter size limit);
+ * everything else is a model, which is also what a file with no kind recorded has always been.
  */
 export function resolveAssetKind(kind: AssetKind | null | undefined, contentType?: string | null): AssetKind {
+  if (kind === 'hdr') return 'hdr'
   if (kind === 'image') return 'image'
-  return mediaType(contentType)?.startsWith('image/') ? 'image' : 'model'
+  const type = mediaType(contentType)
+  if (type !== null && KNOWN_HDR_MIMES.has(type)) return 'hdr'
+  return type?.startsWith('image/') ? 'image' : 'model'
 }
 
-/** The most bytes this page will read for a file: 3 MB for an image, 25 MB for a model. `contentType` is the response's, `kind` the registered one. */
+/** The most bytes this page will read for a file: 8 MB for an HDR sky, 3 MB for an image, 25 MB for a model. `contentType` is the response's, `kind` the registered one. */
 export function assetByteLimit(kind: AssetKind | null | undefined, contentType?: string | null): number {
-  return resolveAssetKind(kind, contentType) === 'image' ? MAX_IMAGE_BYTES : MAX_ASSET_BYTES
+  const resolved = resolveAssetKind(kind, contentType)
+  return resolved === 'hdr' ? MAX_HDR_BYTES : resolved === 'image' ? MAX_IMAGE_BYTES : MAX_ASSET_BYTES
 }
 
 /** One file the runtime asks for: the specification's own id for it, and the hash of its file. */
@@ -259,7 +267,7 @@ export function httpsUrl(value: unknown): string | null {
 /** One file's credit as the API gives it (`data.assets[]` of GET /lms/simulations/{id}), cleaned: every part is text or null. */
 export interface AssetCredit {
   sha256: string
-  /** A 3D model or an image (`kind`); a credit from a server that does not say is a model. */
+  /** A 3D model, an image or an HDR sky (`kind`); a credit from a server that does not say is a model. */
   kind: AssetKind
   /** The file's name (`name`). */
   name: string | null
@@ -282,7 +290,7 @@ export function readAssetCredits(value: unknown): AssetCredit[] {
     const source = typeof item.source_url === 'string' ? item.source_url.trim().slice(0, MAX_CREDIT_URL) : null
     credits.push({
       sha256: item.sha256,
-      kind: item.kind === 'image' ? 'image' : 'model',
+      kind: item.kind === 'image' ? 'image' : item.kind === 'hdr' ? 'hdr' : 'model',
       name: creditText(item.name),
       credit: creditText(item.credit),
       licence: creditText(item.licence),
@@ -317,7 +325,7 @@ export function creditKindFor(assets: unknown, sha256: string): AssetKind | unde
 
 /**
  * `{ type: 'asset' }`: the file of one model or image. `bytes` is meant to be transferred, so pass a buffer nobody else keeps.
- * `kind` is always sent: 'image' when `kind`, the credit or the response's type says so, otherwise 'model'. `mime` is sent only for a known
+ * `kind` is always sent: 'hdr' or 'image' when `kind`, the credit or the response's type says so, otherwise 'model'. `mime` is sent only for a known
  * image or model type (`knownAssetMime` of the response's Content-Type) - never a type the API did not say or one this page does not recognise.
  */
 export function buildAssetMessage(
@@ -368,7 +376,7 @@ export interface AssetCreditLine {
 }
 
 /** Shown with the credit of each kind of file. */
-export const ASSET_KIND_LABEL: Readonly<Record<AssetKind, string>> = { model: '3D model', image: 'Image' }
+export const ASSET_KIND_LABEL: Readonly<Record<AssetKind, string>> = { model: '3D model', image: 'Image', hdr: 'Sky light' }
 
 /** With this many credits or fewer the list under the player is open; with more it starts closed. */
 export const CREDITS_OPEN_BY_DEFAULT_MAX = 3
@@ -381,7 +389,7 @@ export const creditsSummary = (count: number): string => `3D model and image cre
 
 /** "3D model: <name> - <credit> (<licence>)" or "Image: ...", leaving out what is not known, plus the source as a link (https only) or as plain text. */
 export function formatAssetCredit(credit: AssetCredit): AssetCreditLine {
-  const label = ASSET_KIND_LABEL[credit.kind === 'image' ? 'image' : 'model']
+  const label = ASSET_KIND_LABEL[credit.kind === 'image' ? 'image' : credit.kind === 'hdr' ? 'hdr' : 'model']
   const who = [credit.name, credit.credit].filter((part): part is string => Boolean(part)).join(' - ')
   const body = [who, credit.licence ? `(${credit.licence})` : ''].filter(Boolean).join(' ')
   const href = httpsUrl(credit.source)
