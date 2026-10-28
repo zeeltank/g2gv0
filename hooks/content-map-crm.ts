@@ -1,5 +1,12 @@
 import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 
+// Phase 1-4 Automation CRM screens
+const SignalInboxListView = createLazyComponent(() => import('@/domain/crm/signal-inbox-list-view').then((m) => ({ default: m.SignalInboxListView })))
+const OutreachApprovalListView = createLazyComponent(() => import('@/domain/crm/outreach-approval-list-view').then((m) => ({ default: m.OutreachApprovalListView })))
+const AgentRunListView = createLazyComponent(() => import('@/domain/crm/agent-run-list-view').then((m) => ({ default: m.AgentRunListView })))
+const AutomationRulesListView = createLazyComponent(() => import('@/domain/crm/automation-rules-list-view').then((m) => ({ default: m.AutomationRulesListView })))
+const ConsentListView = createLazyComponent(() => import('@/domain/crm/consent-list-view').then((m) => ({ default: m.ConsentListView })))
+
 const LeadListView = createLazyComponent(() => import('@/domain/crm/lead-list-view').then((m) => ({ default: m.LeadListView })))
 const OrganizationListView = createLazyComponent(() => import('@/domain/crm/organization-list-view').then((m) => ({ default: m.OrganizationListView })))
 const ContactListView = createLazyComponent(() => import('@/domain/crm/contact-list-view').then((m) => ({ default: m.ContactListView })))
@@ -71,6 +78,12 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/support/email-templates', component: EmailTemplateListView },
   { accessLink: '/module/crm/support/reports', component: CrmReportsView },
   { accessLink: '/module/crm/reports', component: CrmReportsShell },
+  // Phase 1-4 Automation CRM
+  { accessLink: '/module/crm/marketing/signal-inbox', component: SignalInboxListView },
+  { accessLink: '/module/crm/marketing/outreach-approvals', component: OutreachApprovalListView },
+  { accessLink: '/module/crm/marketing/agent-runs', component: AgentRunListView },
+  { accessLink: '/module/crm/marketing/automation-rules', component: AutomationRulesListView },
+  { accessLink: '/module/crm/marketing/consent', component: ConsentListView },
   // Cross-links to already-shipped screens (vtiger's own "one module, several
   // parent tabs" mechanism) - same component, a second access_link/menu entry
   // so Support gets correct active-state highlighting and back-navigation of
