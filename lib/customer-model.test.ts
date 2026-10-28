@@ -66,9 +66,9 @@ describe('Long lines are kept whole, short comma lists still split', () => {
     assert.equal(Object.keys(cfg.triggers ?? {}).length, 2)
   })
 
-  it('after the server creates the product, the ICP is saved under the key the server returned', () => {
+  it('sub-products are saved with their individual ICP directly without creating a top-level product', () => {
     const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(s, /key = made\.data\?\.product\?\.key \|\| key/)
+    assert.match(s, /toPayload\(form, mode, icpConfig\)/)
   })
 })
 
@@ -86,28 +86,14 @@ describe('A long product description fits the ICP part (500 characters)', () => 
   })
 })
 
-describe('Add or edit product: nothing gets stuck half-way', () => {
+describe('Add or edit sub-product: saves directly to offers', () => {
   const s = read('components/domain/portfolio/product-form-dialog.tsx')
-  it('uses a product that already exists instead of creating it twice, and shortens a long name for the card', () => {
-    assert.match(s, /\(products \?\? \[\]\)\.some\(\(p\) => p\.key === key\)/)
-    assert.match(s, /already have a product with this key\|this product already exists/)
-    assert.match(s, /fitWords\(saved\.name, 50\)/)
-  })
-  it('says how to finish when the ICP step fails', () => {
-    assert.match(s, /choose Edit ICP/)
+  it('sub-products belong to their parent product and never create a master product', () => {
+    assert.doesNotMatch(s, /productIcpService\.createProduct/)
   })
   it('guidance allows 1,500 characters in both forms', () => {
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{1500\}/)
     assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{1500\}/)
-  })
-})
-
-describe('A product with the same name already exists', () => {
-  it('is reused instead of being created again', () => {
-    const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(s, /p\.custom && p\.label\.trim\(\)\.toLowerCase\(\) === label\.toLowerCase\(\)/)
-    assert.match(s, /if \(sameName\) key = sameName\.key/)
-    assert.ok(s.indexOf('if (sameName) key = sameName.key') < s.indexOf('productIcpService.createProduct'))
   })
 })
 

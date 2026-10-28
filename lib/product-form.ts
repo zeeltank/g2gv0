@@ -177,7 +177,7 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
 const text = (v: string): string | null => (v.trim() === '' ? null : v.trim())
 
 /** The body for POST (create) or PUT (edit: the Offer ID never changes). */
-export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<string, unknown> {
+export function toPayload(f: ProductFormState, mode: 'create' | 'edit', icpConfig?: any): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...(mode === 'create' ? { offer_id: f.offer_id.trim() } : {}),
     name: f.name.trim(),
@@ -198,7 +198,9 @@ export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<
     notes: text(f.notes),
   }
 
-  if (f.icp && (f.icp.enabled || f.icp.label.trim() || f.icp.industry_label.trim() || f.icp.pitch.trim())) {
+  if (icpConfig) {
+    payload.icp_config = icpConfig
+  } else if (f.icp && (f.icp.enabled || f.icp.label.trim() || f.icp.industry_label.trim() || f.icp.pitch.trim())) {
     const lines = (t: string) => t.split('\n').map((l) => l.trim()).filter(Boolean)
     payload.icp_config = {
       label: f.icp.label.trim() || `${f.name.trim()} ICP`,
