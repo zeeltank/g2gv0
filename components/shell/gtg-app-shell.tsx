@@ -1,6 +1,6 @@
 'use client'
 
-import { Component, useState, useEffect, useCallback, useMemo, useRef, Suspense, type ReactNode } from 'react'
+import { Component, useState, useEffect, useCallback, useMemo, useRef, Suspense, type ComponentType, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PanelLeftClose } from 'lucide-react'
 import { resolveBreadcrumb, type ActiveNav } from '@/hooks/use-navigation'
@@ -1295,6 +1295,15 @@ export function GtgAppShell({
           triggerRef={toolbarButtonRef}
         />
       </div>
+      {pathname.startsWith('/module/crm') && <CrmChatWidgetLazy />}
     </div>
   )
+}
+
+function CrmChatWidgetLazy() {
+  const [Widget, setWidget] = useState<ComponentType | null>(null)
+  useEffect(() => {
+    import('@/components/domain/crm/crm-chat-widget').then(m => setWidget(() => m.CrmChatWidget))
+  }, [])
+  return Widget ? <Widget /> : null
 }

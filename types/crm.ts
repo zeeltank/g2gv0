@@ -74,6 +74,11 @@ export interface Lead {
   annualRevenue: number | null
   numberOfEmp: string | null
   emailOptOut: boolean
+  lifecycleStatus: 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted' | 'lost' | null
+  nextAction: string | null
+  followUpDueDate: string | null
+  consentStatus: 'unknown' | 'opted_in' | 'opted_out' | 'suppressed' | null
+  suppressedAt: string | null
   campaignText: string | null
   street: string | null
   city: string | null
@@ -613,6 +618,65 @@ export interface CampaignTarget {
   name: string
   subLabel: string | null
   responseStatus: string
+  sentAt: string | null
+  repliedAt: string | null
+  meetingBookedAt: string | null
+  optedOutAt: string | null
+  convertedAt: string | null
+}
+
+export type CampaignTargetEvent = 'sent' | 'opened' | 'replied' | 'meeting_booked' | 'opted_out' | 'converted'
+
+// ── Outreach Approvals ────────────────────────────────────────────────────
+
+export type OutreachApprovalStatus = 'pending' | 'approved' | 'rejected' | 'sent'
+
+export interface OutreachApproval {
+  id: string
+  campaignId: string
+  campaignName: string | null
+  targetRowId: string | null
+  targetType: 'lead' | 'contact' | 'organization' | null
+  targetId: string | null
+  targetName: string | null
+  subject: string | null
+  body: string | null
+  channel: string
+  status: OutreachApprovalStatus
+  requestedBy: string | null
+  requestedByName: string | null
+  reviewedBy: string | null
+  reviewedByName: string | null
+  reviewedAt: string | null
+  rejectionReason: string | null
+  sentAt: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface OutreachApprovalListResponse {
+  status: number
+  message: string
+  data: {
+    items: OutreachApproval[]
+    pagination: CrmPagination
+  }
+}
+
+export interface OutreachApprovalResponse {
+  status: number
+  message: string
+  data: OutreachApproval
+}
+
+export interface OutreachApprovalPayload {
+  campaignId: string
+  targetType: 'lead' | 'contact' | 'organization'
+  targetId: string
+  subject: string
+  body: string
+  channel?: string
+  targetRowId?: string
 }
 
 export interface CampaignTargetsResponse {
@@ -2033,4 +2097,275 @@ export interface CrmAuditEntryResponse {
   status: number
   message: string
   data: CrmAuditEntry[]
+}
+
+// ── Phase 2: Signal Inbox ─────────────────────────────────────────────────
+
+export type SignalClassification =
+  | 'unclassified'
+  | 'buying_signal'
+  | 'brand_mention'
+  | 'competitor_move'
+  | 'industry_trend'
+  | 'irrelevant'
+
+export type SignalStatus = 'pending' | 'accepted' | 'rejected' | 'dismissed' | 'promoted'
+
+export interface SignalInboxItem {
+  id: string
+  signalKey: string
+  sourceName: string | null
+  sourceUrl: string | null
+  title: string
+  body: string | null
+  publishedAt: string | null
+  ingestedAt: string
+  classification: SignalClassification
+  classificationConfidence: number | null
+  classificationReason: string | null
+  relevanceScore: number | null
+  linkedAccountId: string | null
+  linkedAccountName: string | null
+  linkedAccountConfidence: number | null
+  status: SignalStatus
+  reviewedAt: string | null
+  promotedTo: string | null
+  assignedTo: string | null
+  tags: string[]
+}
+
+export interface SignalInboxListResponse {
+  status: number
+  message: string
+  data: {
+    items: SignalInboxItem[]
+    pagination: CrmPagination
+  }
+}
+
+export interface SignalInboxItemResponse {
+  status: number
+  message: string
+  data: SignalInboxItem
+}
+
+export interface SignalTopic {
+  id: string
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+  status: boolean
+}
+
+export interface SignalTopicPayload {
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+}
+
+export interface SignalTopicsResponse {
+  status: number
+  message: string
+  data: SignalTopic[]
+}
+
+// ── Phase 3: Knowledge Graph ──────────────────────────────────────────────────
+
+export interface EntityRelationship {
+  id: string
+  fromType: string
+  fromId: string
+  toType: string
+  toId: string
+  relationshipType: string
+  confidence: number | null
+  source: string | null
+  sourceUrl: string | null
+  evidence: string | null
+  verified: boolean
+  createdAt: string | null
+}
+
+export interface EntityRelationshipPayload {
+  fromType: string
+  fromId: string
+  toType: string
+  toId: string
+  relationshipType: string
+  confidence?: number | null
+  source?: string
+  sourceUrl?: string
+  evidence?: string
+}
+
+export interface EntityRelationshipListResponse {
+  status: number
+  message: string
+  data: { items: EntityRelationship[]; pagination: CrmPagination }
+}
+
+export interface KnowledgeSource {
+  id: string
+  entityType: string
+  entityId: string
+  sourceType: 'web_scrape' | 'linkedin' | 'news' | 'document' | 'manual' | 'api'
+  title: string | null
+  url: string | null
+  content: string | null
+  confidence: number | null
+  verified: boolean
+  collectedAt: string | null
+}
+
+export interface KnowledgeSourcePayload {
+  entityType: string
+  entityId: string
+  sourceType: KnowledgeSource['sourceType']
+  title?: string
+  url?: string
+  content?: string
+  confidence?: number
+}
+
+export interface KnowledgeSourceListResponse {
+  status: number
+  message: string
+  data: { items: KnowledgeSource[]; pagination: CrmPagination }
+}
+
+export interface Account360CampaignEntry {
+  campaignId: string
+  campaignName: string
+  responseStatus: string
+  sentAt: string | null
+}
+
+export interface Account360 {
+  organization: Organization
+  contacts: Contact[]
+  leads: Lead[]
+  opportunities: CrmOpportunity[]
+  signals: SignalInboxItem[]
+  campaigns: Account360CampaignEntry[]
+  relationships: EntityRelationship[]
+  knowledgeSources: KnowledgeSource[]
+}
+
+export interface Account360Response {
+  status: number
+  message: string
+  data: Account360
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — AI Agents & Automation
+// ---------------------------------------------------------------------------
+
+export interface AgentRun {
+  id: string
+  agentType: 'prospecting' | 'outreach' | 'deal_coach' | 'workflow'
+  agentName: string
+  triggerType: string
+  triggerContext: Record<string, unknown> | null
+  inputData: Record<string, unknown> | null
+  outputData: Record<string, unknown> | null
+  status: 'running' | 'completed' | 'failed' | 'cancelled' | 'awaiting_approval'
+  errorMessage: string | null
+  tokensUsed: number | null
+  costUsd: number | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string | null
+}
+
+export interface AgentRunListResponse {
+  status: number
+  message: string
+  data: {
+    items: AgentRun[]
+    pagination: CrmPagination
+  }
+}
+
+export interface AgentRunResponse {
+  status: number
+  message: string
+  data: AgentRun
+}
+
+export interface AutomationRule {
+  id: string
+  name: string
+  description: string | null
+  triggerModule: 'lead' | 'contact' | 'opportunity' | 'signal' | 'campaign'
+  triggerEvent: string
+  triggerConditions: Array<{ field: string; operator: string; value: string }> | null
+  actions: Array<{ actionType: string; params: Record<string, unknown> }>
+  isActive: boolean
+  runCount: number
+  lastRunAt: string | null
+}
+
+export interface AutomationRuleListResponse {
+  status: number
+  message: string
+  data: AutomationRule[]
+}
+
+export interface AutomationRuleResponse {
+  status: number
+  message: string
+  data: AutomationRule
+}
+
+export interface AutomationRulePayload {
+  name: string
+  description?: string
+  triggerModule: string
+  triggerEvent: string
+  triggerConditions?: Array<{ field: string; operator: string; value: string }>
+  actions: Array<{ actionType: string; params: Record<string, unknown> }>
+}
+
+export interface ProspectingResult {
+  runId: number
+  icpFitScore: number
+  icpFitReason: string
+  suggestedContacts: unknown[]
+  signals: unknown[]
+  recommendation: string
+}
+
+export interface OutreachDraft {
+  runId: number
+  subject: string
+  body: string
+  tone: string
+  confidence: number
+}
+
+export interface DealCoachResult {
+  runId: number
+  nextBestAction: string
+  reason: string
+  riskLevel: 'low' | 'medium' | 'high'
+  suggestions: string[]
+}
+
+export interface ProspectingResponse {
+  status: number
+  message: string
+  data: ProspectingResult
+}
+
+export interface OutreachDraftResponse {
+  status: number
+  message: string
+  data: OutreachDraft
+}
+
+export interface DealCoachResponse {
+  status: number
+  message: string
+  data: DealCoachResult
 }
