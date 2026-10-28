@@ -63,8 +63,8 @@ export function ProductIcpSection({
             <Field id="icp-name" label="ICP name">
               <Input id="icp-name" value={form.label} disabled={disabled} maxLength={100} onChange={(e) => onForm({ label: e.target.value, name: e.target.value })} />
             </Field>
-            <Field id="icp-ideal" label="Ideal customer and organisation profile" hint="Who buys it, in a few words (for example: mid-size manufacturers).">
-              <Input id="icp-ideal" value={form.industry_label} disabled={disabled} maxLength={120} onChange={(e) => onForm({ industry_label: e.target.value })} />
+            <Field id="icp-ideal" label="Ideal customer and organisation profile" hint="Who buys it (for example: mid-size manufacturers). You can write as much as you need.">
+              <Textarea id="icp-ideal" rows={3} value={form.industry_label} disabled={disabled} onChange={(e) => onForm({ industry_label: e.target.value })} />
             </Field>
             <Field id="icp-model" label="Customer type" hint={CUSTOMER_MODELS.find((m) => m.value === form.customer_model)?.note ?? 'Not set: treated as B2B.'}>
               <select id="icp-model" className={selectCls} value={form.customer_model} disabled={disabled} onChange={(e) => onForm({ customer_model: e.target.value as CustomerModel })}>

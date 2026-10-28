@@ -285,7 +285,7 @@ export function ProductIcpEditor({
           <div className="grid gap-3 @xl:grid-cols-2">
             <Field label="Profile name" hint="Your own name for this ICP. Defaults to the ICP name below."><Input value={form.name} disabled={disabled} onChange={(e) => set({ name: e.target.value })} maxLength={120} /></Field>
             <Field label="ICP name" required><Input value={form.label} disabled={disabled} onChange={(e) => set({ label: e.target.value })} maxLength={100} /></Field>
-            <Field label="Ideal customer" required hint="Who buys it, in a few words (for example: mid-size manufacturers)."><Input value={form.industry_label} disabled={disabled} onChange={(e) => set({ industry_label: e.target.value })} maxLength={120} /></Field>
+            <Field label="Ideal customer" required hint="Who buys it (for example: mid-size manufacturers). You can write as much as you need."><Textarea value={form.industry_label} disabled={disabled} onChange={(e) => set({ industry_label: e.target.value })} rows={3} /></Field>
             <Field label="Customer type" hint={CUSTOMER_MODELS.find((m) => m.value === form.customer_model)?.note ?? 'Not set: treated as B2B.'}>
               <select className={selectCls} value={form.customer_model} disabled={disabled} onChange={(e) => set({ customer_model: e.target.value as CustomerModel })}>
                 <option value="">Not set</option>
