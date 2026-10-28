@@ -38,3 +38,12 @@ describe('Ideal customer text has no short limit', () => {
     assert.match(editor, /<Textarea value=\{form\.industry_label\}(?![^>]*maxLength)/)
   })
 })
+
+describe('Add product: the ICP is checked before the product is saved', () => {
+  it('checks the ICP on the server first and stops with the problems, saving nothing', () => {
+    const s = read('components/domain/portfolio/product-form-dialog.tsx')
+    assert.ok(s.indexOf('productIcpService.checkConfig') > 0)
+    assert.ok(s.indexOf('productIcpService.checkConfig') < s.indexOf('portfolioService.createOffer'), 'the check comes before the product is created')
+    assert.match(s, /Fix the Individual ICP section\. Nothing was saved\./)
+  })
+})
