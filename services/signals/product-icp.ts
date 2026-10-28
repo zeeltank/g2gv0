@@ -130,9 +130,9 @@ export const productIcpService = {
   createProduct: (c: LaravelContext, body: { key: string; label: string }) =>
     apiClient.post<CreatedProduct>(`/signals/icp/products?${qs(c)}`, body),
 
-  /** Removes a product you created yourself (never a built-in one). Its ICP versions are archived, not deleted; its offers are not touched. */
+  /** Deletes a product you created yourself (never a built-in one) from the database, with its ICP and every saved version. Its offers are not touched. */
   deleteProduct: (c: LaravelContext, product: string) =>
-    apiClient.delete<{ status: number; message: string; data: { removed: string; icp_archived: number } }>(`${path(product)}?${qs(c)}`),
+    apiClient.delete<{ status: number; message: string; data: { removed: string; icp_deleted: number } }>(`${path(product)}?${qs(c)}`),
 
   get: (c: LaravelContext, product: string) => apiClient.get<{ status: number; data: IcpEditorState }>(path(product), base(c)),
 

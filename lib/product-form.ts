@@ -233,8 +233,8 @@ export const deleteConfirmation = (name: string): string =>
 
 /** The confirmation shown before one of your own products is removed from the product cards. */
 export const deleteProductConfirmation = (label: string, opportunities: number): string =>
-  `Delete the product "${label}"? Its ICP will be archived (kept, not shown). Its offers in the Product Portfolio are not deleted.`
-  + (opportunities > 0 ? ` It has ${opportunities} existing opportunit${opportunities === 1 ? 'y' : 'ies'}; they are kept but will no longer show under this product.` : '')
+  `Delete the product "${label}" permanently? The product and its ICP, with every saved version, are deleted from the database and this cannot be undone. Its offers in the Product Portfolio are not deleted.`
+  + (opportunities > 0 ? ` It has ${opportunities} existing opportunit${opportunities === 1 ? 'y' : 'ies'}; they are kept as history but will no longer show under this product.` : '')
   + ' You can add the product again later.'
 
 /** Adds or removes one code from a list (for the multi-select checkboxes). */
