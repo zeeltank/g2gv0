@@ -1577,10 +1577,11 @@ export const crmService = {
     ),
 
   aiChat: (context: LaravelContext, payload: { message: string; entityType?: string; entityId?: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) =>
-    apiClient.post<{ status: number; data: { reply: string } }>('/crm/ai-chat', {
-      ...payload,
-      entity_type: payload.entityType,
-      entity_id: payload.entityId,
+    apiClient.post<{ status: number; data: { reply: string; sources: string[] } }>('/crm/ai-chat', {
+      message: payload.message,
+      conversation_history: payload.history ?? [],
+      context_type: payload.entityType,
+      context_id: payload.entityId,
       ...baseParams(context),
     }),
 }
