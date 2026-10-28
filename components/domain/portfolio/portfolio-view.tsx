@@ -45,7 +45,8 @@ import { configureHref, icpHref } from '@/lib/product-selection'
 import { IcpStatusBadge } from './icp-status-badge'
 import { NewProductDialog } from './new-product-dialog'
 import { ProductFormDialog } from './product-form-dialog'
-import { deleteConfirmation } from '@/lib/product-form'
+import { deleteConfirmation, deleteProductConfirmation } from '@/lib/product-form'
+import { productIcpService } from '@/services/signals/product-icp'
 import { apiErrorText } from '@/lib/api-messages'
 
 export function PortfolioView({ context, canManage = true }: { context: LaravelContext; canManage?: boolean }) {
@@ -163,6 +164,18 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       reloadProducts()
     } catch (err) {
       // An ICP that still lists the product keeps it: the server says which ICP, and nothing is removed.
+      setActionError(apiErrorText(err, 'Failed to delete the product.'))
+    }
+  }
+
+  // One of your own products (a card marked "Own product"): removed after a confirmation. Built-in products have no Delete button.
+  const handleDeleteProduct = async (p: { key: string; label: string; opportunities_count: number }) => {
+    if (!isAdmin || !window.confirm(deleteProductConfirmation(p.label, p.opportunities_count))) return
+    setActionError(null)
+    try {
+      await productIcpService.deleteProduct(context, p.key)
+      reloadProducts()
+    } catch (err) {
       setActionError(apiErrorText(err, 'Failed to delete the product.'))
     }
   }
@@ -313,6 +326,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                 <div className="flex items-center gap-2">
                   <Button asChild size="sm" variant="outline"><Link href={configureHref(p.key)}><Eye className="mr-1.5 size-3.5" /> View details</Link></Button>
                   <Button asChild size="sm" variant={p.ready ? 'ghost' : 'default'}><Link href={icpHref(p.key)}><Edit2 className="mr-1.5 size-3.5" /> {isAdmin ? 'Edit ICP' : 'View ICP'}</Link></Button>
+                  {isAdmin && p.custom && <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label={`Delete ${p.label}`} onClick={() => void handleDeleteProduct(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>}
                 </div>
               </li>
             ))}

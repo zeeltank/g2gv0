@@ -211,6 +211,9 @@ export function ProductFormDialog({
       let key = slugKey(saved.offer_id)
       const label = fitWords(saved.name, 50)   // the product's name on the portfolio cards is at most 50 characters
       try {
+        // A product of your own with this same name already exists (from an earlier try, or under another ID): it is the same product, so it is used.
+        const sameName = (products ?? []).find((p) => p.custom && p.label.trim().toLowerCase() === label.toLowerCase())
+        if (sameName) key = sameName.key
         // The product may already exist from an earlier try that stopped after it was created: then it is used as it is, never created twice.
         if (!(products ?? []).some((p) => p.key === key)) {
           try {
