@@ -168,7 +168,7 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
 
   if (f.icp && f.icp.enabled) {
     if (f.icp.label && f.icp.label.length > 100) e.icp_label = 'At most 100 characters.'
-    if (f.icp.industry_label && f.icp.industry_label.length > 120) e.icp_industry_label = 'At most 120 characters.'
+    if (f.icp.industry_label && f.icp.industry_label.length > 5000) e.icp_industry_label = 'At most 5000 characters.'
   }
 
   return e

@@ -294,7 +294,7 @@ export function ProductIcpEditor({
             </Field>
             <Field label="Description" hint="What you sell and why it matters to them."><Textarea value={form.pitch} disabled={disabled} onChange={(e) => set({ pitch: e.target.value })} rows={2} /></Field>
             <div className="@xl:col-span-2">
-              <Field label="Qualification guidance" hint="Extra guidance the research follows when judging a customer (up to 400 characters)."><Textarea value={form.guidance} disabled={disabled} onChange={(e) => set({ guidance: e.target.value })} rows={2} maxLength={400} /></Field>
+              <Field label="Qualification guidance" hint="Extra guidance the research follows when judging a customer (up to 1,500 characters)."><Textarea value={form.guidance} disabled={disabled} onChange={(e) => set({ guidance: e.target.value })} rows={2} maxLength={1500} /></Field>
             </div>
           </div>
         </Section>

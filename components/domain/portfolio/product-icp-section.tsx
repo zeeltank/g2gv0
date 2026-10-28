@@ -83,8 +83,8 @@ export function ProductIcpSection({
           <Field id="icp-pitch" label="Customer pains and desired outcomes" hint="What these customers struggle with and what they want, in plain words.">
             <Textarea id="icp-pitch" rows={2} value={form.pitch} disabled={disabled} onChange={(e) => onForm({ pitch: e.target.value })} />
           </Field>
-          <Field id="icp-guidance" label="Buyer personas and qualification guidance" hint="Who decides, and how to judge a customer (up to 400 characters).">
-            <Textarea id="icp-guidance" rows={2} maxLength={400} value={form.guidance} disabled={disabled} onChange={(e) => onForm({ guidance: e.target.value })} />
+          <Field id="icp-guidance" label="Buyer personas and qualification guidance" hint="Who decides, and how to judge a customer (up to 1,500 characters).">
+            <Textarea id="icp-guidance" rows={3} maxLength={1500} value={form.guidance} disabled={disabled} onChange={(e) => onForm({ guidance: e.target.value })} />
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
