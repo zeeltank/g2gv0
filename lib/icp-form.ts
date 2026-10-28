@@ -10,10 +10,20 @@ export type FormTrigger = { key: string; source: string; part: string; decay: st
 export type FormQuery = { id: string; source: string; topic: string; days: string; q: string; domains: string }
 export type FormRule = { kind: 'attribute' | 'field'; subject: string; op: string; value: string; label: string; prompt: string }
 
+export type CustomerModel = '' | 'b2b' | 'b2c' | 'both'
+
+/** What the customer type means for signals, said next to the choice. Daily signals are found for organisations only. */
+export const CUSTOMER_MODELS: { value: Exclude<CustomerModel, ''>; label: string; note: string }[] = [
+  { value: 'b2b', label: 'B2B: sold to organisations', note: 'Signals are found for organisations (schools, trusts, companies, public bodies) that show a buying event.' },
+  { value: 'both', label: 'Both B2B and B2C', note: 'Signals are found for organisations only. Signals about individual buyers are not generated.' },
+  { value: 'b2c', label: 'B2C: sold to individuals', note: 'Daily signals are not supported for B2C yet. The ICP can be saved, but research will not start until it is B2B or Both.' },
+]
+
 export interface FormState {
   name: string
   label: string
   industry_label: string
+  customer_model: CustomerModel
   pitch: string
   guidance: string
   buyer_types: string
@@ -44,6 +54,7 @@ export function fromConfig(config: IcpConfig, name: string): FormState {
     name,
     label: config.label ?? '',
     industry_label: config.industry_label ?? '',
+    customer_model: config.customer_model ?? '',
     pitch: config.pitch ?? '',
     guidance: config.guidance ?? '',
     buyer_types: join(config.buyer_types),
@@ -88,6 +99,7 @@ export function toConfig(f: FormState): IcpConfig {
   return {
     label: f.label.trim(),
     industry_label: f.industry_label.trim(),
+    ...(f.customer_model ? { customer_model: f.customer_model } : {}),
     pitch: f.pitch.trim(),
     guidance: f.guidance.trim(),
     buyer_types: lines(f.buyer_types),

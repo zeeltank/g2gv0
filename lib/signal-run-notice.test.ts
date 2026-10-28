@@ -49,7 +49,8 @@ describe('describeFinishedRun', () => {
 
   it('says the breakdown is unavailable when the run kept none, instead of printing zeros', () => {
     const n = describeFinishedRun(run({ stage_stats: null, stage_stats_persisted: false }))
-    assert.match(n.text, /not available for this run/)
+    assert.match(n.text, /could not be saved: this database does not have the stage_stats column/)   // persisted=false: a missing migration, said as such
+    assert.match(describeFinishedRun(run({ stage_stats: null, stage_stats_persisted: true })).text, /not available for this run/)
     assert.doesNotMatch(n.text, /0 pages/)
     assert.doesNotMatch(n.text, /0 of 0/)
   })

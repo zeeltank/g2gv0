@@ -5,7 +5,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { rid, type FormState } from '@/lib/icp-form'
+import { CUSTOMER_MODELS, rid, type CustomerModel, type FormState } from '@/lib/icp-form'
 import type { IcpLines } from '@/lib/product-icp-draft'
 import { icpHref } from '@/lib/product-selection'
 
@@ -65,6 +65,12 @@ export function ProductIcpSection({
             </Field>
             <Field id="icp-ideal" label="Ideal customer and organisation profile" hint="Who buys it, in a few words (for example: mid-size manufacturers).">
               <Input id="icp-ideal" value={form.industry_label} disabled={disabled} maxLength={120} onChange={(e) => onForm({ industry_label: e.target.value })} />
+            </Field>
+            <Field id="icp-model" label="Customer type" hint={CUSTOMER_MODELS.find((m) => m.value === form.customer_model)?.note ?? 'Not set: treated as B2B.'}>
+              <select id="icp-model" className={selectCls} value={form.customer_model} disabled={disabled} onChange={(e) => onForm({ customer_model: e.target.value as CustomerModel })}>
+                <option value="">Not set</option>
+                {CUSTOMER_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
             </Field>
             <Field id="icp-types" label="Customer types and sectors" hint="One per line.">
               <Textarea id="icp-types" rows={3} value={form.buyer_types} disabled={disabled} onChange={(e) => onForm({ buyer_types: e.target.value })} />

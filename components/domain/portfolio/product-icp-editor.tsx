@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
-import { fromConfig, rid, toConfig, type FormState, type Row } from '@/lib/icp-form'
+import { CUSTOMER_MODELS, fromConfig, rid, toConfig, type CustomerModel, type FormState, type Row } from '@/lib/icp-form'
 import { productIcpService, type IcpEditorState } from '@/services/signals/product-icp'
 import { IcpProductPicker } from './icp-product-picker'
 import { IcpComparison } from './icp-comparison'
@@ -149,7 +149,7 @@ export function ProductIcpEditor({
 
   const partKeys = form.parts.map((p) => p.key.trim()).filter(Boolean)
   const about = (prefix: string) => problems.filter((p) => p.startsWith(prefix))
-  const known = ['offer_ids', 'label', 'industry_label', 'pitch', 'guidance', 'buyer_types', 'regions', 'priority_cities', 'competitors', 'vendor_phrases', 'parts', 'triggers', 'queries', 'disqualifiers', 'must_have', 'per_run']
+  const known = ['offer_ids', 'label', 'industry_label', 'customer_model', 'pitch', 'guidance', 'buyer_types', 'regions', 'priority_cities', 'competitors', 'vendor_phrases', 'parts', 'triggers', 'queries', 'disqualifiers', 'must_have', 'per_run']
   const other = problems.filter((p) => !known.some((k) => p.startsWith(k)))
   const { product, profile } = state
   const isActive = profile?.status === 'active'
@@ -281,11 +281,17 @@ export function ProductIcpEditor({
         aria-busy={busy !== null}
       >
         <Group {...groupProps('ideal')}>
-        <Section title="Who this product is for" problems={[...about('label'), ...about('industry_label'), ...about('pitch'), ...about('guidance')]}>
+        <Section title="Who this product is for" problems={[...about('label'), ...about('industry_label'), ...about('customer_model'), ...about('pitch'), ...about('guidance')]}>
           <div className="grid gap-3 @xl:grid-cols-2">
             <Field label="Profile name" hint="Your own name for this ICP. Defaults to the ICP name below."><Input value={form.name} disabled={disabled} onChange={(e) => set({ name: e.target.value })} maxLength={120} /></Field>
             <Field label="ICP name" required><Input value={form.label} disabled={disabled} onChange={(e) => set({ label: e.target.value })} maxLength={100} /></Field>
             <Field label="Ideal customer" required hint="Who buys it, in a few words (for example: mid-size manufacturers)."><Input value={form.industry_label} disabled={disabled} onChange={(e) => set({ industry_label: e.target.value })} maxLength={120} /></Field>
+            <Field label="Customer type" hint={CUSTOMER_MODELS.find((m) => m.value === form.customer_model)?.note ?? 'Not set: treated as B2B.'}>
+              <select className={selectCls} value={form.customer_model} disabled={disabled} onChange={(e) => set({ customer_model: e.target.value as CustomerModel })}>
+                <option value="">Not set</option>
+                {CUSTOMER_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </Field>
             <Field label="Description" hint="What you sell and why it matters to them."><Textarea value={form.pitch} disabled={disabled} onChange={(e) => set({ pitch: e.target.value })} rows={2} /></Field>
             <div className="@xl:col-span-2">
               <Field label="Qualification guidance" hint="Extra guidance the research follows when judging a customer (up to 400 characters)."><Textarea value={form.guidance} disabled={disabled} onChange={(e) => set({ guidance: e.target.value })} rows={2} maxLength={400} /></Field>

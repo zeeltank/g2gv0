@@ -251,3 +251,24 @@ export const STEP_FIELDS: ReadonlyArray<ReadonlyArray<keyof ProductFormState>> =
   ['proof_points', 'pricing_model', 'typical_deal_band', 'deployment_model', 'implementation_effort', 'delivery_owner', 'notes'],
   [],
 ]
+
+/** The ID code each category uses, as the existing portfolio does (G2G-01, EB-01, SCH-01, HE-01). A category with no code here gets no suggestion. */
+export const ID_PREFIXES: Record<string, string> = { G2G: 'G2G', EB: 'EB', 'Scholar K-12': 'SCH', HE: 'HE', Bundle: 'BND' }
+
+/**
+ * The next product ID for a category: its code, a dash and the highest number already used with that code plus one, at least two digits
+ * (SCH-04 -> SCH-05). Only IDs of exactly the form CODE-number count; others (SCH-FEE) are ignored. '' when the category has no code.
+ * It is a suggestion: the person may change it, and the server still rejects a duplicate.
+ */
+export function nextProductId(category: string, existingIds: string[]): string {
+  const prefix = ID_PREFIXES[category]
+  if (!prefix) return ''
+  const head = `${prefix.toLowerCase()}-`
+  let max = 0
+  for (const raw of existingIds) {
+    const id = raw.trim().toLowerCase()
+    const tail = id.startsWith(head) ? id.slice(head.length) : ''
+    if (tail !== '' && [...tail].every((c) => c >= '0' && c <= '9')) max = Math.max(max, parseInt(tail, 10))
+  }
+  return `${prefix}-${String(max + 1).padStart(2, '0')}`
+}

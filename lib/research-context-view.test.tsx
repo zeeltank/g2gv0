@@ -23,13 +23,14 @@ describe('Research context shown before Generate (rendered from the backend repo
     assert.match(h, / v3 /)
     assert.match(h, /\(saved\)/)
     assert.match(h, /2 offers/)
-    assert.match(h, /regions: Gujarat/)
+    // the saved ICP regions are described on the region line (see region-fixes.test.tsx), not as part of this line
+    assert.doesNotMatch(h, /Will use:[^<]*regions: Gujarat/)
   })
 
   it('says the built-in definition is in use when no ICP is saved, and shows no warning box when there is nothing to warn about', () => {
     const h = html(base({ icp: { source: 'template', profile_id: null, name: 'Built-in', version: null, regions: [], saved: false } }))
     assert.match(h, /built-in definition/)
-    assert.match(h, /no region set/)
+    assert.match(h, /Will use:[^<]*built-in definition/)
     assert.doesNotMatch(html(base()), /role="status"/)
   })
 

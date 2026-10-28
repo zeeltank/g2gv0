@@ -110,7 +110,8 @@ describe('One list and the research-date selector', () => {
   })
 
   it('starts research only from a click: the Generate Signals button, and Retry on a failed run', () => {
-    assert.equal((screen.match(/run\.generate\(regions\)/g) ?? []).length, 2)
+    assert.equal((screen.match(/run\.generate\(/g) ?? []).length, 1)   // one function starts a run; the Generate and Retry buttons only call it
+    assert.match(screen, /onClick=\{generate\}/)
     assert.match(screen, /<ResearchProgress[^>]*onRetry=/)
     assert.match(screen, /Generate Signals/)
   })

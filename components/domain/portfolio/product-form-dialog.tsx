@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorText } from '@/lib/api-messages'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { addCustom, customEntries, emptyProductForm, fromOffer, removeEntry, serverErrors, toggle, toPayload, validateProductForm, type ProductFormErrors, type ProductFormState } from '@/lib/product-form'
+import { addCustom, customEntries, emptyProductForm, fromOffer, nextProductId, removeEntry, serverErrors, toggle, toPayload, validateProductForm, type ProductFormErrors, type ProductFormState } from '@/lib/product-form'
 import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductInfo, ProductOffer, TaxonomyData } from '@/services/portfolio/types'
@@ -121,6 +121,8 @@ export function ProductFormDialog({
   const [errors, setErrors] = useState<ProductFormErrors>({})
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  // Add mode: the person typed their own ID, so choosing another category no longer replaces it.
+  const [idEdited, setIdEdited] = useState(false)
   const [icp, setIcp] = useState<FormState>(emptyIcpForm)
   const [icpLines, setIcpLines] = useState<IcpLines>(emptyIcpLines)
   const [icpProblems, setIcpProblems] = useState<string[]>([])
@@ -130,11 +132,29 @@ export function ProductFormDialog({
   useEffect(() => {
     if (!open) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForm(product ? fromOffer(product) : emptyProductForm()); setErrors({}); setMessage(''); setBusy(false)
+    setForm(product ? fromOffer(product) : emptyProductForm()); setErrors({}); setMessage(''); setBusy(false); setIdEdited(false)
     setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines()); setIcpProblems([]); setPartial(null)
   }, [open, product])
 
   const set = (patch: Partial<ProductFormState>) => setForm((f) => ({ ...f, ...patch }))
+
+  // Choosing a category suggests the next ID for it, read from the products already saved. A typed ID is left alone; a failed read leaves the ID empty to type.
+  async function chooseCategory(category: string) {
+    set({ parent_product: category })
+    if (mode !== 'create' || idEdited) return
+    if (category === '') { set({ offer_id: '' }); return }
+    try {
+      const ids: string[] = []
+      for (let page = 1; page <= 10; page++) {
+        const res = await portfolioService.getOffers(context, { parent_product: category, per_page: 100, page })
+        ids.push(...res.data.data.map((o) => o.offer_id))
+        if (page >= res.data.last_page) break
+      }
+      setForm((f) => (f.parent_product === category && !idEdited ? { ...f, offer_id: nextProductId(category, ids) } : f))
+    } catch {
+      setForm((f) => (f.parent_product === category && !idEdited ? { ...f, offer_id: '' } : f))
+    }
+  }
   // An existing product that already has its own ICP (a product of its own whose ICP lists it) is edited on its ICP page, not here.
   const linked = product ? (products ?? []).find((p) => p.custom && p.icp?.offer_ids?.includes(product.offer_id)) ?? null : null
   const wantsIcp = !linked && icpTouched(icp, icpLines)
@@ -210,14 +230,8 @@ export function ProductFormDialog({
         <form onSubmit={(e) => void submit(e)} className="space-y-4" aria-busy={busy}>
           <h3 className="text-sm font-semibold text-foreground">Product details</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="pf-id" label="Product ID" required error={errors.offer_id} hint={mode === 'edit' ? 'The ID cannot be changed.' : 'A short unique code, for example MY-01.'}>
-              <Input id="pf-id" value={form.offer_id} disabled={busy || mode === 'edit'} onChange={(e) => set({ offer_id: e.target.value })} maxLength={50} />
-            </Field>
-            <Field id="pf-name" label="Name" required error={errors.name}>
-              <Input id="pf-name" value={form.name} disabled={busy} onChange={(e) => set({ name: e.target.value })} maxLength={191} />
-            </Field>
             <Field id="pf-category" label="Category" required error={errors.parent_product}>
-              <select id="pf-category" className={selectCls} value={form.parent_product} disabled={busy} onChange={(e) => set({ parent_product: e.target.value })}>
+              <select id="pf-category" className={selectCls} value={form.parent_product} disabled={busy} onChange={(e) => void chooseCategory(e.target.value)}>
                 <option value="">Choose a category</option>
                 {form.parent_product && !(form.parent_product in categories) && <option value={form.parent_product}>{form.parent_product}</option>}
                 {Object.entries(categories).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
@@ -229,6 +243,12 @@ export function ProductFormDialog({
                 {form.readiness_status && !(form.readiness_status in statuses) && <option value={form.readiness_status}>{form.readiness_status}</option>}
                 {Object.entries(statuses).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
               </select>
+            </Field>
+            <Field id="pf-id" label="Product ID" required error={errors.offer_id} hint={mode === 'edit' ? 'The ID cannot be changed.' : 'Filled in from the category (the next number). You can change it.'}>
+              <Input id="pf-id" value={form.offer_id} disabled={busy || mode === 'edit'} onChange={(e) => { setIdEdited(e.target.value.trim() !== ''); set({ offer_id: e.target.value }) }} maxLength={50} />
+            </Field>
+            <Field id="pf-name" label="Name" required error={errors.name}>
+              <Input id="pf-name" value={form.name} disabled={busy} onChange={(e) => set({ name: e.target.value })} maxLength={191} />
             </Field>
           </div>
 

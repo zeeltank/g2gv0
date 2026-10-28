@@ -5,7 +5,7 @@ import { Globe2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { addSelection, countryOptions, regionLabel, regionShortLabel, removeSelection, type RegionSelection } from '@/lib/region-scope'
+import { addSelection, countryOptions, draftIsEmpty, emptyDraft, regionLabel, regionShortLabel, removeSelection, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
 
 /**
  * The Region control beside the product picker. Country, then state / province, then city (each level optional, a city needs its state); up to
@@ -14,18 +14,22 @@ import { addSelection, countryOptions, regionLabel, regionShortLabel, removeSele
  * the server again.
  */
 export function RegionSelector({
-  value, onChange, suggestions = [], disabled,
+  value, onChange, draft = emptyDraft(), onDraft = () => {}, suggestions = [], disabled,
 }: {
   value: RegionSelection[]
   onChange: (next: RegionSelection[]) => void
+  /** What is typed but not added yet. Owned by the screen, so Generate Signals uses it too (a chosen country is never silently dropped). */
+  draft?: RegionDraft
+  onDraft?: (next: RegionDraft) => void
   /** The product's saved ICP regions, offered as state / province suggestions (read only). */
   suggestions?: string[]
   disabled?: boolean
 }) {
   const countries = useMemo(() => countryOptions(), [])
-  const [country, setCountry] = useState('')
-  const [state, setState] = useState('')
-  const [city, setCity] = useState('')
+  const { country, state, city } = draft
+  const setCountry = (v: string) => onDraft({ country: v, state: '', city: '' })
+  const setState = (v: string) => onDraft({ ...draft, state: v, city: v.trim() === '' ? '' : draft.city })
+  const setCity = (v: string) => onDraft({ ...draft, city: v })
   const [problems, setProblems] = useState<string[]>([])
 
   const add = () => {
@@ -33,7 +37,7 @@ export function RegionSelector({
     setProblems(r.problems)
     if (r.problems.length === 0) {
       onChange(r.list)
-      setCity(''); setState('')
+      onDraft(emptyDraft())
     }
   }
 
@@ -51,7 +55,7 @@ export function RegionSelector({
             className="flex h-10 min-w-48 max-w-72 items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           >
             <Globe2 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate">{regionShortLabel(value)}</span>
+            <span className="truncate">{regionShortLabel(value)}{!draftIsEmpty(draft) && <span className="text-muted-foreground"> · {draft.country || '…'} (not added)</span>}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-80 space-y-3 p-3">
@@ -75,14 +79,14 @@ export function RegionSelector({
           <div className="space-y-2">
             <label className="block space-y-1">
               <span className="text-xs font-medium text-foreground">Country</span>
-              <select aria-label="Country" value={country} onChange={(e) => { setCountry(e.target.value); setState(''); setCity('') }} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <select aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">Choose a country</option>
                 {countries.map((c) => <option key={c.code} value={c.name}>{c.name}</option>)}
               </select>
             </label>
             <label className="block space-y-1">
               <span className="text-xs font-medium text-foreground">State / province (optional)</span>
-              <Input aria-label="State or province" list="region-state-suggestions" value={state} disabled={!country} maxLength={80} onChange={(e) => { setState(e.target.value); if (e.target.value.trim() === '') setCity('') }} />
+              <Input aria-label="State or province" list="region-state-suggestions" value={state} disabled={!country} maxLength={80} onChange={(e) => setState(e.target.value)} />
               <datalist id="region-state-suggestions">{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
             </label>
             <label className="block space-y-1">
@@ -92,7 +96,7 @@ export function RegionSelector({
             {problems.length > 0 && <ul role="alert" className="list-disc space-y-0.5 pl-5 text-xs text-destructive">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
             <Button type="button" size="sm" variant="outline" disabled={!country} onClick={add}>Add place</Button>
           </div>
-          <p className="text-xs text-muted-foreground">Used for this run only. A city or state must be named in the source itself for a signal to count.</p>
+          <p className="text-xs text-muted-foreground">Used for this run only. A country you have chosen is used when you press Generate Signals even if you have not pressed Add place. A city or state must be named in the source itself for a signal to count.</p>
         </PopoverContent>
       </Popover>
     </div>

@@ -111,7 +111,7 @@ describe('progress bar wiring', () => {
 
   it('offers an explicit Retry for a failed run that starts nothing by itself', () => {
     assert.match(bar, /onClick=\{onRetry\}/)
-    assert.match(screen, /onRetry=\{\(\) => void run\.generate\(regions\)\}/)
+    assert.match(screen, /onRetry=\{generate\}/)
     assert.doesNotMatch(bar, /generate\(|useGenerateSignals/)
   })
 
@@ -140,7 +140,7 @@ describe('progress bar wiring', () => {
 
   it('does not start research when a date is chosen: the date select only sets state', () => {
     assert.match(screen, /pick\(e\.target\.value\)/)
-    assert.equal((screen.match(/run\.generate\(regions\)/g) ?? []).length, 2)   // the Generate button and the Retry button, nothing else
+    assert.equal((screen.match(/run\.generate\(/g) ?? []).length, 1)   // one function starts a run; only the Generate and Retry buttons call it
   })
 
   it('does not let a double click start two runs (a ref guards it, not async state)', () => {

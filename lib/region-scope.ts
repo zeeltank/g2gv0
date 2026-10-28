@@ -39,6 +39,30 @@ export function countryOptions(locale = 'en'): { code: string; name: string }[] 
   return out.sort((x, y) => x.name.localeCompare(y.name))
 }
 
+/** What the person has typed into the control but not added yet. */
+export interface RegionDraft { country: string; state: string; city: string }
+
+export const emptyDraft = (): RegionDraft => ({ country: '', state: '', city: '' })
+
+export const draftIsEmpty = (d: RegionDraft): boolean => d.country.trim() === '' && d.state.trim() === '' && d.city.trim() === ''
+
+/**
+ * The places a run will really use: the added ones plus a pending draft, if there is one. A draft that cannot be used (for example a state with
+ * no country, or a city with no state) is NOT turned into something else: it is reported and generation waits for the person to fix it.
+ * An empty draft changes nothing, so All Regions stays All Regions.
+ */
+export function commitPending(list: RegionSelection[], draft: RegionDraft): { list: RegionSelection[]; problems: string[] } {
+  if (draftIsEmpty(draft)) return { list, problems: [] }
+  const r = addSelection(list, { country: draft.country, state: draft.state, city: draft.city })
+  return r.problems.length > 0 ? { list, problems: r.problems.map((p) => `Region: ${p}`) } : r
+}
+
+/** The same, for showing what will be used before anything is sent: an unusable draft is left out of the preview (and reported by commitPending). */
+export const previewRegions = (list: RegionSelection[], draft: RegionDraft): RegionSelection[] => {
+  const c = commitPending(list, draft)
+  return c.problems.length > 0 ? list : c.list
+}
+
 /** What is wrong with a selection (empty when it can be added). Country, then state/province, then city: a city needs its state. */
 export function problemsWith(sel: RegionSelection): string[] {
   const out: string[] = []

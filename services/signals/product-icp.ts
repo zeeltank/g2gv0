@@ -39,6 +39,7 @@ export interface IcpConfig {
   pitch?: string
   industry_label?: string
   guidance?: string
+  customer_model?: 'b2b' | 'b2c' | 'both'
   buyer_types?: string[]
   regions?: string[]
   priority_cities?: string[]

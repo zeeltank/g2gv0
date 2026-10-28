@@ -23,7 +23,7 @@ export interface IcpLines {
 export const emptyIcpLines = (): IcpLines => ({ triggers: '', queries: '', exclusions: '', source: 'news', freshness: '' })
 
 export const emptyIcpForm = (): FormState => ({
-  name: '', label: '', industry_label: '', pitch: '', guidance: '', buyer_types: '', regions: '', priority_cities: '', competitors: '', vendor_phrases: '',
+  name: '', label: '', industry_label: '', customer_model: 'b2b', pitch: '', guidance: '', buyer_types: '', regions: '', priority_cities: '', competitors: '', vendor_phrases: '',
   parts: [], triggers: [], queries: [], disqualifiers: [], must_have: [], catalogue: '', accounts: '', offer_ids: [],
 })
 
