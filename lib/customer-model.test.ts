@@ -115,3 +115,15 @@ describe('Delete one of your own products', () => {
     assert.match(read('services/signals/product-icp.ts'), /apiClient\.delete<[^>]*>\(`\$\{path\(product\)\}\?\$\{qs\(c\)\}`\)/)
   })
 })
+
+describe('Editing a saved sub-product shows its saved ICP', () => {
+  it('opens the edit form with the full offer, and fills the form from the saved ICP', () => {
+    const view = read('components/domain/portfolio/portfolio-view.tsx')
+    assert.match(view, /onSelect=\{\(\) => void openEdit\(offer\)\}/)
+    assert.match(view, /const full = await portfolioService\.getOffer\(context, offer\.id\);?\s*\n\s*setEditOffer\(full\.data\)/)
+    const dialog = read('components/domain/portfolio/product-form-dialog.tsx')
+    assert.match(dialog, /t\?\.pain \|\| \(Array\.isArray\(t\?\.phrases\)/, 'a trigger is shown in full, not its shortened phrase')
+    assert.match(dialog, /freshness: firstTrigger\?\.decay != null \? String\(firstTrigger\.decay\) : ''/)
+    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /This is this product&apos;s saved ICP/)
+  })
+})

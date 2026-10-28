@@ -149,10 +149,11 @@ export function ProductFormDialog({
         })
         const triggersRaw = icpData.triggers
         const triggersText = Array.isArray(triggersRaw)
-          ? triggersRaw.map((t: any) => t?.phrases || t?.pain || t).filter(Boolean).join('\n')
+          ? triggersRaw.map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
           : typeof triggersRaw === 'object' && triggersRaw !== null
-          ? Object.values(triggersRaw).map((t: any) => t?.phrases || t?.pain || t).filter(Boolean).join('\n')
+          ? Object.values(triggersRaw).map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
           : ''
+        const firstTrigger = (Array.isArray(triggersRaw) ? triggersRaw[0] : typeof triggersRaw === 'object' && triggersRaw !== null ? Object.values(triggersRaw)[0] : null) as Record<string, any> | null
         const queriesRaw = icpData.queries
         const queriesText = Array.isArray(queriesRaw)
           ? queriesRaw.map((q: any) => q?.q || q).filter(Boolean).join('\n')
@@ -166,8 +167,8 @@ export function ProductFormDialog({
           triggers: triggersText,
           queries: queriesText,
           exclusions: disqualifiersText,
-          freshness: '',
-          source: 'news',
+          freshness: firstTrigger?.decay != null ? String(firstTrigger.decay) : '',
+          source: firstTrigger?.source ?? 'news',
         })
       } else {
         setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines())
