@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, Send, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { ApiError } from '@/services/core/api-client'
 import { crmService } from '@/services/crm'
 
 interface Message {
@@ -29,7 +30,8 @@ export function CrmChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    setReady(isLaravelContextReady())
+    const ctx = getLaravelContext()
+    setReady(ctx != null && isLaravelContextReady(ctx))
   }, [])
 
   useEffect(() => {
@@ -54,8 +56,12 @@ export function CrmChatWidget() {
       const res = await crmService.aiChat(context, { message: trimmed, history })
       const reply = res.status === 1 ? res.data.reply : 'Sorry, I could not get a response.'
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please try again.' }])
+    } catch (err) {
+      let msg = 'Network error. Please try again.'
+      if (err instanceof ApiError) {
+        msg = err.detail ?? err.message
+      }
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }])
     } finally {
       setLoading(false)
     }
@@ -164,7 +170,7 @@ export function CrmChatWidget() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Ask the AI…"
+              placeholder="Ask the AI"
               rows={1}
               className="flex-1 resize-none rounded-xl border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[38px] max-h-24"
               style={{ overflow: 'auto' }}
@@ -184,3 +190,4 @@ export function CrmChatWidget() {
     </>
   )
 }
+
