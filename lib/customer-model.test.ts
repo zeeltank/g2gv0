@@ -101,3 +101,29 @@ describe('Add or edit product: nothing gets stuck half-way', () => {
     assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{1500\}/)
   })
 })
+
+describe('A product with the same name already exists', () => {
+  it('is reused instead of being created again', () => {
+    const s = read('components/domain/portfolio/product-form-dialog.tsx')
+    assert.match(s, /p\.custom && p\.label\.trim\(\)\.toLowerCase\(\) === label\.toLowerCase\(\)/)
+    assert.match(s, /if \(sameName\) key = sameName\.key/)
+    assert.ok(s.indexOf('if (sameName) key = sameName.key') < s.indexOf('productIcpService.createProduct'))
+  })
+})
+
+describe('Delete one of your own products', () => {
+  it('asks first, says what is kept, and only your own products get the button', async () => {
+    const { deleteProductConfirmation } = await import('./product-form')
+    const t = deleteProductConfirmation('Scholar Learn', 0)
+    assert.match(t, /Scholar Learn/)
+    assert.match(t, /archived/)
+    assert.match(t, /offers in the Product Portfolio are not deleted/)
+    assert.doesNotMatch(t, /existing opportunit/)
+    assert.match(deleteProductConfirmation('X', 2), /2 existing opportunities/)
+    assert.match(deleteProductConfirmation('X', 1), /1 existing opportunity;/)
+    const s = read('components/domain/portfolio/portfolio-view.tsx')
+    assert.match(s, /\{isAdmin && p\.custom && <Button[^>]*onClick=\{\(\) => void handleDeleteProduct\(p\)\}/)
+    assert.match(s, /window\.confirm\(deleteProductConfirmation\(p\.label, p\.opportunities_count\)\)/)
+    assert.match(read('services/signals/product-icp.ts'), /apiClient\.delete<[^>]*>\(`\$\{path\(product\)\}\?\$\{qs\(c\)\}`\)/)
+  })
+})
