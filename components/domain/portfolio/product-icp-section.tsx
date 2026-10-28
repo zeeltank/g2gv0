@@ -56,7 +56,9 @@ export function ProductIcpSection({
         </p>
       ) : (
         <>
-          {editing && <p className="text-xs text-muted-foreground">This product has no ICP of its own yet (it uses its group&apos;s). Fill this in to give it one; leave it empty to keep things as they are.</p>}
+          {editing && (form.label.trim() || form.industry_label.trim()
+            ? <p className="text-xs text-muted-foreground">This is this product&apos;s saved ICP. Change anything below and save to update it.</p>
+            : <p className="text-xs text-muted-foreground">This product has no ICP of its own yet (it uses its group&apos;s). Fill this in to give it one; leave it empty to keep things as they are.</p>)}
           {problems.length > 0 && <ul role="alert" className="list-disc space-y-0.5 pl-5 text-xs text-destructive">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
 
           <div className="grid gap-3 sm:grid-cols-2">
