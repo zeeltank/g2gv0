@@ -54,6 +54,10 @@ export function SimulationLearning() {
   // sheet closing because the player is opening, which must not pull focus back behind the player.
   const openerRef = useRef<HTMLElement | null>(null)
   const handingToPlayer = useRef(false)
+  // The header's Add button: where focus returns after a draft saved from the Create tab has been previewed.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null)
+  // The draft being previewed from the Create tab, so that closing the player can offer to publish it (the dialog is gone by then).
+  const previewedFromCreate = useRef<number | null>(null)
 
   // The sheet and the player hold an id, not a card, so they always show the freshest copy (progress ticks, status changes) the list has.
   const selected = useMemo(() => sims.simulations.find((s) => s.id === selectedId) ?? null, [sims.simulations, selectedId])
@@ -166,7 +170,7 @@ export function SimulationLearning() {
             />
           </div>
           {canAdd && (
-            <Button className="shrink-0 gap-2" onClick={() => setAdding(true)}>
+            <Button ref={addButtonRef} className="shrink-0 gap-2" onClick={() => setAdding(true)}>
               <Plus className="size-4" aria-hidden="true" /> Add simulation
             </Button>
           )}
@@ -225,7 +229,7 @@ export function SimulationLearning() {
           title="No simulations yet"
           description={
             canAdd
-              ? 'Add one from the G2G library, or import a specification of your own. Learners see it as soon as it is published.'
+              ? 'Add one from the G2G library, create one from a package you edit yourself, or import a specification. Learners see it as soon as it is published.'
               : 'Nothing has been added for your organisation yet. Ask the person who manages learning to add one.'
           }
           action={
@@ -291,6 +295,19 @@ export function SimulationLearning() {
             // but only after the last report has gone, or the reload could bring back the older figure.
             void saved.finally(() => sims.reload())
             if (completed) say(`Well done - you completed “${playing.title}”.`)
+            // A draft just previewed from the Create tab: the dialog that had the Publish button is closed, so offer it here.
+            const previewed = previewedFromCreate.current === playing.id
+            previewedFromCreate.current = null
+            if (previewed && playing.status === 'draft') {
+              say(`That was a preview of “${playing.title}”. It is still a draft, so learners cannot see it.`, 'info', {
+                label: 'Publish',
+                run: () => {
+                  void sims.setStatus(playing.id, 'published').then((result) => {
+                    if (result.ok) say(`“${playing.title}” is now visible to learners.`)
+                  })
+                },
+              })
+            }
           }}
         />
       )}
@@ -300,9 +317,19 @@ export function SimulationLearning() {
           open={adding}
           onOpenChange={setAdding}
           categories={categories}
+          simulations={sims.simulations}
           create={sims.create}
+          update={sims.update}
           enable={sims.enable}
+          setStatus={sims.setStatus}
           onAdded={(message) => say(message)}
+          onPreview={(card) => {
+            // The draft was just saved from the Create tab: close the dialog and play it, exactly as a card's Start would.
+            openerRef.current = addButtonRef.current
+            previewedFromCreate.current = card.id
+            setAdding(false)
+            setPlayingId(card.id)
+          }}
         />
       )}
 

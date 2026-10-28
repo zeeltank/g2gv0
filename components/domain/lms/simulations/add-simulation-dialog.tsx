@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, CheckCircle2, Clock, FileJson, Layers, Library, Loader2, Plus, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileJson, Layers, Library, Loader2, PackagePlus, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,12 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useRuntimeCheck } from '@/hooks/use-runtime-check'
 import { describeSimulationError, type UseSimulationsReturn } from '@/hooks/use-simulations'
-import { checkSpecWithRuntime } from '@/lib/simulation-host'
 import { cn } from '@/lib/utils'
 import { simulationService, type SimulationCard, type SimulationCategory, type SimulationSpecPreview } from '@/services/lms/simulations'
 
+import { CreateTab } from './create-simulation-tab'
 import { SimulationCover } from './simulation-cover'
 import { categoryLabelOf, difficultyOf, minutesLabel, missionsLabel, readSpec } from './simulation-format'
 import { CategoryIcon, DifficultyBars, MetaItem } from './simulation-bits'
@@ -22,7 +23,13 @@ import { CategoryIcon, DifficultyBars, MetaItem } from './simulation-bits'
 /** The server refuses anything bigger; say so before uploading a megabyte to be told the same thing. */
 const MAX_SPEC_BYTES = 1_000_000
 
-type Tab = 'library' | 'import'
+type Tab = 'library' | 'create' | 'import'
+
+const TABS = [
+  { value: 'library', label: 'G2G library', Icon: Library },
+  { value: 'create', label: 'Create a simulation', Icon: PackagePlus },
+  { value: 'import', label: 'Import a specification', Icon: FileJson },
+] as const satisfies readonly { value: Tab; label: string; Icon: unknown }[]
 
 type Check =
   | { kind: 'empty' }
@@ -52,27 +59,50 @@ function splitTags(text: string): string[] {
     .filter(Boolean)
 }
 
-/** Adds a simulation to the organisation: switch on one the platform offers, or import a specification of its own. */
+/**
+ * Adds a simulation to the organisation: switch on one the platform offers, create one from a downloaded-and-edited package (models and
+ * images included), or import a specification of its own.
+ */
 export function AddSimulationDialog({
   open,
   onOpenChange,
   categories,
+  simulations,
   create,
+  update,
   enable,
+  setStatus,
   onAdded,
+  onPreview,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: SimulationCategory[]
+  /** What the organisation already has, so the Create tab can tell a new id from one in use. */
+  simulations: SimulationCard[]
   create: UseSimulationsReturn['create']
+  update: UseSimulationsReturn['update']
   enable: UseSimulationsReturn['enable']
+  setStatus: UseSimulationsReturn['setStatus']
   onAdded: (message: string) => void
+  /** Opens the player on a simulation just saved from the Create tab; the parent closes this dialog. */
+  onPreview: (card: SimulationCard) => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         {/* the body mounts only while open, so closing the dialog throws away what was typed and any check in flight */}
-        <AddBody categories={categories} create={create} enable={enable} onAdded={onAdded} onDone={() => onOpenChange(false)} />
+        <AddBody
+          categories={categories}
+          simulations={simulations}
+          create={create}
+          update={update}
+          enable={enable}
+          setStatus={setStatus}
+          onAdded={onAdded}
+          onPreview={onPreview}
+          onDone={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   )
@@ -80,39 +110,68 @@ export function AddSimulationDialog({
 
 function AddBody({
   categories,
+  simulations,
   create,
+  update,
   enable,
+  setStatus,
   onAdded,
+  onPreview,
   onDone,
 }: {
   categories: SimulationCategory[]
+  simulations: SimulationCard[]
   create: UseSimulationsReturn['create']
+  update: UseSimulationsReturn['update']
   enable: UseSimulationsReturn['enable']
+  setStatus: UseSimulationsReturn['setStatus']
   onAdded: (message: string) => void
+  onPreview: (card: SimulationCard) => void
   onDone: () => void
 }) {
   const [tab, setTab] = useState<Tab>('library')
+  const tabsId = useId()
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
+  // Arrow keys, Home and End move between the tabs (the focused one is the only tab stop), as a tab list is expected to.
+  const onTabKeyDown = (event: React.KeyboardEvent) => {
+    const index = TABS.findIndex((item) => item.value === tab)
+    const next =
+      event.key === 'ArrowRight' ? (index + 1) % TABS.length : event.key === 'ArrowLeft' ? (index + TABS.length - 1) % TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : -1
+    if (next < 0) return
+    event.preventDefault()
+    setTab(TABS[next].value)
+    tabRefs.current[TABS[next].value]?.focus()
+  }
 
   return (
     <>
       <DialogHeader className="mb-0 space-y-1.5 border-b border-border px-6 pb-4 pt-6">
         <DialogTitle>Add a simulation</DialogTitle>
-        <DialogDescription>Choose one from the G2G library, or import a specification of your own. It is added to your organisation only.</DialogDescription>
-        <div className="mt-3 flex w-fit items-center rounded-lg border border-border bg-muted/30 p-0.5 text-xs font-medium" role="tablist" aria-label="Where to add from">
-          {(
-            [
-              ['library', 'G2G library', Library],
-              ['import', 'Import a specification', FileJson],
-            ] as const
-          ).map(([value, label, Icon]) => (
+        <DialogDescription>
+          Choose one from the G2G library, create one from a package you edit yourself, or import a specification. It is added to your organisation only.
+        </DialogDescription>
+        <div
+          className="mt-3 flex w-fit max-w-full items-center overflow-x-auto rounded-lg border border-border bg-muted/30 p-0.5 text-xs font-medium"
+          role="tablist"
+          aria-label="Where to add from"
+          onKeyDown={onTabKeyDown}
+        >
+          {TABS.map(({ value, label, Icon }) => (
             <button
               key={value}
+              ref={(node) => {
+                tabRefs.current[value] = node
+              }}
+              id={`${tabsId}-tab-${value}`}
               type="button"
               role="tab"
               aria-selected={tab === value}
+              aria-controls={`${tabsId}-panel`}
+              tabIndex={tab === value ? 0 : -1}
               onClick={() => setTab(value)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors',
+                'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                 tab === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -123,9 +182,11 @@ function AddBody({
         </div>
       </DialogHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5" role="tabpanel">
+      <div id={`${tabsId}-panel`} className="min-h-0 flex-1 overflow-y-auto px-6 py-5" role="tabpanel" aria-labelledby={`${tabsId}-tab-${tab}`}>
         {tab === 'library' ? (
           <LibraryTab enable={enable} onAdded={onAdded} onImport={() => setTab('import')} />
+        ) : tab === 'create' ? (
+          <CreateTab existing={simulations} create={create} update={update} setStatus={setStatus} onAdded={onAdded} onDone={onDone} onPreview={onPreview} />
         ) : (
           <ImportTab categories={categories} create={create} onAdded={onAdded} onDone={onDone} />
         )}
@@ -302,19 +363,9 @@ function ImportTab({
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<{ message: string; problems: string[] } | null>(null)
 
-  // What is in flight: a newer edit abandons the older check, and closing the dialog abandons whatever is running.
-  const inFlight = useRef<{ live: boolean; timer: number; cancel: (() => void) | null } | null>(null)
+  // A newer edit abandons the older check, and closing the dialog abandons whatever is running (shared with the Create tab).
+  const { run: runCheck, abandon: abandonCheck } = useRuntimeCheck()
   const filledFor = useRef<string | null>(null)
-
-  const abandonCheck = useCallback(() => {
-    const run = inFlight.current
-    if (!run) return
-    run.live = false
-    window.clearTimeout(run.timer)
-    run.cancel?.()
-    inFlight.current = null
-  }, [])
-  useEffect(() => abandonCheck, [abandonCheck])
 
   // Parse what was entered, then ask the runtime itself whether it would play. The runtime's validator is the authority: it is the code that will
   // run the simulation, so it is the one that vets it. This answers the person typing (or choosing a file), so it is called from their handlers,
@@ -345,31 +396,24 @@ function ImportTab({
         return
       }
 
-      const run: { live: boolean; timer: number; cancel: (() => void) | null } = { live: true, timer: 0, cancel: null }
-      inFlight.current = run
       setCheck({ kind: 'checking', spec })
-      run.timer = window.setTimeout(() => {
-        const verdictRun = checkSpecWithRuntime(spec)
-        run.cancel = verdictRun.cancel
-        void verdictRun.result.then((verdict) => {
-          if (!run.live) return
-          if (verdict.unavailable) setCheck({ kind: 'unavailable', spec })
-          else if (verdict.ok) setCheck({ kind: 'valid', spec })
-          else setCheck({ kind: 'problems', spec, issues: verdict.issues })
-          // Fill the card fields from the specification the first time it is usable, so the administrator only changes what they mean to.
-          if (verdict.ok || verdict.unavailable) {
-            const facts = readSpec(spec)
-            const key = `${facts.id ?? ''}|${facts.title ?? ''}`
-            if (filledFor.current !== key) {
-              filledFor.current = key
-              setCategory(facts.category ?? '')
-              setTags(facts.tags.join(', '))
-            }
+      runCheck(spec, (verdict) => {
+        if (verdict.unavailable) setCheck({ kind: 'unavailable', spec })
+        else if (verdict.ok) setCheck({ kind: 'valid', spec })
+        else setCheck({ kind: 'problems', spec, issues: verdict.issues })
+        // Fill the card fields from the specification the first time it is usable, so the administrator only changes what they mean to.
+        if (verdict.ok || verdict.unavailable) {
+          const facts = readSpec(spec)
+          const key = `${facts.id ?? ''}|${facts.title ?? ''}`
+          if (filledFor.current !== key) {
+            filledFor.current = key
+            setCategory(facts.category ?? '')
+            setTags(facts.tags.join(', '))
           }
-        })
-      }, 350)
+        }
+      })
     },
-    [abandonCheck],
+    [abandonCheck, runCheck],
   )
 
   const readFile = async (file: File | undefined | null) => {

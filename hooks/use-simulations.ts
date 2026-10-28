@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { DEFAULT_LIMITS, runUploads, type SimulationLimits, type StepStatus, type UploadStep } from '@/lib/simulation-package-plan'
 import { ApiError } from '@/services/core'
 import {
   simulationService,
@@ -27,6 +28,7 @@ import {
   type SimulationProgress,
   type SimulationRights,
   type SimulationStatus,
+  type UpdateSimulationInput,
 } from '@/services/lms/simulations'
 
 export type SimulationProgressFilter = 'all' | 'todo' | 'doing' | 'done'
@@ -228,6 +230,21 @@ export function useSimulations() {
     [act],
   )
 
+  /** Saves a new version of a simulation (edit right); the same outcome shape as `create`. */
+  const update = useCallback(
+    async (
+      id: number,
+      input: UpdateSimulationInput,
+    ): Promise<{ ok: true; card: SimulationCard } | { ok: false; message: string; problems: string[] }> => {
+      let card: SimulationCard | undefined
+      const result = await act('Could not save this simulation.', async () => {
+        card = (await simulationService.update(id, input))?.data
+      })
+      return result.ok && card ? { ok: true, card } : result.ok ? { ok: false, message: 'The server did not return the simulation.', problems: [] } : result
+    },
+    [act],
+  )
+
   /**
    * Keeps a card's progress current without a round trip when the player reports (or closes). Mirrors the server's own rules - progress only
    * moves forward and a completed simulation stays completed - so the card never shows something the next reload would take back.
@@ -274,6 +291,7 @@ export function useSimulations() {
     enable,
     disable,
     create,
+    update,
     applyProgress,
     acting,
     actionError,
@@ -284,3 +302,88 @@ export function useSimulations() {
 }
 
 export type UseSimulationsReturn = ReturnType<typeof useSimulations>
+
+/**
+ * The organisation's limits for models, images and storage, and how much it has used (GET /lms/simulations/limits). They only inform the
+ * Create screen: until they arrive, or if they cannot be loaded, the contract's own figures stand in (`limits.fromServer` says which), and
+ * the server enforces every limit regardless.
+ */
+export function useSimulationLimits() {
+  const [limits, setLimits] = useState<SimulationLimits>(DEFAULT_LIMITS)
+  const [loading, setLoading] = useState(true)
+  const requestId = useRef(0)
+
+  const load = useCallback(() => {
+    const mine = ++requestId.current
+    setLoading(true)
+    simulationService
+      .limits()
+      .then((loaded) => {
+        if (mine === requestId.current) setLimits(loaded)
+      })
+      .catch((err) => console.warn('[useSimulationLimits] the limits could not be loaded:', err))
+      .finally(() => {
+        if (mine === requestId.current) setLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    queueMicrotask(load)
+    return () => {
+      requestId.current += 1
+    }
+  }, [load])
+
+  return { limits, loading, reload: load }
+}
+
+/** The media type sent with a model or image part of an upload (the server decides what a file is from its bytes, never from this). */
+function mimeFor(step: Pick<UploadStep, 'kind' | 'filename'>): string {
+  if (step.kind === 'model') return 'model/gltf-binary'
+  const extension = step.filename.split('.').pop()?.toLowerCase()
+  return extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg'
+}
+
+/**
+ * Uploads a plan's files one at a time (see runUploads), keeping each file's status for the screen. Running it again sends only the files
+ * that did not go through. Closing the screen stops the batch after the file in flight.
+ */
+export function useAssetUploads() {
+  const [statuses, setStatuses] = useState<Record<string, StepStatus>>({})
+  const [running, setRunning] = useState(false)
+  const held = useRef<Record<string, StepStatus>>({})
+  const stopped = useRef(false)
+
+  useEffect(() => {
+    stopped.current = false
+    return () => {
+      stopped.current = true
+    }
+  }, [])
+
+  const run = useCallback(async (steps: UploadStep[]) => {
+    setRunning(true)
+    const outcome = await runUploads({
+      steps,
+      previous: held.current,
+      isCancelled: () => stopped.current,
+      onStatus: (id, status) => {
+        held.current = { ...held.current, [id]: status }
+        if (!stopped.current) setStatuses(held.current)
+      },
+      upload: (step) => {
+        const file = new File([step.bytes as BlobPart], step.filename, { type: mimeFor(step) })
+        return simulationService.uploadAsset(file, step.meta)
+      },
+    })
+    if (!stopped.current) setRunning(false)
+    return outcome
+  }, [])
+
+  const reset = useCallback(() => {
+    held.current = {}
+    setStatuses({})
+  }, [])
+
+  return { statuses, running, run, reset }
+}
