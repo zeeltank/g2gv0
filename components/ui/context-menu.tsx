@@ -5,7 +5,18 @@ import * as ContextMenuPrimitive from '@radix-ui/react-context-menu'
 import { Check, ChevronRight, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const ContextMenu = ContextMenuPrimitive.Root
+/**
+ * NON-MODAL BY DEFAULT, for the same reason as `DropdownMenu`: a modal menu that
+ * opens a modal Dialog (Rename, Delete) overlaps two dismissable layers' teardowns
+ * and can leave `pointer-events: none` on <body>, freezing the page until refresh.
+ * See the note in dropdown-menu.tsx. Pass `modal` explicitly to opt back in.
+ */
+const ContextMenu = ({
+  modal = false,
+  ...props
+}: React.ComponentProps<typeof ContextMenuPrimitive.Root>) => (
+  <ContextMenuPrimitive.Root modal={modal} {...props} />
+)
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger
 const ContextMenuGroup = ContextMenuPrimitive.Group
 const ContextMenuPortal = ContextMenuPrimitive.Portal

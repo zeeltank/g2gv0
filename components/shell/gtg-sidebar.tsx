@@ -179,6 +179,36 @@ export function GtgSidebar({
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const filteredNav = modules
 
+  /*
+   * THE SIDEBAR OPENS ON WHERE YOU ARE, EVERY TIME THE PAGE CHANGES.
+   *
+   * The shell lives inside each page, not in a layout, so this component is
+   * unmounted and rebuilt on every navigation. Its expanded state was seeded
+   * once, in the useState initialisers above, from `active` - but on a fresh
+   * mount `active` is still the empty sentinel (GtgAppShell resolves it from
+   * the URL in an effect, after the menu tree is known) or a hardcoded default
+   * (GtgPageShell). So the seed found nothing to expand and nothing re-ran once
+   * `active` resolved: open Organization Setup, click Organization Profile, and
+   * the whole tree came back collapsed on the new page.
+   *
+   * This re-opens the module and the branch that holds the active item whenever
+   * the active item changes - and when its module first becomes known. It adds
+   * to what is already open rather than replacing it, so a branch the person
+   * opened by hand is not shut by their own navigation. Adjusted DURING RENDER,
+   * not in an effect, so the first paint is already the right one.
+   */
+  const activeModule = modules.find((m) => m.id === active.moduleId)
+  const activeKey = activeModule ? `${active.moduleId}:${active.menuId}:${active.submenuId}` : ''
+  const [syncedActiveKey, setSyncedActiveKey] = useState('')
+  if (activeModule && activeKey !== syncedActiveKey) {
+    const pathIds = activePathIds(activeModule, active)
+    setSyncedActiveKey(activeKey)
+    setDesktopExpandedModuleId(active.moduleId)
+    setDesktopExpandedIds((current) => new Set([...current, ...pathIds]))
+    setExpandedModuleId(active.moduleId)
+    setExpandedMobileIds((current) => new Set([...current, ...pathIds]))
+  }
+
   const clearFlyout = useCallback(() => {
     setFlyoutModuleId(null)
     setFlyoutExpandedIds(new Set())
