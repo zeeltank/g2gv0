@@ -29,3 +29,12 @@ describe('ICP customer type', () => {
     assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /customer_model: e\.target\.value as CustomerModel/)
   })
 })
+
+describe('Ideal customer text has no short limit', () => {
+  it('both ICP forms use a multi-line box with no maxLength on the ideal-customer field', () => {
+    const section = read('components/domain/portfolio/product-icp-section.tsx')
+    const editor = read('components/domain/portfolio/product-icp-editor.tsx')
+    assert.match(section, /<Textarea id="icp-ideal"[^>]*value=\{form\.industry_label\}(?![^>]*maxLength)/)
+    assert.match(editor, /<Textarea value=\{form\.industry_label\}(?![^>]*maxLength)/)
+  })
+})
