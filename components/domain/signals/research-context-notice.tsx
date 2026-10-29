@@ -10,7 +10,7 @@ import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ResearchContext } from '@/services/portfolio/types'
 
 /** One line saying what the run will be built from (product, ICP and version, regions), with the saved/missing detail folded away. */
-export function ResearchContextNotice({ context, productKey, regions = [], refreshKey }: { context: LaravelContext; productKey: string; /** The places this run will be limited to (added ones plus a pending country). [] = none chosen. */ regions?: RegionSelection[]; refreshKey?: number }) {
+export function ResearchContextNotice({ context, productKey, regions = [], refreshKey, offerId = null }: { context: LaravelContext; productKey: string; /** Describe a run for this ONE sub-product of the product. */ offerId?: string | null; /** The places this run will be limited to (added ones plus a pending country). [] = none chosen. */ regions?: RegionSelection[]; refreshKey?: number }) {
   const [data, setData] = useState<ResearchContext | null>(null)
   const [error, setError] = useState('')
 
@@ -18,11 +18,11 @@ export function ResearchContextNotice({ context, productKey, regions = [], refre
     let live = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(null); setError('')
-    portfolioService.getResearchContext(context, productKey, regions)
+    portfolioService.getResearchContext(context, productKey, regions, offerId)
       .then((res) => { if (live) setData(res.data.research_context) })
       .catch((e) => { if (live) setError(e instanceof Error ? e.message : 'Could not load what this run will use.') })
     return () => { live = false }
-  }, [context, productKey, refreshKey, JSON.stringify(regions)])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [context, productKey, offerId, refreshKey, JSON.stringify(regions)])   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <p role="status" className="mt-3 text-xs text-muted-foreground">{error}</p>
   if (!data) return null

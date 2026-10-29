@@ -102,9 +102,9 @@ describe('The pre-run notice separates this run\'s region from the saved ICP reg
 
   it('the notice asks the backend about the places that will be sent', () => {
     const n = read('components/domain/signals/research-context-notice.tsx')
-    assert.match(n, /getResearchContext\(context, productKey, regions\)/)
+    assert.match(n, /getResearchContext\(context, productKey, regions, offerId\)/)
     assert.match(read('services/portfolio/portfolio-service.ts'), /regions: JSON\.stringify\(regions\)/)
-    assert.match(read('components/domain/signals/company-opportunities.tsx'), /<ResearchContextNotice context=\{context\} productKey=\{selected\.key\} regions=\{effective\}/)
+    assert.match(read('components/domain/signals/company-opportunities.tsx'), /<ResearchContextNotice context=\{context\} productKey=\{selected\.key\} offerId=\{offerId\} regions=\{effective\}/)
   })
 })
 
