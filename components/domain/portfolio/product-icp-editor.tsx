@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { CUSTOMER_MODELS, fromConfig, rid, toConfig, type CustomerModel, type FormState, type Row } from '@/lib/icp-form'
+import { formatFriendlyProblems } from '@/lib/friendly-errors'
 import { productIcpService, type IcpEditorState } from '@/services/signals/product-icp'
 import { IcpProductPicker } from './icp-product-picker'
 import { IcpComparison } from './icp-comparison'
@@ -51,7 +52,7 @@ function Section({ title, hint, problems, children, action }: { title: string; h
         {action}
       </div>
       {problems && problems.length > 0 && (
-        <ul role="alert" className="list-disc space-y-0.5 pl-5 text-xs text-destructive">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
+        <ul role="alert" className="list-disc space-y-0.5 pl-5 text-xs text-destructive">{formatFriendlyProblems(problems).map((p) => <li key={p}>{p}</li>)}</ul>
       )}
       {children}
     </fieldset>
@@ -294,7 +295,7 @@ export function ProductIcpEditor({
             </Field>
             <Field label="Description" hint="What you sell and why it matters to them."><Textarea value={form.pitch} disabled={disabled} onChange={(e) => set({ pitch: e.target.value })} rows={2} /></Field>
             <div className="@xl:col-span-2">
-              <Field label="Qualification guidance" hint="Extra guidance the research follows when judging a customer (up to 1,500 characters)."><Textarea value={form.guidance} disabled={disabled} onChange={(e) => set({ guidance: e.target.value })} rows={2} maxLength={1500} /></Field>
+              <Field label="Qualification guidance" hint="Extra guidance the research follows when judging a customer (up to 5,000 characters)."><Textarea value={form.guidance} disabled={disabled} onChange={(e) => set({ guidance: e.target.value })} rows={2} maxLength={5000} /></Field>
             </div>
           </div>
         </Section>

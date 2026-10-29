@@ -1,4 +1,5 @@
 import { ApiError } from '@/services/core'
+import { friendlyErrorSummary } from '@/lib/friendly-errors'
 
 /**
  * The sentence to show a person for a failed request. A validation failure (422) carries the server's field messages; they are listed instead of
@@ -6,6 +7,10 @@ import { ApiError } from '@/services/core'
  */
 export function apiErrorText(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
+    const rawProblems = (error as any).body?.problems || (error as any).problems
+    if (Array.isArray(rawProblems) && rawProblems.length > 0) {
+      return friendlyErrorSummary(rawProblems, fallback)
+    }
     const fields = Object.entries(error.errors ?? {})
       .flatMap(([field, messages]) => (Array.isArray(messages) ? messages : [String(messages)]).map((m) => `${field.replace(/_/g, ' ')}: ${m}`))
       .slice(0, 4)

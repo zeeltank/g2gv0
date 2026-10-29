@@ -91,9 +91,9 @@ describe('Add or edit sub-product: saves directly to offers', () => {
   it('sub-products belong to their parent product and never create a master product', () => {
     assert.doesNotMatch(s, /productIcpService\.createProduct/)
   })
-  it('guidance allows 1,500 characters in both forms', () => {
-    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{1500\}/)
-    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{1500\}/)
+  it('guidance allows 5,000 characters in both forms', () => {
+    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{5000\}/)
+    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{5000\}/)
   })
 })
 
