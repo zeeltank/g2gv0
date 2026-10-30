@@ -39,7 +39,7 @@ export interface IcpConfig {
   pitch?: string
   industry_label?: string
   guidance?: string
-  customer_model?: 'b2b' | 'b2c' | 'both'
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | 'both'
   buyer_types?: string[]
   regions?: string[]
   priority_cities?: string[]
@@ -56,6 +56,8 @@ export interface IcpConfig {
 }
 
 export interface IcpEditorState {
+  customer_model?: 'b2b' | 'b2c' | 'b2g'
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean }>
   product: ProductInfo & {
     state: 'ready' | 'needs_setup' | 'invalid'
     next_step: string | null
@@ -134,24 +136,24 @@ export const productIcpService = {
   deleteProduct: (c: LaravelContext, product: string) =>
     apiClient.delete<{ status: number; message: string; data: { removed: string; icp_deleted: number } }>(`${path(product)}?${qs(c)}`),
 
-  get: (c: LaravelContext, product: string) => apiClient.get<{ status: number; data: IcpEditorState }>(path(product), base(c)),
+  get: (c: LaravelContext, product: string, model: 'b2b' | 'b2c' | 'b2g' = 'b2b') => apiClient.get<{ status: number; data: IcpEditorState }>(path(product), { ...base(c), customer_model: model }),
 
   /** Checks an ICP's settings on the server before the product exists (no product needed). Nothing is saved. */
-  checkConfig: (c: LaravelContext, config: IcpConfig) =>
-    apiClient.post<{ status: number; data: { valid: boolean; problems: string[] } }>(`/signals/icp/validate?${qs(c)}`, { config }),
+  checkConfig: (c: LaravelContext, config: IcpConfig, model: 'b2b' | 'b2c' | 'b2g' = 'b2b') =>
+    apiClient.post<{ status: number; data: { valid: boolean; problems: string[] } }>(`/signals/icp/validate?${qs(c)}`, { config, customer_model: model }),
 
   /** Checks the ICP on the server. Nothing is saved. */
-  check: (c: LaravelContext, product: string, config: IcpConfig) =>
-    apiClient.post<IcpCheckResult>(`${path(product)}/validate?${qs(c)}`, { config }),
+  check: (c: LaravelContext, product: string, config: IcpConfig, model: 'b2b' | 'b2c' | 'b2g' = 'b2b') =>
+    apiClient.post<IcpCheckResult>(`${path(product)}/validate?${qs(c)}`, { config, customer_model: model }),
 
   /** Saves (a new version of) the product's ICP. `activate` also makes it the product's active ICP. Starts no research. */
-  save: (c: LaravelContext, product: string, body: { config: IcpConfig; name?: string; note?: string; activate?: boolean }) =>
+  save: (c: LaravelContext, product: string, body: { config: IcpConfig; name?: string; note?: string; activate?: boolean; customer_model?: 'b2b' | 'b2c' | 'b2g' }) =>
     apiClient.put<{ status: number; message: string; data: IcpEditorState }>(`${path(product)}?${qs(c)}`, body),
 
   /** How well each chosen portfolio product fits the product's SAVED ICP. Deterministic, no AI, nothing saved. `offerIds` defaults to the ICP's own list. */
   compare: (c: LaravelContext, product: string, offerIds?: string[]) =>
     apiClient.get<IcpComparison>(`${path(product)}/compare`, { ...base(c), ...(offerIds ? { offer_ids: offerIds.join(',') } : {}) }),
 
-  setStatus: (c: LaravelContext, product: string, status: 'active' | 'draft' | 'archived') =>
-    apiClient.patch<{ status: number; data: IcpEditorState }>(`${path(product)}/status?${qs(c)}`, { status }),
+  setStatus: (c: LaravelContext, product: string, status: 'active' | 'draft' | 'archived', model: 'b2b' | 'b2c' | 'b2g' = 'b2b') =>
+    apiClient.patch<{ status: number; data: IcpEditorState }>(`${path(product)}/status?${qs(c)}`, { status, customer_model: model }),
 }

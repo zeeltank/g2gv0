@@ -15,6 +15,7 @@ export interface GenerateProduct {
   ready: boolean
   missing: string[]
   next_step?: string | null
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean }>
 }
 
 /** One sub-product (an offer) of the chosen product, when the run is for it alone. `ready` = its own Individual ICP is complete enough. */
@@ -23,6 +24,7 @@ export interface GenerateSub {
   name: string
   ready: boolean
   missing: string[]
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean }>
 }
 
 export type GenerateRefusal = 'no_product' | 'all_products' | 'unknown_product' | 'not_ready' | 'running' | 'providers'
@@ -40,7 +42,7 @@ export interface GenerateStatus {
 
 export interface GenerateService {
   getStatus: (c: LaravelContext, product?: string) => Promise<{ data: GenerateStatus }>
-  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null) => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
+  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
 }
 
 const refuse = (reason: GenerateRefusal, message: string, missing: string[] = [], nextStep: string | null = null): GenerateOutcome =>
@@ -52,18 +54,29 @@ export function decideGenerate(
   products: GenerateProduct[] | null,
   running: boolean,
   sub: GenerateSub | null = null,
+  customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b',
 ): { ok: true; product: GenerateProduct } | { ok: false; outcome: GenerateOutcome } {
   if (choice === 'all') return { ok: false, outcome: refuse('all_products', 'Choose one product. A run is always for a single product.') }
   if (!choice) return { ok: false, outcome: refuse('no_product', 'Choose a product first.') }
   const product = products?.find((p) => p.key === choice)
   if (!product) return { ok: false, outcome: refuse('unknown_product', 'That product is not available.') }
   if (running) return { ok: false, outcome: refuse('running', 'A run is already in progress.') }
-  if (!product.ready) {
-    return { ok: false, outcome: refuse('not_ready', `${product.label} is not ready: its ICP must be configured and active first.`, product.missing, product.next_step ?? null) }
+
+  const modelUpper = customerModel.toUpperCase()
+  const prodModel = product.icp_models?.[customerModel]
+  const prodReady = prodModel ? prodModel.ready : (customerModel === 'b2b' ? product.ready : false)
+  if (!prodReady && !sub) {
+    const missing = prodModel?.missing ?? product.missing
+    return { ok: false, outcome: refuse('not_ready', `${product.label} is not ready: its ${modelUpper} ICP must be configured and active first.`, missing, product.next_step ?? null) }
   }
 
-  if (sub && !sub.ready) {
-    return { ok: false, outcome: refuse('not_ready', `${sub.name} is not ready: its own Individual ICP must be completed first.`, sub.missing, 'Edit the product in Product Portfolio and complete its Individual ICP.') }
+  if (sub) {
+    const subModel = sub.icp_models?.[customerModel]
+    const subReady = subModel ? subModel.ready : (customerModel === 'b2b' ? sub.ready : false)
+    if (!subReady) {
+      const missing = subModel?.missing ?? sub.missing
+      return { ok: false, outcome: refuse('not_ready', `${sub.name} is not ready: its ${modelUpper} ICP must be completed first.`, missing, 'Edit the product in Product Portfolio and complete its Individual ICP.') }
+    }
   }
 
   return { ok: true, product }
@@ -83,8 +96,11 @@ export async function generateSignals(args: {
   regions?: RegionSelection[]
   /** Run for this ONE sub-product of the product (its own Individual ICP). Absent = the whole product, as before. */
   sub?: GenerateSub | null
+  /** Customer model to research (b2b, b2c, b2g). Default b2b. */
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
 }): Promise<GenerateOutcome> {
-  const local = decideGenerate(args.choice, args.products, args.running, args.sub ?? null)
+  const customerModel = args.customerModel ?? 'b2b'
+  const local = decideGenerate(args.choice, args.products, args.running, args.sub ?? null, customerModel)
   if (!local.ok) return local.outcome
   const { product } = local
 
@@ -99,7 +115,7 @@ export async function generateSignals(args: {
       : 'No AI provider is configured for this organisation.')
   }
 
-  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions, args.sub?.offer_id ?? null)
+  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions, args.sub?.offer_id ?? null, customerModel)
 
   return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null }
 }

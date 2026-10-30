@@ -102,6 +102,7 @@ export function ProductIcpEditor({
   onChanged: () => void
   onDirtyChange?: (dirty: boolean) => void
 }) {
+  const [selectedModel, setSelectedModel] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
   const [state, setState] = useState<IcpEditorState | null>(null)
   const [form, setForm] = useState<FormState | null>(null)
   const [saved, setSaved] = useState('')
@@ -125,10 +126,10 @@ export function ProductIcpEditor({
     // Another product's form must never stay on screen.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(null); setForm(null); setMessage(null); setLoadError('')
-    productIcpService.get(context, productKey)
+    productIcpService.get(context, productKey, selectedModel)
       .then((res) => { if (request === requestRef.current) apply(res.data) })
       .catch((e) => { if (request === requestRef.current) setLoadError(errText(e, 'Could not load the ICP.')) })
-  }, [context, productKey, apply])
+  }, [context, productKey, selectedModel, apply])
 
   const dirty = useMemo(() => form !== null && JSON.stringify(toConfig(form)) + form.name !== saved, [form, saved])
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
@@ -184,7 +185,7 @@ export function ProductIcpEditor({
     const config = toConfig(form)
     try {
       // The server judges the form first, so every problem is shown next to its field (a failed save would only give one sentence).
-      const check = await productIcpService.check(context, productKey, config)
+      const check = await productIcpService.check(context, productKey, config, selectedModel)
       setProblems(check.data.problems)
       if (check.data.problems.length > 0) {
         setMessage({ tone: 'error', text: `${check.data.problems.length} problem${check.data.problems.length === 1 ? '' : 's'} to fix before this can be saved.` })
@@ -201,7 +202,7 @@ export function ProductIcpEditor({
         setMessage({ tone: 'error', text: 'It cannot be activated yet. Fix what is listed.' })
         return
       }
-      const res = await productIcpService.save(context, productKey, { config, name: form.name.trim() || undefined, activate })
+      const res = await productIcpService.save(context, productKey, { config, name: form.name.trim() || undefined, activate, customer_model: selectedModel })
       apply(res.data)
       setMessage({ tone: 'ok', text: activate ? 'Saved and activated. No research was started.' : 'Saved. No research was started.' })
       onChanged()
@@ -218,7 +219,7 @@ export function ProductIcpEditor({
     setBusy('status')
     setMessage(null)
     try {
-      const res = await productIcpService.setStatus(context, productKey, next)
+      const res = await productIcpService.setStatus(context, productKey, next, selectedModel)
       // keep unsaved edits if there are any; only the status/readiness is refreshed
       setState(res.data)
       if (!dirty) apply(res.data)
@@ -240,9 +241,41 @@ export function ProductIcpEditor({
 
   return (
     <section aria-label={`${product.label} ideal customer profile`} className="space-y-4 rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+      {/* Model Tabs: B2B, B2G, B2C */}
+      <div className="flex border-b border-border/60 gap-1.5" role="tablist" aria-label="Customer models">
+        {[
+          { key: 'b2b' as const, label: 'B2B ICP', icon: '🏢', title: 'Business & Organisations' },
+          { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
+          { key: 'b2c' as const, label: 'B2C ICP', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+        ].map((mTab) => {
+          const isSelected = selectedModel === mTab.key
+          return (
+            <button
+              key={mTab.key}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => {
+                if (isSelected) return
+                if (dirty && !window.confirm('You have unsaved changes to this ICP. Switch model and discard them?')) return
+                setSelectedModel(mTab.key)
+              }}
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                isSelected
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              <span>{mTab.icon}</span>
+              <span>{mTab.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Ideal Customer Profile: {product.label}</h3>
+          <h3 className="text-base font-semibold text-foreground">Ideal Customer Profile: {product.label} ({selectedModel.toUpperCase()})</h3>
           <p className="text-xs text-muted-foreground">
             {profile ? `${profile.name} · version ${profile.version} · ${profile.status}` : 'No ICP is saved for this product yet.'}
             {state.config_source === 'template' && ' Showing the built-in definition. Saving creates your own ICP from it.'}

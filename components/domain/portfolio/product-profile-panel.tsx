@@ -36,6 +36,19 @@ export function ProductProfilePanel({ product }: { product: ProductInfo }) {
       </div>
 
       <dl className="divide-y divide-border/60">
+        <Row label="Customer type">
+          {product.icp?.customer_model ? (
+            <Badge variant="outline" className="text-xs font-semibold">
+              {product.icp.customer_model === 'b2g'
+                ? 'B2G: Government & Tenders'
+                : product.icp.customer_model === 'b2b'
+                  ? 'B2B: Private Organisations'
+                  : product.icp.customer_model === 'b2c'
+                    ? 'B2C: Consumers'
+                    : 'Both B2B and B2C'}
+            </Badge>
+          ) : NOT_SET}
+        </Row>
         <Row label="Ideal customer">{product.icp?.ideal_customer ?? NOT_SET}</Row>
         <Row label="Buyer types">{list(product.icp?.buyer_types) ?? NOT_SET}</Row>
         <Row label="Target geography">{list(product.icp?.regions) ?? NOT_SET}</Row>
