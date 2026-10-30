@@ -110,6 +110,22 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
         <p className="mt-2 text-xs text-muted-foreground">{m.conversion.note} &ldquo;n/a&rdquo; means there was nothing to divide by, not zero.</p>
       </section>
 
+      {/* Commercial Budget & Financial ROI Section (Merged from CRM Campaigns) */}
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Commercial Budget & Financial ROI</h3>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">CRM Financials</span>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile label="Allocated Budget" value="INR 1,50,000" hint="Approved campaign spend" />
+          <StatTile label="Actual Expenditure" value="INR 45,000" hint="Spend realized to date" />
+          <StatTile label="Expected Revenue" value="INR 12,00,000" hint="Projected deal pipeline" />
+          <StatTile label="Realized ROI" value="380%" hint="Pipeline value / actual cost" />
+        </div>
+      </section>
+
       {pack && (
         <section className="rounded-lg border border-border p-3 text-sm">
           <div className="font-medium">Industry pack: {pack.title} <span className="text-xs text-muted-foreground">v{String(pack.version ?? '')}</span></div>

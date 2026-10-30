@@ -20,7 +20,7 @@ export function SignalsHeader({ active, className = '' }: { active: SignalsTabKe
         <p className="text-sm text-muted-foreground">Find, review and act on buying signals for each of your products.</p>
       </div>
       <nav aria-label="Signals sections">
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {tabs.map((t) => (
             <li key={t.key}>
               <Link
