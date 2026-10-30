@@ -330,24 +330,6 @@ export interface RunStageStats {
   /** Did the research finish what it set out to do? 'incomplete' (an AI failure, a time or page limit) is different from 'completed_no_qualified'. */
   completion?: 'completed' | 'completed_no_qualified' | 'incomplete'
   completion_reasons?: string[]
-  /** A separate, source-quoted second pass when no qualified ScholarClone opportunity was saved. These are review items, never qualified signals. */
-  potential_opportunities?: {
-    attempted: boolean
-    status: 'completed' | 'failed' | 'skipped'
-    reason?: string
-    items: {
-      company_name: string
-      event: string
-      trigger_type: string
-      source_title: string
-      source_url: string
-      source_quote: string
-      source_published_at: string | null
-      page_read: boolean
-      why_review: string
-      region_status: string
-    }[]
-  }
   zero_reasons: { code: string; label: string; count: number }[]
   next_action: string
 }
