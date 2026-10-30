@@ -222,6 +222,17 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     }
   }
 
+  // Edit opens with the FULL offer (the list rows do not carry the saved individual ICP), so the ICP is shown when the form opens.
+  const openEdit = async (offer: ProductOffer) => {
+    setEditOffer(offer)
+    try {
+      const full = await portfolioService.getOffer(context, offer.id)
+      setEditOffer(full.data)
+    } catch {
+      // keep the list row: the form still opens, without the saved ICP
+    }
+  }
+
   const submitReadiness = async () => {
     if (!detailOffer || !readinessAction) return
     const confirmed = readinessAction === 'confirm'
@@ -536,7 +547,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
                           <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${offer.name}`}><MoreHorizontal className="size-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setEditOffer(offer)} aria-label={`Edit ${offer.name}`}><Edit2 className="mr-2 size-4" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => void openEdit(offer)} aria-label={`Edit ${offer.name}`}><Edit2 className="mr-2 size-4" /> Edit</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onSelect={() => void handleDelete(offer)} aria-label={`Delete ${offer.name}`} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 size-4" /> Delete</DropdownMenuItem>
                         </DropdownMenuContent>

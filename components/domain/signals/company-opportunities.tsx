@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { icpHref } from '@/lib/product-selection'
+import { icpHref, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -31,15 +31,20 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const { products, loading, error } = useProducts(context)
-  const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
+  // The choice is a product, or one sub-product of it ("scholarclone::SCH-11"): the run is then about that sub-product alone, with its own ICP.
+  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
+  const { productKey: product, offerId } = splitChoice(choice)
   const selected = products?.find((p) => p.key === product) ?? null
-  const run = useGenerateSignals(context, selected ? selected.key : null, products)
+  const sub = offerId ? selected?.offers.find((o) => o.offer_id === offerId) ?? null : null
+  const runLabel = selected ? (sub ? `${selected.label} → ${sub.name}` : selected.label) : ''
+  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId)
 
   const [dates, setDates] = useState<RunDate[] | null>(null)
   const [timezone, setTimezone] = useState<string | null>(null)
   const [datesError, setDatesError] = useState<string | null>(null)
   // null = the default: today.
   const [picked, setPicked] = useState<string | null>(null)
+  const [allSignals, setAllSignals] = useState(false)
   const [total, setTotal] = useState<number | null>(null)
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
   const [regions, setRegions] = useState<RegionSelection[]>([])
@@ -50,7 +55,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const key = selected?.key ?? null
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
+    setDates(null); setDatesError(null); setAllSignals(false); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
     seenCompleted.current = run.completedCount
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,17 +70,19 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         setDates(res.data.dates)
         setTimezone(res.data.timezone)
         setDatesError(null)
-        if (finished) setPicked(null)   // a run that just finished saved today's results
+        if (finished) { setPicked(null); setAllSignals(false) }   // a run that just finished saved today's results
       })
       .catch((e) => { if (live) setDatesError(e instanceof Error ? e.message : 'Could not load the research dates.') })
     return () => { live = false }
   }, [context, key, run.refreshKey, run.completedCount])
 
-  const ready = Boolean(selected?.ready)
+  const ready = Boolean(selected?.ready) && (!sub || sub.icp_ready !== false)
   const today = timezone ? todayIn(timezone) : null
-  const recent = today ? recentDays(today) : []
-  const day = picked ?? today
-  const dayRun = dates?.find((d) => d.date === day) ?? null
+  const availableDates = dates ?? []
+  const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
+  const recent5 = (datesWithSignals.length > 0 ? datesWithSignals : availableDates).slice(0, 5)
+  const activeDate = picked ?? (recent5[0]?.date ?? today)
+  const dayRun = dates?.find((d) => d.date === activeDate) ?? null
   const latest = run.status?.latest_run ?? null
   const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped') ? latest : null)
   // Generate Signals and Retry use the places added AND a country typed but not added. An unusable half-filled place stops the run and says why:
@@ -89,13 +96,13 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     void run.generate(c.list)
   }
   const effective = previewRegions(regions, draft)
-  const pick = (d: string) => { setPicked(d === today ? null : d); setTotal(null) }
+  const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null) }
 
   return (
     <div className="space-y-5">
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
         <div className="flex flex-wrap items-end gap-3">
-          <ProductDropdown products={products} loading={loading} error={error} value={product} onChange={setProduct} />
+          <ProductDropdown products={products} loading={loading} error={error} value={choice} onChange={setChoice} allowSub />
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
           <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-stretch sm:items-end gap-1">
             <Button
@@ -110,12 +117,20 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               {run.running ? 'Generating…' : 'Generate Signals'}
             </Button>
             <span id="generate-hint" className="text-xs text-muted-foreground">
-              {run.running ? 'Research is running. This can take a few minutes.' : selected ? `Runs research for ${selected.label} only${effective.length > 0 ? `, in ${regionLabel(effective)}` : ''}.` : 'Choose a product.'}
+              {run.running ? 'Research is running. This can take a few minutes.' : selected ? `Runs research for ${runLabel} only${effective.length > 0 ? `, in ${regionLabel(effective)}` : ''}.` : 'Choose a product.'}
             </span>
           </div>
         </div>
 
-        {selected && !ready && (
+        {selected && sub && sub.icp_ready === false && (
+          <div role="status" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+            <p className="font-medium">{sub.name} cannot be run on its own yet.</p>
+            {(sub.icp_missing ?? []).length > 0 && <ul className="mt-1 list-disc pl-5">{(sub.icp_missing ?? []).map((m) => <li key={m}>{m}</li>)}</ul>}
+            <p className="mt-1">Edit it in Product Portfolio and complete its Individual ICP.</p>
+          </div>
+        )}
+
+        {selected && !selected.ready && (
           <div role="status" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
             <p className="font-medium">{selected.label} is not ready for signals.</p>
             {selected.missing.length > 0 && <ul className="mt-1 list-disc pl-5">{selected.missing.map((m) => <li key={m}>{m}</li>)}</ul>}
@@ -127,10 +142,10 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         )}
 
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
-        {selected && <ResearchContextNotice context={context} productKey={selected.key} regions={effective} refreshKey={run.refreshKey} />}
+        {selected && <ResearchContextNotice context={context} productKey={selected.key} offerId={offerId} regions={effective} refreshKey={run.refreshKey} />}
 
         {/* The run's real progress, right under the product it belongs to. */}
-        <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !selected?.ready} />
+        <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />
         {run.notice && (
           <div className="mt-3">
             <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
@@ -144,68 +159,97 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
       {selected && (
         <section aria-label={`${selected.label} signals`} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {today ? (
-              <>
-                <div role="radiogroup" aria-label="Signal date" className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1 text-sm">
-                  {recent.map((d) => {
-                    const info = dates?.find((x) => x.date === d)
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        role="radio"
-                        aria-checked={day === d}
-                        onClick={() => pick(d)}
-                        className={`rounded-md px-3 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${day === d ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                      >
-                        {relativeLabel(d, today) ?? formatRunDate(d)}
-                        <span className="ml-1.5 text-xs text-muted-foreground">{info ? `${info.runs} run${info.runs === 1 ? '' : 's'}` : 'no run'}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  Older date
-                  <input
-                    type="date"
-                    max={today}
-                    value={day && !recent.includes(day) ? day : ''}
-                    onChange={(e) => { if (isPickableDay(e.target.value, today)) pick(e.target.value) }}
-                    className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </label>
-                {day && !recent.includes(day) && (
-                  <Button size="sm" variant="ghost" onClick={() => { setPicked(null); setTotal(null) }}>Back to the last 3 days</Button>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground" role="status">{datesError ?? 'Loading dates…'}</p>
-            )}
-            {day && dayRun && !shownRun && (
-              <p className="text-xs text-muted-foreground" aria-live="polite">
-                Showing {formatRunDate(day)} · {dayRun.status === 'partial' ? 'finished with limits' : 'completed'}
-                {total !== null ? ` · ${total} ${total === 1 ? 'signal' : 'signals'}` : ''}
-              </p>
-            )}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* A. Recent 5 Days Dropdown */}
+            <select
+              aria-label="Recent signal dates"
+              value={allSignals ? '' : (activeDate ?? '')}
+              disabled={dates === null && !datesError}
+              onChange={(e) => {
+                if (e.target.value) pick(e.target.value)
+              }}
+              className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              {dates === null && !datesError ? (
+                <option value="" disabled>Loading dates…</option>
+              ) : (
+                <>
+                  {allSignals && <option value="" disabled>Recent dates</option>}
+                  {activeDate && !allSignals && !recent5.some((d) => d.date === activeDate) && (
+                    <option value={activeDate}>{formatRunDate(activeDate)} (Other date)</option>
+                  )}
+                  {recent5.length === 0 ? (
+                    <option value="" disabled>No recent runs</option>
+                  ) : (
+                    recent5.map((d) => (
+                      <option key={d.date} value={d.date}>
+                        {formatRunDate(d.date)} ({d.qualified} {d.qualified === 1 ? 'signal' : 'signals'})
+                      </option>
+                    ))
+                  )}
+                </>
+              )}
+            </select>
+
+            {/* B. Calendar Date Picker */}
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="sr-only">Pick date</span>
+              <input
+                type="date"
+                aria-label="Calendar date picker"
+                max={today ?? undefined}
+                value={allSignals ? '' : (activeDate ?? '')}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val && (!today || isPickableDay(val, today))) pick(val)
+                }}
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </label>
+
+            {/* C. All Signals Button */}
+            <Button
+              type="button"
+              size="sm"
+              variant={allSignals ? 'default' : 'outline'}
+              onClick={() => {
+                setAllSignals(true)
+                setTotal(null)
+              }}
+              className="h-9 font-medium"
+              aria-pressed={allSignals}
+            >
+              All Signals
+            </Button>
           </div>
 
           {dates === null && !datesError ? (
             <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
-          ) : day && dayRun ? (
+          ) : allSignals ? (
             <SignalList
-              key={`${selected.key}-${day}`}
+              key={`${selected.key}-all`}
               context={context}
               productKey={selected.key}
               productLabel={selected.label}
-              runDate={day}
+              runDate={null}
+              allDates={true}
+              refreshKey={run.refreshKey}
+              onTotal={setTotal}
+            />
+          ) : activeDate && dayRun ? (
+            <SignalList
+              key={`${selected.key}-${activeDate}`}
+              context={context}
+              productKey={selected.key}
+              productLabel={selected.label}
+              runDate={activeDate}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
               dayInfo={dayRun}
             />
           ) : (
             <EmptyState
-              title={day ? `No research ran on ${formatRunDate(day)}` : 'No research dates yet'}
+              title={activeDate ? `No research ran on ${formatRunDate(activeDate)}` : 'No research dates yet'}
               description={`${selected.label} has no successful research run on this date, so there are no signals to show. Pick another date, or press Generate Signals.`}
             />
           )}

@@ -649,8 +649,8 @@ export const opportunitiesService = {
   getRunSources: (c: LaravelContext, runId: number) =>
     apiClient.get<{ status: number; data: ResearchSourceInfo[] }>(`/signals/research/runs/${runId}/sources`, base(c)),
 
-  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[]) =>
-    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}) }),
+  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null) =>
+    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}) }),
 
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }

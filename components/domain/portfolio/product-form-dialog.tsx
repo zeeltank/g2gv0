@@ -133,7 +133,50 @@ export function ProductFormDialog({
     if (!open) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(product ? fromOffer(product) : emptyProductForm()); setErrors({}); setMessage(''); setBusy(false); setIdEdited(false)
-    setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines()); setIcpProblems([]); setPartial(null)
+    if (product) {
+      const icpData = ((product as any).individual_icp || (product as any).icp_config) as Record<string, any> | undefined
+      if (icpData) {
+        setIcp({
+          ...emptyIcpForm(),
+          label: icpData.label ?? `${product.name} ICP`,
+          name: icpData.name ?? icpData.label ?? `${product.name} ICP`,
+          industry_label: icpData.industry_label ?? '',
+          pitch: icpData.pitch ?? '',
+          guidance: icpData.guidance ?? '',
+          customer_model: icpData.customer_model ?? '',
+          buyer_types: Array.isArray(icpData.buyer_types) ? icpData.buyer_types.join('\n') : (icpData.buyer_types ?? ''),
+          regions: Array.isArray(icpData.regions) ? icpData.regions.join('\n') : (icpData.regions ?? ''),
+        })
+        const triggersRaw = icpData.triggers
+        const triggersText = Array.isArray(triggersRaw)
+          ? triggersRaw.map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
+          : typeof triggersRaw === 'object' && triggersRaw !== null
+          ? Object.values(triggersRaw).map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
+          : ''
+        const firstTrigger = (Array.isArray(triggersRaw) ? triggersRaw[0] : typeof triggersRaw === 'object' && triggersRaw !== null ? Object.values(triggersRaw)[0] : null) as Record<string, any> | null
+        const queriesRaw = icpData.queries
+        const queriesText = Array.isArray(queriesRaw)
+          ? queriesRaw.map((q: any) => q?.q || q).filter(Boolean).join('\n')
+          : ''
+        const disqualifiersRaw = icpData.disqualifiers
+        const disqualifiersText = Array.isArray(disqualifiersRaw)
+          ? disqualifiersRaw.map((d: any) => (typeof d === 'string' ? d : d?.label || d?.phrases?.[0] || '')).filter(Boolean).join('\n')
+          : ''
+
+        setIcpLines({
+          triggers: triggersText,
+          queries: queriesText,
+          exclusions: disqualifiersText,
+          freshness: firstTrigger?.decay != null ? String(firstTrigger.decay) : '',
+          source: firstTrigger?.source ?? 'news',
+        })
+      } else {
+        setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines())
+      }
+    } else {
+      setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines())
+    }
+    setIcpProblems([]); setPartial(null)
   }, [open, product])
 
   const set = (patch: Partial<ProductFormState>) => setForm((f) => ({ ...f, ...patch }))
@@ -196,7 +239,14 @@ export function ProductFormDialog({
     }
     let saved: ProductOffer
     try {
-      const body = toPayload(form, mode)
+      const icpConfig = wantsIcp
+        ? buildIcpConfig(icp, icpLines, {
+            offer_id: form.offer_id.trim() || (product ? product.offer_id : 'new'),
+            name: form.name.trim(),
+            what_it_does: form.what_it_does,
+          })
+        : null
+      const body = toPayload(form, mode, icpConfig)
       const res = product ? await portfolioService.updateOffer(context, product.id, body as Partial<ProductOffer>) : await portfolioService.createOffer(context, body as Partial<ProductOffer>)
       saved = res.data
     } catch (err) {
@@ -206,35 +256,6 @@ export function ProductFormDialog({
       return
     }
 
-    // The ICP is a separate record on the server. The product is already saved; if the ICP cannot be, say exactly that (never "saved").
-    if (wantsIcp) {
-      let key = slugKey(saved.offer_id)
-      const label = fitWords(saved.name, 50)   // the product's name on the portfolio cards is at most 50 characters
-      try {
-        // A product of your own with this same name already exists (from an earlier try, or under another ID): it is the same product, so it is used.
-        const sameName = (products ?? []).find((p) => p.custom && p.label.trim().toLowerCase() === label.toLowerCase())
-        if (sameName) key = sameName.key
-        // The product may already exist from an earlier try that stopped after it was created: then it is used as it is, never created twice.
-        if (!(products ?? []).some((p) => p.key === key)) {
-          try {
-            // The server has the last word on the key (it fixes one that is too short); the ICP is saved under the key it created.
-            const made = await productIcpService.createProduct(context, { key, label })
-            key = made.data?.product?.key || key
-          } catch (err) {
-            const said = err instanceof ApiError && err.errors ? Object.values(err.errors).flat().map(String).join(' ') : ''
-            if (!/already have a product with this key|this product already exists/i.test(said)) throw err
-          }
-        }
-        const config = buildIcpConfig(icp, icpLines, { offer_id: saved.offer_id, name: saved.name, what_it_does: saved.what_it_does })
-        await productIcpService.save(context, key, { config, name: icp.label.trim(), note: 'Created with the product', activate: false })
-      } catch (err) {
-        const problems = err instanceof ApiError && err.errors ? Object.values(err.errors).flat().map(String) : []
-        setIcpProblems(problems)
-        setPartial({ saved, created: !product, text: `The product was saved, but its ICP was not: ${apiErrorText(err, 'the ICP could not be saved')}. The ICP is not active and nothing was changed on any other product. To finish it: open Product Portfolio, find the "${label}" card at the top and choose Edit ICP (or edit this product again and save).` })
-        setBusy(false)
-        return
-      }
-    }
     setBusy(false)
     onSaved(saved, !product)
   }
@@ -253,9 +274,9 @@ export function ProductFormDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) { if (partial) onSaved(partial.saved, partial.created); else onClose() } }}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{product ? `Edit ${product.name}` : 'Add a product'}</DialogTitle>
+          <DialogTitle>{product ? `Edit ${product.name}` : 'Add a Sub-Product'}</DialogTitle>
           <DialogDescription>
-            {product ? 'Changes are saved to your Product Portfolio.' : 'The product is saved to your own Product Portfolio and can then be chosen in an ICP.'}
+            {product ? 'Changes are saved to this sub-product in your Product Portfolio.' : 'Add a sub-product or offer under a parent product in your portfolio. Each sub-product can have its own details and Individual ICP.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -373,7 +394,7 @@ export function ProductFormDialog({
             ) : (
               <>
                 <Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-                <Button type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 size-4 animate-spin" />}{product ? 'Save changes' : 'Add product'}</Button>
+                <Button type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 size-4 animate-spin" />}{product ? 'Save changes' : 'Add sub-product'}</Button>
               </>
             )}
           </div>

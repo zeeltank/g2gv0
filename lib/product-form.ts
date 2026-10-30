@@ -168,7 +168,7 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
 
   if (f.icp && f.icp.enabled) {
     if (f.icp.label && f.icp.label.length > 100) e.icp_label = 'At most 100 characters.'
-    if (f.icp.industry_label && f.icp.industry_label.length > 5000) e.icp_industry_label = 'At most 5000 characters.'
+    if (f.icp.industry_label && f.icp.industry_label.length > 10000) e.icp_industry_label = 'At most 10,000 characters.'
   }
 
   return e
@@ -177,7 +177,7 @@ export function validateProductForm(f: ProductFormState, mode: 'create' | 'edit'
 const text = (v: string): string | null => (v.trim() === '' ? null : v.trim())
 
 /** The body for POST (create) or PUT (edit: the Offer ID never changes). */
-export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<string, unknown> {
+export function toPayload(f: ProductFormState, mode: 'create' | 'edit', icpConfig?: any): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...(mode === 'create' ? { offer_id: f.offer_id.trim() } : {}),
     name: f.name.trim(),
@@ -198,7 +198,9 @@ export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<
     notes: text(f.notes),
   }
 
-  if (f.icp && (f.icp.enabled || f.icp.label.trim() || f.icp.industry_label.trim() || f.icp.pitch.trim())) {
+  if (icpConfig) {
+    payload.icp_config = icpConfig
+  } else if (f.icp && (f.icp.enabled || f.icp.label.trim() || f.icp.industry_label.trim() || f.icp.pitch.trim())) {
     const lines = (t: string) => t.split('\n').map((l) => l.trim()).filter(Boolean)
     payload.icp_config = {
       label: f.icp.label.trim() || `${f.name.trim()} ICP`,
@@ -210,7 +212,12 @@ export function toPayload(f: ProductFormState, mode: 'create' | 'edit'): Record<
       priority_cities: lines(f.icp.priority_cities),
       competitors: lines(f.icp.competitors),
       disqualifiers: lines(f.icp.disqualifiers).map((l) => ({ label: l, phrases: [l] })),
-      must_have: lines(f.icp.must_have).map((l) => ({ op: '=', label: l })),
+      must_have: lines(f.icp.must_have).map((l, i) => {
+        const parts = l.split(/[:=]/)
+        const attr = (parts.length > 1 ? parts[0] : `criterion_${i + 1}`).trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_') || `criterion_${i + 1}`
+        const val = parts.length > 1 ? parts.slice(1).join('=').trim() : l
+        return { attribute: attr, op: '=', value: val, label: l }
+      }),
       offer_ids: [f.offer_id.trim()],
     }
   }

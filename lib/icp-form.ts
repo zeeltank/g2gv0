@@ -118,9 +118,21 @@ export function toConfig(f: FormState): IcpConfig {
       id: q.id.trim(), source: q.source, topic: q.topic, days: num(q.days) as number, q: q.q.trim(), ...(lines(q.domains).length ? { domains: lines(q.domains) } : {}),
     })),
     disqualifiers: f.disqualifiers.map((d) => ({ label: d.label.trim(), phrases: lines(d.phrases) })),
-    must_have: f.must_have.map((r) => ({
-      [r.kind]: r.subject.trim(), op: r.op, ...(r.op === 'in_regions' ? {} : { value: ruleValue(r) }), label: r.label.trim(), ...(r.prompt.trim() ? { prompt: r.prompt.trim() } : {}),
-    })) as IcpRule[],
+    must_have: f.must_have
+      .filter((r) => r.subject.trim() !== '' || r.value.trim() !== '' || r.label.trim() !== '')
+      .map((r) => {
+        const rawSubject = r.subject.trim()
+        const cleanSubject = rawSubject.toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '')
+        const subject = cleanSubject || 'criteria_field'
+        const label = r.label.trim() || `${rawSubject || 'Criteria'} ${r.op} ${r.value.trim()}`.trim()
+        return {
+          [r.kind]: subject,
+          op: r.op,
+          ...(r.op === 'in_regions' ? {} : { value: ruleValue(r) }),
+          label: label || 'Required qualification criteria',
+          ...(r.prompt.trim() ? { prompt: r.prompt.trim() } : {}),
+        }
+      }) as IcpRule[],
     per_run: {
       ...(f.catalogue.trim() === '' ? {} : { catalogue: num(f.catalogue) as number }),
       ...(f.accounts.trim() === '' ? {} : { accounts: num(f.accounts) as number }),
@@ -129,4 +141,3 @@ export function toConfig(f: FormState): IcpConfig {
     ...(f.offer_ids === null ? {} : { offer_ids: f.offer_ids }),
   }
 }
-

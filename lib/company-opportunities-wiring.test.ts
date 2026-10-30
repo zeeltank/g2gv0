@@ -90,11 +90,12 @@ describe('One list and the research-date selector', () => {
     assert.equal(/ScholarSignalsView|<OpportunitiesView/.test(screen), false)
   })
 
-  it('offers dates via a 3-day radiogroup and a date picker', () => {
-    assert.match(screen, /role="radiogroup" aria-label="Signal date"/)
+  it('offers dates via recent-5 dropdown, calendar date picker, and an All Signals view', () => {
+    assert.match(screen, /aria-label="Recent signal dates"/)
     assert.match(screen, /type="date"/)
-    assert.match(screen, /Back to the last 3 days/)
-    assert.match(screen, /formatRunDate\(d\)/)
+    assert.match(screen, /aria-label="Calendar date picker"/)
+    assert.match(screen, /All Signals/)
+    assert.match(screen, /formatRunDate\(d\.date\)/)
   })
 
   it('takes its dates from the backend history, not from the clock', () => {

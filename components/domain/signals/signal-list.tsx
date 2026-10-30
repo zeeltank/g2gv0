@@ -26,13 +26,14 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e ins
  * changes (after a run finishes or a person refreshes).
  */
 export function SignalList({
-  context, productKey, productLabel, runDate, refreshKey, onTotal, dayInfo,
+  context, productKey, productLabel, runDate, allDates, refreshKey, onTotal, dayInfo,
 }: {
   context: LaravelContext
   productKey: string
   productLabel: string
-  /** YYYY-MM-DD of a successful run, or null when the product has none yet. */
+  /** YYYY-MM-DD of a successful run, or null when viewing all dates or when the product has none yet. */
   runDate: string | null
+  allDates?: boolean
   refreshKey: number
   onTotal?: (total: number | null) => void
   /** What that day's runs did (from the run history), used to explain an empty day. */
@@ -59,10 +60,10 @@ export function SignalList({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1); setData(null); setError(null); setActionError(null); setView('all'); setStatus(''); setCounts(null)
-  }, [productKey, runDate])
+  }, [productKey, runDate, allDates])
 
   const load = useCallback(async () => {
-    if (!runDate) {
+    if (!allDates && !runDate) {
       setData(null)
       onTotal?.(null)
       return
@@ -70,7 +71,16 @@ export function SignalList({
     setLoading(true)
     try {
       // Signals that have passed their closing date are part of that day's results, so they are included.
-      const res = await opportunitiesService.list(context, { product: productKey, runDate, search: debounced || undefined, feedSection: view === 'all' ? undefined : view, reviewStatus: status || undefined, page, perPage: SIGNALS_PER_PAGE, expired: 'include' })
+      const res = await opportunitiesService.list(context, {
+        product: productKey,
+        runDate: allDates ? undefined : (runDate ?? undefined),
+        search: debounced || undefined,
+        feedSection: view === 'all' ? undefined : view,
+        reviewStatus: status || undefined,
+        page,
+        perPage: SIGNALS_PER_PAGE,
+        expired: 'include',
+      })
       setData(res)
       if (view === 'all' && !status && !debounced) setCounts({ immediate: res.summary.immediate ?? 0, watchlist: res.summary.watchlist ?? 0 })
       setError(null)
@@ -81,7 +91,7 @@ export function SignalList({
     } finally {
       setLoading(false)
     }
-  }, [context, productKey, runDate, debounced, view, status, page, onTotal])
+  }, [context, productKey, runDate, allDates, debounced, view, status, page, onTotal])
 
   useEffect(() => {
     let live = true
@@ -99,7 +109,7 @@ export function SignalList({
     }
   }
 
-  if (!runDate) {
+  if (!allDates && !runDate) {
     return <EmptyState title="No successful research dates yet" description={`Press Generate Signals to run research for ${productLabel}. Its results are kept here by date.`} />
   }
   if (error) return <ErrorState title="Could not load the signals" description={error} retry={() => void load()} />
@@ -142,7 +152,7 @@ export function SignalList({
       </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
       {items.length === 0 ? (
-        wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: !loading }) ? (
+        !allDates && runDate && wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: !loading }) ? (
           <FallbackSignals
             context={context}
             productKey={productKey}
@@ -164,8 +174,8 @@ export function SignalList({
           />
         ) : (
           <EmptyState
-            title="No signals match these filters"
-            description="Try a different filter or search."
+            title={debounced || view !== 'all' || status ? "No signals match these filters" : (allDates ? `No saved ${productLabel} signals yet` : "No signals match these filters")}
+            description={debounced || view !== 'all' || status ? "Try a different filter or search." : (allDates ? `Press Generate Signals to run research for ${productLabel}.` : "Try a different filter or search.")}
           />
         )
       ) : (

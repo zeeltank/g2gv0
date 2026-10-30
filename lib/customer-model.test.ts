@@ -66,9 +66,9 @@ describe('Long lines are kept whole, short comma lists still split', () => {
     assert.equal(Object.keys(cfg.triggers ?? {}).length, 2)
   })
 
-  it('after the server creates the product, the ICP is saved under the key the server returned', () => {
+  it('sub-products are saved with their individual ICP directly without creating a top-level product', () => {
     const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(s, /key = made\.data\?\.product\?\.key \|\| key/)
+    assert.match(s, /toPayload\(form, mode, icpConfig\)/)
   })
 })
 
@@ -86,28 +86,14 @@ describe('A long product description fits the ICP part (500 characters)', () => 
   })
 })
 
-describe('Add or edit product: nothing gets stuck half-way', () => {
+describe('Add or edit sub-product: saves directly to offers', () => {
   const s = read('components/domain/portfolio/product-form-dialog.tsx')
-  it('uses a product that already exists instead of creating it twice, and shortens a long name for the card', () => {
-    assert.match(s, /\(products \?\? \[\]\)\.some\(\(p\) => p\.key === key\)/)
-    assert.match(s, /already have a product with this key\|this product already exists/)
-    assert.match(s, /fitWords\(saved\.name, 50\)/)
+  it('sub-products belong to their parent product and never create a master product', () => {
+    assert.doesNotMatch(s, /productIcpService\.createProduct/)
   })
-  it('says how to finish when the ICP step fails', () => {
-    assert.match(s, /choose Edit ICP/)
-  })
-  it('guidance allows 1,500 characters in both forms', () => {
-    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{1500\}/)
-    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{1500\}/)
-  })
-})
-
-describe('A product with the same name already exists', () => {
-  it('is reused instead of being created again', () => {
-    const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(s, /p\.custom && p\.label\.trim\(\)\.toLowerCase\(\) === label\.toLowerCase\(\)/)
-    assert.match(s, /if \(sameName\) key = sameName\.key/)
-    assert.ok(s.indexOf('if (sameName) key = sameName.key') < s.indexOf('productIcpService.createProduct'))
+  it('guidance allows 5,000 characters in both forms', () => {
+    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{5000\}/)
+    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{5000\}/)
   })
 })
 
@@ -127,5 +113,17 @@ describe('Delete one of your own products', () => {
     assert.match(s, /\{isAdmin && p\.custom && <Button[^>]*onClick=\{\(\) => void handleDeleteProduct\(p\)\}/)
     assert.match(s, /window\.confirm\(deleteProductConfirmation\(p\.label, p\.opportunities_count\)\)/)
     assert.match(read('services/signals/product-icp.ts'), /apiClient\.delete<[^>]*>\(`\$\{path\(product\)\}\?\$\{qs\(c\)\}`\)/)
+  })
+})
+
+describe('Editing a saved sub-product shows its saved ICP', () => {
+  it('opens the edit form with the full offer, and fills the form from the saved ICP', () => {
+    const view = read('components/domain/portfolio/portfolio-view.tsx')
+    assert.match(view, /onSelect=\{\(\) => void openEdit\(offer\)\}/)
+    assert.match(view, /const full = await portfolioService\.getOffer\(context, offer\.id\);?\s*\n\s*setEditOffer\(full\.data\)/)
+    const dialog = read('components/domain/portfolio/product-form-dialog.tsx')
+    assert.match(dialog, /t\?\.pain \|\| \(Array\.isArray\(t\?\.phrases\)/, 'a trigger is shown in full, not its shortened phrase')
+    assert.match(dialog, /freshness: firstTrigger\?\.decay != null \? String\(firstTrigger\.decay\) : ''/)
+    assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /This is this product&apos;s saved ICP/)
   })
 })

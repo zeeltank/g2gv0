@@ -17,6 +17,14 @@ export interface GenerateProduct {
   next_step?: string | null
 }
 
+/** One sub-product (an offer) of the chosen product, when the run is for it alone. `ready` = its own Individual ICP is complete enough. */
+export interface GenerateSub {
+  offer_id: string
+  name: string
+  ready: boolean
+  missing: string[]
+}
+
 export type GenerateRefusal = 'no_product' | 'all_products' | 'unknown_product' | 'not_ready' | 'running' | 'providers'
 
 export type GenerateOutcome =
@@ -32,7 +40,7 @@ export interface GenerateStatus {
 
 export interface GenerateService {
   getStatus: (c: LaravelContext, product?: string) => Promise<{ data: GenerateStatus }>
-  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[]) => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
+  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null) => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
 }
 
 const refuse = (reason: GenerateRefusal, message: string, missing: string[] = [], nextStep: string | null = null): GenerateOutcome =>
@@ -43,6 +51,7 @@ export function decideGenerate(
   choice: string | null | undefined,
   products: GenerateProduct[] | null,
   running: boolean,
+  sub: GenerateSub | null = null,
 ): { ok: true; product: GenerateProduct } | { ok: false; outcome: GenerateOutcome } {
   if (choice === 'all') return { ok: false, outcome: refuse('all_products', 'Choose one product. A run is always for a single product.') }
   if (!choice) return { ok: false, outcome: refuse('no_product', 'Choose a product first.') }
@@ -51,6 +60,10 @@ export function decideGenerate(
   if (running) return { ok: false, outcome: refuse('running', 'A run is already in progress.') }
   if (!product.ready) {
     return { ok: false, outcome: refuse('not_ready', `${product.label} is not ready: its ICP must be configured and active first.`, product.missing, product.next_step ?? null) }
+  }
+
+  if (sub && !sub.ready) {
+    return { ok: false, outcome: refuse('not_ready', `${sub.name} is not ready: its own Individual ICP must be completed first.`, sub.missing, 'Edit the product in Product Portfolio and complete its Individual ICP.') }
   }
 
   return { ok: true, product }
@@ -68,8 +81,10 @@ export async function generateSignals(args: {
   service: GenerateService
   /** The places this request is limited to ([] or absent = All Regions). Sent with the request; saved nowhere. */
   regions?: RegionSelection[]
+  /** Run for this ONE sub-product of the product (its own Individual ICP). Absent = the whole product, as before. */
+  sub?: GenerateSub | null
 }): Promise<GenerateOutcome> {
-  const local = decideGenerate(args.choice, args.products, args.running)
+  const local = decideGenerate(args.choice, args.products, args.running, args.sub ?? null)
   if (!local.ok) return local.outcome
   const { product } = local
 
@@ -84,7 +99,7 @@ export async function generateSignals(args: {
       : 'No AI provider is configured for this organisation.')
   }
 
-  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions)
+  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions, args.sub?.offer_id ?? null)
 
   return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null }
 }

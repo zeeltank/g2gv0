@@ -231,12 +231,13 @@ export function IdmsLibrary() {
   }, [query, filters]);
 
   /*
-   * The tree and the tag cloud are navigation, not results, so they load once
-   * on mount and are not refetched when a filter changes. Refetching them after
-   * every search would make the sidebar numbers move under the user's cursor
-   * and imply the tree describes the current result set, which it does not.
+   * The tree and the tag cloud are navigation, not results: they are not
+   * refetched when a filter changes (the sidebar numbers would move under the
+   * user's cursor and imply the tree describes the current result set). They ARE
+   * refetched after anything that changes what is published - publish, delete,
+   * restore, tag edits - otherwise a freshly published document never shows up.
    */
-  useEffect(() => {
+  const loadNavigation = useCallback(() => {
     IdmsApi.getBrowseTree()
       .then((result) => setTree(result.data ?? []))
       .catch(() => setTree([]));
@@ -244,6 +245,10 @@ export function IdmsLibrary() {
       .then((result) => setTagCloud(result.data ?? []))
       .catch(() => setTagCloud([]));
   }, []);
+
+  useEffect(() => {
+    loadNavigation();
+  }, [loadNavigation]);
 
   /*
    * loadDocuments flips the loading flag before it awaits. That is the point of
@@ -618,7 +623,11 @@ export function IdmsLibrary() {
         </section>
       )}
 
-      <TrashDialog isOpen={trashOpen} onClose={() => setTrashOpen(false)} onRestored={() => void loadDocuments()} />
+      <TrashDialog isOpen={trashOpen} onClose={() => setTrashOpen(false)} onRestored={() => {
+          void loadDocuments();
+          loadNavigation();
+        }}
+      />
 
       <UploadReviewModal
         isOpen={uploadOpen}
@@ -627,6 +636,7 @@ export function IdmsLibrary() {
           // Only open the detail panel for a single upload; a batch would keep stealing focus.
           if (total === 1) setSelected(doc);
           void loadDocuments();
+          loadNavigation();
         }}
       />
 
@@ -641,6 +651,7 @@ export function IdmsLibrary() {
         onClose={() => setSelected(null)}
         onRefresh={() => {
           void loadDocuments();
+          loadNavigation();
           setSelected(null);
         }}
       />

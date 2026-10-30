@@ -3,11 +3,29 @@
  * can show several); an intentional valid choice is never replaced. With no usable value a screen that cannot show "all" starts on
  * ScholarClone when it is ready, else the first ready product, else the first product.
  */
-export function resolveSelection(stored: string | null | undefined, products: { key: string; ready: boolean }[], allowAll: boolean): string {
+export function resolveSelection(stored: string | null | undefined, products: { key: string; ready: boolean; offers?: { offer_id: string }[] }[], allowAll: boolean, allowSub = false): string {
   if (stored && products.some((p) => p.key === stored)) return stored
+  // A remembered sub-product choice ("product::OFFER-ID") is kept while that product still has that sub-product; otherwise the product itself.
+  const split = splitChoice(stored)
+  if (split.offerId && split.productKey) {
+    const owner = products.find((p) => p.key === split.productKey)
+    if (owner) return allowSub && (owner.offers ?? []).some((o) => o.offer_id === split.offerId) ? (stored as string) : owner.key
+  }
   if (allowAll) return 'all'
 
   return (products.find((p) => p.key === 'scholarclone' && p.ready) ?? products.find((p) => p.ready) ?? products[0])?.key ?? 'all'
+}
+
+/** The product screen's choice is either a product key or a sub-product of it: "scholarclone::SCH-11". */
+export const SUB_SEPARATOR = '::'
+
+export const choiceOf = (productKey: string, offerId?: string | null): string => (offerId ? `${productKey}${SUB_SEPARATOR}${offerId}` : productKey)
+
+export function splitChoice(choice: string | null | undefined): { productKey: string | null; offerId: string | null } {
+  if (!choice) return { productKey: null, offerId: null }
+  const at = choice.indexOf(SUB_SEPARATOR)
+
+  return at < 0 ? { productKey: choice, offerId: null } : { productKey: choice.slice(0, at) || null, offerId: choice.slice(at + SUB_SEPARATOR.length) || null }
 }
 
 /** Where "Product Details & ICP" goes: that one product's own page (details, ICP and offers), never the whole Product Portfolio. */

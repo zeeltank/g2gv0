@@ -1,5 +1,12 @@
 import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 
+// Phase 1-4 Automation CRM screens
+const SignalInboxListView = createLazyComponent(() => import('@/domain/crm/signal-inbox-list-view').then((m) => ({ default: m.SignalInboxListView })))
+const OutreachApprovalListView = createLazyComponent(() => import('@/domain/crm/outreach-approval-list-view').then((m) => ({ default: m.OutreachApprovalListView })))
+const AgentRunListView = createLazyComponent(() => import('@/domain/crm/agent-run-list-view').then((m) => ({ default: m.AgentRunListView })))
+const AutomationRulesListView = createLazyComponent(() => import('@/domain/crm/automation-rules-list-view').then((m) => ({ default: m.AutomationRulesListView })))
+const ConsentListView = createLazyComponent(() => import('@/domain/crm/consent-list-view').then((m) => ({ default: m.ConsentListView })))
+
 const LeadListView = createLazyComponent(() => import('@/domain/crm/lead-list-view').then((m) => ({ default: m.LeadListView })))
 const OrganizationListView = createLazyComponent(() => import('@/domain/crm/organization-list-view').then((m) => ({ default: m.OrganizationListView })))
 const ContactListView = createLazyComponent(() => import('@/domain/crm/contact-list-view').then((m) => ({ default: m.ContactListView })))
@@ -85,7 +92,7 @@ export const CRM_CONTENT: ContentRoute[] = [
 
   // 8. Outreach & Approvals Queue
   { accessLink: '/gtm/outreach', component: OutreachView },
-  { accessLink: '/module/crm/marketing/outreach-approvals', component: OutreachView },
+  { accessLink: '/module/crm/marketing/outreach-approvals', component: OutreachApprovalListView },
 
   // 9. Lead Qualification
   { accessLink: '/module/crm/marketing/leads', component: LeadListView },
@@ -154,6 +161,9 @@ export const CRM_CONTENT: ContentRoute[] = [
 
   // 28. Governance: Master Fields Admin
   { accessLink: '/module/crm/master-fields', component: MasterFieldsRoute },
+
+  // Fallback for legacy Consent link
+  { accessLink: '/module/crm/marketing/consent', component: ConsentListView },
 
   // Support Cross-Links
   { accessLink: '/module/crm/support/assets', component: AssetListView },

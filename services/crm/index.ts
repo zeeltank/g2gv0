@@ -12,6 +12,10 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 import type {
+  CampaignTargetEvent,
+  OutreachApprovalListResponse,
+  OutreachApprovalPayload,
+  OutreachApprovalResponse,
   CampaignListQuery,
   CrmAddCommentResponse,
   CrmAuditEntry,
@@ -1389,6 +1393,197 @@ export const crmService = {
   // Sales & Marketing unification, Phase 7.
   getOrganizationCrossModuleLinks: (context: LaravelContext, id: string) =>
     apiClient.get<{ status: number; message: string; data: OrganizationCrossModuleLinks }>(`/crm/organizations/${id}/cross-module-links`, baseParams(context)),
+
+  // ── Phase 1 Automation: touchpoint events ────────────────────────────
+  recordCampaignTargetEvent: (context: LaravelContext, campaignId: string, targetRowId: string, event: CampaignTargetEvent) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/campaigns/${campaignId}/targets/${targetRowId}/events`, {
+      event, ...baseParams(context),
+    }),
+
+  // ── Phase 1 Automation: outreach approvals ───────────────────────────
+  getOutreachApprovals: (context: LaravelContext, status?: string, page = 1) =>
+    apiClient.get<OutreachApprovalListResponse>('/crm/outreach-approvals', {
+      ...baseParams(context),
+      ...(status ? { status } : {}),
+      page: String(page),
+    }),
+
+  createOutreachApproval: (context: LaravelContext, payload: OutreachApprovalPayload) =>
+    apiClient.post<OutreachApprovalResponse>('/crm/outreach-approvals', { ...payload, ...baseParams(context) }),
+
+  approveOutreach: (context: LaravelContext, id: string) =>
+    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/approve`, baseParams(context)),
+
+  rejectOutreach: (context: LaravelContext, id: string, rejectionReason: string) =>
+    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/reject`, {
+      rejection_reason: rejectionReason, ...baseParams(context),
+    }),
+
+  markOutreachSent: (context: LaravelContext, id: string) =>
+    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/mark-sent`, baseParams(context)),
+
+  // ── Phase 2: Signal Inbox ────────────────────────────────────────────────
+
+  getSignalInbox: (
+    context: LaravelContext,
+    params: { status?: string; classification?: string; page?: number; perPage?: number } = {},
+  ) =>
+    apiClient.get<import('@/types/crm').SignalInboxListResponse>('/crm/signal-inbox', {
+      ...baseParams(context),
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.classification ? { classification: params.classification } : {}),
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 25),
+    }),
+
+  getSignal: (context: LaravelContext, id: string) =>
+    apiClient.get<import('@/types/crm').SignalInboxItemResponse>(`/crm/signal-inbox/${id}`, baseParams(context)),
+
+  reviewSignal: (context: LaravelContext, id: string, status: 'accepted' | 'rejected' | 'dismissed') =>
+    apiClient.post<{ status: number; message: string }>(`/crm/signal-inbox/${id}/review`, {
+      ...baseParams(context),
+      status,
+    }),
+
+  assignSignal: (context: LaravelContext, id: string, assignedTo: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/signal-inbox/${id}/assign`, {
+      ...baseParams(context),
+      assigned_to: assignedTo,
+    }),
+
+  promoteSignal: (context: LaravelContext, id: string, promotedTo: 'lead' | 'opportunity') =>
+    apiClient.post<{ status: number; message: string; data: { promoted_to: string; promoted_id: string } }>(
+      `/crm/signal-inbox/${id}/promote`,
+      { ...baseParams(context), promoted_to: promotedTo },
+    ),
+
+  getSignalTopics: (context: LaravelContext) =>
+    apiClient.get<import('@/types/crm').SignalTopicsResponse>('/crm/signal-topics', baseParams(context)),
+
+  createSignalTopic: (context: LaravelContext, payload: import('@/types/crm').SignalTopicPayload) =>
+    apiClient.post<{ status: number; message: string; data: import('@/types/crm').SignalTopic }>(
+      '/crm/signal-topics',
+      { ...payload, topic_type: payload.topicType, ...baseParams(context) },
+    ),
+
+  // ── Phase 3: Knowledge Graph ──────────────────────────────────────────
+
+  getAccount360: (context: LaravelContext, organizationId: string) =>
+    apiClient.get<import('@/types/crm').Account360Response>(`/crm/account360/${organizationId}`, baseParams(context)),
+
+  getEntityRelationships: (context: LaravelContext, params: {
+    fromType?: string; fromId?: string; toType?: string; toId?: string; relationshipType?: string; page?: number
+  } = {}) =>
+    apiClient.get<import('@/types/crm').EntityRelationshipListResponse>('/crm/entity-relationships', {
+      ...baseParams(context),
+      ...(params.fromType ? { from_type: params.fromType } : {}),
+      ...(params.fromId ? { from_id: params.fromId } : {}),
+      ...(params.toType ? { to_type: params.toType } : {}),
+      ...(params.toId ? { to_id: params.toId } : {}),
+      ...(params.relationshipType ? { relationship_type: params.relationshipType } : {}),
+      ...(params.page ? { page: String(params.page) } : {}),
+    }),
+
+  createEntityRelationship: (context: LaravelContext, payload: import('@/types/crm').EntityRelationshipPayload) =>
+    apiClient.post<{ status: number; message: string; data: import('@/types/crm').EntityRelationship }>(
+      '/crm/entity-relationships',
+      { ...payload, from_type: payload.fromType, from_id: payload.fromId, to_type: payload.toType, to_id: payload.toId, relationship_type: payload.relationshipType, source_url: payload.sourceUrl, ...baseParams(context) },
+    ),
+
+  deleteEntityRelationship: (context: LaravelContext, id: string) =>
+    apiClient.delete<{ status: number; message: string }>(`/crm/entity-relationships/${id}`, baseParams(context)),
+
+  getKnowledgeSources: (context: LaravelContext, params: {
+    entityType?: string; entityId?: string; sourceType?: string; page?: number
+  } = {}) =>
+    apiClient.get<import('@/types/crm').KnowledgeSourceListResponse>('/crm/knowledge-sources', {
+      ...baseParams(context),
+      ...(params.entityType ? { entity_type: params.entityType } : {}),
+      ...(params.entityId ? { entity_id: params.entityId } : {}),
+      ...(params.sourceType ? { source_type: params.sourceType } : {}),
+      ...(params.page ? { page: String(params.page) } : {}),
+    }),
+
+  createKnowledgeSource: (context: LaravelContext, payload: import('@/types/crm').KnowledgeSourcePayload) =>
+    apiClient.post<{ status: number; message: string; data: import('@/types/crm').KnowledgeSource }>(
+      '/crm/knowledge-sources',
+      { ...payload, entity_type: payload.entityType, entity_id: payload.entityId, source_type: payload.sourceType, ...baseParams(context) },
+    ),
+
+  // Phase 4 — AI Agents & Automation
+  runProspecting: (context: LaravelContext, data: { organizationId?: string; companyName?: string }) =>
+    apiClient.post<import('@/types/crm').ProspectingResponse>('/crm/crm-agents/prospecting', {
+      ...(data.organizationId ? { organization_id: data.organizationId } : {}),
+      ...(data.companyName ? { company_name: data.companyName } : {}),
+      ...baseParams(context),
+    }),
+
+  runOutreach: (context: LaravelContext, data: { leadId?: string; contactId?: string; campaignId?: string }) =>
+    apiClient.post<import('@/types/crm').OutreachDraftResponse>('/crm/crm-agents/outreach', {
+      ...(data.leadId ? { lead_id: data.leadId } : {}),
+      ...(data.contactId ? { contact_id: data.contactId } : {}),
+      ...(data.campaignId ? { campaign_id: data.campaignId } : {}),
+      ...baseParams(context),
+    }),
+
+  runDealCoach: (context: LaravelContext, data: { opportunityId: string }) =>
+    apiClient.post<import('@/types/crm').DealCoachResponse>('/crm/crm-agents/deal-coach', {
+      opportunity_id: data.opportunityId,
+      ...baseParams(context),
+    }),
+
+  getAgentRuns: (context: LaravelContext, params: {
+    agentType?: string; status?: string; dateFrom?: string; dateTo?: string; page?: number
+  } = {}) =>
+    apiClient.get<import('@/types/crm').AgentRunListResponse>('/crm/crm-agents/runs', {
+      ...baseParams(context),
+      ...(params.agentType ? { agent_type: params.agentType } : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.dateFrom ? { date_from: params.dateFrom } : {}),
+      ...(params.dateTo ? { date_to: params.dateTo } : {}),
+      ...(params.page ? { page: String(params.page) } : {}),
+    }),
+
+  getAgentRun: (context: LaravelContext, id: string) =>
+    apiClient.get<import('@/types/crm').AgentRunResponse>(`/crm/crm-agents/runs/${id}`, baseParams(context)),
+
+  cancelAgentRun: (context: LaravelContext, id: string) =>
+    apiClient.post<{ status: number; message: string }>(`/crm/crm-agents/runs/${id}/cancel`, baseParams(context)),
+
+  getAutomationRules: (context: LaravelContext) =>
+    apiClient.get<import('@/types/crm').AutomationRuleListResponse>('/crm/automation-rules', baseParams(context)),
+
+  createAutomationRule: (context: LaravelContext, payload: import('@/types/crm').AutomationRulePayload) =>
+    apiClient.post<import('@/types/crm').AutomationRuleResponse>('/crm/automation-rules', {
+      ...payload,
+      trigger_module: payload.triggerModule,
+      trigger_event: payload.triggerEvent,
+      trigger_conditions: payload.triggerConditions,
+      ...baseParams(context),
+    }),
+
+  updateAutomationRule: (context: LaravelContext, id: string, payload: Partial<import('@/types/crm').AutomationRulePayload>) =>
+    apiClient.put<import('@/types/crm').AutomationRuleResponse>(`/crm/automation-rules/${id}`, {
+      ...payload,
+      ...(payload.triggerModule ? { trigger_module: payload.triggerModule } : {}),
+      ...(payload.triggerEvent ? { trigger_event: payload.triggerEvent } : {}),
+      ...baseParams(context),
+    }),
+
+  toggleAutomationRule: (context: LaravelContext, id: string) =>
+    apiClient.post<{ status: number; message: string; data: { is_active: boolean } }>(
+      `/crm/automation-rules/${id}/toggle`,
+      baseParams(context),
+    ),
+
+  aiChat: (context: LaravelContext, payload: { message: string; entityType?: string; entityId?: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) =>
+    apiClient.post<{ status: number; data: { reply: string; sources: string[] } }>('/crm/ai-chat', {
+      message: payload.message,
+      conversation_history: payload.history ?? [],
+      context_type: payload.entityType,
+      context_id: payload.entityId,
+      ...baseParams(context),
+    }),
 }
 
 export type { Lead }

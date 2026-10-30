@@ -12,14 +12,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, Search, X } from 'lucide-react'
+import { ChevronDown, Loader2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import type { CampaignTarget, CrmSavedView } from '@/types/crm'
+import type { CampaignTarget, CampaignTargetEvent, CrmSavedView } from '@/types/crm'
 
 type TargetKind = 'leads' | 'contacts' | 'organizations'
 
@@ -44,6 +44,18 @@ function statusDotClass(status: string): string {
 
 const EMPTY_TARGETS: Record<TargetKind, CampaignTarget[]> = { leads: [], contacts: [], organizations: [] }
 
+const EVENT_OPTIONS: Array<{ label: string; value: CampaignTargetEvent }> = [
+  { label: 'Mark Sent', value: 'sent' },
+  { label: 'Mark Replied', value: 'replied' },
+  { label: 'Meeting Booked', value: 'meeting_booked' },
+  { label: 'Opted Out', value: 'opted_out' },
+]
+
+function fmt(date: string | null | undefined): string {
+  if (!date) return '—'
+  return new Date(date.replace(' ', 'T')).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
   const context = useMemo(() => getLaravelContext(), [])
 
@@ -54,6 +66,7 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [busyRowId, setBusyRowId] = useState<string | null>(null)
+  const [openEventMenuId, setOpenEventMenuId] = useState<string | null>(null)
   const [savedViews, setSavedViews] = useState<CrmSavedView[]>([])
   const [selectedViewId, setSelectedViewId] = useState('')
   const [addingFromView, setAddingFromView] = useState(false)
@@ -143,6 +156,21 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
     }
   }
 
+  const recordEvent = async (targetRowId: string, event: CampaignTargetEvent) => {
+    if (!isLaravelContextReady(context)) return
+    setOpenEventMenuId(null)
+    setBusyRowId(targetRowId)
+    setError('')
+    try {
+      await crmService.recordCampaignTargetEvent(context, campaignId, targetRowId, event)
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to record that event.')
+    } finally {
+      setBusyRowId(null)
+    }
+  }
+
   const updateStatus = async (targetRowId: string, responseStatus: string) => {
     if (!isLaravelContextReady(context)) return
     setBusyRowId(targetRowId)
@@ -221,32 +249,87 @@ export function CampaignTargetManager({ campaignId }: { campaignId: string }) {
       )}
 
       {!isLoading && rows.length > 0 && (
-        <div className="divide-y divide-border rounded-lg border border-border">
-          {rows.map((row) => (
-            <div key={row.targetRowId} className="flex items-center gap-3 p-3">
-              <span className={cn('size-2 shrink-0 rounded-full', statusDotClass(row.responseStatus))} aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
-                {row.subLabel && <p className="truncate text-xs text-muted-foreground">{row.subLabel}</p>}
-              </div>
-              <Select
-                value={row.responseStatus || 'none'}
-                onChange={(value) => void updateStatus(row.targetRowId, value)}
-                options={RESPONSE_STATUS_OPTIONS}
-                disabled={busyRowId === row.targetRowId}
-                className="w-56 shrink-0"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={busyRowId === row.targetRowId}
-                onClick={() => void removeRow(row.targetRowId)}
-                aria-label={`Remove ${row.name}`}
-              >
-                <X className="size-4" aria-hidden="true" />
-              </Button>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Name</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Sent</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Replied</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Meeting</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Opted Out</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((row) => (
+                <tr key={row.targetRowId} className="hover:bg-muted/20 transition-colors">
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('size-2 shrink-0 rounded-full', statusDotClass(row.responseStatus))} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{row.name}</p>
+                        {row.subLabel && <p className="truncate text-xs text-muted-foreground">{row.subLabel}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Select
+                      value={row.responseStatus || 'none'}
+                      onChange={(value) => void updateStatus(row.targetRowId, value)}
+                      options={RESPONSE_STATUS_OPTIONS}
+                      disabled={busyRowId === row.targetRowId}
+                      className="w-44"
+                    />
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmt(row.sentAt)}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmt(row.repliedAt)}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmt(row.meetingBookedAt)}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmt(row.optedOutAt)}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Record Event dropdown */}
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busyRowId === row.targetRowId}
+                          onClick={() => setOpenEventMenuId((prev) => prev === row.targetRowId ? null : row.targetRowId)}
+                        >
+                          Event
+                          <ChevronDown className="ml-1 size-3.5" aria-hidden="true" />
+                        </Button>
+                        {openEventMenuId === row.targetRowId && (
+                          <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-popover shadow-md">
+                            {EVENT_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors first:rounded-t-lg last:rounded-b-lg"
+                                onClick={() => void recordEvent(row.targetRowId, opt.value)}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={busyRowId === row.targetRowId}
+                        onClick={() => void removeRow(row.targetRowId)}
+                        aria-label={`Remove ${row.name}`}
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

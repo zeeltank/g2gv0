@@ -167,6 +167,9 @@ export interface ProductInfo {
     trigger_signals: string[] | null
     pricing_model: string | null
     typical_deal_band: string | null
+    /** Whether this sub-product's own Individual ICP is complete enough for a run about it alone, and what is missing if not. */
+    icp_ready?: boolean
+    icp_missing?: string[]
   }>
   icp: null | {
     profile_id: number | null
