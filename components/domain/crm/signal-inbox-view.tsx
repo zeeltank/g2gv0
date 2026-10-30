@@ -15,7 +15,6 @@ import {
   Globe,
   Inbox,
   Layers,
-  Linkedin,
   Loader2,
   Plus,
   RefreshCw,
