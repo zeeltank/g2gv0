@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle, ArrowLeft, Building2, CheckCircle2, Globe, Loader2,
-  Mail, MapPin, Pencil, Phone, Repeat, Star, Tag, Users,
+  Mail, MapPin, Pencil, Phone, Repeat, Sparkles, Star, Tag, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -21,7 +21,8 @@ import { CrmDocumentTab } from './crm-document-tab'
 import { CrmEmailTab } from './crm-email-tab'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmHistoryTab } from './crm-history-tab'
-import { CrmScheduleTab } from './crm-schedule-tab'
+import { CrmActivityTimeline } from './crm-activity-timeline'
+import { CrmAiAssistant } from './crm-ai-assistant'
 import { LEAD_SCORING_FIELD_LABEL, LEAD_SCORING_OPERATOR_LABEL } from './lead-scoring-labels'
 import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmPicklistValue } from '@/types/crm'
 
@@ -58,6 +59,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const context = useMemo(() => getLaravelContext(), [])
@@ -199,8 +201,25 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
             <Pencil className="mr-1.5 size-4" aria-hidden="true" />
             Edit
           </Button>
+          <Button variant="outline" onClick={() => setAiOpen(v => !v)} title="AI Assistant">
+            <Sparkles className="mr-1.5 size-4 text-purple-500" aria-hidden="true" />
+            AI
+          </Button>
         </div>
       </div>
+
+      {/* AI Assistant side panel */}
+      {aiOpen && (
+        <div className="fixed inset-y-0 right-0 z-50 w-80 bg-background border-l shadow-xl flex flex-col">
+          <CrmAiAssistant
+            entityType="lead"
+            entityId={String(lead.id)}
+            entityData={lead as unknown as Record<string, unknown>}
+            context={context}
+            onClose={() => setAiOpen(false)}
+          />
+        </div>
+      )}
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
@@ -280,14 +299,52 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
               <ReadField label="Industry" value={lead.industry && <IconValue icon={Building2}>{lead.industry}</IconValue>} />
               <ReadField label="Lead Source" value={lead.leadSource} />
               <ReadField label="Lead Status" value={lead.leadStatus} />
+              <ReadField
+                label="Lifecycle Status"
+                value={lead.lifecycleStatus ? (
+                  <span className="capitalize">{lead.lifecycleStatus.replace('_', ' ')}</span>
+                ) : null}
+              />
+              <ReadField label="Next Action" value={lead.nextAction} />
+              <ReadField
+                label="Follow-up Due"
+                value={lead.followUpDueDate ? new Date(lead.followUpDueDate.replace(' ', 'T')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : null}
+              />
+              <ReadField
+                label="Consent"
+                value={lead.consentStatus ? (
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    lead.consentStatus === 'opted_in' ? 'bg-success/15 text-success'
+                    : lead.consentStatus === 'opted_out' ? 'bg-destructive/15 text-destructive'
+                    : lead.consentStatus === 'suppressed' ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
+                    : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {lead.consentStatus === 'opted_in' ? 'Opted In'
+                      : lead.consentStatus === 'opted_out' ? 'Opted Out'
+                      : lead.consentStatus === 'suppressed' ? 'Suppressed'
+                      : 'Unknown'}
+                  </span>
+                ) : null}
+              />
               <ReadField label="Rating" value={lead.rating && <IconValue icon={Star}>{lead.rating}</IconValue>} />
               <ReadField
                 label="Lead Score"
                 value={(
-                  <div className="space-y-1">
-                    <StatusBadge variant={lead.leadScore >= 50 ? 'success' : lead.leadScore > 0 ? 'default' : 'inactive'}>
-                      {lead.leadScore} pts
-                    </StatusBadge>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge variant={lead.leadScore >= 50 ? 'success' : lead.leadScore > 0 ? 'default' : 'inactive'}>
+                        {lead.leadScore} pts
+                      </StatusBadge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[120px]">
+                        <div
+                          className={`h-full rounded-full ${lead.leadScore >= 50 ? 'bg-green-500' : lead.leadScore > 0 ? 'bg-yellow-500' : 'bg-muted-foreground/30'}`}
+                          style={{ width: `${Math.min(lead.leadScore, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground tabular-nums">{lead.leadScore}/100</span>
+                    </div>
                     {lead.leadScoreBasis.length > 0 && (
                       <ul className="space-y-0.5 text-xs text-muted-foreground">
                         {lead.leadScoreBasis.map((b) => (
@@ -324,7 +381,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       )}
 
       {tab === 'activity' && (
-        <CrmScheduleTab linkedType="LEAD" linkedId={lead.id} recordLabel={`${lead.firstName ? `${lead.firstName} ` : ''}${lead.lastName}`} />
+        <CrmActivityTimeline entityType="lead" entityId={lead.id} context={context} />
       )}
 
       {tab === 'comments' && (

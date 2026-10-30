@@ -11,6 +11,7 @@
  */
 
 import { SHA256_PATTERN, assetByteLimit, knownAssetMime, resolveAssetKind, type AssetFile, type AssetKind } from '@/lib/simulation-host'
+import { readLimits, type SimulationLimits, type UploadMeta } from '@/lib/simulation-package-plan'
 import { apiClient } from '@/services/core'
 
 export interface SimulationEnvelope<T> {
@@ -206,7 +207,55 @@ export async function fetchSimulationAsset(simulationId: number, sha256: string,
   return (await fetchSimulationAssetFile(simulationId, sha256, { signal })).bytes
 }
 
+/** What POST /lms/simulations/assets answers for a stored file (CONTRACT-v3 section 7). */
+export interface UploadedAsset {
+  /** SHA-256 of the stored bytes, which the server worked out itself. */
+  sha256: string
+  kind: AssetKind
+  mime: string | null
+  bytes: number
+  /** False when the organisation already held this file (an upload is idempotent per owner). */
+  created: boolean
+}
+
+/**
+ * POST /lms/simulations/assets - add right: stores one 3D model or image for the caller's organisation (multipart `file`, `licence`, `credit`,
+ * and optionally `source` and `name`). What the file is comes from its bytes on the server; the licence and credit are mandatory there. The
+ * answer is read leniently: with or without the `{ status, data }` envelope. A failure is an ApiError with the server's message and reasons.
+ */
+export async function uploadSimulationAsset(file: File, meta: UploadMeta): Promise<UploadedAsset> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  form.append('licence', meta.licence)
+  form.append('credit', meta.credit)
+  if (meta.source) form.append('source', meta.source)
+  if (meta.name) form.append('name', meta.name)
+  if (meta.attested) form.append('attested', '1')
+  const response = await apiClient.postForm<Record<string, unknown>>(`${BASE}/assets`, form)
+  const inner = response && typeof response === 'object' && response.data && typeof response.data === 'object' ? (response.data as Record<string, unknown>) : response
+  const sha256 = inner?.sha256
+  if (typeof sha256 !== 'string' || !SHA256_PATTERN.test(sha256)) throw new Error('The server did not say which file it stored. Try again.')
+  return {
+    sha256,
+    kind: inner.kind === 'image' ? 'image' : 'model',
+    mime: typeof inner.mime === 'string' ? inner.mime : null,
+    bytes: typeof inner.bytes === 'number' && Number.isFinite(inner.bytes) ? inner.bytes : file.size,
+    created: inner.created !== false,
+  }
+}
+
+/** GET /lms/simulations/limits - what a specification, a file and the organisation's storage may hold, and how much of it is used. */
+export async function fetchSimulationLimits(): Promise<SimulationLimits> {
+  return readLimits(await apiClient.get<unknown>(`${BASE}/limits`))
+}
+
 export const simulationService = {
+  /** POST /lms/simulations/assets - see uploadSimulationAsset. */
+  uploadAsset: uploadSimulationAsset,
+
+  /** GET /lms/simulations/limits - see fetchSimulationLimits. */
+  limits: fetchSimulationLimits,
+
   /** GET /lms/simulations - what this person may see: the organisation's own plus the platform ones it has switched on. */
   list: (search?: string) =>
     apiClient.get<SimulationEnvelope<SimulationListData>>(BASE, search ? { search } : undefined),

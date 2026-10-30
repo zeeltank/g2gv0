@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, CalendarClock, DollarSign, FileCheck2, FileText, Loader2, Package, Pencil, Percent,
-  Plus, Send, Tag, Trash2, TrendingUp, User,
+  Plus, Send, Sparkles, Tag, Trash2, TrendingUp, User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -31,6 +31,7 @@ import { CrmEmailTab } from './crm-email-tab'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
+import { OpportunityAiCoachTab } from './opportunity-ai-coach-tab'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -39,9 +40,10 @@ interface Props {
   picklists: { salesStage: CrmPicklistValue[]; leadSource: CrmPicklistValue[]; potentialType: CrmPicklistValue[]; forecastCategory: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'history' | 'schedule' | 'comments' | 'documents' | 'emails' | 'projects' | 'custom'
+type Tab = 'details' | 'ai-coach' | 'contacts' | 'products' | 'quotes' | 'history' | 'schedule' | 'comments' | 'documents' | 'emails' | 'projects' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'ai-coach', label: 'AI Deal Coach & MEDDPICC' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'products', label: 'Products & Services' },
   { id: 'quotes', label: 'Quotes' },
@@ -428,6 +430,27 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
             />
           </div>
 
+          {opportunity.probability !== null && (
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Win Probability</span>
+                <span className="text-sm font-semibold tabular-nums">{opportunity.probability}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${opportunity.probability >= 70 ? 'bg-green-500' : opportunity.probability >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  style={{ width: `${opportunity.probability}%` }}
+                />
+              </div>
+              <div className="flex justify-end">
+                <span className="inline-flex items-center gap-1 text-xs text-purple-500">
+                  <Sparkles className="size-3" />
+                  AI-assisted scoring
+                </span>
+              </div>
+            </div>
+          )}
+
           <SectionCard title="Opportunity Details">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-1.5">
@@ -686,6 +709,17 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       )}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
+      <div className={tab === 'ai-coach' ? '' : 'hidden'}>
+        <OpportunityAiCoachTab
+          opportunityId={opportunity.id}
+          gtmDealId={opportunity.convertedFromGtmDealId}
+          opportunityName={opportunity.name}
+          salesStage={opportunity.salesStage}
+          amount={opportunity.amount}
+          currency={opportunity.currency}
+        />
+      </div>
+
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
           <CustomFieldsSection
