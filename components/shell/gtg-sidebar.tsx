@@ -113,6 +113,15 @@ function SidebarMenuBranch({
         )}
       >
 
+        {isTopLevel && node.icon && (
+          <IconGlyph
+            icon={node.icon}
+            className={cn(
+              'size-4 shrink-0 text-[14px]',
+              isActiveLeaf || hasActiveDescendant ? 'text-primary' : 'text-muted-foreground',
+            )}
+          />
+        )}
         <span className="min-w-0 flex-1 truncate">{node.label}</span>
         {hasChildren && (
           <ChevronRight
