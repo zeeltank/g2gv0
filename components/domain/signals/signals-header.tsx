@@ -7,7 +7,7 @@ import { visibleSignalsTabs, type SignalsTabKey } from '@/lib/signals-nav'
 
 /**
  * The top of every Signals screen: the title, one line of guidance, and the four Signals screens as tabs. Each tab is a link to that screen's own
- * route, so deep links keep working and nothing is duplicated in the sidebar. Which tabs appear follows the user's own menu rights.
+ * route, so deep links keep working and nothing is duplicated in the sidebar. The tabs stay visible even when a deployment's sidebar menu data is incomplete.
  */
 export function SignalsHeader({ active, className = '' }: { active?: SignalsTabKey | string; className?: string }) {
   const { signalsTabs } = useSidebarNavigation()

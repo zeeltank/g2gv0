@@ -135,9 +135,7 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   return { modules: uniqueFound.length === 0 ? modules : next, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners }
 }
 
-/** The tabs a user is shown: all four when the menu carries no Signals group, otherwise the ones their rights include (plus /signals itself, the landing tab). */
-export function visibleSignalsTabs(tabs: string[] | null) {
-  if (tabs === null) return [...SIGNALS_TABS]
-
-  return SIGNALS_TABS.filter((t) => t.href === '/signals' || tabs.includes(t.href))
+/** These are app sections, so their visibility must not depend on optional sidebar menu rows. */
+export function visibleSignalsTabs(_tabs: string[] | null) {
+  return [...SIGNALS_TABS]
 }

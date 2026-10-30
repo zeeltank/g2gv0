@@ -35,9 +35,9 @@ describe('Signals sidebar', () => {
     assert.equal(input[0].children[1].children.length, 3)
   })
 
-  it('shows a tab for each Signals row the user\'s menu had, always keeps the landing tab, and shows all four when there is no Signals group', () => {
+  it('shows all four app sections whether or not the server menu includes their rows', () => {
     assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    assert.deepEqual(visibleSignalsTabs(['/portfolio']).map((t) => t.href), ['/signals', '/portfolio'])
+    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
     const none = [{ id: '1', label: 'Reports', short: 'R', accessLink: '/reports', children: [] }] as NavModule[]
     assert.equal(collapseSignalsNav(none).tabs, null)
   })
