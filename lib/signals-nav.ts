@@ -19,14 +19,9 @@ const TAB_LABELS: ReadonlyMap<string, string> = new Map(
 )
 
 const EXTRA_FOLDED_PATHS: ReadonlySet<string> = new Set([
-  '/module/crm/marketing/signal-inbox',
   '/module/crm/signals',
 ])
 
-const EXTRA_FOLDED_LABELS: ReadonlySet<string> = new Set([
-  'signal inbox',
-  'inbox',
-])
 
 export interface CollapsedSignalsNav {
   modules: NavModule[]
@@ -63,7 +58,7 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
     const link = (c.accessLink ?? '').trim()
     const label = c.label.trim().toLowerCase()
     if (link && (TAB_PATHS.has(link) || EXTRA_FOLDED_PATHS.has(link))) return true
-    if (TAB_LABELS.has(label) || EXTRA_FOLDED_LABELS.has(label)) return true
+    if (TAB_LABELS.has(label)) return true
     return false
   }
 
@@ -73,7 +68,6 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
     if (link && TAB_PATHS.has(link)) return link
     if (TAB_LABELS.has(label)) return TAB_LABELS.get(label)!
     if (link && EXTRA_FOLDED_PATHS.has(link)) return link
-    if (EXTRA_FOLDED_LABELS.has(label)) return '/signals'
     return null
   }
 
@@ -88,7 +82,7 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
         const link = resolveChildHref(f) ?? (f.accessLink as string)
         if (link) {
           owners[link] = { moduleId, menuId, submenuId: node.id }
-          if (link !== '/module/crm/marketing/signal-inbox' && link !== '/module/crm/signals') {
+          if (link !== '/module/crm/signals') {
             found.push(link)
           }
         }
@@ -96,7 +90,6 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
 
       owners['/signals'] = { moduleId, menuId, submenuId: node.id }
       owners['/module/crm/signals'] = { moduleId, menuId, submenuId: node.id }
-      owners['/module/crm/marketing/signal-inbox'] = { moduleId, menuId, submenuId: node.id }
       for (const tab of SIGNALS_TABS) {
         owners[tab.href] = { moduleId, menuId, submenuId: node.id }
       }

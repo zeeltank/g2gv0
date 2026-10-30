@@ -49,7 +49,7 @@ describe('Signals sidebar', () => {
   })
 
 
-  it('folds Signal Inbox into Market Signals so Market Signals is a flat direct link to /signals with zero children', () => {
+  it('removes the retired Signal Inbox menu entry without retaining a route owner', () => {
     const liveTree: NavModule[] = [{
       id: '199', label: 'Sales & Marketing Intelligence', short: 'S&M', accessLink: null,
       children: [
@@ -71,8 +71,8 @@ describe('Signals sidebar', () => {
     assert.deepEqual(marketSignals.children, [])
     assert.deepEqual(res.owners['/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
     assert.deepEqual(res.owners['/module/crm/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
-    assert.deepEqual(res.owners['/module/crm/marketing/signal-inbox'], { moduleId: '199', menuId: '489', submenuId: '489' })
     assert.equal(res.modules[0].children.some((c) => c.label === 'Signal Inbox'), false)
+    assert.equal(res.owners['/module/crm/marketing/signal-inbox'], undefined)
   })
 })
 
