@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   Code2,
+  Cpu,
   Eye,
   FileText,
   Filter,
@@ -36,7 +37,7 @@ import { toast } from '@/components/ui/toast'
 
 export interface AgentRun {
   id: number
-  agent_type: 'prospecting' | 'outreach' | 'deal_coach'
+  agent_type: 'prospecting' | 'outreach' | 'deal_coach' | 'signal_classifier'
   status: 'completed' | 'running' | 'failed' | 'cancelled'
   trigger_source: string
   records_processed: number
@@ -78,6 +79,20 @@ const PRE_SEEDED_RUNS: AgentRun[] = [
     tokens_used: 3200,
     summary: 'Drafted 3 personalized multi-touch outreach emails targeting Director of Operations at Greenfield Academy Network.',
     output_preview: 'Drafted 3 emails (Intro, Proof Case, Meeting Request). Queued into GTM Outreach review tab for rep approval.',
+  },
+  {
+    id: 503,
+    agent_type: 'signal_classifier',
+    status: 'completed',
+    trigger_source: 'Automated GeM RFP Ingestion Sweep',
+    records_processed: 8,
+    records_affected: 2,
+    started_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    completed_at: new Date(Date.now() - 1000 * 60 * 118).toISOString(),
+    duration_ms: 3450,
+    tokens_used: 4100,
+    summary: 'Classified 8 newly ingested market items. Detected 2 High-Intent Buying Signals and 1 Competitor Move.',
+    output_preview: 'Signal #101 classified as buying_signal (0.96 confidence). Signal #102 classified as hiring_signal (0.88 confidence).',
   },
   {
     id: 504,
@@ -205,6 +220,8 @@ export function AgentRunsView() {
         return <Badge variant="success" className="gap-1"><Sparkles className="size-3" /> Outreach Agent</Badge>
       case 'prospecting':
         return <Badge variant="default" className="gap-1"><Search className="size-3" /> Prospecting</Badge>
+      case 'signal_classifier':
+        return <Badge variant="secondary" className="gap-1"><Cpu className="size-3" /> Signal Classifier</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
     }
@@ -315,6 +332,7 @@ export function AgentRunsView() {
             <option value="deal_coach">Deal Coach</option>
             <option value="outreach">Outreach Agent</option>
             <option value="prospecting">Prospecting Agent</option>
+            <option value="signal_classifier">Signal Classifier</option>
           </select>
         </div>
       </div>
