@@ -139,7 +139,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   const ready = isLaravelContextReady(context)
 
   const cacheKey = context.subInstituteId && context.profileId
-    ? `gtg-sidebar-cache:${context.subInstituteId}:${context.profileId}`
+    ? `gtg-sidebar-cache-v3:${context.subInstituteId}:${context.profileId}`
     : null
 
   const initialData = useMemo(() => {
@@ -156,7 +156,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   }, [cacheKey])
 
   const query = useQuery({
-    queryKey: ['sidebar-navigation', context.token, context.subInstituteId, context.profileId],
+    queryKey: ['sidebar-navigation-v3', context.token, context.subInstituteId, context.profileId],
     queryFn: async () => {
       const res = await sidebarService.getMenu(context)
       if (cacheKey && res?.data && typeof window !== 'undefined') {
