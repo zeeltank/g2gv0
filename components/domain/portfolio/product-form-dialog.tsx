@@ -17,6 +17,55 @@ import { buildIcpConfig, emptyIcpForm, emptyIcpLines, fitWords, icpTouched, slug
 import { productIcpService } from '@/services/signals/product-icp'
 import { ProductIcpSection } from './product-icp-section'
 
+type CustomerModelTab = 'b2b' | 'b2c' | 'b2g'
+
+function parseIcpDataForModel(icpData: Record<string, any> | undefined, productName: string, model: CustomerModelTab): { form: FormState; lines: IcpLines } {
+  if (!icpData) {
+    const empty = emptyIcpForm()
+    empty.customer_model = model
+    return { form: empty, lines: emptyIcpLines() }
+  }
+  const form: FormState = {
+    ...emptyIcpForm(),
+    customer_model: model,
+    label: icpData.label ?? `${productName} ${model.toUpperCase()} ICP`,
+    name: icpData.name ?? icpData.label ?? `${productName} ${model.toUpperCase()} ICP`,
+    industry_label: icpData.industry_label ?? '',
+    pitch: icpData.pitch ?? '',
+    guidance: icpData.guidance ?? '',
+    buyer_types: Array.isArray(icpData.buyer_types) ? icpData.buyer_types.join('\n') : (icpData.buyer_types ?? ''),
+    regions: Array.isArray(icpData.regions) ? icpData.regions.join('\n') : (icpData.regions ?? ''),
+    priority_cities: Array.isArray(icpData.priority_cities) ? icpData.priority_cities.join('\n') : (icpData.priority_cities ?? ''),
+    competitors: Array.isArray(icpData.competitors) ? icpData.competitors.join('\n') : (icpData.competitors ?? ''),
+    vendor_phrases: Array.isArray(icpData.vendor_phrases) ? icpData.vendor_phrases.join('\n') : (icpData.vendor_phrases ?? ''),
+  }
+  const triggersRaw = icpData.triggers
+  const triggersText = Array.isArray(triggersRaw)
+    ? triggersRaw.map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
+    : typeof triggersRaw === 'object' && triggersRaw !== null
+    ? Object.values(triggersRaw).map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
+    : ''
+  const firstTrigger = (Array.isArray(triggersRaw) ? triggersRaw[0] : typeof triggersRaw === 'object' && triggersRaw !== null ? Object.values(triggersRaw)[0] : null) as Record<string, any> | null
+  const queriesRaw = icpData.queries
+  const queriesText = Array.isArray(queriesRaw)
+    ? queriesRaw.map((q: any) => q?.q || q).filter(Boolean).join('\n')
+    : ''
+  const disqualifiersRaw = icpData.disqualifiers
+  const disqualifiersText = Array.isArray(disqualifiersRaw)
+    ? disqualifiersRaw.map((d: any) => (typeof d === 'string' ? d : d?.label || d?.phrases?.[0] || '')).filter(Boolean).join('\n')
+    : ''
+
+  const lines: IcpLines = {
+    triggers: triggersText,
+    queries: queriesText,
+    exclusions: disqualifiersText,
+    freshness: firstTrigger?.decay != null ? String(firstTrigger.decay) : '',
+    source: firstTrigger?.source ?? 'news',
+  }
+
+  return { form, lines }
+}
+
 const selectCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 function Field({ id, label, hint, error, required, children }: { id: string; label: string; hint?: string; error?: string; required?: boolean; children: React.ReactNode }) {
@@ -123,10 +172,22 @@ export function ProductFormDialog({
   const [busy, setBusy] = useState(false)
   // Add mode: the person typed their own ID, so choosing another category no longer replaces it.
   const [idEdited, setIdEdited] = useState(false)
-  const [icp, setIcp] = useState<FormState>(emptyIcpForm)
-  const [icpLines, setIcpLines] = useState<IcpLines>(emptyIcpLines)
-  const [icpProblems, setIcpProblems] = useState<string[]>([])
-  // The product was saved but its ICP was not: the person is told exactly that and can close.
+  const [activeIcpTab, setActiveIcpTab] = useState<CustomerModelTab>('b2b')
+  const [icps, setIcps] = useState<Record<CustomerModelTab, FormState>>({
+    b2b: { ...emptyIcpForm(), customer_model: 'b2b' },
+    b2c: { ...emptyIcpForm(), customer_model: 'b2c' },
+    b2g: { ...emptyIcpForm(), customer_model: 'b2g' },
+  })
+  const [icpLinesMap, setIcpLinesMap] = useState<Record<CustomerModelTab, IcpLines>>({
+    b2b: emptyIcpLines(),
+    b2c: emptyIcpLines(),
+    b2g: emptyIcpLines(),
+  })
+  const [icpProblemsMap, setIcpProblemsMap] = useState<Record<CustomerModelTab, string[]>>({
+    b2b: [],
+    b2c: [],
+    b2g: [],
+  })
   const [partial, setPartial] = useState<{ saved: ProductOffer; created: boolean; text: string } | null>(null)
 
   useEffect(() => {
@@ -134,49 +195,28 @@ export function ProductFormDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(product ? fromOffer(product) : emptyProductForm()); setErrors({}); setMessage(''); setBusy(false); setIdEdited(false)
     if (product) {
-      const icpData = ((product as any).individual_icp || (product as any).icp_config) as Record<string, any> | undefined
-      if (icpData) {
-        setIcp({
-          ...emptyIcpForm(),
-          label: icpData.label ?? `${product.name} ICP`,
-          name: icpData.name ?? icpData.label ?? `${product.name} ICP`,
-          industry_label: icpData.industry_label ?? '',
-          pitch: icpData.pitch ?? '',
-          guidance: icpData.guidance ?? '',
-          customer_model: icpData.customer_model ?? '',
-          buyer_types: Array.isArray(icpData.buyer_types) ? icpData.buyer_types.join('\n') : (icpData.buyer_types ?? ''),
-          regions: Array.isArray(icpData.regions) ? icpData.regions.join('\n') : (icpData.regions ?? ''),
-        })
-        const triggersRaw = icpData.triggers
-        const triggersText = Array.isArray(triggersRaw)
-          ? triggersRaw.map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
-          : typeof triggersRaw === 'object' && triggersRaw !== null
-          ? Object.values(triggersRaw).map((t: any) => t?.pain || (Array.isArray(t?.phrases) ? t.phrases.join(', ') : t?.phrases) || t).filter(Boolean).join('\n')
-          : ''
-        const firstTrigger = (Array.isArray(triggersRaw) ? triggersRaw[0] : typeof triggersRaw === 'object' && triggersRaw !== null ? Object.values(triggersRaw)[0] : null) as Record<string, any> | null
-        const queriesRaw = icpData.queries
-        const queriesText = Array.isArray(queriesRaw)
-          ? queriesRaw.map((q: any) => q?.q || q).filter(Boolean).join('\n')
-          : ''
-        const disqualifiersRaw = icpData.disqualifiers
-        const disqualifiersText = Array.isArray(disqualifiersRaw)
-          ? disqualifiersRaw.map((d: any) => (typeof d === 'string' ? d : d?.label || d?.phrases?.[0] || '')).filter(Boolean).join('\n')
-          : ''
+      const rawIcp = ((product as any).individual_icps || (product as any).individual_icp || (product as any).icp_config) as Record<string, any> | undefined
+      const isMulti = rawIcp && (rawIcp.b2b || rawIcp.b2c || rawIcp.b2g)
 
-        setIcpLines({
-          triggers: triggersText,
-          queries: queriesText,
-          exclusions: disqualifiersText,
-          freshness: firstTrigger?.decay != null ? String(firstTrigger.decay) : '',
-          source: firstTrigger?.source ?? 'news',
-        })
-      } else {
-        setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines())
-      }
+      const b2bData = isMulti ? rawIcp.b2b : (rawIcp && (rawIcp.customer_model === 'b2b' || !rawIcp.customer_model) ? rawIcp : undefined)
+      const b2cData = isMulti ? rawIcp.b2c : (rawIcp && rawIcp.customer_model === 'b2c' ? rawIcp : undefined)
+      const b2gData = isMulti ? rawIcp.b2g : (rawIcp && rawIcp.customer_model === 'b2g' ? rawIcp : undefined)
+
+      const b2bParsed = parseIcpDataForModel(b2bData, product.name, 'b2b')
+      const b2cParsed = parseIcpDataForModel(b2cData, product.name, 'b2c')
+      const b2gParsed = parseIcpDataForModel(b2gData, product.name, 'b2g')
+
+      setIcps({ b2b: b2bParsed.form, b2c: b2cParsed.form, b2g: b2gParsed.form })
+      setIcpLinesMap({ b2b: b2bParsed.lines, b2c: b2cParsed.lines, b2g: b2gParsed.lines })
     } else {
-      setIcp(emptyIcpForm()); setIcpLines(emptyIcpLines())
+      setIcps({
+        b2b: { ...emptyIcpForm(), customer_model: 'b2b' },
+        b2c: { ...emptyIcpForm(), customer_model: 'b2c' },
+        b2g: { ...emptyIcpForm(), customer_model: 'b2g' },
+      })
+      setIcpLinesMap({ b2b: emptyIcpLines(), b2c: emptyIcpLines(), b2g: emptyIcpLines() })
     }
-    setIcpProblems([]); setPartial(null)
+    setIcpProblemsMap({ b2b: [], b2c: [], b2g: [] }); setActiveIcpTab('b2b'); setPartial(null)
   }, [open, product])
 
   const set = (patch: Partial<ProductFormState>) => setForm((f) => ({ ...f, ...patch }))
@@ -200,8 +240,6 @@ export function ProductFormDialog({
   }
   // An existing product that already has its own ICP (a product of its own whose ICP lists it) is edited on its ICP page, not here.
   const linked = product ? (products ?? []).find((p) => p.custom && p.icp?.offer_ids?.includes(product.offer_id)) ?? null : null
-  const wantsIcp = !linked && icpTouched(icp, icpLines)
-
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (busy) return
@@ -211,42 +249,61 @@ export function ProductFormDialog({
       setMessage('Fix the highlighted fields.')
       return
     }
-    if (wantsIcp && icp.label.trim() === '') {
-      setIcpProblems(['ICP name: give the ICP a name, or clear the ICP section.'])
-      setMessage('Fix the Individual ICP section.')
-      return
-    }
+
     setBusy(true)
     setMessage('')
-    setIcpProblems([])
-    // Check the ICP on the server BEFORE the product is saved, so a problem in it never leaves a saved product with no ICP. If the check itself cannot
-    // be made (offline, no permission), carry on: the save below still reports exactly what happens.
-    if (wantsIcp) {
-      try {
-        const cfg = buildIcpConfig(icp, icpLines, { offer_id: form.offer_id.trim() || 'new', name: form.name.trim(), what_it_does: form.what_it_does })
-        const { offer_ids: _omit, ...checkable } = cfg   // the product is not in the portfolio yet
-        void _omit
-        const res = await productIcpService.checkConfig(context, checkable)
-        if (!res.data.valid) {
-          setIcpProblems(res.data.problems)
-          setMessage('Fix the Individual ICP section. Nothing was saved.')
-          setBusy(false)
-          return
-        }
-      } catch {
-        // not blocking
-      }
-    }
-    let saved: ProductOffer
-    try {
-      const icpConfig = wantsIcp
-        ? buildIcpConfig(icp, icpLines, {
+    const nextProblemsMap: Record<CustomerModelTab, string[]> = { b2b: [], b2c: [], b2g: [] }
+    const builtConfigs: Partial<Record<CustomerModelTab, any>> = {}
+    let hasIcpError = false
+
+    if (!linked) {
+      for (const m of ['b2b', 'b2c', 'b2g'] as const) {
+        if (icpTouched(icps[m], icpLinesMap[m])) {
+          if (icps[m].label.trim() === '') {
+            nextProblemsMap[m].push(`ICP name: give the ${m.toUpperCase()} ICP a name, or clear its fields.`)
+            hasIcpError = true
+          }
+          const cfg = buildIcpConfig(icps[m], icpLinesMap[m], {
             offer_id: form.offer_id.trim() || (product ? product.offer_id : 'new'),
             name: form.name.trim(),
             what_it_does: form.what_it_does,
           })
-        : null
-      const body = toPayload(form, mode, icpConfig)
+          cfg.customer_model = m
+          builtConfigs[m] = cfg
+
+          try {
+            const { offer_ids: _omit, ...checkable } = cfg
+            void _omit
+            const res = await productIcpService.checkConfig(context, checkable, m)
+            if (!res.data.valid) {
+              nextProblemsMap[m].push(...res.data.problems)
+              hasIcpError = true
+            }
+          } catch {
+            // not blocking pre-check
+          }
+        }
+      }
+    }
+
+    setIcpProblemsMap(nextProblemsMap)
+    if (hasIcpError) {
+      const firstBad = (['b2b', 'b2c', 'b2g'] as const).find((m) => nextProblemsMap[m].length > 0)
+      if (firstBad) setActiveIcpTab(firstBad)
+      setMessage('Fix the Individual ICP section. Nothing was saved.')
+      setBusy(false)
+      return
+    }
+
+    let saved: ProductOffer
+    try {
+      const hasAnyIcp = Object.keys(builtConfigs).length > 0
+      const icpConfig = hasAnyIcp ? builtConfigs : null
+
+      const body = {
+        ...toPayload(form, mode, icpConfig),
+        ...(hasAnyIcp ? { icp_configs: icpConfig } : {}),
+      }
       const res = product ? await portfolioService.updateOffer(context, product.id, body as Partial<ProductOffer>) : await portfolioService.createOffer(context, body as Partial<ProductOffer>)
       saved = res.data
     } catch (err) {
@@ -375,16 +432,72 @@ export function ProductFormDialog({
             <Textarea id="pf-notes" rows={2} value={form.notes} disabled={busy} onChange={(e) => set({ notes: e.target.value })} />
           </Field>
 
-          <ProductIcpSection
-            form={icp}
-            lines={icpLines}
-            onForm={(patch) => setIcp((f) => ({ ...f, ...patch }))}
-            onLines={(patch) => setIcpLines((l) => ({ ...l, ...patch }))}
-            disabled={busy}
-            problems={icpProblems}
-            linked={linked ? { key: linked.key, label: linked.label } : null}
-            editing={mode === 'edit'}
-          />
+          <div className="space-y-3 pt-2">
+            <div className="border-t border-border/60 pt-4">
+              <h3 className="text-sm font-semibold text-foreground">Section B: Product ICPs</h3>
+              <p className="text-xs text-muted-foreground">
+                Configure up to three separate, independent ICP models for this product. You can configure and save 1, 2, or all 3 models independently.
+              </p>
+            </div>
+
+            {/* Three accessible tabs */}
+            <div className="flex border-b border-border/60 gap-1.5" role="tablist" aria-label="Customer models">
+              {[
+                { key: 'b2b' as const, label: 'B2B ICP', icon: '🏢', title: 'Business & Organisations' },
+                { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
+                { key: 'b2c' as const, label: 'B2C ICP', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+              ].map((tab) => {
+                const isSelected = activeIcpTab === tab.key
+                const isTouched = icpTouched(icps[tab.key], icpLinesMap[tab.key])
+                const hasErrors = (icpProblemsMap[tab.key] ?? []).length > 0
+
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setActiveIcpTab(tab.key)}
+                    className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                      isSelected
+                        ? 'border-primary text-primary font-semibold'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {isTouched ? (
+                      <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                        Not configured
+                      </span>
+                    )}
+                    {hasErrors && (
+                      <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                        !
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <ProductIcpSection
+              key={activeIcpTab}
+              form={icps[activeIcpTab]}
+              lines={icpLinesMap[activeIcpTab]}
+              onForm={(patch) => setIcps((prev) => ({ ...prev, [activeIcpTab]: { ...prev[activeIcpTab], ...patch } }))}
+              onLines={(patch) => setIcpLinesMap((prev) => ({ ...prev, [activeIcpTab]: { ...prev[activeIcpTab], ...patch } }))}
+              disabled={busy}
+              problems={icpProblemsMap[activeIcpTab] ?? []}
+              linked={linked ? { key: linked.key, label: linked.label } : null}
+              editing={mode === 'edit'}
+              model={activeIcpTab}
+            />
+          </div>
 
           {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
           {partial && <p role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">{partial.text}</p>}

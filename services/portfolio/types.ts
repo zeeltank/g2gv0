@@ -156,6 +156,7 @@ export interface ProductInfo {
   business_fit: string
   /** The name the Product Portfolio uses for this product (its `parent_product`). */
   portfolio_name: string | null
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null }>
   offers: Array<{
     id: number
     offer_id: string
@@ -170,11 +171,13 @@ export interface ProductInfo {
     /** Whether this sub-product's own Individual ICP is complete enough for a run about it alone, and what is missing if not. */
     icp_ready?: boolean
     icp_missing?: string[]
+    icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null }>
   }>
   icp: null | {
     profile_id: number | null
     source: 'database' | 'template' | null
     name: string | null
+    customer_model?: 'b2b' | 'b2c' | 'b2g' | 'both' | string | null
     pitch: string | null
     ideal_customer: string | null
     buyer_types: string[]

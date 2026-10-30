@@ -33,7 +33,7 @@ function Field({ id, label, hint, count, children }: { id: string; label: string
  * this says which customers suit it. Leaving it empty creates no ICP.
  */
 export function ProductIcpSection({
-  form, lines, onForm, onLines, disabled, problems, linked, editing,
+  form, lines, onForm, onLines, disabled, problems, linked, editing, model = 'b2b',
 }: {
   form: FormState
   lines: IcpLines
@@ -44,13 +44,16 @@ export function ProductIcpSection({
   /** Set when this product already has its own ICP: it is edited on its ICP page, in the full editor. */
   linked: { key: string; label: string } | null
   editing: boolean
+  model?: 'b2b' | 'b2c' | 'b2g'
 }) {
   const friendlyProblems = formatFriendlyProblems(problems)
 
   return (
     <section aria-label="Ideal Customer and Organisation Profile" className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">Ideal Customer and Organisation Profile</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+    Ideal Customer Profile — {model === 'b2b' ? 'B2B (Business)' : model === 'b2c' ? 'B2C (Consumer)' : 'B2G (Government)'}
+  </h3>
         <p className="text-xs text-muted-foreground">
           The product details above describe what this product is and offers. The Individual Ideal Customer Profile (ICP) describes which customers suit THIS product. It is saved separately, linked to this product only, and saved as a draft: it is never active until you activate it on the product&apos;s ICP page. Another product&apos;s ICP is never changed.
         </p>

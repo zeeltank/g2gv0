@@ -27,14 +27,21 @@ function subOf(products: ProductInfo[] | null, productKey: string | null, offerI
   const o = products?.find((p) => p.key === productKey)?.offers.find((x) => x.offer_id === offerId)
   if (!o) return { offer_id: offerId, name: offerId, ready: false, missing: ['that sub-product was not found'] }
 
-  return { offer_id: o.offer_id, name: o.name, ready: o.icp_ready !== false, missing: o.icp_missing ?? [] }
+  return { offer_id: o.offer_id, name: o.name, ready: o.icp_ready !== false, missing: o.icp_missing ?? [], icp_models: o.icp_models }
 }
 
 /**
  * Generate Signals for one product. Starts nothing unless the selected product is valid and ready (see generateSignals), allows one run at a
  * time, follows the run to its end, then bumps `refreshKey` so the lists re-read what the backend stored.
  */
-export function useGenerateSignals(context: LaravelContext, productKey: string | null, products: ProductInfo[] | null, offerId: string | null = null) {
+export function useGenerateSignals(
+  context: LaravelContext,
+  productKey: string | null,
+  products: ProductInfo[] | null,
+  offerId: string | null = null,
+
+) {
+  const [customerModel, setCustomerModel] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
   const [status, setStatus] = useState<ResearchStatusResponse['data'] | null>(null)
   const [running, setRunning] = useState(false)
   const [activeRun, setActiveRun] = useState<ResearchRun | null>(null)
@@ -125,11 +132,12 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [productKey, offerId, loadStatus, follow])
 
-  const generate = useCallback(async (regions?: RegionSelection[]) => {
+  const generate = useCallback(async (regions?: RegionSelection[], overrideModel?: 'b2b' | 'b2c' | 'b2g') => {
+    const model = overrideModel ?? customerModel
     await runGuardedGenerate(inFlight, {
-      context, choice: productKey, running, regions,
+      context, choice: productKey, running, regions, customerModel: model,
       sub: subOf(products, productKey, offerId),
-      products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step })) ?? null,
+      products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step, icp_models: p.icp_models })) ?? null,
       service: opportunitiesService,
     }, {
       busy: () => setNotice({ tone: 'info', text: 'Generate Signals is already starting. Please wait a moment.' }),
@@ -163,7 +171,7 @@ export function useGenerateSignals(context: LaravelContext, productKey: string |
         setNotice({ tone: 'error', text: errText(e, 'Could not start the run.') })
       },
     })
-  }, [context, productKey, offerId, products, running, follow, loadStatus])
+  }, [context, productKey, offerId, products, running, follow, loadStatus, customerModel])
 
-  return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null) }
+  return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null), customerModel, setCustomerModel }
 }

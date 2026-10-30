@@ -10,11 +10,12 @@ export type FormTrigger = { key: string; source: string; part: string; decay: st
 export type FormQuery = { id: string; source: string; topic: string; days: string; q: string; domains: string }
 export type FormRule = { kind: 'attribute' | 'field'; subject: string; op: string; value: string; label: string; prompt: string }
 
-export type CustomerModel = '' | 'b2b' | 'b2c' | 'both'
+export type CustomerModel = '' | 'b2b' | 'b2c' | 'b2g' | 'both'
 
 /** What the customer type means for signals, said next to the choice. Daily signals are found for organisations only. */
 export const CUSTOMER_MODELS: { value: Exclude<CustomerModel, ''>; label: string; note: string }[] = [
-  { value: 'b2b', label: 'B2B: sold to organisations', note: 'Signals are found for organisations (schools, trusts, companies, public bodies) that show a buying event.' },
+  { value: 'b2b', label: 'B2B: sold to private organisations', note: 'Signals are found for organisations (schools, trusts, companies) that show a buying event.' },
+  { value: 'b2g', label: 'B2G: sold to government & public bodies', note: 'Signals focus on tenders, RFPs, board circulars, and government procurement.' },
   { value: 'both', label: 'Both B2B and B2C', note: 'Signals are found for organisations only. Signals about individual buyers are not generated.' },
   { value: 'b2c', label: 'B2C: sold to individuals', note: 'Daily signals are not supported for B2C yet. The ICP can be saved, but research will not start until it is B2B or Both.' },
 ]
