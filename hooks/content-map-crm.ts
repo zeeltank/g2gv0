@@ -1,7 +1,6 @@
 import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 
 // Phase 1-4 Automation CRM screens
-const SignalInboxListView = createLazyComponent(() => import('@/domain/crm/signal-inbox-list-view').then((m) => ({ default: m.SignalInboxListView })))
 const OutreachApprovalListView = createLazyComponent(() => import('@/domain/crm/outreach-approval-list-view').then((m) => ({ default: m.OutreachApprovalListView })))
 const AgentRunListView = createLazyComponent(() => import('@/domain/crm/agent-run-list-view').then((m) => ({ default: m.AgentRunListView })))
 const AutomationRulesListView = createLazyComponent(() => import('@/domain/crm/automation-rules-list-view').then((m) => ({ default: m.AutomationRulesListView })))
@@ -41,7 +40,6 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
-const SignalInboxView = createLazyComponent(() => import('@/domain/crm/signal-inbox-view').then((m) => ({ default: m.SignalInboxView })))
 
 // Marketing Automation & AI Agent Runs
 const AutomationRulesView = createLazyComponent(() => import('@/domain/crm/automation-rules-view').then((m) => ({ default: m.AutomationRulesView })))
@@ -67,10 +65,9 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/command-center', component: CommandCenterView },
   { accessLink: '/module/crm/command-center', component: CommandCenterView },
 
-  // 2. Market Signals & Social Listening
+  // 2. Market Signals & Intelligence
   { accessLink: '/module/crm/signals', component: MarketSignalsView },
   { accessLink: '/signals', component: MarketSignalsView },
-  { accessLink: '/module/crm/marketing/signal-inbox', component: SignalInboxView },
 
   // 3. Prospecting & ICP Discovery
   { accessLink: '/gtm/prospecting', component: ProspectingView },

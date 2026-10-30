@@ -1422,50 +1422,6 @@ export const crmService = {
   markOutreachSent: (context: LaravelContext, id: string) =>
     apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/mark-sent`, baseParams(context)),
 
-  // ── Phase 2: Signal Inbox ────────────────────────────────────────────────
-
-  getSignalInbox: (
-    context: LaravelContext,
-    params: { status?: string; classification?: string; page?: number; perPage?: number } = {},
-  ) =>
-    apiClient.get<import('@/types/crm').SignalInboxListResponse>('/crm/signal-inbox', {
-      ...baseParams(context),
-      ...(params.status ? { status: params.status } : {}),
-      ...(params.classification ? { classification: params.classification } : {}),
-      page: String(params.page ?? 1),
-      per_page: String(params.perPage ?? 25),
-    }),
-
-  getSignal: (context: LaravelContext, id: string) =>
-    apiClient.get<import('@/types/crm').SignalInboxItemResponse>(`/crm/signal-inbox/${id}`, baseParams(context)),
-
-  reviewSignal: (context: LaravelContext, id: string, status: 'accepted' | 'rejected' | 'dismissed') =>
-    apiClient.post<{ status: number; message: string }>(`/crm/signal-inbox/${id}/review`, {
-      ...baseParams(context),
-      status,
-    }),
-
-  assignSignal: (context: LaravelContext, id: string, assignedTo: string) =>
-    apiClient.post<{ status: number; message: string }>(`/crm/signal-inbox/${id}/assign`, {
-      ...baseParams(context),
-      assigned_to: assignedTo,
-    }),
-
-  promoteSignal: (context: LaravelContext, id: string, promotedTo: 'lead' | 'opportunity') =>
-    apiClient.post<{ status: number; message: string; data: { promoted_to: string; promoted_id: string } }>(
-      `/crm/signal-inbox/${id}/promote`,
-      { ...baseParams(context), promoted_to: promotedTo },
-    ),
-
-  getSignalTopics: (context: LaravelContext) =>
-    apiClient.get<import('@/types/crm').SignalTopicsResponse>('/crm/signal-topics', baseParams(context)),
-
-  createSignalTopic: (context: LaravelContext, payload: import('@/types/crm').SignalTopicPayload) =>
-    apiClient.post<{ status: number; message: string; data: import('@/types/crm').SignalTopic }>(
-      '/crm/signal-topics',
-      { ...payload, topic_type: payload.topicType, ...baseParams(context) },
-    ),
-
   // ── Phase 3: Knowledge Graph ──────────────────────────────────────────
 
   getAccount360: (context: LaravelContext, organizationId: string) =>

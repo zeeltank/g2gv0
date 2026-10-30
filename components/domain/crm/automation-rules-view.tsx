@@ -10,7 +10,6 @@ import {
   Clock,
   Code2,
   Copy,
-  Cpu,
   FileCode,
   Flame,
   Layers,
@@ -42,7 +41,7 @@ import { toast } from '@/components/ui/toast'
 export interface AutomationRule {
   id: number
   name: string
-  trigger_module: 'lead' | 'contact' | 'opportunity' | 'signal' | 'campaign'
+  trigger_module: 'lead' | 'contact' | 'opportunity' | 'campaign'
   trigger_event: string
   conditions: Record<string, any>
   actions: Array<{ action: string; params?: Record<string, any> }>
@@ -53,18 +52,6 @@ export interface AutomationRule {
 }
 
 const PRE_SEEDED_RULES: AutomationRule[] = [
-  {
-    id: 1,
-    name: 'High-Intent Signal Auto-Lead Conversion',
-    trigger_module: 'signal',
-    trigger_event: 'signal.ingested',
-    conditions: { classification: 'buying_signal', min_confidence: 0.9 },
-    actions: [{ action: 'promote_to_lead' }, { action: 'assign_territory_sdr' }],
-    is_active: true,
-    last_triggered_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    execution_count: 28,
-    description: 'When an incoming social or tender signal scores >90% intent, automatically convert to CRM Lead and assign to territory SDR.',
-  },
   {
     id: 2,
     name: 'Inbound Web Lead ? AI Personalized Outreach Drafting',
@@ -129,7 +116,7 @@ export function AutomationRulesView() {
 
   // New rule modal form state
   const [newRuleName, setNewRuleName] = useState('')
-  const [newRuleModule, setNewRuleModule] = useState<'lead' | 'contact' | 'opportunity' | 'signal'>('lead')
+  const [newRuleModule, setNewRuleModule] = useState<'lead' | 'contact' | 'opportunity'>('lead')
   const [newRuleEvent, setNewRuleEvent] = useState('lead.created')
   const [newRuleAction, setNewRuleAction] = useState('run_ai_outreach')
   const [newRuleDescription, setNewRuleDescription] = useState('')
@@ -344,7 +331,6 @@ export function AutomationRulesView() {
             className="h-9 rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="all">All Modules</option>
-            <option value="signal">Signals</option>
             <option value="lead">Leads</option>
             <option value="opportunity">Opportunities</option>
             <option value="campaign">Campaigns</option>
@@ -481,7 +467,6 @@ export function AutomationRulesView() {
                   >
                     <option value="lead">Leads</option>
                     <option value="opportunity">Opportunities & Deals</option>
-                    <option value="signal">Market Signals</option>
                     <option value="campaign">Campaigns</option>
                   </select>
                 </div>

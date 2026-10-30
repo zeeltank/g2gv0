@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Activity, AlertCircle, BookOpen, Building2, ChevronDown, ChevronRight,
+  AlertCircle, BookOpen, Building2, ChevronDown, ChevronRight,
   ExternalLink, Globe, Link2, Loader2, Mail, Phone, Radio, Shield,
   ShieldCheck, Target, Users, Zap,
 } from 'lucide-react'
@@ -51,15 +51,6 @@ function Section({ title, icon: Icon, count, children, defaultOpen = true }: {
 
 function Empty({ message }: { message: string }) {
   return <p className="py-4 text-center text-sm text-muted-foreground">{message}</p>
-}
-
-const CLASSIFICATION_COLORS: Record<string, string> = {
-  buying_signal: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  brand_mention: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  competitor_move: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  industry_trend: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  irrelevant: 'bg-muted text-muted-foreground',
-  unclassified: 'bg-muted text-muted-foreground',
 }
 
 function ConfidenceBar({ value }: { value: number | null }) {
@@ -137,11 +128,10 @@ export function Account360({ organizationId, context }: Props) {
   return (
     <div className="space-y-3">
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           { label: 'Contacts', value: data.contacts.length, icon: Users },
           { label: 'Opportunities', value: data.opportunities.length, icon: Target },
-          { label: 'Signals', value: data.signals.length, icon: Activity },
           { label: 'Campaigns', value: data.campaigns.length, icon: Radio },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
@@ -153,27 +143,6 @@ export function Account360({ organizationId, context }: Props) {
           </div>
         ))}
       </div>
-
-      {/* Recent Signals */}
-      <Section title="Recent Signals" icon={Activity} count={data.signals.length} defaultOpen={data.signals.length > 0}>
-        {data.signals.length === 0
-          ? <Empty message="No signals linked to this account." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.signals.map((s) => (
-                <li key={s.id} className="flex items-start justify-between gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
-                    <p className="text-xs text-muted-foreground">{s.sourceName ?? '—'} · {s.publishedAt ? new Date(s.publishedAt).toLocaleDateString() : '—'}</p>
-                  </div>
-                  <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-xs font-medium', CLASSIFICATION_COLORS[s.classification] ?? CLASSIFICATION_COLORS.unclassified)}>
-                    {s.classification.replace(/_/g, ' ')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
 
       {/* Contacts */}
       <Section title="Contacts" icon={Users} count={data.contacts.length}>
