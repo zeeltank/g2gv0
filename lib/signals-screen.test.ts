@@ -47,6 +47,33 @@ describe('Signals sidebar', () => {
     for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/portfolio/page.tsx', 'portfolio'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
+
+
+  it('folds Signal Inbox into Market Signals so Market Signals is a flat direct link to /signals with zero children', () => {
+    const liveTree: NavModule[] = [{
+      id: '199', label: 'Sales & Marketing Intelligence', short: 'S&M', accessLink: null,
+      children: [
+        { id: '442', label: 'Command Center', accessLink: '/module/crm/command-center', children: [] },
+        {
+          id: '489', label: 'Market Signals', accessLink: '/module/crm/signals',
+          children: [
+            { id: '501', label: 'Signal Inbox', accessLink: '/module/crm/marketing/signal-inbox', children: [] },
+          ],
+        },
+        { id: '443', label: 'Prospecting', accessLink: '/module/crm/prospecting', children: [] },
+      ],
+    }]
+
+    const res = collapseSignalsNav(liveTree)
+    const marketSignals = res.modules[0].children.find((c) => c.id === '489')!
+    assert.equal(marketSignals.label, 'Market Signals')
+    assert.equal(marketSignals.accessLink, '/signals')
+    assert.deepEqual(marketSignals.children, [])
+    assert.deepEqual(res.owners['/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.deepEqual(res.owners['/module/crm/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.deepEqual(res.owners['/module/crm/marketing/signal-inbox'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.equal(res.modules[0].children.some((c) => c.label === 'Signal Inbox'), false)
+  })
 })
 
 describe('Signals dates', () => {

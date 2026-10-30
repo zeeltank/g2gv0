@@ -70,7 +70,7 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 2. Market Signals & Social Listening
   { accessLink: '/module/crm/signals', component: MarketSignalsView },
   { accessLink: '/signals', component: MarketSignalsView },
-  { accessLink: '/module/crm/marketing/signal-inbox', component: SignalInboxView },
+  { accessLink: '/module/crm/marketing/signal-inbox', component: MarketSignalsView },
 
   // 3. Prospecting & ICP Discovery
   { accessLink: '/gtm/prospecting', component: ProspectingView },
