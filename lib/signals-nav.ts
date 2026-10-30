@@ -6,6 +6,7 @@ import type { ActiveNav, NavModule, NavNode } from '@/lib/gtg-navigation'
  */
 export const SIGNALS_TABS = [
   { key: 'opportunities', label: 'Company Opportunities', href: '/signals', hint: 'Generate and review signals' },
+  { key: 'inbox', label: 'Signal Inbox', href: '/module/crm/marketing/signal-inbox', hint: 'Social listening & intent signals' },
   { key: 'ingestion', label: 'Ingestion Engine', href: '/ingestion', hint: 'Analyse a page or document' },
   { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', hint: 'Products, offers and ICPs' },
   { key: 'partners', label: 'Partner Network', href: '/partners', hint: 'Delivery and sales partners' },

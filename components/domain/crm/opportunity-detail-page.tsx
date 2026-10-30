@@ -31,6 +31,7 @@ import { CrmEmailTab } from './crm-email-tab'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
+import { OpportunityAiCoachTab } from './opportunity-ai-coach-tab'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -39,9 +40,10 @@ interface Props {
   picklists: { salesStage: CrmPicklistValue[]; leadSource: CrmPicklistValue[]; potentialType: CrmPicklistValue[]; forecastCategory: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'contacts' | 'products' | 'quotes' | 'history' | 'schedule' | 'comments' | 'documents' | 'emails' | 'projects' | 'custom'
+type Tab = 'details' | 'ai-coach' | 'contacts' | 'products' | 'quotes' | 'history' | 'schedule' | 'comments' | 'documents' | 'emails' | 'projects' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'ai-coach', label: 'AI Deal Coach & MEDDPICC' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'products', label: 'Products & Services' },
   { id: 'quotes', label: 'Quotes' },
@@ -707,6 +709,17 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       )}
 
       {/* Always mounted (hidden, not unmounted) so onFieldsLoaded can populate hasCustomFields before that tab is even clickable. */}
+      <div className={tab === 'ai-coach' ? '' : 'hidden'}>
+        <OpportunityAiCoachTab
+          opportunityId={opportunity.id}
+          gtmDealId={opportunity.convertedFromGtmDealId}
+          opportunityName={opportunity.name}
+          salesStage={opportunity.salesStage}
+          amount={opportunity.amount}
+          currency={opportunity.currency}
+        />
+      </div>
+
       <div className={tab === 'custom' ? '' : 'hidden'}>
         <SectionCard title="Custom Fields">
           <CustomFieldsSection

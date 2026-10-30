@@ -63,3 +63,18 @@ export function Toast({ message, tone = 'info', onDismiss, durationMs = 5000 }: 
     </div>
   )
 }
+
+export interface ToastPayload {
+  title?: string
+  description?: string
+  variant?: 'default' | 'success' | 'destructive' | 'info'
+}
+
+export function toast(payload: ToastPayload | string) {
+  if (typeof window !== 'undefined') {
+    const text = typeof payload === 'string'
+      ? payload
+      : (payload.title ? `${payload.title} - ${payload.description ?? ''}` : payload.description ?? '')
+    window.dispatchEvent(new CustomEvent('gtg:toast', { detail: payload }))
+  }
+}
