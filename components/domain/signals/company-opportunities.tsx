@@ -17,6 +17,8 @@ import { commitPending, emptyDraft, previewRegions, regionLabel, type RegionDraf
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ResearchContextNotice } from '@/components/domain/signals/research-context-notice'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
+import { PotentialOpportunities } from '@/components/domain/signals/potential-opportunities'
+import { localMarketCandidates } from '@/services/signals/local-market-candidates'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
 import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
@@ -105,7 +107,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const activeDate = picked ?? (recent5[0]?.date ?? today)
   const dayRun = dates?.find((d) => d.date === activeDate) ?? null
   const latest = run.status?.latest_run ?? null
-  const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped') ? latest : null)
+  const latestHasPotentialReview = Boolean(latest?.stage_stats?.potential_opportunities?.attempted)
+  const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped' || latestHasPotentialReview) ? latest : null)
 
   const generate = () => {
     const c = commitPending(regions, draft)
@@ -317,6 +320,15 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               {run.notice.nextStep && <span className="mt-1 block">{run.notice.nextStep}</span>}
             </Notice>
           </div>
+        )}
+        <PotentialOpportunities review={shownRun?.stage_stats?.potential_opportunities} />
+        {process.env.NODE_ENV === 'development' && product === 'scholarclone' && (
+          <PotentialOpportunities
+            review={localMarketCandidates}
+            title="Local market research - 10 candidates to review"
+            titleId="local-market-candidates-title"
+            intro="Web research assembled on 30 October 2026. Each card links to its source. These events do not establish buying intent, are not qualified signals, and do not change database records or signal totals."
+          />
         )}
       </section>
 
