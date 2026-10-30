@@ -66,6 +66,7 @@ const OPERATORS = [
 // filter" rather than erroring, so keep these two lists in lockstep.
 const DATE_PRESETS = [
   { value: 'today', label: 'Today' },
+  { value: 'tomorrow', label: 'Tomorrow' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'this_week', label: 'This week' },
   { value: 'next_week', label: 'Next week' },
