@@ -2099,6 +2099,76 @@ export interface CrmAuditEntryResponse {
   data: CrmAuditEntry[]
 }
 
+// ── Phase 2: Signal Inbox ─────────────────────────────────────────────────
+
+export type SignalClassification =
+  | 'unclassified'
+  | 'buying_signal'
+  | 'brand_mention'
+  | 'competitor_move'
+  | 'industry_trend'
+  | 'irrelevant'
+
+export type SignalStatus = 'pending' | 'accepted' | 'rejected' | 'dismissed' | 'promoted'
+
+export interface SignalInboxItem {
+  id: string
+  signalKey: string
+  sourceName: string | null
+  sourceUrl: string | null
+  title: string
+  body: string | null
+  publishedAt: string | null
+  ingestedAt: string
+  classification: SignalClassification
+  classificationConfidence: number | null
+  classificationReason: string | null
+  relevanceScore: number | null
+  linkedAccountId: string | null
+  linkedAccountName: string | null
+  linkedAccountConfidence: number | null
+  status: SignalStatus
+  reviewedAt: string | null
+  promotedTo: string | null
+  assignedTo: string | null
+  tags: string[]
+}
+
+export interface SignalInboxListResponse {
+  status: number
+  message: string
+  data: {
+    items: SignalInboxItem[]
+    pagination: CrmPagination
+  }
+}
+
+export interface SignalInboxItemResponse {
+  status: number
+  message: string
+  data: SignalInboxItem
+}
+
+export interface SignalTopic {
+  id: string
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+  status: boolean
+}
+
+export interface SignalTopicPayload {
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+}
+
+export interface SignalTopicsResponse {
+  status: number
+  message: string
+  data: SignalTopic[]
+}
+
 // ── Phase 3: Knowledge Graph ──────────────────────────────────────────────────
 
 export interface EntityRelationship {
@@ -2175,6 +2245,7 @@ export interface Account360 {
   contacts: Contact[]
   leads: Lead[]
   opportunities: CrmOpportunity[]
+  signals: SignalInboxItem[]
   campaigns: Account360CampaignEntry[]
   relationships: EntityRelationship[]
   knowledgeSources: KnowledgeSource[]
@@ -2226,7 +2297,7 @@ export interface AutomationRule {
   id: string
   name: string
   description: string | null
-  triggerModule: 'lead' | 'contact' | 'opportunity' | 'campaign'
+  triggerModule: 'lead' | 'contact' | 'opportunity' | 'signal' | 'campaign'
   triggerEvent: string
   triggerConditions: Array<{ field: string; operator: string; value: string }> | null
   actions: Array<{ actionType: string; params: Record<string, unknown> }>
