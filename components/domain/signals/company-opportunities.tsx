@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { splitChoice } from '@/lib/product-selection'
+import { choiceOf, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -30,12 +30,15 @@ type RunDate = RunDatesResponse['data']['dates'][number]
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const { products, loading } = useProducts(context)
   // A run covers the selected master product and its configured product line.
-  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: false })
-  const { productKey: product } = splitChoice(choice)
+  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
+  const { productKey: product, offerId } = splitChoice(choice)
   const selected = products?.find((p) => p.key === product) ?? null
   const runLabel = selected?.label ?? ''
   const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
-  const run = useGenerateSignals(context, selected ? selected.key : null, products)
+  const [regions, setRegions] = useState<RegionSelection[]>([])
+  const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
+  const [regionProblems, setRegionProblems] = useState<string[]>([])
+  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions)
   const setCustomerModel = run.setCustomerModel
   useEffect(() => {
     setCustomerModel(icpType)
@@ -49,9 +52,6 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const [allSignals, setAllSignals] = useState(false)
   const [total, setTotal] = useState<number | null>(null)
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
-  const [regions, setRegions] = useState<RegionSelection[]>([])
-  const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
-  const [regionProblems, setRegionProblems] = useState<string[]>([])
   const seenCompleted = useRef(0)
 
   const key = selected?.key ?? null
@@ -66,7 +66,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     let live = true
     const finished = run.completedCount !== seenCompleted.current
     seenCompleted.current = run.completedCount
-    opportunitiesService.getRunDates(context, key)
+    opportunitiesService.getRunDates(context, key, icpType, offerId, regions)
       .then((res) => {
         if (!live) return
         setDates(res.data.dates)
@@ -76,15 +76,19 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
       })
       .catch((e) => { if (live) setDatesError(e instanceof Error ? e.message : 'Could not load the research dates.') })
     return () => { live = false }
-  }, [context, key, run.refreshKey, run.completedCount])
+  }, [context, key, offerId, icpType, regions, run.refreshKey, run.completedCount])
 
-  const currentModelStatus = selected?.icp_models?.[icpType]
+  const currentModelStatus = offerId
+    ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[icpType]
+    : selected?.icp_models?.[icpType]
 
   const isModelReady = currentModelStatus
     ? currentModelStatus.ready
     : (icpType === 'b2b' ? Boolean(selected?.ready) : false)
 
-  const ready = isModelReady
+  const ready = offerId
+    ? (currentModelStatus ? currentModelStatus.ready : icpType === 'b2b' && selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_ready === true)
+    : isModelReady
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -108,7 +112,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     <div className="space-y-5">
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
         {/* Choose a master product, acquisition profile, and region. */}
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3 md:gap-4">
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
           {/* Dropdown 1: Main Product */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="main-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -132,6 +136,14 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                   {p.label}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-Product</label>
+            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && setChoice(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">Whole product</option>
+              {selected?.offers.map((offer) => <option key={offer.offer_id} value={offer.offer_id}>{offer.name}</option>)}
             </select>
           </div>
 
@@ -166,22 +178,6 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
         </div>
-
-        {selected && selected.offers.length > 0 && (
-          <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-xs font-semibold text-foreground">{selected.label} sub-products</h2>
-              <span className="text-xs text-muted-foreground">{selected.offers.length} available</span>
-            </div>
-            <ul aria-label={`${selected.label} sub-products`} className="flex flex-wrap gap-2">
-              {selected.offers.map((offer) => (
-                <li key={offer.offer_id} className="max-w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-xs font-medium text-foreground" title={offer.name}>
-                  <span className="block truncate">{offer.name}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <div className="mt-4 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
           <p className="text-xs text-muted-foreground" aria-live="polite">
@@ -291,6 +287,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               key={`${selected.key}-all`}
               context={context}
               productKey={selected.key}
+              offerId={offerId}
+              customerModel={icpType}
+              regions={regions}
               productLabel={selected.label}
               runDate={null}
               allDates={true}
@@ -302,6 +301,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               key={`${selected.key}-${activeDate}`}
               context={context}
               productKey={selected.key}
+              offerId={offerId}
+              customerModel={icpType}
+              regions={regions}
               productLabel={selected.label}
               runDate={activeDate}
               refreshKey={run.refreshKey}

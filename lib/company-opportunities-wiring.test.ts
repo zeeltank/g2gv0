@@ -38,9 +38,10 @@ describe('Product Details & ICP link', () => {
     assert.equal(icpStatus({ state: 'invalid', draft_icp: null }).key, 'invalid')
   })
 
-  it('is what the Company opportunities screen links to, for the selected product only', () => {
+  it('shows the selected product ICP readiness on the Company opportunities screen', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /icpHref\(selected\.key\)/)
+    assert.match(src, /selected\?\.icp_models\?\.\[icpType\]/)
+    assert.match(src, /Complete it in Product Portfolio/)
   })
 })
 
@@ -99,7 +100,7 @@ describe('One list and the research-date selector', () => {
   })
 
   it('takes its dates from the backend history, not from the clock', () => {
-    assert.match(screen, /getRunDates\(context, key\)/)
+    assert.match(screen, /getRunDates\(context, key, icpType, offerId, regions\)/)
     assert.equal(/new Date\(|Date\.now\(/.test(screen), false)
   })
 

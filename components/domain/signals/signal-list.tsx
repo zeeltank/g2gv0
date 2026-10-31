@@ -26,7 +26,7 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e ins
  * changes (after a run finishes or a person refreshes).
  */
 export function SignalList({
-  context, productKey, productLabel, runDate, allDates, refreshKey, onTotal, dayInfo,
+  context, productKey, productLabel, runDate, allDates, refreshKey, onTotal, dayInfo, offerId, customerModel = 'b2b', regions = [],
 }: {
   context: LaravelContext
   productKey: string
@@ -38,6 +38,9 @@ export function SignalList({
   onTotal?: (total: number | null) => void
   /** What that day's runs did (from the run history), used to explain an empty day. */
   dayInfo?: { searches: number; sources: number; organisations: number; rejected: number; note: string | null } | null
+  offerId?: string | null
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  regions?: { country: string; state?: string; city?: string }[]
 }) {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -60,7 +63,7 @@ export function SignalList({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1); setData(null); setError(null); setActionError(null); setView('all'); setStatus(''); setCounts(null)
-  }, [productKey, runDate, allDates])
+  }, [productKey, runDate, allDates, offerId, customerModel])
 
   const load = useCallback(async () => {
     if (!allDates && !runDate) {
@@ -73,6 +76,9 @@ export function SignalList({
       // Signals that have passed their closing date are part of that day's results, so they are included.
       const res = await opportunitiesService.list(context, {
         product: productKey,
+        offerId,
+        customerModel,
+        regions,
         runDate: allDates ? undefined : (runDate ?? undefined),
         search: debounced || undefined,
         feedSection: view === 'all' ? undefined : view,
@@ -91,7 +97,7 @@ export function SignalList({
     } finally {
       setLoading(false)
     }
-  }, [context, productKey, runDate, allDates, debounced, view, status, page, onTotal])
+  }, [context, productKey, runDate, allDates, debounced, view, status, page, onTotal, offerId, customerModel, regions])
 
   useEffect(() => {
     let live = true
@@ -159,6 +165,9 @@ export function SignalList({
             productLabel={productLabel}
             chosenDate={runDate}
             refreshKey={refreshKey}
+            offerId={offerId}
+            customerModel={customerModel}
+            regions={regions}
             empty={
               <EmptyState
                 title={`No saved ${productLabel} signals yet`}
