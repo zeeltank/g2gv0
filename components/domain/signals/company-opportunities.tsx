@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { choiceOf, splitChoice } from '@/lib/product-selection'
+import { splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -29,22 +29,17 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const { products, loading } = useProducts(context)
-  // The choice is a product, or one sub-product of it ("scholarclone::SCH-11"): the run is then about that sub-product alone, with its own ICP.
-  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
-  const { productKey: product, offerId } = splitChoice(choice)
+  // A run covers the selected master product and its configured product line.
+  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: false })
+  const { productKey: product } = splitChoice(choice)
   const selected = products?.find((p) => p.key === product) ?? null
-  const sub = offerId ? selected?.offers.find((o) => o.offer_id === offerId) ?? null : null
-  const runLabel = selected ? (sub ? `${selected.label} → ${sub.name}` : selected.label) : ''
+  const runLabel = selected?.label ?? ''
   const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
-  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId)
+  const run = useGenerateSignals(context, selected ? selected.key : null, products)
+  const setCustomerModel = run.setCustomerModel
   useEffect(() => {
-    run.setCustomerModel(icpType)
-  }, [icpType, run])
-
-  // Reset ICP type to default model (b2b) when main product or sub-product changes
-  useEffect(() => {
-    setIcpType('b2b')
-  }, [selected?.key, offerId])
+    setCustomerModel(icpType)
+  }, [icpType, setCustomerModel])
 
   const [dates, setDates] = useState<RunDate[] | null>(null)
   const [timezone, setTimezone] = useState<string | null>(null)
@@ -83,13 +78,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     return () => { live = false }
   }, [context, key, run.refreshKey, run.completedCount])
 
-  const currentModelStatus = sub
-    ? sub.icp_models?.[icpType]
-    : selected?.icp_models?.[icpType]
+  const currentModelStatus = selected?.icp_models?.[icpType]
 
   const isModelReady = currentModelStatus
     ? currentModelStatus.ready
-    : (icpType === 'b2b' ? Boolean(selected?.ready) && (!sub || sub.icp_ready !== false) : false)
+    : (icpType === 'b2b' ? Boolean(selected?.ready) : false)
 
   const ready = isModelReady
   const today = timezone ? todayIn(timezone) : null
@@ -114,8 +107,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   return (
     <div className="space-y-5">
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
-        {/* Four Sequential Dropdowns: Main Product -> Sub-Product -> ICP Type -> Region -> Generate Signal */}
-        <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 md:gap-4">
+        {/* Choose a master product, acquisition profile, and region. */}
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3 md:gap-4">
           {/* Dropdown 1: Main Product */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="main-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -128,6 +121,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               onChange={(e) => {
                 const nextKey = e.target.value
                 if (!nextKey) return
+                setIcpType('b2b')
                 setChoice(nextKey)
               }}
               disabled={run.running || loading || !products}
@@ -141,43 +135,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             </select>
           </div>
 
-          {/* Dropdown 2: Sub-Product */}
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Sub-Product
-            </label>
-            <select
-              id="sub-product-select"
-              aria-label="Sub-Product"
-              value={offerId ?? ''}
-              onChange={(e) => {
-                const subId = e.target.value
-                if (!selected) return
-                if (!subId) {
-                  setChoice(selected.key)
-                } else {
-                  setChoice(choiceOf(selected.key, subId))
-                }
-              }}
-              disabled={run.running || !selected || (selected.offers.length === 0)}
-              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-            >
-              {selected?.offers && selected.offers.length > 0 ? (
-                <>
-                  <option value="">Main product</option>
-                  {selected.offers.map((o) => (
-                    <option key={o.offer_id} value={o.offer_id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <option value="">No sub-products (Main product only)</option>
-              )}
-            </select>
-          </div>
-
-          {/* Dropdown 3: ICP Type */}
+          {/* Dropdown 2: ICP Type */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               ICP Type
@@ -204,21 +162,41 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             </select>
           </div>
 
-          {/* Dropdown 4: Region */}
+          {/* Dropdown 3: Region */}
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
         </div>
 
+        {selected && selected.offers.length > 0 && (
+          <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold text-foreground">{selected.label} sub-products</h2>
+              <span className="text-xs text-muted-foreground">{selected.offers.length} available</span>
+            </div>
+            <ul aria-label={`${selected.label} sub-products`} className="flex flex-wrap gap-2">
+              {selected.offers.map((offer) => (
+                <li key={offer.offer_id} className="max-w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-xs font-medium text-foreground" title={offer.name}>
+                  <span className="block truncate">{offer.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
           <p className="text-xs text-muted-foreground" aria-live="polite">
-            {run.running ? 'Finding and checking buying signals…' : !ready && selected ? `${icpType.toUpperCase()} profile needs setup` : selected ? `Ready to find signals for ${runLabel}` : 'Choose a product to get started'}
+            {run.running
+              ? 'Finding and checking buying signals…'
+              : !ready && selected
+                ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}`
+                : selected ? `Ready to find signals for ${runLabel}` : 'Choose a product to get started'}
           </p>
           <Button
             type="button"
             size="lg"
             className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
             onClick={generate}
-            disabled={!selected || run.running}
+            disabled={!selected || run.running || !ready}
           >
             {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
             {run.running ? 'Finding Signals…' : 'Generate Signals'}

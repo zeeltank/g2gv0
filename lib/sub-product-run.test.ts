@@ -55,14 +55,11 @@ describe('Choosing one sub-product of a product', () => {
     assert.equal(calls[1][4], null)
   })
 
-  it('the screen lists sub-products under each product, disables one without its own ICP, and passes the choice through', () => {
-    const sel = read('components/domain/signals/product-selector.tsx')
-    assert.match(sel, /allowSub \? p\.offers\.map/)
-    assert.match(sel, /disabled=\{o\.icp_ready === false\}/)
+  it('the signal screen selects a master product and displays its sub-products beneath it', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(screen, /useSelectedProduct\(context, products, \{ allowAll: false, allowSub: true \}\)/)
-    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId\)/)
-    assert.match(screen, /<ProductDropdown [^>]*allowSub \/>/)
-    assert.match(read('services/signals/opportunities.ts'), /offerId \? \{ offer_id: offerId \} : \{\}/)
+    assert.match(screen, /useSelectedProduct\(context, products, \{ allowAll: false, allowSub: false \}\)/)
+    assert.match(screen, /selected\.offers\.map\(\(offer\)/)
+    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products\)/)
+    assert.equal(/sub-product-select/.test(screen), false)
   })
 })

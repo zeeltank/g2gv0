@@ -263,16 +263,14 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     if (linked && products.some((p) => p.key === linked)) router.replace(configureHref(linked))
   }, [products, router])
 
-  const mainProductOptions = Array.from(new Map(
-    (products ?? []).map((product) => [product.portfolio_name || product.label, product.label] as const),
-  ).entries())
+  const filteredProduct = products?.find((product) => (product.portfolio_name || product.label) === productFilter) ?? null
 
   return (
     <div className="space-y-5">
       {/* Header: one primary action; the rest sit in the menu */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-4">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Each product has its own ideal customer profile. Open a product to see or change it.</p>
+          <p className="text-sm text-muted-foreground">Select a master product to show its sub-products below.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -326,10 +324,24 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         ) : (
           <ul className="grid gap-3 @3xl:grid-cols-3">
             {products.map((p) => (
-              <li key={p.key} className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+              <li key={p.key} className={`flex flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm transition-colors ${productFilter === (p.portfolio_name || p.label) ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/60'}`}>
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold text-foreground">{p.label}{p.custom && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}</h2>
+                    <h2 className="text-sm font-semibold text-foreground">
+                      <button
+                        type="button"
+                        aria-pressed={productFilter === (p.portfolio_name || p.label)}
+                        onClick={() => {
+                          setProductFilter((current) => current === (p.portfolio_name || p.label) ? '' : (p.portfolio_name || p.label))
+                          setPage(1)
+                        }}
+                        className="rounded-sm text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        title={`Show ${p.label} sub-products below`}
+                      >
+                        {p.label}
+                      </button>
+                      {p.custom && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}
+                    </h2>
                     <IcpStatusBadge product={p} />
                   </div>
                   <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -358,7 +370,12 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         </p>
       )}
 
-      <h2 className="text-sm font-semibold text-foreground">Offers</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-foreground">
+          {filteredProduct ? `${filteredProduct.label} sub-products` : 'All sub-products'}
+        </h2>
+        {filteredProduct && <Button type="button" size="sm" variant="ghost" onClick={() => { setProductFilter(''); setPage(1) }}>Show all</Button>}
+      </div>
 
       {/* Filter Toolbar */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -375,20 +392,6 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
               className="pl-9 text-xs"
             />
           </div>
-
-          <select
-            value={productFilter}
-            onChange={(e) => {
-              setProductFilter(e.target.value)
-              setPage(1)
-            }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All Parent Products</option>
-            {mainProductOptions.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
 
           <select
             value={sellableFilter}
