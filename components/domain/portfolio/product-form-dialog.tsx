@@ -443,9 +443,9 @@ export function ProductFormDialog({
             {/* Three accessible tabs */}
             <div className="flex border-b border-border/60 gap-1.5" role="tablist" aria-label="Customer models">
               {[
-                { key: 'b2b' as const, label: 'B2B ICP', icon: '🏢', title: 'Business & Organisations' },
+                { key: 'b2b' as const, label: 'B2B Customer Acquisition', icon: '🏢', title: 'Business & Organisations' },
                 { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
-                { key: 'b2c' as const, label: 'B2C ICP', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+                { key: 'b2c' as const, label: 'B2B Partner Acquisition', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
               ].map((tab) => {
                 const isSelected = activeIcpTab === tab.key
                 const isTouched = icpTouched(icps[tab.key], icpLinesMap[tab.key])

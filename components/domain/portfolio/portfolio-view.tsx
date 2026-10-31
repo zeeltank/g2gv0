@@ -263,6 +263,10 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     if (linked && products.some((p) => p.key === linked)) router.replace(configureHref(linked))
   }, [products, router])
 
+  const mainProductOptions = Array.from(new Map(
+    (products ?? []).map((product) => [product.portfolio_name || product.label, product.label] as const),
+  ).entries())
+
   return (
     <div className="space-y-5">
       {/* Header: one primary action; the rest sit in the menu */}
@@ -381,12 +385,9 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
             className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="">All Parent Products</option>
-            {taxonomy?.parent_products &&
-              Object.entries(taxonomy.parent_products).map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
+            {mainProductOptions.map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
 
           <select

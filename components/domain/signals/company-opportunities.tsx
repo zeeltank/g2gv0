@@ -191,8 +191,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {[
-                { key: 'b2b' as const, label: 'B2B — Business' },
-                { key: 'b2c' as const, label: 'B2C — Consumer' },
+                { key: 'b2b' as const, label: 'B2B Customer Acquisition' },
+                { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
               ].map((item) => {
                 return (
