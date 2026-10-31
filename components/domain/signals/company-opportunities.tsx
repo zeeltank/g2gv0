@@ -1,13 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { choiceOf, icpHref, splitChoice } from '@/lib/product-selection'
+import { choiceOf, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -15,7 +14,6 @@ import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
 import { commitPending, emptyDraft, previewRegions, regionLabel, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
 import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
-import { ResearchContextNotice } from '@/components/domain/signals/research-context-notice'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
@@ -120,11 +118,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
   return (
     <div className="space-y-5">
-      <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
+      <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
         {/* Four Sequential Dropdowns: Main Product -> Sub-Product -> ICP Type -> Region -> Generate Signal */}
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 xl:grid-cols-[1.1fr_1.1fr_1fr_1fr_auto]">
           {/* Dropdown 1: Main Product */}
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="main-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Main Product
             </label>
@@ -138,7 +136,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 setChoice(nextKey)
               }}
               disabled={run.running || loading || !products}
-              className="h-10 min-w-48 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {products?.map((p) => (
                 <option key={p.key} value={p.key}>
@@ -149,7 +147,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           {/* Dropdown 2: Sub-Product */}
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Sub-Product
             </label>
@@ -167,7 +165,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 }
               }}
               disabled={run.running || !selected || (selected.offers.length === 0)}
-              className="h-10 min-w-52 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
             >
               {selected?.offers && selected.offers.length > 0 ? (
                 <>
@@ -185,7 +183,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           {/* Dropdown 3: ICP Type */}
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               ICP Type
             </label>
@@ -195,7 +193,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               value={icpType}
               onChange={(e) => setIcpType(e.target.value as 'b2b' | 'b2c' | 'b2g')}
               disabled={run.running || !selected}
-              className="h-10 min-w-44 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {[
                 { key: 'b2b' as const, label: 'B2B — Business' },
@@ -227,11 +225,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
           {/* Button: Generate Signal */}
-          <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-stretch sm:items-end gap-1">
+          <div className="flex w-full flex-col items-stretch gap-1.5 sm:col-span-2 xl:col-span-1">
             <Button
               type="button"
               size="lg"
-              className="h-10 w-full sm:w-auto min-w-48"
+              className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-44"
               onClick={generate}
               disabled={!selected || run.running}
               aria-describedby="generate-hint"
@@ -239,7 +237,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
               {run.running ? 'Generating…' : 'Generate Signals'}
             </Button>
-            <span id="generate-hint" className="text-xs text-muted-foreground">
+            <span id="generate-hint" className="min-h-4 text-xs text-muted-foreground xl:text-center">
               {run.running
                 ? 'Research is running. This can take a few minutes.'
                 : !ready && selected
@@ -251,64 +249,10 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
         </div>
 
-        {/* Confirmed Configuration Card: Target Profile, Triggers, Search Queries */}
-        {selected && (
-          <div className="mt-4 rounded-xl border border-border/50 bg-muted/20 p-3 sm:p-4 space-y-3">
-            <div className="rounded-lg border border-border/60 bg-background p-3 text-xs space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
-                <span className="font-semibold text-foreground">
-                  Active Configuration: <span className="text-primary">{runLabel}</span> → <span className="uppercase font-bold text-primary">{icpType} ICP</span>
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                  ready
-                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
-                }`}>
-                  {ready ? 'Ready for signal discovery' : 'Configuration required before research'}
-                </span>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-3 pt-1 text-muted-foreground">
-                <div>
-                  <span className="block font-medium text-foreground">Target Profile</span>
-                  <span className="block truncate">{selected.icp?.ideal_customer || selected.label || 'Standard Profile'}</span>
-                </div>
-                <div>
-                  <span className="block font-medium text-foreground">Triggers & Signals</span>
-                  <span>{selected.icp?.triggers?.length ?? 0} buying triggers registered</span>
-                </div>
-                <div>
-                  <span className="block font-medium text-foreground">Search Queries</span>
-                  <span>{selected.icp?.searches ?? 0} queries configured</span>
-                </div>
-              </div>
-
-              {!ready && (
-                <div role="status" className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
-                  <p className="font-medium">{icpType.toUpperCase()} ICP for {runLabel} is not ready for discovery.</p>
-                  {(currentModelStatus?.missing ?? []).length > 0 ? (
-                    <ul className="mt-1 list-disc pl-4">
-                      {currentModelStatus?.missing?.map((m: string) => <li key={m}>{m}</li>)}
-                    </ul>
-                  ) : (
-                    <p className="mt-0.5">Please open Product Portfolio, configure the {icpType.toUpperCase()} ICP tab, and save it.</p>
-                  )}
-                  <div className="mt-1.5">
-                    <Link href={icpHref(selected.key)} className="font-semibold underline underline-offset-2">
-                      Configure {icpType.toUpperCase()} ICP in Product Portfolio →
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
-        {selected && <ResearchContextNotice context={context} productKey={selected.key} offerId={offerId} regions={effective} refreshKey={run.refreshKey} />}
 
-        {/* The run's real progress, right under the product it belongs to. */}
-        <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />
+        {/* The run's real progress appears directly below the selectors after generation starts. */}
+        {run.running && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
         {run.notice && (
           <div className="mt-3">
             <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
