@@ -244,9 +244,9 @@ export function ProductIcpEditor({
       {/* Model Tabs: B2B, B2G, B2C */}
       <div className="flex border-b border-border/60 gap-1.5" role="tablist" aria-label="Customer models">
         {[
-          { key: 'b2b' as const, label: 'B2B ICP', icon: '🏢', title: 'Business & Organisations' },
+          { key: 'b2b' as const, label: 'B2B Customer Acquisition', icon: '🏢', title: 'Business & Organisations' },
           { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
-          { key: 'b2c' as const, label: 'B2C ICP', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+          { key: 'b2c' as const, label: 'B2B Partner Acquisition', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
         ].map((mTab) => {
           const isSelected = selectedModel === mTab.key
           return (
