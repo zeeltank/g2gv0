@@ -12,8 +12,8 @@ import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
-import { commitPending, emptyDraft, previewRegions, regionLabel, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
-import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
+import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
+import { useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
@@ -28,7 +28,7 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  * Product Portfolio.
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
-  const { products, loading, error } = useProducts(context)
+  const { products, loading } = useProducts(context)
   // The choice is a product, or one sub-product of it ("scholarclone::SCH-11"): the run is then about that sub-product alone, with its own ICP.
   const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
   const { productKey: product, offerId } = splitChoice(choice)
@@ -91,10 +91,6 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     ? currentModelStatus.ready
     : (icpType === 'b2b' ? Boolean(selected?.ready) && (!sub || sub.icp_ready !== false) : false)
 
-  const isModelConfigured = currentModelStatus
-    ? currentModelStatus.configured
-    : (icpType === 'b2b' && Boolean(selected?.icp))
-
   const ready = isModelReady
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
@@ -113,14 +109,13 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     setDraft(emptyDraft())
     void run.generate(c.list)
   }
-  const effective = previewRegions(regions, draft)
   const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null) }
 
   return (
     <div className="space-y-5">
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
         {/* Four Sequential Dropdowns: Main Product -> Sub-Product -> ICP Type -> Region -> Generate Signal */}
-        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 xl:grid-cols-[1.1fr_1.1fr_1fr_1fr_auto]">
+        <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-4 md:gap-4">
           {/* Dropdown 1: Main Product */}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="main-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -140,7 +135,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             >
               {products?.map((p) => (
                 <option key={p.key} value={p.key}>
-                  {p.label}{p.ready ? '' : ' (ICP setup required)'}
+                  {p.label}
                 </option>
               ))}
             </select>
@@ -169,10 +164,10 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             >
               {selected?.offers && selected.offers.length > 0 ? (
                 <>
-                  <option value="">None (Main product only)</option>
+                  <option value="">Main product</option>
                   {selected.offers.map((o) => (
                     <option key={o.offer_id} value={o.offer_id}>
-                      {o.name} ({o.offer_id}){o.icp_ready === false ? ' — incomplete ICP' : ''}
+                      {o.name}
                     </option>
                   ))}
                 </>
@@ -200,53 +195,34 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 { key: 'b2c' as const, label: 'B2C — Consumer' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
               ].map((item) => {
-                const status = sub
-                  ? sub.icp_models?.[item.key]
-                  : selected?.icp_models?.[item.key]
-                const readyModel = status ? status.ready : (item.key === 'b2b' ? selected?.ready : false)
-                const configuredModel = status ? status.configured : (item.key === 'b2b' && Boolean(selected?.icp))
-                const statusSuffix = readyModel ? '✓ Ready' : configuredModel ? '⚠ Incomplete' : '✕ Not configured'
-
                 return (
                   <option key={item.key} value={item.key}>
-                    {item.label} [{statusSuffix}]
+                    {item.label}
                   </option>
                 )
               })}
             </select>
           </div>
 
-          {/* Hidden reference to satisfy legacy headless test assertions */}
-          <div className="hidden" aria-hidden="true">
-            <ProductDropdown products={products} loading={loading} error={error} value={choice} onChange={setChoice} allowSub />
-          </div>
-
           {/* Dropdown 4: Region */}
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
-          {/* Button: Generate Signal */}
-          <div className="flex w-full flex-col items-stretch gap-1.5 sm:col-span-2 xl:col-span-1">
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-44"
-              onClick={generate}
-              disabled={!selected || run.running}
-              aria-describedby="generate-hint"
-            >
-              {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
-              {run.running ? 'Generating…' : 'Generate Signals'}
-            </Button>
-            <span id="generate-hint" className="min-h-4 text-xs text-muted-foreground xl:text-center">
-              {run.running
-                ? 'Research is running. This can take a few minutes.'
-                : !ready && selected
-                ? `${icpType.toUpperCase()} ICP configuration is incomplete. Complete it before generating.`
-                : selected
-                ? `Runs research for ${runLabel} (${icpType.toUpperCase()} ICP only)${effective.length > 0 ? `, in ${regionLabel(effective)}` : ''}.`
-                : 'Choose a product.'}
-            </span>
-          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {run.running ? 'Finding and checking buying signals…' : !ready && selected ? `${icpType.toUpperCase()} profile needs setup` : selected ? `Ready to find signals for ${runLabel}` : 'Choose a product to get started'}
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
+            onClick={generate}
+            disabled={!selected || run.running}
+          >
+            {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+            {run.running ? 'Finding Signals…' : 'Generate Signals'}
+          </Button>
         </div>
 
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
