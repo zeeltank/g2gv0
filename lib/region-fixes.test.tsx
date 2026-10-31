@@ -100,11 +100,11 @@ describe('The pre-run notice separates this run\'s region from the saved ICP reg
     assert.match(html({ source: 'All Regions', label: 'All Regions', places: 0, saved_regions: [], note: '' }), /All Regions \(not limited to a place\)/)
   })
 
-  it('the notice asks the backend about the places that will be sent', () => {
-    const n = read('components/domain/signals/research-context-notice.tsx')
-    assert.match(n, /getResearchContext\(context, productKey, regions, offerId\)/)
-    assert.match(read('services/portfolio/portfolio-service.ts'), /regions: JSON\.stringify\(regions\)/)
-    assert.match(read('components/domain/signals/company-opportunities.tsx'), /<ResearchContextNotice context=\{context\} productKey=\{selected\.key\} offerId=\{offerId\} regions=\{effective\}/)
+  it('uses the selected region to scope history and results without a configuration dump', () => {
+    const screen = read('components/domain/signals/company-opportunities.tsx')
+    assert.match(screen, /getRunDates\(context, key, icpType, offerId, regions\)/)
+    assert.match(screen, /regions=\{regions\}/)
+    assert.doesNotMatch(screen, /ResearchContextNotice/)
   })
 })
 

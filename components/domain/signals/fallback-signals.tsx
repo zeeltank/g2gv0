@@ -16,7 +16,7 @@ import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
  * count towards the chosen date's total and never starts research. Each card keeps the research date it was found in.
  */
 export function FallbackSignals({
-  context, productKey, productLabel, chosenDate, refreshKey, empty,
+  context, productKey, productLabel, chosenDate, refreshKey, empty, offerId, customerModel = 'b2b', regions = [],
 }: {
   context: LaravelContext
   productKey: string
@@ -25,6 +25,9 @@ export function FallbackSignals({
   refreshKey: number
   /** What to show when the product has no saved signals at all: a setup / diagnostic state (never a fake card). */
   empty: React.ReactNode
+  offerId?: string | null
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  regions?: { country: string; state?: string; city?: string }[]
 }) {
   const [data, setData] = useState<OpportunityListResponse | null>(null)
   const [page, setPage] = useState(1)
@@ -34,14 +37,14 @@ export function FallbackSignals({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setData(await opportunitiesService.list(context, { product: productKey, latestSaved: true, page, expired: 'include' }))
+      setData(await opportunitiesService.list(context, { product: productKey, offerId, customerModel, regions, latestSaved: true, page, expired: 'include' }))
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not load the earlier signals.')
     } finally {
       setLoading(false)
     }
-  }, [context, productKey, page])
+  }, [context, productKey, page, offerId, customerModel, regions])
 
   useEffect(() => {
     let live = true

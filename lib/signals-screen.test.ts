@@ -113,7 +113,7 @@ describe('Signals dates', () => {
     assert.match(list, /setPage\(1\); setData\(null\)/)
     const opps = read('components/domain/signals/company-opportunities.tsx')
     assert.match(opps, /void run\.generate\(c\.list\)/)
-    assert.match(opps, /disabled=\{!selected \|\| run\.running\}/)
+    assert.match(opps, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
     assert.doesNotMatch(opps, /useEffect\([^)]*generate/)
   })
 })
@@ -136,13 +136,12 @@ describe('Run notice: not finished is not the same as nothing found', () => {
 })
 
 describe('Generation shows what it will use, and snippet evidence is not called verified', () => {
-  it('shows the product, ICP version and regions from the backend before Generate, never from the screen', () => {
+  it('keeps the product and ICP selector concise and removes the configuration dump', () => {
     const opps = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(opps, /<ResearchContextNotice context=\{context\} productKey=\{selected\.key\}/)
-    const notice = read('components/domain/signals/research-context-notice.tsx')
-    assert.match(notice, /portfolioService\.getResearchContext/)
-    assert.match(notice, /data\.warnings/)
-    assert.doesNotMatch(notice, /localStorage/)
+    assert.match(opps, /id="main-product-select"/)
+    assert.match(opps, /id="sub-product-select"/)
+    assert.match(opps, /id="icp-type-select"/)
+    assert.doesNotMatch(opps, /ResearchContextNotice|What the research uses/)
   })
 
   it('says so when the quoted wording was seen only in a search snippet', async () => {

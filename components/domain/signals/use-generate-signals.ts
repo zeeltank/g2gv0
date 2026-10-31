@@ -22,12 +22,12 @@ const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e in
 export { describeFinishedRun }
 
 /** The sub-product chosen on the screen, with whether its own ICP is ready (read from what the server says about the product's offers). */
-function subOf(products: ProductInfo[] | null, productKey: string | null, offerId: string | null): GenerateSub | null {
+function subOf(products: ProductInfo[] | null, productKey: string | null, offerId: string | null, customerModel: 'b2b' | 'b2c' | 'b2g'): GenerateSub | null {
   if (!offerId) return null
   const o = products?.find((p) => p.key === productKey)?.offers.find((x) => x.offer_id === offerId)
   if (!o) return { offer_id: offerId, name: offerId, ready: false, missing: ['that sub-product was not found'] }
 
-  return { offer_id: o.offer_id, name: o.name, ready: o.icp_ready !== false, missing: o.icp_missing ?? [], icp_models: o.icp_models }
+  return { offer_id: o.offer_id, name: o.name, ready: o.icp_models?.[customerModel]?.ready ?? (customerModel === 'b2b' && o.icp_ready === true), missing: o.icp_models?.[customerModel]?.missing ?? o.icp_missing ?? [], icp_models: o.icp_models }
 }
 
 /**
@@ -39,6 +39,7 @@ export function useGenerateSignals(
   productKey: string | null,
   products: ProductInfo[] | null,
   offerId: string | null = null,
+  regions: RegionSelection[] = [],
 
 ) {
   const [customerModel, setCustomerModel] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
@@ -57,13 +58,13 @@ export function useGenerateSignals(
     if (!productKey) return null
     const mine = ++generation.current
     try {
-      const res = await opportunitiesService.getStatus(context, productKey)
+      const res = await opportunitiesService.getStatus(context, productKey, customerModel, offerId, regions)
       if (mine === generation.current) setStatus(res.data)
       return res.data
     } catch {
       return null
     }
-  }, [context, productKey])
+  }, [context, productKey, customerModel, offerId, regions])
 
   const finish = useCallback((run: ResearchRun | null, fallback?: string) => {
     inFlight.current = false
@@ -136,7 +137,7 @@ export function useGenerateSignals(
     const model = overrideModel ?? customerModel
     await runGuardedGenerate(inFlight, {
       context, choice: productKey, running, regions, customerModel: model,
-      sub: subOf(products, productKey, offerId),
+      sub: subOf(products, productKey, offerId, model),
       products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step, icp_models: p.icp_models })) ?? null,
       service: opportunitiesService,
     }, {

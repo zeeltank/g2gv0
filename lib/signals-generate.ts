@@ -41,7 +41,7 @@ export interface GenerateStatus {
 }
 
 export interface GenerateService {
-  getStatus: (c: LaravelContext, product?: string) => Promise<{ data: GenerateStatus }>
+  getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions?: RegionSelection[]) => Promise<{ data: GenerateStatus }>
   runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
 }
 
@@ -104,9 +104,9 @@ export async function generateSignals(args: {
   if (!local.ok) return local.outcome
   const { product } = local
 
-  const status = (await args.service.getStatus(args.context, product.key)).data
+  const status = (await args.service.getStatus(args.context, product.key, customerModel, args.sub?.offer_id ?? null, args.regions)).data
   if (status.running) return refuse('running', 'A run is already in progress.')
-  if (!status.product || status.product.key !== product.key || !status.product.ready) {
+  if (!status.product || status.product.key !== product.key || (!args.sub && !status.product.ready)) {
     return refuse('not_ready', `${product.label} is not ready for discovery.`, status.product?.missing ?? product.missing, product.next_step ?? null)
   }
   if (!status.requirements.search_configured || !status.requirements.ai_configured) {

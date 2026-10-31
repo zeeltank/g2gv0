@@ -435,6 +435,9 @@ export interface OpportunityQuery {
   perPage?: number
   /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
   product?: string
+  offerId?: string | null
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  regions?: { country: string; state?: string; city?: string }[]
   needCode?: string
 }
 
@@ -589,6 +592,15 @@ function base(context: LaravelContext): Record<string, string> {
 }
 
 const qs = (context: LaravelContext) => new URLSearchParams(base(context)).toString()
+const regionQuery = (regions: { country: string; state?: string; city?: string }[]) => {
+  const out: Record<string, string> = {}
+  regions.forEach((region, i) => {
+    if (region.country) out[`regions[${i}][country]`] = region.country
+    if (region.state) out[`regions[${i}][state]`] = region.state
+    if (region.city) out[`regions[${i}][city]`] = region.city
+  })
+  return out
+}
 
 export type IcpCriterionStatus = 'Matched' | 'Not found' | 'Needs review' | 'Excluded'
 
@@ -629,12 +641,12 @@ export const opportunitiesService = {
   saveProfile: (c: LaravelContext, profile: Partial<ProductProfile>) =>
     apiClient.put<ProfileResponse>(`/signals/product-profile?${qs(c)}`, profile),
 
-  getStatus: (c: LaravelContext, product?: string) =>
-    apiClient.get<ResearchStatusResponse>('/signals/research/status', product && product !== 'all' ? { ...base(c), product } : base(c)),
+  getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = []) =>
+    apiClient.get<ResearchStatusResponse>('/signals/research/status', { ...base(c), ...(product && product !== 'all' ? { product } : {}), ...(customerModel ? { customer_model: customerModel } : {}), ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
 
   /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
-  getRunDates: (c: LaravelContext, product: string) =>
-    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product }),
+  getRunDates: (c: LaravelContext, product: string, customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = []) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product, customer_model: customerModel, ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
 
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
@@ -667,6 +679,9 @@ export const opportunitiesService = {
     if (q.claimLevel) params.claim_level = q.claimLevel
     if (q.businessFit) params.business_fit = q.businessFit
     if (q.product && q.product !== 'all') params.product = q.product
+    if (q.customerModel) params.customer_model = q.customerModel
+    if (q.offerId) params.offer_id = q.offerId
+    Object.assign(params, regionQuery(q.regions ?? []))
     if (q.runDate) params.run_date = q.runDate
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
