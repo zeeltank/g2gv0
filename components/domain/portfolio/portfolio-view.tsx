@@ -6,8 +6,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Briefcase,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   DownloadCloud,
   Edit2,
   Eye,
@@ -16,7 +14,6 @@ import {
   Package,
   Plus,
   RefreshCw,
-  Search,
   ShieldCheck,
   Trash2,
 } from 'lucide-react'
@@ -25,7 +22,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/use-auth'
@@ -58,23 +54,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const [error, setError] = useState<string | null>(null)
   const [offers, setOffers] = useState<ProductOffer[]>([])
   const [taxonomy, setTaxonomy] = useState<TaxonomyData | null>(null)
-  const [stats, setStats] = useState<{
-    total_offers: number
-    partner_sellable: number
-    readiness_confirmed: number
-    by_parent_product: Record<string, number>
-  } | null>(null)
-
-  // Pagination & Filters
-  const [search, setSearch] = useState('')
-  const [productFilter, setProductFilter] = useState('')
-  const [readinessFilter, setReadinessFilter] = useState('')
-  const [sellableFilter, setSellableFilter] = useState('')
-  const [needFilter, setNeedFilter] = useState('')
-  const [segmentFilter, setSegmentFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [lastPage, setLastPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [selectedParentKey, setSelectedParentKey] = useState<string | null>(null)
 
   // Dialogs
   const [detailOffer, setDetailOffer] = useState<ProductOffer | null>(null)
@@ -99,33 +79,25 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     setLoading(true)
     setError(null)
     try {
-      const [taxRes, statsRes, listRes] = await Promise.all([
+      const [taxRes, firstPage] = await Promise.all([
         portfolioService.getTaxonomy(context),
-        portfolioService.getPortfolioStats(context),
-        portfolioService.getOffers(context, {
-          search: search.trim() || undefined,
-          parent_product: productFilter || undefined,
-          readiness_status: readinessFilter || undefined,
-          partner_sellable: sellableFilter ? sellableFilter === 'yes' : undefined,
-          need: needFilter || undefined,
-          segment: segmentFilter || undefined,
-          page,
-          per_page: 12,
-        }),
+        portfolioService.getOffers(context, { page: 1, per_page: 100 }),
       ])
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, firstPage.data.last_page - 1) }, (_, index) =>
+          portfolioService.getOffers(context, { page: index + 2, per_page: 100 }),
+        ),
+      )
 
       setTaxonomy(taxRes.data)
-      setStats(statsRes.data)
-      setOffers(listRes.data.data)
-      setLastPage(listRes.data.last_page)
-      setTotal(listRes.data.total)
+      setOffers([...firstPage.data.data, ...remainingPages.flatMap((page) => page.data.data)])
     } catch (err) {
       setError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to load portfolio.')
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [context, search, productFilter, readinessFilter, sellableFilter, needFilter, segmentFilter, page])
+  }, [context])
 
   useEffect(() => {
     let live = true
@@ -136,6 +108,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const handleRefresh = () => {
     setRefreshing(true)
     loadData()
+    reloadProducts()
   }
 
   const handleTriggerImport = async () => {
@@ -148,6 +121,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         `Import complete: ${res.data.imported} imported, ${res.data.updated} updated, ${res.data.skipped} skipped.`
       )
       loadData()
+      reloadProducts()
     } catch (err) {
       setImportMsg(err instanceof Error ? err.message : 'Import failed.')
     } finally {
@@ -263,7 +237,12 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     if (linked && products.some((p) => p.key === linked)) router.replace(configureHref(linked))
   }, [products, router])
 
-  const filteredProduct = products?.find((product) => (product.portfolio_name || product.label) === productFilter) ?? null
+  const selectedParent = products?.find((product) => product.key === selectedParentKey)
+    ?? products?.find((product) => product.key === 'scholarclone')
+    ?? products?.[0]
+    ?? null
+  const childOfferIds = new Set(selectedParent?.offers.map((offer) => offer.offer_id) ?? [])
+  const selectedOffers = offers.filter((offer) => childOfferIds.has(offer.offer_id))
 
   return (
     <div className="space-y-5">
@@ -316,39 +295,32 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
 
       {/* Products: one compact card each. Details and the ICP open on the product's own page. */}
-      <section aria-label="Products" className="space-y-2">
+      <section aria-label="Main products" className="space-y-2">
         {productsLoading && !products ? (
           <div className="grid gap-3 @3xl:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
         ) : productsError || !products ? (
           <p role="alert" className="text-sm text-destructive">{productsError ?? 'Products unavailable.'}</p>
         ) : (
-          <ul className="grid gap-3 @3xl:grid-cols-3">
+          <ul className="grid auto-cols-[minmax(16rem,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
             {products.map((p) => (
-              <li key={p.key} className={`flex flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm transition-colors ${productFilter === (p.portfolio_name || p.label) ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/60'}`}>
+              <li key={p.key} className={`flex min-w-0 flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm transition-colors ${selectedParent?.key === p.key ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/60'}`}>
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold text-foreground">
-                      <button
-                        type="button"
-                        aria-pressed={productFilter === (p.portfolio_name || p.label)}
-                        onClick={() => {
-                          setProductFilter((current) => current === (p.portfolio_name || p.label) ? '' : (p.portfolio_name || p.label))
-                          setPage(1)
-                        }}
-                        className="rounded-sm text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        title={`Show ${p.label} sub-products below`}
-                      >
+                    <div className="flex items-center gap-2">
+                      <button type="button" aria-pressed={selectedParent?.key === p.key} onClick={() => setSelectedParentKey(p.key)} className="rounded-sm text-left text-sm font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`Show ${p.label} sub-products below`}>
                         {p.label}
                       </button>
-                      {p.custom && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}
-                    </h2>
+                      {p.custom && <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}
+                    </div>
                     <IcpStatusBadge product={p} />
                   </div>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
-                    {p.icp?.ideal_customer ? `For ${p.icp.ideal_customer}` : 'No ideal customer saved yet.'}
-                    {p.icp && p.icp.buyer_types.length > 0 ? ` · Buyers: ${p.icp.buyer_types.slice(0, 3).join(', ')}` : ''}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{p.offers.length} offer{p.offers.length === 1 ? '' : 's'} · {p.opportunities_count} opportunit{p.opportunities_count === 1 ? 'y' : 'ies'}</p>
+                  <button type="button" aria-pressed={selectedParent?.key === p.key} onClick={() => setSelectedParentKey(p.key)} className="block w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`Show ${p.label} sub-products below`}>
+                    <span className="block line-clamp-2 text-xs text-muted-foreground">
+                      {p.icp?.ideal_customer ? `For ${p.icp.ideal_customer}` : 'No ideal customer saved yet.'}
+                      {p.icp && p.icp.buyer_types.length > 0 ? ` · Buyers: ${p.icp.buyer_types.slice(0, 3).join(', ')}` : ''}
+                    </span>
+                    <span className="mt-1 block text-[11px] text-muted-foreground">{p.offers.length} sub-product{p.offers.length === 1 ? '' : 's'} · {p.opportunities_count} opportunit{p.opportunities_count === 1 ? 'y' : 'ies'}</span>
+                  </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button asChild size="sm" variant="outline"><Link href={configureHref(p.key)}><Eye className="mr-1.5 size-3.5" /> View details</Link></Button>
@@ -361,104 +333,16 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         )}
       </section>
 
-      {/* Offer totals, in one line */}
-      {stats && (
-        <p className="text-xs text-muted-foreground" aria-label="Offer totals">
-          <span className="font-semibold text-foreground">{stats.total_offers}</span> offers ·{' '}
-          <span className="font-semibold text-foreground">{stats.partner_sellable}</span> partner-sellable ·{' '}
-          <span className="font-semibold text-foreground">{stats.readiness_confirmed}</span> readiness confirmed
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">
-          {filteredProduct ? `${filteredProduct.label} sub-products` : 'All sub-products'}
-        </h2>
-        {filteredProduct && <Button type="button" size="sm" variant="ghost" onClick={() => { setProductFilter(''); setPage(1) }}>Show all</Button>}
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              placeholder="Search offers by name, what it does, or ID..."
-              className="pl-9 text-xs"
-            />
+      <section id="portfolio-sub-products" aria-live="polite" aria-busy={loading} className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/60 pb-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">
+              {selectedParent ? `${selectedParent.label} — Sub-Products` : 'Sub-Products'}
+              {!loading && selectedParent ? ` (${selectedOffers.length})` : ''}
+            </h2>
+            {selectedParent && <p className="mt-1 text-xs text-muted-foreground">Products and offers for the selected master product.</p>}
           </div>
-
-          <select
-            value={sellableFilter}
-            onChange={(e) => {
-              setSellableFilter(e.target.value)
-              setPage(1)
-            }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All Readiness States</option>
-            <option value="yes">Partner Sellable Only</option>
-            <option value="no">In Development / Pilot / Concept</option>
-          </select>
-
-          <select
-            value={needFilter}
-            onChange={(e) => {
-              setNeedFilter(e.target.value)
-              setPage(1)
-            }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All Needs (N01 - N20)</option>
-            {taxonomy?.needs &&
-              Object.entries(taxonomy.needs).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {code} - {label}
-                </option>
-              ))}
-          </select>
-
-          <select
-            value={segmentFilter}
-            onChange={(e) => {
-              setSegmentFilter(e.target.value)
-              setPage(1)
-            }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">All Buyer Segments</option>
-            {taxonomy?.segments &&
-              Object.entries(taxonomy.segments).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {code} - {label}
-                </option>
-              ))}
-          </select>
-
-          {(search || productFilter || sellableFilter || needFilter || segmentFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch('')
-                setProductFilter('')
-                setSellableFilter('')
-                setNeedFilter('')
-                setSegmentFilter('')
-                setPage(1)
-              }}
-              className="text-xs"
-            >
-              Reset Filters
-            </Button>
-          )}
         </div>
-      </div>
 
       {/* Offers Grid */}
       {loading ? (
@@ -469,18 +353,14 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         </div>
       ) : error ? (
         <ErrorState title="Could not load portfolio" description={error} retry={() => { void loadData() }} />
-      ) : offers.length === 0 ? (
+      ) : !selectedParent || selectedOffers.length === 0 ? (
         <EmptyState
-          title="No offers found"
-          description={
-            search || productFilter || readinessFilter || sellableFilter
-              ? 'No offers match the selected filter criteria. Try clearing some filters.'
-              : 'The product portfolio catalog is currently empty. Run Sync Excel to import foundation offers.'
-          }
+          title={selectedParent ? `${selectedParent.label} has no sub-products` : 'No parent products found'}
+          description={selectedParent ? 'Add a sub-product to this product line to see it here.' : 'Create or sync a parent product to get started.'}
           action={
             canManage ? (
-              <Button size="sm" onClick={handleTriggerImport} disabled={importing}>
-                Sync Foundation Excel
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                Add Sub-Product
               </Button>
             ) : undefined
           }
@@ -488,7 +368,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {offers.map((offer) => (
+            {selectedOffers.map((offer) => (
               <div
                 key={offer.id}
                 className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-md"
@@ -563,34 +443,9 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
             ))}
           </div>
 
-          {/* Pagination */}
-          {lastPage > 1 && (
-            <div className="flex items-center justify-between border-t border-border/60 pt-4 text-xs text-muted-foreground">
-              <span>
-                Page {page} of {lastPage} · {total} offers
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="size-4 mr-1" /> Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= lastPage}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next <ChevronRight className="size-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       )}
+      </section>
 
       {/* Offer Detail Dialog */}
       <Dialog open={detailOffer !== null} onOpenChange={(open) => !open && setDetailOffer(null)}>
