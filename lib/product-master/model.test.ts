@@ -18,7 +18,7 @@ const subProduct = (over: Partial<PmRecord> = {}): PmRecord => ({
 
 const can = (over: Partial<PmCan> = {}): PmCan => ({
   createProduct: true, createSubProduct: true, createItem: { product: true, service: true }, sellInCrm: { product: true, service: true },
-  editSubProduct: true, editItem: { product: true, service: true }, archive: true, archiveProduct: true, ...over,
+  editSubProduct: true, editItem: { product: true, service: true }, archive: true, archiveProduct: true, restore: true, restoreProduct: true, ...over,
 })
 
 describe('the form for a new record and for an existing one', () => {

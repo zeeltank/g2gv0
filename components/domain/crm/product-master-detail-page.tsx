@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -69,6 +69,11 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   const tabIds = TABS_BY_KIND[record?.kind ?? 'sub_product']
   const [tab, setTab] = useUrlTab(tabIds)
 
+  // Only the newest request for the record, and the newest for its usage, may change what is shown: opening another record while the first is still
+  // loading must not let the first one's answer replace it.
+  const latestRecord = useRef(0)
+  const latestUsage = useRef(0)
+
   /** `quiet` re-reads the record behind the page without replacing it with the "Opening…" state. */
   const load = useCallback(async (quiet = false) => {
     if (!isLaravelContextReady(context)) {
@@ -76,12 +81,15 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
       setStatus('error')
       return
     }
+    const mine = ++latestRecord.current
     if (!quiet) setStatus('loading')
     try {
       const response = await productMasterService.get(id)
+      if (mine !== latestRecord.current) return
       setRecord(response.data)
       setStatus('ready')
     } catch (cause) {
+      if (mine !== latestRecord.current) return
       if (cause instanceof ApiError && cause.status === 404) {
         setStatus('notFound')
       } else {
@@ -92,11 +100,14 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   }, [context, id])
 
   const loadUsage = useCallback(async () => {
+    const mine = ++latestUsage.current
     setUsageError('')
     try {
       const response = await productMasterService.usage(id)
+      if (mine !== latestUsage.current) return
       setUsage(response.data)
     } catch (cause) {
+      if (mine !== latestUsage.current) return
       setUsageError(cause instanceof Error ? cause.message : 'Unable to load how this is used.')
     }
   }, [id])
@@ -128,6 +139,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
     record.kind === 'sub_product' ? can.editSubProduct : record.kind === 'item' ? can.editItem[record.crmProduct?.type ?? 'product'] : false
   ))
   const canArchive = Boolean(record && can && !record.shared && (record.kind === 'product' ? can.archiveProduct : can.archive))
+  const canRestore = Boolean(record && can && !record.shared && (record.kind === 'product' ? can.restoreProduct : can.restore))
   const canSell = Boolean(record && can && record.kind === 'sub_product' && !record.crmProduct && can.editSubProduct && (can.sellInCrm.product || can.sellInCrm.service))
 
   const openEdit = () => { if (record) setDrawer({ open: true, target: { mode: 'edit', record } }) }
@@ -193,7 +205,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
           <>
             {canEdit && <Button onClick={openEdit} disabled={busy}><Pencil className="mr-1.5 size-4" aria-hidden="true" />Edit</Button>}
             {canArchive && record.status === 'active' && <Button variant="outline" onClick={() => void changeStatus(true)} disabled={busy}>Archive</Button>}
-            {canArchive && record.status === 'archived' && <Button variant="outline" onClick={() => void changeStatus(false)} disabled={busy}>Restore</Button>}
+            {canRestore && record.status === 'archived' && <Button variant="outline" onClick={() => void changeStatus(false)} disabled={busy}>Restore</Button>}
           </>
         )}
         notice={notice && (

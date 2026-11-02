@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -53,21 +53,26 @@ export function ProductMasterListView() {
 
   const detailHref = useCallback((id: number) => `${resolveAccessLink(CRM_PRODUCT_MASTER_ACCESS_LINK)}/${id}`, [resolveAccessLink])
 
+  // Only the newest request may change what is shown: a slow answer to an earlier search must not overwrite the answer to a later one.
+  const latest = useRef(0)
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) {
       setError('Your ERP session is unavailable. Please sign in again.')
       setRefreshing(false)
       return
     }
+    const mine = ++latest.current
     setRefreshing(true)
     try {
       const response = await productMasterService.list({ status, q: query.q || undefined })
+      if (mine !== latest.current) return
       setData(response.data)
       setError('')
     } catch (cause) {
+      if (mine !== latest.current) return
       setError(cause instanceof Error ? cause.message : 'Unable to load the Product Master.')
     } finally {
-      setRefreshing(false)
+      if (mine === latest.current) setRefreshing(false)
     }
   }, [context, status, query.q])
 
@@ -93,6 +98,12 @@ export function ProductMasterListView() {
 
   const onSaved = useCallback((record: PmRecord, message: string) => {
     closeDrawer()
+    if (record.kind === 'product') {
+      // The new product is in the picker at once, so "Add its first sub-product" opens with it chosen instead of waiting for the choices to be read again.
+      setOptions((current) => (current.some((o) => o.id === record.id)
+        ? current
+        : [...current, { id: record.id, key: record.key, name: record.name, kind: 'product', parentId: null, label: record.name }]))
+    }
     setNotice(record.kind === 'product' && meta?.can.createSubProduct
       ? { text: message, action: { label: 'Add its first sub-product', run: () => openCreate('sub_product', { productId: record.id }) } }
       : { text: message })
@@ -133,7 +144,7 @@ export function ProductMasterListView() {
     <>
       <ListPage
         title="Product Master"
-        description={data ? `What you sell, in one place. ${listSummary(data.totals)}` : 'What you sell, in one place.'}
+        description={data && hasRows ? `What you sell, in one place. ${listSummary(data.totals)}` : 'What you sell, in one place.'}
         actions={newMenu || undefined}
         toolbar={(
           <>

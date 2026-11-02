@@ -152,8 +152,11 @@ export interface PmCan {
   sellInCrm: Record<PmItemType, boolean>
   editSubProduct: boolean
   editItem: Record<PmItemType, boolean>
+  /** Archiving is behind the screen's delete right; restoring is behind its edit right, so they are separate flags. */
   archive: boolean
   archiveProduct: boolean
+  restore: boolean
+  restoreProduct: boolean
 }
 
 export interface PmMeta {
