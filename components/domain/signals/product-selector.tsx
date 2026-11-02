@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { choiceOf, resolveSelection } from '@/lib/product-selection'
+import { revalidateChoice } from '@/lib/signal-run-view'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductInfo, ProductsResponse } from '@/services/portfolio/types'
 
@@ -58,6 +59,15 @@ export function useSelectedProduct(context: LaravelContext, products: ProductInf
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setChoice(resolveSelection(readStored(context), products, opts.allowAll, opts.allowSub ?? false))
   }, [products, choice, context, opts.allowAll, opts.allowSub])
+
+  // The product list can change under a remembered choice (a product or sub-product removed, deactivated, or the list re-read): the choice is
+  // checked against the products as they are now, and replaced when it no longer exists, so the screen never points at something that is gone.
+  useEffect(() => {
+    if (!products || choice === null) return
+    const valid = revalidateChoice(choice, products, { allowAll: opts.allowAll, allowSub: opts.allowSub ?? false })
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (valid !== null && valid !== choice) setChoice(valid)
+  }, [products, choice, opts.allowAll, opts.allowSub])
 
   const select = useCallback((next: ProductChoice) => {
     setChoice(next)

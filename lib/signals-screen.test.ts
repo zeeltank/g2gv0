@@ -112,7 +112,7 @@ describe('Signals dates', () => {
     assert.match(list, /perPage: SIGNALS_PER_PAGE/)
     assert.match(list, /setPage\(1\); setData\(null\)/)
     const opps = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(opps, /void run\.generate\(c\.list\)/)
+    assert.match(opps, /void run\.generate\(c\.list, icpType\)/)
     assert.match(opps, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
     assert.doesNotMatch(opps, /useEffect\([^)]*generate/)
   })

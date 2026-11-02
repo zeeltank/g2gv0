@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
 import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
 import { wantsFallback } from '@/lib/signal-fallback'
 import { rangeText } from '@/lib/signal-dates'
+import { createLatestOnly, listErrorMode } from '@/lib/signal-run-view'
 
 /** Signals shown per page. */
 export const SIGNALS_PER_PAGE = 5
@@ -26,7 +27,7 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e ins
  * changes (after a run finishes or a person refreshes).
  */
 export function SignalList({
-  context, productKey, productLabel, runDate, allDates, refreshKey, onTotal, dayInfo, offerId, customerModel = 'b2b', regions = [],
+  context, productKey, productLabel, runDate, allDates, refreshKey, onTotal, dayInfo, offerId, customerModel = 'b2b', regions = [], runId = null,
 }: {
   context: LaravelContext
   productKey: string
@@ -41,18 +42,23 @@ export function SignalList({
   offerId?: string | null
   customerModel?: 'b2b' | 'b2c' | 'b2g'
   regions?: { country: string; state?: string; city?: string }[]
+  /** The research run whose signals to show. Set right after a run finishes, so that run's results are shown and not other runs of the same day. */
+  runId?: number | null
 }) {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(1)
   const [view, setView] = useState<'all' | 'immediate_action' | 'watchlist'>('all')
   const [status, setStatus] = useState('')
+  const [sort, setSort] = useState<'default' | 'priority' | 'qualification'>('default')
   const [data, setData] = useState<OpportunityListResponse | null>(null)
   // The two view counts, taken from the unfiltered listing (a filtered listing would count only itself).
   const [counts, setCounts] = useState<{ immediate: number; watchlist: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Only the newest request may fill the list: a slower earlier answer (another page, filter, day or product) is dropped.
+  const latest = useRef(createLatestOnly())
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search.trim()); setPage(1) }, 300)
@@ -63,14 +69,16 @@ export function SignalList({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1); setData(null); setError(null); setActionError(null); setView('all'); setStatus(''); setCounts(null)
-  }, [productKey, runDate, allDates, offerId, customerModel])
+  }, [productKey, runDate, allDates, offerId, customerModel, runId])
 
   const load = useCallback(async () => {
     if (!allDates && !runDate) {
+      latest.current.invalidate()
       setData(null)
       onTotal?.(null)
       return
     }
+    const ticket = latest.current.next()
     setLoading(true)
     try {
       // Signals that have passed their closing date are part of that day's results, so they are included.
@@ -80,24 +88,28 @@ export function SignalList({
         customerModel,
         regions,
         runDate: allDates ? undefined : (runDate ?? undefined),
+        runId: runId ?? undefined,
         search: debounced || undefined,
         feedSection: view === 'all' ? undefined : view,
         reviewStatus: status || undefined,
+        sort,
         page,
         perPage: SIGNALS_PER_PAGE,
         expired: 'include',
       })
+      if (!latest.current.isLatest(ticket)) return
       setData(res)
       if (view === 'all' && !status && !debounced) setCounts({ immediate: res.summary.immediate ?? 0, watchlist: res.summary.watchlist ?? 0 })
       setError(null)
       onTotal?.(res.meta.total)
     } catch (e) {
+      if (!latest.current.isLatest(ticket)) return
       setError(errMsg(e, 'Could not load the signals.'))
-      onTotal?.(null)
+      // The list already on screen is kept: its total is still what is shown.
     } finally {
-      setLoading(false)
+      if (latest.current.isLatest(ticket)) setLoading(false)
     }
-  }, [context, productKey, runDate, allDates, debounced, view, status, page, onTotal, offerId, customerModel, regions])
+  }, [context, productKey, runDate, allDates, debounced, view, status, sort, page, onTotal, offerId, customerModel, regions, runId])
 
   useEffect(() => {
     let live = true
@@ -118,7 +130,8 @@ export function SignalList({
   if (!allDates && !runDate) {
     return <EmptyState title="No successful research dates yet" description={`Press Generate Signals to run research for ${productLabel}. Its results are kept here by date.`} />
   }
-  if (error) return <ErrorState title="Could not load the signals" description={error} retry={() => void load()} />
+  const errorMode = listErrorMode(error, data !== null)
+  if (errorMode === 'replace') return <ErrorState title="Could not load the signals" description={error ?? ''} retry={() => void load()} />
   if (!data) return <div className="space-y-3" aria-busy="true">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-2xl" />)}</div>
 
   const items = data.data
@@ -154,9 +167,25 @@ export function SignalList({
           <option value="Follow-up">Contacted</option>
           <option value="Dismissed">Not relevant</option>
         </select>
+        <select
+          aria-label="Sort signals"
+          value={sort}
+          onChange={(e) => { setSort(e.target.value as 'default' | 'priority' | 'qualification'); setPage(1) }}
+          className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="default">Sort: Default order</option>
+          <option value="priority">Sort: Priority</option>
+          <option value="qualification">Sort: Qualification</option>
+        </select>
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search these signals…" aria-label="Search signals" className="h-9 w-full max-w-xs text-sm" />
       </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+      {errorMode === 'beside' && (
+        <p role="alert" className="text-sm text-destructive">
+          Could not refresh the signals: {error}. The list below is what was loaded before.{' '}
+          <button type="button" className="font-medium underline" onClick={() => void load()}>Try again</button>
+        </p>
+      )}
       {items.length === 0 ? (
         !allDates && runDate && wantsFallback({ itemCount: items.length, search: debounced, view, status, loaded: !loading }) ? (
           <FallbackSignals

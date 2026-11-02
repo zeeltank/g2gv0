@@ -412,6 +412,10 @@ export interface RunDatesResponse {
 }
 
 export interface OpportunityQuery {
+  /** Only the signals saved by this research run (exact run, not just its day). */
+  runId?: number
+  /** The order: `priority` (High first) or `qualification` (settled findings first). Absent or `default` is the usual order. */
+  sort?: 'default' | 'priority' | 'qualification'
   /** The newest research day that has saved signals, instead of a chosen day (the screen's fallback). Reads stored rows only. */
   latestSaved?: boolean
   search?: string
@@ -683,6 +687,8 @@ export const opportunitiesService = {
     if (q.offerId) params.offer_id = q.offerId
     Object.assign(params, regionQuery(q.regions ?? []))
     if (q.runDate) params.run_date = q.runDate
+    if (q.runId) params.run_id = String(q.runId)
+    if (q.sort && q.sort !== 'default') params.sort = q.sort
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
