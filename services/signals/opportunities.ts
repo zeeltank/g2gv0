@@ -157,6 +157,10 @@ export interface SignalAssessment {
 }
 
 export interface Opportunity {
+  /** Added by a person, not found by research: it has no run, and is listed under the day it was saved. */
+  entered_manually?: boolean
+  /** The day it was saved, in the signals timezone (YYYY-MM-DD). Null for researched rows. */
+  captured_on?: string | null
   /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */
   strength?: SignalStrength
   strength_reason?: string | null
@@ -390,6 +394,12 @@ export interface ResearchStatusResponse {
   }
 }
 
+export interface ManualOpportunityResponse {
+  status: number
+  message: string
+  data: { id: number; outcome: 'accepted' | 'updated'; created_at: string | null; captured_on: string; source_published_at: string | null }
+}
+
 export interface RunDatesResponse {
   status: number
   data: {
@@ -398,7 +408,8 @@ export interface RunDatesResponse {
     dates: {
       date: string
       runs: number
-      status: 'success' | 'partial'
+      /** `manual`: a day on which opportunities were added by hand and no research ran. */
+      status: 'success' | 'partial' | 'manual'
       last_completed_at: string | null
       qualified: number
       /** What the day's runs did, so an empty day can say why. */
@@ -667,6 +678,10 @@ export const opportunitiesService = {
 
   runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') =>
     apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
+
+  /** Adds an opportunity by hand. The server stamps when it was saved; the source post's own date can be sent separately. No research is run. */
+  createManual: (c: LaravelContext, body: Record<string, unknown>) =>
+    apiClient.post<ManualOpportunityResponse>(`/signals/opportunities/manual?${qs(c)}`, body),
 
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }

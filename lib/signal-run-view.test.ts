@@ -129,6 +129,6 @@ describe('Results come from the exact run, and a scope change starts the dates o
   })
 
   it('a date chosen under one sub-product or ICP type is not carried to another', () => {
-    assert.match(read('components/domain/signals/company-opportunities.tsx'), /setPicked\(null\); setAllSignals\(false\); setTotal\(null\)\s*\n\s*\}, \[offerId, icpType\]\)/)
+    assert.match(read('components/domain/signals/company-opportunities.tsx'), /setPicked\(null\); setAllSignals\(false\); setTotal\(null\)(; setManualNotice\(null\))?\s*\n\s*\}, \[offerId, icpType\]\)/)
   })
 })
