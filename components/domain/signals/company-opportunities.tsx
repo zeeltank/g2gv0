@@ -17,6 +17,7 @@ import { useProducts, useSelectedProduct } from '@/components/domain/signals/pro
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
+import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
 import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
@@ -54,7 +55,27 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
   const seenCompleted = useRef(0)
 
+  // The run whose results are on screen right after it finishes: that run's own signals, not every run of the same day. A person choosing a day
+  // (or another product, sub-product, ICP type or place) goes back to reading by day.
+  const [viewRunId, setViewRunId] = useState<number | null>(null)
+  useEffect(() => {
+    const r = run.activeRun
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewRunId(run.completedCount > 0 && r && (r.status === 'success' || r.status === 'partial') ? r.id : null)
+  }, [run.completedCount]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const key = selected?.key ?? null
+  // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another: that scope has its own research days.
+  // The places and the product do not change with them, so those stay as they are.
+  const regionsSig = regionSignature(regions)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPicked(null); setAllSignals(false); setTotal(null)
+  }, [offerId, icpType])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewRunId(null)
+  }, [key, offerId, icpType, regionsSig])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDates(null); setDatesError(null); setAllSignals(false); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
@@ -104,9 +125,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     setRegionProblems([])
     setRegions(c.list)
     setDraft(emptyDraft())
-    void run.generate(c.list)
+    void run.generate(c.list, icpType)
   }
-  const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null) }
+  const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null); setViewRunId(null) }
 
   return (
     <div className="space-y-5">
@@ -202,7 +223,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
 
         {/* The run's real progress appears directly below the selectors after generation starts. */}
-        {run.running && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
+        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
         {run.notice && (
           <div className="mt-3">
             <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
@@ -306,6 +327,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               regions={regions}
               productLabel={selected.label}
               runDate={activeDate}
+              runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
               dayInfo={dayRun}
