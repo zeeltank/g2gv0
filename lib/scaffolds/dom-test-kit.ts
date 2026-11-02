@@ -5,6 +5,7 @@
  * test (afterEach) so one test's open dialog is not still on the page in the next.
  */
 import { installDom } from '../ui-regression/dom-env'
+import { h } from './h'
 
 export const w = installDom()
 
@@ -51,5 +52,5 @@ export async function kit() {
   const withText = (text: string, selector = 'button') => all(selector).find((el) => el.textContent?.trim() === text) ?? null
   const bodyText = () => w.document.body.textContent ?? ''
 
-  return { React, w, act, root, tick, render, unmount, click, press, all, one, withText, bodyText, h: React.createElement }
+  return { React, w, act, root, tick, render, unmount, click, press, all, one, withText, bodyText, h }
 }

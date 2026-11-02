@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createElement as h, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { JSDOM } from 'jsdom'
 import { DetailPage } from '../../components/shared/scaffolds/detail-page'
 import { ListPage } from '../../components/shared/scaffolds/list-page'
+import { h } from './h'
 
-const doc = (node: ReactNode) => new JSDOM(`<!doctype html><body>${renderToStaticMarkup(node as never)}</body>`).window.document
+const doc = (node: ReactNode) => new JSDOM(`<!doctype html><body>${renderToStaticMarkup(node)}</body>`).window.document
 const text = (d: Document) => d.body.textContent ?? ''
 
-const list = (props: Record<string, unknown>) => doc(h(ListPage, { title: 'Product Master', status: 'ready', ...props } as never, h('p', { id: 'list' }, 'THE LIST')))
-const detail = (props: Record<string, unknown>) => doc(h(DetailPage, { title: 'Scholar Core', backLabel: 'Back to Product Master', onBack: () => {}, status: 'ready', ...props } as never, h('p', { id: 'panels' }, 'THE PANELS')))
+const list = (props: Record<string, unknown>) => doc(h(ListPage, { title: 'Product Master', status: 'ready', ...props }, h('p', { id: 'list' }, 'THE LIST')))
+const detail = (props: Record<string, unknown>) => doc(h(DetailPage, { title: 'Scholar Core', backLabel: 'Back to Product Master', onBack: () => {}, status: 'ready', ...props }, h('p', { id: 'panels' }, 'THE PANELS')))
 
 describe('ListPage', () => {
   it('shows the title, the description, the actions, the toolbar, the notice and the footer around a ready list', () => {

@@ -16,6 +16,7 @@ const CampaignListView = createLazyComponent(() => import('@/domain/crm/campaign
 const OpportunityListView = createLazyComponent(() => import('@/domain/crm/opportunity-list-view').then((m) => ({ default: m.OpportunityListView })))
 const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-view').then((m) => ({ default: m.QuoteListView })))
 const ProductListView = createLazyComponent(() => import('@/domain/crm/product-list-view').then((m) => ({ default: m.ProductListView })))
+const ProductMasterListView = createLazyComponent(() => import('@/domain/crm/product-master-list-view').then((m) => ({ default: m.ProductMasterListView })))
 const ServiceListView = createLazyComponent(() => import('@/domain/crm/service-list-view').then((m) => ({ default: m.ServiceListView })))
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const PriceBookListView = createLazyComponent(() => import('@/domain/crm/price-book-list-view').then((m) => ({ default: m.PriceBookListView })))
@@ -110,6 +111,9 @@ export const CRM_CONTENT: ContentRoute[] = [
 
   // 13. CPQ: Quotes
   { accessLink: '/module/crm/sales/quotes', component: QuoteListView },
+
+  // Product Master: products, sub-products and catalogue items in one place (agentic CRM slice 1). Administrators first.
+  { accessLink: '/module/crm/product-master', component: ProductMasterListView },
 
   // 14. CPQ: Products Catalog
   { accessLink: '/module/crm/sales/products', component: ProductListView },

@@ -100,6 +100,42 @@ describe('RecordDrawer', () => {
     }
   })
 
+  // The drawer and its "discard?" question are two modal layers that close at the same moment. Overlapping teardowns of Radix modals once left <body> at
+  // pointer-events:none (see lib/ui-regression/menu-dialog-pointer-events.test.ts), which makes the whole page ignore clicks until it is refreshed.
+  for (const animated of [false, true]) {
+    it(`leaves the page clickable after the drawer and its question close together (${animated ? 'with' : 'without'} exit animations)`, async () => {
+      const k = await kit()
+      const { setAnimateClosed } = await import('../ui-regression/dom-env')
+      const { RecordDrawer } = await import('../../components/shared/scaffolds/record-drawer')
+      setAnimateClosed(animated)
+      try {
+        const Host = () => {
+          const [open, setOpen] = k.React.useState(true)
+          return k.h(RecordDrawer, { open, onClose: () => setOpen(false), title: 'Scholar Core', dirty: true }, k.h('input', { id: 'name' }))
+        }
+        k.w.document.body.style.pointerEvents = ''
+        await k.render(k.h(Host)); await k.tick()
+
+        await k.press('Escape'); await k.tick(5)
+        await k.click(k.withText('Discard changes')!); await k.tick(5)
+        const finishExitAnimations = () => k.act(async () => {
+          for (const el of k.all('[data-state="closed"]')) {
+            const event = new k.w.Event('animationend', { bubbles: true }) as Event & { animationName?: string }
+            event.animationName = 'fade-out'
+            el.dispatchEvent(event)
+          }
+          await new Promise((resolve) => setTimeout(resolve, 0))
+        })
+        await finishExitAnimations(); await finishExitAnimations(); await k.tick(30)
+
+        assert.equal(k.all('[role="dialog"],[role="alertdialog"]').length, 0, 'a layer is still open')
+        assert.notEqual(k.w.document.body.style.pointerEvents, 'none', '<body> was left at pointer-events:none: the page would ignore every click')
+      } finally {
+        setAnimateClosed(false)
+      }
+    })
+  }
+
   it('links the description to the dialog only when there is one', async () => {
     const withText = await setup()
     assert.ok(withText.k.one('[role="dialog"]')?.getAttribute('aria-describedby'))

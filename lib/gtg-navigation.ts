@@ -121,6 +121,8 @@ export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
 export const CRM_OPPORTUNITIES_ACCESS_LINK = '/module/crm/sales/opportunities'
 export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
 export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
+// Product Master (agentic CRM slice 1): a direct child of the CRM root, not under Sales. Found by this access_link on the backend too.
+export const CRM_PRODUCT_MASTER_ACCESS_LINK = '/module/crm/product-master'
 export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
 export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
 export const CRM_PRICE_BOOKS_ACCESS_LINK = '/module/crm/sales/price-books'

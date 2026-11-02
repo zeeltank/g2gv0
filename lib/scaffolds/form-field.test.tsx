@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { JSDOM } from 'jsdom'
 import { Field, NativeSelect } from '../../components/shared/scaffolds/form-field'
 import { FormErrorSummary, FormSection } from '../../components/shared/scaffolds/form-layout'
+import { h } from './h'
 
 const doc = (markup: string) => new JSDOM(`<!doctype html><body>${markup}</body>`).window.document
 const field = (props: Record<string, unknown> = {}) => doc(renderToStaticMarkup(
-  h(Field, { label: 'Name', ...props } as never, (control: Record<string, unknown>) => h('input', { ...control, type: 'text' })),
+  h(Field, { label: 'Name', ...props }, (control: Record<string, unknown>) => h('input', { ...control, type: 'text' })),
 ))
 
 describe('Field', () => {
