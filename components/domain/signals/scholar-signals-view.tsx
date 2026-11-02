@@ -31,6 +31,7 @@ import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
 import { evidenceBadge, fitHeading } from '@/lib/signal-evidence'
 import { OpportunityIcpComparison } from '@/components/domain/signals/opportunity-icp-comparison'
 import { ApiError } from '@/services/core'
+import { sourcePlatform } from '@/lib/source-link'
 import {
   opportunitiesService,
   type IngestionSourceInfo,
@@ -661,6 +662,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {a?.evidence ? <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>
             : <span className="ml-2">· {o.source_published_at ? `Published ${fmtDay(o.source_published_at)}` : 'No publication date on the source'}</span>}
           {discoveryLabel(o.discovered_on_report_date, runDateLabel) && <span className="ml-2">· {discoveryLabel(o.discovered_on_report_date, runDateLabel)}</span>}
+          {o.entered_manually && <span className="ml-2">· Added by hand{o.captured_on ? ` on ${fmtDay(o.captured_on)}` : ''}{sourcePlatform(o.source_url) ? ` · from ${sourcePlatform(o.source_url)}` : ''}</span>}
           {typeof o.days_left === 'number' && <span className="ml-2">· {o.days_left < 0 ? 'Past its closing date' : o.days_left === 0 ? 'Closes today' : `${o.days_left} day${o.days_left === 1 ? '' : 's'} left`}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">

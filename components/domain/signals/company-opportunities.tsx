@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -18,7 +18,9 @@ import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
 import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
-import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
+import { viewAfterManualSave } from '@/lib/manual-opportunity'
+import { ManualOpportunityDialog } from '@/components/domain/signals/manual-opportunity-dialog'
+import { opportunitiesService, type ManualOpportunityResponse, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
 
@@ -64,13 +66,17 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     setViewRunId(run.completedCount > 0 && r && (r.status === 'success' || r.status === 'partial') ? r.id : null)
   }, [run.completedCount]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Adding an opportunity by hand: the form, and what was just saved (so the person is told which day it is listed under).
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualNotice, setManualNotice] = useState<string | null>(null)
+
   const key = selected?.key ?? null
   // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another: that scope has its own research days.
   // The places and the product do not change with them, so those stay as they are.
   const regionsSig = regionSignature(regions)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPicked(null); setAllSignals(false); setTotal(null)
+    setPicked(null); setAllSignals(false); setTotal(null); setManualNotice(null)
   }, [offerId, icpType])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -128,6 +134,17 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     void run.generate(c.list, icpType)
   }
   const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null); setViewRunId(null) }
+  // Saved: close the form, then show the day it was saved on (the server's day, not the post's) and re-read the list and the days without a reload.
+  const manualSaved = (res: ManualOpportunityResponse) => {
+    const next = viewAfterManualSave({ picked, allSignals }, res.data.captured_on)
+    setManualOpen(false)
+    setViewRunId(null)
+    setPicked(next.picked)
+    setAllSignals(next.allSignals)
+    setTotal(null)
+    setManualNotice(`${res.message} ${next.allSignals ? 'It is in All Signals' : `It is listed under ${formatRunDate(res.data.captured_on)}`}.`)
+    run.refresh()
+  }
 
   return (
     <div className="space-y-5">
@@ -299,7 +316,14 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             >
               All Signals
             </Button>
+
+            <Button type="button" size="sm" variant="outline" onClick={() => { setManualNotice(null); setManualOpen(true) }} className="ml-auto h-9 font-medium">
+              <Plus className="mr-1.5 size-4" />
+              Add Opportunity Manually
+            </Button>
           </div>
+
+          {manualNotice && <Notice tone="info"><span>{manualNotice}</span></Notice>}
 
           {dates === null && !datesError ? (
             <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
@@ -339,6 +363,21 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             />
           )}
         </section>
+      )}
+
+      {selected && (
+        <ManualOpportunityDialog
+          context={context}
+          open={manualOpen}
+          onClose={() => setManualOpen(false)}
+          onSaved={manualSaved}
+          productKey={selected.key}
+          productLabel={selected.label}
+          offerId={offerId}
+          offerLabel={offerId ? (selected.offers.find((o) => o.offer_id === offerId)?.name ?? offerId) : null}
+          customerModel={icpType}
+          today={today}
+        />
       )}
 
       {selected && (
