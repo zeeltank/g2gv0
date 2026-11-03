@@ -1,193 +1,97 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, Send, Sparkles, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { usePathname } from 'next/navigation'
+import { Sparkles } from 'lucide-react'
+import { contextKey, recordContextFromPath } from '@/lib/ask/context'
+import { CHAT_ENGINE, type ChatEngine } from '@/lib/ask/engine'
+import type { LegacyChat } from '@/lib/ask/session'
+import { useAskSession } from '@/lib/ask/use-ask-session'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { ApiError } from '@/services/core/api-client'
+import { askService } from '@/services/agent/ask-service'
+import type { AskApi } from '@/services/agent/ask-types'
 import { crmService } from '@/services/crm'
+import { AskPanel } from './ask-panel'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
+/**
+ * The CRM chat: the purple button at the bottom right of every CRM page, mounted by the shell (components/shell/gtg-app-shell.tsx). Same button, same place.
+ *
+ * Behind it is the Ask engine (hp_erp POST /api/agent/ask): answers that cite the records they rest on, conversations that are kept, and, on a record's page,
+ * an optional "Ask about this record". The old engine (POST /api/crm/ai-chat) is still here: `CHAT_ENGINE` in lib/ask/engine.ts switches back to it, and a server
+ * without the new chat falls back to it by itself. The behaviour lives in lib/ask/session.ts; the pieces that draw are ask-panel.tsx, ask-messages.tsx and
+ * ask-conversations.tsx.
+ */
+
+/** The old endpoint, asked exactly as the old widget asked it: the question and the last messages, never a record. */
+const legacyChat: LegacyChat = async (question, history) => {
+  const response = await crmService.aiChat(getLaravelContext(), { message: question, history })
+  return response.status === 1 ? response.data.reply : 'Sorry, I could not get a response.'
 }
 
-const SUGGESTED = [
-  'Which leads need follow-up today?',
-  'Summarize my pipeline health',
-  'Draft a follow-up for my top lead',
-  'What are the latest buying signals?',
-]
+/** Whether a person is signed in with a token for a tenant. Nothing to subscribe to: the session is read when the widget draws; it is false on the server. */
+const noSubscription = () => () => undefined
+const signedIn = () => isLaravelContextReady(getLaravelContext())
 
-export function CrmChatWidget() {
+interface Props {
+  /** The Ask API. Tests hand in a fake. */
+  service?: AskApi
+  /** The old endpoint. Tests hand in a fake. */
+  legacy?: LegacyChat
+  engine?: ChatEngine
+}
+
+export function CrmChatWidget({ service = askService, legacy = legacyChat, engine = CHAT_ENGINE }: Props = {}) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [ready, setReady] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [aboutKey, setAboutKey] = useState<string | null>(null)
+  const launcherRef = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  const ready = useSyncExternalStore(noSubscription, signedIn, () => false)
+  const pathname = usePathname()
+  const { session, state } = useAskSession({ service, legacy, engine })
 
-  useEffect(() => {
-    const ctx = getLaravelContext()
-    setReady(ctx != null && isLaravelContextReady(ctx))
-  }, [])
+  const record = recordContextFromPath(pathname)
+  const about = record !== null && aboutKey === contextKey(record)
 
+  // On the first opening, find out whether the server has the new chat at all.
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 80)
+    if (open) session.start()
+  }, [open, session])
+
+  // Closing the panel puts the focus back on the button that opened it.
+  useEffect(() => {
+    if (open) wasOpen.current = true
+    else if (wasOpen.current) {
+      wasOpen.current = false
+      launcherRef.current?.focus()
     }
   }, [open])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
-
-  async function send(text: string) {
-    const trimmed = text.trim()
-    if (!trimmed || loading || !ready) return
-    const context = getLaravelContext()
-    setMessages(prev => [...prev, { role: 'user', content: trimmed }])
-    setInput('')
-    setLoading(true)
-    try {
-      const history = messages.slice(-10)
-      const res = await crmService.aiChat(context, { message: trimmed, history })
-      const reply = res.status === 1 ? res.data.reply : 'Sorry, I could not get a response.'
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
-    } catch (err) {
-      let msg = 'Network error. Please try again.'
-      if (err instanceof ApiError) {
-        msg = err.detail ?? err.message
-      }
-      setMessages(prev => [...prev, { role: 'assistant', content: msg }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send(input)
-    }
-  }
 
   if (!ready) return null
 
   return (
     <>
-      {/* Floating button */}
       {!open && (
         <button
+          ref={launcherRef}
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700 transition-colors"
+          className="fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-colors hover:bg-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
           aria-label="Open CRM AI chat"
         >
-          <Sparkles className="size-5" />
+          <Sparkles className="size-5" aria-hidden="true" />
         </button>
       )}
 
-      {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col w-80 sm:w-96 h-[480px] rounded-2xl border bg-background shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-purple-600 text-white">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4" />
-              <span className="font-semibold text-sm">CRM AI Assistant</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-white hover:bg-purple-700"
-              onClick={() => setOpen(false)}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {messages.length === 0 && (
-              <div className="space-y-2 pt-2">
-                <p className="text-xs text-muted-foreground text-center">Ask me anything about your CRM</p>
-                <div className="grid grid-cols-1 gap-1.5">
-                  {SUGGESTED.map(s => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => send(s)}
-                      className="text-left text-xs rounded-lg border px-3 py-2 hover:bg-muted transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap',
-                    m.role === 'user'
-                      ? 'bg-purple-600 text-white rounded-br-sm'
-                      : 'bg-muted text-foreground rounded-bl-sm',
-                  )}
-                >
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2">
-                  <span className="inline-flex gap-0.5 items-end h-4">
-                    {[0, 1, 2].map(i => (
-                      <span
-                        key={i}
-                        className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.9s' }}
-                      />
-                    ))}
-                  </span>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t p-2 flex items-end gap-2">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="Ask the AI"
-              rows={1}
-              className="flex-1 resize-none rounded-xl border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[38px] max-h-24"
-              style={{ overflow: 'auto' }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              disabled={!input.trim() || loading}
-              onClick={() => send(input)}
-              className="h-9 w-9 p-0 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-            >
-              <Send className="size-4" />
-            </Button>
-          </div>
-        </div>
+        <AskPanel
+          session={session}
+          state={state}
+          record={record}
+          about={about}
+          onAboutChange={(on) => setAboutKey(on ? contextKey(record) : null)}
+          onClose={() => setOpen(false)}
+        />
       )}
     </>
   )
 }
-
