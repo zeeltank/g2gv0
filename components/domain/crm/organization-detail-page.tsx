@@ -463,6 +463,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
             context={context}
             onOpenTab={(next) => setTab(next)}
             onRecordsChanged={() => { void loadComments(); void loadHistory() }}
+            onRecordWritten={onSaved}
           />
         </SectionCard>
       )}

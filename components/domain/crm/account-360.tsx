@@ -16,6 +16,7 @@ import { crmService } from '@/services/crm'
 import type { OrgAccountsApi } from '@/services/org-accounts/api-types'
 import { orgAccountsService } from '@/services/org-accounts/org-accounts-service'
 import type { Org360, OrgMeta, OrgSuggestion } from '@/services/org-accounts/types'
+import { FactEvidenceSection } from './fact-evidence-section'
 import { useAssignableEmployees } from './lead-employees'
 import { ContactsSection, DealsSection, LinkedRecordsCard, OldSections, SignalsSection, WhyNowStrip, type OldSectionsState } from './org-account-360-parts'
 import { OrgAccountEditForm } from './org-account-edit-form'
@@ -38,6 +39,13 @@ export interface AgentSlot {
   onOrganisationChanged: (identityId: number) => void
 }
 
+/** What the tab hands to whatever it shows as the organization's Evidence section: which organization, and (only when the page can use it) what to do when an accepted fact wrote the organization's own field. */
+export interface EvidenceSlot {
+  /** The CRM organization (crm_organizations.id): the facts API is keyed by the record the fact is about. */
+  organizationId: string
+  onWroteRecord?: () => void
+}
+
 /**
  * The Account 360 tab of an organization: the identity-based 360 (why now, the linked records with the reason for each link, the signals, the contacts
  * and the open deals) and, below it, the sections only the old Account 360 had (campaigns, knowledge sources, relationships, signal inbox). It replaces
@@ -46,7 +54,7 @@ export interface AgentSlot {
  * Opening the tab ensures the organization has an identity (it makes one on the spot, from an exact name or website only, when a CRM organization made after
  * the last backfill has none). `service`, `loadOld`, `links` and `owners` are for tests and for the wiring below; the tab itself is `Account360`.
  */
-export function Account360View({ organizationId, service, loadOld, links, owners = [], onOpenTab, onEditOpen, onRecordsChanged, agent: Agent }: {
+export function Account360View({ organizationId, service, loadOld, links, owners = [], onOpenTab, onEditOpen, onRecordsChanged, onRecordWritten, agent: Agent, evidence: Evidence }: {
   organizationId: string
   service: OrgAccountsApi
   loadOld: () => Promise<OldAccount360>
@@ -58,8 +66,15 @@ export function Account360View({ organizationId, service, loadOld, links, owners
   onEditOpen?: () => void
   /** The agent changed the organization's notes or tasks: the page reads its Comments and History again. */
   onRecordsChanged?: () => void
+  /**
+   * An accepted fact in the Evidence section wrote the organization's own field (its website, its email): the page must show the new value, or editing
+   * the organization would start from the old one. Leave it out and the Evidence section tells the person to reload the page instead.
+   */
+  onRecordWritten?: () => void
   /** The organization's agent, a component shown between "why now" and the linked records (nothing when absent: the tab's own tests need no agent). */
   agent?: ComponentType<AgentSlot>
+  /** The organization's Evidence section, shown right after the linked records (nothing when absent: the tab's own tests need no facts). */
+  evidence?: ComponentType<EvidenceSlot>
 }) {
   const context = useMemo(() => getLaravelContext(), [])
   const { confirm, confirmDialog } = useConfirm()
@@ -256,6 +271,8 @@ export function Account360View({ organizationId, service, loadOld, links, owners
             onDecide={(suggestion, action, trigger) => void decide(suggestion, action, trigger)}
             onRetryMatches={() => void loadMatches(org.identity.id)}
           />
+          {/* The facts an agent or a source suggested about this organization, with their evidence (components/domain/crm/fact-evidence-section.tsx). `Account360` below renders it. */}
+          {Evidence && <Evidence organizationId={organizationId} onWroteRecord={onRecordWritten ? () => { onRecordWritten(); void loadIdentity(true) } : undefined} />}
           <SignalsSection org={org} links={links} />
           <ContactsSection org={org} />
           <DealsSection org={org} links={links} onOpenTab={onOpenTab} />
@@ -286,13 +303,20 @@ function OrgAgentSlot({ identityId, onRecordsChanged, onOrganisationChanged }: A
   return <OrgAgentPanel orgAccountId={identityId} onRecordsChanged={onRecordsChanged} onOrganisationChanged={onOrganisationChanged} />
 }
 
+/** The real Evidence section of the tab: the facts about this CRM organization, and, when the page can use it, what to do after one wrote the organization's own field. */
+function OrgEvidenceSlot({ organizationId, onWroteRecord }: EvidenceSlot) {
+  return <FactEvidenceSection entityType="organization" entityId={organizationId} onWroteRecord={onWroteRecord} />
+}
+
 /** The Account 360 tab as the Organization detail page uses it: the real service, this person's menu for the links, and the people for the owner choice. */
-export function Account360({ organizationId, context, onOpenTab, onRecordsChanged }: {
+export function Account360({ organizationId, context, onOpenTab, onRecordsChanged, onRecordWritten }: {
   organizationId: string
   context: LaravelContext
   onOpenTab?: (tab: 'opportunities') => void
   /** The agent changed the organization's notes or tasks: the page reads its Comments and History again. */
   onRecordsChanged?: () => void
+  /** An accepted fact wrote the organization's own field: the page reads the organization again so it (and the Edit form) shows the new value. */
+  onRecordWritten?: () => void
 }) {
   const { resolveAccessLink } = useSidebarNavigation()
   const [wantOwners, setWantOwners] = useState(false)
@@ -314,7 +338,9 @@ export function Account360({ organizationId, context, onOpenTab, onRecordsChange
       onOpenTab={onOpenTab}
       onEditOpen={() => setWantOwners(true)}
       onRecordsChanged={onRecordsChanged}
+      onRecordWritten={onRecordWritten}
       agent={OrgAgentSlot}
+      evidence={OrgEvidenceSlot}
     />
   )
 }
