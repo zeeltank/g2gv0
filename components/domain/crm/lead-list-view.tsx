@@ -7,11 +7,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useListQuery } from '@/components/shared/scaffolds'
 import { cn } from '@/lib/utils'
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import {
+  CONSENT_CHOICES, filterRequest, FILTERED_EMPTY_TEXT, filtersFromView, hasActiveFilters, isFromSignal, LEAD_LIST_QUERY, leadColumnCount, leadFilters,
+  NOTHING_SEEN, noteSeen, productChoices, productFilterValue, showProductFilter, SOURCE_CHOICES, viewConditions, visibleColumns,
+} from '@/lib/leads/model'
 import { crmService } from '@/services/crm'
+import { productMasterService } from '@/services/product-master/product-master-service'
+import type { PmOption } from '@/services/product-master/types'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateLeadModal } from './create-lead-modal'
@@ -23,6 +30,7 @@ import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
+import { EmailConsentChip, LeadFacet, SignalMarker } from './lead-parts'
 
 type SortKey = 'first_name' | 'last_name' | 'company' | 'email' | 'lead_status' | 'lead_source' | 'rating' | 'lead_score' | 'created_at'
 
@@ -99,6 +107,17 @@ export function LeadListView() {
     industry: CrmPicklistValue[]; rating: CrmPicklistValue[]
   }>({ leadStatus: [], leadSource: [], industry: [], rating: [] })
 
+  // Slice 6: the Product, consent and source filters live in the address (?product_id=12&consent=blocked&has_signal=1), so a refresh, the Back button and a
+  // pasted link open the same list. The search, sort and page stay as they were. Primitives are read out so `load` is not rebuilt by a new object.
+  const { query: addressQuery, setFilter, setQuery } = useListQuery(LEAD_LIST_QUERY)
+  const { productId, consent, hasSignal } = leadFilters(addressQuery.filters)
+  const filters = useMemo(() => ({ productId, consent, hasSignal }), [productId, consent, hasSignal])
+  const filtered = hasActiveFilters(filters)
+  // The Product column shows once any lead has had a product, and keeps its place while paging.
+  const [seen, setSeen] = useState(NOTHING_SEEN)
+  const columns = visibleColumns(seen, filters)
+  const [productOptions, setProductOptions] = useState<PmOption[]>([])
+
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
     setIsLoading(true)
@@ -111,15 +130,17 @@ export function LeadListView() {
       const response = await crmService.getLeads(context, {
         page, perPage: PAGE_SIZE, search: search || undefined,
         sortBy: sortKey, sortDir: sortAsc ? 'asc' : 'desc',
+        ...filterRequest(filters),
       })
       setLeads(response.data.items)
+      setSeen((previous) => noteSeen(previous, response.data.items))
       setTotal(response.data.pagination.total)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load leads.')
     } finally {
       setIsLoading(false)
     }
-  }, [context, page, search, sortKey, sortAsc, clearSelection])
+  }, [context, page, search, sortKey, sortAsc, clearSelection, filters])
 
   useEffect(() => {
     // Deferred so the load's first setState lands after this render.
@@ -139,6 +160,26 @@ export function LeadListView() {
       .catch(() => { /* the form still works with empty dropdowns */ })
   }, [context])
 
+  // The Product box's choices come from the Product Master. If they cannot be read (no session, no right, a server without it) the list works exactly as
+  // before and the box is simply not drawn.
+  useEffect(() => {
+    if (!isLaravelContextReady(context)) return
+    let cancelled = false
+    productMasterService.options()
+      .then((response) => { if (!cancelled) setProductOptions(Array.isArray(response.data) ? response.data : []) })
+      .catch(() => { /* no Product box */ })
+    return () => { cancelled = true }
+  }, [context])
+
+  const changeFilter = (name: 'product_id' | 'consent' | 'has_signal', value: string) => {
+    setPage(1)
+    setFilter(name, value)
+  }
+  const clearFilters = () => {
+    setPage(1)
+    setQuery({ filters: { product_id: '', consent: '', has_signal: '' } })
+  }
+
   const onSort = (key: SortKey) => {
     if (key === sortKey) { setSortAsc((a) => !a) } else { setSortKey(key); setSortAsc(true) }
   }
@@ -149,6 +190,8 @@ export function LeadListView() {
     if (typeof conditions.search === 'string') setSearch(conditions.search)
     if (typeof conditions.sortKey === 'string') setSortKey(conditions.sortKey as SortKey)
     if (typeof conditions.sortAsc === 'boolean') setSortAsc(conditions.sortAsc)
+    const savedFilters = filtersFromView(conditions)
+    if (savedFilters) setQuery({ filters: savedFilters })
     setPage(1)
   }
 
@@ -220,7 +263,16 @@ export function LeadListView() {
             className="pl-9"
           />
         </div>
-        <CrmSavedViews module="leads" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
+        <CrmSavedViews module="leads" currentConditions={{ search, sortKey, sortAsc, ...viewConditions(filters) }} onApply={handleApplyView} />
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3" role="group" aria-label="Filters" data-lead-filters>
+        {showProductFilter(productOptions, filters) && (
+          <LeadFacet label="Product" value={productFilterValue(filters.productId)} choices={productChoices(productOptions, filters.productId)} onChange={(value) => changeFilter('product_id', value)} />
+        )}
+        <LeadFacet label="Consent" value={filters.consent ?? ''} choices={CONSENT_CHOICES} onChange={(value) => changeFilter('consent', value)} />
+        <LeadFacet label="Origin" value={filters.hasSignal ? '1' : ''} choices={SOURCE_CHOICES} onChange={(value) => changeFilter('has_signal', value)} />
+        {filtered && <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>}
       </div>
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
@@ -241,6 +293,7 @@ export function LeadListView() {
               <SortHead label="First Name" sortKey="first_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Last Name" sortKey="last_name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Company" sortKey="company" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+              {columns.product && <TableHead className="hidden @md/leads:table-cell">Product</TableHead>}
               <SortHead label="Email" sortKey="email" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Status" sortKey="lead_status" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Source" sortKey="lead_source" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/leads:table-cell" />
@@ -250,13 +303,13 @@ export function LeadListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={leadColumnCount(columns)} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading leads…
               </TableCell></TableRow>
             )}
             {!isLoading && leads.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
-                No leads yet. Click “Add Lead” to create one.
+              <TableRow><TableCell colSpan={leadColumnCount(columns)} className="py-10 text-center text-sm text-muted-foreground">
+                {filtered ? FILTERED_EMPTY_TEXT : 'No leads yet. Click “Add Lead” to create one.'}
               </TableCell></TableRow>
             )}
             {!isLoading && leads.map((lead) => (
@@ -275,8 +328,15 @@ export function LeadListView() {
                 </TableCell>
                 <TableCell>{lead.firstName || '—'}</TableCell>
                 <TableCell className="font-medium text-foreground">{lead.lastName}</TableCell>
-                <TableCell>{lead.company || '—'}</TableCell>
-                <TableCell className="truncate">{lead.email || '—'}</TableCell>
+                <TableCell>
+                  {lead.company || '—'}
+                  {isFromSignal(lead) && <div className="mt-1"><SignalMarker /></div>}
+                </TableCell>
+                {columns.product && <TableCell className="hidden @md/leads:table-cell">{lead.product?.name ?? '—'}</TableCell>}
+                <TableCell className="truncate">
+                  {lead.email || '—'}
+                  <EmailConsentChip lead={lead} />
+                </TableCell>
                 <TableCell>
                   {lead.leadStatus
                     ? <StatusBadge variant={STATUS_VARIANT[lead.leadStatus] ?? 'default'}>{lead.leadStatus}</StatusBadge>

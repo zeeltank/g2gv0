@@ -100,10 +100,65 @@ export interface Lead {
   hasRealName?: boolean
   enrichmentStatus?: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
   isQualifiedForOutreach?: boolean
+  /**
+   * Agentic CRM slice 6 (hp_erp docs/agentic-crm/slices/S06-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it (the backend
+   * may not be deployed yet) leaves the key out, and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/leads/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   */
+  product?: LeadProductRef | null
+  organisationAccount?: LeadOrganisationAccountRef | null
+  sourceSignalId?: number | null
+  /** The signal the lead was made from; the detail answer only. */
+  sourceSignal?: LeadSourceSignal | null
+  /** What the one consent gate says about each channel; the detail answer only. */
+  consent?: LeadConsent | null
+}
+
+/** The product (a Product Master record) a lead is for. */
+export interface LeadProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The organisation account (Organisation 360 identity) a lead belongs to. */
+export interface LeadOrganisationAccountRef {
+  id: number
+  name: string
+}
+
+/** The signal a lead came from. Everything in it came from the web or a model: it is plain text and is shown as text. */
+export interface LeadSourceSignal {
+  id: number
+  title: string | null
+  sourceUrl: string | null
+  /** `YYYY-MM-DD` of the event the source describes; null when the source states none. */
+  eventDate: string | null
+  /** `YYYY-MM-DD` the source was published; shown only when no event date is stated. */
+  sourcePublishedAt?: string | null
+  /** A business-fit code (a product's key, `multiple`, ...). */
+  businessFit: string | null
+  /**
+   * The source's own words (`quoteKind` `excerpt`) or the signal's description of what happened (`observed_event`, which is NOT a quote and is never labelled as
+   * one). Not in the contract's written list; hp_erp's `LeadSignalEvidence` (slice 6, in progress) sends it, so it is read when present and never required.
+   */
+  quote?: string | null
+  quoteKind?: 'excerpt' | 'observed_event' | null
+}
+
+export interface LeadConsentChannel {
+  allowed: boolean
+  /** A sentence for a person; null when nothing blocks the channel. */
+  reason: string | null
+}
+
+export interface LeadConsent {
+  email?: LeadConsentChannel
+  sms?: LeadConsentChannel
 }
 
 export type LeadPayload = Partial<
-  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'organisationAccount' | 'sourceSignalId' | 'sourceSignal' | 'consent'>
 >
 
 export interface LeadListResponse {
@@ -223,7 +278,15 @@ export interface LeadListQuery {
   sortDir?: 'asc' | 'desc'
   leadStatus?: string
   assignedTo?: string
+  /** A Product Master id; 0 or absent = every product. Sent as `product_id`. */
+  productId?: number
+  /** `allowed` or `blocked` for email, through the consent gate; absent = every lead. Sent as `consent`. */
+  consent?: LeadConsentFilter
+  /** True = only leads made from a signal. Sent as `has_signal=1`. */
+  hasSignal?: boolean
 }
+
+export type LeadConsentFilter = 'allowed' | 'blocked'
 
 export interface ConvertLeadPayload {
   createOrganization: boolean

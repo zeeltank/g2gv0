@@ -9,6 +9,7 @@
 
 import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { withLeadExtras } from '@/lib/leads/model'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 import type {
@@ -211,10 +212,14 @@ export const crmService = {
       ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
       ...(query.leadStatus ? { lead_status: query.leadStatus } : {}),
       ...(query.assignedTo ? { assigned_to: query.assignedTo } : {}),
-    }),
+      // Slice 6 filters, under the contract's names. A filter left on "all" sends nothing (the server reads `0` or empty as "all" too).
+      ...(query.productId && query.productId > 0 ? { product_id: String(query.productId) } : {}),
+      ...(query.consent ? { consent: query.consent } : {}),
+      ...(query.hasSignal ? { has_signal: '1' } : {}),
+    }).then((response) => ({ ...response, data: { ...response.data, items: response.data.items.map(withLeadExtras) } })),
 
   getLead: (context: LaravelContext, id: string) =>
-    apiClient.get<LeadResponse>(`/crm/leads/${id}`, baseParams(context)),
+    apiClient.get<LeadResponse>(`/crm/leads/${id}`, baseParams(context)).then((response) => ({ ...response, data: withLeadExtras(response.data) })),
 
   createLead: (context: LaravelContext, payload: LeadPayload) =>
     apiClient.post<LeadResponse>('/crm/leads', { ...payload, ...baseParams(context) }),
