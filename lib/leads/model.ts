@@ -392,3 +392,12 @@ export function leadPatch(fact: Pick<Fact, 'entity_type' | 'field' | 'value' | '
   const property = LEAD_PROPERTY[fact.field]
   return property ? { [property]: fact.value } : null
 }
+
+/**
+ * What the page says after a lead is converted. The server answers "Lead converted." and, when the lead named no person (its last name is only the company
+ * name), adds `notice` saying that no contact was made and why: that sentence is the one a person must read, so it wins over the plain message.
+ */
+export function conversionMessage(response: { message: string; data?: { notice?: string | null } | null }): string {
+  const notice = response.data?.notice
+  return typeof notice === 'string' && notice.trim() !== '' ? notice : response.message
+}

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { conversionMessage } from '@/lib/leads/model'
 import { crmService } from '@/services/crm'
 import type { Lead } from '@/types/crm'
 import { useAssignableEmployees } from './lead-employees'
@@ -74,7 +75,7 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
         createOrganization, createContact, assignedTo, createOpportunity,
         ...(createContact && linkExisting ? { existingContactId } : {}),
       })
-      onConverted(response.message)
+      onConverted(conversionMessage(response))
       onClose()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to convert this lead.')

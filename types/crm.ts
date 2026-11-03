@@ -304,6 +304,9 @@ export interface ConvertLeadResponse {
     organizationId: string | null
     contactId: string | null
     opportunityId: string | null
+    /** Present when no contact was made because the lead names no person (slice 6); `notice` says why, in words. */
+    contactSkipped?: boolean
+    notice?: string
   }
 }
 

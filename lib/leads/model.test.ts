@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 import { listQueryString, patchListQuery, readListQuery } from '../../components/shared/scaffolds/list-query'
 import {
   ALL_PRODUCTS, cappedQuote, consentSentence, consentViews, emailConsent, filterRequest, filtersFromView, hasActiveFilters, hostOf, isFromSignal, LEAD_LIST_QUERY,
-  leadColumnCount, leadFilters, leadPatch, MAX_QUOTE, NOTHING_SEEN, noteSeen, productChoices, productFilterValue, quoteCaption, readLeadExtras, showProductFilter,
+  conversionMessage, leadColumnCount, leadFilters, leadPatch, MAX_QUOTE, NOTHING_SEEN, noteSeen, productChoices, productFilterValue, quoteCaption, readLeadExtras, showProductFilter,
   signalDateText, signalEvidence, smsConsent, viewConditions, visibleColumns, whole, withLeadExtras,
 } from './model'
 import { contractLead, lead, options, signal } from './fixtures'
@@ -446,5 +446,15 @@ describe('a fact accepted in the Evidence tab', () => {
     assert.equal(leadPatch(written({ status: 'dismissed' })), null)
     assert.equal(leadPatch(written({ entity_type: 'contact' })), null)
     assert.equal(leadPatch(written({ entity_type: 'organization' })), null)
+  })
+})
+
+describe('what the page says after a conversion', () => {
+  it('says the server\'s notice when no contact was made, and the plain message otherwise', () => {
+    assert.equal(conversionMessage({ message: 'Lead converted.', data: { notice: 'No contact was created: this lead names no person.' } }), 'No contact was created: this lead names no person.')
+    assert.equal(conversionMessage({ message: 'Lead converted.', data: {} }), 'Lead converted.')
+    assert.equal(conversionMessage({ message: 'Lead converted.' }), 'Lead converted.', 'an older server sends no data at all')
+    assert.equal(conversionMessage({ message: 'Lead converted.', data: { notice: '   ' } }), 'Lead converted.', 'a blank notice says nothing')
+    assert.equal(conversionMessage({ message: 'Lead converted.', data: null }), 'Lead converted.')
   })
 })
