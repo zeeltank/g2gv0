@@ -9,6 +9,7 @@ import { useListQuery } from '@/components/shared/scaffolds/use-list-query'
 import { useUrlTab } from '@/components/shared/scaffolds/use-url-tab'
 import { finishedNotice, type Timers } from '@/lib/signal-review/generate-model'
 import { queryToParams, SIGNAL_LIST_QUERY } from '@/lib/signal-review/list-model'
+import { NOTICE_TONE } from '@/lib/org-accounts/tones'
 import { cn } from '@/lib/utils'
 import { signalReviewService, type SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import { signalRunService, type RunSnapshot, type SignalRunApi } from '@/services/signal-review/signal-run-service'
@@ -26,9 +27,9 @@ const TABS: PageTab[] = [
 const ID_PREFIX = 'signal-review'
 
 const NOTICE_TONES: Record<ScreenNotice['tone'], string> = {
-  success: 'border-success/30 bg-success/5 text-success',
+  success: NOTICE_TONE.success,
   warning: 'border-warning/30 bg-warning/10 text-foreground',
-  error: 'border-destructive/30 bg-destructive/5 text-destructive',
+  error: NOTICE_TONE.error,
   info: 'border-border bg-muted/40 text-foreground',
 }
 

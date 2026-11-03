@@ -6,6 +6,8 @@ import { CheckCircle2, Loader2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useConfirm } from '@/components/shared/scaffolds/use-confirm'
 import { classifyPromoteFailure, LEAD_CONFIRM, leadIdFrom, NO_LEAD_ID_TEXT, promoteNotice, type SignalLead } from '@/lib/signal-review/lead-action'
+import { BANNER_TONE } from '@/lib/signal-review/tones'
+import { cn } from '@/lib/utils'
 import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import type { SignalRow } from '@/services/signal-review/signal-types'
 
@@ -74,7 +76,7 @@ export function LeadFeedbackMessage({ feedback }: { feedback: LeadFeedback | nul
   if (!feedback) return null
   return feedback.tone === 'error'
     ? <p role="alert" className="w-full rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-sm">{feedback.text}</p>
-    : <p role="status" className="w-full rounded-lg border border-success/30 bg-success/10 p-2.5 text-sm text-success">{feedback.text}</p>
+    : <p role="status" className={cn('w-full rounded-lg border p-2.5 text-sm', BANNER_TONE.success)}>{feedback.text}</p>
 }
 
 /**
@@ -90,11 +92,11 @@ export function SignalLeadAction({ lead, saving, disabled, onRequest }: {
   if (lead) {
     return (
       <div className="flex flex-wrap items-center gap-x-2 text-sm">
-        <span className="inline-flex items-center gap-1 font-medium text-success">
-          <CheckCircle2 className="size-4" aria-hidden="true" />
+        <span className="inline-flex items-center gap-1 font-medium text-foreground">
+          <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
           Lead created
         </span>
-        <NextLink href={lead.href} className="text-primary underline-offset-2 hover:underline">Open lead{lead.number ? ` ${lead.number}` : ''}</NextLink>
+        <NextLink href={lead.href} className="text-foreground underline underline-offset-2 hover:no-underline">Open lead{lead.number ? ` ${lead.number}` : ''}</NextLink>
         {lead.status && <span className="text-muted-foreground">· status: {lead.status}</span>}
       </div>
     )

@@ -7,6 +7,8 @@ import { RecordDrawer } from '@/components/shared/scaffolds/record-drawer'
 import { availableDecisions, decisionNotice } from '@/lib/signal-review/decision-actions'
 import { FORBIDDEN_TEXT } from '@/lib/signal-review/decision-failure'
 import { leadOf, withLead } from '@/lib/signal-review/lead-action'
+import { BANNER_TONE } from '@/lib/signal-review/tones'
+import { cn } from '@/lib/utils'
 import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import type { ProductFilterOption, SignalDecisionResponse, SignalRow } from '@/services/signal-review/signal-types'
 import type { DecisionDialogProps, HistoryListProps, ReasonOption, ReviewHistoryEntry } from '@/services/signal-review/types'
@@ -150,7 +152,7 @@ function DrawerBody({ signal, open, service, reasons, products, onChanged, onClo
                     type="button"
                     size="sm"
                     variant={action.tone === 'primary' ? 'default' : action.tone === 'danger' ? 'outline' : 'secondary'}
-                    className={action.tone === 'danger' ? 'border-destructive text-destructive hover:bg-destructive/10' : undefined}
+                    className={action.tone === 'danger' ? 'border-destructive' : undefined}
                     disabled={saving || forbidden || (action.decision === 'dismissed' && noReasons)}
                     onClick={() => { setNotice(null); lead.clear(); decision.open(action.decision) }}
                   >
@@ -170,7 +172,7 @@ function DrawerBody({ signal, open, service, reasons, products, onChanged, onClo
         )}
       >
         <div className="space-y-5">
-          {notice && <p role="status" className="rounded-lg border border-success/30 bg-success/10 p-2.5 text-sm text-success">{notice}</p>}
+          {notice && <p role="status" className={cn('rounded-lg border p-2.5 text-sm', BANNER_TONE.success)}>{notice}</p>}
           {forbidden && <p role="alert" className="rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-sm">{FORBIDDEN_TEXT}</p>}
           {noReasons && actions.some((a) => a.decision === 'dismissed') && (
             <p className="text-xs text-muted-foreground">“Not relevant” needs the list of reasons, which has not loaded. Reload the page to try again.</p>

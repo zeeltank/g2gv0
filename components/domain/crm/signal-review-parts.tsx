@@ -5,9 +5,10 @@ import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   claimLevelText, dateBadge, dateExplanation, dateProvenance, evidenceQuote, firstSeenText, sourceLink, statusChip,
-  type DateBadgeKind, type StatusChipTone,
+  type StatusChipTone,
 } from '@/lib/signal-review/signal-display'
 import { fitSummary } from '@/lib/signal-review/list-model'
+import { DATE_BASE, DATE_LOOK, PRODUCT_CHIP_TONE, STATUS_TONE } from '@/lib/signal-review/tones'
 import type { ProductFilterOption, SignalRow } from '@/services/signal-review/signal-types'
 import type { DateInfo, ReviewStatus } from '@/services/signal-review/types'
 
@@ -15,35 +16,22 @@ import type { DateInfo, ReviewStatus } from '@/services/signal-review/types'
 
 const CHIP = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium'
 
-const STATUS_TONE: Record<StatusChipTone, string> = {
-  neutral: 'border-border bg-muted text-foreground',
-  warning: 'border-warning/30 bg-warning/10 text-warning',
-  success: 'border-success/30 bg-success/10 text-success',
-  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
-}
-
 /** The status in words. The words carry the meaning; the colour only helps. */
 export function SignalStatusChip({ status }: { status: ReviewStatus }) {
   const chip = statusChip(status)
   return <span data-status={status} className={cn(CHIP, STATUS_TONE[chip.tone])}>{chip.label}</span>
 }
 
-const DATE_TONE: Record<DateBadgeKind, string> = {
-  event: 'border-success/30 bg-success/10 text-success',
-  published: 'border-primary/30 bg-primary/10 text-primary',
-  unknown: 'border-dashed border-border text-muted-foreground',
-}
-
 /** The date, and what kind of date it is. A signal with no date says "Date unknown" in a dashed outline. */
 export function SignalDateBadge({ info }: { info: DateInfo | null | undefined }) {
   const badge = dateBadge(info)
-  return <span data-date-kind={badge.kind} className={cn('inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 font-mono text-[0.7rem]', DATE_TONE[badge.kind])}>{badge.text}</span>
+  return <span data-date-kind={badge.kind} className={cn(DATE_BASE, DATE_LOOK[badge.kind])}>{badge.text}</span>
 }
 
 /** The Product Master record a signal is matched to, or a plain "No product" (a signal that could not be matched is never given a guessed product). */
 export function SignalProductChip({ name }: { name: string | null | undefined }) {
   return name
-    ? <span className={cn(CHIP, 'border-primary/30 bg-primary/10 text-primary')}>{name}</span>
+    ? <span className={cn(CHIP, PRODUCT_CHIP_TONE)}>{name}</span>
     : <span className={cn(CHIP, 'border-dashed border-border text-muted-foreground')}>No product</span>
 }
 
@@ -80,7 +68,7 @@ export function SignalEvidence({ signal, products }: { signal: SignalRow; produc
         <Fact label="Source">
           {link
             ? (
-              <a href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline">
+              <a href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-foreground underline underline-offset-2 hover:no-underline">
                 <span className="break-all">{link.title}</span>
                 <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
                 <span className="sr-only">(opens in a new tab)</span>
