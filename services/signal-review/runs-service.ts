@@ -44,11 +44,15 @@ const num = (value: unknown): number | null => {
   return null
 }
 
-/** Reads one run from the server's row. `productNames` maps Product Master ids to names. */
-export function parseRun(raw: Record<string, unknown>, productNames: ReadonlyMap<number, string> = new Map()): SignalRun {
+/**
+ * Reads one run from the server's row. `productNames` maps Product Master ids to names. A run made before runs recorded a Product Master id has only its
+ * product key, so `productNamesByKey` (lower-case product key to name) names it too; with neither the key itself is shown, never a guess.
+ */
+export function parseRun(raw: Record<string, unknown>, productNames: ReadonlyMap<number, string> = new Map(), productNamesByKey: ReadonlyMap<string, string> = new Map()): SignalRun {
   const productId = num(raw.product_master_id)
   const seconds = num(raw.duration_seconds)
   const millis = num(raw.duration_ms)
+  const productKey = text(raw.product_key)
 
   return {
     id: num(raw.id) ?? 0,
@@ -58,9 +62,9 @@ export function parseRun(raw: Record<string, unknown>, productNames: ReadonlyMap
     completed_at: text(raw.completed_at),
     // `duration_seconds` is the contract's field; `duration_ms` is what the endpoint sent before it, so older servers still show a duration.
     duration_seconds: seconds ?? (millis !== null ? Math.round(millis / 1000) : null),
-    product_key: text(raw.product_key),
+    product_key: productKey,
     product_master_id: productId,
-    product_name: productId !== null ? productNames.get(productId) ?? null : null,
+    product_name: (productId !== null ? productNames.get(productId) : undefined) ?? (productKey !== null ? productNamesByKey.get(productKey.toLowerCase()) : undefined) ?? null,
     signals_found: num(raw.opportunities_qualified),
     signals_new: num(raw.opportunities_new),
     ai_input_tokens: num(raw.ai_input_tokens),
@@ -89,6 +93,8 @@ export const signalRunsService = {
 
     const optionList = Array.isArray(options?.data) ? options.data : []
     const names = new Map<number, string>(optionList.map((option) => [option.id, option.name]))
-    return response.data.map((row) => parseRun((row ?? {}) as Record<string, unknown>, names))
+    // Only a top-level product owns a key a run can carry; a sub-product's key must not name a run.
+    const namesByKey = new Map<string, string>(optionList.filter((option) => option.kind === 'product').map((option) => [option.key.toLowerCase(), option.name]))
+    return response.data.map((row) => parseRun((row ?? {}) as Record<string, unknown>, names, namesByKey))
   },
 }

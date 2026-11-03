@@ -64,7 +64,7 @@ describe('SignalReviewList', () => {
 
     assert.ok(rowOf('Principal posts')!.textContent!.includes('Published 3 Oct 2026'))
     assert.ok(rowOf('Board announces')!.textContent!.includes('Date unknown'))
-    assert.ok(rowOf('Academy lists')!.textContent!.includes('None'), 'a signal with no product says so')
+    assert.ok(rowOf('Academy lists')!.textContent!.includes('No product'), 'a signal with no product says so')
     assert.ok(rowOf('Academy lists')!.textContent!.includes('Not relevant'))
   })
 

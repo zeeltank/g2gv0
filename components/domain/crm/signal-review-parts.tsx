@@ -40,11 +40,11 @@ export function SignalDateBadge({ info }: { info: DateInfo | null | undefined })
   return <span data-date-kind={badge.kind} className={cn('inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 font-mono text-[0.7rem]', DATE_TONE[badge.kind])}>{badge.text}</span>
 }
 
-/** The Product Master record a signal is matched to, or a plain "None" (a signal that could not be matched is never given a guessed product). */
+/** The Product Master record a signal is matched to, or a plain "No product" (a signal that could not be matched is never given a guessed product). */
 export function SignalProductChip({ name }: { name: string | null | undefined }) {
   return name
     ? <span className={cn(CHIP, 'border-primary/30 bg-primary/10 text-primary')}>{name}</span>
-    : <span className={cn(CHIP, 'border-dashed border-border text-muted-foreground')}>None</span>
+    : <span className={cn(CHIP, 'border-dashed border-border text-muted-foreground')}>No product</span>
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {

@@ -103,7 +103,7 @@ describe('SignalReviewDrawer', () => {
     assert.ok(text.includes('No wording from the source was kept for this signal.'))
     assert.ok(text.includes('Date unknown'))
     assert.ok(text.includes('No date could be found on the source'))
-    assert.ok(text.includes('None'))
+    assert.ok(text.includes('No product'))
     assert.ok(text.includes('Not recorded'))
   })
 
