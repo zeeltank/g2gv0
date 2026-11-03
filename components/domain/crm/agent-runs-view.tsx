@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { returnFocusTo } from '@/lib/agent/focus'
+import { BANNER_TONE, FIELD_ERROR_TEXT } from '@/lib/agent/tones'
 import {
   countsText, durationText, EMPTY_FILTERS, filterProblem, formatCost, formatWhen, loadFailure, NO_VALUE, RUN_STATUS_OPTIONS, runsParams, successRate, triggerText, type RunFilters,
 } from '@/lib/agent/model'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { cn } from '@/lib/utils'
 import type { AgentApi } from '@/services/agent/api-types'
 import { agentService } from '@/services/agent/agent-service'
 import type { AgentRunsMeta, AgentRunsSummary, AgentRunSummary } from '@/services/agent/types'
@@ -116,7 +118,7 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
       )}
 
       {phase === 'error' && (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div role="alert" className={cn('flex flex-wrap items-center justify-between gap-2 rounded-xl border p-4 text-sm', BANNER_TONE.error)}>
           <span><strong>The run history could not be opened.</strong> {error}</span>
           <Button size="sm" variant="outline" onClick={() => { setPhase('loading'); setAttempt((n) => n + 1) }}>Retry</Button>
         </div>
@@ -190,7 +192,7 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
           {filtered && <Button size="sm" variant="ghost" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</Button>}
         </div>
       )}
-      {problem && <p role="alert" className="text-sm text-destructive">{problem}</p>}
+      {problem && <p role="alert" className={cn('text-sm', FIELD_ERROR_TEXT)}>{problem}</p>}
       {phase === 'ready' && <p className="-mt-3 text-xs text-muted-foreground">Days are counted on the server’s clock (UTC); the times in the list are shown in your own time zone.</p>}
 
       {/* Execution log */}
@@ -207,7 +209,7 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <caption className="sr-only">Agent runs, newest first</caption>
-              <thead className="border-b border-border bg-muted/60 font-medium text-muted-foreground">
+              <thead className="border-b border-border bg-muted font-medium text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-4 py-3">Run</th>
                   <th scope="col" className="px-4 py-3">Organisation</th>

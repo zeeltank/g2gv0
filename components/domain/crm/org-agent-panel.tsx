@@ -8,6 +8,7 @@ import {
   acceptNotice, autonomySentence, dismissNotice, durationText, failureText, formatCost, formatTokens, formatWhen, isWaiting, loadFailure, mergedInto, NO_VALUE, runGate, runNotice,
   triggerText, type Notice,
 } from '@/lib/agent/model'
+import { BANNER_TONE } from '@/lib/agent/tones'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { cn } from '@/lib/utils'
 import type { AgentApi } from '@/services/agent/api-types'
@@ -277,7 +278,7 @@ export function OrgAgentPanel({ orgAccountId = null, crmOrganizationId = null, o
     return (
       <section aria-labelledby={titleId} className={cn(frame, className)}>
         {heading}
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div role="alert" className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm', BANNER_TONE.error)}>
           <span><strong>The agent could not be opened.</strong> {error}</span>
           <Button size="sm" variant="outline" onClick={() => { if (identity === null) { setPhase('resolving'); setAttempt((n) => n + 1) } else { void load() } }}>
             <RefreshCw aria-hidden /> Retry

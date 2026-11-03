@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { BANNER_TONE } from '@/lib/agent/tones'
+import { cn } from '@/lib/utils'
 import {
   countsText, durationText, formatCost, formatTokens, formatWhen, loadFailure, NO_VALUE, outcomeLabel, refusalText, stepLabel, triggerText,
 } from '@/lib/agent/model'
@@ -64,7 +66,7 @@ export function AgentRunDetailDialog({ runId, service, onClose }: { runId: numbe
         )}
 
         {current.phase === 'error' && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <div role="alert" className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm', BANNER_TONE.error)}>
             <span>{current.message}</span>
             {current.kind === 'error' && <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>Retry</Button>}
           </div>
@@ -91,7 +93,7 @@ function RunBody({ run }: { run: AgentRunDetail }) {
       </dl>
 
       {run.status !== 'completed' && run.message && (
-        <p role="note" className="rounded-lg border border-border bg-muted/50 p-3 text-sm text-foreground">{run.message}</p>
+        <p role="note" className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">{run.message}</p>
       )}
 
       <section aria-labelledby="run-brief" className="space-y-2">
@@ -119,7 +121,7 @@ function RunBody({ run }: { run: AgentRunDetail }) {
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">Every step the agent took in this run, in order, with what happened to it</caption>
-            <thead className="border-b border-border bg-muted/60 font-medium text-muted-foreground">
+            <thead className="border-b border-border bg-muted font-medium text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">#</th>
                 <th scope="col" className="px-3 py-2">Step</th>

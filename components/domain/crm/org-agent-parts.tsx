@@ -7,19 +7,12 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   actionLabel, AGENT_BADGE, appliedByAgent, evidenceItems, formatWhen, proposalStatus, runStatus, type Notice, type StatusView, type Tone,
 } from '@/lib/agent/model'
+import { AGENT_MARK_TONE, BANNER_TONE, CHIP_BASE, FIELD_ERROR_TEXT, STATE_TONE } from '@/lib/agent/tones'
 import { cn } from '@/lib/utils'
 import type { AgentEvidenceRef, AgentProposal } from '@/services/agent/types'
 
 /** The longest reason a person may give when dismissing (the server accepts 500). */
 export const MAX_REASON = 500
-
-const TONES: Record<Tone, string> = {
-  success: 'border-success/30 bg-success/10 text-success',
-  pending: 'border-warning/30 bg-warning/10 text-warning',
-  error: 'border-destructive/30 bg-destructive/10 text-destructive',
-  inactive: 'border-muted-foreground/30 bg-muted text-muted-foreground',
-  processing: 'border-primary/30 bg-primary/10 text-primary',
-}
 
 const ICONS: Record<Tone, ReactNode> = {
   success: <CircleCheck aria-hidden className="size-3" />,
@@ -32,7 +25,7 @@ const ICONS: Record<Tone, ReactNode> = {
 /** A state in words with an icon. The colour only helps: the word is always there. */
 export function StatePill({ view }: { view: StatusView }) {
   return (
-    <span data-tone={view.tone} className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium', TONES[view.tone])}>
+    <span data-tone={view.tone} className={cn(CHIP_BASE, STATE_TONE[view.tone])}>
       {ICONS[view.tone]}
       {view.label}
     </span>
@@ -50,7 +43,7 @@ export function RunStatePill({ status }: { status: string }) {
 /** Marks what the agent itself did. */
 export function AgentMark() {
   return (
-    <span data-agent-mark className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+    <span data-agent-mark className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
       <Bot aria-hidden className="size-3" />
       {AGENT_BADGE}
     </span>
@@ -71,17 +64,12 @@ export function EvidenceList({ refs, label = 'Based on' }: { refs: readonly Agen
         {items.map((item) => (
           <li key={item.key} data-evidence={item.key} className="min-w-0 break-words">
             <span className="text-muted-foreground">{item.typeLabel}: </span>
-            {item.href ? <a href={item.href} className="text-primary underline underline-offset-2 hover:no-underline">{item.label}</a> : <span className="text-foreground">{item.label}</span>}
+            {item.href ? <a href={item.href} className="text-foreground underline underline-offset-2 hover:no-underline">{item.label}</a> : <span className="text-foreground">{item.label}</span>}
           </li>
         ))}
       </ul>
     </div>
   )
-}
-
-const NOTICE_TONES: Record<Notice['tone'], string> = {
-  success: 'border-success/30 bg-success/5 text-success',
-  error: 'border-destructive/30 bg-destructive/5 text-destructive',
 }
 
 /**
@@ -93,7 +81,7 @@ export const AgentNotice = forwardRef<HTMLDivElement, { notice: Notice; onDismis
     ref={ref}
     tabIndex={-1}
     role={notice.tone === 'error' ? 'alert' : 'status'}
-    className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring', NOTICE_TONES[notice.tone])}
+    className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring', BANNER_TONE[notice.tone])}
   >
     <span className="min-w-0 break-words">{notice.text}</span>
     <Button size="sm" variant="ghost" onClick={onDismiss}>Close message</Button>
@@ -160,7 +148,7 @@ export function ProposalCard({ proposal, canDecide, busy, anyBusy, dismissing, r
       {canDecide && dismissing && (
         <form
           id={formId}
-          className="space-y-2 rounded-md border border-border bg-muted/40 p-3"
+          className="space-y-2 rounded-md border border-border bg-muted p-3"
           onSubmit={(event) => { event.preventDefault(); onConfirmDismiss(proposal) }}
           onKeyDown={(event) => {
             if (event.key !== 'Escape') return
@@ -202,7 +190,7 @@ export function ActivityItem({ proposal }: { proposal: AgentProposal }) {
         {proposal.status === 'dismissed' && proposal.decided_at && <span className="text-xs text-muted-foreground">{formatWhen(proposal.decided_at)}</span>}
       </div>
       <p className="whitespace-pre-line break-words text-sm text-foreground">{proposal.summary}</p>
-      {proposal.status === 'failed' && proposal.error && <p className="break-words text-sm text-destructive"><span className="font-medium">Why not:</span> {proposal.error}</p>}
+      {proposal.status === 'failed' && proposal.error && <p className={cn('break-words text-sm', FIELD_ERROR_TEXT)}><span className="font-medium">Why not:</span> {proposal.error}</p>}
       {proposal.status === 'dismissed' && proposal.decision_note && <p className="break-words text-sm text-muted-foreground"><span className="font-medium">Reason given:</span> {proposal.decision_note}</p>}
       <EvidenceList refs={proposal.evidence} />
     </li>
