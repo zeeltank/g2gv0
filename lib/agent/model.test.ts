@@ -113,12 +113,14 @@ describe('evidence: only a path inside this application is ever a link', () => {
     }
   })
 
-  it('links a record inside the application, and shows the organisation itself and a possible link as text', () => {
+  it('links a record that has a page, and shows the organisation itself, a possible link and a GTM deal (no page of its own, even if an old run stored one) as text', () => {
     const items = evidenceItems([SIGNAL, CRM_ORG, DEAL, SELF, PAIR])
+    assert.equal(DEAL.url, '/gtm/deals/125', 'the fixture is what a run stored before the server stopped sending an address for a deal')
     assert.deepEqual(items.map((i) => [i.typeLabel, i.href]), [
-      ['Signal', '/module/crm/signal-review?status=all&q=Hillcrest'], ['CRM organisation', '/module/crm/marketing/organizations/135'], ['Deal', '/gtm/deals/125'],
+      ['Signal', '/module/crm/signal-review?status=all&q=Hillcrest'], ['CRM organisation', '/module/crm/marketing/organizations/135'], ['Deal', null],
       ['This organisation', null], ['Possible link', null],
     ])
+    assert.equal(evidenceItems([{ type: 'crm_opportunity', id: '256', label: 'Opp', url: '/module/crm/sales/opportunities/256' }])[0].href, '/module/crm/sales/opportunities/256', 'an opportunity has a page')
   })
 
   it('never links an address that is not a plain path, whatever the server sent', () => {

@@ -213,8 +213,11 @@ const EVIDENCE_TYPES: Record<string, string> = {
   link_suggestion: 'Possible link',
 }
 
-/** Types that name the page the person is already on, or a question on it: shown as text, not as a link. */
-const NOT_LINKED = new Set(['org_account', 'link_suggestion'])
+/**
+ * Types shown as text, not as a link: the page the person is already on, a question on it, and a GTM deal, which has no page of its own (the Deals screen is a
+ * list). The last one matters for runs stored before the server stopped sending an address for it: those still say /gtm/deals/{id}, which is a 404.
+ */
+const NOT_LINKED = new Set(['org_account', 'link_suggestion', 'gtm_deal'])
 
 /** An address inside this application and nothing else: a path from the root. Not a scheme, not another site, not a protocol-relative address. */
 export function safeInternalPath(url: unknown): string | null {
