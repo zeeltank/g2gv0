@@ -21,7 +21,7 @@ export function ProductUsageTab({ usage, error, inCatalogue, kind, priceBooksHre
   kind: PmKind
   priceBooksHref: string
 }) {
-  if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>
+  if (error) return <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>
   if (!usage) return <p role="status" className="text-sm text-muted-foreground">Loading…</p>
 
   const notInCatalogue = <span className="font-normal text-muted-foreground">Not in the CRM catalogue</span>

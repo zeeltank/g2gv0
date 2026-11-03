@@ -223,7 +223,7 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
               {(c) => <Textarea {...c} rows={4} value={form.needsSolved} onChange={(e) => set({ needsSolved: e.target.value }, 'about.needsSolved')} disabled={busy} />}
             </Field>
             <p className="text-xs text-muted-foreground sm:col-span-2">
-              Who it is for and the buying events that point to it are edited in the <Link href="/portfolio" className="text-primary underline underline-offset-2">Portfolio</Link>.
+              Who it is for and the buying events that point to it are edited in the <Link href="/portfolio" className="text-foreground underline underline-offset-2">Portfolio</Link>.
             </p>
           </FormSection>
         )}

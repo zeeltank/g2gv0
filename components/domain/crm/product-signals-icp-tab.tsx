@@ -46,7 +46,7 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <ReadField
               label="Product line"
-              value={isLine ? record.name : record.parent && <Link href={lineHref(record.parent.id)} className="text-primary hover:underline">{record.parent.name}</Link>}
+              value={isLine ? record.name : record.parent && <Link href={lineHref(record.parent.id)} className="text-foreground underline underline-offset-2 hover:no-underline">{record.parent.name}</Link>}
             />
             <ReadField label="Sub-product ID" value={record.offer && <span className="font-mono text-xs">{record.offer.offerId}</span>} />
             <ReadField
@@ -63,7 +63,7 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
       )}
 
       {usageError
-        ? <p role="alert" className="text-sm text-destructive">{usageError}</p>
+        ? <p role="alert" className="text-sm text-red-700 dark:text-red-300">{usageError}</p>
         : usage === null
           ? <p role="status" className="text-sm text-muted-foreground">Loading…</p>
           : (
@@ -78,7 +78,7 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
                       : (
                         <span className="flex flex-wrap items-center gap-3">
                           <span>{String(usage.signals)}</span>
-                          {signalsLink && <Link href={signalsLink} className="text-sm font-normal text-primary hover:underline">See these signals</Link>}
+                          {signalsLink && <Link href={signalsLink} className="text-sm font-normal text-foreground underline underline-offset-2 hover:no-underline">See these signals</Link>}
                         </span>
                       )}
                   />
@@ -101,7 +101,7 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
                   <p className="text-sm text-muted-foreground">
                     Ideal-customer profiles are set up per sub-product, so this line does not have one of its own.
                     {(usage.icp === 'active' || usage.icp === 'draft' || usage.icp === 'archived') && <> A profile saved on the line itself earlier is not used for discovery any more.</>}
-                    {' '}<Link href={portfolioLink} className="text-primary underline underline-offset-2">See the profiles of its sub-products in the Portfolio</Link>.
+                    {' '}<Link href={portfolioLink} className="text-foreground underline underline-offset-2">See the profiles of its sub-products in the Portfolio</Link>.
                   </p>
                 ) : (
                   <>
@@ -121,7 +121,7 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
                     {usage.icp !== null && (
                       <p className="mt-4 text-xs text-muted-foreground">
                         The profile itself is edited in the Portfolio:{' '}
-                        <Link href={portfolioLink} className="text-primary underline underline-offset-2">open it there</Link>.
+                        <Link href={portfolioLink} className="text-foreground underline underline-offset-2">open it there</Link>.
                       </p>
                     )}
                   </>

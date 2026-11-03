@@ -2,12 +2,11 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bot, CircleCheck, Clock, Eye, History, ListChecks, RefreshCw, Zap } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { returnFocusTo } from '@/lib/agent/focus'
-import { BANNER_TONE, FIELD_ERROR_TEXT } from '@/lib/agent/tones'
+import { AGENT_MARK_TONE, BANNER_TONE, CHIP_BASE, FIELD_ERROR_TEXT } from '@/lib/agent/tones'
 import {
   countsText, durationText, EMPTY_FILTERS, filterProblem, formatCost, formatWhen, loadFailure, NO_VALUE, RUN_STATUS_OPTIONS, runsParams, successRate, triggerText, type RunFilters,
 } from '@/lib/agent/model'
@@ -98,9 +97,9 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Agent run history</h1>
-            <Badge variant="navy" className="gap-1">
+            <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
               <History aria-hidden className="size-3" /> Audit log
-            </Badge>
+            </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Every run of an agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
@@ -226,7 +225,7 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
                     <td className="space-y-1 px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[11px] text-muted-foreground">#{run.id}</span>
-                        <Badge variant="navy" className="gap-1"><Zap aria-hidden className="size-3" /> Organisation agent</Badge>
+                        <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}><Zap aria-hidden className="size-3" /> Organisation agent</span>
                       </div>
                       <p className="text-muted-foreground">{triggerText(run.trigger)}{run.user_name ? ` · for ${run.user_name}` : ''}</p>
                     </td>

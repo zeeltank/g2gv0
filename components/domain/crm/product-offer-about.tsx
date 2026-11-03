@@ -46,7 +46,7 @@ export function ProductOfferAbout({ offer, lineKey }: { offer: PmOffer | null | 
       )}
       <p className="mt-4 text-xs text-muted-foreground">
         The ideal-customer profile is kept where it is today:{' '}
-        <Link href={lineKey ? `${configureHref(lineKey)}?tab=offers` : '/portfolio'} className="text-primary underline underline-offset-2">open the Portfolio</Link>.
+        <Link href={lineKey ? `${configureHref(lineKey)}?tab=offers` : '/portfolio'} className="text-foreground underline underline-offset-2">open the Portfolio</Link>.
       </p>
     </SectionCard>
   )

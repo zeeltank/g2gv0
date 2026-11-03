@@ -169,7 +169,7 @@ export function ProductLinesView({ scopeSwitch, recordHref, catalogueHref, servi
       </div>
 
       {notice && (
-        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success bg-card p-3 text-sm text-foreground">
           <span>{notice.text}</span>
           <span className="flex items-center gap-2">
             {notice.action && <Button size="sm" variant="outline" onClick={notice.action.run}>{notice.action.label}</Button>}

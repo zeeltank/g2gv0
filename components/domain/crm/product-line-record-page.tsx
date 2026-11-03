@@ -221,8 +221,8 @@ export function ProductLineRecordPage({ id, onBack, onNameKnown, hrefs, service 
           <div
             role={notice.tone === 'error' ? 'alert' : 'status'}
             className={notice.tone === 'error'
-              ? 'rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive'
-              : 'rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success'}
+              ? 'rounded-lg border border-destructive bg-card p-3 text-sm text-foreground'
+              : 'rounded-lg border border-success bg-card p-3 text-sm text-foreground'}
           >
             {notice.text}
           </div>
@@ -320,7 +320,7 @@ function SubProductOverview({ record, href }: { record: PmRecord; href: (id: num
       <SectionCard title="Identity" description="Saved in the product lines and the Portfolio.">
         <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <ReadField label="Name" value={record.name} />
-          <ReadField label="Product line" value={record.parent && <Link href={href(record.parent.id)} className="text-primary hover:underline">{record.parent.name}</Link>} />
+          <ReadField label="Product line" value={record.parent && <Link href={href(record.parent.id)} className="text-foreground underline underline-offset-2 hover:no-underline">{record.parent.name}</Link>} />
           <ReadField label="Sub-product ID" value={offer && <span className="font-mono text-xs">{offer.offerId}</span>} />
           <ReadField
             label="Readiness"

@@ -67,7 +67,7 @@ export function PageTabs({ tabs, active, onChange, label, idPrefix }: {
             onClick={() => onChange(tab.id)}
             className={cn(
               '-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              selected ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+              selected ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
             {tab.label}

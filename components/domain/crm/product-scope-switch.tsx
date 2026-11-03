@@ -1,5 +1,6 @@
 'use client'
 
+import { SWITCH_ACTIVE, SWITCH_COUNT, SWITCH_IDLE } from '@/lib/product-master/tones'
 import { cn } from '@/lib/utils'
 import type { CrmProductLines } from '@/types/crm'
 import { SCOPE_LABELS, type ProductScope } from './product-lines-model'
@@ -30,11 +31,11 @@ export function ProductScopeSwitch({ scope, onChange, lines }: {
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
               index > 0 && 'border-l border-border',
-              active ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
+              active ? SWITCH_ACTIVE : SWITCH_IDLE,
             )}
           >
             {SCOPE_LABELS[value]}
-            {count !== null && <span className="rounded-full bg-muted px-1.5 text-xs font-normal text-muted-foreground">{count}</span>}
+            {count !== null && <span className={cn('rounded-full px-1.5 text-xs font-normal', SWITCH_COUNT)}>{count}</span>}
           </button>
         )
       })}

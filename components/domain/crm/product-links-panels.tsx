@@ -70,12 +70,12 @@ export function ProductSignalsIcpPanel({ masterId, hrefs, onChanged, service = p
   const lineHref = (id: number) => lineRecordHref(hrefs.products, id)
   const canEdit = Boolean(record && record.kind === 'sub_product' && !record.shared && meta?.can.editSubProduct)
 
-  if (recordError) return <p role="alert" className="text-sm text-destructive">{recordError}</p>
+  if (recordError) return <p role="alert" className="text-sm text-red-700 dark:text-red-300">{recordError}</p>
   if (!record) return <p role="status" className="text-sm text-muted-foreground">Loading…</p>
 
   return (
     <div className="space-y-4">
-      {notice && <div role="status" className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+      {notice && <div role="status" className="rounded-lg border border-success bg-card p-3 text-sm text-foreground">{notice}</div>}
       <ProductSignalsIcpTab
         record={record}
         usage={usage}

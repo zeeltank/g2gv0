@@ -62,6 +62,16 @@ describe('the four agent components keep to those looks (a scan, because the bug
     assert.deepEqual(offences, [], 'the status colour is only a border or an icon; the words are text-foreground on a solid surface')
   })
 
+  it('uses no shared Badge or StatusBadge (their variants are a status colour as text on a tint of itself: Badge navy was 4.31:1 in the real browser)', () => {
+    const offences: string[] = []
+    for (const file of files) {
+      readFileSync(file, 'utf8').split(/\r?\n/).forEach((line, index) => {
+        if (/components\/ui\/(status-)?badge|<(Status)?Badge\b/.test(line)) offences.push(`${path.basename(file)}:${index + 1}: ${line.trim().slice(0, 140)}`)
+      })
+    }
+    assert.deepEqual(offences, [])
+  })
+
   it('draws no table head or form on a tint of the muted surface (text-muted-foreground on it was never measured)', () => {
     const offences: string[] = []
     for (const file of files) {
