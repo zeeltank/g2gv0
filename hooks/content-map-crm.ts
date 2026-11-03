@@ -43,6 +43,7 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
 const SignalInboxView = createLazyComponent(() => import('@/domain/crm/signal-inbox-view').then((m) => ({ default: m.SignalInboxView })))
+const SignalReviewView = createLazyComponent(() => import('@/domain/crm/signal-review-view').then((m) => ({ default: m.SignalReviewView })))
 
 // Marketing Automation & AI Agent Runs
 const AutomationRulesView = createLazyComponent(() => import('@/domain/crm/automation-rules-view').then((m) => ({ default: m.AutomationRulesView })))
@@ -71,6 +72,9 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 2. Market Signals & Social Listening
   { accessLink: '/module/crm/signals', component: MarketSignalsView },
   { accessLink: '/signals', component: MarketSignalsView },
+  // Signal Review (agentic CRM slice 2): decide on signals with the evidence in view, and keep the reason. Beside the original Signals screen, which is unchanged.
+  { accessLink: '/module/crm/signal-review', component: SignalReviewView },
+  { accessLink: '/signal-review', component: SignalReviewView },
   { accessLink: '/module/crm/marketing/signal-inbox', component: SignalInboxView },
 
   // 3. Prospecting & ICP Discovery
