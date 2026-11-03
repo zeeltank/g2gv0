@@ -16,6 +16,14 @@
  * or retiring one would change what every other organisation sees. They are listed — an
  * administrator needs to know what is available — but only a organisation's own rows can be
  * edited. The API enforces the same rule; this is the explanation, not the control.
+ *
+ * PRICES
+ *
+ * A model's price is what a run's cost is worked out from. An organisation enters its own price per
+ * MILLION tokens, which is how vendors publish it; the API keeps it per 1,000 (`model-price.ts` converts,
+ * on the digits). Its own price wins over the platform default only when it has BOTH an input and an
+ * output price, so a blank row never hides a default the developer company has set. Platform prices
+ * are shown, in their own currency, and are read-only like the rest of a platform row.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,8 +34,19 @@ import {
   fetchAiModels,
   updateAiModel,
   type AiModelIndex,
+  type AiModelOption,
 } from '@/lib/intelligence/ai-configuration';
 import { AiApiError, describeAiError } from '@/lib/intelligence/client';
+import {
+  DEFAULT_PRICE_CURRENCY,
+  PRICE_CURRENCIES,
+  checkPrices,
+  currencySymbol,
+  describeRates,
+  per1kToPerMillion,
+  rowCurrency,
+  toRequestNumber,
+} from '@/lib/intelligence/model-price';
 
 interface ModelForm {
   id: number | null;
@@ -35,8 +54,10 @@ interface ModelForm {
   model_id: string;
   label: string;
   max_output_tokens: string;
-  input_cost_per_1k: string;
-  output_cost_per_1k: string;
+  currency: string;
+  /** Per million tokens, as typed. The API takes per 1,000: see `checkPrices`. */
+  input_price: string;
+  output_price: string;
   sort_order: string;
   status: number;
 }
@@ -47,11 +68,27 @@ const EMPTY: ModelForm = {
   model_id: '',
   label: '',
   max_output_tokens: '',
-  input_cost_per_1k: '',
-  output_cost_per_1k: '',
+  currency: DEFAULT_PRICE_CURRENCY,
+  input_price: '',
+  output_price: '',
   sort_order: '',
   status: 1,
 };
+
+const PRICE_HINT_ID = 'model-price-hint';
+
+/**
+ * The platform's default price for the same model, when it has a full one. This is the price a run is
+ * costed at when the organisation's own row has none, so the screen can say which price applies.
+ */
+function platformDefaultFor(index: AiModelIndex | null, model: AiModelOption): string | null {
+  const wanted = model.model_id.trim().toLowerCase();
+  const match = (index?.models[model.provider] ?? []).find(
+    (candidate) => candidate.scope === 'platform' && candidate.model_id.trim().toLowerCase() === wanted,
+  );
+
+  return match ? describeRates(match) : null;
+}
 
 export function ModelManager() {
   const [index, setIndex] = useState<AiModelIndex | null>(null);
@@ -104,17 +141,28 @@ export function ModelManager() {
     event.preventDefault();
     if (!form) return;
 
-    setSaving(true);
     setFormError(null);
     setFieldErrors({});
+
+    // Checked before anything is sent: a price the server would have to refuse, or half a price it
+    // could never cost a call from, is explained under its own field instead.
+    const prices = checkPrices(form.input_price, form.output_price);
+
+    if (Object.keys(prices.errors).length > 0) {
+      setFieldErrors(prices.errors);
+      return;
+    }
+
+    setSaving(true);
 
     const payload = {
       provider: form.provider,
       model_id: form.model_id.trim(),
       label: form.label.trim(),
       max_output_tokens: form.max_output_tokens.trim() === '' ? null : Number(form.max_output_tokens),
-      input_cost_per_1k: form.input_cost_per_1k.trim() === '' ? null : Number(form.input_cost_per_1k),
-      output_cost_per_1k: form.output_cost_per_1k.trim() === '' ? null : Number(form.output_cost_per_1k),
+      currency: form.currency,
+      input_cost_per_1k: toRequestNumber(prices.input),
+      output_cost_per_1k: toRequestNumber(prices.output),
       // Sent even when unchanged. The API defaults an omitted sort_order to 0 and
       // writes it, so leaving it out of an edit silently moved the model to the
       // top of every dropdown that reads this catalogue.
@@ -181,6 +229,11 @@ export function ModelManager() {
           <p className="mt-1 text-sm text-muted-foreground">
             The models each provider offers. This is the list the provider screen&apos;s model
             dropdown reads.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Prices turn the tokens a run used into what it cost. Your own price is used when it has
+            both an input and an output price; otherwise the platform default applies, when there is
+            one.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -289,27 +342,46 @@ export function ModelManager() {
               />
             </Field>
 
-            <Field label="Input cost per 1K tokens (USD, optional)" error={fieldErrors.input_cost_per_1k}>
-              <input
-                type="number"
-                step="0.000001"
-                min={0}
-                value={form.input_cost_per_1k}
-                onChange={(e) => setForm({ ...form, input_cost_per_1k: e.target.value })}
+            <Field label="Currency" error={fieldErrors.currency}>
+              <select
+                value={form.currency}
+                onChange={(e) => setForm({ ...form, currency: e.target.value })}
                 className={inputClass}
+              >
+                {/* A code outside the usual two (the server may allow more) stays selectable,
+                    so editing a row never quietly changes its currency. */}
+                {[...new Set<string>([...PRICE_CURRENCIES, form.currency])].map((code) => (
+                  <option key={code} value={code}>
+                    {code === 'INR' ? 'INR (rupees)' : code === 'USD' ? 'USD (US dollars)' : code}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div className="hidden sm:block" aria-hidden="true" />
+
+            <Field label="Input price (per million tokens, optional)" error={fieldErrors.input_cost_per_1k}>
+              <PriceInput
+                symbol={currencySymbol(form.currency)}
+                value={form.input_price}
+                invalid={Boolean(fieldErrors.input_cost_per_1k?.length)}
+                onChange={(value) => setForm({ ...form, input_price: value })}
               />
             </Field>
 
-            <Field label="Output cost per 1K tokens (USD, optional)" error={fieldErrors.output_cost_per_1k}>
-              <input
-                type="number"
-                step="0.000001"
-                min={0}
-                value={form.output_cost_per_1k}
-                onChange={(e) => setForm({ ...form, output_cost_per_1k: e.target.value })}
-                className={inputClass}
+            <Field label="Output price (per million tokens, optional)" error={fieldErrors.output_cost_per_1k}>
+              <PriceInput
+                symbol={currencySymbol(form.currency)}
+                value={form.output_price}
+                invalid={Boolean(fieldErrors.output_cost_per_1k?.length)}
+                onChange={(value) => setForm({ ...form, output_price: value })}
               />
             </Field>
+
+            <p id={PRICE_HINT_ID} className="text-xs text-muted-foreground sm:col-span-2">
+              Price per 1,000,000 tokens. Leave blank if unknown: the cost of a run then shows as
+              unknown, never as zero.
+            </p>
           </div>
 
           <label className="mt-4 flex items-center gap-2 text-sm text-foreground">
@@ -371,7 +443,7 @@ export function ModelManager() {
                       <Th>Label</Th>
                       <Th>Model id</Th>
                       <Th>Max output</Th>
-                      <Th>Cost / 1K (in / out)</Th>
+                      <Th>Price per 1M tokens (in / out)</Th>
                       <Th>Scope</Th>
                       <Th>Status</Th>
                       <Th> </Th>
@@ -390,15 +462,13 @@ export function ModelManager() {
                         <Td className="font-medium">{model.label}</Td>
                         <Td className="font-mono text-xs">{model.model_id}</Td>
                         <Td>{model.max_output_tokens ?? '—'}</Td>
-                        <Td className="text-xs">
-                          {/* A blank cost is honest rather than a guessed rate: this
-                              column exists so a bill can be explained. */}
-                          {model.input_cost_per_1k === null && model.output_cost_per_1k === null
-                            ? '—'
-                            : `${model.input_cost_per_1k ?? '—'} / ${model.output_cost_per_1k ?? '—'}`}
+                        <Td className="text-xs" wrap>
+                          <PriceCell model={model} platformDefault={platformDefaultFor(index, model)} />
                         </Td>
-                        <Td className="text-xs text-muted-foreground">
-                          {model.scope === 'platform' ? 'Platform (shared)' : 'This organisation'}
+                        <Td className="text-xs text-muted-foreground" wrap>
+                          {model.scope === 'platform'
+                            ? 'Platform default (set by the developer company)'
+                            : 'This organisation'}
                         </Td>
                         <Td>
                           <span
@@ -422,8 +492,9 @@ export function ModelManager() {
                                   model_id: model.model_id,
                                   label: model.label,
                                   max_output_tokens: model.max_output_tokens?.toString() ?? '',
-                                  input_cost_per_1k: model.input_cost_per_1k?.toString() ?? '',
-                                  output_cost_per_1k: model.output_cost_per_1k?.toString() ?? '',
+                                  currency: rowCurrency(model),
+                                  input_price: per1kToPerMillion(model.input_cost_per_1k),
+                                  output_price: per1kToPerMillion(model.output_cost_per_1k),
                                   // Carried through the round trip so an edit
                                   // preserves the model's place in the list.
                                   sort_order: model.sort_order?.toString() ?? '',
@@ -475,10 +546,79 @@ function Field({
   );
 }
 
+/** A price box with its currency symbol in front, so the unit is never a guess. Text, not a number input: a number input blanks what it cannot read, and a blank price means unknown. */
+function PriceInput({
+  symbol,
+  value,
+  invalid,
+  onChange,
+}: {
+  symbol: string;
+  value: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <span className="flex items-center rounded-md border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+      <span className="pl-3 pr-1.5 text-sm text-muted-foreground" aria-hidden="true">
+        {symbol}
+      </span>
+      <input
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-describedby={PRICE_HINT_ID}
+        aria-invalid={invalid || undefined}
+        placeholder="0.00"
+        className="w-full bg-transparent py-2 pr-3 text-sm text-foreground outline-none"
+      />
+    </span>
+  );
+}
+
+/**
+ * What the Price column says for a row. A platform row's price is the developer company's and is only
+ * shown; an organisation's own row without a full price says which price actually applies instead.
+ */
+function PriceCell({ model, platformDefault }: { model: AiModelOption; platformDefault: string | null }) {
+  const rates = describeRates(model);
+
+  if (rates) return <span>{rates}</span>;
+
+  // A blank is honest rather than a guessed rate: it makes the cost of a run unknown, not zero.
+  if (model.scope === 'platform') return <span className="text-muted-foreground">Not set</span>;
+
+  return (
+    <>
+      <span className="block text-muted-foreground">Not set</span>
+      <span className="block text-muted-foreground">
+        {platformDefault
+          ? `The platform default applies: ${platformDefault}`
+          : 'No platform default: the cost of a run shows as unknown'}
+      </span>
+    </>
+  );
+}
+
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="whitespace-nowrap px-3 py-2 font-medium">{children}</th>;
 }
 
-function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`whitespace-nowrap px-3 py-2.5 ${className}`}>{children}</td>;
+function Td({
+  children,
+  className = '',
+  wrap = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** For the cells that carry a sentence rather than a value. */
+  wrap?: boolean;
+}) {
+  return (
+    <td className={`${wrap ? 'min-w-[10rem] whitespace-normal' : 'whitespace-nowrap'} px-3 py-2.5 ${className}`}>
+      {children}
+    </td>
+  );
 }

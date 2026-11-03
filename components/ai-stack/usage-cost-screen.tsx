@@ -37,6 +37,9 @@ import { Gauge, TriangleAlert } from 'lucide-react';
 import { fetchRuns } from '@/lib/agents/client';
 import { fetchModuleUsage, type AiModuleTokens, type AiModuleUsage } from '@/lib/intelligence/ai-module';
 import type { AgentRun } from '@/lib/agents/types';
+// One money formatter for rupees and dollars (the Runs tab of Signal Review uses it too). Each figure is shown in the currency the server reports for it and
+// is never converted: there is no exchange rate in this system, and inventing one would make a provider bill unreconcilable with this screen.
+import { formatMoney } from '@/lib/signal-review/format';
 
 import {
   AiStackCard,
@@ -164,7 +167,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           {
             key: 'cost',
             label: 'Cost',
-            value: tokens?.cost !== null && tokens?.cost !== undefined ? formatUsd(tokens.cost) : '—',
+            value: tokens?.cost !== null && tokens?.cost !== undefined ? formatMoney(tokens.cost, tokens.cost_currency ?? 'USD') : '—',
             hint: tokens?.cost_source === 'unavailable' ? 'no rate or tokens' : (tokens?.cost_source ?? 'unavailable'),
           },
         ]}
@@ -299,15 +302,15 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
                       : tokens.rate.input_per_1k === null && tokens.rate.output_per_1k === null
                         ? `${tokens.rate.label} — no price published`
                         : `${tokens.rate.label} — ${
-                            tokens.rate.input_per_1k === null ? 'no input price' : formatUsd(tokens.rate.input_per_1k)
+                            tokens.rate.input_per_1k === null ? 'no input price' : formatMoney(tokens.rate.input_per_1k, tokens.rate.currency ?? 'USD')
                           } in / ${
-                            tokens.rate.output_per_1k === null ? 'no output price' : formatUsd(tokens.rate.output_per_1k)
+                            tokens.rate.output_per_1k === null ? 'no output price' : formatMoney(tokens.rate.output_per_1k, tokens.rate.currency ?? 'USD')
                           } out per 1k`
                   }
                 />
                 <Row
                   label="Cost"
-                  value={tokens.cost === null ? 'not calculable' : `${formatUsd(tokens.cost)} (${tokens.cost_source})`}
+                  value={tokens.cost === null ? 'not calculable' : `${formatMoney(tokens.cost, tokens.cost_currency ?? 'USD')} (${tokens.cost_source})`}
                 />
               </dl>
               {generation?.available && Object.keys(generation.by_status).length > 0 && (
@@ -493,19 +496,4 @@ function Row({ label, value }: { label: string; value: string }) {
       <dd className="text-sm tabular-nums text-slate-900">{value}</dd>
     </div>
   );
-}
-
-/**
- * Rates and costs are published in USD per 1,000 tokens, so they are shown in USD.
- *
- * Deliberately not converted to rupees: there is no exchange rate in this system, and
- * inventing one would make a provider bill unreconcilable with this screen.
- */
-function formatUsd(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: value > 0 && value < 0.01 ? 6 : 2,
-    maximumFractionDigits: 6,
-  }).format(value);
 }

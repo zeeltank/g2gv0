@@ -6,8 +6,8 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { statusBadgeVariants } from '@/components/ui/status-badge'
 import {
-  formatCostUsd, formatCount, formatDateTime, formatDuration, NO_VALUE, relativeTime, runNeedsReason, runReason, runStatusLabel, runStatusTone,
-  sortRunsNewestFirst, summariseRuns, totalTokens, type KnownSum, type RunsSummary,
+  formatCount, formatDateTime, formatDuration, formatMoney, NO_VALUE, relativeTime, runNeedsReason, runReason, runStatusLabel, runStatusTone,
+  sortRunsNewestFirst, summariseRuns, totalTokens, type CostSummary, type KnownSum, type RunsSummary,
 } from '@/lib/signal-review/format'
 import { ApiError } from '@/services/core'
 import { signalRunsService, type SignalRun } from '@/services/signal-review/runs-service'
@@ -100,7 +100,7 @@ export function SignalRunsView({ runs, loading, error, onRetry, now }: {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <LastRunTile run={summary.last} now={now} />
           <OutcomesTile counts={summary.counts} total={summary.total} />
-          <SumTile label="AI cost (USD)" value={formatCostUsd(summary.cost.total)} sum={summary.cost} total={summary.total} noun="cost" />
+          <CostTile cost={summary.cost} total={summary.total} />
           <SumTile label="AI tokens" value={formatCount(summary.tokens.total)} sum={summary.tokens} total={summary.total} noun="token count" />
           <SumTile label="Search requests" value={formatCount(summary.searches.total)} sum={summary.searches} total={summary.total} noun="search count" />
         </div>
@@ -126,7 +126,7 @@ export function SignalRunsView({ runs, loading, error, onRetry, now }: {
               <th scope="col" className="px-3 py-2 font-medium">Product</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Signals found</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">AI tokens</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Cost (USD)</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">AI cost</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Search requests</th>
             </tr>
           </thead>
@@ -165,8 +165,8 @@ function RunRow({ run, now }: { run: SignalRun; now?: Date }) {
       <td className="px-3 py-2 text-right" title={tokens === null ? 'Not recorded for this run' : `${formatCount(run.ai_input_tokens)} in, ${formatCount(run.ai_output_tokens)} out`}>
         {formatCount(tokens)}
       </td>
-      <td className="px-3 py-2 text-right" title={run.ai_cost_usd === null ? 'Cost was not recorded for this run' : undefined}>
-        {formatCostUsd(run.ai_cost_usd)}
+      <td className="px-3 py-2 text-right" title={costNote(run)}>
+        {formatMoney(run.ai_cost, run.ai_cost_currency)}
       </td>
       <td className="px-3 py-2 text-right">{formatCount(run.search_requests)}</td>
     </tr>
@@ -224,18 +224,51 @@ function OutcomesTile({ counts, total }: { counts: RunsSummary['counts']; total:
   )
 }
 
-/** "1 of 3 runs has no cost recorded": how many runs a total leaves out. */
-function missing(sum: KnownSum, total: number, noun: string): string {
-  return `${sum.unknown} of ${total} ${sum.unknown === 1 ? 'runs has' : 'runs have'} no ${noun} recorded`
+/** What a total says about the runs it leaves out: "1 of 3 runs has no cost recorded", "All 2 runs have a cost recorded", "No run has a cost recorded". */
+function coverage(sum: Pick<KnownSum, 'known' | 'unknown'>, total: number, noun: string): string {
+  if (sum.known === 0) return `No run has a ${noun} recorded`
+  if (sum.unknown > 0) return `${sum.unknown} of ${total} ${sum.unknown === 1 ? 'runs has' : 'runs have'} no ${noun} recorded`
+  return `All ${total} ${total === 1 ? 'run has' : 'runs have'} a ${noun} recorded`
 }
 
 function SumTile({ label, value, sum, total, noun }: { label: string; value: string; sum: KnownSum; total: number; noun: string }) {
-  const caption = sum.known === 0 ? `No run has a ${noun} recorded` : sum.unknown > 0 ? missing(sum, total, noun) : `All ${total} ${total === 1 ? 'run has' : 'runs have'} a ${noun} recorded`
-
   return (
     <Tile label={label}>
       <p className="mt-1 text-xl font-semibold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{caption}</p>
+      <p className="text-xs text-muted-foreground">{coverage(sum, total, noun)}</p>
+    </Tile>
+  )
+}
+
+/** Why a cost cell shows a dash: no cost at all, or an amount whose currency nobody recorded. A cost that is shown needs no note. */
+function costNote(run: Pick<SignalRun, 'ai_cost' | 'ai_cost_currency'>): string | undefined {
+  if (run.ai_cost === null) return 'Cost was not recorded for this run'
+  return formatMoney(run.ai_cost, run.ai_cost_currency) === NO_VALUE ? 'The currency of this cost was not recorded' : undefined
+}
+
+/**
+ * The AI cost of the runs. One total per currency, never added across currencies: a single figure when every cost is in one currency, a labelled list
+ * when there are two. Runs without a cost are left out of every total, and the line under it says how many.
+ */
+function CostTile({ cost, total }: { cost: CostSummary; total: number }) {
+  const { byCurrency } = cost
+
+  return (
+    <Tile label="AI cost">
+      {byCurrency.length === 0 && <p className="mt-1 text-xl font-semibold text-foreground">{NO_VALUE}</p>}
+      {byCurrency.length === 1 && <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(byCurrency[0].total, byCurrency[0].currency)}</p>}
+      {byCurrency.length > 1 && (
+        <ul className="mt-1 space-y-0.5">
+          {byCurrency.map((entry) => (
+            <li key={entry.currency} data-currency={entry.currency} className="flex items-baseline gap-2">
+              <span className="w-10 text-xs text-muted-foreground">{entry.currency}</span>
+              <b className="text-lg font-semibold text-foreground">{formatMoney(entry.total, entry.currency)}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-muted-foreground">{coverage(cost, total, 'cost')}</p>
+      {byCurrency.length > 1 && <p className="text-xs text-muted-foreground">Shown per currency; they are not added together.</p>}
     </Tile>
   )
 }

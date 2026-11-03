@@ -10,7 +10,7 @@ function run(over: Partial<SignalRun> = {}): SignalRun {
   return {
     id: 81, trigger: 'manual', status: 'success', started_at: '2026-11-03T09:00:00Z', completed_at: '2026-11-03T09:03:05Z', duration_seconds: 185,
     product_key: 'scholar', product_master_id: 7, product_name: 'Scholar', signals_found: 7, signals_new: 5,
-    ai_input_tokens: 90_000, ai_output_tokens: 6_214, ai_cost_usd: 0.0412, search_requests: 38, search_credits: null,
+    ai_input_tokens: 90_000, ai_output_tokens: 6_214, ai_cost: 0.0412, ai_cost_currency: 'INR', search_requests: 38, search_credits: null,
     error_code: null, error_message: null, stage_message: null, ...over,
   }
 }
@@ -63,7 +63,7 @@ describe('SignalRunsView: the table', () => {
     const { k } = await setupView()
     assert.deepEqual(
       k.all('thead th').map((th) => th.textContent),
-      ['Run', 'Started', 'Trigger', 'Status', 'Duration', 'Product', 'Signals found', 'AI tokens', 'Cost (USD)', 'Search requests'],
+      ['Run', 'Started', 'Trigger', 'Status', 'Duration', 'Product', 'Signals found', 'AI tokens', 'AI cost', 'Search requests'],
     )
   })
 
@@ -76,23 +76,49 @@ describe('SignalRunsView: the table', () => {
     assert.equal(r.product, 'Scholar')
     assert.ok(r.found.startsWith('7') && r.found.endsWith('5 new'), `7 found, of which 5 new: ${r.found}`)
     assert.equal(r.tokens, '96,214')
-    assert.equal(r.cost, '$0.0412')
+    assert.equal(r.cost, '₹0.0412')
     assert.equal(r.searches, '38')
   })
 
   it('shows an unknown cost, token count and search count as a dash, never as zero', async () => {
-    const { row, k } = await setupView({ runs: [run({ id: 5, ai_cost_usd: null, ai_input_tokens: null, ai_output_tokens: null, search_requests: null })] })
+    const { row, k } = await setupView({ runs: [run({ id: 5, ai_cost: null, ai_cost_currency: null, ai_input_tokens: null, ai_output_tokens: null, search_requests: null })] })
     const r = row(5)
     assert.equal(r.cost, '—')
     assert.equal(r.tokens, '—')
     assert.equal(r.searches, '—')
-    assert.ok(!k.one('tbody')!.textContent!.includes('$0'), 'no invented zero cost')
+    assert.ok(!/[₹$]\s*0/.test(k.one('tbody')!.textContent!), 'no invented zero cost')
+    assert.equal(k.one('tbody tr')!.querySelectorAll('td')[8].getAttribute('title'), 'Cost was not recorded for this run')
+  })
+
+  it('shows an unknown cost as a dash even when the server names a currency for it, and leaves it out of the total', async () => {
+    const { row, k } = await setupView({ runs: [run({ id: 9, ai_cost: null, ai_cost_currency: 'INR' })] })
+    assert.equal(row(9).cost, '—')
+    assert.ok(!/[₹$]\s*0/.test(k.bodyText()), 'no zero anywhere on the screen')
+    assert.ok(k.bodyText().includes('No run has a cost recorded'))
+  })
+
+  it('writes each run\'s cost in its own currency, rupees with Indian grouping', async () => {
+    const { row } = await setupView({
+      runs: [
+        run({ id: 4, ai_cost: 123456.78, ai_cost_currency: 'INR' }),
+        run({ id: 3, ai_cost: 2.5, ai_cost_currency: 'USD' }),
+        run({ id: 2, ai_cost: 12.5, ai_cost_currency: 'EUR' }),
+        run({ id: 1, ai_cost: 0.0042, ai_cost_currency: 'INR' }),
+      ],
+    })
+    assert.deepEqual([row(4).cost, row(3).cost, row(2).cost, row(1).cost], ['₹1,23,456.78', '$2.50', 'EUR 12.50', '₹0.0042'])
+  })
+
+  it('does not show an amount whose currency was not recorded as if it were money', async () => {
+    const { row, k } = await setupView({ runs: [run({ id: 7, ai_cost: 9.5, ai_cost_currency: null })] })
+    assert.equal(row(7).cost, '—')
+    assert.equal(k.one('tbody tr')!.querySelectorAll('td')[8].getAttribute('title'), 'The currency of this cost was not recorded')
   })
 
   it('shows a recorded zero as zero, because a run that used no AI really cost nothing', async () => {
-    const { row } = await setupView({ runs: [run({ id: 6, ai_cost_usd: 0, ai_input_tokens: 0, ai_output_tokens: 0, search_requests: 0 })] })
+    const { row } = await setupView({ runs: [run({ id: 6, ai_cost: 0, ai_input_tokens: 0, ai_output_tokens: 0, search_requests: 0 })] })
     const r = row(6)
-    assert.equal(r.cost, '$0.00')
+    assert.equal(r.cost, '₹0.00')
     assert.equal(r.tokens, '0')
     assert.equal(r.searches, '0')
   })
@@ -170,27 +196,58 @@ describe('SignalRunsView: run health', () => {
     assert.equal(count('other'), undefined, 'no "other" unless some run is neither')
   })
 
-  it('adds up cost over the runs that have one and says how many have none', async () => {
+  /** The text of the AI cost tile, which is the only tile with that label. */
+  const costTile = (k: Awaited<ReturnType<typeof setupView>>['k']) => k.all('section[aria-label="Run health"] > div > div').find((t) => t.textContent!.includes('AI cost'))!
+
+  it('adds up cost in rupees over the runs that have one and says how many have none', async () => {
     const { k } = await setupView({
-      runs: [run({ id: 3, ai_cost_usd: 0.04 }), run({ id: 2, ai_cost_usd: null }), run({ id: 1, ai_cost_usd: 0.01 })],
+      runs: [run({ id: 3, ai_cost: 0.04 }), run({ id: 2, ai_cost: null, ai_cost_currency: null }), run({ id: 1, ai_cost: 0.01 })],
     })
-    const tile = k.all('section[aria-label="Run health"] > div > div').find((t) => t.textContent!.includes('AI cost'))!
-    assert.ok(tile.textContent!.includes('$0.0500'), tile.textContent!)
+    const tile = costTile(k)
+    assert.ok(tile.textContent!.includes('₹0.0500'), tile.textContent!)
     assert.ok(tile.textContent!.includes('1 of 3 runs has no cost recorded'))
+    assert.equal(tile.querySelectorAll('li').length, 0, 'one currency is one figure, not a list')
   })
 
-  it('shows an unknown total, not $0.00, when no run has a cost recorded', async () => {
-    const { k } = await setupView({ runs: [run({ id: 2, ai_cost_usd: null }), run({ id: 1, ai_cost_usd: null })] })
-    const tile = k.all('section[aria-label="Run health"] > div > div').find((t) => t.textContent!.includes('AI cost'))!
+  it('keeps rupees and dollars apart: a labelled list, each currency summed on its own', async () => {
+    const { k } = await setupView({
+      runs: [
+        run({ id: 4, ai_cost: 100, ai_cost_currency: 'INR' }),
+        run({ id: 3, ai_cost: 2, ai_cost_currency: 'USD' }),
+        run({ id: 2, ai_cost: 23.5, ai_cost_currency: 'INR' }),
+        run({ id: 1, ai_cost: null, ai_cost_currency: null }),
+      ],
+    })
+    const tile = costTile(k)
+    const entries = Array.from(tile.querySelectorAll('li')).map((li) => [li.getAttribute('data-currency'), li.textContent])
+    assert.deepEqual(entries, [['INR', 'INR₹123.50'], ['USD', 'USD$2.00']])
+    assert.ok(!tile.textContent!.includes('125.50') && !tile.textContent!.includes('₹125'), 'no sum across currencies')
+    assert.ok(tile.textContent!.includes('1 of 4 runs has no cost recorded'), 'the run with no cost is left out and counted')
+  })
+
+  it('shows an unknown total, not ₹0.00, when no run has a cost recorded', async () => {
+    const { k } = await setupView({ runs: [run({ id: 2, ai_cost: null, ai_cost_currency: null }), run({ id: 1, ai_cost: null, ai_cost_currency: null })] })
+    const tile = costTile(k)
     assert.ok(tile.textContent!.includes('—'))
-    assert.ok(!tile.textContent!.includes('$0'))
+    assert.ok(!/[₹$]\s*0/.test(tile.textContent!))
     assert.ok(tile.textContent!.includes('No run has a cost recorded'))
+  })
+
+  it('sums a recorded zero as a known cost, so a run that used no AI is not called unknown', async () => {
+    const { k } = await setupView({ runs: [run({ id: 2, ai_cost: 0 }), run({ id: 1, ai_cost: 0.5 })] })
+    const tile = costTile(k)
+    assert.ok(tile.textContent!.includes('₹0.5000'))
+    assert.ok(tile.textContent!.includes('All 2 runs have a cost recorded'))
   })
 
   it('says every run has a cost when none is missing', async () => {
     const { k } = await setupView({ runs: [run({ id: 2 }), run({ id: 1 })] })
-    const tile = k.all('section[aria-label="Run health"] > div > div').find((t) => t.textContent!.includes('AI cost'))!
-    assert.ok(tile.textContent!.includes('All 2 runs have a cost recorded'))
+    assert.ok(costTile(k).textContent!.includes('All 2 runs have a cost recorded'))
+  })
+
+  it('labels the card AI cost without naming a currency, because the figures name their own', async () => {
+    const { k } = await setupView()
+    assert.ok(!costTile(k).textContent!.includes('(USD)'))
   })
 })
 
@@ -199,30 +256,51 @@ describe('parseRun', () => {
     const parsed = parseRun({
       id: 81, trigger: 'manual', status: 'partial', started_at: '2026-11-03T09:00:00+05:30', completed_at: '2026-11-03T09:03:05+05:30',
       duration_seconds: 185, product_key: 'scholar', product_master_id: 7, opportunities_qualified: 7, opportunities_new: 5,
-      ai_input_tokens: 90000, ai_output_tokens: 6214, ai_cost_usd: 0.0412, search_requests: 38, search_credits: 2.5,
+      ai_input_tokens: 90000, ai_output_tokens: 6214, ai_cost: 0.0412, ai_cost_currency: 'INR', search_requests: 38, search_credits: 2.5,
       error_code: 'x', error_message: 'y', stage_message: 'z',
     }, new Map([[7, 'Scholar']]))
     assert.deepEqual(parsed, {
       id: 81, trigger: 'manual', status: 'partial', started_at: '2026-11-03T09:00:00+05:30', completed_at: '2026-11-03T09:03:05+05:30',
       duration_seconds: 185, product_key: 'scholar', product_master_id: 7, product_name: 'Scholar', signals_found: 7, signals_new: 5,
-      ai_input_tokens: 90000, ai_output_tokens: 6214, ai_cost_usd: 0.0412, search_requests: 38, search_credits: 2.5,
+      ai_input_tokens: 90000, ai_output_tokens: 6214, ai_cost: 0.0412, ai_cost_currency: 'INR', search_requests: 38, search_credits: 2.5,
       error_code: 'x', error_message: 'y', stage_message: 'z',
     })
   })
 
   it('keeps what was never recorded as null, not zero', () => {
-    const parsed = parseRun({ id: 1, trigger: 'manual', status: 'success', ai_cost_usd: null, search_requests: null })
-    for (const key of ['ai_input_tokens', 'ai_output_tokens', 'ai_cost_usd', 'search_requests', 'search_credits', 'duration_seconds', 'product_master_id', 'signals_found'] as const) {
+    const parsed = parseRun({ id: 1, trigger: 'manual', status: 'success', ai_cost: null, ai_cost_currency: null, search_requests: null })
+    for (const key of ['ai_input_tokens', 'ai_output_tokens', 'ai_cost', 'ai_cost_currency', 'search_requests', 'search_credits', 'duration_seconds', 'product_master_id', 'signals_found'] as const) {
       assert.equal(parsed[key], null, key)
     }
     assert.equal(parsed.product_name, null)
   })
 
   it('reads a DECIMAL sent as a string, and treats text that is not a number as unknown', () => {
-    assert.equal(parseRun({ ai_cost_usd: '0.041200' }).ai_cost_usd, 0.0412)
-    assert.equal(parseRun({ ai_cost_usd: '0.000000' }).ai_cost_usd, 0)
-    assert.equal(parseRun({ ai_cost_usd: 'n/a' }).ai_cost_usd, null)
-    assert.equal(parseRun({ ai_cost_usd: '' }).ai_cost_usd, null)
+    assert.equal(parseRun({ ai_cost: '0.041200', ai_cost_currency: 'INR' }).ai_cost, 0.0412)
+    assert.equal(parseRun({ ai_cost: '0.0000', ai_cost_currency: 'INR' }).ai_cost, 0)
+    assert.equal(parseRun({ ai_cost: 'n/a', ai_cost_currency: 'INR' }).ai_cost, null)
+    assert.equal(parseRun({ ai_cost: '', ai_cost_currency: 'INR' }).ai_cost, null)
+  })
+
+  it('reads the currency in capitals, and null when the server sends none', () => {
+    assert.equal(parseRun({ ai_cost: 1, ai_cost_currency: ' inr ' }).ai_cost_currency, 'INR')
+    assert.equal(parseRun({ ai_cost: 1, ai_cost_currency: '' }).ai_cost_currency, null)
+    assert.equal(parseRun({ ai_cost: 1 }).ai_cost_currency, null)
+  })
+
+  it('reads the old ai_cost_usd as dollars when the server sends no ai_cost, so an older server still shows its cost', () => {
+    const parsed = parseRun({ id: 2, ai_cost_usd: '0.041200' })
+    assert.equal(parsed.ai_cost, 0.0412)
+    assert.equal(parsed.ai_cost_currency, 'USD')
+    assert.equal(parseRun({ ai_cost: null, ai_cost_currency: null, ai_cost_usd: 0 }).ai_cost, 0, 'a recorded zero dollars is still a recorded cost')
+    assert.equal(parseRun({ ai_cost_usd: null }).ai_cost, null)
+    assert.equal(parseRun({ ai_cost_usd: 'n/a' }).ai_cost_currency, null)
+  })
+
+  it('prefers ai_cost, with its own currency, over the old field when both are there', () => {
+    const parsed = parseRun({ ai_cost: 3.5, ai_cost_currency: 'INR', ai_cost_usd: 0.04 })
+    assert.equal(parsed.ai_cost, 3.5)
+    assert.equal(parsed.ai_cost_currency, 'INR')
   })
 
   it('takes the duration from duration_ms when the server does not send seconds yet', () => {
@@ -241,7 +319,7 @@ describe('SignalRunsPanel', () => {
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
   const serverRow = (over: Record<string, unknown> = {}) => ({
     id: 81, trigger: 'manual', status: 'success', started_at: '2026-11-03T09:00:00+05:30', duration_ms: 185_000, product_key: 'scholar', product_master_id: 7,
-    opportunities_qualified: 7, opportunities_new: 5, ai_input_tokens: 90_000, ai_output_tokens: 6_214, ai_cost_usd: '0.041200', search_requests: 38, ...over,
+    opportunities_qualified: 7, opportunities_new: 5, ai_input_tokens: 90_000, ai_output_tokens: 6_214, ai_cost: '0.041200', ai_cost_currency: 'INR', search_requests: 38, ...over,
   })
   const OPTIONS = { status: 1, data: [{ id: 7, key: 'scholar', name: 'Scholar', kind: 'product', parentId: null, label: 'Scholar' }] }
   const stub = (handler: (url: string) => Response) => {
@@ -264,7 +342,15 @@ describe('SignalRunsPanel', () => {
     const cells = Array.from(k.one('tbody tr')!.querySelectorAll('td')).map((td) => td.textContent)
     assert.equal(cells[5], 'Scholar')
     assert.equal(cells[4], '3 min 05 s')
-    assert.equal(cells[8], '$0.0412', 'a DECIMAL sent as text is still a cost')
+    assert.equal(cells[8], '₹0.0412', 'a DECIMAL sent as text is still a cost, in the currency the server named')
+  })
+
+  it('still shows the cost of an older server, which sends only ai_cost_usd, as dollars', async () => {
+    stub((url) => (url.includes('/signals/research/runs')
+      ? json({ status: 1, data: [serverRow({ ai_cost: undefined, ai_cost_currency: undefined, ai_cost_usd: '0.041200' })] })
+      : json(OPTIONS)))
+    const k = await mount()
+    assert.equal(k.one('tbody tr')!.querySelectorAll('td')[8].textContent, '$0.0412')
   })
 
   it('still shows the runs when the Product Master list is refused, with the product key instead of a name', async () => {

@@ -161,16 +161,33 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${Math.floor(whole / 3600)} h ${String(Math.floor((whole % 3600) / 60)).padStart(2, '0')} min`
 }
 
+/** The currencies with a symbol and a grouping of their own. Any other code is written before the number instead, so it can never be read as the wrong money. */
+const MONEY_STYLES: Record<string, { symbol: string; locale: string }> = {
+  INR: { symbol: '₹', locale: 'en-IN' },
+  USD: { symbol: '$', locale: 'en-US' },
+}
+
 /**
- * US dollars. Null is unknown and shows `—`; a recorded zero (a run that used no AI) shows `$0.00`. Under a dollar four decimals are kept, because
- * a research run costs cents and two decimals would round most of them to the same figure.
+ * An amount of money in its own currency. `₹1,23,456.78` (Indian grouping) or `$1,234.56`; a code with no symbol of its own is written before the number
+ * (`EUR 12.50`). Null, or no currency, is unknown and shows `—`: a cost that was never recorded is not zero, and an amount without its currency cannot be
+ * read as money. A recorded zero (a run that used no AI) shows `₹0.00`. Under 1 four decimals are kept, because a research run costs a few paise and two
+ * decimals would show most of them as `₹0.00`; under a hundredth of a paisa it says `<₹0.0001`, never zero.
  */
-export function formatCostUsd(value: number | null | undefined): string {
-  if (!isNumber(value)) return NO_VALUE
-  if (value === 0) return '$0.00'
-  if (value >= 1) return `$${value.toFixed(2)}`
-  if (value < 0.0001) return '<$0.0001'
-  return `$${value.toFixed(4)}`
+export function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
+  const code = typeof currency === 'string' ? currency.trim().toUpperCase() : ''
+  if (!isNumber(amount) || code === '') return NO_VALUE
+
+  const style = MONEY_STYLES[code]
+  const sign = amount < 0 ? '-' : ''
+  const size = Math.abs(amount)
+  const prefix = style ? style.symbol : `${code} `
+  const locale = style?.locale ?? 'en-US'
+
+  if (size > 0 && size < 0.0001) return `${sign}<${prefix}0.0001`
+
+  // Four decimals under 1, unless rounding them lands on 1.0000, which reads better as 1.00. A recorded zero is plain 0.00.
+  const decimals = size > 0 && size < 1 && Number(size.toFixed(4)) < 1 ? 4 : 2
+  return `${sign}${prefix}${size.toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
 }
 
 /** A whole number with thousands separators; null is `—`, a recorded 0 is `0`. */
@@ -249,6 +266,49 @@ export function sortRunsNewestFirst(runs: readonly SignalRun[]): SignalRun[] {
   })
 }
 
+/** One currency's share of the cost sum: how much, over how many runs. */
+export interface CostByCurrency {
+  currency: string
+  total: number
+  runs: number
+}
+
+/**
+ * The cost of the runs, added up per currency: rupees and dollars are never added to each other. A run counts as known only when it has an amount AND a
+ * currency; `unknown` is every other run, which no total includes.
+ */
+export interface CostSummary {
+  byCurrency: CostByCurrency[]
+  known: number
+  unknown: number
+}
+
+/** Rupees first (the default), then dollars, then any other code in alphabetical order. */
+const CURRENCY_ORDER = ['INR', 'USD']
+
+export function sumCostByCurrency(runs: ReadonlyArray<Pick<SignalRun, 'ai_cost' | 'ai_cost_currency'>>): CostSummary {
+  const totals = new Map<string, CostByCurrency>()
+  let known = 0
+
+  for (const run of runs) {
+    const currency = run.ai_cost_currency?.trim().toUpperCase()
+    if (!isNumber(run.ai_cost) || !currency) continue
+    const entry = totals.get(currency) ?? { currency, total: 0, runs: 0 }
+    entry.total += run.ai_cost
+    entry.runs += 1
+    totals.set(currency, entry)
+    known += 1
+  }
+
+  const rank = (code: string) => { const at = CURRENCY_ORDER.indexOf(code); return at === -1 ? CURRENCY_ORDER.length : at }
+  const byCurrency = [...totals.values()]
+    // Costs keep at most six decimals, so rounding there only removes the dust that adding floating point numbers leaves (0.1 + 0.2).
+    .map((entry) => ({ ...entry, total: Number(entry.total.toFixed(6)) }))
+    .sort((a, b) => rank(a.currency) - rank(b.currency) || a.currency.localeCompare(b.currency))
+
+  return { byCurrency, known, unknown: runs.length - known }
+}
+
 export interface RunsSummary {
   total: number
   /** The newest run, or null when there are none. */
@@ -258,7 +318,7 @@ export interface RunsSummary {
   allManual: boolean
   /** Runs that were not started by hand. */
   scheduled: number
-  cost: KnownSum
+  cost: CostSummary
   tokens: KnownSum
   searches: KnownSum
 }
@@ -278,7 +338,7 @@ export function summariseRuns(runs: readonly SignalRun[]): RunsSummary {
     counts,
     allManual: runs.length > 0 && manual === runs.length,
     scheduled: runs.length - manual,
-    cost: sumKnown(runs.map((run) => run.ai_cost_usd)),
+    cost: sumCostByCurrency(runs),
     tokens: sumKnown(runs.map(totalTokens)),
     searches: sumKnown(runs.map((run) => run.search_requests)),
   }

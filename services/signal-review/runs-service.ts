@@ -24,7 +24,10 @@ export interface SignalRun {
   signals_new: number | null
   ai_input_tokens: number | null
   ai_output_tokens: number | null
-  ai_cost_usd: number | null
+  /** What the run's AI calls cost, in `ai_cost_currency`. Null is unknown (a call with no price, or calls in two currencies), never zero. */
+  ai_cost: number | null
+  /** `INR`, `USD` or another code; null when the run has no cost. An amount without a currency is not shown as money. */
+  ai_cost_currency: string | null
   search_requests: number | null
   search_credits: number | null
   error_code: string | null
@@ -45,6 +48,18 @@ const num = (value: unknown): number | null => {
 }
 
 /**
+ * The cost a row carries, with its currency. `ai_cost` and `ai_cost_currency` are the contract's fields. A server that has not been updated sends only
+ * `ai_cost_usd`, which was always dollars, so that is read as USD rather than dropping a cost the server did record. `ai_cost` wins whenever it is there.
+ */
+function readCost(raw: Record<string, unknown>): { amount: number | null; currency: string | null } {
+  const amount = num(raw.ai_cost)
+  if (amount !== null) return { amount, currency: text(raw.ai_cost_currency)?.trim().toUpperCase() ?? null }
+
+  const dollars = num(raw.ai_cost_usd)
+  return dollars !== null ? { amount: dollars, currency: 'USD' } : { amount: null, currency: null }
+}
+
+/**
  * Reads one run from the server's row. `productNames` maps Product Master ids to names. A run made before runs recorded a Product Master id has only its
  * product key, so `productNamesByKey` (lower-case product key to name) names it too; with neither the key itself is shown, never a guess.
  */
@@ -53,6 +68,7 @@ export function parseRun(raw: Record<string, unknown>, productNames: ReadonlyMap
   const seconds = num(raw.duration_seconds)
   const millis = num(raw.duration_ms)
   const productKey = text(raw.product_key)
+  const cost = readCost(raw)
 
   return {
     id: num(raw.id) ?? 0,
@@ -69,7 +85,8 @@ export function parseRun(raw: Record<string, unknown>, productNames: ReadonlyMap
     signals_new: num(raw.opportunities_new),
     ai_input_tokens: num(raw.ai_input_tokens),
     ai_output_tokens: num(raw.ai_output_tokens),
-    ai_cost_usd: num(raw.ai_cost_usd),
+    ai_cost: cost.amount,
+    ai_cost_currency: cost.currency,
     search_requests: num(raw.search_requests),
     search_credits: num(raw.search_credits),
     error_code: text(raw.error_code),

@@ -80,7 +80,9 @@ export interface SignalRunRow {
   product_master_id: number | null
   ai_input_tokens: number | null
   ai_output_tokens: number | null
-  ai_cost_usd: number | null
+  /** What the AI calls of the run cost, in `ai_cost_currency` (rupees by default). Null = unknown (some call had no price), never zero. */
+  ai_cost: number | null
+  ai_cost_currency: string | null
   search_requests: number | null
   search_credits: number | null
   error_code?: string | null

@@ -2,15 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { SignalRun } from '../../services/signal-review/runs-service'
 import {
-  decidedByText, decisionLabel, dialogTitle, formatCostUsd, formatCount, formatDateTime, formatDuration, isManual, reasonText, relativeTime,
-  runNeedsReason, runReason, runStatusLabel, sortRunsNewestFirst, statusLabel, submitLabel, sumKnown, summariseRuns, totalTokens, viaTag,
+  decidedByText, decisionLabel, dialogTitle, formatCount, formatDateTime, formatDuration, formatMoney, isManual, reasonText, relativeTime,
+  runNeedsReason, runReason, runStatusLabel, sortRunsNewestFirst, statusLabel, submitLabel, sumCostByCurrency, sumKnown, summariseRuns, totalTokens, viaTag,
 } from './format'
 
 function run(over: Partial<SignalRun> = {}): SignalRun {
   return {
     id: 1, trigger: 'manual', status: 'success', started_at: '2026-11-03T10:00:00+05:30', completed_at: null, duration_seconds: 60,
     product_key: null, product_master_id: null, product_name: null, signals_found: 0, signals_new: 0,
-    ai_input_tokens: null, ai_output_tokens: null, ai_cost_usd: null, search_requests: null, search_credits: null,
+    ai_input_tokens: null, ai_output_tokens: null, ai_cost: null, ai_cost_currency: null, search_requests: null, search_credits: null,
     error_code: null, error_message: null, stage_message: null, ...over,
   }
 }
@@ -84,13 +84,40 @@ describe('dates', () => {
 })
 
 describe('numbers', () => {
-  it('shows an unknown cost as a dash and a recorded zero as zero', () => {
-    assert.equal(formatCostUsd(null), '—')
-    assert.equal(formatCostUsd(undefined), '—')
-    assert.equal(formatCostUsd(0), '$0.00')
-    assert.equal(formatCostUsd(0.0412), '$0.0412')
-    assert.equal(formatCostUsd(0.00001), '<$0.0001')
-    assert.equal(formatCostUsd(1.5), '$1.50')
+  it('writes rupees with the rupee sign and Indian grouping', () => {
+    assert.equal(formatMoney(123456.78, 'INR'), '₹1,23,456.78')
+    assert.equal(formatMoney(1234567.5, 'INR'), '₹12,34,567.50')
+    assert.equal(formatMoney(999, 'INR'), '₹999.00')
+    assert.equal(formatMoney(1.5, 'INR'), '₹1.50')
+  })
+
+  it('keeps four decimals under one rupee, so a small run does not read ₹0.00', () => {
+    assert.equal(formatMoney(0.0042, 'INR'), '₹0.0042')
+    assert.equal(formatMoney(0.5, 'INR'), '₹0.5000')
+    assert.equal(formatMoney(0.99996, 'INR'), '₹1.00', 'rounding up to one does not print 1.0000')
+    assert.equal(formatMoney(0.00001, 'INR'), '<₹0.0001', 'a positive amount is never printed as zero')
+  })
+
+  it('shows an unknown cost as a dash and a recorded zero as zero, never the other way round', () => {
+    assert.equal(formatMoney(null, 'INR'), '—')
+    assert.equal(formatMoney(undefined, 'INR'), '—')
+    assert.equal(formatMoney(Number.NaN, 'INR'), '—')
+    assert.equal(formatMoney(0, 'INR'), '₹0.00')
+    assert.equal(formatMoney(0, 'USD'), '$0.00')
+  })
+
+  it('writes dollars with the dollar sign and the same small-amount rule', () => {
+    assert.equal(formatMoney(1234.5, 'USD'), '$1,234.50')
+    assert.equal(formatMoney(0.0412, 'USD'), '$0.0412')
+    assert.equal(formatMoney(0.00001, 'USD'), '<$0.0001')
+    assert.equal(formatMoney(1.5, 'usd'), '$1.50', 'the code is not case sensitive')
+  })
+
+  it('writes the code before the number for a currency it has no symbol for, and a dash with no currency at all', () => {
+    assert.equal(formatMoney(12.5, 'EUR'), 'EUR 12.50')
+    assert.equal(formatMoney(0.0042, 'EUR'), 'EUR 0.0042')
+    assert.equal(formatMoney(12.5, null), '—', 'an amount nobody can read as money is not shown as one')
+    assert.equal(formatMoney(12.5, ''), '—')
   })
 
   it('shows an unknown count as a dash and a recorded zero as 0', () => {
@@ -154,9 +181,9 @@ describe('runs', () => {
 
   it('summarises counts, the last run, manual-only and the sums that ignore unknowns', () => {
     const summary = summariseRuns([
-      run({ id: 1, status: 'success', ai_cost_usd: 0.04, ai_input_tokens: 90, ai_output_tokens: 6, search_requests: 38 }),
-      run({ id: 2, status: 'failed', started_at: '2026-11-03T12:00:00Z', ai_cost_usd: null }),
-      run({ id: 3, status: 'partial', ai_cost_usd: 0.01, ai_input_tokens: 10, ai_output_tokens: 0, search_requests: 0 }),
+      run({ id: 1, status: 'success', ai_cost: 0.04, ai_cost_currency: 'INR', ai_input_tokens: 90, ai_output_tokens: 6, search_requests: 38 }),
+      run({ id: 2, status: 'failed', started_at: '2026-11-03T12:00:00Z', ai_cost: null }),
+      run({ id: 3, status: 'partial', ai_cost: 0.01, ai_cost_currency: 'INR', ai_input_tokens: 10, ai_output_tokens: 0, search_requests: 0 }),
       run({ id: 4, status: 'running' }),
     ])
     assert.equal(summary.total, 4)
@@ -164,7 +191,7 @@ describe('runs', () => {
     assert.deepEqual(summary.counts, { success: 1, partial: 1, failed: 1, skipped: 0, other: 1 })
     assert.equal(summary.allManual, true)
     assert.equal(summary.scheduled, 0)
-    assert.deepEqual(summary.cost, { total: 0.05, known: 2, unknown: 2 })
+    assert.deepEqual(summary.cost, { byCurrency: [{ currency: 'INR', total: 0.05, runs: 2 }], known: 2, unknown: 2 })
     assert.deepEqual(summary.tokens, { total: 106, known: 2, unknown: 2 })
     assert.deepEqual(summary.searches, { total: 38, known: 2, unknown: 2 })
   })
@@ -175,6 +202,41 @@ describe('runs', () => {
     const none = summariseRuns([])
     assert.equal(none.allManual, false)
     assert.equal(none.last, null)
-    assert.equal(none.cost.total, null)
+    assert.deepEqual(none.cost, { byCurrency: [], known: 0, unknown: 0 })
+  })
+})
+
+describe('the cost sum', () => {
+  const cost = (amount: number | null, currency: string | null) => ({ ai_cost: amount, ai_cost_currency: currency })
+
+  it('keeps a total per currency and never adds rupees to dollars', () => {
+    const sum = sumCostByCurrency([cost(0.5, 'INR'), cost(2, 'USD'), cost(1.25, 'INR'), cost(1, 'USD')])
+    assert.deepEqual(sum.byCurrency, [{ currency: 'INR', total: 1.75, runs: 2 }, { currency: 'USD', total: 3, runs: 2 }])
+    assert.equal(sum.known, 4)
+  })
+
+  it('lists rupees first, then dollars, then other codes alphabetically, whatever order the runs come in', () => {
+    const sum = sumCostByCurrency([cost(1, 'USD'), cost(1, 'GBP'), cost(1, 'EUR'), cost(1, 'INR')])
+    assert.deepEqual(sum.byCurrency.map((entry) => entry.currency), ['INR', 'USD', 'EUR', 'GBP'])
+  })
+
+  it('leaves runs with no cost, and an amount with no currency, out of every total and counts them as unknown', () => {
+    const sum = sumCostByCurrency([cost(1, 'INR'), cost(null, null), cost(5, null), cost(null, 'INR')])
+    assert.deepEqual(sum.byCurrency, [{ currency: 'INR', total: 1, runs: 1 }])
+    assert.deepEqual([sum.known, sum.unknown], [1, 3])
+  })
+
+  it('treats a recorded zero as a known cost of zero', () => {
+    const sum = sumCostByCurrency([cost(0, 'INR')])
+    assert.deepEqual(sum.byCurrency, [{ currency: 'INR', total: 0, runs: 1 }])
+    assert.equal(sum.unknown, 0)
+  })
+
+  it('has no currency at all when no run has a cost', () => {
+    assert.deepEqual(sumCostByCurrency([cost(null, null), cost(null, null)]), { byCurrency: [], known: 0, unknown: 2 })
+  })
+
+  it('does not leave floating point dust in a total', () => {
+    assert.equal(sumCostByCurrency([cost(0.1, 'INR'), cost(0.2, 'INR')]).byCurrency[0].total, 0.3)
   })
 })
