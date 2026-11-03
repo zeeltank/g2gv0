@@ -17,6 +17,7 @@ const OpportunityListView = createLazyComponent(() => import('@/domain/crm/oppor
 const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-view').then((m) => ({ default: m.QuoteListView })))
 const ProductListView = createLazyComponent(() => import('@/domain/crm/product-list-view').then((m) => ({ default: m.ProductListView })))
 const ProductMasterListView = createLazyComponent(() => import('@/domain/crm/product-master-list-view').then((m) => ({ default: m.ProductMasterListView })))
+const OrgAccountListView = createLazyComponent(() => import('@/domain/crm/org-account-list-view').then((m) => ({ default: m.OrgAccountListView })))
 const ServiceListView = createLazyComponent(() => import('@/domain/crm/service-list-view').then((m) => ({ default: m.ServiceListView })))
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const PriceBookListView = createLazyComponent(() => import('@/domain/crm/price-book-list-view').then((m) => ({ default: m.PriceBookListView })))
@@ -118,6 +119,9 @@ export const CRM_CONTENT: ContentRoute[] = [
 
   // Product Master: products, sub-products and catalogue items in one place (agentic CRM slice 1). Administrators first.
   { accessLink: '/module/crm/product-master', component: ProductMasterListView },
+
+  // Organisation 360: one record per organisation across Signals, GTM and the CRM, with possible duplicates to confirm (agentic CRM slice 3).
+  { accessLink: '/module/crm/organisation-360', component: OrgAccountListView },
 
   // 14. CPQ: Products Catalog
   { accessLink: '/module/crm/sales/products', component: ProductListView },
