@@ -1,5 +1,5 @@
 import type {
-  Org360, OrgAccountItem, OrgCreateCrmResult, OrgEnvelope, OrgLifecycle, OrgLinkRequest, OrgListResponse, OrgMeta, OrgSuggestion,
+  Org360, OrgAccountItem, OrgCreateCrmResult, OrgEnvelope, OrgForCrmResult, OrgLifecycle, OrgLinkRequest, OrgListResponse, OrgMeta, OrgSuggestion,
 } from './types'
 
 /** The list's query as the API takes it. A missing value is left out so the server applies no filter for it. */
@@ -30,8 +30,14 @@ export interface OrgCreateCrmRequest {
 export interface OrgAccountsApi {
   list(params: OrgListParams): Promise<OrgListResponse>
   meta(): Promise<OrgEnvelope<OrgMeta>>
-  suggestions(): Promise<OrgEnvelope<OrgSuggestion[]>>
+  /** Every possible duplicate of the organisation, or with `identityId` only the pairs that involve a record of that one organisation. */
+  suggestions(identityId?: number | string): Promise<OrgEnvelope<OrgSuggestion[]>>
   get(id: number | string): Promise<OrgEnvelope<Org360>>
+  /**
+   * The 360 of a CRM organisation, making its identity first when it has none (a CRM organisation made after the backfill). It records only derived data
+   * and decides what the backfill decides (an exact name or website, never a fuzzy match), so the view right is enough.
+   */
+  forCrm(crmOrganizationId: number | string): Promise<OrgForCrmResult>
   /** Confirms or rejects one possible duplicate. */
   link(body: OrgLinkRequest): Promise<OrgEnvelope<OrgAccountItem | null>>
   /** The contract does not say what PATCH answers with, so callers read the 360 again instead of relying on it. */

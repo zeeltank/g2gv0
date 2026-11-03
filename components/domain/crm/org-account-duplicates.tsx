@@ -1,14 +1,14 @@
 'use client'
 
 import { useRef } from 'react'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/ui/error-state'
 import { useConfirm } from '@/components/shared/scaffolds/use-confirm'
-import { scoreText, shownText, sourceTypeLabel } from '@/lib/org-accounts/display'
+import { NOT_CONFIRMABLE_TEXT, placeConflictText, scoreText, shownText, sourceTypeLabel } from '@/lib/org-accounts/display'
 import { returnFocusTo } from './org-account-focus'
 import { CONFIRM_LABEL, confirmCopy, REJECT_LABEL, type LinkAction } from '@/lib/org-accounts/suggestions'
-import type { OrgSuggestion } from '@/services/org-accounts/types'
+import type { OrgSuggestion, OrgSuggestionSide } from '@/services/org-accounts/types'
 
 export const EMPTY_DUPLICATES_TEXT = 'No possible duplicates. Names that match exactly are linked automatically.'
 
@@ -18,9 +18,11 @@ export interface DecisionInProgress {
 }
 
 /**
- * The "Possible duplicates" tab: each pair of names that look alike, side by side, with how much of their name words match and two buttons. Either
- * button first asks, in words, what will happen. `onDecide` does the work and answers true once the pair is settled, so the pair can go and the
- * focus can move on; a refused decision leaves the pair where it is and the screen shows the server's message in `failure`.
+ * The "Possible duplicates" scope: each pair of names that look alike, side by side, with where each one says it is, how much of their name words match
+ * and the buttons. A pair in two different places says so on its card, and the question warns about it. Two records of ONE source (an organisation holds
+ * one record of each source) cannot be shown as one, so they offer only "Not the same". Either button first asks, in words, what will happen.
+ * `onDecide` does the work and answers true once the pair is settled, so the pair can go and the focus can move on; a refused decision leaves the pair
+ * where it is and the screen shows the server's message in `failure`.
  */
 export function OrgDuplicatesPanel({ suggestions, error, hidden, canConfirm, busy, failure, onRetry, onDecide }: {
   /** null until the first answer. */
@@ -55,11 +57,11 @@ export function OrgDuplicatesPanel({ suggestions, error, hidden, canConfirm, bus
           Possible duplicates
         </h2>
         <p className="text-sm text-muted-foreground">
-          Names that look alike but are not identical. Confirming shows the two as one organisation; nothing in either record is changed.
+          Records in Signals, GTM and the CRM whose names look alike but are not identical. Confirming shows the two as one organisation; nothing in either record is changed.
         </p>
       </div>
 
-      {failure && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{failure}</div>}
+      {failure && <div role="alert" className="rounded-lg border-2 border-destructive bg-card p-3 text-sm text-foreground">{failure}</div>}
 
       {!canConfirm && suggestions !== null && suggestions.length > 0 && (
         <p className="text-sm text-muted-foreground">You can see these pairs, but you are not allowed to confirm or reject them.</p>
@@ -83,6 +85,8 @@ export function OrgDuplicatesPanel({ suggestions, error, hidden, canConfirm, bus
           <ul className="space-y-3">
             {suggestions.map((suggestion) => {
               const working = busy?.key === suggestion.key
+              const conflict = placeConflictText(suggestion)
+              const names = `${suggestion.left.name} and ${suggestion.right.name}`
               return (
                 <li key={suggestion.key} data-pair={suggestion.key} aria-busy={working} className="space-y-3 rounded-lg border border-border bg-card p-4">
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -90,22 +94,31 @@ export function OrgDuplicatesPanel({ suggestions, error, hidden, canConfirm, bus
                     <Side side={suggestion.right} />
                   </div>
                   <p className="text-sm text-muted-foreground">{scoreText(suggestion.score)}</p>
+                  {conflict && (
+                    <p data-place-conflict className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <AlertTriangle className="size-4 shrink-0 text-amber-600" aria-hidden="true" />
+                      {conflict}
+                    </p>
+                  )}
+                  {!suggestion.confirmable && <p data-not-confirmable className="text-sm text-muted-foreground">{NOT_CONFIRMABLE_TEXT}</p>}
                   {canConfirm && (
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        onClick={(event) => void decide(suggestion, 'confirm', event.currentTarget)}
-                        disabled={busy !== null}
-                        aria-label={`${CONFIRM_LABEL}: ${suggestion.left.name} and ${suggestion.right.name}`}
-                      >
-                        {working && busy?.action === 'confirm' ? 'Saving…' : CONFIRM_LABEL}
-                      </Button>
+                      {suggestion.confirmable && (
+                        <Button
+                          type="button"
+                          onClick={(event) => void decide(suggestion, 'confirm', event.currentTarget)}
+                          disabled={busy !== null}
+                          aria-label={`${CONFIRM_LABEL}: ${names}`}
+                        >
+                          {working && busy?.action === 'confirm' ? 'Saving…' : CONFIRM_LABEL}
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
                         onClick={(event) => void decide(suggestion, 'reject', event.currentTarget)}
                         disabled={busy !== null}
-                        aria-label={`${REJECT_LABEL}: ${suggestion.left.name} and ${suggestion.right.name}`}
+                        aria-label={`${REJECT_LABEL}: ${names}`}
                       >
                         {working && busy?.action === 'reject' ? 'Saving…' : REJECT_LABEL}
                       </Button>
@@ -127,11 +140,12 @@ export function OrgDuplicatesPanel({ suggestions, error, hidden, canConfirm, bus
   )
 }
 
-function Side({ side }: { side: OrgSuggestion['left'] }) {
+function Side({ side }: { side: OrgSuggestionSide }) {
   return (
     <div className="min-w-0">
       <p className="break-words font-medium text-foreground">{side.name}</p>
       <p className="text-xs text-muted-foreground">{sourceTypeLabel(side.type)}</p>
+      <p className="text-xs text-muted-foreground">{side.place ? `Place: ${side.place}` : 'No place recorded'}</p>
     </div>
   )
 }

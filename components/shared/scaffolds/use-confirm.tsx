@@ -8,6 +8,8 @@ export interface ConfirmOptions {
   /** The actual consequence, in plain words ("12 reports in this folder will be removed too"). */
   description: ReactNode
   confirmLabel: string
+  /** The look of the confirm button: 'destructive' (the default) for something that removes, 'default' for a question that destroys nothing. */
+  tone?: 'destructive' | 'default'
 }
 
 /**
@@ -54,6 +56,7 @@ export function useConfirm() {
       title={content?.title ?? ''}
       description={content?.description ?? ''}
       confirmLabel={content?.confirmLabel ?? ''}
+      tone={content?.tone}
       onConfirm={() => settle(true)}
     />
   )

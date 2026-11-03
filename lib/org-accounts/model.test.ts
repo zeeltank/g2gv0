@@ -4,90 +4,92 @@ import { listQueryString, patchListQuery, readListQuery, writeListQuery } from '
 import { ApiError } from '../../services/core'
 import { OrgAccountsApiError } from '../../services/org-accounts/errors'
 import {
-  activityKindLabel, availableActions, basisText, formatAmount, headerSources, lifecycleLabel, lifecycleTone, openSignalsText, scoreText, shownText,
-  sourceBadges, sourceTypeLabel,
+  availableActions, basisText, formatAmount, linkedRecords, lifecycleLabel, ONLY_RECORD_TEXT, openSignalsText, placeConflictText, scoreText, shownText,
+  sourceBadges, sourceTypeLabel, whyNowFacts,
 } from './display'
 import { EDIT_FIELDS, formFromIdentity, isDirty, ownerChoices, patchBody } from './edit-model'
 import {
-  classifyCreateFailure, classifyLoadFailure, classifySaveFailure, FORBIDDEN_PAGE_TEXT, linkFailureText, NETWORK_TEXT, NO_CREATE_RIGHT_TEXT, NO_LINK_RIGHT_TEXT,
+  classifyCreateFailure, classifyLoadFailure, classifySaveFailure, FORBIDDEN_PAGE_TEXT, linkFailureText, NETWORK_TEXT, NO_CREATE_RIGHT_TEXT, NO_LINK_RIGHT_TEXT, NOT_SET_UP_TEXT,
 } from './failure'
-import { meta, orgItem, org360, org360WithCrm, suggestion, summary } from './fixtures'
+import { meta, orgItem, org360, org360CrmOnly, org360WithCrm, placeConflictSuggestion, sameSourceSuggestion, suggestion, summary } from './fixtures'
+import { ACCESS_LINKS, buildLinks, DEFAULT_LINKS, recordHref, signalReviewHref } from './links'
+import { confidenceText, classificationText, consentText, openDealLines, relationshipText } from './old-sections'
 import {
-  clearFiltersPatch, isNarrowed, listScreenState, ORG_LIST_QUERY, queryToParams, rangeText, summaryTiles,
-} from './list-model'
+  clearFiltersPatch, DISCOVERED_QUERY, discoveredParams, discoveredState, isNarrowed, rangeText, SCOPE_IDS, scopeCounts, scopeTabs,
+} from './scope-model'
 import { confirmCopy, decidedNotice, linkRequest, removeSuggestion } from './suggestions'
 
-const read = (search: string) => readListQuery(new URLSearchParams(search), ORG_LIST_QUERY)
+const read = (search: string) => readListQuery(new URLSearchParams(search), DISCOVERED_QUERY)
 
-describe('the filters and the address', () => {
+describe('the scope switch', () => {
+  it('has three scopes and opens on the CRM list, with a clean address', () => {
+    assert.deepEqual([...SCOPE_IDS], ['crm', 'discovered', 'duplicates'])
+    assert.equal(SCOPE_IDS[0], 'crm', 'the first scope is the default: today\'s list')
+  })
+
+  it('takes the counts from the org-accounts summary: discovered = organisations with no CRM organisation', () => {
+    assert.deepEqual(scopeCounts(summary({ total: 9, with_crm: 4, suggestions: 3 })), { discovered: 5, duplicates: 3 })
+    assert.deepEqual(scopeCounts(summary({ total: 3, with_crm: 3, suggestions: 0 })), { discovered: 0, duplicates: 0 }, 'zero is a real count')
+  })
+
+  it('never guesses a count before the summary is there, and prefers the live number of duplicates', () => {
+    assert.deepEqual(scopeCounts(null), { discovered: null, duplicates: null })
+    assert.deepEqual(scopeCounts(undefined, 2), { discovered: null, duplicates: 2 })
+    assert.equal(scopeCounts(summary({ suggestions: 4 }), 1).duplicates, 1, 'it falls as pairs are decided')
+    assert.equal(scopeCounts(summary({ suggestions: 4 }), 0).duplicates, 0)
+    assert.equal(scopeCounts(summary({ total: 1, with_crm: 5 })).discovered, 0, 'never negative')
+  })
+
+  it('names the tabs: the CRM scope carries no count of its own', () => {
+    assert.deepEqual(scopeTabs({ discovered: 5, duplicates: 3 }), [
+      { id: 'crm', label: 'Organizations' }, { id: 'discovered', label: 'Discovered', count: 5 }, { id: 'duplicates', label: 'Possible duplicates', count: 3 },
+    ])
+    assert.equal(scopeTabs({ discovered: null, duplicates: null })[1].count, null)
+  })
+})
+
+describe('the Discovered scope: its filters and its address', () => {
   it('opens on everything: no filter, page 1, and a clean address', () => {
     const query = read('')
-    assert.deepEqual(query.filters, { lifecycle: 'all', crm: 'any', gtm: 'any', signals: 'any' })
-    assert.equal(listQueryString(query, ORG_LIST_QUERY), '')
-    assert.deepEqual(queryToParams(query), { page: 1, per_page: 20 })
+    assert.deepEqual(query.filters, { lifecycle: 'all' })
+    assert.equal(listQueryString(query, DISCOVERED_QUERY), '')
   })
 
-  it('writes every filter into the address and reads it back the same', () => {
-    const query = read('')
-    const next = patchListQuery(query, { q: 'kv', filters: { lifecycle: 'target', crm: 'no', gtm: 'yes', signals: 'yes' } }, ORG_LIST_QUERY)
-    const search = listQueryString(next, ORG_LIST_QUERY)
-    assert.equal(search, 'q=kv&lifecycle=target&crm=no&gtm=yes&signals=yes')
+  it('always asks for the organisations that have NO CRM organisation', () => {
+    assert.deepEqual(discoveredParams(read('')), { has_crm: 0, page: 1, per_page: 20 })
+    assert.deepEqual(discoveredParams(read('q=lake&lifecycle=target&page=3')), { has_crm: 0, page: 3, per_page: 20, q: 'lake', lifecycle: 'target' })
+  })
+
+  it('writes the filters into the address and reads them back the same, and leaves the open scope alone', () => {
+    const next = patchListQuery(read(''), { q: 'kv', filters: { lifecycle: 'target' } }, DISCOVERED_QUERY)
+    const search = listQueryString(next, DISCOVERED_QUERY)
+    assert.equal(search, 'q=kv&lifecycle=target')
     assert.deepEqual(read(search), next)
+    assert.equal(writeListQuery(new URLSearchParams('scope=discovered'), read('lifecycle=customer'), DISCOVERED_QUERY).toString(), 'scope=discovered&lifecycle=customer')
   })
 
-  it('leaves the open tab alone when it writes the filters', () => {
-    const next = writeListQuery(new URLSearchParams('tab=duplicates'), read('lifecycle=customer'), ORG_LIST_QUERY)
-    assert.equal(next.toString(), 'tab=duplicates&lifecycle=customer')
-  })
-
-  it('turns a pasted link into the request: Yes is 1, No is 0, Any and All send nothing', () => {
-    assert.deepEqual(queryToParams(read('q=lake&lifecycle=engaged&crm=yes&gtm=no&signals=any&page=3')), {
-      page: 3, per_page: 20, q: 'lake', lifecycle: 'engaged', has_crm: 1, has_gtm: 0,
-    })
-  })
-
-  it('ignores a value the address should not carry', () => {
-    const query = read('lifecycle=gone&crm=maybe&page=zero')
-    assert.deepEqual(query.filters, { lifecycle: 'all', crm: 'any', gtm: 'any', signals: 'any' })
+  it('ignores a value the address should not carry, and goes back to page 1 when a filter changes', () => {
+    const query = read('lifecycle=gone&page=zero')
+    assert.deepEqual(query.filters, { lifecycle: 'all' })
     assert.equal(query.page, 1)
-  })
-
-  it('goes back to page 1 when a filter changes', () => {
-    const next = patchListQuery(read('page=4'), { filters: { lifecycle: 'archived' } }, ORG_LIST_QUERY)
-    assert.equal(next.page, 1)
+    assert.equal(patchListQuery(read('page=4'), { filters: { lifecycle: 'archived' } }, DISCOVERED_QUERY).page, 1)
   })
 
   it('knows when the list is narrowed, and clearing shows everything', () => {
     assert.equal(isNarrowed(read('')), false)
-    for (const search of ['q=x', 'lifecycle=target', 'crm=no', 'gtm=yes', 'signals=no']) assert.equal(isNarrowed(read(search)), true, search)
-    const cleared = patchListQuery(read('q=x&lifecycle=target&crm=no'), clearFiltersPatch(), ORG_LIST_QUERY)
-    assert.equal(isNarrowed(cleared), false)
-  })
-})
-
-describe('the six states of the list', () => {
-  const base = { loaded: true, forbidden: false, error: '', rows: 3, summaryTotal: 3, query: read('') }
-
-  it('tells them apart', () => {
-    assert.equal(listScreenState({ ...base, loaded: false }), 'loading')
-    assert.equal(listScreenState(base), 'ready')
-    assert.equal(listScreenState({ ...base, error: 'x' }), 'error')
-    assert.equal(listScreenState({ ...base, rows: 0, summaryTotal: 0 }), 'empty')
-    assert.equal(listScreenState({ ...base, rows: 0, summaryTotal: 5, query: read('q=zzz') }), 'filtered-empty')
-    assert.equal(listScreenState({ ...base, rows: 0, summaryTotal: 0, query: read('q=zzz') }), 'filtered-empty')
+    for (const search of ['q=x', 'lifecycle=target']) assert.equal(isNarrowed(read(search)), true, search)
+    assert.equal(isNarrowed(patchListQuery(read('q=x&lifecycle=target'), clearFiltersPatch(), DISCOVERED_QUERY)), false)
   })
 
-  it('treats a 403 as its own state, ahead of an error and of loading', () => {
-    assert.equal(listScreenState({ ...base, loaded: false, forbidden: true, error: 'x' }), 'forbidden')
-  })
-})
-
-describe('the summary and the range', () => {
-  it('shows the six counts, with the live number of possible duplicates when it is known', () => {
-    const tiles = summaryTiles(summary({ total: 9, suggestions: 4 }))
-    assert.deepEqual(tiles.map((t) => [t.label, t.value]), [['organisations', 9], ['discovered', 2], ['target', 1], ['engaged', 1], ['customers', 1], ['possible duplicates', 4]])
-    assert.equal(summaryTiles(summary({ suggestions: 4 }), 1).at(-1)?.value, 1)
-    assert.equal(summaryTiles(summary({ suggestions: 4 }), 0).at(-1)?.value, 0, 'zero is a real count')
+  it('tells the states apart: a 403 and a 503 are their own, ahead of an error and of loading', () => {
+    const base = { loaded: true, forbidden: false, unavailable: false, error: '', rows: 3, query: read('') }
+    assert.equal(discoveredState({ ...base, loaded: false }), 'loading')
+    assert.equal(discoveredState(base), 'ready')
+    assert.equal(discoveredState({ ...base, error: 'x' }), 'error')
+    assert.equal(discoveredState({ ...base, rows: 0 }), 'empty')
+    assert.equal(discoveredState({ ...base, rows: 0, query: read('q=zzz') }), 'filtered-empty')
+    assert.equal(discoveredState({ ...base, loaded: false, error: 'x', unavailable: true }), 'unavailable')
+    assert.equal(discoveredState({ ...base, loaded: false, error: 'x', unavailable: true, forbidden: true }), 'forbidden')
   })
 
   it('says which rows are on the page', () => {
@@ -98,16 +100,14 @@ describe('the summary and the range', () => {
 })
 
 describe('lifecycle, sources and links in words', () => {
-  it('names each lifecycle and gives it a tone, and archived looks inactive', () => {
+  it('names each lifecycle', () => {
     assert.equal(lifecycleLabel('customer'), 'Customer')
-    assert.equal(lifecycleTone('customer'), 'success')
-    assert.equal(lifecycleTone('archived'), 'inactive')
+    assert.equal(lifecycleLabel('engaged'), 'Engaged')
   })
 
   it('has a badge only for a source the organisation has a row in', () => {
     assert.deepEqual(sourceBadges(orgItem()).map((b) => b.key), ['crm', 'gtm', 'signals'])
     assert.deepEqual(sourceBadges(orgItem({ sources: { crm: null, gtm: null, signals: { company_id: 1, open_signals: 2, last_signal_at: null } } })).map((b) => b.key), ['signals'])
-    assert.deepEqual(sourceBadges(orgItem({ sources: { crm: { id: 1, account_no: null }, gtm: null, signals: null } })).map((b) => b.key), ['crm'])
     assert.deepEqual(sourceBadges(orgItem({ sources: { crm: null, gtm: null, signals: null } })), [])
   })
 
@@ -115,37 +115,82 @@ describe('lifecycle, sources and links in words', () => {
     assert.equal(openSignalsText(4), '4 open signals')
     assert.equal(openSignalsText(1), '1 open signal')
     assert.equal(openSignalsText(0), '0 open signals')
-    assert.equal(sourceBadges(orgItem()).find((b) => b.key === 'signals')?.detail, '3 open signals')
   })
 
-  it('explains each link basis in words, and admits when none is recorded', () => {
+  it('explains each link basis in words, and tells a lone record from a missing reason', () => {
     assert.equal(basisText('exact_name'), 'linked because the names are identical')
     assert.equal(basisText('exact_domain'), 'linked because the websites are the same')
     assert.equal(basisText('existing_link'), 'linked by an earlier link')
     assert.equal(basisText('manual'), 'confirmed by a person')
+    // D6: a record with nothing to be linked to says so, and never "reason not recorded"; a linked record that lost its reason still admits it.
+    assert.equal(basisText(null, true), ONLY_RECORD_TEXT)
     assert.equal(basisText(null), 'linked, reason not recorded')
-  })
-
-  it('lists the header badges for the pointers the identity has, each with its reason', () => {
-    assert.deepEqual(headerSources(org360().identity.links), [
-      { key: 'gtm', label: 'GTM', basis: 'linked because the names are identical' },
-      { key: 'signals', label: 'Signals', basis: 'linked because the websites are the same' },
-    ])
-    assert.deepEqual(headerSources(org360WithCrm().identity.links).map((s) => s.key), ['crm', 'gtm', 'signals'])
+    assert.ok(!basisText(null, true).includes('not recorded'))
   })
 
   it('names the kinds of source row', () => {
     assert.equal(sourceTypeLabel('crm_organization'), 'CRM organisation')
+    assert.equal(sourceTypeLabel('gtm_account'), 'GTM account')
     assert.equal(sourceTypeLabel('g2g_company'), 'Signals company')
   })
 })
 
-describe('the score of a possible duplicate', () => {
+describe('the Linked records rows', () => {
+  it('has a row for each of the three sources, with the reason each is linked in words', () => {
+    const rows = linkedRecords(org360WithCrm())
+    assert.deepEqual(rows.map((r) => [r.key, r.found, r.name, r.basis]), [
+      ['crm', true, 'Riverdale Public School', 'confirmed by a person'],
+      ['gtm', true, 'Hillcrest Academy', 'linked by an earlier link'],
+      ['signals', true, 'Hillcrest Academy', 'linked because the names are identical'],
+    ])
+    assert.equal(rows[0].detail, 'ACC-0011 · Education · Pune, Maharashtra')
+    assert.equal(rows[1].detail, 'Stage: Qualified · 1 deal · Fit with the ideal customer: 82', 'the GTM stage, how many deals and the fit score the old tab showed')
+    assert.equal(rows[2].detail, 'Education · Pune, Maharashtra · 3 signals')
+  })
+
+  it('says a source has no record rather than leaving a blank', () => {
+    const rows = linkedRecords(org360())
+    assert.deepEqual(rows.map((r) => [r.key, r.found, r.name, r.detail, r.basis]).slice(0, 1), [['crm', false, null, null, null]])
+    assert.equal(rows[1].basis, 'linked because the names are identical')
+    assert.equal(rows[2].basis, 'linked because the websites are the same')
+  })
+
+  it('says "only record found" for an organisation that exists in one place only', () => {
+    const rows = linkedRecords(org360CrmOnly())
+    assert.deepEqual(rows.map((r) => [r.key, r.found]), [['crm', true], ['gtm', false], ['signals', false]])
+    assert.equal(rows[0].basis, ONLY_RECORD_TEXT)
+    assert.equal(rows[1].basis, null)
+  })
+
+  it('pluralises the deals and the signals, and a real zero reads as zero', () => {
+    const one = linkedRecords(org360({ gtm: { ...org360().gtm!, deals_count: 0 }, signals: { total: 1, needing_decision: 1, decided: 0, latest: [] } }))
+    assert.ok(one[1].detail!.includes('0 deals'))
+    assert.ok(one[2].detail!.endsWith('1 signal'))
+  })
+})
+
+describe('why now', () => {
+  it('states the four facts in words, and a real zero as 0', () => {
+    assert.deepEqual(whyNowFacts({ open_signals: 2, next_event_date: '2026-12-01', open_deals: 1, last_activity_at: '2026-10-18T11:30:00+05:30' }).map((f) => [f.key, f.label, f.value]), [
+      ['signals', 'Open signals', '2'], ['next_event', 'Next event', '1 Dec 2026'], ['deals', 'Open deals', '1'], ['last_activity', 'Last activity', '18 Oct 2026'],
+    ])
+    const none = whyNowFacts({ open_signals: 0, next_event_date: null, open_deals: 0, last_activity_at: null })
+    assert.deepEqual(none.map((f) => f.value), ['0', 'None dated', '0', 'None yet'])
+  })
+})
+
+describe('the score and the places of a possible duplicate', () => {
   it('is a share of the name words, rounded, and never past 0 to 100', () => {
     assert.equal(scoreText(0.8), '80% of the name words match')
     assert.equal(scoreText(0.667), '67% of the name words match')
     assert.equal(scoreText(1.4), '100% of the name words match')
     assert.equal(scoreText(Number.NaN), '0% of the name words match')
+  })
+
+  it('says "Different places" only for a pair whose places conflict, and names both', () => {
+    assert.equal(placeConflictText(placeConflictSuggestion()), 'Different places: Mumbai, Maharashtra / Surat, Gujarat')
+    assert.equal(placeConflictText(suggestion()), null, 'an ordinary pair says nothing about places')
+    assert.equal(placeConflictText(placeConflictSuggestion({ left: { type: 'g2g_company', id: 1, name: 'A', place: null } })), 'Different places', 'a conflict with a missing place is still a conflict')
   })
 })
 
@@ -163,22 +208,71 @@ describe('a list the server capped', () => {
 
 describe('which actions are offered', () => {
   it('offers nothing before the server has said what is allowed', () => {
-    assert.deepEqual(availableActions(null, org360()), { edit: false, createCrm: false, confirmLinks: false })
+    assert.deepEqual(availableActions(null), { edit: false, createCrm: false, confirmLinks: false })
     assert.deepEqual(availableActions(undefined), { edit: false, createCrm: false, confirmLinks: false })
   })
 
   it('offers each action only with its right', () => {
-    assert.equal(availableActions(meta({ edit: false }), org360()).edit, false)
-    assert.equal(availableActions(meta({ confirm_links: false }), org360()).confirmLinks, false)
-    assert.equal(availableActions(meta(), org360()).edit, true)
-    assert.equal(availableActions(meta(), org360()).confirmLinks, true)
+    assert.equal(availableActions(meta({ edit: false })).edit, false)
+    assert.equal(availableActions(meta({ confirm_links: false })).confirmLinks, false)
+    assert.equal(availableActions(meta({ create_crm_organization: false })).createCrm, false)
+    assert.deepEqual(availableActions(meta()), { edit: true, createCrm: true, confirmLinks: true })
+  })
+})
+
+describe('where the links go', () => {
+  const menu = (held: string[]) => (accessLink: string) => (held.includes(accessLink) ? accessLink : '/dashboard')
+
+  it('draws a link only for a screen the person has a menu row for', () => {
+    const links = buildLinks(menu([ACCESS_LINKS.crmOrganisations, ACCESS_LINKS.gtm]))
+    assert.equal(links.crmOrganisations, '/module/crm/marketing/organizations')
+    assert.equal(links.gtm, '/gtm/prospecting')
+    assert.equal(links.signals, null)
+    assert.equal(links.opportunities, null)
+    assert.equal(links.contacts, null)
   })
 
-  it('offers "Create CRM organisation" with the right, and only when there is no CRM organisation yet', () => {
-    assert.equal(availableActions(meta(), org360()).createCrm, true)
-    assert.equal(availableActions(meta({ create_crm_organization: false }), org360()).createCrm, false, 'no right')
-    assert.equal(availableActions(meta(), org360WithCrm()).createCrm, false, 'already has one')
-    assert.equal(availableActions(meta(), null).createCrm, false, 'nothing opened')
+  it('finds Signal Review under the access_link its menu row really has, `/signal-review`, and under the other spelling too', () => {
+    // The first version asked only for /module/crm/signal-review, which the menu never holds on the dev database (row 506 is /signal-review): no link was drawn.
+    assert.equal(buildLinks(menu(['/signal-review'])).signalReview, '/signal-review')
+    assert.equal(buildLinks(menu(['/module/crm/signal-review'])).signalReview, '/module/crm/signal-review')
+    assert.equal(buildLinks(menu(['/signal-review', '/module/crm/signal-review'])).signalReview, '/signal-review', 'the real row wins')
+    assert.equal(buildLinks(menu([])).signalReview, null)
+  })
+
+  it('opens Signal Review on one signal with every status and the title in the search, and nothing without the screen', () => {
+    assert.equal(signalReviewHref(DEFAULT_LINKS, 'Tender & bids'), '/signal-review?status=all&q=Tender%20%26%20bids')
+    assert.equal(signalReviewHref({ signalReview: null }, 'x'), null)
+    assert.equal(recordHref('/module/crm/sales/opportunities', 72), '/module/crm/sales/opportunities/72')
+    assert.equal(recordHref(null, 72), null)
+  })
+})
+
+describe('the sections only the old Account 360 had', () => {
+  it('keeps the open opportunities and every GTM deal, and drops the closed CRM ones', () => {
+    const names = openDealLines(org360WithCrm().deals).map((d) => d.name)
+    assert.deepEqual(names, ['Riverdale ERP rollout', 'Riverdale pilot'])
+    assert.deepEqual(openDealLines([{ source: 'crm', id: 1, name: 'No stage', stage: null, amount: null, currency: null, closing_date: null }]).map((d) => d.name), ['No stage'])
+  })
+
+  it('writes a confidence as a percentage, and nothing for none', () => {
+    assert.equal(confidenceText(0.7), '70%')
+    assert.equal(confidenceText(0), '0%')
+    assert.equal(confidenceText(1.7), '100%')
+    assert.equal(confidenceText(null), null)
+  })
+
+  it('reads a relationship from this organisation and towards it', () => {
+    const r = { fromType: 'organization', fromId: '11', toType: 'organization', toId: '999', relationshipType: 'subsidiary_of' }
+    assert.equal(relationshipText(r, '11'), 'subsidiary of → organization #999')
+    assert.equal(relationshipText(r, '999'), 'subsidiary of ← organization #11')
+  })
+
+  it('writes consent and classification in words', () => {
+    assert.equal(consentText('opted_in'), 'Consent: opted in')
+    assert.equal(consentText(null), null, 'a GTM contact has none recorded and says nothing')
+    assert.equal(classificationText('buying_signal'), 'buying signal')
+    assert.equal(classificationText(null), 'unclassified')
   })
 })
 
@@ -189,17 +283,13 @@ describe('words and numbers', () => {
     assert.equal(formatAmount(150000, 'INR'), 'INR 150000.00')
     assert.equal(formatAmount(10, null), '10.00')
   })
-
-  it('names the kinds of activity', () => {
-    assert.equal(activityKindLabel('decision'), 'Decision')
-    assert.equal(activityKindLabel('lead'), 'Lead')
-  })
 })
 
 describe('what a failure means', () => {
-  it('reads a 403 on a page as no access, not as an error to retry', () => {
+  it('reads a 403 as no access and a 503 as "not set up", neither as an error to retry', () => {
     assert.deepEqual(classifyLoadFailure(new ApiError('Forbidden', 403), 'x'), { kind: 'forbidden', message: FORBIDDEN_PAGE_TEXT })
     assert.equal(classifyLoadFailure(new ApiError('Not here', 404), 'x').kind, 'notFound')
+    assert.deepEqual(classifyLoadFailure(new ApiError('Organisation 360 is not set up on this server yet.', 503), 'x'), { kind: 'unavailable', message: NOT_SET_UP_TEXT })
     assert.deepEqual(classifyLoadFailure(new ApiError('Boom', 500), 'x'), { kind: 'error', message: 'Boom' })
     assert.deepEqual(classifyLoadFailure(new TypeError('Failed to fetch'), 'x'), { kind: 'error', message: NETWORK_TEXT })
   })
@@ -270,7 +360,7 @@ describe('deciding on a possible duplicate', () => {
     assert.deepEqual(removeSuggestion([pair], 'missing'), [pair])
   })
 
-  it('asks a question that says what will happen', () => {
+  it('asks a question that says what will happen, and neither answer looks destructive', () => {
     const confirm = confirmCopy(pair, 'confirm')
     assert.equal(confirm.confirmLabel, 'Confirm: same organisation')
     assert.equal(confirm.description, 'These two will be shown as one organisation. Nothing in either record is changed.')
@@ -278,7 +368,22 @@ describe('deciding on a possible duplicate', () => {
     const reject = confirmCopy(pair, 'reject')
     assert.equal(reject.confirmLabel, 'Not the same')
     assert.ok(String(reject.description).includes('will not be suggested'))
+    assert.equal(confirm.tone, 'default')
+    assert.equal(reject.tone, 'default')
     assert.ok(decidedNotice(pair, 'confirm').includes('one organisation'))
     assert.ok(decidedNotice(pair, 'reject').includes('not be suggested'))
+  })
+
+  it('D2: warns in the confirm question when the two are in different places, and only then', () => {
+    const conflict = confirmCopy(placeConflictSuggestion(), 'confirm')
+    assert.ok(String(conflict.description).startsWith('Different places: Mumbai, Maharashtra / Surat, Gujarat.'))
+    assert.ok(String(conflict.description).includes('usually two organisations'))
+    assert.ok(!String(confirmCopy(pair, 'confirm').description).includes('Different places'))
+    assert.ok(!String(confirmCopy(placeConflictSuggestion(), 'reject').description).includes('Different places'), 'turning a pair down needs no warning')
+  })
+
+  it('D3: a pair of one source cannot be confirmed (the fixture says so)', () => {
+    assert.equal(sameSourceSuggestion().confirmable, false)
+    assert.equal(suggestion().confirmable, true)
   })
 })

@@ -1,19 +1,19 @@
 'use client'
 
 import { forwardRef, useId, type ReactNode } from 'react'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/ui/status-badge'
 import { NativeSelect } from '@/components/shared/scaffolds/form-field'
-import { headerSources, lifecycleLabel, lifecycleTone, NO_VALUE, sourceBadges } from '@/lib/org-accounts/display'
-import type { Choice, Tile } from '@/lib/org-accounts/list-model'
+import { lifecycleLabel, NO_VALUE, sourceBadges } from '@/lib/org-accounts/display'
+import type { Choice } from '@/lib/org-accounts/scope-model'
+import { CHIP_BASE, CHIP_TONE, DATE_BASE, DATE_TONE, LIFECYCLE_TONE, NOTICE_TONE, type ChipTone, type NoticeTone } from '@/lib/org-accounts/tones'
+import { dateBadge, statusChip, type StatusChipTone } from '@/lib/signal-review/signal-display'
 import { cn } from '@/lib/utils'
-import type { Org360, OrgAccountItem, OrgLifecycle } from '@/services/org-accounts/types'
+import type { OrgAccountItem, OrgLifecycle, OrgSignalLine } from '@/services/org-accounts/types'
 
-const CHIP = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium'
-
-/** The lifecycle in words. The colour only helps: the word is always there. */
+/** The lifecycle in words. The border colour only helps: the word is always there, and its text is `text-foreground` (see lib/org-accounts/tones.ts). */
 export function LifecycleChip({ lifecycle }: { lifecycle: OrgLifecycle }) {
-  return <StatusBadge variant={lifecycleTone(lifecycle)} size="sm" data-lifecycle={lifecycle}>{lifecycleLabel(lifecycle)}</StatusBadge>
+  return <span data-lifecycle={lifecycle} className={cn(CHIP_BASE, CHIP_TONE[LIFECYCLE_TONE[lifecycle] ?? 'neutral'])}>{lifecycleLabel(lifecycle)}</span>
 }
 
 /** One chip for each source the organisation has a row in (CRM, GTM, Signals with its open signals), and none for a source it lacks. */
@@ -23,42 +23,32 @@ export function SourceChips({ item }: { item: Pick<OrgAccountItem, 'sources'> })
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label="Known in">
       {badges.map((badge) => (
-        <li key={badge.key} data-source={badge.key} className={cn(CHIP, 'border-primary/30 bg-primary/10 text-primary')}>
-          <span>{badge.label}</span>
-          {badge.detail && <span className="font-normal text-foreground">{badge.detail}</span>}
+        <li key={badge.key} data-source={badge.key} className={cn(CHIP_BASE, CHIP_TONE.neutral)}>
+          <span className="font-semibold">{badge.label}</span>
+          {badge.detail && <span className="font-normal">{badge.detail}</span>}
         </li>
       ))}
     </ul>
   )
 }
 
-/** The detail header's badges: each source the identity points at, with the reason in words. */
-export function HeaderSources({ links }: { links: Org360['identity']['links'] }) {
-  const sources = headerSources(links)
-  if (sources.length === 0) return <p className="text-sm text-muted-foreground">This organisation is not linked to any record yet.</p>
-  return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Where this organisation is known">
-      {sources.map((source) => (
-        <li key={source.key} data-source={source.key} className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className={cn(CHIP, 'border-primary/30 bg-primary/10 text-primary')}>{source.label}</span>
-          <span className="text-muted-foreground">{source.basis}</span>
-        </li>
-      ))}
-    </ul>
-  )
+/** A source tag on a contact or a deal line ("CRM", "GTM"). */
+export function SourceTag({ source }: { source: 'crm' | 'gtm' }) {
+  return <span data-source={source} className={cn(CHIP_BASE, CHIP_TONE.neutral)}>{source === 'crm' ? 'CRM' : 'GTM'}</span>
 }
 
-export function SummaryTiles({ tiles }: { tiles: readonly Tile[] }) {
-  return (
-    <div role="group" aria-label="Summary" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-      {tiles.map((tile) => (
-        <div key={tile.label} className="rounded-lg border border-border bg-card px-3 py-2">
-          <p className="text-xl font-semibold leading-tight text-foreground">{tile.value}</p>
-          <p className="text-xs text-muted-foreground">{tile.label}</p>
-        </div>
-      ))}
-    </div>
-  )
+const SIGNAL_CHIP_TONE: Record<StatusChipTone, ChipTone> = { neutral: 'info', warning: 'caution', success: 'positive', destructive: 'muted' }
+
+/** A signal's review status in the words Signal Review uses ("Needs decision", "Contacted", "Reviewed", "Not relevant"). */
+export function SignalStateChip({ status }: { status: OrgSignalLine['review_status'] }) {
+  const chip = statusChip(status)
+  return <span data-status={status} className={cn(CHIP_BASE, CHIP_TONE[SIGNAL_CHIP_TONE[chip.tone]])}>{chip.label}</span>
+}
+
+/** The date of a signal, and what kind of date it is. A signal with no date says "Date unknown" in a dashed outline. */
+export function SignalDatePill({ info }: { info: OrgSignalLine['date_info'] | null | undefined }) {
+  const badge = dateBadge(info)
+  return <span data-date-kind={badge.kind} className={cn(DATE_BASE, DATE_TONE[badge.kind])}>{badge.text}</span>
 }
 
 /** A labelled native select: it takes the label wiring, and the lists here are short. */
@@ -75,33 +65,35 @@ export function Facet({ label, value, choices, onChange }: { label: string; valu
 }
 
 export interface ScreenNotice {
-  tone: 'success' | 'error'
+  tone: NoticeTone
   text: string
 }
 
-const NOTICE_TONES: Record<ScreenNotice['tone'], string> = {
-  success: 'border-success/30 bg-success/5 text-success',
-  error: 'border-destructive/30 bg-destructive/5 text-destructive',
-}
-
 /**
- * A result shown above the list or the page. An error is announced at once (alert); a success politely (status). It can take focus, so a page that
- * has just removed the button the person pressed can put the focus here instead of losing it.
+ * A result shown above a list or a tab. An error is announced at once (alert); a success politely (status). It can take focus, so a page that has
+ * just removed the button the person pressed can put the focus here instead of losing it. The text is `text-foreground` on the surface with a coloured
+ * border and an icon: the words and the icon say what happened, the colour only helps.
  */
 export const NoticeBar = forwardRef<HTMLDivElement, { notice: ScreenNotice; onDismiss: () => void; children?: ReactNode }>(
-  ({ notice, onDismiss, children }, ref) => (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      role={notice.tone === 'error' ? 'alert' : 'status'}
-      className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring', NOTICE_TONES[notice.tone])}
-    >
-      <span>{notice.text}</span>
-      <span className="flex items-center gap-2">
-        {children}
-        <Button size="sm" variant="ghost" onClick={onDismiss} aria-label="Dismiss">Dismiss</Button>
-      </span>
-    </div>
-  ),
+  ({ notice, onDismiss, children }, ref) => {
+    const Icon = notice.tone === 'error' ? AlertCircle : CheckCircle2
+    return (
+      <div
+        ref={ref}
+        tabIndex={-1}
+        role={notice.tone === 'error' ? 'alert' : 'status'}
+        className={cn('flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring', NOTICE_TONE[notice.tone])}
+      >
+        <span className="flex items-center gap-2">
+          <Icon className="size-4 shrink-0" aria-hidden="true" />
+          <span>{notice.text}</span>
+        </span>
+        <span className="flex items-center gap-2">
+          {children}
+          <Button size="sm" variant="ghost" onClick={onDismiss} aria-label="Dismiss">Dismiss</Button>
+        </span>
+      </div>
+    )
+  },
 )
 NoticeBar.displayName = 'NoticeBar'

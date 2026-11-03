@@ -60,12 +60,16 @@ export const orgAccountsService: OrgAccountsApi = {
     return apiClient.get('/org-accounts/meta')
   },
 
-  suggestions() {
-    return apiClient.get('/org-accounts/suggestions')
+  suggestions(identityId) {
+    return apiClient.get('/org-accounts/suggestions', identityId === undefined ? undefined : { identity_id: String(identityId) })
   },
 
   get(id) {
     return apiClient.get(`/org-accounts/${idPath(id)}`)
+  },
+
+  forCrm(crmOrganizationId) {
+    return send('POST', `/org-accounts/for-crm/${idPath(crmOrganizationId)}`, {})
   },
 
   link(body) {

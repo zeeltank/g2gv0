@@ -1,7 +1,9 @@
 import { splitFieldErrors, type SplitErrors } from '@/components/shared/scaffolds/form-errors'
 import { isDeletedNameConflict } from '@/services/org-accounts/errors'
 
-export const FORBIDDEN_PAGE_TEXT = 'You do not have access to Organisation 360.'
+/** The linked records follow the rights of the Organizations screen, so a 403 here means this role has none on it. */
+export const FORBIDDEN_PAGE_TEXT = 'You do not have access to the linked records of organisations.'
+export const NOT_SET_UP_TEXT = 'Linked records are not set up on this server yet.'
 export const NO_LINK_RIGHT_TEXT = 'You are not allowed to confirm or reject links.'
 export const NO_CREATE_RIGHT_TEXT = 'You are not allowed to create CRM organisations.'
 export const NO_EDIT_RIGHT_TEXT = 'You are not allowed to change organisations.'
@@ -50,12 +52,15 @@ export type LoadFailure =
   | { kind: 'forbidden'; message: string }
   /** A 404: the organisation is gone, or was never in this organisation. */
   | { kind: 'notFound'; message: string }
+  /** A 503: this server does not have the linked-records tables yet. Retrying cannot help, and the rest of the screen still works. */
+  | { kind: 'unavailable'; message: string }
   | { kind: 'error'; message: string }
 
 export function classifyLoadFailure(error: unknown, fallback: string): LoadFailure {
   const status = statusOf(error)
   if (status === 403) return { kind: 'forbidden', message: FORBIDDEN_PAGE_TEXT }
   if (status === 404) return { kind: 'notFound', message: NOT_FOUND_TEXT }
+  if (status === 503) return { kind: 'unavailable', message: NOT_SET_UP_TEXT }
   return { kind: 'error', message: otherText(error, fallback) }
 }
 

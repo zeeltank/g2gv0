@@ -39,6 +39,30 @@ describe('reading', () => {
     assert.match(calls[3].url, /\/org-accounts\/7$/)
   })
 
+  it('narrows the possible duplicates to one organisation only when asked to', async () => {
+    const calls = fakeFetch(() => json(200, { status: 1, data: [] }))
+    await orgAccountsService.suggestions(12)
+    await orgAccountsService.suggestions()
+    assert.match(calls[0].url, /\/org-accounts\/suggestions\?identity_id=12$/)
+    assert.match(calls[1].url, /\/org-accounts\/suggestions$/, 'no identity, no parameter: every pair')
+  })
+
+  it('asks for the 360 of a CRM organisation with a POST to /for-crm/{id} and an empty body, and keeps whether it was just made', async () => {
+    const calls = fakeFetch(() => json(200, { status: 1, created: true, data: { identity: { id: 3 } } }))
+    const answer = await orgAccountsService.forCrm(41)
+    assert.match(calls[0].url, /\/org-accounts\/for-crm\/41$/)
+    assert.equal(calls[0].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {})
+    assert.equal(answer.created, true)
+  })
+
+  it('keeps the status of a refused for-crm (403, 404, 409 and the 503 of a server that is not set up)', async () => {
+    for (const status of [403, 404, 409, 503]) {
+      fakeFetch(() => json(status, { status: 0, message: `refused ${status}` }))
+      await assert.rejects(orgAccountsService.forCrm(41), (error: unknown) => error instanceof ApiError && error.status === status && error.message === `refused ${status}`)
+    }
+  })
+
   it('answers a 403 with an ApiError that carries the status', async () => {
     fakeFetch(() => json(403, { status: 0, message: 'This action is unauthorized.' }))
     await assert.rejects(orgAccountsService.list({}), (error: unknown) => {

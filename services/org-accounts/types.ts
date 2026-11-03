@@ -73,14 +73,27 @@ export interface OrgMeta {
   }
 }
 
+/** One end of a possible duplicate. */
+export interface OrgSuggestionSide {
+  type: OrgSourceType
+  id: number
+  name: string
+  /** Where this record says it is ("Surat, Gujarat"), or null when it says nothing. */
+  place: string | null
+}
+
 /** A possible duplicate a person is asked about. `key` identifies the pair. */
 export interface OrgSuggestion {
   key: string
-  left: { type: OrgSourceType; id: number; name: string }
-  right: { type: OrgSourceType; id: number; name: string }
+  left: OrgSuggestionSide
+  right: OrgSuggestionSide
   basis: 'name_overlap'
   /** 0 to 1: the share of name words the two have in common. */
   score: number
+  /** Both places are known and share no word: the same name in two different places is more likely two organisations than one. */
+  place_conflict: boolean
+  /** False for two records of ONE source (an organisation holds one record of each source): they can only be marked as different. */
+  confirmable: boolean
 }
 
 export interface OrgSignalLine {
@@ -88,6 +101,8 @@ export interface OrgSignalLine {
   title: string
   review_status: 'New' | 'Reviewed' | 'Follow-up' | 'Dismissed'
   date_info: { status: 'event_date_stated' | 'source_date_only' | 'undated'; date: string | null }
+  /** The page the signal was found on, an http(s) address, or null. The evidence a person can open. */
+  source_url: string | null
   business_fit: string | null
   product_master_name: string | null
 }
@@ -99,6 +114,8 @@ export interface OrgContactLine {
   email: string | null
   phone: string | null
   role: string | null
+  /** Whether the person agreed to be written to (opted_in, opted_out, unknown); only the CRM records it, so GTM contacts say null. */
+  consent_status: string | null
 }
 
 export interface OrgDealLine {
@@ -145,8 +162,10 @@ export interface Org360 {
     billing_state: string | null
     assigned_to_name: string | null
   } | null
-  gtm: { id: number; name: string; stage: string | null; domain: string | null; icp_fit_score: number | null; owner_name: string | null } | null
+  gtm: { id: number; name: string; stage: string | null; domain: string | null; deals_count: number; icp_fit_score: number | null; owner_name: string | null } | null
   company: { id: number; name: string; website: string | null; industry: string | null; location: string | null; state: string | null; type: string | null; first_seen_at: string | null } | null
+  /** Why this organisation matters now, counted over ALL its signals and deals, not only the capped lists below. */
+  why_now: { open_signals: number; next_event_date: string | null; open_deals: number; last_activity_at: string | null }
   signals: { total: number; needing_decision: number; decided: number; latest: OrgSignalLine[] }
   contacts: OrgContactLine[]
   deals: OrgDealLine[]
@@ -157,6 +176,14 @@ export interface Org360 {
 export interface OrgEnvelope<T> {
   status: 1
   data: T
+}
+
+/** POST /for-crm/{crm organization id}: the 360 of that CRM organisation, after making its identity if it had none. */
+export interface OrgForCrmResult {
+  status: 1
+  /** True when this call made the identity. */
+  created: boolean
+  data: Org360
 }
 
 /** POST /links */

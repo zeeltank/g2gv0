@@ -31,7 +31,7 @@ import { SendEmailDialog } from './send-email-dialog'
 import { CrmHistoryTab } from './crm-history-tab'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
-import { CrmOrganizationCrossLinksTab, type OrganizationCrossModuleLinks } from './crm-cross-links-tab'
+import { ORG_DETAIL_TABS, tabFromSearch, type OrgDetailTab } from '@/lib/org-accounts/detail-tabs'
 import { Account360 } from './account-360'
 
 interface Props {
@@ -41,21 +41,17 @@ interface Props {
   picklists: { accountType: CrmPicklistValue[]; industry: CrmPicklistValue[]; rating: CrmPicklistValue[] }
 }
 
-type Tab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'cross_links' | 'account_360' | 'custom'
-const BASE_TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'details', label: 'Details' },
-  { id: 'hierarchy', label: 'Hierarchy' },
-  { id: 'opportunities', label: 'Opportunities' },
-  { id: 'quotes', label: 'Quotes' },
-  { id: 'account_360', label: 'Account 360' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'comments', label: 'Comments' },
-  { id: 'documents', label: 'Documents' },
-  { id: 'emails', label: 'Emails' },
-  { id: 'history', label: 'History' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'cross_links', label: 'GTM & Signals' },
-]
+type Tab = OrgDetailTab
+const BASE_TABS = ORG_DETAIL_TABS
+
+/**
+ * The tab a link asks for (`?tab=account_360`); the page opens on Details otherwise. Read once, when the page opens: the organization is fetched on the
+ * client before this mounts, so the address is there. The agent's evidence links and the "Open" of a newly made CRM organisation use it to land on the
+ * linked records.
+ */
+function tabFromAddress(): Tab {
+  return typeof window === 'undefined' ? 'details' : tabFromSearch(window.location.search)
+}
 
 function IconValue({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
   return (
@@ -122,7 +118,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
-  const [tab, setTab] = useState<Tab>('details')
+  const [tab, setTab] = useState<Tab>(tabFromAddress)
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [sendSmsOpen, setSendSmsOpen] = useState(false)
@@ -144,8 +140,6 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [historyLoading, setHistoryLoading] = useState(true)
   const [linkedProjects, setLinkedProjects] = useState<LinkedProject[]>([])
   const [linkedProjectsLoading, setLinkedProjectsLoading] = useState(true)
-  const [crossLinks, setCrossLinks] = useState<OrganizationCrossModuleLinks | null>(null)
-  const [crossLinksLoading, setCrossLinksLoading] = useState(true)
 
   const [customValues, setCustomValues] = useState<Record<number, string | null>>({})
   const [hasCustomFields, setHasCustomFields] = useState(false)
@@ -238,24 +232,12 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
     }
   }, [context, organization.id])
 
-  const loadCrossLinks = useCallback(async () => {
-    setCrossLinksLoading(true)
-    try {
-      const response = await crmService.getOrganizationCrossModuleLinks(context, organization.id)
-      setCrossLinks(response.data)
-    } catch {
-      /* the tab still renders, just empty */
-    } finally {
-      setCrossLinksLoading(false)
-    }
-  }, [context, organization.id])
-
   useEffect(() => {
     queueMicrotask(() => {
       void loadOpportunities(); void loadQuotes(); void loadComments()
-      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects(); void loadCrossLinks()
+      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects()
     })
-  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects, loadCrossLinks])
+  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -274,7 +256,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to Organizations" title="Back to Organizations">
+          <Button variant="ghost" size="icon" className="min-h-6 min-w-6 shrink-0" onClick={onBack} aria-label="Back to Organizations" title="Back to Organizations">
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-primary/10 text-primary">
@@ -474,15 +456,14 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
         </SectionCard>
       )}
 
-      {tab === 'cross_links' && (
-        <SectionCard title="GTM & Signals" description="Where this same organization also shows up, matched by name - these are three separate records, not one, so changes on one side don't update the others.">
-          <CrmOrganizationCrossLinksTab links={crossLinks} loading={crossLinksLoading} />
-        </SectionCard>
-      )}
-
       {tab === 'account_360' && (
-        <SectionCard title="Account 360" description="Full relationship view — contacts, opportunities, signals, campaigns, knowledge sources and explicit entity relationships for this account.">
-          <Account360 organizationId={organization.id} context={context} />
+        <SectionCard title="Account 360" description="This organization as one record across the CRM, GTM and Signals: why it matters now, the records it is linked to and why, its signals, contacts and open deals, and its campaigns, knowledge sources and relationships.">
+          <Account360
+            organizationId={organization.id}
+            context={context}
+            onOpenTab={(next) => setTab(next)}
+            onRecordsChanged={() => { void loadComments(); void loadHistory() }}
+          />
         </SectionCard>
       )}
 

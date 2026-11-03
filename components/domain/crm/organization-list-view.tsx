@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { buildLinks } from '@/lib/org-accounts/links'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
@@ -22,6 +23,7 @@ import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
+import { OrgScopes } from './org-scopes'
 
 type SortKey = 'name' | 'account_type' | 'industry' | 'rating' | 'billing_city' | 'created_at'
 
@@ -181,76 +183,79 @@ export function OrganizationListView() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or phone…" className="pl-9" />
+      {/* The scope switch: Organizations (the list below, unchanged) | Discovered (found in Signals or GTM, not in the CRM yet) | Possible duplicates. */}
+      <OrgScopes context={context} links={buildLinks(resolveAccessLink)}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative max-w-sm flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value) }} placeholder="Search name, email, or phone…" className="pl-9" />
+          </div>
+          <CrmSavedViews module="organizations" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
         </div>
-        <CrmSavedViews module="organizations" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
-      </div>
 
-      {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
-      {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
+        {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+        {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
 
-      <div className="@container/orgs overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  aria-label="Select all organizations on this page"
-                  checked={allSelected}
-                  onChange={(e) => toggleAll(e.target.checked)}
-                />
-              </TableHead>
-              <SortHead label="Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
-              <SortHead label="Type" sortKey="account_type" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
-              <SortHead label="Industry" sortKey="industry" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
-              <SortHead label="City" sortKey="billing_city" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
-              <TableHead>Phone</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading organizations…
-              </TableCell></TableRow>
-            )}
-            {!isLoading && organizations.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                No organizations yet. Click “Add Organization” to create one.
-              </TableCell></TableRow>
-            )}
-            {!isLoading && organizations.map((org) => (
-              <TableRow key={org.id} className="cursor-pointer" onClick={() => router.push(resolveAccessLink('/module/crm/marketing/organizations') + `/${org.id}`)}>
-                <TableCell onClick={(e) => e.stopPropagation()}>
+        <div className="@container/orgs overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
                   <input
                     type="checkbox"
-                    aria-label={`Select ${org.name}`}
-                    checked={selectedIds.has(org.id)}
-                    onChange={() => toggle(org.id)}
+                    aria-label="Select all organizations on this page"
+                    checked={allSelected}
+                    onChange={(e) => toggleAll(e.target.checked)}
                   />
-                </TableCell>
-                <TableCell className="font-medium text-foreground">{org.name}</TableCell>
-                <TableCell>{org.accountType || '—'}</TableCell>
-                <TableCell className="hidden @md/orgs:table-cell">{org.industry || '—'}</TableCell>
-                <TableCell className="hidden @md/orgs:table-cell">{org.billingCity || '—'}</TableCell>
-                <TableCell>{org.phone || '—'}</TableCell>
+                </TableHead>
+                <SortHead label="Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+                <SortHead label="Type" sortKey="account_type" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+                <SortHead label="Industry" sortKey="industry" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
+                <SortHead label="City" sortKey="billing_city" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
+                <TableHead>Phone</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{total} organization{total === 1 ? '' : 's'}</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-          <span>Page {page} of {lastPage}</span>
-          <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading organizations…
+                </TableCell></TableRow>
+              )}
+              {!isLoading && organizations.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  No organizations yet. Click “Add Organization” to create one.
+                </TableCell></TableRow>
+              )}
+              {!isLoading && organizations.map((org) => (
+                <TableRow key={org.id} className="cursor-pointer" onClick={() => router.push(resolveAccessLink('/module/crm/marketing/organizations') + `/${org.id}`)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${org.name}`}
+                      checked={selectedIds.has(org.id)}
+                      onChange={() => toggle(org.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">{org.name}</TableCell>
+                  <TableCell>{org.accountType || '—'}</TableCell>
+                  <TableCell className="hidden @md/orgs:table-cell">{org.industry || '—'}</TableCell>
+                  <TableCell className="hidden @md/orgs:table-cell">{org.billingCity || '—'}</TableCell>
+                  <TableCell>{org.phone || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      </div>
+
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{total} organization{total === 1 ? '' : 's'}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+            <span>Page {page} of {lastPage}</span>
+            <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
+      </OrgScopes>
 
       <CreateOrganizationModal
         isOpen={modalOpen}

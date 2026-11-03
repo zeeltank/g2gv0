@@ -59,6 +59,9 @@ export function PageTabs({ tabs, active, onChange, label, idPrefix }: {
             role="tab"
             id={tabButtonId(idPrefix, tab.id)}
             aria-selected={selected}
+            // The label and the count are two inline spans with no space between them, so the tab's name read "Signals0". A name with the space, which still
+            // contains the visible label.
+            aria-label={tab.count !== undefined && tab.count !== null ? `${tab.label} ${tab.count}` : undefined}
             aria-controls={tabPanelId(idPrefix, tab.id)}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}

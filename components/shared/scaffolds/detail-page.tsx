@@ -50,7 +50,8 @@ export function DetailPage({ title, subtitle, badge, backLabel, onBack, actions,
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} aria-label={backLabel} title={backLabel}>
+          {/* shrink-0 and a 24 px floor: in a header that wraps on a phone, a long title squeezed this icon-only button down to 20 px. */}
+          <Button variant="ghost" size="icon" className="min-h-6 min-w-6 shrink-0" onClick={onBack} aria-label={backLabel} title={backLabel}>
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
           <div className="min-w-0">
