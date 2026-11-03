@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { CUSTOMER_MODELS, fromConfig, toConfig } from './icp-form'
@@ -24,18 +24,16 @@ describe('ICP customer type', () => {
     assert.equal(emptyIcpForm().customer_model, 'b2b')
   })
 
-  it('both ICP forms show the choice', () => {
+  it('the sub-product ICP form shows the choice (a product has no ICP form of its own)', () => {
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /Customer type/)
-    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /customer_model: e\.target\.value as CustomerModel/)
+    assert.ok(!existsSync(join(__dirname, '..', 'components/domain/portfolio/product-icp-editor.tsx')), 'the main-product ICP editor is gone')
   })
 })
 
 describe('Ideal customer text has no short limit', () => {
-  it('both ICP forms use a multi-line box with no maxLength on the ideal-customer field', () => {
+  it('the sub-product ICP form uses a multi-line box with no maxLength on the ideal-customer field', () => {
     const section = read('components/domain/portfolio/product-icp-section.tsx')
-    const editor = read('components/domain/portfolio/product-icp-editor.tsx')
     assert.match(section, /<Textarea id="icp-ideal"[^>]*value=\{form\.industry_label\}(?![^>]*maxLength)/)
-    assert.match(editor, /<Textarea value=\{form\.industry_label\}(?![^>]*maxLength)/)
   })
 })
 
@@ -91,9 +89,8 @@ describe('Add or edit sub-product: saves directly to offers', () => {
   it('sub-products belong to their parent product and never create a master product', () => {
     assert.doesNotMatch(s, /productIcpService\.createProduct/)
   })
-  it('guidance allows 5,000 characters in both forms', () => {
+  it('guidance allows 5,000 characters in the sub-product ICP form', () => {
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{5000\}/)
-    assert.match(read('components/domain/portfolio/product-icp-editor.tsx'), /maxLength=\{5000\}/)
   })
 })
 
@@ -110,7 +107,7 @@ describe('Delete one of your own products', () => {
     assert.match(deleteProductConfirmation('X', 2), /2 existing opportunities/)
     assert.match(deleteProductConfirmation('X', 1), /1 existing opportunity;/)
     const s = read('components/domain/portfolio/portfolio-view.tsx')
-    assert.match(s, /\{isAdmin && p\.custom && <Button[^>]*onClick=\{\(\) => void handleDeleteProduct\(p\)\}/)
+    assert.match(s, /\{isAdmin && p\?\.custom && <Button[^>]*onClick=\{\(\) => void handleDeleteProduct\(p\)\}/)
     assert.match(s, /window\.confirm\(deleteProductConfirmation\(p\.label, p\.opportunities_count\)\)/)
     assert.match(read('services/signals/product-icp.ts'), /apiClient\.delete<[^>]*>\(`\$\{path\(product\)\}\?\$\{qs\(c\)\}`\)/)
   })

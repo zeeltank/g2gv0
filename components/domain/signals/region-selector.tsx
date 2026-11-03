@@ -42,7 +42,7 @@ export function RegionSelector({
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <span id="region-label" className="text-xs font-medium text-muted-foreground">Region</span>
       <Popover>
         <PopoverTrigger asChild>
@@ -52,7 +52,7 @@ export function RegionSelector({
             aria-labelledby="region-label"
             aria-haspopup="dialog"
             title={regionLabel(value)}
-            className="flex h-10 min-w-48 max-w-72 items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            className="flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-input bg-background px-3 text-left text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           >
             <Globe2 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate">{regionShortLabel(value)}{!draftIsEmpty(draft) && <span className="text-muted-foreground"> · {draft.country || '…'} (not added)</span>}</span>

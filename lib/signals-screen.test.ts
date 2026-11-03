@@ -35,9 +35,9 @@ describe('Signals sidebar', () => {
     assert.equal(input[0].children[1].children.length, 3)
   })
 
-  it('shows a tab for each Signals row the user\'s menu had, always keeps the landing tab, and shows all four when there is no Signals group', () => {
+  it('shows all four app sections whether or not the server menu includes their rows', () => {
     assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    assert.deepEqual(visibleSignalsTabs(['/portfolio']).map((t) => t.href), ['/signals', '/portfolio'])
+    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
     const none = [{ id: '1', label: 'Reports', short: 'R', accessLink: '/reports', children: [] }] as NavModule[]
     assert.equal(collapseSignalsNav(none).tabs, null)
   })
@@ -46,6 +46,33 @@ describe('Signals sidebar', () => {
     assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
     for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/portfolio/page.tsx', 'portfolio'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
+  })
+
+
+  it('folds Signal Inbox into Market Signals so Market Signals is a flat direct link to /signals with zero children', () => {
+    const liveTree: NavModule[] = [{
+      id: '199', label: 'Sales & Marketing Intelligence', short: 'S&M', accessLink: null,
+      children: [
+        { id: '442', label: 'Command Center', accessLink: '/module/crm/command-center', children: [] },
+        {
+          id: '489', label: 'Market Signals', accessLink: '/module/crm/signals',
+          children: [
+            { id: '501', label: 'Signal Inbox', accessLink: '/module/crm/marketing/signal-inbox', children: [] },
+          ],
+        },
+        { id: '443', label: 'Prospecting', accessLink: '/module/crm/prospecting', children: [] },
+      ],
+    }]
+
+    const res = collapseSignalsNav(liveTree)
+    const marketSignals = res.modules[0].children.find((c) => c.id === '489')!
+    assert.equal(marketSignals.label, 'Market Signals')
+    assert.equal(marketSignals.accessLink, '/signals')
+    assert.deepEqual(marketSignals.children, [])
+    assert.deepEqual(res.owners['/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.deepEqual(res.owners['/module/crm/signals'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.deepEqual(res.owners['/module/crm/marketing/signal-inbox'], { moduleId: '199', menuId: '489', submenuId: '489' })
+    assert.equal(res.modules[0].children.some((c) => c.label === 'Signal Inbox'), false)
   })
 })
 
@@ -85,8 +112,8 @@ describe('Signals dates', () => {
     assert.match(list, /perPage: SIGNALS_PER_PAGE/)
     assert.match(list, /setPage\(1\); setData\(null\)/)
     const opps = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(opps, /void run\.generate\(c\.list\)/)
-    assert.match(opps, /disabled=\{!selected \|\| run\.running\}/)
+    assert.match(opps, /void run\.generate\(c\.list, icpType\)/)
+    assert.match(opps, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
     assert.doesNotMatch(opps, /useEffect\([^)]*generate/)
   })
 })
@@ -109,13 +136,12 @@ describe('Run notice: not finished is not the same as nothing found', () => {
 })
 
 describe('Generation shows what it will use, and snippet evidence is not called verified', () => {
-  it('shows the product, ICP version and regions from the backend before Generate, never from the screen', () => {
+  it('keeps the product and ICP selector concise and removes the configuration dump', () => {
     const opps = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(opps, /<ResearchContextNotice context=\{context\} productKey=\{selected\.key\}/)
-    const notice = read('components/domain/signals/research-context-notice.tsx')
-    assert.match(notice, /portfolioService\.getResearchContext/)
-    assert.match(notice, /data\.warnings/)
-    assert.doesNotMatch(notice, /localStorage/)
+    assert.match(opps, /id="main-product-select"/)
+    assert.match(opps, /id="sub-product-select"/)
+    assert.match(opps, /id="icp-type-select"/)
+    assert.doesNotMatch(opps, /ResearchContextNotice|What the research uses/)
   })
 
   it('says so when the quoted wording was seen only in a search snippet', async () => {

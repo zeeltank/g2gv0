@@ -6,7 +6,7 @@ import { strict as assert } from 'node:assert'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { configureHref, icpHref, icpStatus, resolveTab } from './product-selection'
+import { configureHref, offersHref, resolveTab, subProductIcpState } from './product-selection'
 
 const root = join(__dirname, '..')
 const read = (p: string) => readFileSync(join(root, p), 'utf8')
@@ -24,23 +24,30 @@ describe('Product Details & ICP link', () => {
     assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /router\.replace\(configureHref\(linked\)\)/)
   })
 
-  it('has an ICP link that opens the ICP tab, and falls back to the overview for an unknown tab', () => {
-    assert.equal(icpHref('g2g'), '/portfolio/g2g?tab=icp')
-    assert.equal(resolveTab('icp'), 'icp')
+  it('has a link to the product\'s sub-products (where each ICP is set), an old ?tab=icp link lands there, and an unknown tab falls back to the overview', () => {
+    assert.equal(offersHref('g2g'), '/portfolio/g2g?tab=offers')
+    assert.equal(resolveTab('icp'), 'offers', 'a product has no ICP tab any more')
+    assert.equal(resolveTab('offers'), 'offers')
     assert.equal(resolveTab('nonsense'), 'overview')
     assert.equal(resolveTab(null), 'overview')
   })
 
-  it('reads the ICP status only from the stored state', () => {
-    assert.equal(icpStatus({ state: 'ready', draft_icp: null }).key, 'ready')
-    assert.equal(icpStatus({ state: 'needs_setup', draft_icp: { id: 1 } }).key, 'draft')
-    assert.equal(icpStatus({ state: 'needs_setup', draft_icp: null }).key, 'incomplete')
-    assert.equal(icpStatus({ state: 'invalid', draft_icp: null }).key, 'invalid')
+  it('reads a product\'s ICP state only from what the server says about each of its sub-products', () => {
+    const ready = { icp_ready: true }
+    const none = { icp_ready: false, icp_models: { b2b: { configured: false, ready: false }, b2c: { configured: false, ready: false }, b2g: { configured: false, ready: false } } }
+    const b2gOnly = { icp_ready: false, icp_models: { b2b: { configured: false, ready: false }, b2g: { configured: true, ready: true } } }
+    assert.equal(subProductIcpState([]).key, 'no_sub_products')
+    assert.equal(subProductIcpState([none, none]).key, 'none')
+    assert.equal(subProductIcpState([none, none]).label, 'ICP not configured')
+    assert.deepEqual(subProductIcpState([ready, none, b2gOnly]), { key: 'partial', configured: 2, total: 3, label: 'ICP configured for 2 of 3 sub-products' })
+    assert.equal(subProductIcpState([ready, b2gOnly]).key, 'all')
+    assert.equal(subProductIcpState([ready]).label, 'ICP configured for all 1 sub-product')
   })
 
-  it('is what the Company opportunities screen links to, for the selected product only', () => {
+  it('shows the selected product ICP readiness on the Company opportunities screen', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /icpHref\(selected\.key\)/)
+    assert.match(src, /selected\?\.icp_models\?\.\[icpType\]/)
+    assert.match(src, /Complete it in Product Portfolio/)
   })
 })
 
@@ -99,7 +106,7 @@ describe('One list and the research-date selector', () => {
   })
 
   it('takes its dates from the backend history, not from the clock', () => {
-    assert.match(screen, /getRunDates\(context, key\)/)
+    assert.match(screen, /getRunDates\(context, key, icpType, offerId, regions\)/)
     assert.equal(/new Date\(|Date\.now\(/.test(screen), false)
   })
 

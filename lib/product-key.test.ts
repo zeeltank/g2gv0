@@ -43,10 +43,10 @@ describe('New Product and the opportunity comparison are separate from what exis
     assert.match(view, /<NewProductDialog/)
   })
 
-  it('creating a product calls only the product-creation API and then opens that product\'s ICP', () => {
+  it('creating a product calls only the product-creation API and then opens that product\'s sub-products (where its ICPs are set)', () => {
     assert.match(dialog, /productIcpService\.createProduct/)
     assert.doesNotMatch(dialog, /portfolioService/)
-    assert.match(view, /router\.push\(icpHref\(key\)\)/)
+    assert.match(view, /router\.push\(offersHref\(key\)\)/)
   })
 
   it('the signal card offers the comparison, which only reads', () => {

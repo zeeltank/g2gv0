@@ -85,7 +85,7 @@ describe('Region reaches the generation request', () => {
   it('the screen resets the region when the product changes and sends it with Generate and Retry', () => {
     const s = read('components/domain/signals/company-opportunities.tsx')
     assert.match(s, /setPicked\(null\); setTotal\(null\); setRegions\(\[\]\); setDraft\(emptyDraft\(\)\)/)
-    assert.match(s, /void run\.generate\(c\.list\)/)
+    assert.match(s, /void run\.generate\(c\.list, icpType\)/)
     assert.match(s, /onRetry=\{generate\}/)
     assert.match(s, /onClick=\{generate\}/)
     assert.match(s, /<RegionSelector value=\{regions\} onChange=\{\(next\) => \{ setRegions\(next\)/)

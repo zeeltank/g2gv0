@@ -153,6 +153,6 @@ describe('progress bar wiring', () => {
   })
 
   it('the Generate button is disabled only without a product or while a run is active, and never by readiness (which is explained instead)', () => {
-    assert.match(screen, /disabled=\{!selected \|\| run\.running\}/)
+    assert.match(screen, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
   })
 })

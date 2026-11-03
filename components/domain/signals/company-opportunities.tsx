@@ -1,25 +1,26 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { choiceOf, icpHref, splitChoice } from '@/lib/product-selection'
+import { choiceOf, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
-import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
+import { isPickableDay, recentDays, relativeLabel, shiftDay, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
-import { commitPending, emptyDraft, previewRegions, regionLabel, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
-import { ProductDropdown, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
-import { ResearchContextNotice } from '@/components/domain/signals/research-context-notice'
+import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
+import { useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
-import { opportunitiesService, type RunDatesResponse } from '@/services/signals/opportunities'
+import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
+import { viewAfterManualSave } from '@/lib/manual-opportunity'
+import { ManualOpportunityDialog } from '@/components/domain/signals/manual-opportunity-dialog'
+import { opportunitiesService, type ManualOpportunityResponse, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
 
@@ -30,41 +31,62 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  * Product Portfolio.
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
-  const { products, loading, error } = useProducts(context)
-  // The choice is a product, or one sub-product of it ("scholarclone::SCH-11"): the run is then about that sub-product alone, with its own ICP.
+  const { products, loading } = useProducts(context)
+  // A run covers the selected master product and its configured product line.
   const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
   const { productKey: product, offerId } = splitChoice(choice)
   const selected = products?.find((p) => p.key === product) ?? null
-  const sub = offerId ? selected?.offers.find((o) => o.offer_id === offerId) ?? null : null
-  const runLabel = selected ? (sub ? `${selected.label} → ${sub.name}` : selected.label) : ''
+  const runLabel = selected?.label ?? ''
   const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
-  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId)
+  const [regions, setRegions] = useState<RegionSelection[]>([])
+  const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
+  const [regionProblems, setRegionProblems] = useState<string[]>([])
+  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions)
+  const setCustomerModel = run.setCustomerModel
   useEffect(() => {
-    run.setCustomerModel(icpType)
-  }, [icpType, run])
-
-  // Reset ICP type to default model (b2b) when main product or sub-product changes
-  useEffect(() => {
-    setIcpType('b2b')
-  }, [selected?.key, offerId])
+    setCustomerModel(icpType)
+  }, [icpType, setCustomerModel])
 
   const [dates, setDates] = useState<RunDate[] | null>(null)
   const [timezone, setTimezone] = useState<string | null>(null)
   const [datesError, setDatesError] = useState<string | null>(null)
   // null = the default: today.
   const [picked, setPicked] = useState<string | null>(null)
-  const [allSignals, setAllSignals] = useState(false)
+  const [allSignals, setAllSignals] = useState(true)
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all')
+  const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
   const [total, setTotal] = useState<number | null>(null)
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
-  const [regions, setRegions] = useState<RegionSelection[]>([])
-  const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
-  const [regionProblems, setRegionProblems] = useState<string[]>([])
   const seenCompleted = useRef(0)
 
+  // The run whose results are on screen right after it finishes: that run's own signals, not every run of the same day. A person choosing a day
+  // (or another product, sub-product, ICP type or place) goes back to reading by day.
+  const [viewRunId, setViewRunId] = useState<number | null>(null)
+  useEffect(() => {
+    const r = run.activeRun
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewRunId(run.completedCount > 0 && r && (r.status === 'success' || r.status === 'partial') ? r.id : null)
+  }, [run.completedCount]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Adding an opportunity by hand: the form, and what was just saved (so the person is told which day it is listed under).
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualNotice, setManualNotice] = useState<string | null>(null)
+
   const key = selected?.key ?? null
+  // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another when in filtered scope mode.
+  const regionsSig = regionSignature(regions)
+  useEffect(() => {
+    setDatePreset('all'); setDateRange(null)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPicked(null); setAllSignals(false); setTotal(null); setManualNotice(null)
+  }, [offerId, icpType])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDates(null); setDatesError(null); setAllSignals(false); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
+    setViewRunId(null)
+  }, [key, offerId, icpType, regionsSig])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([]); setDatePreset('all'); setDateRange(null)
     seenCompleted.current = run.completedCount
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -73,31 +95,29 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     let live = true
     const finished = run.completedCount !== seenCompleted.current
     seenCompleted.current = run.completedCount
-    opportunitiesService.getRunDates(context, key)
+    opportunitiesService.getRunDates(context, key, icpType, offerId, regions)
       .then((res) => {
         if (!live) return
         setDates(res.data.dates)
         setTimezone(res.data.timezone)
         setDatesError(null)
-        if (finished) { setPicked(null); setAllSignals(false) }   // a run that just finished saved today's results
+        if (finished) { setPicked(null); setDatePreset('all'); setDateRange(null); setTotal(null) }   // a run that just finished saved today's results
       })
       .catch((e) => { if (live) setDatesError(e instanceof Error ? e.message : 'Could not load the research dates.') })
     return () => { live = false }
-  }, [context, key, run.refreshKey, run.completedCount])
+  }, [context, key, offerId, icpType, regions, run.refreshKey, run.completedCount])
 
-  const currentModelStatus = sub
-    ? sub.icp_models?.[icpType]
+  const currentModelStatus = offerId
+    ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[icpType]
     : selected?.icp_models?.[icpType]
 
   const isModelReady = currentModelStatus
     ? currentModelStatus.ready
-    : (icpType === 'b2b' ? Boolean(selected?.ready) && (!sub || sub.icp_ready !== false) : false)
+    : (icpType === 'b2b' ? Boolean(selected?.ready) : false)
 
-  const isModelConfigured = currentModelStatus
-    ? currentModelStatus.configured
-    : (icpType === 'b2b' && Boolean(selected?.icp))
-
-  const ready = isModelReady
+  const ready = offerId
+    ? (currentModelStatus ? currentModelStatus.ready : icpType === 'b2b' && selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_ready === true)
+    : isModelReady
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -113,18 +133,30 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     setRegionProblems([])
     setRegions(c.list)
     setDraft(emptyDraft())
-    void run.generate(c.list)
+    void run.generate(c.list, icpType)
   }
-  const effective = previewRegions(regions, draft)
-  const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null) }
+  const pick = (d: string) => { setPicked(d); setDatePreset(d === today ? 'today' : 'all'); setDateRange(null); setTotal(null); setViewRunId(null) }
+  // Saved: close the form, then show the day it was saved on (the server's day, not the post's) and re-read the list and the days without a reload.
+  const manualSaved = (res: ManualOpportunityResponse) => {
+    const next = viewAfterManualSave({ picked, allSignals }, res.data.captured_on)
+    setManualOpen(false)
+    setViewRunId(null)
+    setPicked(next.picked)
+    setAllSignals(true)
+    setDatePreset('all')
+    setDateRange(null)
+    setTotal(null)
+    setManualNotice(`${res.message} ${next.allSignals ? 'It is in All Signals' : `It is listed under ${formatRunDate(res.data.captured_on)}`}.`)
+    run.refresh()
+  }
 
   return (
     <div className="space-y-5">
-      <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
-        {/* Four Sequential Dropdowns: Main Product -> Sub-Product -> ICP Type -> Region -> Generate Signal */}
-        <div className="flex flex-wrap items-end gap-3">
+      <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
+        {/* Choose a master product, acquisition profile, and region. */}
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
           {/* Dropdown 1: Main Product */}
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="main-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Main Product
             </label>
@@ -135,57 +167,30 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               onChange={(e) => {
                 const nextKey = e.target.value
                 if (!nextKey) return
+                setIcpType('b2b')
                 setChoice(nextKey)
               }}
               disabled={run.running || loading || !products}
-              className="h-10 min-w-48 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {products?.map((p) => (
                 <option key={p.key} value={p.key}>
-                  {p.label}{p.ready ? '' : ' (ICP setup required)'}
+                  {p.label}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Dropdown 2: Sub-Product */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Sub-Product
-            </label>
-            <select
-              id="sub-product-select"
-              aria-label="Sub-Product"
-              value={offerId ?? ''}
-              onChange={(e) => {
-                const subId = e.target.value
-                if (!selected) return
-                if (!subId) {
-                  setChoice(selected.key)
-                } else {
-                  setChoice(choiceOf(selected.key, subId))
-                }
-              }}
-              disabled={run.running || !selected || (selected.offers.length === 0)}
-              className="h-10 min-w-52 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-            >
-              {selected?.offers && selected.offers.length > 0 ? (
-                <>
-                  <option value="">None (Main product only)</option>
-                  {selected.offers.map((o) => (
-                    <option key={o.offer_id} value={o.offer_id}>
-                      {o.name} ({o.offer_id}){o.icp_ready === false ? ' — incomplete ICP' : ''}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <option value="">No sub-products (Main product only)</option>
-              )}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-Product</label>
+            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && setChoice(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">Whole product</option>
+              {selected?.offers.map((offer) => <option key={offer.offer_id} value={offer.offer_id}>{offer.name}</option>)}
             </select>
           </div>
 
-          {/* Dropdown 3: ICP Type */}
-          <div className="flex flex-col gap-1">
+          {/* Dropdown 2: ICP Type */}
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               ICP Type
             </label>
@@ -195,120 +200,48 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               value={icpType}
               onChange={(e) => setIcpType(e.target.value as 'b2b' | 'b2c' | 'b2g')}
               disabled={run.running || !selected}
-              className="h-10 min-w-44 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {[
-                { key: 'b2b' as const, label: 'B2B — Business' },
-                { key: 'b2c' as const, label: 'B2C — Consumer' },
+                { key: 'b2b' as const, label: 'B2B Customer Acquisition' },
+                { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
               ].map((item) => {
-                const status = sub
-                  ? sub.icp_models?.[item.key]
-                  : selected?.icp_models?.[item.key]
-                const readyModel = status ? status.ready : (item.key === 'b2b' ? selected?.ready : false)
-                const configuredModel = status ? status.configured : (item.key === 'b2b' && Boolean(selected?.icp))
-                const statusSuffix = readyModel ? '✓ Ready' : configuredModel ? '⚠ Incomplete' : '✕ Not configured'
-
                 return (
                   <option key={item.key} value={item.key}>
-                    {item.label} [{statusSuffix}]
+                    {item.label}
                   </option>
                 )
               })}
             </select>
           </div>
 
-          {/* Hidden reference to satisfy legacy headless test assertions */}
-          <div className="hidden" aria-hidden="true">
-            <ProductDropdown products={products} loading={loading} error={error} value={choice} onChange={setChoice} allowSub />
-          </div>
-
-          {/* Dropdown 4: Region */}
+          {/* Dropdown 3: Region */}
           <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
-          {/* Button: Generate Signal */}
-          <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-stretch sm:items-end gap-1">
-            <Button
-              type="button"
-              size="lg"
-              className="h-10 w-full sm:w-auto min-w-48"
-              onClick={generate}
-              disabled={!selected || run.running}
-              aria-describedby="generate-hint"
-            >
-              {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
-              {run.running ? 'Generating…' : 'Generate Signals'}
-            </Button>
-            <span id="generate-hint" className="text-xs text-muted-foreground">
-              {run.running
-                ? 'Research is running. This can take a few minutes.'
-                : !ready && selected
-                ? `${icpType.toUpperCase()} ICP configuration is incomplete. Complete it before generating.`
-                : selected
-                ? `Runs research for ${runLabel} (${icpType.toUpperCase()} ICP only)${effective.length > 0 ? `, in ${regionLabel(effective)}` : ''}.`
-                : 'Choose a product.'}
-            </span>
-          </div>
         </div>
 
-        {/* Confirmed Configuration Card: Target Profile, Triggers, Search Queries */}
-        {selected && (
-          <div className="mt-4 rounded-xl border border-border/50 bg-muted/20 p-3 sm:p-4 space-y-3">
-            <div className="rounded-lg border border-border/60 bg-background p-3 text-xs space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
-                <span className="font-semibold text-foreground">
-                  Active Configuration: <span className="text-primary">{runLabel}</span> → <span className="uppercase font-bold text-primary">{icpType} ICP</span>
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                  ready
-                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
-                }`}>
-                  {ready ? 'Ready for signal discovery' : 'Configuration required before research'}
-                </span>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-3 pt-1 text-muted-foreground">
-                <div>
-                  <span className="block font-medium text-foreground">Target Profile</span>
-                  <span className="block truncate">{selected.icp?.ideal_customer || selected.label || 'Standard Profile'}</span>
-                </div>
-                <div>
-                  <span className="block font-medium text-foreground">Triggers & Signals</span>
-                  <span>{selected.icp?.triggers?.length ?? 0} buying triggers registered</span>
-                </div>
-                <div>
-                  <span className="block font-medium text-foreground">Search Queries</span>
-                  <span>{selected.icp?.searches ?? 0} queries configured</span>
-                </div>
-              </div>
-
-              {!ready && (
-                <div role="status" className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
-                  <p className="font-medium">{icpType.toUpperCase()} ICP for {runLabel} is not ready for discovery.</p>
-                  {(currentModelStatus?.missing ?? []).length > 0 ? (
-                    <ul className="mt-1 list-disc pl-4">
-                      {currentModelStatus?.missing?.map((m: string) => <li key={m}>{m}</li>)}
-                    </ul>
-                  ) : (
-                    <p className="mt-0.5">Please open Product Portfolio, configure the {icpType.toUpperCase()} ICP tab, and save it.</p>
-                  )}
-                  <div className="mt-1.5">
-                    <Link href={icpHref(selected.key)} className="font-semibold underline underline-offset-2">
-                      Configure {icpType.toUpperCase()} ICP in Product Portfolio →
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="mt-4 flex items-center justify-end border-t border-border/60 pt-4">
+          <span className="sr-only" aria-live="polite">
+            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
+          </span>
+          <Button
+            type="button"
+            size="lg"
+            className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
+            onClick={generate}
+            disabled={!selected || run.running || !ready}
+            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
+          >
+            {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+            {run.running ? 'Finding Signals…' : 'Generate Signals'}
+          </Button>
+        </div>
 
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
-        {selected && <ResearchContextNotice context={context} productKey={selected.key} offerId={offerId} regions={effective} refreshKey={run.refreshKey} />}
 
-        {/* The run's real progress, right under the product it belongs to. */}
-        <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />
+        {/* The run's real progress appears directly below the selectors after generation starts. */}
+        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
         {run.notice && (
           <div className="mt-3">
             <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
@@ -322,23 +255,87 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
       {selected && (
         <section aria-label={`${selected.label} signals`} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date Presets Group */}
+            <div className="inline-flex rounded-xl bg-muted/60 p-1 text-xs font-medium">
+              {[
+                { id: 'all' as const, label: 'All Dates' },
+                { id: 'today' as const, label: 'Today' },
+                { id: 'yesterday' as const, label: 'Yesterday' },
+                { id: '7days' as const, label: 'Last 7 Days' },
+                { id: '30days' as const, label: 'Last 30 Days' },
+              ].map((p) => {
+                const isActive = datePreset === p.id && (p.id !== 'all' || (!picked && !dateRange))
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      if (p.id === 'all') {
+                        setDatePreset('all')
+                        setPicked(null)
+                        setDateRange(null)
+                        setTotal(null)
+                      } else if (p.id === 'today') {
+                        if (today) {
+                          setDatePreset('today')
+                          setPicked(today)
+                          setDateRange({ from: today, to: today })
+                          setTotal(null)
+                        }
+                      } else if (p.id === 'yesterday') {
+                        if (today) {
+                          const y = shiftDay(today, 1)
+                          setDatePreset('yesterday')
+                          setPicked(y)
+                          setDateRange({ from: y, to: y })
+                          setTotal(null)
+                        }
+                      } else if (p.id === '7days') {
+                        if (today) {
+                          setDatePreset('7days')
+                          setPicked(null)
+                          setDateRange({ from: shiftDay(today, 6), to: today })
+                          setTotal(null)
+                        }
+                      } else if (p.id === '30days') {
+                        if (today) {
+                          setDatePreset('30days')
+                          setPicked(null)
+                          setDateRange({ from: shiftDay(today, 29), to: today })
+                          setTotal(null)
+                        }
+                      }
+                    }}
+                    className={`rounded-lg px-2.5 py-1.5 transition-all ${
+                      isActive
+                        ? 'bg-card text-foreground font-semibold shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+
             {/* A. Recent 5 Days Dropdown */}
             <select
               aria-label="Recent signal dates"
-              value={allSignals ? '' : (activeDate ?? '')}
+              value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
               disabled={dates === null && !datesError}
               onChange={(e) => {
                 if (e.target.value) pick(e.target.value)
               }}
-              className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {dates === null && !datesError ? (
                 <option value="" disabled>Loading dates…</option>
               ) : (
                 <>
-                  {allSignals && <option value="" disabled>Recent dates</option>}
-                  {activeDate && !allSignals && !recent5.some((d) => d.date === activeDate) && (
+                  {datePreset === 'all' && !dateRange && !picked && <option value="" disabled>Recent dates</option>}
+                  {dateRange && dateRange.from !== dateRange.to && <option value="" disabled>Date range active</option>}
+                  {activeDate && (!dateRange || dateRange.from === dateRange.to) && !recent5.some((d) => d.date === activeDate) && (
                     <option value={activeDate}>{formatRunDate(activeDate)} (Other date)</option>
                   )}
                   {recent5.length === 0 ? (
@@ -361,62 +358,80 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 type="date"
                 aria-label="Calendar date picker"
                 max={today ?? undefined}
-                value={allSignals ? '' : (activeDate ?? '')}
+                value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
                 onChange={(e) => {
                   const val = e.target.value
                   if (val && (!today || isPickableDay(val, today))) pick(val)
                 }}
-                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
 
-            {/* C. All Signals Button */}
+            {/* C. Scope Mode Toggle */}
             <Button
               type="button"
               size="sm"
               variant={allSignals ? 'default' : 'outline'}
               onClick={() => {
-                setAllSignals(true)
+                setAllSignals((prev) => !prev)
                 setTotal(null)
               }}
-              className="h-9 font-medium"
+              className="h-9 text-xs font-medium"
               aria-pressed={allSignals}
+              title={allSignals ? 'All Signals: aggregates across all sub-products and customer models' : 'Filtered Scope: narrows to current sub-product, customer model and region'}
             >
-              All Signals
+              {allSignals ? 'All Signals' : 'Filtered Scope'}
+            </Button>
+
+            <Button type="button" size="sm" variant="outline" onClick={() => { setManualNotice(null); setManualOpen(true) }} className="ml-auto h-9 text-xs font-medium">
+              <Plus className="mr-1.5 size-4" />
+              Add Opportunity Manually
             </Button>
           </div>
 
+          {manualNotice && <Notice tone="info"><span>{manualNotice}</span></Notice>}
+
           {dates === null && !datesError ? (
             <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
-          ) : allSignals ? (
+          ) : (
             <SignalList
-              key={`${selected.key}-all`}
+              key={`${selected.key}-${allSignals ? 'all-signals' : 'scoped'}-${datePreset}-${dateRange ? `${dateRange.from}-${dateRange.to}` : (activeDate ?? 'default')}`}
               context={context}
               productKey={selected.key}
+              offerId={offerId}
+              customerModel={icpType}
+              regions={regions}
               productLabel={selected.label}
-              runDate={null}
-              allDates={true}
-              refreshKey={run.refreshKey}
-              onTotal={setTotal}
-            />
-          ) : activeDate && dayRun ? (
-            <SignalList
-              key={`${selected.key}-${activeDate}`}
-              context={context}
-              productKey={selected.key}
-              productLabel={selected.label}
-              runDate={activeDate}
+              runDate={datePreset === 'all' && !dateRange && !picked ? null : (dateRange ? null : activeDate)}
+              dateFrom={dateRange?.from}
+              dateTo={dateRange?.to}
+              allDates={datePreset === 'all' && !dateRange && !picked}
+              allSignals={allSignals}
+              runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
               dayInfo={dayRun}
-            />
-          ) : (
-            <EmptyState
-              title={activeDate ? `No research ran on ${formatRunDate(activeDate)}` : 'No research dates yet'}
-              description={`${selected.label} has no successful research run on this date, so there are no signals to show. Pick another date, or press Generate Signals.`}
+              today={today}
+              timezone={timezone}
+              onAddManual={() => { setManualNotice(null); setManualOpen(true) }}
             />
           )}
         </section>
+      )}
+
+      {selected && (
+        <ManualOpportunityDialog
+          context={context}
+          open={manualOpen}
+          onClose={() => setManualOpen(false)}
+          onSaved={manualSaved}
+          productKey={selected.key}
+          productLabel={selected.label}
+          offerId={offerId}
+          offerLabel={offerId ? (selected.offers.find((o) => o.offer_id === offerId)?.name ?? offerId) : null}
+          customerModel={icpType}
+          today={today}
+        />
       )}
 
       {selected && (

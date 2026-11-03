@@ -31,16 +31,20 @@ export function ResearchProgress({ run, onRetry, retryDisabled }: { run: RunProg
     : v.state === 'completed' ? (v.limited ? 'border-amber-500/40 bg-amber-500/5' : 'border-emerald-500/30 bg-emerald-500/5') : 'border-primary/30 bg-primary/5'
 
   return (
-    <div data-testid="research-progress" data-state={v.state} className={`min-w-0 flex-1 basis-72 rounded-xl border px-3 py-2 text-sm ${tone}`}>
-      <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {moving && <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-hidden />}
-        {v.state === 'completed' && <CheckCircle2 className={`size-4 shrink-0 ${v.limited ? 'text-amber-600' : 'text-emerald-600'}`} aria-hidden />}
-        {v.state === 'failed' && <AlertTriangle className="size-4 shrink-0 text-destructive" aria-hidden />}
+    <div data-testid="research-progress" data-state={v.state} className={`mt-5 min-w-0 overflow-hidden rounded-2xl border p-4 shadow-sm transition-colors sm:p-5 ${tone}`}>
+      <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        {moving && <Loader2 className="size-5 animate-spin" aria-hidden />}
+        {v.state === 'completed' && <CheckCircle2 className={`size-5 ${v.limited ? 'text-amber-600' : 'text-emerald-600'}`} aria-hidden />}
+        {v.state === 'failed' && <AlertTriangle className="size-5 text-destructive" aria-hidden />}
+      </div>
+      <div className="min-w-0 flex-1">
+      <div role="status" aria-live="polite" className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="font-medium">
           {v.state === 'queued' && 'Queued'}
-          {v.state === 'running' && (v.stepNumber ? `Step ${v.stepNumber} of ${v.totalSteps}: ${v.steps[v.stepNumber - 1].label}` : 'Running')}
-          {v.state === 'completed' && (v.limited ? 'Finished with limits' : 'Completed')}
-          {v.state === 'failed' && 'Did not complete'}
+          {v.state === 'running' && (v.stepNumber ? `Step ${v.stepNumber} of ${v.totalSteps}: ${v.steps[v.stepNumber - 1].label}` : 'Research is running')}
+          {v.state === 'completed' && (v.limited ? 'Finished with limits' : 'Research complete')}
+          {v.state === 'failed' && 'Research did not complete'}
         </span>
         {v.percent !== null && active && <span className="text-xs tabular-nums text-muted-foreground">{v.percent}%</span>}
         {v.elapsedSeconds !== null && <span className="text-xs tabular-nums text-muted-foreground">· {formatDuration(v.elapsedSeconds)}</span>}
@@ -53,17 +57,18 @@ export function ResearchProgress({ run, onRetry, retryDisabled }: { run: RunProg
           aria-valuemin={0}
           aria-valuemax={100}
           {...(v.percent !== null ? { 'aria-valuenow': v.percent, 'aria-valuetext': `Step ${v.stepNumber} of ${v.totalSteps}, ${v.percent}%` } : { 'aria-valuetext': 'In progress' })}
-          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-primary/15"
+          className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-primary/15 ring-1 ring-inset ring-primary/10"
         >
-          <div className={`h-full rounded-full bg-primary transition-[width] duration-500 ${v.percent === null ? `w-1/3 ${moving ? 'animate-pulse' : ''}` : ''}`} style={v.percent === null ? undefined : { width: `${Math.max(v.percent, 4)}%` }} />
+          <div className={`h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-cyan-400 shadow-[0_0_14px_rgba(59,130,246,0.45)] transition-[width] duration-700 ease-out ${v.percent === null ? `w-1/3 ${moving ? 'animate-pulse' : ''}` : ''}`} style={v.percent === null ? undefined : { width: `${Math.max(v.percent, 4)}%` }} />
         </div>
       )}
 
       {active && (
-        <ol aria-label="Steps" className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+        <ol aria-label="Steps" className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 xl:grid-cols-5">
           {v.steps.map((s) => (
-            <li key={s.key} aria-current={s.status === 'current' ? 'step' : undefined} className={s.status === 'current' ? 'font-semibold text-foreground' : s.status === 'done' ? 'text-muted-foreground line-through' : 'text-muted-foreground/70'}>
-              {s.label}
+            <li key={s.key} aria-current={s.status === 'current' ? 'step' : undefined} className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 ${s.status === 'current' ? 'border-primary/30 bg-primary/10 font-semibold text-foreground' : s.status === 'done' ? 'border-emerald-500/20 bg-emerald-500/5 text-muted-foreground' : 'border-border/60 bg-background/50 text-muted-foreground/70'}`}>
+              <span className={`size-1.5 shrink-0 rounded-full ${s.status === 'current' ? 'animate-pulse bg-primary' : s.status === 'done' ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
+              <span className="truncate">{s.label}</span>
             </li>
           ))}
         </ol>
@@ -82,6 +87,9 @@ export function ResearchProgress({ run, onRetry, retryDisabled }: { run: RunProg
           </Button>
         </div>
       )}
+      </div>
+      </div>
     </div>
   )
 }
+

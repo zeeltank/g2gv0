@@ -14,17 +14,26 @@ describe('setupSteps', () => {
     assert.deepEqual(states(product({})), { offers: 'todo', icp: 'todo', accounts: 'todo', generate: 'todo' })
   })
 
-  it('tells a saved-but-inactive ICP from a missing one', () => {
-    const icp = setupSteps(product({ draft_icp: { id: 1, name: 'EB' } })).find((s) => s.key === 'icp')!
-    assert.match(icp.detail, /not active/)
+  it('the ICP step is about the ICPs of the sub-products: none set, some set, all set, and no sub-products at all', () => {
+    const sub = (icp: boolean, name = 'S') => ({ id: 1, name, icp_ready: icp, icp_models: { b2b: { ready: icp, configured: icp, missing: [] } } }) as unknown as ProductInfo['offers'][number]
+    const icpStep = (p: ProductInfo) => setupSteps(p).find((s) => s.key === 'icp')!
+
+    assert.match(icpStep(product({})).detail, /Add a sub-product/)
+    assert.match(icpStep(product({ offers: [sub(false), sub(false)] })).detail, /ICP not configured for any sub-product/)
+    const partial = icpStep(product({ offers: [sub(true), sub(false, 'Plant Dashboard')], sub_products_without_icp: [{ offer_id: 'EB-02', name: 'Plant Dashboard', problems: [] }] }))
+    assert.equal(partial.state, 'todo')
+    assert.match(partial.detail, /1 of 2 sub-products have an ICP: Plant Dashboard still need one/)
+    assert.equal(icpStep(product({ offers: [sub(true), sub(true)] })).state, 'done')
   })
 
-  it('flags an invalid ICP as a problem, not as todo', () => {
-    assert.equal(states(product({ state: 'invalid' })).icp, 'problem')
+  it('a product-level ICP state does not make the step done or a problem: only the sub-products do', () => {
+    assert.equal(states(product({ state: 'invalid' })).icp, 'todo')
+    assert.equal(states(product({ state: 'ready', ready: true })).icp, 'todo', 'ready by derivation still needs every sub-product set up for the step to be done')
   })
 
   it('marks everything done only from stored facts', () => {
-    const p = product({ ready: true, state: 'ready', target_accounts: 389, contacts: 53, offers: [{ id: 1 } as ProductInfo['offers'][number]] })
+    const sub = { id: 1, icp_ready: true, icp_models: { b2b: { ready: true, configured: true, missing: [] } } } as unknown as ProductInfo['offers'][number]
+    const p = product({ ready: true, state: 'ready', target_accounts: 389, contacts: 53, offers: [sub] })
     assert.deepEqual(states(p), { offers: 'done', icp: 'done', accounts: 'done', generate: 'done' })
     assert.match(setupSteps(p).find((s) => s.key === 'accounts')!.detail, /389 loaded \(53 with a contact name\)/)
   })

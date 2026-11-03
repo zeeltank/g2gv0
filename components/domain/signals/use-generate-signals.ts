@@ -8,6 +8,7 @@ import type { ProductInfo } from '@/services/portfolio/types'
 import { runGuardedGenerate, type GenerateSub } from '@/lib/signals-generate'
 import type { RegionSelection } from '@/lib/region-scope'
 import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
+import { regionSignature } from '@/lib/signal-run-view'
 
 const POLL_MS = 2500
 // A run always reaches an end state on the backend (finished, failed, or closed by the reaper within ~15 minutes), so the poll runs until it sees one.
@@ -22,12 +23,12 @@ const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e in
 export { describeFinishedRun }
 
 /** The sub-product chosen on the screen, with whether its own ICP is ready (read from what the server says about the product's offers). */
-function subOf(products: ProductInfo[] | null, productKey: string | null, offerId: string | null): GenerateSub | null {
+function subOf(products: ProductInfo[] | null, productKey: string | null, offerId: string | null, customerModel: 'b2b' | 'b2c' | 'b2g'): GenerateSub | null {
   if (!offerId) return null
   const o = products?.find((p) => p.key === productKey)?.offers.find((x) => x.offer_id === offerId)
   if (!o) return { offer_id: offerId, name: offerId, ready: false, missing: ['that sub-product was not found'] }
 
-  return { offer_id: o.offer_id, name: o.name, ready: o.icp_ready !== false, missing: o.icp_missing ?? [], icp_models: o.icp_models }
+  return { offer_id: o.offer_id, name: o.name, ready: o.icp_models?.[customerModel]?.ready ?? (customerModel === 'b2b' && o.icp_ready === true), missing: o.icp_models?.[customerModel]?.missing ?? o.icp_missing ?? [], icp_models: o.icp_models }
 }
 
 /**
@@ -39,6 +40,7 @@ export function useGenerateSignals(
   productKey: string | null,
   products: ProductInfo[] | null,
   offerId: string | null = null,
+  regions: RegionSelection[] = [],
 
 ) {
   const [customerModel, setCustomerModel] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
@@ -52,18 +54,25 @@ export function useGenerateSignals(
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const followRef = useRef<(runId: number, attempt?: number, failures?: number) => void>(() => {})
   const generation = useRef(0)   // changes with the product: results of an old product's poll are dropped
+  const statusSeq = useRef(0)    // numbers the status reads: only the newest answer is kept. Reading the status never ends a run being followed.
 
   const loadStatus = useCallback(async () => {
     if (!productKey) return null
-    const mine = ++generation.current
+    const seq = ++statusSeq.current
+    const mine = generation.current
     try {
-      const res = await opportunitiesService.getStatus(context, productKey)
-      if (mine === generation.current) setStatus(res.data)
+      const res = await opportunitiesService.getStatus(context, productKey, customerModel, offerId, regions)
+      if (seq === statusSeq.current && mine === generation.current) setStatus(res.data)
       return res.data
     } catch {
       return null
     }
-  }, [context, productKey])
+  }, [context, productKey, customerModel, offerId, regions])
+
+  // The latest loadStatus, read without depending on it: loadStatus changes with the model and the places, and a run being followed (finish, follow)
+  // must not be rebuilt, and so restarted, every time those change.
+  const loadStatusRef = useRef(loadStatus)
+  useEffect(() => { loadStatusRef.current = loadStatus }, [loadStatus])
 
   const finish = useCallback((run: ResearchRun | null, fallback?: string) => {
     inFlight.current = false
@@ -73,8 +82,8 @@ export function useGenerateSignals(
     setNotice(run ? (run.status === 'failed' || run.status === 'skipped' ? null : describeFinishedRun(run)) : { tone: 'warning', text: fallback ?? 'The run is still going in the background. Check back shortly.' })
     setRefreshKey((k) => k + 1)
     setCompletedCount((n) => n + 1)
-    void loadStatus()
-  }, [loadStatus])
+    void loadStatusRef.current()
+  }, [])
 
   const follow = useCallback((runId: number, attempt = 0, failures = 0) => {
     const mine = generation.current
@@ -107,7 +116,21 @@ export function useGenerateSignals(
   }, [context, finish])
   useEffect(() => { followRef.current = follow }, [follow])
 
-  // A new product: forget the previous one's run state and read this product's own.
+  // A run that is going (started here before a refresh, or elsewhere) is followed to its end. It blocks a second one.
+  const adopt = useCallback((s: ResearchStatusResponse['data'] | null) => {
+    const latest = s?.latest_run
+    if (s?.busy_elsewhere) {
+      // The one running run belongs to another product: say so, never show it as this product's progress.
+      setNotice({ tone: 'info', text: 'A run for another product is in progress. Wait for it to finish before generating.' })
+    } else if (s?.running && latest?.id) {
+      inFlight.current = true
+      setRunning(true)
+      setActiveRun(latest)
+      follow(latest.id)
+    }
+  }, [follow])
+
+  // A new product or sub-product: forget the previous one's run state and read this one's own.
   useEffect(() => {
     generation.current += 1
     if (timer.current) clearTimeout(timer.current)
@@ -115,28 +138,26 @@ export function useGenerateSignals(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus(null); setRunning(false); setActiveRun(null); setNotice(null)
     if (!productKey) return
-    void (async () => {
-      const s = await loadStatus()
-      // A run that is going (started here before a refresh, or elsewhere) is followed to its end. It blocks a second one.
-      const latest = s?.latest_run
-      if (s?.busy_elsewhere) {
-        // The one running run belongs to another product: say so, never show it as this product's progress.
-        setNotice({ tone: 'info', text: 'A run for another product is in progress. Wait for it to finish before generating.' })
-      } else if (s?.running && latest?.id) {
-        inFlight.current = true
-        setRunning(true)
-        setActiveRun(latest)
-        follow(latest.id)
-      }
-    })()
+    void loadStatusRef.current().then(adopt)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [productKey, offerId, loadStatus, follow])
+  }, [productKey, offerId, adopt])
+
+  // Another ICP type or other places: read the status for that scope. A run this screen is already following is never dropped by this (starting
+  // a run commits the places the person typed, which changes them): its progress stays on screen until the run ends.
+  const scope = `${customerModel}|${regionSignature(regions)}`
+  const lastScope = useRef(scope)
+  useEffect(() => {
+    if (lastScope.current === scope) return
+    lastScope.current = scope
+    if (!productKey || inFlight.current) return
+    void loadStatusRef.current().then(adopt)
+  }, [scope, productKey, adopt])
 
   const generate = useCallback(async (regions?: RegionSelection[], overrideModel?: 'b2b' | 'b2c' | 'b2g') => {
     const model = overrideModel ?? customerModel
     await runGuardedGenerate(inFlight, {
       context, choice: productKey, running, regions, customerModel: model,
-      sub: subOf(products, productKey, offerId),
+      sub: subOf(products, productKey, offerId, model),
       products: products?.map((p) => ({ key: p.key, label: p.label, ready: p.ready, missing: p.missing, next_step: p.next_step, icp_models: p.icp_models })) ?? null,
       service: opportunitiesService,
     }, {

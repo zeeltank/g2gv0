@@ -1,13 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { CUSTOMER_MODELS, rid, type CustomerModel, type FormState } from '@/lib/icp-form'
 import type { IcpLines } from '@/lib/product-icp-draft'
-import { icpHref } from '@/lib/product-selection'
 import { formatFriendlyProblems } from '@/lib/friendly-errors'
 
 const selectCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -33,7 +31,7 @@ function Field({ id, label, hint, count, children }: { id: string; label: string
  * this says which customers suit it. Leaving it empty creates no ICP.
  */
 export function ProductIcpSection({
-  form, lines, onForm, onLines, disabled, problems, linked, editing, model = 'b2b',
+  form, lines, onForm, onLines, disabled, problems, editing, model = 'b2b',
 }: {
   form: FormState
   lines: IcpLines
@@ -42,7 +40,6 @@ export function ProductIcpSection({
   disabled: boolean
   problems: string[]
   /** Set when this product already has its own ICP: it is edited on its ICP page, in the full editor. */
-  linked: { key: string; label: string } | null
   editing: boolean
   model?: 'b2b' | 'b2c' | 'b2g'
 }) {
@@ -52,22 +49,17 @@ export function ProductIcpSection({
     <section aria-label="Ideal Customer and Organisation Profile" className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">
-    Ideal Customer Profile — {model === 'b2b' ? 'B2B (Business)' : model === 'b2c' ? 'B2C (Consumer)' : 'B2G (Government)'}
+    Ideal Customer Profile — {model === 'b2b' ? 'B2B Customer Acquisition' : model === 'b2c' ? 'B2B Partner Acquisition' : 'B2G (Government)'}
   </h3>
         <p className="text-xs text-muted-foreground">
           The product details above describe what this product is and offers. The Individual Ideal Customer Profile (ICP) describes which customers suit THIS product. It is saved separately, linked to this product only, and saved as a draft: it is never active until you activate it on the product&apos;s ICP page. Another product&apos;s ICP is never changed.
         </p>
       </div>
 
-      {linked ? (
-        <p className="text-sm text-foreground">
-          This product already has its own ICP. <Link href={icpHref(linked.key)} className="font-medium underline underline-offset-2">Open its ICP</Link> to view or change it in the full editor.
-        </p>
-      ) : (
-        <>
+      <>
           {editing && (form.label.trim() || form.industry_label.trim()
             ? <p className="text-xs text-muted-foreground">This is this product&apos;s saved ICP. Change anything below and save to update it.</p>
-            : <p className="text-xs text-muted-foreground">This product has no ICP of its own yet (it uses its group&apos;s). Fill this in to give it one; leave it empty to keep things as they are.</p>)}
+            : <p className="text-xs text-muted-foreground">ICP not configured for this sub-product yet. Fill this in to give it one; leave it empty to keep things as they are.</p>)}
           {friendlyProblems.length > 0 && (
             <ul role="alert" className="list-disc space-y-0.5 pl-5 text-xs text-destructive">
               {friendlyProblems.map((p) => <li key={p}>{p}</li>)}
@@ -175,8 +167,7 @@ export function ProductIcpSection({
           <p className="text-xs text-muted-foreground">
             Evidence is always required: a signal needs a dated source that names the customer and a verbatim quote. Those rules are fixed by the system and are not weakened by anything here. Per-search settings and the other ICP details are in the full ICP editor on the product&apos;s page.
           </p>
-        </>
-      )}
+      </>
     </section>
   )
 }

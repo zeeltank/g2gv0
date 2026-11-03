@@ -238,8 +238,6 @@ export function ProductFormDialog({
       setForm((f) => (f.parent_product === category && !idEdited ? { ...f, offer_id: '' } : f))
     }
   }
-  // An existing product that already has its own ICP (a product of its own whose ICP lists it) is edited on its ICP page, not here.
-  const linked = product ? (products ?? []).find((p) => p.custom && p.icp?.offer_ids?.includes(product.offer_id)) ?? null : null
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (busy) return
@@ -256,7 +254,7 @@ export function ProductFormDialog({
     const builtConfigs: Partial<Record<CustomerModelTab, any>> = {}
     let hasIcpError = false
 
-    if (!linked) {
+    {
       for (const m of ['b2b', 'b2c', 'b2g'] as const) {
         if (icpTouched(icps[m], icpLinesMap[m])) {
           if (icps[m].label.trim() === '') {
@@ -443,9 +441,9 @@ export function ProductFormDialog({
             {/* Three accessible tabs */}
             <div className="flex border-b border-border/60 gap-1.5" role="tablist" aria-label="Customer models">
               {[
-                { key: 'b2b' as const, label: 'B2B ICP', icon: '🏢', title: 'Business & Organisations' },
+                { key: 'b2b' as const, label: 'B2B Customer Acquisition', icon: '🏢', title: 'Business & Organisations' },
                 { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
-                { key: 'b2c' as const, label: 'B2C ICP', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+                { key: 'b2c' as const, label: 'B2B Partner Acquisition', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
               ].map((tab) => {
                 const isSelected = activeIcpTab === tab.key
                 const isTouched = icpTouched(icps[tab.key], icpLinesMap[tab.key])
@@ -493,7 +491,6 @@ export function ProductFormDialog({
               onLines={(patch) => setIcpLinesMap((prev) => ({ ...prev, [activeIcpTab]: { ...prev[activeIcpTab], ...patch } }))}
               disabled={busy}
               problems={icpProblemsMap[activeIcpTab] ?? []}
-              linked={linked ? { key: linked.key, label: linked.label } : null}
               editing={mode === 'edit'}
               model={activeIcpTab}
             />

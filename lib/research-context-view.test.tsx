@@ -37,7 +37,7 @@ describe('Research context shown before Generate (rendered from the backend repo
   it('shows the missing-field warnings and a link to the product page, and flags unsaved fields', () => {
     const h = html(base({ warnings: ['The ICP does not say a geography: searches will not be limited to a region.'] }))
     assert.match(h, /does not say a geography/)
-    assert.match(h, /href="\/portfolio\/g2g\?tab=icp"/)
+    assert.match(h, /href="\/portfolio\/g2g\?tab=offers"/)
     assert.match(h, /features and capabilities \(not saved\)/)
   })
 

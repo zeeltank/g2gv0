@@ -31,23 +31,31 @@ export function splitChoice(choice: string | null | undefined): { productKey: st
 /** Where "Product Details & ICP" goes: that one product's own page (details, ICP and offers), never the whole Product Portfolio. */
 export const configureHref = (productKey: string) => `/portfolio/${encodeURIComponent(productKey)}`
 
-/** The same page opened on its ICP tab. */
-export const icpHref = (productKey: string) => `${configureHref(productKey)}?tab=icp`
+/** The same page opened on its sub-products (where each one's own ICP is set). */
+export const offersHref = (productKey: string) => `${configureHref(productKey)}?tab=offers`
 
-/** The page tabs of one product. An unknown or missing `?tab=` opens the overview. */
-export const PRODUCT_TABS = ['overview', 'icp', 'offers'] as const
+/**
+ * The page tabs of one product. An unknown or missing `?tab=` opens the overview. A product has no ICP of its own, so there is no ICP tab; an
+ * older link to `?tab=icp` opens the sub-products, where the ICPs are.
+ */
+export const PRODUCT_TABS = ['overview', 'offers'] as const
 export type ProductTab = (typeof PRODUCT_TABS)[number]
-export const resolveTab = (value: string | null | undefined): ProductTab => (PRODUCT_TABS as readonly string[]).includes(value ?? '') ? (value as ProductTab) : 'overview'
+export const resolveTab = (value: string | null | undefined): ProductTab => value === 'icp' ? 'offers' : (PRODUCT_TABS as readonly string[]).includes(value ?? '') ? (value as ProductTab) : 'overview'
 
-export type IcpStatus = 'ready' | 'draft' | 'incomplete' | 'invalid'
+export type SubProductIcpState = { key: 'none' | 'partial' | 'all' | 'no_sub_products'; configured: number; total: number; label: string }
 
-/** The ICP's readiness in one word, read only from what the server stored for the product (nothing is assumed). */
-export function icpStatus(product: { state: 'ready' | 'needs_setup' | 'invalid'; draft_icp: unknown | null }): { key: IcpStatus; label: string } {
-  if (product.state === 'ready') return { key: 'ready', label: 'ICP ready' }
-  if (product.state === 'invalid') return { key: 'invalid', label: 'ICP invalid' }
-  if (product.draft_icp) return { key: 'draft', label: 'ICP draft' }
+/**
+ * How many of a product's sub-products have an ICP, read only from what the server says about each one (nothing is assumed, and one sub-product's
+ * ICP never counts for another). An ICP counts when it is saved for ANY customer model.
+ */
+export function subProductIcpState(offers: { icp_ready?: boolean; icp_models?: Partial<Record<'b2b' | 'b2c' | 'b2g', { configured?: boolean; ready?: boolean } | undefined>> }[]): SubProductIcpState {
+  const total = offers.length
+  const configured = offers.filter((o) => o.icp_ready === true || Object.values(o.icp_models ?? {}).some((m) => m?.configured === true || m?.ready === true)).length
+  if (total === 0) return { key: 'no_sub_products', configured, total, label: 'No sub-products yet' }
+  if (configured === 0) return { key: 'none', configured, total, label: 'ICP not configured' }
+  if (configured === total) return { key: 'all', configured, total, label: `ICP configured for all ${total} sub-product${total === 1 ? '' : 's'}` }
 
-  return { key: 'incomplete', label: 'ICP incomplete' }
+  return { key: 'partial', configured, total, label: `ICP configured for ${configured} of ${total} sub-products` }
 }
 
 /**

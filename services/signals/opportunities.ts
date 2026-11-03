@@ -157,6 +157,10 @@ export interface SignalAssessment {
 }
 
 export interface Opportunity {
+  /** Added by a person, not found by research: it has no run, and is listed under the day it was saved. */
+  entered_manually?: boolean
+  /** The day it was saved, in the signals timezone (YYYY-MM-DD). Null for researched rows. */
+  captured_on?: string | null
   /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */
   strength?: SignalStrength
   strength_reason?: string | null
@@ -199,6 +203,14 @@ export interface Opportunity {
   feed_section?: 'immediate_action' | 'watchlist' | 'market_intelligence' | 'competitor_intelligence' | 'top_actions' | string | null
   relevant_offer_id?: string | null
   relevant_offer_name?: string | null
+  offer_id?: string | null
+  product_key?: string | null
+  region_scope?: Array<{ country: string; state?: string; city?: string }> | string | null
+  icp_version?: number | null
+  import_source?: string | null
+  created_at?: string | null
+  run_started_at?: string | null
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | string | null
   /** The ten-family classification of what kind of signal this is (code, label, examples). */
   signal_family?: { code: string; label: string; examples: string } | null
   ingestion_source_id?: number | null
@@ -390,6 +402,12 @@ export interface ResearchStatusResponse {
   }
 }
 
+export interface ManualOpportunityResponse {
+  status: number
+  message: string
+  data: { id: number; outcome: 'accepted' | 'updated'; created_at: string | null; captured_on: string; source_published_at: string | null }
+}
+
 export interface RunDatesResponse {
   status: number
   data: {
@@ -398,7 +416,8 @@ export interface RunDatesResponse {
     dates: {
       date: string
       runs: number
-      status: 'success' | 'partial'
+      /** `manual`: a day on which opportunities were added by hand and no research ran. */
+      status: 'success' | 'partial' | 'manual'
       last_completed_at: string | null
       qualified: number
       /** What the day's runs did, so an empty day can say why. */
@@ -412,6 +431,10 @@ export interface RunDatesResponse {
 }
 
 export interface OpportunityQuery {
+  /** Only the signals saved by this research run (exact run, not just its day). */
+  runId?: number
+  /** The order: `priority` (High first) or `qualification` (settled findings first). Absent or `default` is the usual order. */
+  sort?: 'default' | 'priority' | 'qualification'
   /** The newest research day that has saved signals, instead of a chosen day (the screen's fallback). Reads stored rows only. */
   latestSaved?: boolean
   search?: string
@@ -429,13 +452,23 @@ export interface OpportunityQuery {
   includeSamples?: boolean
   claimLevel?: string
   businessFit?: string
+  /** Date range bounds (YYYY-MM-DD). */
+  from?: string
+  to?: string
   /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
   runDate?: string
   /** Page size (the server allows up to 50). Defaults to 10. */
   perPage?: number
   /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
   product?: string
+  offerId?: string | null
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  regions?: { country: string; state?: string; city?: string }[]
   needCode?: string
+  /** Genuine All Signals inbox mode: aggregates across sub-products, customer models, and regions. */
+  allSignals?: boolean
+  /** Filter by origin: 'all' (default), 'generated', or 'manual'. */
+  source?: 'all' | 'generated' | 'manual'
 }
 
 export interface ProviderCheck {
@@ -589,6 +622,15 @@ function base(context: LaravelContext): Record<string, string> {
 }
 
 const qs = (context: LaravelContext) => new URLSearchParams(base(context)).toString()
+const regionQuery = (regions: { country: string; state?: string; city?: string }[]) => {
+  const out: Record<string, string> = {}
+  regions.forEach((region, i) => {
+    if (region.country) out[`regions[${i}][country]`] = region.country
+    if (region.state) out[`regions[${i}][state]`] = region.state
+    if (region.city) out[`regions[${i}][city]`] = region.city
+  })
+  return out
+}
 
 export type IcpCriterionStatus = 'Matched' | 'Not found' | 'Needs review' | 'Excluded'
 
@@ -629,12 +671,12 @@ export const opportunitiesService = {
   saveProfile: (c: LaravelContext, profile: Partial<ProductProfile>) =>
     apiClient.put<ProfileResponse>(`/signals/product-profile?${qs(c)}`, profile),
 
-  getStatus: (c: LaravelContext, product?: string) =>
-    apiClient.get<ResearchStatusResponse>('/signals/research/status', product && product !== 'all' ? { ...base(c), product } : base(c)),
+  getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = []) =>
+    apiClient.get<ResearchStatusResponse>('/signals/research/status', { ...base(c), ...(product && product !== 'all' ? { product } : {}), ...(customerModel ? { customer_model: customerModel } : {}), ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
 
   /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
-  getRunDates: (c: LaravelContext, product: string) =>
-    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product }),
+  getRunDates: (c: LaravelContext, product: string, customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = [], allSignals?: boolean) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product, customer_model: customerModel, ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions), ...(allSignals ? { all_signals: '1' } : {}) }),
 
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
@@ -652,6 +694,10 @@ export const opportunitiesService = {
   runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') =>
     apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
 
+  /** Adds an opportunity by hand. The server stamps when it was saved; the source post's own date can be sent separately. No research is run. */
+  createManual: (c: LaravelContext, body: Record<string, unknown>) =>
+    apiClient.post<ManualOpportunityResponse>(`/signals/opportunities/manual?${qs(c)}`, body),
+
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }
     if (q.search) params.search = q.search
@@ -667,9 +713,18 @@ export const opportunitiesService = {
     if (q.claimLevel) params.claim_level = q.claimLevel
     if (q.businessFit) params.business_fit = q.businessFit
     if (q.product && q.product !== 'all') params.product = q.product
+    if (q.customerModel) params.customer_model = q.customerModel
+    if (q.offerId) params.offer_id = q.offerId
+    Object.assign(params, regionQuery(q.regions ?? []))
+    if (q.from) params.from = q.from
+    if (q.to) params.to = q.to
     if (q.runDate) params.run_date = q.runDate
+    if (q.runId) params.run_id = String(q.runId)
+    if (q.sort && q.sort !== 'default') params.sort = q.sort
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
+    if (q.allSignals) params.all_signals = '1'
+    if (q.source && q.source !== 'all') params.source = q.source
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },
 

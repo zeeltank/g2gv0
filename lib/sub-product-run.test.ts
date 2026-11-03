@@ -43,6 +43,19 @@ describe('Choosing one sub-product of a product', () => {
     assert.equal(decideGenerate('scholarclone', gp, false, null).ok, true, 'no sub-product: the whole product, as before')
   })
 
+  it('does not borrow B2B child readiness for a B2C or B2G run', () => {
+    const sub = { offer_id: 'SCH-11', name: 'Scholar Learn', ready: true, missing: [], icp_models: {
+      b2b: { ready: true, missing: [], configured: true },
+      b2c: { ready: false, missing: ['no B2C ICP'], configured: false },
+      b2g: { ready: false, missing: ['no B2G ICP'], configured: false },
+    } }
+    const b2c = decideGenerate('scholarclone', gp, false, sub, 'b2c')
+    assert.equal(b2c.ok, false)
+    if (!b2c.ok && !b2c.outcome.started) assert.deepEqual(b2c.outcome.missing, ['no B2C ICP'])
+    const b2g = decideGenerate('scholarclone', gp, false, sub, 'b2g')
+    assert.equal(b2g.ok, false)
+  })
+
   it('sends the Offer ID with the product to the run, and nothing extra for the whole product', async () => {
     const calls: unknown[][] = []
     const status = { product: { key: 'scholarclone', label: 'ScholarClone', ready: true, missing: [] as string[] }, requirements: { search_configured: true, ai_configured: true }, running: false }
@@ -55,14 +68,11 @@ describe('Choosing one sub-product of a product', () => {
     assert.equal(calls[1][4], null)
   })
 
-  it('the screen lists sub-products under each product, disables one without its own ICP, and passes the choice through', () => {
-    const sel = read('components/domain/signals/product-selector.tsx')
-    assert.match(sel, /allowSub \? p\.offers\.map/)
-    assert.match(sel, /disabled=\{o\.icp_ready === false\}/)
+  it('the signal screen selects a master product and one of its sub-products', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
     assert.match(screen, /useSelectedProduct\(context, products, \{ allowAll: false, allowSub: true \}\)/)
-    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId\)/)
-    assert.match(screen, /<ProductDropdown [^>]*allowSub \/>/)
-    assert.match(read('services/signals/opportunities.ts'), /offerId \? \{ offer_id: offerId \} : \{\}/)
+    assert.match(screen, /selected\?\.offers\.map\(\(offer\)/)
+    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions\)/)
+    assert.match(screen, /id="sub-product-select"/)
   })
 })

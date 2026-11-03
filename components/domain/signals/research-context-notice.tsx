@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Circle } from 'lucide-react'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type { RegionSelection } from '@/lib/region-scope'
-import { icpHref } from '@/lib/product-selection'
+import { offersHref } from '@/lib/product-selection'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ResearchContext } from '@/services/portfolio/types'
 
@@ -50,7 +50,7 @@ export function ResearchContextView({ data }: { data: ResearchContext }) {
       {data.warnings.length > 0 && (
         <ul role="status" className="space-y-0.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-800 dark:text-amber-300">
           {data.warnings.map((w) => <li key={w} className="flex gap-1.5"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{w}</li>)}
-          <li><Link href={icpHref(data.product.key ?? '')} className="font-medium underline underline-offset-2">Open its product page</Link></li>
+          <li><Link href={offersHref(data.product.key ?? '')} className="font-medium underline underline-offset-2">Open its product page</Link></li>
         </ul>
       )}
       <details>

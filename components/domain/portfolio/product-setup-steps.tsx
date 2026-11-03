@@ -1,13 +1,16 @@
 import Link from 'next/link'
 import { ArrowRight, CheckCircle2, Circle, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { subProductIcpState } from '@/lib/product-selection'
 import type { ProductInfo } from '@/services/portfolio/types'
 
 type StepState = 'done' | 'todo' | 'problem'
 
 /** The path from a product's configuration to its signals, with each step's real state read from what is stored for the product. */
 export function setupSteps(product: ProductInfo): { key: string; title: string; detail: string; state: StepState; optional?: boolean }[] {
-  const icpState: StepState = product.state === 'ready' ? 'done' : product.state === 'invalid' ? 'problem' : 'todo'
+  // A product has no ICP of its own: the step is whether its sub-products have theirs.
+  const icps = subProductIcpState(product.offers)
+  const icpState: StepState = icps.key === 'all' ? 'done' : 'todo'
 
   return [
     {
@@ -15,8 +18,8 @@ export function setupSteps(product: ProductInfo): { key: string; title: string; 
       detail: product.offers.length > 0 ? `${product.offers.length} offer${product.offers.length === 1 ? '' : 's'} in the portfolio` : 'No offers stored for this product yet',
     },
     {
-      key: 'icp', title: 'Ideal customer profile', state: icpState,
-      detail: icpState === 'done' ? 'Active and valid' : icpState === 'problem' ? 'A saved ICP fails validation: fix it in the ICP tab' : product.draft_icp ? 'Saved but not active: activate it in the ICP tab' : 'Not configured: fill it in on the ICP tab, then activate',
+      key: 'icp', title: 'Sub-product ICPs', state: icpState,
+      detail: icps.key === 'all' ? 'Every sub-product has its own ICP' : icps.key === 'no_sub_products' ? 'Add a sub-product, then give it an ICP' : icps.key === 'none' ? 'ICP not configured for any sub-product: open the Offers tab and add one to each' : `${icps.configured} of ${icps.total} sub-products have an ICP: ${(product.sub_products_without_icp ?? []).slice(0, 3).map((m) => m.name).join(', ')} still need one`,
     },
     {
       key: 'accounts', title: 'Target accounts', state: product.target_accounts > 0 ? 'done' : 'todo', optional: true,
@@ -24,7 +27,7 @@ export function setupSteps(product: ProductInfo): { key: string; title: string; 
     },
     {
       key: 'generate', title: 'Generate signals', state: product.ready ? 'done' : 'todo',
-      detail: product.ready ? 'Ready. Start research from Company Opportunities' : 'Available once the ICP is active',
+      detail: product.ready ? 'Ready. Start research from Company Opportunities' : 'Available once a sub-product has an ICP',
     },
   ]
 }
