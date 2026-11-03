@@ -205,7 +205,7 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
 
       {phase === 'ready' && rows.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" aria-busy={refreshing}>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-left text-xs">
               <caption className="sr-only">Agent runs, newest first</caption>
               <thead className="border-b border-border bg-muted font-medium text-muted-foreground">
