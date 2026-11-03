@@ -29,6 +29,7 @@ async function setup(options: Setup = {}) {
     list: async (params) => { listCalls.push(params); return options.list ? options.list(params) : listResponse() },
     get: async (id) => ({ status: 1, data: mockupRows().find((r) => r.id === id) ?? signalRow({ id }) }),
     history: async () => ({ status: 1, data: [historyEntry()] }),
+    promote: async () => ({ status: 1, data: { lead_id: '501', created: true } }),
     decide: async (id, body) => {
       decideCalls.push({ id, body })
       if (options.decide) return options.decide(id, body)

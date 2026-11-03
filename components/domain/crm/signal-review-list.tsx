@@ -31,11 +31,15 @@ function describeError(cause: unknown): string {
  * counts the server returns, and the signals themselves. A signal with no date is shown with a "Date unknown" badge and is never filtered out unless the
  * person asks. Opening a signal shows the drawer; a decision updates the row and the counts in place.
  */
-export function SignalReviewList({ service = signalReviewService, signalsHref = '/signals', parts }: {
+export function SignalReviewList({ service = signalReviewService, signalsHref = '/signals', parts, refreshKey = 0, onGenerate }: {
   service?: SignalReviewApi
-  /** Where the original Signals screen is, for the "no signals yet" state (that screen starts research runs). */
+  /** Where the original Signals screen is, for the "no signals yet" state (that screen starts research runs). Not used when `onGenerate` is given. */
   signalsHref?: string
   parts?: SignalReviewDrawerParts
+  /** The list is read again each time this changes (a research run has just finished). */
+  refreshKey?: number
+  /** Opens "Generate signals". When given, the "no signals yet" state offers it in place of the link to the original screen. */
+  onGenerate?: () => void
 }) {
   const context = useMemo(() => getLaravelContext(), [])
   const { query, setSearch, setFilter, setQuery, setPage } = useListQuery(SIGNAL_LIST_QUERY)
@@ -75,6 +79,14 @@ export function SignalReviewList({ service = signalReviewService, signalsHref = 
   useEffect(() => {
     queueMicrotask(() => { void load() })
   }, [load])
+
+  // A change of `refreshKey` reads the list again; the first value is the one the list opened with, which the effect above has already loaded.
+  const loadedKey = useRef(refreshKey)
+  useEffect(() => {
+    if (refreshKey === loadedKey.current) return
+    loadedKey.current = refreshKey
+    queueMicrotask(() => { void load() })
+  }, [refreshKey, load])
 
   // The product choices come from the Product Master. If they cannot be read the list still works: the Product box offers "All products" only.
   useEffect(() => {
@@ -147,8 +159,10 @@ export function SignalReviewList({ service = signalReviewService, signalsHref = 
       {state === 'empty' && (
         <EmptyState
           title="No signals yet"
-          description="Signals appear here once a research run has found them. Runs are started from the Signals screen."
-          action={<Button asChild variant="outline"><Link href={signalsHref}>Open Signals to start a run</Link></Button>}
+          description={onGenerate ? 'Signals appear here once a research run has found them.' : 'Signals appear here once a research run has found them. Runs are started from the Signals screen.'}
+          action={onGenerate
+            ? <Button onClick={onGenerate}>Generate signals</Button>
+            : <Button asChild variant="outline"><Link href={signalsHref}>Open Signals to start a run</Link></Button>}
         />
       )}
 

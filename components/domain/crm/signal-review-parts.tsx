@@ -47,7 +47,8 @@ export function SignalProductChip({ name }: { name: string | null | undefined })
     : <span className={cn(CHIP, 'border-dashed border-border text-muted-foreground')}>No product</span>
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+/** One label and its value in a drawer's definition list. */
+export function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
       <dt className="text-muted-foreground">{label}</dt>

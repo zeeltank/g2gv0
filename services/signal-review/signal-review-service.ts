@@ -4,7 +4,7 @@ import { productMasterService } from '@/services/product-master/product-master-s
 import type { PmEnvelope, PmOption } from '@/services/product-master/types'
 import { DecisionConflictError } from './decision-error'
 import type {
-  SignalDecisionResponse, SignalDetailResponse, SignalHistoryResponse, SignalListParams, SignalListResponse,
+  SignalDecisionResponse, SignalDetailResponse, SignalHistoryResponse, SignalListParams, SignalListResponse, SignalPromoteResponse,
 } from './signal-types'
 import type { DecisionConflictBody, DecisionRequest } from './types'
 
@@ -14,6 +14,7 @@ export interface SignalReviewApi {
   get(id: number): Promise<SignalDetailResponse>
   decide(id: number, body: DecisionRequest): Promise<SignalDecisionResponse>
   history(id: number): Promise<SignalHistoryResponse>
+  promote(id: number): Promise<SignalPromoteResponse>
   productOptions(): Promise<PmEnvelope<PmOption[]>>
 }
 
@@ -64,6 +65,14 @@ export const signalReviewService: SignalReviewApi = {
 
     const refusal = (payload && typeof payload === 'object' ? payload : {}) as { message?: string; errors?: Record<string, string[]>; detail?: string }
     throw new ApiError(refusal.message || `API Error: ${response.status} ${response.statusText}`, response.status, refusal.errors, refusal.detail)
+  },
+
+  /**
+   * Makes a CRM lead from the signal. A signal that already has one answers 200 with `created: false` and the same `lead_id`, so pressing twice is safe.
+   * A refusal arrives as an ApiError (403 not allowed to edit signals, 404 not found in this organisation).
+   */
+  promote(id) {
+    return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/promote-to-crm`, {})
   },
 
   /** The same product list the Product Master uses; a signal's `product_master_id` is one of these ids. */
