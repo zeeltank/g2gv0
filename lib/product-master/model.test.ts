@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
-  addableItemTypes, createPayload, emptyForm, FORM_FIELDS, formatPrice, formFromRecord, isDirty, kindLabel, listSummary, maxOfferIdLength,
+  addableItemTypes, createPayload, emptyForm, FORM_FIELDS, formatPrice, formFromRecord, isDirty, kindLabel, maxOfferIdLength,
   newChoices, productChoices, readinessTone, sellPayload, splitLines, updatePayload, type ProductForm, type SellForm,
 } from '../../components/domain/crm/product-master-model'
 import type { PmCan, PmOption, PmRecord } from '../../services/product-master/types'
@@ -228,21 +228,14 @@ describe('words and choices', () => {
     assert.equal(readinessTone('Something new'), 'default')
   })
 
-  it('summarises the list, in the singular where it is one', () => {
-    assert.equal(listSummary({ products: 5, subProducts: 22, items: 0 }), '22 sub-products in 5 products.')
-    assert.equal(listSummary({ products: 1, subProducts: 1, items: 0 }), '1 sub-product in 1 product.')
-    assert.equal(listSummary({ products: 0, subProducts: 0, items: 0 }), '0 sub-products in 0 products.')
-    assert.equal(listSummary({ products: 5, subProducts: 22, items: 3 }), '22 sub-products in 5 products, and 3 other catalogue items.')
-    assert.equal(listSummary({ products: 5, subProducts: 22, items: 1 }), '22 sub-products in 5 products, and 1 other catalogue item.')
-  })
-
-  it('offers "New…" only what the server says this person may create', () => {
+  it('offers "New…" only what the server says this person may create, and never a catalogue item', () => {
     assert.deepEqual(newChoices(null), [])
-    assert.deepEqual(newChoices(can()).map((c) => c.kind), ['product', 'sub_product', 'item'])
-    assert.deepEqual(newChoices(can({ createProduct: false })).map((c) => c.kind), ['sub_product', 'item'], 'no "product" for someone who is not an administrator')
-    assert.deepEqual(newChoices(can({ createItem: { product: false, service: true } })).map((c) => c.kind), ['product', 'sub_product', 'item'])
-    assert.deepEqual(newChoices(can({ createItem: { product: false, service: false } })).map((c) => c.kind), ['product', 'sub_product'])
-    assert.deepEqual(newChoices(can({ createProduct: false, createSubProduct: false, createItem: { product: false, service: false } })), [])
+    assert.deepEqual(newChoices(can()).map((c) => c.kind), ['product', 'sub_product'])
+    assert.deepEqual(newChoices(can({ createProduct: false })).map((c) => c.kind), ['sub_product'], 'no "product line" for someone who is not an administrator')
+    assert.deepEqual(newChoices(can({ createSubProduct: false })).map((c) => c.kind), ['product'])
+    assert.deepEqual(newChoices(can({ createItem: { product: true, service: true } })).map((c) => c.kind), ['product', 'sub_product'], 'an item is added with "Add Product" in the Catalogue view')
+    assert.deepEqual(newChoices(can({ createProduct: false, createSubProduct: false })), [])
+    assert.deepEqual(newChoices(can()).map((c) => c.label), ['A product line', 'A sub-product'])
   })
 
   it('lists the item types a person may add, for a new item and for switching Sell on', () => {
@@ -270,8 +263,8 @@ describe('words and choices', () => {
     assert.equal(formatPrice(undefined, null), '—')
   })
 
-  it('names the kinds', () => {
-    assert.equal(kindLabel('product'), 'Product')
+  it('names the kinds: a top-level group is a product LINE, because a "product" on the Products screen is something the CRM sells', () => {
+    assert.equal(kindLabel('product'), 'Product line')
     assert.equal(kindLabel('sub_product'), 'Sub-product')
     assert.equal(kindLabel('item'), 'Catalogue item')
   })

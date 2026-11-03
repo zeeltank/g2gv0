@@ -10,6 +10,12 @@ export type PmStatus = 'active' | 'archived'
 export type PmItemType = 'product' | 'service'
 export type PmStatusFilter = PmStatus | 'all'
 
+/**
+ * The state of an ideal-customer profile (ICP): `active`, `draft` or `archived` (the best of the organisation's saved profiles), `template` (a built-in
+ * product that runs on its built-in ICP and has none saved) or `none` (it could have one and has none). null: an ICP does not apply to this record.
+ */
+export type PmIcpState = 'active' | 'draft' | 'archived' | 'template' | 'none'
+
 export interface PmEnvelope<T> {
   status: number
   data: T
@@ -25,6 +31,11 @@ export interface PmSubProductRow {
   readiness: string | null
   soldInCrm: boolean
   crmProductId: number | null
+  /** Which CRM screen the catalogue item opens in (null when it is not sold, or sits in the Recycle Bin). */
+  crmItemType: PmItemType | null
+  /** Signals recorded for the sub-product by this organisation. */
+  signalsFound: number | null
+  icp: PmIcpState | null
 }
 
 export interface PmProductRow {
@@ -42,6 +53,8 @@ export interface PmProductRow {
   soldInCrmCount: number
   /** Signals recorded for the product by this organisation; null when Signals has no value for this product. */
   signalsFound: number | null
+  /** null when Signals has no value for this product, so no ICP applies. */
+  icp: PmIcpState | null
   subProducts: PmSubProductRow[]
 }
 
@@ -54,6 +67,8 @@ export interface PmItemRow {
 }
 
 export interface PmListData {
+  /** false: this server has no Product Master yet, so the lists are empty. Absent from a server that predates the field (treated as available). */
+  available?: boolean
   products: PmProductRow[]
   items: PmItemRow[]
   totals: { products: number; subProducts: number; items: number }
@@ -123,6 +138,8 @@ export interface PmPriceBookEntry {
 
 export interface PmUsage {
   signals: number | null
+  /** The ICP's state (its content is never sent here). null for a catalogue-only item. */
+  icp: PmIcpState | null
   priceBooks: PmPriceBookEntry[]
   quotes: number
   basePrice: number | null

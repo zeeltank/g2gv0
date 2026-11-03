@@ -39,24 +39,32 @@ function describeSaveError(cause: unknown): SplitErrors {
 function titleFor(target: FormTarget | null): string {
   if (!target) return ''
   if (target.mode === 'edit') return `Edit ${target.record.name}`
-  return target.kind === 'product' ? 'New product' : target.kind === 'sub_product' ? 'New sub-product' : 'New catalogue item'
+  return target.kind === 'product' ? 'New product line' : target.kind === 'sub_product' ? 'New sub-product' : 'New catalogue item'
 }
 
+/** The part of the API the form writes through; the real one by default, a stand-in in a test. */
+export type ProductMasterWriter = Pick<typeof productMasterService, 'create' | 'update'>
+
 /**
- * The one form for creating and editing a product, a sub-product or a catalogue item, in a drawer. Each section says where it saves, because one form can
- * write to the Product Master, the Portfolio and the CRM catalogue.
+ * The one form for creating and editing a product line, a sub-product or a catalogue item, in a drawer. Each section says where it saves, because one form
+ * can write to the Product Master, the Portfolio and the CRM catalogue.
  *
  * It sends only what the server accepts and shows what the server answers, field by field: there is no client-side validation, so the messages are the
  * server's own. The drawer stays mounted and is opened with `open`; pointing it at a new `target` starts a fresh form.
+ *
+ * `showSell={false}` leaves out the "Sell in CRM" section, for the catalogue item's own page, where the item's price, SKU and tax rate already have their
+ * own Edit button and must not be editable in two places.
  */
-export function ProductMasterForm({ open, target, meta, products, onClose, onSaved }: {
+export function ProductMasterForm({ open, target, meta, products, onClose, onSaved, service = productMasterService, showSell = true }: {
   open: boolean
   target: FormTarget | null
   meta: PmMeta | null
-  /** The products a sub-product can be placed under. */
+  /** The product lines a sub-product can be placed under. */
   products: Array<{ id: number; key: string; name: string }>
   onClose: () => void
   onSaved: (record: PmRecord, message: string) => void
+  service?: ProductMasterWriter
+  showSell?: boolean
 }) {
   const [seen, setSeen] = useState<FormTarget | null>(null)
   const [initial, setInitial] = useState<ProductForm>(() => emptyForm('sub_product'))
@@ -117,7 +125,7 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
     setErrors(NO_ERRORS)
     try {
       if (target.mode === 'create') {
-        const response = await productMasterService.create(createPayload(form))
+        const response = await service.create(createPayload(form))
         onSaved(response.data, `${kindLabel(form.kind)} created.`)
       } else {
         const body = updatePayload(initial, form)
@@ -125,7 +133,7 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
           onClose()
           return
         }
-        const response = await productMasterService.update(target.record.id, body)
+        const response = await service.update(target.record.id, body)
         onSaved(response.data, 'Saved.')
       }
     } catch (cause) {
@@ -143,14 +151,14 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
   const sellOffered = kind === 'item' || form.sell.enabled
   const cannotSell = kind === 'sub_product' && !hasCatalogueRow && itemTypes.length === 0
 
-  const savesTo = kind === 'product' ? 'saves to the Product Master' : kind === 'sub_product' ? 'saves to the Product Master and the Portfolio' : 'saves to the CRM catalogue'
+  const savesTo = kind === 'product' ? 'saves as a product line' : kind === 'sub_product' ? 'saves to the product line and the Portfolio' : 'saves to the CRM catalogue'
 
   return (
     <RecordDrawer
       open={open}
       onClose={onClose}
       title={titleFor(target)}
-      description={kind === 'sub_product' ? 'An item inside a product. It appears in the Portfolio.' : undefined}
+      description={kind === 'sub_product' ? 'An item inside a product line. It appears in the Portfolio.' : undefined}
       dirty={dirty}
       busy={busy}
       footer={(requestClose) => (
@@ -178,10 +186,10 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
 
           {kind === 'sub_product' && (
             <>
-              <Field label="Product" required error={err('productId')}>
+              <Field label="Product line" required error={err('productId')}>
                 {(c) => (
                   <NativeSelect {...c} value={form.productId} onChange={(e) => set({ productId: e.target.value }, 'productId', 'offerId')} disabled={busy || editing}>
-                    <option value="">Choose a product…</option>
+                    <option value="">Choose a product line…</option>
                     {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </NativeSelect>
                 )}
@@ -220,7 +228,7 @@ export function ProductMasterForm({ open, target, meta, products, onClose, onSav
           </FormSection>
         )}
 
-        {(kind === 'sub_product' || kind === 'item') && (
+        {(kind === 'sub_product' || kind === 'item') && showSell && (
           <FormSection
             title="Sell in CRM"
             saves="saves to the CRM catalogue"

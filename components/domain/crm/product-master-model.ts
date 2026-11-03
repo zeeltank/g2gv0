@@ -40,7 +40,8 @@ export const FORM_FIELDS = [
   'sell.type', 'sell.sku', 'sell.glAccount', 'sell.taxRateId', 'sell.basePrice', 'sell.currency',
 ] as const
 
-const KIND_LABELS: Record<PmKind, string> = { product: 'Product', sub_product: 'Sub-product', item: 'Catalogue item' }
+// On the Products screen "product" already means an item the CRM sells, so the top-level group is called a product line there (agentic CRM slice 1, Track Y).
+const KIND_LABELS: Record<PmKind, string> = { product: 'Product line', sub_product: 'Sub-product', item: 'Catalogue item' }
 export const kindLabel = (kind: PmKind): string => KIND_LABELS[kind]
 
 export function splitLines(text: string): string[] {
@@ -196,29 +197,21 @@ export function readinessTone(readiness: string | null | undefined): ReadinessTo
   }
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-
-/** "22 sub-products in 5 products." with an item count added when there are catalogue-only items. */
-export function listSummary(totals: { products: number; subProducts: number; items: number }): string {
-  const base = `${plural(totals.subProducts, 'sub-product', 'sub-products')} in ${plural(totals.products, 'product', 'products')}`
-  return totals.items > 0 ? `${base}, and ${plural(totals.items, 'other catalogue item', 'other catalogue items')}.` : `${base}.`
-}
-
 export interface NewChoice {
   kind: PmKind
   label: string
   description: string
 }
 
-/** What the "New…" menu offers this person: only what the server says they may create. */
+/**
+ * What the "New…" menu of the product lines offers this person: only what the server says they may create. A catalogue item is not offered here: it is
+ * added from the Catalogue view with the "Add Product" and "Add Service" buttons, exactly as before.
+ */
 export function newChoices(can: PmCan | null): NewChoice[] {
   if (!can) return []
   const choices: NewChoice[] = []
-  if (can.createProduct) choices.push({ kind: 'product', label: 'A product', description: 'A top-level group such as Scholar K-12.' })
-  if (can.createSubProduct) choices.push({ kind: 'sub_product', label: 'A sub-product', description: 'An item inside a product. It appears in the Portfolio.' })
-  if (can.createItem.product || can.createItem.service) {
-    choices.push({ kind: 'item', label: 'A service or other catalogue item', description: 'Something you quote but never look for buyers of, such as a training day.' })
-  }
+  if (can.createProduct) choices.push({ kind: 'product', label: 'A product line', description: 'A top-level group such as Scholar K-12.' })
+  if (can.createSubProduct) choices.push({ kind: 'sub_product', label: 'A sub-product', description: 'An item inside a product line. It appears in the Portfolio.' })
   return choices
 }
 

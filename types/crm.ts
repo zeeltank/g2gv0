@@ -754,10 +754,36 @@ export interface CrmProduct {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * What the Products screen knows about this item through the product lines behind it (the Product Master). Always sent by an up-to-date server, absent
+   * from an older one, and null for an item tied to no sub-product: the list then shows no extra columns for it.
+   */
+  masterId?: number | null
+  masterKind?: 'product' | 'sub_product' | 'item' | null
+  masterStatus?: 'active' | 'archived' | null
+  /** The product line the item's sub-product sits under. */
+  productLine?: { id: number; name: string } | null
+  /** The sub-product's ID in the Portfolio. */
+  offerId?: string | null
+  /** Signals recorded for the sub-product. */
+  signalsFound?: number | null
+  icp?: CrmIcpState | null
+}
+
+/** The state of an ideal-customer profile, as the server words it. */
+export type CrmIcpState = 'active' | 'draft' | 'archived' | 'template' | 'none'
+
+/** What the Products list says about the product lines behind it: whether they exist on this server, how many items are tied to one, and how many there are. */
+export interface CrmProductLines {
+  available: boolean
+  linked: number
+  productLines: number
+  subProducts: number
 }
 
 export type CrmProductPayload = Partial<
-  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'
+  | 'masterId' | 'masterKind' | 'masterStatus' | 'productLine' | 'offerId' | 'signalsFound' | 'icp'>
 >
 
 export interface CrmProductBundleItem {
@@ -772,7 +798,8 @@ export interface CrmProductBundleItem {
 export interface CrmProductListResponse {
   status: number
   message: string
-  data: { items: CrmProduct[]; pagination: CrmPagination }
+  /** `lines` is absent from a server that predates the product lines. */
+  data: { items: CrmProduct[]; pagination: CrmPagination; lines?: CrmProductLines }
 }
 
 export interface CrmProductResponse {

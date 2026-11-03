@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,51 +8,56 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DetailPage, PageTabs, TabPanel, useConfirm, useUrlTab, type DetailStatus, type PageTab } from '@/components/shared/scaffolds'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
-import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { CRM_PRICE_BOOKS_ACCESS_LINK, CRM_PRODUCT_MASTER_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { ApiError } from '@/services/core'
 import { productMasterService } from '@/services/product-master/product-master-service'
 import type { PmKind, PmMeta, PmOption, PmRecord, PmUsage } from '@/services/product-master/types'
-import { ProductMasterForm, type FormTarget } from './product-master-form'
+import { catalogueItemHref, EXTRA_TAB_LABELS, lineRecordHref } from './product-lines-model'
+import { ProductMasterForm, type FormTarget, type ProductMasterWriter } from './product-master-form'
 import { formatPrice, kindLabel, productChoices } from './product-master-model'
 import { ArchivedBadge, ReadinessBadge, SharedBadge, SoldBadge } from './product-master-parts'
+import { ProductOfferAbout } from './product-offer-about'
+import { ProductSignalsIcpTab } from './product-signals-icp-tab'
+import { ProductUsageTab } from './product-usage-tab'
 
-// One list of tab ids per kind, defined once: useUrlTab depends on it, and the first one is the tab a plain link opens.
+// One list of tab ids per kind, defined once: useUrlTab depends on it, and the first one is the tab a plain link opens. A product line has no catalogue item,
+// so no quotes or price books: what Signals found and its ICP are all its Usage would hold.
 const TABS_BY_KIND: Record<PmKind, readonly string[]> = {
-  product: ['overview', 'usage'],
-  sub_product: ['overview', 'sell', 'prices', 'usage'],
-  item: ['sell', 'prices', 'usage'],
+  product: ['overview', 'signals'],
+  sub_product: ['overview', 'signals', 'sell', 'usage'],
+  item: ['sell', 'usage'],
 }
-const TAB_LABELS: Record<string, string> = { overview: 'Overview', sell: 'Sell in CRM', prices: 'Prices', usage: 'Usage' }
-const ID_PREFIX = 'pm-detail'
+const TAB_LABELS: Record<string, string> = { overview: 'Overview', sell: 'Sell in CRM', ...EXTRA_TAB_LABELS }
+const ID_PREFIX = 'pl-record'
+
+/** The part of the Product Master API this page reads and writes through; the real one by default, a stand-in in a test. */
+export type ProductRecordApi = Pick<typeof productMasterService, 'get' | 'usage' | 'meta' | 'options' | 'archive' | 'restore'> & ProductMasterWriter
+
+/** Where the page links to; the route that renders it works these out from the menu. */
+export interface ProductRecordHrefs {
+  products: string
+  services: string
+  priceBooks: string
+}
 
 interface Notice {
   tone: 'success' | 'error'
   text: string
 }
 
-function Chips({ items, empty = '—' }: { items: readonly string[]; empty?: string }) {
-  if (items.length === 0) return <span className="text-muted-foreground">{empty}</span>
-  return (
-    <ul className="flex flex-wrap gap-1.5">
-      {items.map((item) => <li key={item} className="rounded-full border border-border px-2 py-0.5 text-xs text-foreground">{item}</li>)}
-    </ul>
-  )
-}
-
 /**
- * One product, sub-product or catalogue item: Overview, Sell in CRM, Prices and Usage tabs (a catalogue item has no Overview), with Edit (the same drawer as
- * the list's "New…"), Archive and Restore. Archiving asks first and says what stays. The route around it adds the app shell and the breadcrumb.
+ * One product line, or one sub-product that is not in the CRM catalogue (a sub-product that is sold opens its catalogue page instead, which carries the
+ * same Signals & ICP and Usage tabs): Overview, Signals & ICP, Sell in CRM and Usage tabs, with Edit, Archive and Restore. Archiving asks first and says what
+ * stays. The route around it adds the app shell and the breadcrumb.
  */
-export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
+export function ProductLineRecordPage({ id, onBack, onNameKnown, hrefs, service = productMasterService }: {
   id: string
   onBack: () => void
   /** Reports the record's name once it is known, for the breadcrumb. */
   onNameKnown?: (name: string) => void
+  hrefs: ProductRecordHrefs
+  service?: ProductRecordApi
 }) {
-  const { resolveAccessLink } = useSidebarNavigation()
-  const context = useMemo(() => getLaravelContext(), [])
   const { confirm, confirmDialog } = useConfirm()
 
   const [record, setRecord] = useState<PmRecord | null>(null)
@@ -76,7 +81,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
 
   /** `quiet` re-reads the record behind the page without replacing it with the "Opening…" state. */
   const load = useCallback(async (quiet = false) => {
-    if (!isLaravelContextReady(context)) {
+    if (!isLaravelContextReady(getLaravelContext())) {
       setError('Your ERP session is unavailable. Please sign in again.')
       setStatus('error')
       return
@@ -84,7 +89,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
     const mine = ++latestRecord.current
     if (!quiet) setStatus('loading')
     try {
-      const response = await productMasterService.get(id)
+      const response = await service.get(id)
       if (mine !== latestRecord.current) return
       setRecord(response.data)
       setStatus('ready')
@@ -97,20 +102,22 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
         setStatus('error')
       }
     }
-  }, [context, id])
+  }, [service, id])
 
   const loadUsage = useCallback(async () => {
+    // Without a session nothing is asked (the page itself already says so).
+    if (!isLaravelContextReady(getLaravelContext())) return
     const mine = ++latestUsage.current
     setUsageError('')
     try {
-      const response = await productMasterService.usage(id)
+      const response = await service.usage(id)
       if (mine !== latestUsage.current) return
       setUsage(response.data)
     } catch (cause) {
       if (mine !== latestUsage.current) return
       setUsageError(cause instanceof Error ? cause.message : 'Unable to load how this is used.')
     }
-  }, [id])
+  }, [service, id])
 
   useEffect(() => {
     queueMicrotask(() => { void load(); void loadUsage() })
@@ -122,17 +129,16 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   }, [knownName, onNameKnown])
 
   useEffect(() => {
-    if (!isLaravelContextReady(context)) return
+    if (!isLaravelContextReady(getLaravelContext())) return
     queueMicrotask(() => {
-      void Promise.allSettled([productMasterService.meta(), productMasterService.options()]).then(([m, o]) => {
+      void Promise.allSettled([service.meta(), service.options()]).then(([m, o]) => {
         if (m.status === 'fulfilled') setMeta(m.value.data)
         if (o.status === 'fulfilled') setOptions(o.value.data)
       })
     })
-  }, [context])
+  }, [service])
 
-  const listHref = resolveAccessLink(CRM_PRODUCT_MASTER_ACCESS_LINK)
-  const detailHref = (otherId: number) => `${listHref}/${otherId}`
+  const lineHref = (masterId: number) => lineRecordHref(hrefs.products, masterId)
   const can = meta?.can
 
   const canEdit = Boolean(record && can && !record.shared && (
@@ -140,7 +146,8 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   ))
   const canArchive = Boolean(record && can && !record.shared && (record.kind === 'product' ? can.archiveProduct : can.archive))
   const canRestore = Boolean(record && can && !record.shared && (record.kind === 'product' ? can.restoreProduct : can.restore))
-  const canSell = Boolean(record && can && record.kind === 'sub_product' && !record.crmProduct && can.editSubProduct && (can.sellInCrm.product || can.sellInCrm.service))
+  // (Only the Sell tab of a sub-product that is not in the catalogue asks for this, so it does not need to check that again.)
+  const canSell = Boolean(record && can && record.kind === 'sub_product' && can.editSubProduct && (can.sellInCrm.product || can.sellInCrm.service))
 
   const openEdit = () => { if (record) setDrawer({ open: true, target: { mode: 'edit', record } }) }
   const openSell = () => { if (record) setDrawer({ open: true, target: { mode: 'edit', record, enableSell: true } }) }
@@ -154,7 +161,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
     void loadUsage()
   }
 
-  /** Archive and restore: the server answers with the changed record, or says why it cannot be done (for example, a product with active sub-products). */
+  /** Archive and restore: the server answers with the changed record, or says why it cannot be done (for example, a product line with active sub-products). */
   const changeStatus = async (archive: boolean) => {
     if (!record || busy) return
     if (archive) {
@@ -169,7 +176,7 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
     }
     setBusy(true)
     try {
-      const response = archive ? await productMasterService.archive(record.id) : await productMasterService.restore(record.id)
+      const response = archive ? await service.archive(record.id) : await service.restore(record.id)
       setRecord(response.data)
       setNotice({ tone: 'success', text: archive ? 'Archived.' : 'Restored.' })
     } catch (cause) {
@@ -182,12 +189,13 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   const tabs: PageTab[] = tabIds.map((tabId) => ({
     id: tabId,
     label: TAB_LABELS[tabId],
-    count: tabId === 'prices' && usage ? usage.priceBooks.length : undefined,
+    count: tabId === 'usage' && usage && record?.crmProduct ? usage.priceBooks.length : undefined,
   }))
 
   const subtitle = record
     ? [kindLabel(record.kind), record.parent?.name, record.offer?.offerId ?? (record.kind === 'product' ? record.key : record.crmProduct?.productNo)].filter(Boolean).join(' · ')
     : undefined
+  const catalogueLink = record?.crmProduct ? catalogueItemHref(hrefs, record.crmProduct.id, record.crmProduct.type) : null
 
   return (
     <>
@@ -195,14 +203,15 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
         title={record?.name ?? ''}
         subtitle={subtitle}
         badge={record && (<>{record.shared && <SharedBadge />}{record.status === 'archived' && <ArchivedBadge />}</>)}
-        backLabel="Back to Product Master"
+        backLabel="Back to Products"
         onBack={onBack}
         status={status}
         error={error}
         onRetry={() => void load()}
-        notFoundText="This product could not be found, or you do not have access to it."
+        notFoundText="This could not be found, or you do not have access to it."
         actions={record && (
           <>
+            {catalogueLink && <Button variant="outline" asChild><Link href={catalogueLink}>Open catalogue page</Link></Button>}
             {canEdit && <Button onClick={openEdit} disabled={busy}><Pencil className="mr-1.5 size-4" aria-hidden="true" />Edit</Button>}
             {canArchive && record.status === 'active' && <Button variant="outline" onClick={() => void changeStatus(true)} disabled={busy}>Archive</Button>}
             {canRestore && record.status === 'archived' && <Button variant="outline" onClick={() => void changeStatus(false)} disabled={busy}>Restore</Button>}
@@ -224,17 +233,17 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
           <>
             <TabPanel id="overview" active={tab} idPrefix={ID_PREFIX}>
               {record.kind === 'product'
-                ? <ProductOverview record={record} href={detailHref} canAdd={Boolean(can?.createSubProduct) && !record.shared && record.status === 'active'} onAdd={openAddSubProduct} />
-                : <SubProductOverview record={record} href={detailHref} />}
+                ? <LineOverview record={record} href={lineHref} canAdd={Boolean(can?.createSubProduct) && !record.shared && record.status === 'active'} onAdd={openAddSubProduct} />
+                : <SubProductOverview record={record} href={lineHref} />}
+            </TabPanel>
+            <TabPanel id="signals" active={tab} idPrefix={ID_PREFIX}>
+              <ProductSignalsIcpTab record={record} usage={usage} usageError={usageError} lineHref={lineHref} />
             </TabPanel>
             <TabPanel id="sell" active={tab} idPrefix={ID_PREFIX}>
-              <SellTab record={record} meta={meta} canSell={canSell} onSell={openSell} />
-            </TabPanel>
-            <TabPanel id="prices" active={tab} idPrefix={ID_PREFIX}>
-              <PricesTab record={record} usage={usage} error={usageError} priceBooksHref={resolveAccessLink(CRM_PRICE_BOOKS_ACCESS_LINK)} />
+              <SellTab record={record} meta={meta} canSell={canSell} onSell={openSell} catalogueLink={catalogueLink} />
             </TabPanel>
             <TabPanel id="usage" active={tab} idPrefix={ID_PREFIX}>
-              <UsageTab record={record} usage={usage} error={usageError} />
+              <ProductUsageTab usage={usage} error={usageError} inCatalogue={record.crmProduct !== null} kind={record.kind} priceBooksHref={hrefs.priceBooks} />
             </TabPanel>
           </>
         )}
@@ -246,8 +255,9 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
         meta={meta}
         products={productChoices(options)}
         onClose={closeDrawer}
+        service={service}
         onSaved={(saved, message) => {
-          // Adding a sub-product from a product's page: the page stays on the product, which now lists it.
+          // Adding a sub-product from a product line's page: the page stays on the product line, which now lists it.
           if (saved.kind === 'sub_product' && record?.kind === 'product') {
             closeDrawer()
             setNotice({ tone: 'success', text: message })
@@ -262,10 +272,10 @@ export function ProductMasterDetailPage({ id, onBack, onNameKnown }: {
   )
 }
 
-function ProductOverview({ record, href, canAdd, onAdd }: { record: PmRecord; href: (id: number) => string; canAdd: boolean; onAdd: () => void }) {
+function LineOverview({ record, href, canAdd, onAdd }: { record: PmRecord; href: (id: number) => string; canAdd: boolean; onAdd: () => void }) {
   return (
     <div className="space-y-4">
-      <SectionCard title="Product">
+      <SectionCard title="Product line">
         <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <ReadField label="Name" value={record.name} />
           <ReadField label="Key" value={<span className="font-mono text-xs">{record.key}</span>} />
@@ -305,13 +315,12 @@ function ProductOverview({ record, href, canAdd, onAdd }: { record: PmRecord; hr
 
 function SubProductOverview({ record, href }: { record: PmRecord; href: (id: number) => string }) {
   const offer = record.offer
-  const about = offer?.about
   return (
     <div className="space-y-4">
-      <SectionCard title="Identity" description="Saved in the Product Master and the Portfolio.">
+      <SectionCard title="Identity" description="Saved in the product lines and the Portfolio.">
         <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <ReadField label="Name" value={record.name} />
-          <ReadField label="Product" value={record.parent && <Link href={href(record.parent.id)} className="text-primary hover:underline">{record.parent.name}</Link>} />
+          <ReadField label="Product line" value={record.parent && <Link href={href(record.parent.id)} className="text-primary hover:underline">{record.parent.name}</Link>} />
           <ReadField label="Sub-product ID" value={offer && <span className="font-mono text-xs">{offer.offerId}</span>} />
           <ReadField
             label="Readiness"
@@ -327,35 +336,12 @@ function SubProductOverview({ record, href }: { record: PmRecord; href: (id: num
         </dl>
       </SectionCard>
 
-      <SectionCard title="About" description="Kept in the Portfolio. Who it is for and its buying events are edited there.">
-        {about ? (
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div className="sm:col-span-2"><ReadField label="What it does" value={about.whatItDoes && <span className="whitespace-pre-line font-normal">{about.whatItDoes}</span>} /></div>
-            <div className="sm:col-span-2">
-              <ReadField label="Customer problems it solves" value={about.needsSolved.length > 0
-                ? <ul className="list-disc space-y-0.5 pl-5 font-normal">{about.needsSolved.map((problem) => <li key={problem}>{problem}</li>)}</ul>
-                : null}
-              />
-            </div>
-            <ReadField label="Who it is for" value={<Chips items={about.primarySegments} />} />
-            <ReadField label="Buying events that point to it" value={<Chips items={about.triggerSignals} />} />
-            <ReadField label="Features and capabilities" value={about.modulesComponents && <span className="whitespace-pre-line font-normal">{about.modulesComponents}</span>} />
-            <ReadField label="Deployment" value={about.deploymentModel} />
-            <ReadField label="Benefits and proof" value={about.proofPoints && <span className="whitespace-pre-line font-normal">{about.proofPoints}</span>} />
-            <ReadField label="Notes" value={about.notes && <span className="whitespace-pre-line font-normal">{about.notes}</span>} />
-          </dl>
-        ) : (
-          <p className="text-sm text-muted-foreground">There is no Portfolio offer of your own behind this record to show.</p>
-        )}
-        <p className="mt-4 text-xs text-muted-foreground">
-          The ideal-customer profile is kept where it is today: <Link href="/portfolio" className="text-primary underline underline-offset-2">open the Portfolio</Link>.
-        </p>
-      </SectionCard>
+      <ProductOfferAbout offer={offer} lineKey={record.parent?.key} />
     </div>
   )
 }
 
-function SellTab({ record, meta, canSell, onSell }: { record: PmRecord; meta: PmMeta | null; canSell: boolean; onSell: () => void }) {
+function SellTab({ record, meta, canSell, onSell, catalogueLink }: { record: PmRecord; meta: PmMeta | null; canSell: boolean; onSell: () => void; catalogueLink: string | null }) {
   const crm = record.crmProduct
   if (!crm) {
     return (
@@ -368,7 +354,11 @@ function SellTab({ record, meta, canSell, onSell }: { record: PmRecord; meta: Pm
   }
   const taxRate = crm.taxRateId !== null ? meta?.taxRates.find((t) => t.id === crm.taxRateId) : undefined
   return (
-    <SectionCard title="CRM catalogue item" description="Saved in the CRM catalogue.">
+    <SectionCard
+      title="CRM catalogue item"
+      description="Saved in the CRM catalogue."
+      actions={catalogueLink ? <Button variant="outline" size="sm" asChild><Link href={catalogueLink}>Open catalogue page</Link></Button> : undefined}
+    >
       <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <ReadField label="Item number" value={crm.productNo && <span className="font-mono text-xs">{crm.productNo}</span>} />
         <ReadField label="Type" value={crm.type === 'service' ? 'Service' : 'Product'} />
@@ -379,80 +369,6 @@ function SellTab({ record, meta, canSell, onSell }: { record: PmRecord; meta: Pm
         <ReadField label="Active in the catalogue" value={crm.active ? 'Yes' : 'No'} />
       </dl>
       <p className="mt-4 text-xs text-muted-foreground">The base price is used only when a price book has no price for this item.</p>
-    </SectionCard>
-  )
-}
-
-function PricesTab({ record, usage, error, priceBooksHref }: { record: PmRecord; usage: PmUsage | null; error: string; priceBooksHref: string }) {
-  if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>
-  if (!usage) return <p role="status" className="text-sm text-muted-foreground">Loading…</p>
-
-  if (!record.crmProduct) {
-    return (
-      <EmptyState
-        title="Not in the CRM catalogue"
-        description="Only an item in the catalogue can be in a price book. Sell it in the CRM first."
-      />
-    )
-  }
-  if (usage.priceBooks.length === 0) {
-    return (
-      <EmptyState
-        title="Not in any price book yet"
-        description={`Add it to a price book to give it a quotable price. Until then a quote line uses the base price${usage.basePrice === null ? ', which is empty' : `, ${formatPrice(usage.basePrice, usage.currency)}`}.`}
-        action={<Button variant="outline" asChild><Link href={priceBooksHref}>Open Price Books</Link></Button>}
-      />
-    )
-  }
-  return (
-    <SectionCard
-      title="Price books"
-      description="A quote is priced from the price book it uses. Prices are edited in Price Books, not here."
-      actions={<Button variant="outline" size="sm" asChild><Link href={priceBooksHref}>Open Price Books</Link></Button>}
-    >
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow><TableHead>Price book</TableHead><TableHead>Number</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Price</TableHead></TableRow>
-          </TableHeader>
-          <TableBody>
-            {usage.priceBooks.map((book) => (
-              <TableRow key={book.priceBookId}>
-                <TableCell className="font-medium">{book.name}</TableCell>
-                <TableCell className="font-mono text-xs">{book.priceBookNo ?? '—'}</TableCell>
-                <TableCell>{book.active ? 'Active' : 'Inactive'}</TableCell>
-                <TableCell className="text-right">{formatPrice(book.listPrice, book.currency)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </SectionCard>
-  )
-}
-
-function UsageTab({ record, usage, error }: { record: PmRecord; usage: PmUsage | null; error: string }) {
-  if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>
-  if (!usage) return <p role="status" className="text-sm text-muted-foreground">Loading…</p>
-
-  return (
-    <SectionCard title="Where it is used">
-      <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Counts go in as text: ReadField shows a dash for any falsy value, and a count of 0 is a real answer. */}
-        <ReadField
-          label="Signals found"
-          value={usage.signals === null
-            ? <span className="font-normal text-muted-foreground">{record.kind === 'item' ? 'Not counted: a catalogue item is not looked for in signals.' : 'Not counted: Signals has no value for this.'}</span>
-            : String(usage.signals)}
-        />
-        <ReadField label="Quotes that include it" value={record.crmProduct ? String(usage.quotes) : <span className="font-normal text-muted-foreground">Not in the CRM catalogue</span>} />
-        <ReadField label="Price books" value={record.crmProduct ? String(usage.priceBooks.length) : <span className="font-normal text-muted-foreground">Not in the CRM catalogue</span>} />
-      </dl>
-      <p className="mt-4 text-xs text-muted-foreground">
-        {record.kind === 'sub_product'
-          ? 'Signals are counted where the best-matching offer is this sub-product. They are recorded under a product, so the full count is on the product.'
-          : 'Signals are recorded under a product.'}
-      </p>
     </SectionCard>
   )
 }
