@@ -145,7 +145,10 @@ export interface SignalMatchingResponse {
   offer_matches: OfferMatchResult[]
 }
 
-/** One product as stored: its portfolio offers, its ICP and what is still missing for discovery. */
+/** A sub-product with no usable ICP, and what it lacks. */
+export interface SubProductWithoutIcp { offer_id: string; name: string; problems: string[] }
+
+/** One product as stored: its portfolio offers, the ICP derived from its sub-products' ICPs, and what is still missing for discovery. */
 export interface ProductInfo {
   key: string
   label: string
@@ -156,7 +159,9 @@ export interface ProductInfo {
   business_fit: string
   /** The name the Product Portfolio uses for this product (its `parent_product`). */
   portfolio_name: string | null
-  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null }>
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null; without_icp?: SubProductWithoutIcp[] }>
+  /** A product has no ICP of its own: this lists its sub-products that have no usable ICP (for B2B), which a whole-product run does not search. */
+  sub_products_without_icp?: SubProductWithoutIcp[]
   offers: Array<{
     id: number
     offer_id: string
@@ -175,7 +180,7 @@ export interface ProductInfo {
   }>
   icp: null | {
     profile_id: number | null
-    source: 'database' | 'template' | null
+    source: 'database' | 'template' | 'sub_products' | null
     name: string | null
     customer_model?: 'b2b' | 'b2c' | 'b2g' | 'both' | string | null
     pitch: string | null

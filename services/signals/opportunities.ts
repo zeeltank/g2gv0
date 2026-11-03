@@ -203,6 +203,14 @@ export interface Opportunity {
   feed_section?: 'immediate_action' | 'watchlist' | 'market_intelligence' | 'competitor_intelligence' | 'top_actions' | string | null
   relevant_offer_id?: string | null
   relevant_offer_name?: string | null
+  offer_id?: string | null
+  product_key?: string | null
+  region_scope?: Array<{ country: string; state?: string; city?: string }> | string | null
+  icp_version?: number | null
+  import_source?: string | null
+  created_at?: string | null
+  run_started_at?: string | null
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | string | null
   /** The ten-family classification of what kind of signal this is (code, label, examples). */
   signal_family?: { code: string; label: string; examples: string } | null
   ingestion_source_id?: number | null
@@ -444,6 +452,9 @@ export interface OpportunityQuery {
   includeSamples?: boolean
   claimLevel?: string
   businessFit?: string
+  /** Date range bounds (YYYY-MM-DD). */
+  from?: string
+  to?: string
   /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
   runDate?: string
   /** Page size (the server allows up to 50). Defaults to 10. */
@@ -454,6 +465,10 @@ export interface OpportunityQuery {
   customerModel?: 'b2b' | 'b2c' | 'b2g'
   regions?: { country: string; state?: string; city?: string }[]
   needCode?: string
+  /** Genuine All Signals inbox mode: aggregates across sub-products, customer models, and regions. */
+  allSignals?: boolean
+  /** Filter by origin: 'all' (default), 'generated', or 'manual'. */
+  source?: 'all' | 'generated' | 'manual'
 }
 
 export interface ProviderCheck {
@@ -660,8 +675,8 @@ export const opportunitiesService = {
     apiClient.get<ResearchStatusResponse>('/signals/research/status', { ...base(c), ...(product && product !== 'all' ? { product } : {}), ...(customerModel ? { customer_model: customerModel } : {}), ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
 
   /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
-  getRunDates: (c: LaravelContext, product: string, customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = []) =>
-    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product, customer_model: customerModel, ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
+  getRunDates: (c: LaravelContext, product: string, customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = [], allSignals?: boolean) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product, customer_model: customerModel, ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions), ...(allSignals ? { all_signals: '1' } : {}) }),
 
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
@@ -701,11 +716,15 @@ export const opportunitiesService = {
     if (q.customerModel) params.customer_model = q.customerModel
     if (q.offerId) params.offer_id = q.offerId
     Object.assign(params, regionQuery(q.regions ?? []))
+    if (q.from) params.from = q.from
+    if (q.to) params.to = q.to
     if (q.runDate) params.run_date = q.runDate
     if (q.runId) params.run_id = String(q.runId)
     if (q.sort && q.sort !== 'default') params.sort = q.sort
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
+    if (q.allSignals) params.all_signals = '1'
+    if (q.source && q.source !== 'all') params.source = q.source
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },
 

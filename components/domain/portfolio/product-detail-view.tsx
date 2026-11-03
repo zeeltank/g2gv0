@@ -15,37 +15,30 @@ import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { TaxonomyData } from '@/services/portfolio/types'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { useProducts } from '@/components/domain/signals/product-selector'
-import { IcpStatusBadge } from './icp-status-badge'
+import { SubProductIcpBadge } from './icp-status-badge'
 import { ProductFormDialog } from './product-form-dialog'
-import { ProductIcpEditor } from './product-icp-editor'
 import { ProductOffersList, ProductProfilePanel } from './product-profile-panel'
 import { ProductSetupSteps } from './product-setup-steps'
 
 const TABS: { key: ProductTab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
-  { key: 'icp', label: 'Ideal customer (ICP)' },
   { key: 'offers', label: 'Offers' },
 ]
 
 /**
- * One product on its own page. The product is named by the address, so what is shown (details, ICP, offers) is that product's stored data only.
- * The ICP editor is the same one the portfolio used; it loads and saves through the product's own ICP API.
+ * One product on its own page. The product is named by the address, so what is shown (details, offers, the ICPs of its sub-products) is that
+ * product's stored data only. A product has no ICP of its own: each sub-product's Individual ICP is set on that sub-product.
  */
 export function ProductDetailView({ context, productKey }: { context: LaravelContext; productKey: string }) {
   const { products, loading, error, reload } = useProducts(context)
   const { user } = useAuth()
   const isAdmin = user?.role === 'administrator'
   const [tab, setTab] = useState<ProductTab>('overview')
-  // The editor is mounted the first time its tab opens and then kept, so unsaved edits survive a visit to another tab.
-  const [icpOpened, setIcpOpened] = useState(false)
-  const [icpDirty, setIcpDirty] = useState(false)
   const [taxonomy, setTaxonomy] = useState<TaxonomyData | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [catalogVersion, setCatalogVersion] = useState(0)
 
   const show = useCallback((next: ProductTab) => {
     setTab(next)
-    if (next === 'icp') setIcpOpened(true)
     try {
       const url = new URL(window.location.href)
       url.searchParams.set('tab', next)
@@ -56,7 +49,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   useEffect(() => {
     const initial = resolveTab(new URLSearchParams(window.location.search).get('tab'))
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTab(initial); setIcpOpened(initial === 'icp')
+    setTab(initial)
   }, [productKey])
 
   useEffect(() => {
@@ -82,7 +75,6 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     <Link
       href="/portfolio"
       className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-      onClick={(e) => { if (icpDirty && !window.confirm('You have unsaved changes to this ICP. Leave and discard them?')) e.preventDefault() }}
     >
       <ArrowLeft className="size-4" /> All products
     </Link>
@@ -110,7 +102,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
       {back}
       <PremiumHeader
         title={product.label}
-        badge={<IcpStatusBadge product={product} />}
+        badge={<SubProductIcpBadge product={product} />}
         description={`${product.offers.length} offer${product.offers.length === 1 ? '' : 's'} · ${product.opportunities_count} opportunit${product.opportunities_count === 1 ? 'y' : 'ies'}${product.portfolio_name ? ` · Portfolio group: ${product.portfolio_name}` : ''}`}
         actions={
           <>
@@ -154,23 +146,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
         <ProductSetupSteps product={product} />
         <ProductProfilePanel product={product} />
         <p className="text-xs text-muted-foreground">
-          <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => show('icp')}>{isAdmin ? 'Edit the ICP' : 'View the ICP'}</Button> to change who this product is for.
+          Each sub-product has its own ICP. <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => show('offers')}>Open the sub-products</Button> to see which have one and to set the others up.
         </p>
-      </div>
-
-      <div role="tabpanel" id="panel-icp" aria-labelledby="tab-icp" hidden={tab !== 'icp'}>
-        {icpOpened && (
-          <ProductIcpEditor
-            key={product.key}
-            context={context}
-            productKey={product.key}
-            canEdit={isAdmin}
-            onChanged={reload}
-            onDirtyChange={setIcpDirty}
-            onCreateProduct={() => setCreateOpen(true)}
-            catalogVersion={catalogVersion}
-          />
-        )}
       </div>
 
       <div role="tabpanel" id="panel-offers" aria-labelledby="tab-offers" hidden={tab !== 'offers'} className="space-y-3">
@@ -185,7 +162,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
         products={products}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onSaved={() => { setCreateOpen(false); setCatalogVersion((v) => v + 1); reload() }}
+        onSaved={() => { setCreateOpen(false); reload() }}
       />
     </div>
   )

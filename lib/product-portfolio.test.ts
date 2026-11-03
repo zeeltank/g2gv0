@@ -4,7 +4,7 @@
  * (No React test setup here, so components are checked through their pure helpers and their source.)
  */
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { addCustom, customEntries, deleteConfirmation, emptyProductForm, fromOffer, problemLines, removeEntry, serverErrors, splitNeeds, toggle, toPayload, validateProductForm } from './product-form'
@@ -205,10 +205,7 @@ describe('how a comparison reads', () => {
 
 describe('Product Portfolio wiring', () => {
   const view = read('components/domain/portfolio/portfolio-view.tsx')
-  const editor = read('components/domain/portfolio/product-icp-editor.tsx')
   const dialog = read('components/domain/portfolio/product-form-dialog.tsx')
-  const picker = read('components/domain/portfolio/icp-product-picker.tsx')
-  const compare = read('components/domain/portfolio/icp-comparison.tsx')
 
   it('Add Product and Edit open a real form (they used to set state that nothing rendered)', () => {
     assert.match(view, /<ProductFormDialog/)
@@ -225,40 +222,19 @@ describe('Product Portfolio wiring', () => {
     assert.match(view, /setActionError\(apiErrorText\(err, 'Failed to delete the product\.'\)\)/)
   })
 
-  it('a change to the portfolio refreshes the list and the products; the product page also refreshes the ICP picker', () => {
+  it('a change to the portfolio refreshes the list and the products, on the portfolio and on the product page', () => {
     assert.match(view, /reloadProducts\(\)/)
     const detail = read('components/domain/portfolio/product-detail-view.tsx')
-    assert.match(detail, /setCatalogVersion\(\(v\) => v \+ 1\)/)
-    assert.match(detail, /catalogVersion=\{catalogVersion\}/)
-    assert.match(detail, /onCreateProduct=\{\(\) => setCreateOpen\(true\)\}/)
-    assert.match(detail, /productKey=\{product\.key\}|productKey=\{product\.key\}/)
+    assert.match(detail, /onSaved=\{\(\) => \{ setCreateOpen\(false\); reload\(\) \}\}/)
   })
 
-  it('the ICP editor has a searchable picker, not an automatic list, and a comparison', () => {
-    assert.match(editor, /<IcpProductPicker/)
-    assert.match(editor, /<IcpComparison/)
-    assert.match(picker, /role="combobox"/)
-    assert.match(picker, /if \(q === ''\)/)
-    assert.doesNotMatch(editor, /product\.offers\.map/)
-  })
-
-  it('the ICP form is five collapsible sections that hide their content instead of removing it', () => {
-    for (const t of ['1. Ideal Customer', '2. Buyer / Decision Maker', '3. Problems and Outcomes', '4. Buying Triggers', '5. Qualification Rules']) assert.match(editor, new RegExp(t.replace(/[.\/]/g, '\$&')))
-    assert.match(editor, /hidden=\{!shown\}/)
-    assert.match(editor, /aria-expanded=\{shown\}/)
-    assert.match(editor, /productIcpService\.save/)
-  })
-
-  it('the picker reads only the signed-in organisation\'s portfolio through the API and never hard-codes products', () => {
-    assert.match(picker, /portfolioService\.getOffers/)
-    assert.match(picker, /portfolioService\.getOffer\(/)
-    assert.doesNotMatch(picker + dialog + compare, /ScholarClone|Scholar K-12|SCH-0/)
-  })
-
-  it('the comparison only reads: it asks the server, claims no AI, and shows Insufficient data as it is', () => {
-    assert.match(compare, /productIcpService\.compare/)
-    assert.match(compare, /scoreLabel\(r\)/)
-    assert.match(compare, /No AI is used|data\.method/)
-    assert.doesNotMatch(compare, /runResearch|generate\(/)
+  it('the main-product ICP editor, its product picker and its comparison are gone: ICPs are set on sub-products', () => {
+    for (const f of ['product-icp-editor.tsx', 'icp-product-picker.tsx', 'icp-comparison.tsx']) {
+      assert.ok(!existsSync(join(root, 'components/domain/portfolio', f)), `${f} was removed`)
+    }
+    const service = read('services/signals/product-icp.ts')
+    for (const removed of [/\bsave:/, /\bsetStatus:/, /\bcompare:/, /\bcheck:/, /\bget:/]) assert.doesNotMatch(service, removed)
+    assert.match(service, /createProduct:/)
+    assert.match(service, /deleteProduct:/)
   })
 })

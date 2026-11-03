@@ -37,8 +37,7 @@ import { ApiError } from '@/services/core'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductOffer, ReadinessLogEntry, TaxonomyData } from '@/services/portfolio/types'
 import { useProducts } from '@/components/domain/signals/product-selector'
-import { configureHref, icpHref } from '@/lib/product-selection'
-import { IcpStatusBadge } from './icp-status-badge'
+import { configureHref, offersHref } from '@/lib/product-selection'
 import { NewProductDialog } from './new-product-dialog'
 import { ProductFormDialog } from './product-form-dialog'
 import { deleteConfirmation, deleteProductConfirmation } from '@/lib/product-form'
@@ -167,7 +166,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         p.offers.some((o) => (o as any).parent_product === saved.parent_product)
       )
       if (match) {
-        router.push(icpHref(match.key))
+        router.push(offersHref(match.key))
       }
     }
   }
@@ -237,19 +236,65 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
     if (linked && products.some((p) => p.key === linked)) router.replace(configureHref(linked))
   }, [products, router])
 
-  const selectedParent = products?.find((product) => product.key === selectedParentKey)
+  const storageKey = `g2g_product_${context.organizationId || context.subInstituteId || 'default'}`
+
+  const getPersistedKey = (): string | null => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      return raw?.includes('::') ? raw.split('::')[0] : raw
+    } catch {
+      return null
+    }
+  }
+
+  const selectedParent = (selectedParentKey ? products?.find((product) => product.key === selectedParentKey) : null)
+    ?? (getPersistedKey() ? products?.find((product) => product.key === getPersistedKey()) : null)
     ?? products?.find((product) => product.key === 'scholarclone')
     ?? products?.[0]
     ?? null
+  const p = selectedParent
   const childOfferIds = new Set(selectedParent?.offers.map((offer) => offer.offer_id) ?? [])
   const selectedOffers = offers.filter((offer) => childOfferIds.has(offer.offer_id))
 
+  const handleSelectProduct = (key: string) => {
+    setSelectedParentKey(key)
+    try {
+      window.localStorage.setItem(storageKey, key)
+    } catch {
+      // Ignore storage error
+    }
+  }
+
   return (
     <div className="space-y-5">
-      {/* Header: one primary action; the rest sit in the menu */}
+      {/* Header: Select Product dropdown on the left; actions on the right */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-4">
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Select a master product to show its sub-products below.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="portfolio-product-select" className="text-sm font-semibold text-foreground whitespace-nowrap">
+            Select Product
+          </label>
+          {productsLoading && !products ? (
+            <Skeleton className="h-9 w-56 rounded-lg" aria-label="Loading products" />
+          ) : productsError ? (
+            <span role="alert" className="text-xs text-destructive">{productsError}</span>
+          ) : (
+            <select
+              id="portfolio-product-select"
+              aria-label="Select Product"
+              value={selectedParent?.key ?? ''}
+              onChange={(e) => handleSelectProduct(e.target.value)}
+              className="h-9 min-w-56 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {!selectedParent && <option value="" disabled>Select a product...</option>}
+              {products?.map((prod) => (
+                <option key={prod.key} value={prod.key}>
+                  {prod.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {isAdmin && p?.custom && <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label={`Delete ${p.label}`} onClick={() => void handleDeleteProduct(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -294,57 +339,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
 
       {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
 
-      {/* Products: one compact card each. Details and the ICP open on the product's own page. */}
-      <section aria-label="Main products" className="space-y-2">
-        {productsLoading && !products ? (
-          <div className="grid gap-3 @3xl:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
-        ) : productsError || !products ? (
-          <p role="alert" className="text-sm text-destructive">{productsError ?? 'Products unavailable.'}</p>
-        ) : (
-          <ul className="grid auto-cols-[minmax(16rem,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
-            {products.map((p) => (
-              <li key={p.key} className={`flex min-w-0 flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm transition-colors ${selectedParent?.key === p.key ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/60'}`}>
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <button type="button" aria-pressed={selectedParent?.key === p.key} onClick={() => setSelectedParentKey(p.key)} className="rounded-sm text-left text-sm font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`Show ${p.label} sub-products below`}>
-                        {p.label}
-                      </button>
-                      {p.custom && <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">Own product</Badge>}
-                    </div>
-                    <IcpStatusBadge product={p} />
-                  </div>
-                  <button type="button" aria-pressed={selectedParent?.key === p.key} onClick={() => setSelectedParentKey(p.key)} className="block w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`Show ${p.label} sub-products below`}>
-                    <span className="block line-clamp-2 text-xs text-muted-foreground">
-                      {p.icp?.ideal_customer ? `For ${p.icp.ideal_customer}` : 'No ideal customer saved yet.'}
-                      {p.icp && p.icp.buyer_types.length > 0 ? ` · Buyers: ${p.icp.buyer_types.slice(0, 3).join(', ')}` : ''}
-                    </span>
-                    <span className="mt-1 block text-[11px] text-muted-foreground">{p.offers.length} sub-product{p.offers.length === 1 ? '' : 's'} · {p.opportunities_count} opportunit{p.opportunities_count === 1 ? 'y' : 'ies'}</span>
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button asChild size="sm" variant="outline"><Link href={configureHref(p.key)}><Eye className="mr-1.5 size-3.5" /> View details</Link></Button>
-                  <Button asChild size="sm" variant={p.ready ? 'ghost' : 'default'}><Link href={icpHref(p.key)}><Edit2 className="mr-1.5 size-3.5" /> {isAdmin ? 'Edit ICP' : 'View ICP'}</Link></Button>
-                  {isAdmin && p.custom && <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label={`Delete ${p.label}`} onClick={() => void handleDeleteProduct(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <section id="portfolio-sub-products" aria-live="polite" aria-busy={loading} className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/60 pb-3">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">
-              {selectedParent ? `${selectedParent.label} — Sub-Products` : 'Sub-Products'}
-              {!loading && selectedParent ? ` (${selectedOffers.length})` : ''}
-            </h2>
-            {selectedParent && <p className="mt-1 text-xs text-muted-foreground">Products and offers for the selected master product.</p>}
-          </div>
-        </div>
-
-      {/* Offers Grid */}
+        {/* Offers Grid */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -353,10 +349,15 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         </div>
       ) : error ? (
         <ErrorState title="Could not load portfolio" description={error} retry={() => { void loadData() }} />
-      ) : !selectedParent || selectedOffers.length === 0 ? (
+      ) : !selectedParent ? (
         <EmptyState
-          title={selectedParent ? `${selectedParent.label} has no sub-products` : 'No parent products found'}
-          description={selectedParent ? 'Add a sub-product to this product line to see it here.' : 'Create or sync a parent product to get started.'}
+          title="No product selected"
+          description="Select a product from the dropdown above to view its sub-products."
+        />
+      ) : selectedOffers.length === 0 ? (
+        <EmptyState
+          title={`${selectedParent.label} has no sub-products`}
+          description="Add a sub-product to this product line to see it here."
           action={
             canManage ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -671,7 +672,7 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         context={context}
         open={newProductOpen}
         onClose={() => setNewProductOpen(false)}
-        onCreated={(key) => { setNewProductOpen(false); reloadProducts(); router.push(icpHref(key)) }}
+        onCreated={(key) => { setNewProductOpen(false); reloadProducts(); router.push(offersHref(key)) }}
       />
       <ProductFormDialog
         context={context}

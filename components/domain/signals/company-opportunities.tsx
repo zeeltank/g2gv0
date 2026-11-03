@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { choiceOf, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
-import { isPickableDay, recentDays, relativeLabel, todayIn } from '@/lib/signal-dates'
+import { isPickableDay, recentDays, relativeLabel, shiftDay, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
@@ -52,7 +52,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const [datesError, setDatesError] = useState<string | null>(null)
   // null = the default: today.
   const [picked, setPicked] = useState<string | null>(null)
-  const [allSignals, setAllSignals] = useState(false)
+  const [allSignals, setAllSignals] = useState(true)
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all')
+  const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
   const [total, setTotal] = useState<number | null>(null)
   // The places THIS request is limited to ([] = All Regions). It belongs to the selected product's screen only: another product starts on All Regions.
   const seenCompleted = useRef(0)
@@ -71,10 +73,10 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const [manualNotice, setManualNotice] = useState<string | null>(null)
 
   const key = selected?.key ?? null
-  // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another: that scope has its own research days.
-  // The places and the product do not change with them, so those stay as they are.
+  // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another when in filtered scope mode.
   const regionsSig = regionSignature(regions)
   useEffect(() => {
+    setDatePreset('all'); setDateRange(null)
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPicked(null); setAllSignals(false); setTotal(null); setManualNotice(null)
   }, [offerId, icpType])
@@ -84,7 +86,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   }, [key, offerId, icpType, regionsSig])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDates(null); setDatesError(null); setAllSignals(false); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([])
+    setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([]); setDatePreset('all'); setDateRange(null)
     seenCompleted.current = run.completedCount
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,7 +101,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         setDates(res.data.dates)
         setTimezone(res.data.timezone)
         setDatesError(null)
-        if (finished) { setPicked(null); setAllSignals(false) }   // a run that just finished saved today's results
+        if (finished) { setPicked(null); setDatePreset('all'); setDateRange(null); setTotal(null) }   // a run that just finished saved today's results
       })
       .catch((e) => { if (live) setDatesError(e instanceof Error ? e.message : 'Could not load the research dates.') })
     return () => { live = false }
@@ -133,14 +135,16 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     setDraft(emptyDraft())
     void run.generate(c.list, icpType)
   }
-  const pick = (d: string) => { setAllSignals(false); setPicked(d); setTotal(null); setViewRunId(null) }
+  const pick = (d: string) => { setPicked(d); setDatePreset(d === today ? 'today' : 'all'); setDateRange(null); setTotal(null); setViewRunId(null) }
   // Saved: close the form, then show the day it was saved on (the server's day, not the post's) and re-read the list and the days without a reload.
   const manualSaved = (res: ManualOpportunityResponse) => {
     const next = viewAfterManualSave({ picked, allSignals }, res.data.captured_on)
     setManualOpen(false)
     setViewRunId(null)
     setPicked(next.picked)
-    setAllSignals(next.allSignals)
+    setAllSignals(true)
+    setDatePreset('all')
+    setDateRange(null)
     setTotal(null)
     setManualNotice(`${res.message} ${next.allSignals ? 'It is in All Signals' : `It is listed under ${formatRunDate(res.data.captured_on)}`}.`)
     run.refresh()
@@ -217,20 +221,17 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
         </div>
 
-        <div className="mt-4 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            {run.running
-              ? 'Finding and checking buying signals…'
-              : !ready && selected
-                ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}`
-                : selected ? `Ready to find signals for ${runLabel}` : 'Choose a product to get started'}
-          </p>
+        <div className="mt-4 flex items-center justify-end border-t border-border/60 pt-4">
+          <span className="sr-only" aria-live="polite">
+            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
+          </span>
           <Button
             type="button"
             size="lg"
             className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
             onClick={generate}
             disabled={!selected || run.running || !ready}
+            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
           >
             {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
             {run.running ? 'Finding Signals…' : 'Generate Signals'}
@@ -254,23 +255,87 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
       {selected && (
         <section aria-label={`${selected.label} signals`} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date Presets Group */}
+            <div className="inline-flex rounded-xl bg-muted/60 p-1 text-xs font-medium">
+              {[
+                { id: 'all' as const, label: 'All Dates' },
+                { id: 'today' as const, label: 'Today' },
+                { id: 'yesterday' as const, label: 'Yesterday' },
+                { id: '7days' as const, label: 'Last 7 Days' },
+                { id: '30days' as const, label: 'Last 30 Days' },
+              ].map((p) => {
+                const isActive = datePreset === p.id && (p.id !== 'all' || (!picked && !dateRange))
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      if (p.id === 'all') {
+                        setDatePreset('all')
+                        setPicked(null)
+                        setDateRange(null)
+                        setTotal(null)
+                      } else if (p.id === 'today') {
+                        if (today) {
+                          setDatePreset('today')
+                          setPicked(today)
+                          setDateRange({ from: today, to: today })
+                          setTotal(null)
+                        }
+                      } else if (p.id === 'yesterday') {
+                        if (today) {
+                          const y = shiftDay(today, 1)
+                          setDatePreset('yesterday')
+                          setPicked(y)
+                          setDateRange({ from: y, to: y })
+                          setTotal(null)
+                        }
+                      } else if (p.id === '7days') {
+                        if (today) {
+                          setDatePreset('7days')
+                          setPicked(null)
+                          setDateRange({ from: shiftDay(today, 6), to: today })
+                          setTotal(null)
+                        }
+                      } else if (p.id === '30days') {
+                        if (today) {
+                          setDatePreset('30days')
+                          setPicked(null)
+                          setDateRange({ from: shiftDay(today, 29), to: today })
+                          setTotal(null)
+                        }
+                      }
+                    }}
+                    className={`rounded-lg px-2.5 py-1.5 transition-all ${
+                      isActive
+                        ? 'bg-card text-foreground font-semibold shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+
             {/* A. Recent 5 Days Dropdown */}
             <select
               aria-label="Recent signal dates"
-              value={allSignals ? '' : (activeDate ?? '')}
+              value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
               disabled={dates === null && !datesError}
               onChange={(e) => {
                 if (e.target.value) pick(e.target.value)
               }}
-              className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {dates === null && !datesError ? (
                 <option value="" disabled>Loading dates…</option>
               ) : (
                 <>
-                  {allSignals && <option value="" disabled>Recent dates</option>}
-                  {activeDate && !allSignals && !recent5.some((d) => d.date === activeDate) && (
+                  {datePreset === 'all' && !dateRange && !picked && <option value="" disabled>Recent dates</option>}
+                  {dateRange && dateRange.from !== dateRange.to && <option value="" disabled>Date range active</option>}
+                  {activeDate && (!dateRange || dateRange.from === dateRange.to) && !recent5.some((d) => d.date === activeDate) && (
                     <option value={activeDate}>{formatRunDate(activeDate)} (Other date)</option>
                   )}
                   {recent5.length === 0 ? (
@@ -293,31 +358,32 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 type="date"
                 aria-label="Calendar date picker"
                 max={today ?? undefined}
-                value={allSignals ? '' : (activeDate ?? '')}
+                value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
                 onChange={(e) => {
                   const val = e.target.value
                   if (val && (!today || isPickableDay(val, today))) pick(val)
                 }}
-                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
 
-            {/* C. All Signals Button */}
+            {/* C. Scope Mode Toggle */}
             <Button
               type="button"
               size="sm"
               variant={allSignals ? 'default' : 'outline'}
               onClick={() => {
-                setAllSignals(true)
+                setAllSignals((prev) => !prev)
                 setTotal(null)
               }}
-              className="h-9 font-medium"
+              className="h-9 text-xs font-medium"
               aria-pressed={allSignals}
+              title={allSignals ? 'All Signals: aggregates across all sub-products and customer models' : 'Filtered Scope: narrows to current sub-product, customer model and region'}
             >
-              All Signals
+              {allSignals ? 'All Signals' : 'Filtered Scope'}
             </Button>
 
-            <Button type="button" size="sm" variant="outline" onClick={() => { setManualNotice(null); setManualOpen(true) }} className="ml-auto h-9 font-medium">
+            <Button type="button" size="sm" variant="outline" onClick={() => { setManualNotice(null); setManualOpen(true) }} className="ml-auto h-9 text-xs font-medium">
               <Plus className="mr-1.5 size-4" />
               Add Opportunity Manually
             </Button>
@@ -327,39 +393,27 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
           {dates === null && !datesError ? (
             <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
-          ) : allSignals ? (
+          ) : (
             <SignalList
-              key={`${selected.key}-all`}
+              key={`${selected.key}-${allSignals ? 'all-signals' : 'scoped'}-${datePreset}-${dateRange ? `${dateRange.from}-${dateRange.to}` : (activeDate ?? 'default')}`}
               context={context}
               productKey={selected.key}
               offerId={offerId}
               customerModel={icpType}
               regions={regions}
               productLabel={selected.label}
-              runDate={null}
-              allDates={true}
-              refreshKey={run.refreshKey}
-              onTotal={setTotal}
-            />
-          ) : activeDate && dayRun ? (
-            <SignalList
-              key={`${selected.key}-${activeDate}`}
-              context={context}
-              productKey={selected.key}
-              offerId={offerId}
-              customerModel={icpType}
-              regions={regions}
-              productLabel={selected.label}
-              runDate={activeDate}
+              runDate={datePreset === 'all' && !dateRange && !picked ? null : (dateRange ? null : activeDate)}
+              dateFrom={dateRange?.from}
+              dateTo={dateRange?.to}
+              allDates={datePreset === 'all' && !dateRange && !picked}
+              allSignals={allSignals}
               runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
               dayInfo={dayRun}
-            />
-          ) : (
-            <EmptyState
-              title={activeDate ? `No research ran on ${formatRunDate(activeDate)}` : 'No research dates yet'}
-              description={`${selected.label} has no successful research run on this date, so there are no signals to show. Pick another date, or press Generate Signals.`}
+              today={today}
+              timezone={timezone}
+              onAddManual={() => { setManualNotice(null); setManualOpen(true) }}
             />
           )}
         </section>

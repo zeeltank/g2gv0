@@ -1,14 +1,14 @@
-import { AlertTriangle, CheckCircle2, CircleDashed, FileEdit } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, CircleDashed, CircleSlash } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { icpStatus } from '@/lib/product-selection'
+import { subProductIcpState } from '@/lib/product-selection'
 import type { ProductInfo } from '@/services/portfolio/types'
 
-/** The ICP's state (ready, draft, incomplete or invalid), from the stored product. */
-export function IcpStatusBadge({ product }: { product: Pick<ProductInfo, 'state' | 'draft_icp'> }) {
-  const s = icpStatus(product)
-  if (s.key === 'ready') return <Badge variant="success" className="gap-1"><CheckCircle2 className="size-3" /> {s.label}</Badge>
-  if (s.key === 'invalid') return <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" /> {s.label}</Badge>
-  if (s.key === 'draft') return <Badge variant="muted" className="gap-1"><FileEdit className="size-3" /> {s.label}</Badge>
+/** How many of a product's sub-products have an ICP. A product has no ICP of its own: each sub-product's is set on that sub-product. */
+export function SubProductIcpBadge({ product }: { product: Pick<ProductInfo, 'offers'> }) {
+  const s = subProductIcpState(product.offers)
+  if (s.key === 'all') return <Badge variant="success" className="gap-1"><CheckCircle2 className="size-3" /> {s.configured} of {s.total} sub-products have an ICP</Badge>
+  if (s.key === 'partial') return <Badge variant="warning" className="gap-1"><AlertTriangle className="size-3" /> {s.configured} of {s.total} sub-products have an ICP</Badge>
+  if (s.key === 'none') return <Badge variant="warning" className="gap-1"><CircleDashed className="size-3" /> ICP not configured</Badge>
 
-  return <Badge variant="warning" className="gap-1"><CircleDashed className="size-3" /> {s.label}</Badge>
+  return <Badge variant="muted" className="gap-1"><CircleSlash className="size-3" /> {s.label}</Badge>
 }
