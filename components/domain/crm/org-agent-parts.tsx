@@ -103,8 +103,10 @@ function acceptLabel(action: string): string {
  * One proposal waiting for a person: what it is, why, what it rests on, and the two answers. Dismissing opens a small form (an optional reason) under the
  * buttons; Escape closes it and the focus goes back to the Dismiss button. Nothing is sent anywhere: accepting writes a note, a task or a link inside the CRM.
  */
-export function ProposalCard({ proposal, canDecide, busy, anyBusy, dismissing, reason, onReason, onAccept, onOpenDismiss, onCancelDismiss, onConfirmDismiss }: {
+export function ProposalCard({ proposal, lead, canDecide, busy, anyBusy, dismissing, reason, onReason, onAccept, onOpenDismiss, onCancelDismiss, onConfirmDismiss }: {
   proposal: AgentProposal
+  /** Something to say before the proposal itself: the waiting queue names the organisation here. The organisation's own panel passes nothing. */
+  lead?: ReactNode
   canDecide: boolean
   /** What is happening to THIS proposal right now, if anything. */
   busy: 'accept' | 'dismiss' | null
@@ -124,6 +126,7 @@ export function ProposalCard({ proposal, canDecide, busy, anyBusy, dismissing, r
   const dismissButton = useRef<HTMLButtonElement>(null)
   return (
     <li data-proposal={proposal.id} data-action={proposal.action} className="space-y-2 rounded-lg border border-border bg-card p-3">
+      {lead}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-foreground">{actionLabel(proposal.action)}</span>
         <ProposalStatePill proposal={proposal} />

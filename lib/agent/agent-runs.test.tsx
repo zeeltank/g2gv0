@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
+import { routerHarness } from '../signal-review/router-harness'
 import { ApiError } from '../../services/core'
 import type { AgentApi } from '../../services/agent/api-types'
 import type { AgentRunsResponse } from '../../services/agent/types'
@@ -14,14 +15,18 @@ interface Setup {
   session?: boolean
 }
 
-/** Agent Run History in a fake browser, with a signed-in session and the server replaced by a fake. */
+/**
+ * Agent Run History in a fake browser, with a signed-in session and the server replaced by a fake. The screen has tabs now, whose open tab lives in the
+ * address, so it is rendered inside a stand-in router; everything these tests assert about the Runs tab is exactly what it was before the tabs existed.
+ */
 async function setup(options: Setup = {}) {
   const k = await kit()
+  const router = await routerHarness('', '/module/crm/marketing/agent-runs')
   const { AgentRunsView } = await import('../../components/domain/crm/agent-runs-view')
   if (options.session !== false) k.w.localStorage.setItem('userData', JSON.stringify({ token: 'test-token', sub_institute_id: 1, user_id: 2 }))
   else k.w.localStorage.clear()
   const { service, calls } = fakeAgentService(options.overrides)
-  await k.render(k.h(AgentRunsView, { service }))
+  await k.render(router.wrap(k.h(AgentRunsView, { service })))
   await k.tick(10)
 
   const button = (label: string) => k.all('button').find((b) => b.textContent?.trim().startsWith(label)) as HTMLButtonElement | undefined

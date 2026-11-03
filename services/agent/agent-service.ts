@@ -1,11 +1,11 @@
 import { apiClient, buildApiUrl } from '@/services/core'
 import { readLaravelSession } from '@/lib/laravel-session'
 import { AgentApiError } from './errors'
-import type { AgentApi, AgentRunsParams } from './api-types'
+import type { AgentApi } from './api-types'
 import type { AgentProposal } from './types'
 
 /** Query values as strings, with a missing value left out entirely so the server applies no filter. */
-export function runsQuery(params: AgentRunsParams): Record<string, string> {
+export function runsQuery(params: object): Record<string, string> {
   const query: Record<string, string> = {}
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue
@@ -17,13 +17,14 @@ export function runsQuery(params: AgentRunsParams): Record<string, string> {
 const idPath = (id: number | string) => encodeURIComponent(String(id))
 
 /**
- * A write that keeps the refusal's whole body. Not apiClient.post: its error keeps only message/errors/detail, and the `code` of a refusal (`daily_cap`,
- * `agent_off`, `already_decided`, `could_not_apply`) and the proposal a 409 carries would be lost. Same URL, token and headers.
+ * A write that keeps the refusal's whole body. Not apiClient.post or apiClient.put: their error keeps only message/errors/detail, and the `code` of a refusal
+ * (`daily_cap`, `agent_off`, `already_decided`, `could_not_apply`, `administrators_only`, `unknown_action`, `unknown_level`) and the proposal a 409 carries would
+ * be lost. Same URL, token and headers. A POST unless told otherwise (the autonomy settings are PUT).
  */
-async function send<T>(path: string, body: unknown): Promise<T> {
+async function send<T>(path: string, body: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const token = readLaravelSession()?.token
   const response = await fetch(buildApiUrl(path), {
-    method: 'POST',
+    method,
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(body),
   })
@@ -87,5 +88,26 @@ export const agentService: AgentApi = {
 
   runDetail(runId) {
     return apiClient.get(`/agent/runs/${idPath(runId)}`)
+  },
+
+  // ── S7b: the waiting queue and the autonomy settings ──────────────────────────────────────────────────────────────────────────────────────
+
+  proposals(params) {
+    return apiClient.get('/agent/proposals', runsQuery(params))
+  },
+
+  autonomy() {
+    return apiClient.get('/agent/autonomy')
+  },
+
+  setAutonomy(actionKey, level, reason) {
+    const text = reason?.trim()
+    // The key is one path segment: it cannot add a segment, a query or a fragment.
+    return send(`/agent/autonomy/${idPath(actionKey)}`, text ? { level, reason: text } : { level }, 'PUT')
+  },
+
+  setKillSwitch(on, reason) {
+    const text = reason?.trim()
+    return send('/agent/autonomy-kill-switch', text ? { on, reason: text } : { on }, 'PUT')
   },
 }

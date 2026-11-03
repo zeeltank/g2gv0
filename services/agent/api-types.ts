@@ -1,4 +1,7 @@
-import type { AgentDecisionResult, AgentEnvelope, AgentOrgState, AgentRunDetail, AgentRunsResponse, RunStatus } from './types'
+import type {
+  AgentDecisionResult, AgentEnvelope, AgentOrgState, AgentRunDetail, AgentRunsResponse, AutonomyAction, AutonomyLevel, AutonomyState, KillSwitch, ProposalsPage, ProposalsParams,
+  RunStatus,
+} from './types'
 
 /** The history list's query as the API takes it. A missing value is left out, so the server applies no filter for it. */
 export interface AgentRunsParams {
@@ -24,4 +27,16 @@ export interface AgentApi {
   dismiss(proposalId: number | string, reason?: string): Promise<AgentDecisionResult>
   runs(params: AgentRunsParams): Promise<AgentRunsResponse>
   runDetail(runId: number | string): Promise<AgentEnvelope<AgentRunDetail>>
+
+  /**
+   * Every proposal of the organisation, across organisations, newest first (S7b). A 404 means the server has no waiting queue yet (a route that is not there
+   * answers 404 and nothing else on this route does).
+   */
+  proposals(params: ProposalsParams): Promise<AgentEnvelope<ProposalsPage>>
+  /** The kill switch, every action with its level, its default and its last 30 days, and whether the caller may change them. A 404 means the server has no autonomy settings yet. */
+  autonomy(): Promise<AgentEnvelope<AutonomyState>>
+  /** Sets one action's level for the caller's organisation (administrators only: 403 `administrators_only`). Answers with that one action as it now stands. 404 `unknown_action`, 422 `unknown_level`. */
+  setAutonomy(actionKey: string, level: AutonomyLevel | (string & {}), reason?: string): Promise<AgentEnvelope<AutonomyAction>>
+  /** Switches the agent off for the caller's organisation (`on` true) or back on (false). The shared switch is never reachable from here. */
+  setKillSwitch(on: boolean, reason?: string): Promise<AgentEnvelope<{ kill_switch: KillSwitch }>>
 }

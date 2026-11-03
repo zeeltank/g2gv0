@@ -160,3 +160,83 @@ export interface AgentDecisionResult {
   status: 1
   data: { outcome: DecisionOutcome; proposal: AgentProposal }
 }
+
+// ── The waiting queue and the autonomy settings (S7b; hp_erp docs/agentic-crm/slices/S07b-autonomy-and-waiting-queue.md, "For S7c") ──────────────────────
+
+/** The organisation a queued proposal is about. `name` is null when the identity is gone altogether; `href_hint` is the CRM organisation's page, only while that record exists. */
+export interface QueueOrganisation {
+  id: number
+  name: string | null
+  href_hint: string | null
+  removed: boolean
+}
+
+/** A proposal in the tenant-wide queue: the proposal exactly as the organisation panel gets it, plus the action in words, the organisation and whether the caller may decide it. */
+export interface QueuedProposal extends AgentProposal {
+  label: string
+  organisation: QueueOrganisation
+  can: { decide: boolean }
+}
+
+export interface ProposalsPagination {
+  page: number
+  per_page: number
+  total: number
+  last_page: number
+}
+
+export interface ProposalsPage {
+  rows: QueuedProposal[]
+  pagination: ProposalsPagination
+}
+
+/** The queue's query as the API takes it. A missing value is left out. `pending` is what "Waiting for you" asks for. */
+export interface ProposalsParams {
+  status?: ProposalStatus
+  page?: number
+  per_page?: number
+}
+
+/** `organisation`: this organisation's own switch (an administrator can lift it). `platform`: the shared switch, which no screen can change. */
+export type KillSwitchScope = 'organisation' | 'platform'
+
+export interface KillSwitch {
+  on: boolean
+  scope: KillSwitchScope | null
+}
+
+/** What the agent did with one action in the last 30 days. `applied` INCLUDES `accepted`: never add them. A proposal that is neither applied, dismissed nor failed is still waiting. */
+export interface AutonomyCounts {
+  proposed: number
+  applied: number
+  accepted: number
+  dismissed: number
+  failed: number
+}
+
+export interface AutonomyLastChange {
+  /** ISO 8601, or null when the server could not read it. */
+  at: string | null
+  by_name: string | null
+}
+
+export interface AutonomyAction {
+  key: string
+  label: string
+  description: string
+  /** What applies with no setting of the organisation's own. */
+  default: AutonomyLevel | (string & {})
+  level: AutonomyLevel | (string & {})
+  /** true: the organisation chose this level; false: it is the default. */
+  overridden: boolean
+  /** The levels the server accepts, in the order to offer them. */
+  levels: Array<AutonomyLevel | (string & {})>
+  counts: AutonomyCounts
+  last_changed: AutonomyLastChange | null
+}
+
+export interface AutonomyState {
+  kill_switch: KillSwitch
+  actions: AutonomyAction[]
+  can: { change: boolean }
+}

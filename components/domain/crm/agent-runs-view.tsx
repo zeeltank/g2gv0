@@ -1,273 +1,98 @@
 'use client'
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Bot, CircleCheck, Clock, Eye, History, ListChecks, RefreshCw, Zap } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Input } from '@/components/ui/input'
-import { returnFocusTo } from '@/lib/agent/focus'
-import { AGENT_MARK_TONE, BANNER_TONE, CHIP_BASE, FIELD_ERROR_TEXT } from '@/lib/agent/tones'
-import {
-  countsText, durationText, EMPTY_FILTERS, filterProblem, formatCost, formatWhen, loadFailure, NO_VALUE, RUN_STATUS_OPTIONS, runsParams, successRate, triggerText, type RunFilters,
-} from '@/lib/agent/model'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { History } from 'lucide-react'
+import { PageTabs, TabPanel } from '@/components/shared/scaffolds/page-tabs'
+import { useUrlTab } from '@/components/shared/scaffolds/use-url-tab'
+import { COUNT_PARAMS } from '@/lib/agent/queue-model'
+import { AGENT_TAB_IDS, AGENT_TAB_PARAM, AGENT_TAB_PREFIX, agentTabs, autonomyAccess, effectiveTab, toAgentTab } from '@/lib/agent/tabs-model'
+import { AGENT_MARK_TONE, CHIP_BASE } from '@/lib/agent/tones'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { cn } from '@/lib/utils'
 import type { AgentApi } from '@/services/agent/api-types'
 import { agentService } from '@/services/agent/agent-service'
-import type { AgentRunsMeta, AgentRunsSummary, AgentRunSummary } from '@/services/agent/types'
-import { AgentRunDetailDialog } from './agent-run-detail'
-import { RunStatePill } from './org-agent-parts'
-
-type Phase = 'loading' | 'ready' | 'error' | 'forbidden'
-
-const FIELD = 'h-9 rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+import { AgentAutonomy } from './agent-autonomy'
+import { useAutonomyState } from './agent-autonomy-state'
+import { AgentRunsPanel } from './agent-runs-panel'
+import { AgentWaitingQueue } from './agent-waiting-queue'
 
 /**
- * Agent Run History: every run of an agent in this organisation, from the agent API, newest first. It replaces the demonstration rows this screen used to
- * show. Filter by status and by the day a run started; open a run to see its brief, the proposals and what became of each, the cost and the audit trail.
- * Nothing here runs an agent: a run is started on the organisation's own page (Run agent), and this is the record of it.
+ * Agent Run History, with three tabs and no other entry in the sidebar (`?tab=` in the address, so a refresh and a pasted link open the same tab):
+ *   Runs         - every run of an agent, as the screen has always shown it (agent-runs-panel.tsx).
+ *   Waiting for you - every proposal nobody has decided, across organisations, to accept or dismiss without opening organisations one by one; the number
+ *                  waiting is on the tab.
+ *   Autonomy     - how much the agent may do on its own for each kind of action, and the organisation's kill switch. Administrators only: the tab is not
+ *                  listed for anybody else, and a non-administrator who pastes its address lands on Runs.
+ * The autonomy settings are read once here, because their answer decides whether the Autonomy tab exists, and the Waiting tab warns while the agent is
+ * switched off. A server that has not got the queue or the settings yet (the route answers 404) is said so in that tab, and the other tabs keep working.
  */
 export function AgentRunsView({ service = agentService }: { service?: AgentApi }) {
   const context = useMemo(() => getLaravelContext(), [])
-  const statusId = useId()
-  const fromId = useId()
-  const toId = useId()
+  const [named, setUrlTab] = useUrlTab(AGENT_TAB_IDS, AGENT_TAB_PARAM)
+  const urlTab = toAgentTab(named)
+  const autonomy = useAutonomyState(service)
+  const { load: loadAutonomy } = autonomy
+  const [waiting, setWaiting] = useState<number | null>(null)
+  // Only the newest answer may set the number: the first read must not put an old count back over one the list has just reported.
+  const countRead = useRef(0)
 
-  const [filters, setFilters] = useState<RunFilters>(EMPTY_FILTERS)
-  const [page, setPage] = useState(1)
-  const [attempt, setAttempt] = useState(0)
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [error, setError] = useState('')
-  const [rows, setRows] = useState<AgentRunSummary[]>([])
-  const [meta, setMeta] = useState<AgentRunsMeta | null>(null)
-  const [summary, setSummary] = useState<AgentRunsSummary | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [open, setOpen] = useState<number | null>(null)
-  const opener = useRef<HTMLElement | null>(null)
+  const access = autonomyAccess(autonomy.phase, autonomy.data ? autonomy.data.can.change : null)
+  const tab = effectiveTab(urlTab, access)
+  const tabs = agentTabs(access, urlTab, waiting)
 
-  const problem = filterProblem(filters)
-
-  // Only the newest read may change what is shown: changing a filter while the last one is still loading must not let its answer replace the new one.
-  const latest = useRef(0)
-
+  // A person who may not have the Autonomy tab and pasted its address: the address says what they are looking at (Runs).
   useEffect(() => {
-    if (problem !== null) return
-    if (!isLaravelContextReady(context)) {
-      queueMicrotask(() => { setError('Your ERP session is unavailable. Please sign in again.'); setPhase('error') })
-      return
-    }
-    const mine = ++latest.current
-    queueMicrotask(() => { if (mine === latest.current) setRefreshing(true) })
-    service.runs(runsParams(filters, page)).then((response) => {
-      if (mine !== latest.current) return
-      setRows(response.data)
-      setMeta(response.meta)
-      setSummary(response.summary)
-      setPhase('ready')
-      setRefreshing(false)
-    }).catch((cause: unknown) => {
-      if (mine !== latest.current) return
-      const failure = loadFailure(cause, 'The run history could not be read.')
-      setError(failure.message)
-      setPhase(failure.kind === 'error' ? 'error' : 'forbidden')
-      setRefreshing(false)
-    })
-  }, [context, service, filters, page, problem, attempt])
+    if (urlTab === 'autonomy' && access === 'hidden') setUrlTab('runs')
+  }, [urlTab, access, setUrlTab])
 
-  const change = (next: Partial<RunFilters>) => {
-    setFilters((current) => ({ ...current, ...next }))
-    setPage(1)
-  }
-  const filtered = filters.status !== '' || filters.dateFrom !== '' || filters.dateTo !== ''
-  const rate = summary ? successRate(summary) : null
+  // The number on "Waiting for you" is read once, before the tab is opened; after that the list reports it every time it reads. A failure leaves no number.
+  useEffect(() => {
+    if (!isLaravelContextReady(context)) return
+    const mine = ++countRead.current
+    service.proposals(COUNT_PARAMS).then((response) => {
+      if (mine === countRead.current) setWaiting(response.data.pagination.total)
+    }).catch(() => undefined)
+  }, [context, service])
 
-  const show = (id: number, trigger: HTMLElement) => {
-    opener.current = trigger
-    setOpen(id)
-  }
-  const close = () => {
-    setOpen(null)
-    returnFocusTo(opener.current)
-  }
+  const reportTotal = useCallback((total: number) => {
+    countRead.current += 1
+    setWaiting(total)
+  }, [setWaiting])
+
+  // Something was decided in the queue: the counters under each level and the kill switch are read again, quietly.
+  const decided = useCallback(() => { void loadAutonomy(true) }, [loadAutonomy])
 
   return (
     <div className="@container mx-auto max-w-6xl space-y-6 p-4 @xl:p-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Agent run history</h1>
-            <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
-              <History aria-hidden className="size-3" /> Audit log
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every run of an agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
-          </p>
+      <div className="border-b border-border pb-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Agent run history</h1>
+          <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
+            <History aria-hidden className="size-3" /> Audit log
+          </span>
         </div>
-
-        <Button variant="outline" size="sm" onClick={() => setAttempt((n) => n + 1)} disabled={refreshing} className="gap-1.5 text-xs">
-          <RefreshCw aria-hidden className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Every run of an agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
+        </p>
       </div>
 
-      {phase === 'forbidden' && (
-        <p role="alert" className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{error}</p>
+      <PageTabs tabs={tabs} active={tab} onChange={setUrlTab} label="Agent run history sections" idPrefix={AGENT_TAB_PREFIX} />
+
+      <TabPanel id="runs" active={tab} idPrefix={AGENT_TAB_PREFIX}>
+        <AgentRunsPanel service={service} />
+      </TabPanel>
+
+      <TabPanel id="waiting" active={tab} idPrefix={AGENT_TAB_PREFIX}>
+        <AgentWaitingQueue service={service} kill={autonomy.data ? autonomy.data.kill_switch : null} onTotal={reportTotal} onChanged={decided} />
+      </TabPanel>
+
+      {/* The panel is on the page only while its tab is: a panel whose tab is not listed would point at nothing. */}
+      {tabs.some((entry) => entry.id === 'autonomy') && (
+        <TabPanel id="autonomy" active={tab} idPrefix={AGENT_TAB_PREFIX}>
+          <AgentAutonomy store={autonomy} service={service} />
+        </TabPanel>
       )}
-
-      {phase === 'error' && (
-        <div role="alert" className={cn('flex flex-wrap items-center justify-between gap-2 rounded-xl border p-4 text-sm', BANNER_TONE.error)}>
-          <span><strong>The run history could not be opened.</strong> {error}</span>
-          <Button size="sm" variant="outline" onClick={() => { setPhase('loading'); setAttempt((n) => n + 1) }}>Retry</Button>
-        </div>
-      )}
-
-      {phase === 'loading' && <p role="status" className="text-sm text-muted-foreground">Opening the run history…</p>}
-
-      {phase === 'ready' && summary && meta && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4" role="group" aria-label="Summary of all runs">
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-medium uppercase tracking-wider">Total runs</span>
-                <Bot aria-hidden className="size-4 text-primary" />
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground" data-stat="total">{summary.total}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Recorded runs, all time</p>
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-medium uppercase tracking-wider">Completed</span>
-                <CircleCheck aria-hidden className="size-4 text-success" />
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground" data-stat="completed">{summary.completed}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {rate === null ? 'None has finished yet' : `${rate}% of the runs that finished`}
-                {summary.failed + summary.unavailable > 0 ? ` · ${summary.failed} failed, ${summary.unavailable} unavailable` : ''}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-medium uppercase tracking-wider">Waiting for a person</span>
-                <Clock aria-hidden className="size-4 text-primary" />
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground" data-stat="waiting">{summary.proposals_pending}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Proposals nobody has decided yet</p>
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-medium uppercase tracking-wider">Actions applied</span>
-                <ListChecks aria-hidden className="size-4 text-primary" />
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground" data-stat="applied">{summary.actions_applied}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Notes, tasks and links, by the agent or after a person accepted</p>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Filters */}
-      {(phase === 'ready' || filtered) && phase !== 'forbidden' && (
-        <div className="flex flex-wrap items-end gap-3" role="group" aria-label="Filter the runs">
-          <div className="flex flex-col gap-1">
-            <label htmlFor={statusId} className="text-xs font-medium text-muted-foreground">Status</label>
-            <select id={statusId} value={filters.status} onChange={(event) => change({ status: event.target.value as RunFilters['status'] })} className={FIELD}>
-              {RUN_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={fromId} className="text-xs font-medium text-muted-foreground">Started from</label>
-            <Input id={fromId} type="date" size="sm" value={filters.dateFrom} max={filters.dateTo || undefined} onChange={(event) => change({ dateFrom: event.target.value })} className="w-40" aria-invalid={problem !== null} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={toId} className="text-xs font-medium text-muted-foreground">Started until</label>
-            <Input id={toId} type="date" size="sm" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(event) => change({ dateTo: event.target.value })} className="w-40" aria-invalid={problem !== null} />
-          </div>
-          {filtered && <Button size="sm" variant="ghost" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</Button>}
-        </div>
-      )}
-      {problem && <p role="alert" className={cn('text-sm', FIELD_ERROR_TEXT)}>{problem}</p>}
-      {phase === 'ready' && <p className="-mt-3 text-xs text-muted-foreground">Days are counted on the server’s clock (UTC); the times in the list are shown in your own time zone.</p>}
-
-      {/* Execution log */}
-      {phase === 'ready' && rows.length === 0 && (
-        <EmptyState
-          title={filtered ? 'No runs match these filters' : 'No agent runs yet'}
-          description={filtered ? 'Try a wider range of days, or clear the filters.' : 'Open an organisation and press Run agent. Each run is recorded here.'}
-          action={filtered ? <Button size="sm" variant="outline" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</Button> : undefined}
-        />
-      )}
-
-      {phase === 'ready' && rows.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" aria-busy={refreshing}>
-          <div className="relative overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <caption className="sr-only">Agent runs, newest first</caption>
-              <thead className="border-b border-border bg-muted font-medium text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Run</th>
-                  <th scope="col" className="px-4 py-3">Organisation</th>
-                  <th scope="col" className="px-4 py-3">Status</th>
-                  <th scope="col" className="px-4 py-3">Proposals</th>
-                  <th scope="col" className="px-4 py-3">Model and cost</th>
-                  <th scope="col" className="px-4 py-3">Started</th>
-                  <th scope="col" className="px-4 py-3 text-right"><span className="sr-only">Details</span></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {rows.map((run) => (
-                  <tr key={run.id} data-run={run.id} className="align-top transition-colors hover:bg-muted/30">
-                    <td className="space-y-1 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[11px] text-muted-foreground">#{run.id}</span>
-                        <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}><Zap aria-hidden className="size-3" /> Organisation agent</span>
-                      </div>
-                      <p className="text-muted-foreground">{triggerText(run.trigger)}{run.user_name ? ` · for ${run.user_name}` : ''}</p>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-foreground">{run.subject.name ?? `Organisation #${run.subject.id}`}</td>
-                    <td className="space-y-1 px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <RunStatePill status={run.status} />
-                        <span className="font-mono text-[11px] text-muted-foreground">{durationText(run.started_at, run.finished_at)}</span>
-                      </div>
-                      {run.status !== 'completed' && run.message && <p className="max-w-xs break-words text-muted-foreground">{run.message}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-foreground">{countsText(run.proposal_counts)}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-foreground">{run.model ?? NO_VALUE}</p>
-                      <p className="text-muted-foreground">{formatCost(run.cost, run.cost_currency)}</p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatWhen(run.started_at)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={(event) => show(run.id, event.currentTarget)} className="h-7 gap-1 text-xs" aria-label={`Open run ${run.id}`}>
-                        <Eye aria-hidden className="size-3.5" />
-                        Trace
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {phase === 'ready' && meta && meta.last_page > 1 && (
-        <nav aria-label="Pages of runs" className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Page {meta.page} of {meta.last_page} ({meta.total} runs)</span>
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" disabled={meta.page <= 1 || refreshing} onClick={() => setPage((p) => Math.max(1, p - 1))} className="h-7 text-xs">Previous</Button>
-            <Button size="sm" variant="outline" disabled={meta.page >= meta.last_page || refreshing} onClick={() => setPage((p) => p + 1)} className="h-7 text-xs">Next</Button>
-          </div>
-        </nav>
-      )}
-
-      <AgentRunDetailDialog runId={open} service={service} onClose={close} />
     </div>
   )
 }

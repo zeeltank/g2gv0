@@ -1,5 +1,6 @@
 import type {
-  AgentEvidenceRef, AgentOrgState, AgentProposal, AgentRunDetail, AgentRunsResponse, AgentRunSummary, AgentTraceStep, ProposalCounts,
+  AgentEnvelope, AgentEvidenceRef, AgentOrgState, AgentProposal, AgentRunDetail, AgentRunsResponse, AgentRunSummary, AgentTraceStep, AutonomyAction, AutonomyCounts, AutonomyState,
+  ProposalCounts, ProposalsPage, QueuedProposal,
 } from '../../services/agent/types'
 
 /** Data for the agent screens' tests, shaped exactly as hp_erp's AgentPresenter writes it. */
@@ -85,4 +86,56 @@ export function runsResponse(rows: AgentRunSummary[] = [runSummary(), runSummary
     status: 1, data: rows, meta: { page: 1, per_page: 20, total: rows.length, last_page: 1 },
     summary: { total: rows.length, completed: 1, failed: 0, unavailable: 1, running: 0, proposals_pending: 2, actions_applied: 1 }, ...over,
   }
+}
+
+// ── The waiting queue and the autonomy settings (S7b), shaped as hp_erp's AutonomySettings and AgentPresenter::queueRow write them ────────────────────
+
+export const LEVELS = ['off', 'suggest', 'draft', 'approval', 'alone']
+export const ZERO_COUNTS: AutonomyCounts = { proposed: 0, applied: 0, accepted: 0, dismissed: 0, failed: 0 }
+
+const WORDS: Record<string, { label: string; description: string; default: string }> = {
+  add_note: { label: 'Add a note', description: 'The agent writes a short note on the organisation, marked "Agent", that cites the records it rests on.', default: 'alone' },
+  add_task: { label: 'Add a follow-up task', description: 'The agent adds a follow-up task with a due date, for the person who asked it to run.', default: 'alone' },
+  confirm_link: { label: 'Confirm two records are the same organisation', description: 'The agent says that two records it found are one organisation, and they are joined into one.', default: 'approval' },
+}
+
+/** One action as the Autonomy tab shows it. With no `level` it is at its default, not overridden, with no change on record and no proposals in the last 30 days. */
+export function autonomyAction(key: string, over: Partial<AutonomyAction> = {}): AutonomyAction {
+  const words = WORDS[key] ?? { label: key, description: '', default: 'approval' }
+  const level = over.level ?? words.default
+  return {
+    key, label: words.label, description: words.description, default: words.default, level, overridden: level !== words.default, levels: [...LEVELS],
+    counts: { ...ZERO_COUNTS }, last_changed: null, ...over,
+  }
+}
+
+export function autonomyState(over: Partial<AutonomyState> = {}): AutonomyState {
+  return {
+    kill_switch: { on: false, scope: null },
+    actions: [
+      autonomyAction('add_note', { counts: { proposed: 11, applied: 6, accepted: 2, dismissed: 2, failed: 1 } }),
+      autonomyAction('add_task', { counts: { proposed: 1, applied: 0, accepted: 0, dismissed: 1, failed: 0 }, level: 'approval', last_changed: { at: '2026-11-03T15:22:57+00:00', by_name: 'Anil Shah' } }),
+      autonomyAction('confirm_link'),
+    ],
+    can: { change: true },
+    ...over,
+  }
+}
+
+export const autonomyResponse = (over: Partial<AutonomyState> = {}): AgentEnvelope<AutonomyState> => ({ status: 1, data: autonomyState(over) })
+
+/** A proposal of the tenant-wide queue: the organisation panel's proposal plus the action in words, the organisation and whether the caller may decide it. */
+export function queuedProposal(over: Partial<QueuedProposal> = {}): QueuedProposal {
+  return {
+    ...proposal(), label: 'Add a note', organisation: { id: ORG_ID, name: 'Hillcrest Academy', href_hint: '/module/crm/marketing/organizations/135', removed: false },
+    can: { decide: true }, ...over,
+  }
+}
+
+export const queuedLink = (over: Partial<QueuedProposal> = {}): QueuedProposal => queuedProposal({
+  ...linkPending(), label: 'Confirm two records are the same organisation', organisation: { id: 8, name: 'Greenfield Academy', href_hint: '/module/crm/marketing/organizations/140', removed: false }, ...over,
+})
+
+export function proposalsPage(rows: QueuedProposal[] = [queuedProposal(), queuedLink()], over: Partial<ProposalsPage['pagination']> = {}): AgentEnvelope<ProposalsPage> {
+  return { status: 1, data: { rows, pagination: { page: 1, per_page: 25, total: rows.length, last_page: 1, ...over } } }
 }

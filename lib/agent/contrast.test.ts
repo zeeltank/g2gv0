@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 import { color, dark, light, MIN, ratio, token } from '../theme-contrast'
@@ -48,7 +48,18 @@ describe('contrast of the Organisation agent screens', () => {
 })
 
 describe('the four agent components keep to those looks (a scan, because the bug was a class string)', () => {
-  const files = ['org-agent-parts.tsx', 'org-agent-panel.tsx', 'agent-runs-view.tsx', 'agent-run-detail.tsx'].map((name) => path.resolve('components/domain/crm', name))
+  const files = [
+    'org-agent-parts.tsx', 'org-agent-panel.tsx', 'agent-runs-view.tsx', 'agent-run-detail.tsx',
+    // The tabs of Agent Run History (S7c): the Runs tab (the screen as it was, moved), the waiting list, the Autonomy tab and its parts.
+    'agent-runs-panel.tsx', 'agent-waiting-queue.tsx', 'agent-autonomy.tsx', 'agent-autonomy-parts.tsx',
+    // The CRM chat (S8b): the widget and its three parts. They have their own scan too (lib/ask/contrast.test.ts); the agent patterns are applied here as well.
+    'crm-chat-widget.tsx', 'ask-panel.tsx', 'ask-messages.tsx', 'ask-conversations.tsx',
+  ].map((name) => path.resolve('components/domain/crm', name))
+
+  it('scans every component of the agent screens that draws anything, so a new one cannot be left out', () => {
+    const drawn = readdirSync(path.resolve('components/domain/crm')).filter((name) => /^(agent-|org-agent-).*\.tsx$/.test(name) && !['agent-run-history.tsx', 'agent-run-list-view.tsx'].includes(name))
+    assert.deepEqual(drawn.filter((name) => !files.some((file) => path.basename(file) === name)), [], 'an agent component that the scan below does not read (agent-run-history.tsx and agent-run-list-view.tsx are the old, unmounted list)')
+  })
 
   it('uses no status colour as TEXT (a link included: text-primary is 4.16:1 on a card in the dark theme), and no tint of one as a surface; an icon, which is aria-hidden, may be coloured', () => {
     const offences: string[] = []
