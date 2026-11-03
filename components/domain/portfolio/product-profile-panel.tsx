@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductOffer } from '@/services/portfolio/types'
-import { IcpStatusBadge } from './icp-status-badge'
+import { SubProductIcpBadge } from './icp-status-badge'
 import type { ProductInfo } from '@/services/portfolio/types'
 
 const list = (v: string[] | null | undefined) => (v && v.length > 0 ? v.join(', ') : null)
@@ -32,7 +32,7 @@ export function ProductProfilePanel({ product }: { product: ProductInfo }) {
     <section aria-label={`${product.label} summary`} className="space-y-3 rounded-xl border border-border/60 bg-card p-4 shadow-sm @xl:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Customer and buyer summary</h2>
-        <IcpStatusBadge product={product} />
+        <SubProductIcpBadge product={product} />
       </div>
 
       <dl className="divide-y divide-border/60">
@@ -61,7 +61,7 @@ export function ProductProfilePanel({ product }: { product: ProductInfo }) {
           <Row label="Pitch">{product.icp?.pitch ?? NOT_SET}</Row>
           <Row label="ICP source">
             {product.icp
-              ? product.icp.source === 'database' ? `Saved ICP${product.icp.profile_id ? ` #${product.icp.profile_id}` : ''} (${product.icp.name})` : 'Built-in definition (no saved ICP yet)'
+              ? product.icp.source === 'sub_products' ? 'Combined from the ICPs of its sub-products' : product.icp.source === 'database' ? `Saved ICP${product.icp.profile_id ? ` #${product.icp.profile_id}` : ''} (${product.icp.name})` : 'Built-in definition'
               : NOT_SET}
           </Row>
           <Row label="Target accounts">{product.target_accounts > 0 ? product.target_accounts : NOT_SET}</Row>

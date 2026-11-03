@@ -238,8 +238,6 @@ export function ProductFormDialog({
       setForm((f) => (f.parent_product === category && !idEdited ? { ...f, offer_id: '' } : f))
     }
   }
-  // An existing product that already has its own ICP (a product of its own whose ICP lists it) is edited on its ICP page, not here.
-  const linked = product ? (products ?? []).find((p) => p.custom && p.icp?.offer_ids?.includes(product.offer_id)) ?? null : null
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (busy) return
@@ -256,7 +254,7 @@ export function ProductFormDialog({
     const builtConfigs: Partial<Record<CustomerModelTab, any>> = {}
     let hasIcpError = false
 
-    if (!linked) {
+    {
       for (const m of ['b2b', 'b2c', 'b2g'] as const) {
         if (icpTouched(icps[m], icpLinesMap[m])) {
           if (icps[m].label.trim() === '') {
@@ -493,7 +491,6 @@ export function ProductFormDialog({
               onLines={(patch) => setIcpLinesMap((prev) => ({ ...prev, [activeIcpTab]: { ...prev[activeIcpTab], ...patch } }))}
               disabled={busy}
               problems={icpProblemsMap[activeIcpTab] ?? []}
-              linked={linked ? { key: linked.key, label: linked.label } : null}
               editing={mode === 'edit'}
               model={activeIcpTab}
             />
