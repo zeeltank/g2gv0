@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { readListQuery } from '../../components/shared/scaffolds/list-query'
 import {
-  catalogueColumnCount, catalogueItemHref, detailTabs, emptyCatalogueHint, EXTRA_TAB_LABELS, extraTabs, icpLabel, icpTitle, icpTone, lineRecordHref, linesScopeHref,
+  catalogueColumnCount, catalogueItemHref, detailTabs, emptyCatalogueHint, EXTRA_TAB_LABELS, extraTabs, icpLabel, icpTitle, icpTone, lineIcpSummary, lineRecordHref, linesScopeHref,
   linesSummary, PRODUCT_LIST_QUERY, readScope, SCOPE_LABELS, showLineColumns, showScopeSwitch, signalsHref,
 } from '../../components/domain/crm/product-lines-model'
 import type { CrmProductLines } from '../../types/crm'
@@ -110,6 +110,33 @@ describe('the state of an ideal-customer profile', () => {
     assert.deepEqual(states.map(icpTone), ['success', 'pending', 'inactive', 'primary', 'default'])
     assert.equal(icpTone(null), 'default')
     assert.equal(icpTone(undefined), 'default')
+  })
+})
+
+describe('the ICP column of a product line', () => {
+  // Since the main branch's sub-product ICP rule a profile belongs to a sub-product, so a line says how many of its sub-products have an active one.
+  const subs = (...states: Array<PmIcpState | null>) => states.map((icp) => ({ icp }))
+
+  it('counts the sub-products that have an ACTIVE profile out of all of them', () => {
+    const summary = lineIcpSummary(subs('active', 'active', 'draft'))
+    assert.deepEqual([summary.configured, summary.total, summary.text], [2, 3, '2 of 3'])
+    assert.ok(summary.title.includes('2 of 3 sub-products have an active ideal-customer profile'), summary.title)
+  })
+
+  it('counts nothing else as set up: a draft is not in use, an archived one is not, a built-in template is not a profile a person saved', () => {
+    const summary = lineIcpSummary(subs('draft', 'archived', 'template', 'none', null))
+    assert.deepEqual([summary.configured, summary.total, summary.text], [0, 5, '0 of 5'])
+  })
+
+  it('speaks in the singular for one sub-product', () => {
+    assert.ok(lineIcpSummary(subs('active')).title.startsWith('1 of 1 sub-product has an active'))
+    assert.ok(lineIcpSummary(subs('none')).title.startsWith('0 of 1 sub-product has an active'))
+  })
+
+  it('is a dash with its reason for a line that has no sub-products yet', () => {
+    const summary = lineIcpSummary([])
+    assert.deepEqual([summary.configured, summary.total, summary.text], [0, 0, '—'])
+    assert.ok(summary.title.includes('no sub-products yet'))
   })
 })
 

@@ -95,6 +95,24 @@ export function icpTone(state: PmIcpState | null | undefined): IcpTone {
   }
 }
 
+/**
+ * What a product LINE says in the ICP column. Since the sub-product ICP change on the main branch an ideal-customer profile belongs to a SUB-PRODUCT (a profile
+ * saved on the line itself is legacy and read-only), so a line says how many of its sub-products have an active one, the way the Sold column says how many are
+ * sold. Only an active profile counts: a draft is not in use, an archived one is not, and a built-in product's template is not a profile a person saved.
+ */
+export function lineIcpSummary(subProducts: ReadonlyArray<{ icp: PmIcpState | null | undefined }>): { configured: number; total: number; text: string; title: string } {
+  const total = subProducts.length
+  const configured = subProducts.filter((sub) => sub.icp === 'active').length
+  return {
+    configured,
+    total,
+    text: total === 0 ? '—' : `${configured} of ${total}`,
+    title: total === 0
+      ? 'This product line has no sub-products yet, so there is no ideal-customer profile to set up.'
+      : `${configured} of ${total} ${total === 1 ? 'sub-product has' : 'sub-products have'} an active ideal-customer profile. Each sub-product has its own profile, set up in the Portfolio.`,
+  }
+}
+
 // ---- the extra tabs of a catalogue item's page ----
 
 export type ExtraTab = 'signals' | 'usage'

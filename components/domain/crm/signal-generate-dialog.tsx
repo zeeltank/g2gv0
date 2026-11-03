@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, NativeSelect } from '@/components/shared/scaffolds/form-field'
 import { FormLayout } from '@/components/shared/scaffolds/form-layout'
-import { icpHref } from '@/lib/product-selection'
+import { offersHref } from '@/lib/product-selection'
 import {
   CUSTOMER_MODELS, describeStartFailure, EMPTY_FORM, failedRunText, failureContext, nextPollStep, onlyProduct, POLL_MS, productOptions, progressLines,
   runGoneFailure, subProductOptions, toRequest, validateGenerate, type GenerateForm, type StartFailure, type Timers,
@@ -378,7 +378,7 @@ function FailurePanel({ failure, productKey, busy, onWatch }: { failure: StartFa
         </>
       )}
       {failure.kind === 'not_ready' && productKey !== '' && (
-        <Link href={icpHref(productKey)} className="inline-block font-medium underline underline-offset-2">Open the product to complete its ICP</Link>
+        <Link href={offersHref(productKey)} className="inline-block font-medium underline underline-offset-2">Open the sub-products of this product to complete their ICPs</Link>
       )}
       {failure.canWatch && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onWatch}>Watch it</Button>}
     </div>

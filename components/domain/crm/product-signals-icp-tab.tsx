@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
-import { configureHref, icpHref } from '@/lib/product-selection'
+import { offersHref } from '@/lib/product-selection'
 import type { PmRecord, PmUsage } from '@/services/product-master/types'
 import { IcpBadge } from './product-line-columns'
 import { icpTitle, signalsHref } from './product-lines-model'
@@ -32,7 +32,8 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
   const lineKey = isLine ? record.key : record.parent?.key ?? null
   const offerId = record.offer?.offerId ?? null
   const signalsLink = signalsHref(lineKey, isLine ? null : offerId)
-  const portfolioLink = lineKey ? (isLine ? icpHref(lineKey) : `${configureHref(lineKey)}?tab=offers`) : '/portfolio'
+  // An ideal-customer profile belongs to a sub-product (the main branch's sub-product ICP rule), so the Portfolio page to open is the line's Offers tab for both.
+  const portfolioLink = lineKey ? offersHref(lineKey) : '/portfolio'
 
   return (
     <div className="space-y-4">
@@ -89,25 +90,41 @@ export function ProductSignalsIcpTab({ record, usage, usageError, withOffer = fa
                 </p>
               </SectionCard>
 
-              <SectionCard title="Ideal customer (ICP)" description="Who this is for, as Signals uses it to score companies.">
-                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  <ReadField
-                    label="State"
-                    value={usage.icp === null
-                      ? <span className="font-normal text-muted-foreground">No ideal-customer profile applies to this.</span>
-                      : (
-                        <span className="flex flex-wrap items-center gap-2">
-                          <IcpBadge state={usage.icp} />
-                          <span className="text-xs font-normal text-muted-foreground">{icpTitle(usage.icp)}</span>
-                        </span>
-                      )}
-                  />
-                </dl>
-                {usage.icp !== null && (
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    The profile itself is edited in the Portfolio:{' '}
-                    <Link href={portfolioLink} className="text-primary underline underline-offset-2">open it there</Link>.
+              <SectionCard
+                title="Ideal customer (ICP)"
+                description={isLine ? 'Each sub-product has its own profile of who it is for.' : 'Who this is for, as Signals uses it to score companies.'}
+              >
+                {isLine ? (
+                  // A line has no profile of its own any more: it is the sub-products that have one. A profile saved on the line before that rule is not used by discovery
+                  // (the server reads it only while its legacy switch is on) and no screen shows it, so it is mentioned only when one was really saved: a built-in line's
+                  // "template" state is not a saved profile.
+                  <p className="text-sm text-muted-foreground">
+                    Ideal-customer profiles are set up per sub-product, so this line does not have one of its own.
+                    {(usage.icp === 'active' || usage.icp === 'draft' || usage.icp === 'archived') && <> A profile saved on the line itself earlier is not used for discovery any more.</>}
+                    {' '}<Link href={portfolioLink} className="text-primary underline underline-offset-2">See the profiles of its sub-products in the Portfolio</Link>.
                   </p>
+                ) : (
+                  <>
+                    <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                      <ReadField
+                        label="State"
+                        value={usage.icp === null
+                          ? <span className="font-normal text-muted-foreground">No ideal-customer profile applies to this.</span>
+                          : (
+                            <span className="flex flex-wrap items-center gap-2">
+                              <IcpBadge state={usage.icp} />
+                              <span className="text-xs font-normal text-muted-foreground">{icpTitle(usage.icp)}</span>
+                            </span>
+                          )}
+                      />
+                    </dl>
+                    {usage.icp !== null && (
+                      <p className="mt-4 text-xs text-muted-foreground">
+                        The profile itself is edited in the Portfolio:{' '}
+                        <Link href={portfolioLink} className="text-primary underline underline-offset-2">open it there</Link>.
+                      </p>
+                    )}
+                  </>
                 )}
               </SectionCard>
             </>

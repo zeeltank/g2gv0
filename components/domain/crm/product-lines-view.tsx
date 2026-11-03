@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { productMasterService } from '@/services/product-master/product-master-service'
 import type { PmItemType, PmKind, PmListData, PmMeta, PmOption, PmProductRow, PmRecord, PmStatusFilter, PmSubProductRow } from '@/services/product-master/types'
 import { IcpBadge, SignalsCount } from './product-line-columns'
-import { linesSummary, PRODUCT_LIST_QUERY } from './product-lines-model'
+import { linesSummary, lineIcpSummary, PRODUCT_LIST_QUERY } from './product-lines-model'
 import { ProductMasterForm, type FormTarget, type ProductMasterWriter } from './product-master-form'
 import { newChoices, productChoices } from './product-master-model'
 import { ArchivedBadge, ReadinessBadge, SharedBadge, SoldBadge } from './product-master-parts'
@@ -313,7 +313,10 @@ function LineRows({ product, expanded, onToggle, recordHref, catalogueHref, canA
         <TableCell><span className="text-muted-foreground">—</span></TableCell>
         <TableCell>{product.soldInCrmCount} of {product.subProductCount}</TableCell>
         <TableCell className="text-right"><SignalsCount count={product.signalsFound} /></TableCell>
-        <TableCell><IcpBadge state={product.icp} /></TableCell>
+        <TableCell>
+          {/* ICPs belong to sub-products now: the line says how many of its sub-products have an active one (a profile saved on the line itself is legacy). */}
+          <span data-line-icp title={lineIcpSummary(product.subProducts).title}>{lineIcpSummary(product.subProducts).text}</span>
+        </TableCell>
       </TableRow>
 
       {expanded && product.subProducts.map((sub) => (

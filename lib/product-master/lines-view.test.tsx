@@ -65,12 +65,12 @@ describe('the product lines of the Products screen: the list', () => {
     assert.deepEqual(heads, ['Name', 'ID', 'Readiness', 'Sold in CRM', 'Signals', 'ICP'])
 
     const scholar = rowOf('ScholarClone')!.textContent!
-    for (const part of ['product line · 3 sub-products', 'Shared', 'scholarclone', '2 of 3', '31', 'Built-in']) assert.ok(scholar.includes(part), part)
+    for (const part of ['product line · 3 sub-products', 'Shared', 'scholarclone', '2 of 3', '31', '1 of 3']) assert.ok(scholar.includes(part), part)   // 2 of 3 sold, 1 of 3 with an active ICP
     const fee = rowOf('Fee Collection')!.textContent!
     for (const part of ['SCH-11', 'Live – with client', 'Not set up', '4', 'Active']) assert.ok(fee.includes(part), part)
     assert.ok(rowOf('Admissions')!.textContent!.includes('Sold'))
     assert.ok(rowOf('Admissions')!.textContent!.includes('Draft'))
-    assert.ok(rowOf('Payroll Cloud')!.textContent!.includes('Draft'))
+    assert.ok(rowOf('Payroll Cloud')!.textContent!.includes('0 of 1'), 'a line says how many of its sub-products have an active ICP: its one sub-product has none')
     assert.ok(!rowOf('Payroll Cloud')!.textContent!.includes('Shared'), 'a line of the organisation\'s own is not marked shared')
   })
 
@@ -79,7 +79,16 @@ describe('the product lines of the Products screen: the list', () => {
     const cells = (name: string) => Array.from(rowOf(name)!.querySelectorAll('td')).map((td) => td.textContent)
     assert.equal(cells('Fee Collection')[4], '0')
     assert.equal(cells('ScholarClone')[4], '—')
-    assert.equal(cells('ScholarClone')[5], '—', 'no ICP applies to a line Signals has no value for')
+    assert.equal(cells('ScholarClone')[5], '0 of 1', 'an ICP belongs to a sub-product: the line counts the sub-products that have an active one')
+  })
+
+  it('says in the ICP column how many of a line\x27s sub-products have an active profile, with the sentence in its tooltip, and a dash for a line with none', async () => {
+    const { rowOf } = await setup()
+    const cell = (name: string) => rowOf(name)!.querySelectorAll('td')[5]
+    assert.equal(cell('ScholarClone').textContent, '1 of 3')
+    assert.equal(cell('ScholarClone').querySelector('[data-line-icp]')!.getAttribute('title'), '1 of 3 sub-products have an active ideal-customer profile. Each sub-product has its own profile, set up in the Portfolio.')
+    assert.equal(cell('Enterprise Brain').textContent, '—', 'no sub-products: nothing to set up')
+    assert.ok(cell('Enterprise Brain').querySelector('[data-line-icp]')!.getAttribute('title')!.includes('no sub-products yet'))
   })
 
   it('opens a line, and a sub-product that is not sold, on its own page; a sold one opens in its own catalogue, by type', async () => {

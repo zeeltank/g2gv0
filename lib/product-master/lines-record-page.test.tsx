@@ -254,11 +254,32 @@ describe('a product line', () => {
     assert.ok(!denied.k.all('button').some((b) => b.textContent === 'Add sub-product'))
   })
 
-  it('opens Company Opportunities and the Portfolio\'s ICP tab for the line, not for a sub-product', async () => {
-    const { openTab, hrefOf } = await setup({ record: lineRecord() })
+  it('opens Company Opportunities for the line, and says an ICP is set per sub-product with the way to the Offers tab where each one is', async () => {
+    const { k, openTab, hrefOf } = await setup({ record: lineRecord() })
     await openTab('Signals & ICP')
     assert.equal(hrefOf('See these signals'), '/signals?product=payroll_cloud')
-    assert.equal(hrefOf('open it there'), '/portfolio/payroll_cloud?tab=icp')
+    assert.equal(hrefOf('See the profiles of its sub-products in the Portfolio'), '/portfolio/payroll_cloud?tab=offers')
+    assert.ok(k.bodyText().includes('Ideal-customer profiles are set up per sub-product, so this line does not have one of its own.'))
+    assert.equal(hrefOf('open it there'), null, 'a line has no profile of its own to open')
+  })
+
+  it('mentions a profile saved on the line earlier only when one was really saved, and never promises it can be read (no screen shows it, discovery does not use it)', async () => {
+    const note = 'A profile saved on the line itself earlier is not used for discovery any more.'
+    for (const icp of ['active', 'draft', 'archived'] as const) {
+      const page = await setup({ record: lineRecord(), usage: usage({ icp }) })
+      await page.openTab('Signals & ICP')
+      assert.ok(page.k.bodyText().includes(note), `a saved ${icp} profile on the line is mentioned`)
+      assert.ok(!page.k.bodyText().includes('stays readable'))
+      await disposeAll()   // the fake browser's document is shared: clear it so the next state is read on its own
+    }
+    // A built-in line's 'template' state and a line with nothing saved are not a saved profile: nothing is said about one.
+    for (const icp of ['template', 'none', null] as const) {
+      const page = await setup({ record: lineRecord(), usage: usage({ icp }) })
+      await page.openTab('Signals & ICP')
+      assert.ok(page.k.bodyText().includes('Ideal-customer profiles are set up per sub-product'), `the per-sub-product sentence is always there (${icp})`)
+      assert.ok(!page.k.bodyText().includes('saved on the line itself'), `nothing about a saved line profile when the state is ${icp}`)
+      await disposeAll()
+    }
   })
 })
 
