@@ -32,6 +32,7 @@ import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { apiErrorText } from '@/lib/api-messages'
 import { SectionBar } from '@/components/domain/signals/signals-header'
+import { DataConnectorsPanel } from '@/components/domain/signals/data-connectors-panel'
 import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
@@ -231,6 +232,8 @@ export function IngestionEngineView() {
         </div>
         {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
       </div>
+
+      <DataConnectorsPanel context={context} productKey={product || null} productReady={Boolean(selectedProduct?.ready)} />
 
       {/* Prominent Input Card at Top */}
       <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-sm">

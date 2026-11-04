@@ -285,7 +285,7 @@ export function SignalList({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            All Signals ({summaryStats.total})
+            All
           </button>
           <button
             type="button"
@@ -298,7 +298,7 @@ export function SignalList({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Generated ({summaryStats.generated})
+            Generated
           </button>
           <button
             type="button"
@@ -311,7 +311,7 @@ export function SignalList({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Manually Added ({summaryStats.manual})
+            Manually Added
           </button>
         </div>
 

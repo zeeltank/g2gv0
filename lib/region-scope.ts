@@ -36,7 +36,12 @@ export function countryOptions(locale = 'en'): { code: string; name: string }[] 
       if (name && name !== code && !/^Unknown/i.test(name)) out.push({ code, name })
     }
   }
-  return out.sort((x, y) => x.name.localeCompare(y.name))
+  const sorted = out.sort((x, y) => x.name.localeCompare(y.name))
+  const india = sorted.find((c) => c.name.toLowerCase() === 'india')
+  if (india) {
+    return [india, ...sorted.filter((c) => c.name.toLowerCase() !== 'india')]
+  }
+  return sorted
 }
 
 /** What the person has typed into the control but not added yet. */

@@ -13,6 +13,7 @@ import { Notice } from '@/components/domain/organization/department-management/s
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
 import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
+import { DEFAULT_REGIONS, loadSavedRegions, persistSavedRegions } from '@/lib/location-repository'
 import { useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
 import { SignalList } from '@/components/domain/signals/signal-list'
@@ -38,9 +39,15 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const selected = products?.find((p) => p.key === product) ?? null
   const runLabel = selected?.label ?? ''
   const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
-  const [regions, setRegions] = useState<RegionSelection[]>([])
+  const [regions, setRegions] = useState<RegionSelection[]>(DEFAULT_REGIONS)
   const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
   const [regionProblems, setRegionProblems] = useState<string[]>([])
+
+  useEffect(() => {
+    const loaded = loadSavedRegions()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRegions(loaded)
+  }, [])
   const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions)
   const setCustomerModel = run.setCustomerModel
   useEffect(() => {
@@ -76,9 +83,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   // A date, "All signals" and a run chosen under one sub-product or ICP type do not carry over to another when in filtered scope mode.
   const regionsSig = regionSignature(regions)
   useEffect(() => {
-    setDatePreset('all'); setDateRange(null)
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPicked(null); setAllSignals(false); setTotal(null); setManualNotice(null)
+    setDatePreset('all'); setDateRange(null); setPicked(null); setAllSignals(false); setTotal(null); setManualNotice(null)
   }, [offerId, icpType])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -87,6 +93,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDates(null); setDatesError(null); setPicked(null); setTotal(null); setRegions([]); setDraft(emptyDraft()); setRegionProblems([]); setDatePreset('all'); setDateRange(null)
+    setRegions(loadSavedRegions())
     seenCompleted.current = run.completedCount
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -217,7 +224,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           {/* Dropdown 3: Region */}
-          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
+          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
 
         </div>
 
@@ -255,103 +262,70 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
       {selected && (
         <section aria-label={`${selected.label} signals`} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Date Presets Group */}
-            <div className="inline-flex rounded-xl bg-muted/60 p-1 text-xs font-medium">
-              {[
-                { id: 'all' as const, label: 'All Dates' },
-                { id: 'today' as const, label: 'Today' },
-                { id: 'yesterday' as const, label: 'Yesterday' },
-                { id: '7days' as const, label: 'Last 7 Days' },
-                { id: '30days' as const, label: 'Last 30 Days' },
-              ].map((p) => {
-                const isActive = datePreset === p.id && (p.id !== 'all' || (!picked && !dateRange))
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      if (p.id === 'all') {
-                        setDatePreset('all')
-                        setPicked(null)
-                        setDateRange(null)
-                        setTotal(null)
-                      } else if (p.id === 'today') {
-                        if (today) {
-                          setDatePreset('today')
-                          setPicked(today)
-                          setDateRange({ from: today, to: today })
-                          setTotal(null)
-                        }
-                      } else if (p.id === 'yesterday') {
-                        if (today) {
-                          const y = shiftDay(today, 1)
-                          setDatePreset('yesterday')
-                          setPicked(y)
-                          setDateRange({ from: y, to: y })
-                          setTotal(null)
-                        }
-                      } else if (p.id === '7days') {
-                        if (today) {
-                          setDatePreset('7days')
-                          setPicked(null)
-                          setDateRange({ from: shiftDay(today, 6), to: today })
-                          setTotal(null)
-                        }
-                      } else if (p.id === '30days') {
-                        if (today) {
-                          setDatePreset('30days')
-                          setPicked(null)
-                          setDateRange({ from: shiftDay(today, 29), to: today })
-                          setTotal(null)
-                        }
-                      }
-                    }}
-                    className={`rounded-lg px-2.5 py-1.5 transition-all ${
-                      isActive
-                        ? 'bg-card text-foreground font-semibold shadow-xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                )
-              })}
-            </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* 1. Today Filter */}
+            <Button
+              type="button"
+              size="sm"
+              variant={datePreset === 'today' || (picked === today && !!today) ? 'default' : 'outline'}
+              onClick={() => {
+                if (today) {
+                  if (datePreset === 'today' || picked === today) {
+                    setDatePreset('all')
+                    setPicked(null)
+                    setDateRange(null)
+                    setTotal(null)
+                  } else {
+                    setDatePreset('today')
+                    setPicked(today)
+                    setDateRange({ from: today, to: today })
+                    setTotal(null)
+                  }
+                  setViewRunId(null)
+                }
+              }}
+              className="h-9 rounded-lg text-xs font-medium shadow-xs"
+              title={datePreset === 'today' ? 'Showing Today: click to view All Signals' : 'Filter by Today (default shows All Signals)'}
+            >
+              Today
+            </Button>
 
-            {/* A. Recent 5 Days Dropdown */}
+            {/* 2. Date Dropdown */}
             <select
               aria-label="Recent signal dates"
               value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
               disabled={dates === null && !datesError}
               onChange={(e) => {
-                if (e.target.value) pick(e.target.value)
+                if (!e.target.value) {
+                  setDatePreset('all')
+                  setPicked(null)
+                  setDateRange(null)
+                  setTotal(null)
+                  setViewRunId(null)
+                } else {
+                  pick(e.target.value)
+                }
               }}
-              className="h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {dates === null && !datesError ? (
                 <option value="" disabled>Loading dates…</option>
               ) : (
                 <>
-                  {datePreset === 'all' && !dateRange && !picked && <option value="" disabled>Recent dates</option>}
-                  {dateRange && dateRange.from !== dateRange.to && <option value="" disabled>Date range active</option>}
-                  {activeDate && (!dateRange || dateRange.from === dateRange.to) && !recent5.some((d) => d.date === activeDate) && (
-                    <option value={activeDate}>{formatRunDate(activeDate)} (Other date)</option>
-                  )}
-                  {recent5.length === 0 ? (
-                    <option value="" disabled>No recent runs</option>
-                  ) : (
-                    recent5.map((d) => (
-                      <option key={d.date} value={d.date}>
-                        {formatRunDate(d.date)} ({d.qualified} {d.qualified === 1 ? 'signal' : 'signals'})
-                      </option>
-                    ))
+                  <option value="">Recent dates</option>
+                  {recent5.map((d) => (
+                    <option key={d.date} value={d.date}>
+                      {formatRunDate(d.date)} ({d.qualified} {d.qualified === 1 ? 'signal' : 'signals'})
+                    </option>
+                  ))}
+                  {activeDate && !recent5.some((d) => d.date === activeDate) && (
+                    <option value={activeDate}>{formatRunDate(activeDate)}</option>
                   )}
                 </>
               )}
             </select>
 
-            {/* B. Calendar Date Picker */}
+            {/* 3. Calendar Date Picker */}
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="sr-only">Pick date</span>
               <input
@@ -361,27 +335,19 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 value={datePreset === 'all' && !dateRange && !picked ? '' : (dateRange && dateRange.from !== dateRange.to ? '' : (activeDate ?? ''))}
                 onChange={(e) => {
                   const val = e.target.value
-                  if (val && (!today || isPickableDay(val, today))) pick(val)
+                  if (val && (!today || isPickableDay(val, today))) {
+                    pick(e.target.value)
+                  } else if (!val) {
+                    setDatePreset('all')
+                    setPicked(null)
+                    setDateRange(null)
+                    setTotal(null)
+                    setViewRunId(null)
+                  }
                 }}
-                className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
-
-            {/* C. Scope Mode Toggle */}
-            <Button
-              type="button"
-              size="sm"
-              variant={allSignals ? 'default' : 'outline'}
-              onClick={() => {
-                setAllSignals((prev) => !prev)
-                setTotal(null)
-              }}
-              className="h-9 text-xs font-medium"
-              aria-pressed={allSignals}
-              title={allSignals ? 'All Signals: aggregates across all sub-products and customer models' : 'Filtered Scope: narrows to current sub-product, customer model and region'}
-            >
-              {allSignals ? 'All Signals' : 'Filtered Scope'}
-            </Button>
 
             <Button type="button" size="sm" variant="outline" onClick={() => { setManualNotice(null); setManualOpen(true) }} className="ml-auto h-9 text-xs font-medium">
               <Plus className="mr-1.5 size-4" />
@@ -406,7 +372,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               dateFrom={dateRange?.from}
               dateTo={dateRange?.to}
               allDates={datePreset === 'all' && !dateRange && !picked}
-              allSignals={allSignals}
+              allSignals={allSignals || !offerId}
               runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
