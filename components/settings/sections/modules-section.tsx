@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   ModuleConfiguration,
   type ModuleConfigurationHandle,
@@ -77,28 +78,61 @@ export function ModulesSection() {
 
       <ModuleConfiguration onReady={setHandle} onSaved={setSaved} />
 
-      <div className="flex justify-end border-t border-border pt-5">
-        <Button
-          onClick={() => {
-            /*
-             * Only ask when something is being switched OFF. Turning a module on
-             * adds screens and is trivially reversible; a confirmation on every
-             * save would train people to click through the one that matters.
-             */
-            if (turningOff.length > 0) setConfirming(true)
-            else void save()
-          }}
-          disabled={busy || !ready || changes === 0}
-        >
-          {busy && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-          {busy
-            ? 'Saving…'
-            : handle?.loading
-              ? 'Loading…'
-              : changes === 0
-                ? 'No changes'
-                : `Save ${changes} ${changes === 1 ? 'change' : 'changes'}`}
-        </Button>
+      <div
+        className={cn(
+          'transition-all duration-200 border-t border-border pt-4',
+          changes > 0
+            ? 'sticky bottom-0 z-20 -mx-6 -mb-6 mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-primary/20 bg-background/95 p-4 shadow-lg backdrop-blur sm:rounded-b-xl'
+            : 'flex justify-end',
+        )}
+      >
+        {changes > 0 && (
+          <div className="flex items-center gap-2 text-sm text-foreground">
+            <span className="flex size-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="font-medium">
+              {changes} unsaved {changes === 1 ? 'change' : 'changes'}
+            </span>
+            <span className="hidden text-muted-foreground sm:inline">
+              ({turningOn.length > 0 ? `${turningOn.length} turning on` : ''}
+              {turningOn.length > 0 && turningOff.length > 0 ? ', ' : ''}
+              {turningOff.length > 0 ? `${turningOff.length} turning off` : ''})
+            </span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 ml-auto">
+          {changes > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => handle?.reset?.()}
+            >
+              Discard
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              /*
+               * Only ask when something is being switched OFF. Turning a module on
+               * adds screens and is trivially reversible; a confirmation on every
+               * save would train people to click through the one that matters.
+               */
+              if (turningOff.length > 0) setConfirming(true)
+              else void save()
+            }}
+            disabled={busy || !ready || changes === 0}
+            className={changes > 0 ? 'bg-primary text-primary-foreground shadow-md' : ''}
+          >
+            {busy && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+            {busy
+              ? 'Saving…'
+              : handle?.loading
+                ? 'Loading…'
+                : changes === 0
+                  ? 'No changes'
+                  : `Save ${changes} ${changes === 1 ? 'change' : 'changes'}`}
+          </Button>
+        </div>
       </div>
 
       <ConfirmDialog
