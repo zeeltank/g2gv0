@@ -49,7 +49,7 @@ export {
   type CourseBucket,
 } from './use-lms-dashboard'
 export { useNavigation, HOME_NAV, resolveBreadcrumb, type ActiveNav } from './use-navigation'
-export { useSidebarNavigation, type SidebarNavigationResult } from './use-sidebar-navigation'
+export { useSidebarNavigation, clearSidebarCache, type SidebarNavigationResult } from './use-sidebar-navigation'
 export { ROLES, roleLabel, getAccess, type Role as RoleType, type Access } from './use-roles'
 export { 
   loadContentRoute,

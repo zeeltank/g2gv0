@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { menuRightsService, type RoleProfile } from '@/services/navigation/menu-rights'
+import { clearSidebarCache } from './use-sidebar-navigation'
 import {
   applyAction,
   applyModuleColumn,
@@ -111,8 +112,11 @@ export function useRolePermissions(): RolePermissionsResult {
       }
       setActionError(null)
       setHasChanges(false)
+      clearSidebarCache()
       queryClient.invalidateQueries({ queryKey: ['role-permissions', 'rights'] })
+      queryClient.invalidateQueries({ queryKey: ['sidebar-navigation-v3'] })
       queryClient.invalidateQueries({ queryKey: ['sidebar-navigation'] })
+      queryClient.refetchQueries({ queryKey: ['sidebar-navigation-v3'] })
       queryClient.invalidateQueries({ queryKey: ['platform-services-access'] })
     },
     onError: (error) => setActionError(toMessage(error, 'Failed to save permissions')),

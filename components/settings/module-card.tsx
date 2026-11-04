@@ -84,14 +84,28 @@ export function ModuleCard({ module, onToggle }: ModuleCardProps) {
 
   return (
     <Card
+      onClick={() => {
+        if (!module.mandatory) {
+          onToggle(module.id)
+        }
+      }}
+      onKeyDown={(e) => {
+        if (!module.mandatory && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onToggle(module.id)
+        }
+      }}
+      tabIndex={!module.mandatory ? 0 : undefined}
+      role={!module.mandatory ? 'button' : undefined}
       className={cn(
-        'relative w-full pt-4 transition-shadow',
+        'relative w-full pt-4 transition-all select-none',
+        !module.mandatory && 'cursor-pointer hover:border-primary/50',
         module.selected
           ? 'border-primary shadow-md'
           : 'border-border shadow-sm hover:border-input hover:shadow-md',
         // An always-on module cannot be acted on, so it does not offer the
         // hover affordance of one that can.
-        module.mandatory && 'bg-surface-muted/40',
+        module.mandatory && 'bg-surface-muted/40 cursor-default',
       )}
     >
       <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2">
@@ -116,13 +130,15 @@ export function ModuleCard({ module, onToggle }: ModuleCardProps) {
             <Lock className="size-3" aria-hidden="true" />
           </span>
         ) : (
-          <Checkbox
-            checked={module.selected}
-            onChange={() => onToggle(module.id)}
-            size="lg"
-            className="rounded-full border-foreground/30 bg-background shadow-sm"
-            aria-label={`${module.selected ? 'Switch off' : 'Switch on'} ${module.title}`}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={module.selected}
+              onCheckedChange={() => onToggle(module.id)}
+              size="lg"
+              className="rounded-full border-foreground/30 bg-background shadow-sm"
+              aria-label={`${module.selected ? 'Switch off' : 'Switch on'} ${module.title}`}
+            />
+          </div>
         )}
       </div>
 
