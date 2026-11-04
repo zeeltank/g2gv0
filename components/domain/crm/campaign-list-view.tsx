@@ -13,6 +13,7 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { campaignColumnCount, noteProductSeen } from '@/lib/campaigns/model'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
+import { ApiError } from '@/services/core'
 import type { Campaign, CrmPicklistValue } from '@/types/crm'
 import { CreateCampaignModal } from './create-campaign-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
@@ -77,6 +78,8 @@ export function CampaignListView() {
   const [sortAsc, setSortAsc] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  /** The server refused the list (403): the person has no right on this screen, which is not the same as "no campaigns yet". */
+  const [denied, setDenied] = useState(false)
   const [notice, setNotice] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -95,8 +98,10 @@ export function CampaignListView() {
       setCampaigns(response.data.items)
       setProductSeen((seen) => noteProductSeen(seen, response.data.items))
       setTotal(response.data.pagination.total)
+      setDenied(false)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load campaigns.')
+      if (reason instanceof ApiError && reason.status === 403) setDenied(true)
+      else setError(reason instanceof Error ? reason.message : 'Unable to load campaigns.')
     } finally {
       setIsLoading(false)
     }
@@ -161,6 +166,18 @@ export function CampaignListView() {
     }
   }
 
+  if (denied) {
+    return (
+      <div className="space-y-4 p-4 sm:p-6">
+        <h1 className="text-xl font-semibold text-foreground">Campaigns</h1>
+        <div role="status" data-campaigns-denied className="rounded-lg border border-border bg-card p-6 text-sm text-foreground">
+          <p className="font-medium">You do not have access to this screen.</p>
+          <p className="mt-1 text-muted-foreground">Ask an administrator to give your role the Campaigns right if you need it.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -222,7 +239,7 @@ export function CampaignListView() {
             )}
             {!isLoading && campaigns.length === 0 && (
               <TableRow><TableCell colSpan={campaignColumnCount(productSeen)} className="py-10 text-center text-sm text-muted-foreground">
-                No campaigns yet. Click “Add Campaign” to create one.
+                {error ? 'The campaigns could not be loaded.' : 'No campaigns yet. Click “Add Campaign” to create one.'}
               </TableCell></TableRow>
             )}
             {!isLoading && campaigns.map((campaign) => (

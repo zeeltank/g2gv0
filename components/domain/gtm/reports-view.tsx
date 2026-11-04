@@ -260,7 +260,7 @@ function ReportPanel({ def, canExport, maxRows }: { def: ReportDef; canExport: b
           {data.rows.length === 0 ? (
             <EmptyState title="No rows" description="Nothing matches these filters." />
           ) : (
-            <div className={`overflow-x-auto rounded-lg border border-border ${loading ? 'opacity-60' : ''}`}>
+            <div role="region" tabIndex={0} aria-label={`${def.title} results`} className={`overflow-x-auto rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${loading ? 'opacity-60' : ''}`}>
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                   <tr>{cols.map(([k, c]) => <th key={k} className="whitespace-nowrap p-3">{c.label}</th>)}</tr>

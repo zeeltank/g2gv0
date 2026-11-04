@@ -21,6 +21,9 @@ import { detailedErr, label, money, pct } from './campaigns-shared'
 
 const CONFIRM_STATES: CampaignStatus[] = ['completed', 'archived']
 
+/** A destructive action on an outline button: the words stay foreground on the page background (the shared `text-destructive` is 4.32:1 there), only the border says "careful". */
+const DESTRUCTIVE_BUTTON = 'border-destructive text-foreground'
+
 export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, onChanged }: {
   id: number; segments: Segment[]; ownerName: (id: number | null) => string; onBack: () => void; onEdit: (d: CampaignDetail) => void; onChanged: () => void
 }) {
@@ -111,7 +114,7 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
         <div className="flex flex-wrap gap-2">
           {!closed && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(data)}>Edit</Button>}
           {transitions.map((t) => (
-            <Button key={t} size="sm" variant={CONFIRM_STATES.includes(t) ? 'outline' : 'default'} className={CONFIRM_STATES.includes(t) ? 'text-destructive' : undefined} disabled={busy} onClick={() => changeStatus(t)}>
+            <Button key={t} size="sm" variant={CONFIRM_STATES.includes(t) ? 'outline' : 'default'} className={CONFIRM_STATES.includes(t) ? DESTRUCTIVE_BUTTON : undefined} disabled={busy} onClick={() => changeStatus(t)}>
               {t === 'active' ? (c.status === 'paused' ? 'Resume' : 'Activate') : t === 'paused' ? 'Pause' : t === 'completed' ? 'Mark completed' : 'Archive'}
             </Button>
           ))}
@@ -179,7 +182,7 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
                     <td className="p-3">{x.contact_name ? <>{x.contact_name}{x.contact_status && x.contact_status !== 'active' ? <span className="text-xs text-amber-700"> ({label(x.contact_status)})</span> : null}</> : <span className="text-muted-foreground">whole account</span>}</td>
                     <td className="p-3">{fmtDate(x.created_at)}</td>
                     <td className="p-3 text-right">
-                      {!closed && <Button size="sm" variant="outline" className="text-destructive" disabled={busy}
+                      {!closed && <Button size="sm" variant="outline" className={DESTRUCTIVE_BUTTON} disabled={busy} aria-label={`Remove ${x.contact_name ?? x.account_name} from this campaign`}
                         onClick={() => { if (window.confirm(`Remove ${x.contact_name ?? x.account_name} from this campaign?`)) void run(async () => { await campaignService.removeMember(id, x.id); return 'Target removed.' }) }}>Remove</Button>}
                     </td>
                   </tr>
@@ -228,7 +231,7 @@ function AddTargets({ segments, busy, onAdd }: { segments: Segment[]; busy: bool
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-56">
           <div className="mb-1 text-xs font-medium text-muted-foreground">From a segment (up to 2000 matches)</div>
-          <Select value={segmentId} onChange={setSegmentId} placeholder="Choose a segment"
+          <Select value={segmentId} onChange={setSegmentId} placeholder="Choose a segment" aria-label="Segment to add targets from"
             options={segments.map((s) => ({ label: `${s.name} (${s.kind}, ${s.match_count})`, value: String(s.id) }))} />
         </div>
         <Button size="sm" disabled={busy || !segmentId} onClick={() => void onAdd({ segment_id: Number(segmentId) }).then(() => setSegmentId(''))}>

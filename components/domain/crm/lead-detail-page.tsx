@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { NOTICE_TONE } from '@/lib/org-accounts/tones'
+import { cn } from '@/lib/utils'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { leadPatch } from '@/lib/leads/model'
@@ -238,7 +240,7 @@ export function LeadDetailPage({ lead: leadProp, onSaved, onBack, picklists, fac
         </div>
       )}
 
-      {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+      {notice && <div role="status" data-lead-notice className={cn('rounded-lg border p-3 text-sm', NOTICE_TONE.success)}>{notice}</div>}
 
       {/* Enrichment & Outreach Qualification Status Banner */}
       {lead.isQualifiedForOutreach === false && (
@@ -280,8 +282,8 @@ export function LeadDetailPage({ lead: leadProp, onSaved, onBack, picklists, fac
       )}
 
       {lead.converted && convertedTargets.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
-          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+        <div className={cn('flex items-center gap-2 rounded-lg border p-3 text-sm', NOTICE_TONE.success)} data-lead-converted>
+          <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />
           This lead was converted to {convertedTargets.join(' and ')}.
         </div>
       )}
