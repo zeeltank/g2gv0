@@ -113,6 +113,7 @@ export function useRolePermissions(): RolePermissionsResult {
       setHasChanges(false)
       queryClient.invalidateQueries({ queryKey: ['role-permissions', 'rights'] })
       queryClient.invalidateQueries({ queryKey: ['sidebar-navigation'] })
+      queryClient.invalidateQueries({ queryKey: ['platform-services-access'] })
     },
     onError: (error) => setActionError(toMessage(error, 'Failed to save permissions')),
   })
