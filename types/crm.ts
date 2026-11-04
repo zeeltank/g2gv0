@@ -100,10 +100,76 @@ export interface Lead {
   hasRealName?: boolean
   enrichmentStatus?: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
   isQualifiedForOutreach?: boolean
+  /**
+   * Agentic CRM slice 6 (hp_erp docs/agentic-crm/slices/S06-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it (the backend
+   * may not be deployed yet) leaves the key out, and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/leads/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   */
+  product?: LeadProductRef | null
+  organisationAccount?: LeadOrganisationAccountRef | null
+  sourceSignalId?: number | null
+  /** The signal the lead was made from; the detail answer only. */
+  sourceSignal?: LeadSourceSignal | null
+  /** What the one consent gate says about each channel; the detail answer only. */
+  consent?: LeadConsent | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md): the campaign the lead first came from. OPTIONAL like the fields above: a
+   * missing key is an older server, `null` is a lead that came from no campaign. lib/campaigns/model.ts reads it.
+   */
+  campaign?: LeadCampaignRef | null
+}
+
+/** The campaign a lead first came from (read through the lead's own organisation by the server). */
+export interface LeadCampaignRef {
+  id: number
+  name: string
+}
+
+/** The product (a Product Master record) a lead is for. */
+export interface LeadProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The organisation account (Organisation 360 identity) a lead belongs to. */
+export interface LeadOrganisationAccountRef {
+  id: number
+  name: string
+}
+
+/** The signal a lead came from. Everything in it came from the web or a model: it is plain text and is shown as text. */
+export interface LeadSourceSignal {
+  id: number
+  title: string | null
+  sourceUrl: string | null
+  /** `YYYY-MM-DD` of the event the source describes; null when the source states none. */
+  eventDate: string | null
+  /** `YYYY-MM-DD` the source was published; shown only when no event date is stated. */
+  sourcePublishedAt?: string | null
+  /** A business-fit code (a product's key, `multiple`, ...). */
+  businessFit: string | null
+  /**
+   * The source's own words (`quoteKind` `excerpt`) or the signal's description of what happened (`observed_event`, which is NOT a quote and is never labelled as
+   * one). Not in the contract's written list; hp_erp's `LeadSignalEvidence` (slice 6, in progress) sends it, so it is read when present and never required.
+   */
+  quote?: string | null
+  quoteKind?: 'excerpt' | 'observed_event' | null
+}
+
+export interface LeadConsentChannel {
+  allowed: boolean
+  /** A sentence for a person; null when nothing blocks the channel. */
+  reason: string | null
+}
+
+export interface LeadConsent {
+  email?: LeadConsentChannel
+  sms?: LeadConsentChannel
 }
 
 export type LeadPayload = Partial<
-  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'organisationAccount' | 'sourceSignalId' | 'sourceSignal' | 'consent'>
 >
 
 export interface LeadListResponse {
@@ -223,7 +289,15 @@ export interface LeadListQuery {
   sortDir?: 'asc' | 'desc'
   leadStatus?: string
   assignedTo?: string
+  /** A Product Master id; 0 or absent = every product. Sent as `product_id`. */
+  productId?: number
+  /** `allowed` or `blocked` for email, through the consent gate; absent = every lead. Sent as `consent`. */
+  consent?: LeadConsentFilter
+  /** True = only leads made from a signal. Sent as `has_signal=1`. */
+  hasSignal?: boolean
 }
+
+export type LeadConsentFilter = 'allowed' | 'blocked'
 
 export interface ConvertLeadPayload {
   createOrganization: boolean
@@ -241,6 +315,9 @@ export interface ConvertLeadResponse {
     organizationId: string | null
     contactId: string | null
     opportunityId: string | null
+    /** Present when no contact was made because the lead names no person (slice 6); `notice` says why, in words. */
+    contactSkipped?: boolean
+    notice?: string
   }
 }
 
@@ -416,9 +493,66 @@ export interface Campaign {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it
+   * (an older one) leaves the key out and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/campaigns/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   * `product` is on the list and the detail answers; the other three on the detail answer only.
+   */
+  product?: CampaignProductRef | null
+  funnel?: CampaignFunnel | null
+  gtmCampaign?: CampaignGtmRef | null
+  leads?: CampaignLeadsRef | null
 }
 
-export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+/** The product (a Product Master record) a campaign is filed under. */
+export interface CampaignProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/**
+ * How a campaign is doing, counted from the touchpoints its targets have recorded. `targets` is how many targets the campaign has; each other number is how
+ * many of them have that touchpoint recorded. A target that replied and booked a meeting counts in both, so a step can be higher than the one before it.
+ */
+export interface CampaignFunnel {
+  targets: number
+  sent: number
+  opened: number
+  replied: number
+  meetings: number
+  converted: number
+  optedOut: number
+}
+
+/** The GTM campaign that is the same campaign as this CRM one. */
+export interface CampaignGtmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** The CRM campaign that is the same campaign as a GTM one (the GTM screen's side of the link). */
+export interface CampaignCrmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** How many of the organisation's leads first came from this campaign. */
+export interface CampaignLeadsRef {
+  count: number
+}
+
+/**
+ * What a create or edit sends. The slice-9 fields the server ANSWERS with are not part of it; the one link a person may set is the product, by the contract's
+ * own name (the server also accepts `productMasterId`). It is left out unless the person chose or changed it, so a form that never touched the product
+ * cannot change it (lib/campaigns/model.ts `productPayload`).
+ */
+export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'funnel' | 'gtmCampaign' | 'leads'>> & {
+  product_master_id?: number | null
+}
 
 export interface CampaignListResponse {
   status: number
@@ -754,10 +888,36 @@ export interface CrmProduct {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * What the Products screen knows about this item through the product lines behind it (the Product Master). Always sent by an up-to-date server, absent
+   * from an older one, and null for an item tied to no sub-product: the list then shows no extra columns for it.
+   */
+  masterId?: number | null
+  masterKind?: 'product' | 'sub_product' | 'item' | null
+  masterStatus?: 'active' | 'archived' | null
+  /** The product line the item's sub-product sits under. */
+  productLine?: { id: number; name: string } | null
+  /** The sub-product's ID in the Portfolio. */
+  offerId?: string | null
+  /** Signals recorded for the sub-product. */
+  signalsFound?: number | null
+  icp?: CrmIcpState | null
+}
+
+/** The state of an ideal-customer profile, as the server words it. */
+export type CrmIcpState = 'active' | 'draft' | 'archived' | 'template' | 'none'
+
+/** What the Products list says about the product lines behind it: whether they exist on this server, how many items are tied to one, and how many there are. */
+export interface CrmProductLines {
+  available: boolean
+  linked: number
+  productLines: number
+  subProducts: number
 }
 
 export type CrmProductPayload = Partial<
-  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'
+  | 'masterId' | 'masterKind' | 'masterStatus' | 'productLine' | 'offerId' | 'signalsFound' | 'icp'>
 >
 
 export interface CrmProductBundleItem {
@@ -772,7 +932,8 @@ export interface CrmProductBundleItem {
 export interface CrmProductListResponse {
   status: number
   message: string
-  data: { items: CrmProduct[]; pagination: CrmPagination }
+  /** `lines` is absent from a server that predates the product lines. */
+  data: { items: CrmProduct[]; pagination: CrmPagination; lines?: CrmProductLines }
 }
 
 export interface CrmProductResponse {
@@ -819,15 +980,48 @@ export interface CrmOpportunity {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Agentic CRM slice 11 (hp_erp docs/agentic-crm/slices/S11-pipeline-and-forecast.md, "Contract"). Both fields are OPTIONAL: a server that does not send them
+   * (an older one) leaves the key out and the screens render without them. `null` means "none"; a missing key means "this server does not say".
+   * lib/opportunities/model.ts reads them from the server's answer (the contract's `loss_reason` and the presenter-style `lossReason` are both accepted).
+   */
+  product?: OpportunityProductRef | null
+  lossReason?: OpportunityLossReasonRef | null
 }
 
+/** The product (a Product Master record) an opportunity is for. */
+export interface OpportunityProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The coded reason an opportunity was lost: the code that is stored and the plain-English label the server gives it. */
+export interface OpportunityLossReasonRef {
+  code: string
+  label: string
+}
+
+/** One of the loss reasons the server accepts (the pipeline answer's `lossReasons`). */
+export interface OpportunityLossReasonOption {
+  code: string
+  label: string
+}
+
+/**
+ * What a create or edit sends. The slice-11 fields the server ANSWERS with (`product`, `lossReason`) are not part of it; the two a person may set go under the
+ * names the endpoint reads: `productMasterId` and `lossReasonCode`. Each is left out unless the person chose or changed it (lib/opportunities/model.ts).
+ */
 export type CrmOpportunityPayload = Partial<
   Omit<
     CrmOpportunity,
     'id' | 'opportunityNo' | 'organizationName' | 'campaignName' | 'weightedRevenue'
-    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy'
+    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'lossReason'
   >
->
+> & {
+  productMasterId?: number | null
+  lossReasonCode?: string | null
+}
 
 export interface CrmOpportunityListResponse {
   status: number
@@ -864,6 +1058,8 @@ export interface CrmOpportunityPipelineResponse {
       count: number
       totalAmount: number
     }>
+    /** Slice 11b: the loss-reason codes the server accepts. OPTIONAL: an older server does not send it (the screens then ask for free text only). */
+    lossReasons?: OpportunityLossReasonOption[]
   }
 }
 
@@ -874,6 +1070,8 @@ export interface CrmOpportunityStageChangePayload {
   closingDate?: string | null
   /** Required when salesStage is "Closed Lost" and the opportunity wasn't already lost. */
   closeReason?: string | null
+  /** Slice 11b: one of the pipeline answer's `lossReasons` codes; sent only with a move into Closed Lost. */
+  lossReasonCode?: string | null
 }
 
 export interface CrmOpportunityStageHistoryEntry {

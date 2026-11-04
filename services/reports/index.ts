@@ -219,10 +219,22 @@ export const reportBuilderService = {
       bodyParams(context, { scope, report_type: reportType, primary_module: primaryModule, folder_id: null, title: '(preview)', definition }),
     ),
 
-  run: (context: LaravelContext, id: number, opts?: { page?: number; perPage?: number; fresh?: boolean }) =>
+  // datePreset/dateFrom/dateTo/dateN override the saved report's own
+  // standard_filter for THIS run only (never written back - same
+  // view-time-only principle as page/perPage, ReportController::run()'s own
+  // docblock). datePreset: 'all' explicitly clears the date filter - NOT ''
+  // (queryParams() below drops an empty string before it ever reaches the
+  // request, making it indistinguishable from "no override given" at all).
+  run: (context: LaravelContext, id: number, opts?: {
+    page?: number; perPage?: number; fresh?: boolean
+    datePreset?: string; dateFrom?: string; dateTo?: string; dateN?: number
+  }) =>
     apiClient.get<{ status: boolean; data: ReportResult; message?: string }>(
       `/report-builder/${id}/run`,
-      queryParams(context, { page: opts?.page, per_page: opts?.perPage, fresh: opts?.fresh ? '1' : undefined }),
+      queryParams(context, {
+        page: opts?.page, per_page: opts?.perPage, fresh: opts?.fresh ? '1' : undefined,
+        date_preset: opts?.datePreset, date_from: opts?.dateFrom, date_to: opts?.dateTo, date_n: opts?.dateN,
+      }),
     ),
 
   exportUrl: (context: LaravelContext, id: number) =>

@@ -62,7 +62,8 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
           state: lead.state ?? '', country: lead.country ?? '', postalCode: lead.postalCode ?? '',
           poBox: lead.poBox ?? '', description: lead.description ?? '', assignedTo: lead.assignedTo ?? '',
         }
-      : EMPTY)
+      // A new lead starts assigned to the person adding it: the server has no rotation to fall back on unless the tenant turned one on, and answers 422 without an owner.
+      : { ...EMPTY, assignedTo: context.userId })
     setError('')
   } else if (!isOpen && seededFrom !== 'unset') {
     setSeededFrom('unset')
@@ -211,8 +212,13 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
               value={form.assignedTo ?? ''}
               onChange={(v) => set('assignedTo', v)}
               options={employees.map((e) => ({ value: e.id, label: e.name }))}
-              placeholder={lead ? 'Choose an employee…' : 'Leave blank to auto-assign, if configured…'}
+              placeholder="Choose an employee…"
             />
+            {!lead && (
+              <p className="text-xs text-muted-foreground" data-assign-hint>
+                Starts as you. Choose someone else to hand it over; clear it only if your organisation has automatic assignment turned on, otherwise saving is refused.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

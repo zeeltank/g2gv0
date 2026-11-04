@@ -1,319 +1,346 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import {
-  Activity, AlertCircle, BookOpen, Building2, ChevronDown, ChevronRight,
-  ExternalLink, Globe, Link2, Loader2, Mail, Phone, Radio, Shield,
-  ShieldCheck, Target, Users, Zap,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import type { LaravelContext } from '@/lib/laravel-context'
+import { useConfirm } from '@/components/shared/scaffolds/use-confirm'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { getLaravelContext, isLaravelContextReady, type LaravelContext } from '@/lib/laravel-context'
+import { availableActions } from '@/lib/org-accounts/display'
+import type { OwnerOption } from '@/lib/org-accounts/edit-model'
+import { classifyLoadFailure, linkFailureText, type LoadFailure } from '@/lib/org-accounts/failure'
+import { buildLinks, type OrgLinks } from '@/lib/org-accounts/links'
+import type { OldAccount360 } from '@/lib/org-accounts/old-sections'
+import { confirmCopy, decidedNotice, linkRequest, type LinkAction } from '@/lib/org-accounts/suggestions'
 import { crmService } from '@/services/crm'
-import type { Account360, EntityRelationship, KnowledgeSource } from '@/types/crm'
+import type { OrgAccountsApi } from '@/services/org-accounts/api-types'
+import { orgAccountsService } from '@/services/org-accounts/org-accounts-service'
+import type { Org360, OrgMeta, OrgSuggestion } from '@/services/org-accounts/types'
+import { FactEvidenceSection } from './fact-evidence-section'
+import { useAssignableEmployees } from './lead-employees'
+import { ContactsSection, DealsSection, LinkedRecordsCard, OldSections, SignalsSection, WhyNowStrip, type OldSectionsState } from './org-account-360-parts'
+import { OrgAccountEditForm } from './org-account-edit-form'
+import { returnFocusTo } from './org-account-focus'
+import { NoticeBar, type ScreenNotice } from './org-account-parts'
+import { OrgAgentPanel } from './org-agent-panel'
 
-interface Props {
+/** What the tab says to a person whose role cannot read the sections that follow the Market Signals right. */
+export const OLD_SECTIONS_FORBIDDEN_TEXT = 'Campaigns, knowledge sources, relationships and the signal inbox follow the Market Signals right, which your role does not have. Everything above is unaffected.'
+
+type IdentityState = { kind: 'loading' } | { kind: 'ready'; org: Org360 } | { kind: 'problem'; problem: LoadFailure }
+
+/** What the tab hands to whatever it shows as the organisation's agent: who it is about, and the two ways the agent tells the tab that things changed. */
+export interface AgentSlot {
+  /** The Organisation 360 identity of this organization (g2g_org_accounts.id): what the agent works on. */
+  identityId: number
+  /** The agent added a note or a task, or a person accepted one: the tab reads the organization again and the page reads its Comments and History. */
+  onRecordsChanged: () => void
+  /** Accepting a link made this organization part of another one: the tab asks again for this CRM organization and lands on the identity that holds it now. */
+  onOrganisationChanged: (identityId: number) => void
+}
+
+/** What the tab hands to whatever it shows as the organization's Evidence section: which organization, and (only when the page can use it) what to do when an accepted fact wrote the organization's own field. */
+export interface EvidenceSlot {
+  /** The CRM organization (crm_organizations.id): the facts API is keyed by the record the fact is about. */
   organizationId: string
-  context: LaravelContext
+  onWroteRecord?: () => void
 }
 
-function Section({ title, icon: Icon, count, children, defaultOpen = true }: {
-  title: string
-  icon: typeof Users
-  count?: number
-  children: React.ReactNode
-  defaultOpen?: boolean
+/**
+ * The Account 360 tab of an organization: the identity-based 360 (why now, the linked records with the reason for each link, the signals, the contacts
+ * and the open deals) and, below it, the sections only the old Account 360 had (campaigns, knowledge sources, relationships, signal inbox). It replaces
+ * the old tab AND the name-matched GTM & Signals tab: the CRM, GTM and Signals records are shown as one organisation, linked on exact evidence or by a person.
+ *
+ * Opening the tab ensures the organization has an identity (it makes one on the spot, from an exact name or website only, when a CRM organization made after
+ * the last backfill has none). `service`, `loadOld`, `links` and `owners` are for tests and for the wiring below; the tab itself is `Account360`.
+ */
+export function Account360View({ organizationId, service, loadOld, links, owners = [], onOpenTab, onEditOpen, onRecordsChanged, onRecordWritten, agent: Agent, evidence: Evidence }: {
+  organizationId: string
+  service: OrgAccountsApi
+  loadOld: () => Promise<OldAccount360>
+  links: OrgLinks
+  /** The people an owner can be chosen from. */
+  owners?: readonly OwnerOption[]
+  onOpenTab?: (tab: 'opportunities') => void
+  /** The Edit drawer is about to open: a good moment to read the people. */
+  onEditOpen?: () => void
+  /** The agent changed the organization's notes or tasks: the page reads its Comments and History again. */
+  onRecordsChanged?: () => void
+  /**
+   * An accepted fact in the Evidence section wrote the organization's own field (its website, its email): the page must show the new value, or editing
+   * the organization would start from the old one. Leave it out and the Evidence section tells the person to reload the page instead.
+   */
+  onRecordWritten?: () => void
+  /** The organization's agent, a component shown between "why now" and the linked records (nothing when absent: the tab's own tests need no agent). */
+  agent?: ComponentType<AgentSlot>
+  /** The organization's Evidence section, shown right after the linked records (nothing when absent: the tab's own tests need no facts). */
+  evidence?: ComponentType<EvidenceSlot>
 }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-          {title}
-          {count !== undefined && (
-            <Badge variant="secondary" className="ml-1 text-xs">{count}</Badge>
-          )}
-        </span>
-        {open
-          ? <ChevronDown className="size-4 text-muted-foreground" />
-          : <ChevronRight className="size-4 text-muted-foreground" />}
-      </button>
-      {open && <div className="border-t border-border px-4 pb-4 pt-3">{children}</div>}
-    </div>
-  )
-}
+  const context = useMemo(() => getLaravelContext(), [])
+  const { confirm, confirmDialog } = useConfirm()
 
-function Empty({ message }: { message: string }) {
-  return <p className="py-4 text-center text-sm text-muted-foreground">{message}</p>
-}
+  const [identity, setIdentity] = useState<IdentityState>({ kind: 'loading' })
+  const [meta, setMeta] = useState<OrgMeta | null>(null)
+  const [matches, setMatches] = useState<OrgSuggestion[] | null>(null)
+  const [matchesError, setMatchesError] = useState('')
+  const [oldState, setOldState] = useState<OldSectionsState>({ kind: 'loading' })
+  const [notice, setNotice] = useState<ScreenNotice | null>(null)
+  const [busy, setBusy] = useState<{ key: string; action: LinkAction } | null>(null)
+  const [failure, setFailure] = useState('')
+  const [drawer, setDrawer] = useState({ open: false, version: 0 })
 
-const CLASSIFICATION_COLORS: Record<string, string> = {
-  buying_signal: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  brand_mention: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  competitor_move: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  industry_trend: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  irrelevant: 'bg-muted text-muted-foreground',
-  unclassified: 'bg-muted text-muted-foreground',
-}
+  const noticeBar = useRef<HTMLDivElement>(null)
+  const focusNotice = useRef(false)
+  const editTrigger = useRef<HTMLElement | null>(null)
+  // Only the newest request may change what is shown.
+  const latestIdentity = useRef(0)
+  const latestMatches = useRef(0)
+  const latestOld = useRef(0)
 
-function ConfidenceBar({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-xs text-muted-foreground">—</span>
-  const pct = Math.round(value * 100)
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-        <span
-          className={cn('block h-full rounded-full', pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-400')}
-          style={{ width: `${pct}%` }}
-        />
-      </span>
-      <span className="text-xs text-muted-foreground">{pct}%</span>
-    </span>
-  )
-}
-
-function Skeleton() {
-  return (
-    <div className="space-y-3 animate-pulse">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="h-14 rounded-lg bg-muted" />
-      ))}
-    </div>
-  )
-}
-
-const SOURCE_TYPE_ICONS: Record<string, typeof BookOpen> = {
-  web_scrape: Globe,
-  linkedin: Link2,
-  news: Radio,
-  document: BookOpen,
-  manual: Target,
-  api: Zap,
-}
-
-export function Account360({ organizationId, context }: Props) {
-  const [data, setData] = useState<Account360 | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await crmService.getAccount360(context, organizationId)
-      setData(res.data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load Account 360.')
-    } finally {
-      setLoading(false)
+  /** `quiet` reads the 360 again behind the page, without the loading state; a failure then leaves what is on screen alone. */
+  const loadIdentity = useCallback(async (quiet = false): Promise<Org360 | null> => {
+    if (!isLaravelContextReady(context)) {
+      setIdentity({ kind: 'problem', problem: { kind: 'error', message: 'Your ERP session is unavailable. Please sign in again.' } })
+      return null
     }
-  }, [context, organizationId])
+    const mine = ++latestIdentity.current
+    if (!quiet) setIdentity({ kind: 'loading' })
+    try {
+      const response = await service.forCrm(organizationId)
+      if (mine !== latestIdentity.current) return null
+      setIdentity({ kind: 'ready', org: response.data })
+      return response.data
+    } catch (cause) {
+      if (mine !== latestIdentity.current || quiet) return null
+      setIdentity({ kind: 'problem', problem: classifyLoadFailure(cause, 'The linked records could not be loaded.') })
+      return null
+    }
+  }, [context, service, organizationId])
 
-  useEffect(() => { void load() }, [load])
+  const loadMatches = useCallback(async (identityId: number) => {
+    const mine = ++latestMatches.current
+    setMatchesError('')
+    try {
+      const response = await service.suggestions(identityId)
+      if (mine !== latestMatches.current) return
+      setMatches(response.data)
+    } catch (cause) {
+      if (mine !== latestMatches.current) return
+      setMatchesError(classifyLoadFailure(cause, 'The possible matches could not be loaded.').message)
+    }
+  }, [service])
 
-  if (loading) return <Skeleton />
+  const loadOldSections = useCallback(async () => {
+    const mine = ++latestOld.current
+    setOldState({ kind: 'loading' })
+    try {
+      const data = await loadOld()
+      if (mine !== latestOld.current) return
+      setOldState({ kind: 'ready', data })
+    } catch (cause) {
+      if (mine !== latestOld.current) return
+      const problem = classifyLoadFailure(cause, 'These sections could not be loaded.')
+      setOldState(problem.kind === 'forbidden' ? { kind: 'forbidden', message: OLD_SECTIONS_FORBIDDEN_TEXT } : { kind: 'error', message: problem.message })
+    }
+  }, [loadOld])
 
-  if (error) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-        <AlertCircle className="size-4 shrink-0" />
-        {error}
-        <Button variant="ghost" size="sm" onClick={() => void load()} className="ml-auto">Retry</Button>
-      </div>
-    )
+  useEffect(() => {
+    queueMicrotask(() => { void loadIdentity() })
+  }, [loadIdentity])
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadOldSections() })
+  }, [loadOldSections])
+
+  // What this person may do. If it cannot be read, nothing is offered.
+  useEffect(() => {
+    if (!isLaravelContextReady(context)) return
+    let cancelled = false
+    service.meta().then((response) => { if (!cancelled) setMeta(response.data) }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [context, service])
+
+  const identityId = identity.kind === 'ready' ? identity.org.identity.id : null
+  useEffect(() => {
+    if (identityId !== null) queueMicrotask(() => { void loadMatches(identityId) })
+  }, [identityId, loadMatches])
+
+  // After the button that was pressed has left the page (its pair is settled), the focus goes to the notice instead of to nowhere.
+  useEffect(() => {
+    if (notice && focusNotice.current) {
+      focusNotice.current = false
+      noticeBar.current?.focus()
+    }
+  }, [notice])
+
+  const can = availableActions(meta)
+
+  /** A person's answer to one possible match: asked first, then done, then the 360 and the matches are read again (two records are now one organisation). */
+  const decide = async (suggestion: OrgSuggestion, action: LinkAction, trigger: HTMLElement) => {
+    if (busy) return
+    if (!(await confirm(confirmCopy(suggestion, action)))) {
+      returnFocusTo(trigger)
+      return
+    }
+    setBusy({ key: suggestion.key, action })
+    setFailure('')
+    try {
+      await service.link(linkRequest(suggestion, action))
+      focusNotice.current = true
+      setNotice({ tone: 'success', text: decidedNotice(suggestion, action) })
+      const org = await loadIdentity(true)
+      if (org) await loadMatches(org.identity.id)
+    } catch (cause) {
+      focusNotice.current = false
+      setFailure(linkFailureText(cause))
+      returnFocusTo(trigger)
+    } finally {
+      setBusy(null)
+    }
   }
 
-  if (!data) return null
+  const openEdit = (trigger: HTMLElement) => {
+    editTrigger.current = trigger
+    onEditOpen?.()
+    setDrawer((d) => ({ open: true, version: d.version + 1 }))
+  }
+  const closeEdit = () => {
+    setDrawer((d) => ({ ...d, open: false }))
+    returnFocusTo(editTrigger.current)
+  }
+  const onSaved = async () => {
+    closeEdit()
+    const org = await loadIdentity(true)
+    setNotice({ tone: 'success', text: org ? 'Saved.' : 'Saved. Reload the page to see the change here.' })
+  }
 
-  const org = data.organization
-  const openOpportunities = data.opportunities.filter((o) => !['Closed Won', 'Closed Lost'].includes(o.salesStage ?? ''))
+  /** The agent (or a person accepting its proposal) added a note or a task: the 360 is read again (the "last activity" fact moved) and the page reads its tabs. */
+  const recordsChanged = () => {
+    void loadIdentity(true)
+    onRecordsChanged?.()
+  }
+  /**
+   * Accepting a link made this organization part of another one, and the identity this tab showed may be the one that was removed. The page is keyed by the CRM
+   * organization, so asking again for it answers with the identity that holds it now (the survivor, never the removed one); its matches are read with it.
+   */
+  const organisationChanged = () => {
+    void (async () => {
+      const next = await loadIdentity(true)
+      if (next) await loadMatches(next.identity.id)
+    })()
+  }
+
+  const org = identity.kind === 'ready' ? identity.org : null
 
   return (
-    <div className="space-y-3">
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Contacts', value: data.contacts.length, icon: Users },
-          { label: 'Opportunities', value: data.opportunities.length, icon: Target },
-          { label: 'Signals', value: data.signals.length, icon: Activity },
-          { label: 'Campaigns', value: data.campaigns.length, icon: Radio },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-            <Icon className="size-5 text-muted-foreground" />
-            <div>
-              <p className="text-lg font-semibold text-foreground leading-none">{value}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-4">
+      {notice && <NoticeBar ref={noticeBar} notice={notice} onDismiss={() => setNotice(null)} />}
 
-      {/* Recent Signals */}
-      <Section title="Recent Signals" icon={Activity} count={data.signals.length} defaultOpen={data.signals.length > 0}>
-        {data.signals.length === 0
-          ? <Empty message="No signals linked to this account." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.signals.map((s) => (
-                <li key={s.id} className="flex items-start justify-between gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
-                    <p className="text-xs text-muted-foreground">{s.sourceName ?? '—'} · {s.publishedAt ? new Date(s.publishedAt).toLocaleDateString() : '—'}</p>
-                  </div>
-                  <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-xs font-medium', CLASSIFICATION_COLORS[s.classification] ?? CLASSIFICATION_COLORS.unclassified)}>
-                    {s.classification.replace(/_/g, ' ')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
+      {identity.kind === 'loading' && (
+        <div role="status" aria-label="Loading the linked records" className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />)}
+        </div>
+      )}
 
-      {/* Contacts */}
-      <Section title="Contacts" icon={Users} count={data.contacts.length}>
-        {data.contacts.length === 0
-          ? <Empty message="No contacts linked to this organization." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.contacts.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">{c.firstName} {c.lastName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{c.title ?? ''}{c.title && c.email ? ' · ' : ''}{c.email ?? ''}</p>
-                  </div>
-                  {c.consentStatus && (
-                    <span className={cn('shrink-0 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
-                      c.consentStatus === 'opted_in' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                      c.consentStatus === 'opted_out' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                      'bg-muted text-muted-foreground'
-                    )}>
-                      <ShieldCheck className="size-3" />
-                      {c.consentStatus.replace(/_/g, ' ')}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
+      {identity.kind === 'problem' && (
+        <div role={identity.problem.kind === 'error' ? 'alert' : 'status'} data-identity-problem={identity.problem.kind} className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-border bg-card p-4 text-sm text-foreground">
+          <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+          <span>{identity.problem.message}</span>
+          {identity.problem.kind === 'error' && <Button variant="outline" size="sm" className="ml-auto" onClick={() => void loadIdentity()}>Retry</Button>}
+        </div>
+      )}
 
-      {/* Open Opportunities */}
-      <Section title="Open Opportunities" icon={Target} count={openOpportunities.length}>
-        {openOpportunities.length === 0
-          ? <Empty message="No open opportunities for this account." />
-          : (
-            <ul className="divide-y divide-border">
-              {openOpportunities.map((o) => (
-                <li key={o.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{o.opportunityName}</p>
-                    <p className="text-xs text-muted-foreground">Close: {o.closeDate ?? '—'}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {o.amount != null && (
-                      <span className="text-sm font-semibold text-foreground">{o.currency ?? ''} {Number(o.amount).toLocaleString()}</span>
-                    )}
-                    <Badge variant="outline" className="text-xs">{o.salesStage ?? 'Unknown'}</Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
+      {org && (
+        <>
+          <WhyNowStrip why={org.why_now} />
 
-      {/* Recent Campaigns */}
-      <Section title="Recent Campaigns" icon={Radio} count={data.campaigns.length} defaultOpen={false}>
-        {data.campaigns.length === 0
-          ? <Empty message="This account hasn't been targeted in any campaign." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.campaigns.map((c) => (
-                <li key={c.campaignId} className="flex items-center justify-between gap-3 py-2.5">
-                  <p className="min-w-0 truncate text-sm text-foreground">{c.campaignName}</p>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">{c.responseStatus}</Badge>
-                    {c.sentAt && <span className="text-xs text-muted-foreground">{new Date(c.sentAt).toLocaleDateString()}</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
+          {/* THE ORGANISATION AGENT (components/domain/crm/org-agent-panel.tsx), between "why now" and the linked records. `Account360` below renders it. */}
+          {/* Keyed by the identity: after a merge the survivor is a different record, and the agent starts fresh on it. */}
+          {Agent && <Agent key={org.identity.id} identityId={org.identity.id} onRecordsChanged={recordsChanged} onOrganisationChanged={organisationChanged} />}
 
-      {/* Knowledge Sources */}
-      <Section title="Knowledge Sources" icon={BookOpen} count={data.knowledgeSources.length} defaultOpen={false}>
-        {data.knowledgeSources.length === 0
-          ? <Empty message="No knowledge sources recorded for this account." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.knowledgeSources.map((k) => {
-                const SourceIcon = SOURCE_TYPE_ICONS[k.sourceType] ?? BookOpen
-                return (
-                  <li key={k.id} className="flex items-start gap-3 py-2.5">
-                    <SourceIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">{k.title ?? k.sourceType}</p>
-                        {k.verified && (
-                          <span className="flex items-center gap-0.5 rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                            <ShieldCheck className="size-3" /> Verified
-                          </span>
-                        )}
-                      </div>
-                      {k.url && (
-                        <a href={k.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 truncate text-xs text-primary hover:underline">
-                          <ExternalLink className="size-3" />
-                          {k.url.length > 60 ? `${k.url.slice(0, 60)}…` : k.url}
-                        </a>
-                      )}
-                      <div className="mt-1 flex items-center gap-3">
-                        <ConfidenceBar value={k.confidence} />
-                        {k.collectedAt && <span className="text-xs text-muted-foreground">{new Date(k.collectedAt).toLocaleDateString()}</span>}
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-      </Section>
+          <LinkedRecordsCard
+            org={org}
+            links={links}
+            matches={matches}
+            matchesError={matchesError}
+            canEdit={can.edit}
+            canConfirm={can.confirmLinks}
+            busy={busy}
+            failure={failure}
+            onEdit={openEdit}
+            onDecide={(suggestion, action, trigger) => void decide(suggestion, action, trigger)}
+            onRetryMatches={() => void loadMatches(org.identity.id)}
+          />
+          {/* The facts an agent or a source suggested about this organization, with their evidence (components/domain/crm/fact-evidence-section.tsx). `Account360` below renders it. */}
+          {Evidence && <Evidence organizationId={organizationId} onWroteRecord={onRecordWritten ? () => { onRecordWritten(); void loadIdentity(true) } : undefined} />}
+          <SignalsSection org={org} links={links} />
+          <ContactsSection org={org} />
+          <DealsSection org={org} links={links} onOpenTab={onOpenTab} />
+        </>
+      )}
 
-      {/* Entity Relationships */}
-      <Section title="Relationships" icon={Link2} count={data.relationships.length} defaultOpen={false}>
-        {data.relationships.length === 0
-          ? <Empty message="No explicit relationships recorded." />
-          : (
-            <ul className="divide-y divide-border">
-              {data.relationships.map((r: EntityRelationship) => {
-                const isFrom = r.fromType === 'organization'
-                const connType = isFrom ? r.toType : r.fromType
-                const connId = isFrom ? r.toId : r.fromId
-                return (
-                  <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-foreground">
-                        <span className="font-medium">{r.relationshipType.replace(/_/g, ' ')}</span>
-                        {' '}→{' '}
-                        <span className="text-muted-foreground">{connType} #{connId}</span>
-                      </p>
-                      {r.source && <p className="text-xs text-muted-foreground">Source: {r.source}</p>}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <ConfidenceBar value={r.confidence} />
-                      {r.verified && <ShieldCheck className="size-4 text-green-500" title="Verified" />}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-      </Section>
+      <OldSections state={oldState} organizationId={organizationId} onRetry={() => void loadOldSections()} />
+
+      {org && can.edit && (
+        <OrgAccountEditForm
+          key={drawer.version}
+          open={drawer.open}
+          identity={org.identity}
+          lifecycles={meta?.lifecycles ?? []}
+          owners={owners}
+          service={service}
+          onClose={closeEdit}
+          onSaved={() => void onSaved()}
+        />
+      )}
+      {confirmDialog}
     </div>
+  )
+}
+
+/** The real agent of the tab: track Z's panel, working on the identity the tab hands it and telling the tab when it changed records or merged organisations. */
+function OrgAgentSlot({ identityId, onRecordsChanged, onOrganisationChanged }: AgentSlot) {
+  return <OrgAgentPanel orgAccountId={identityId} onRecordsChanged={onRecordsChanged} onOrganisationChanged={onOrganisationChanged} />
+}
+
+/** The real Evidence section of the tab: the facts about this CRM organization, and, when the page can use it, what to do after one wrote the organization's own field. */
+function OrgEvidenceSlot({ organizationId, onWroteRecord }: EvidenceSlot) {
+  return <FactEvidenceSection entityType="organization" entityId={organizationId} onWroteRecord={onWroteRecord} />
+}
+
+/** The Account 360 tab as the Organization detail page uses it: the real service, this person's menu for the links, and the people for the owner choice. */
+export function Account360({ organizationId, context, onOpenTab, onRecordsChanged, onRecordWritten }: {
+  organizationId: string
+  context: LaravelContext
+  onOpenTab?: (tab: 'opportunities') => void
+  /** The agent changed the organization's notes or tasks: the page reads its Comments and History again. */
+  onRecordsChanged?: () => void
+  /** An accepted fact wrote the organization's own field: the page reads the organization again so it (and the Edit form) shows the new value. */
+  onRecordWritten?: () => void
+}) {
+  const { resolveAccessLink } = useSidebarNavigation()
+  const [wantOwners, setWantOwners] = useState(false)
+  const employees = useAssignableEmployees(context, wantOwners)
+
+  const loadOld = useCallback(async (): Promise<OldAccount360> => {
+    const response = await crmService.getAccount360(context, organizationId)
+    const { campaigns, knowledgeSources, relationships, signals } = response.data
+    return { campaigns, knowledgeSources, relationships, signals }
+  }, [context, organizationId])
+
+  return (
+    <Account360View
+      organizationId={organizationId}
+      service={orgAccountsService}
+      loadOld={loadOld}
+      links={buildLinks(resolveAccessLink)}
+      owners={employees}
+      onOpenTab={onOpenTab}
+      onEditOpen={() => setWantOwners(true)}
+      onRecordsChanged={onRecordsChanged}
+      onRecordWritten={onRecordWritten}
+      agent={OrgAgentSlot}
+      evidence={OrgEvidenceSlot}
+    />
   )
 }

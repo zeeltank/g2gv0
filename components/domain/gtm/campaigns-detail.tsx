@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,12 +11,18 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { crmCampaignHref, crmCampaignText, productText, readGtmLinks } from '@/lib/campaigns/model'
+import { CRM_CAMPAIGNS_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { campaignService, type CampaignDetail, type CampaignStatus, type Segment } from '@/services/gtm/campaigns'
 import { gtmService, type GtmAccount } from '@/services/gtm/gtm'
 import { MeasuredTag, StatTile, fmtDate } from './gtm-shared'
 import { detailedErr, label, money, pct } from './campaigns-shared'
 
 const CONFIRM_STATES: CampaignStatus[] = ['completed', 'archived']
+
+/** A destructive action on an outline button: the words stay foreground on the page background (the shared `text-destructive` is 4.32:1 there), only the border says "careful". */
+const DESTRUCTIVE_BUTTON = 'border-destructive text-foreground'
 
 export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, onChanged }: {
   id: number; segments: Segment[]; ownerName: (id: number | null) => string; onBack: () => void; onEdit: (d: CampaignDetail) => void; onChanged: () => void
@@ -25,6 +32,8 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Slice 9: the link to the CRM campaign is offered only when the person's menu holds the Campaigns row (the hook answers '/dashboard' otherwise).
+  const { resolveAccessLink } = useSidebarNavigation()
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +79,11 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
   const closed = c.status === 'completed' || c.status === 'archived'
   const segment = segments.find((s) => s.id === c.segment_id)
   const accountTargets = new Set(members.map((x) => x.account_id)).size
+  // Slice 9 (read-only): the product and the CRM campaign this one is the same as. A line is drawn only when the server said something about it.
+  const links = readGtmLinks(data)
+  const productLine = productText(links.product)
+  const crmLine = crmCampaignText(links.crmCampaign)
+  const crmHref = links.crmCampaign ? crmCampaignHref(resolveAccessLink(CRM_CAMPAIGNS_ACCESS_LINK), links.crmCampaign.id) : null
 
   return (
     <div className="space-y-6">
@@ -82,11 +96,25 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
             Owner: {ownerName(c.owner_user_id)} · {c.starts_on ? fmtDate(c.starts_on) : 'no start date'} to {c.ends_on ? fmtDate(c.ends_on) : 'no end date'}
             {segment ? ` · Segment: ${segment.name}` : ''}{pack ? ` · Industry pack: ${pack.title}` : c.industry_pack_slug ? ` · Industry pack: ${c.industry_pack_slug}` : ''}
           </p>
+          {(productLine !== null || crmLine !== null) && (
+            <p className="mt-1 break-words text-xs text-muted-foreground" data-gtm-links>
+              {productLine !== null && <span data-gtm-product>Product: {productLine}</span>}
+              {productLine !== null && crmLine !== null && ' · '}
+              {crmLine !== null && (
+                <span data-gtm-crm-campaign>
+                  CRM campaign:{' '}
+                  {crmHref ? (
+                    <Link href={crmHref} className="text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-gtm-crm-link>{crmLine}</Link>
+                  ) : crmLine}
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {!closed && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(data)}>Edit</Button>}
           {transitions.map((t) => (
-            <Button key={t} size="sm" variant={CONFIRM_STATES.includes(t) ? 'outline' : 'default'} className={CONFIRM_STATES.includes(t) ? 'text-destructive' : undefined} disabled={busy} onClick={() => changeStatus(t)}>
+            <Button key={t} size="sm" variant={CONFIRM_STATES.includes(t) ? 'outline' : 'default'} className={CONFIRM_STATES.includes(t) ? DESTRUCTIVE_BUTTON : undefined} disabled={busy} onClick={() => changeStatus(t)}>
               {t === 'active' ? (c.status === 'paused' ? 'Resume' : 'Activate') : t === 'paused' ? 'Pause' : t === 'completed' ? 'Mark completed' : 'Archive'}
             </Button>
           ))}
@@ -154,7 +182,7 @@ export function CampaignDetailView({ id, segments, ownerName, onBack, onEdit, on
                     <td className="p-3">{x.contact_name ? <>{x.contact_name}{x.contact_status && x.contact_status !== 'active' ? <span className="text-xs text-amber-700"> ({label(x.contact_status)})</span> : null}</> : <span className="text-muted-foreground">whole account</span>}</td>
                     <td className="p-3">{fmtDate(x.created_at)}</td>
                     <td className="p-3 text-right">
-                      {!closed && <Button size="sm" variant="outline" className="text-destructive" disabled={busy}
+                      {!closed && <Button size="sm" variant="outline" className={DESTRUCTIVE_BUTTON} disabled={busy} aria-label={`Remove ${x.contact_name ?? x.account_name} from this campaign`}
                         onClick={() => { if (window.confirm(`Remove ${x.contact_name ?? x.account_name} from this campaign?`)) void run(async () => { await campaignService.removeMember(id, x.id); return 'Target removed.' }) }}>Remove</Button>}
                     </td>
                   </tr>
@@ -203,7 +231,7 @@ function AddTargets({ segments, busy, onAdd }: { segments: Segment[]; busy: bool
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-56">
           <div className="mb-1 text-xs font-medium text-muted-foreground">From a segment (up to 2000 matches)</div>
-          <Select value={segmentId} onChange={setSegmentId} placeholder="Choose a segment"
+          <Select value={segmentId} onChange={setSegmentId} placeholder="Choose a segment" aria-label="Segment to add targets from"
             options={segments.map((s) => ({ label: `${s.name} (${s.kind}, ${s.match_count})`, value: String(s.id) }))} />
         </div>
         <Button size="sm" disabled={busy || !segmentId} onClick={() => void onAdd({ segment_id: Number(segmentId) }).then(() => setSegmentId(''))}>

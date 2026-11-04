@@ -24,6 +24,9 @@ export interface Campaign {
   status: CampaignStatus
   created_at: string
   target_accounts?: number
+  /** Agentic CRM slice 9: the raw ids the server stores; the names come beside the campaign in `CampaignDetail`. Absent on an older server. */
+  product_master_id?: number | null
+  crm_campaign_id?: number | null
 }
 
 export interface IndustryPackRef { slug: string; title: string }
@@ -67,6 +70,12 @@ export interface CampaignDetail {
   metrics: CampaignMetrics
   industry_pack: IndustryPack | null
   transitions: CampaignStatus[]
+  /**
+   * Agentic CRM slice 9 (S9a decision D9): the product and the CRM campaign this one points at, by name, read through the organisation. OPTIONAL: an older
+   * server leaves the keys out, `null` is "none". The screen reads them with `readGtmLinks` (lib/campaigns/model.ts), which tolerates a malformed value.
+   */
+  product?: { id: number; key: string | null; name: string } | null
+  crm_campaign?: { id: number; name: string; status: string | null } | null
 }
 
 export interface CampaignInput {
