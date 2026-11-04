@@ -20,6 +20,7 @@ import type {
   CrmPicklistValue, CrmProduct, CrmSalesOrder, CrmSalesOrderLineItemInput,
   CrmSalesOrderStatusHistoryEntry, CrmTaxRate,
 } from '@/types/crm'
+import { CreateInvoiceModal } from './create-invoice-modal'
 import { CreateSalesOrderModal } from './create-sales-order-modal'
 import { SalesOrderLineItemTable } from './sales-order-line-item-table'
 import { useAssignableEmployees } from './lead-employees'
@@ -29,8 +30,6 @@ interface Props {
   onSaved: () => void
   onBack: () => void
   soStages: CrmPicklistValue[]
-  /** Wired by the page wrapper once an Invoices service method exists - this component never navigates on its own. */
-  onCreateInvoice?: () => void
 }
 
 type Tab = 'details' | 'line-items' | 'history' | 'custom'
@@ -42,6 +41,8 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
 
 /** Stages a Sales Order should not be invoiced from - still being drafted, or no longer live. */
 const NOT_INVOICEABLE_STAGES = new Set(['draft', 'cancelled'])
+
+const NO_INVOICE_STAGES: CrmPicklistValue[] = []
 
 function money(currency: string | null, n: number): string {
   return `${currency ?? ''} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`.trim()
@@ -60,13 +61,15 @@ function LinkedField({ label, href, name }: { label: string; href: string | null
   )
 }
 
-export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages, onCreateInvoice }: Props) {
+export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages }: Props) {
+  const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const employees = useAssignableEmployees(context, true)
 
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const [lineItems, setLineItems] = useState<CrmSalesOrderLineItemInput[]>([])
@@ -193,8 +196,8 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages, on
           </div>
         </div>
         <div className="flex gap-2">
-          {onCreateInvoice && canInvoice && (
-            <Button variant="outline" onClick={onCreateInvoice}>
+          {canInvoice && (
+            <Button variant="outline" onClick={() => setInvoiceOpen(true)} data-create-invoice>
               <Receipt className="mr-1.5 size-4" aria-hidden="true" />
               Create Invoice
             </Button>
@@ -353,6 +356,21 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages, on
           )}
         </SectionCard>
       </div>
+
+      {/* The invoice is copied from the order on the server (header, addresses, terms, a fresh copy of the line items), so no stage list is needed here. */}
+      <CreateInvoiceModal
+        isOpen={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+        onSaved={(message, invoice) => {
+          // resolveAccessLink falls back to /dashboard when this person's menu has no Invoices row: opening /dashboard/<id> would be a dead page, so say it with a notice instead.
+          const invoicesPage = resolveAccessLink('/module/crm/sales/invoices')
+          if (invoice?.id && invoicesPage !== '/dashboard') router.push(`${invoicesPage}/${invoice.id}`)
+          else setNotice(message)
+        }}
+        invoice={null}
+        invoiceStages={NO_INVOICE_STAGES}
+        prefillFromSalesOrderId={salesOrder.id}
+      />
 
       <CreateSalesOrderModal
         isOpen={editOpen}

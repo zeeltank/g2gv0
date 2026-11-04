@@ -32,6 +32,7 @@ import { SendEmailDialog } from './send-email-dialog'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
 import { OpportunityAiCoachTab } from './opportunity-ai-coach-tab'
+import { OpportunityProductLine, ReasonLostCard } from './opportunity-parts'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -381,6 +382,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
           <div>
             <h1 className="text-xl font-semibold text-foreground">{opportunity.name}</h1>
             <p className="text-sm text-muted-foreground">{opportunity.salesStage || 'Opportunity'} · {opportunity.opportunityNo}</p>
+            <OpportunityProductLine product={opportunity.product} />
           </div>
         </div>
         <div className="flex gap-2">
@@ -484,11 +486,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
             <p className="text-sm text-foreground">{opportunity.description || '—'}</p>
           </SectionCard>
 
-          {opportunity.closeReason && (
-            <SectionCard title="Reason Lost">
-              <p className="text-sm text-foreground">{opportunity.closeReason}</p>
-            </SectionCard>
-          )}
+          <ReasonLostCard lossReason={opportunity.lossReason} closeReason={opportunity.closeReason} />
         </div>
       )}
 

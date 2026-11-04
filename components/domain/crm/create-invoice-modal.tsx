@@ -24,7 +24,8 @@ export interface InvoicePrefill {
 interface Props {
   isOpen: boolean
   onClose: () => void
-  onSaved: (message: string) => void
+  /** The saved invoice rides along as a second argument, so a caller that wants to open it can (the sales order page does); the list view ignores it. */
+  onSaved: (message: string, invoice?: CrmInvoice) => void
   invoice: CrmInvoice | null
   prefill?: InvoicePrefill
   invoiceStages: CrmPicklistValue[]
@@ -92,7 +93,7 @@ export function CreateInvoiceModal({ isOpen, onClose, onSaved, invoice, prefill,
       setError('')
       try {
         const response = await crmService.createInvoiceFromSalesOrder(context, prefillFromSalesOrderId)
-        onSaved(response.message)
+        onSaved(response.message, response.data)
         onClose()
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : 'Unable to create this invoice from the sales order.')

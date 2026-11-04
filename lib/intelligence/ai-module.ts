@@ -66,6 +66,8 @@ export interface AiModuleRate {
   /** Null when no price is published for the model. Cost then stays null too. */
   input_per_1k: number | null;
   output_per_1k: number | null;
+  /** The currency of both prices (rupees by default). An older server omits it: read that as `USD`. */
+  currency?: string | null;
 }
 
 export interface AiModuleTokens {
@@ -78,6 +80,8 @@ export interface AiModuleTokens {
   avg_latency_ms: number | null;
   rate: AiModuleRate | null;
   cost: number | null;
+  /** The currency of `cost` (`USD` for a recorded cost, the rate's own currency for a computed one); null when there is no cost. An older server omits it: read that as `USD`. */
+  cost_currency?: string | null;
   /** `recorded` came from the output rows, `computed` from tokens × rate. */
   cost_source: 'recorded' | 'computed' | 'unavailable';
   /** Why there is no money figure. Shown verbatim rather than paraphrased. */

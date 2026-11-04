@@ -7,6 +7,7 @@ import { ModuleCard, type Module } from '@/components/settings/module-card'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { moduleEnablementService } from '@/services/organization/module-enablement'
+import { clearSidebarCache } from '@/hooks/use-sidebar-navigation'
 import { useQueryClient } from '@tanstack/react-query'
 
 /**
@@ -48,6 +49,8 @@ const MODULE_BLURBS: Record<number, string> = {
 export type ModuleConfigurationHandle = {
   /** Persist the current selection. Resolves false when it could not be saved. */
   save: () => Promise<boolean>
+  /** Reverts local selection back to what the server last persisted. */
+  reset?: () => void
   /** True while modules are still loading, so a host can disable its footer. */
   loading: boolean
   /** True while a save is in flight. */
@@ -231,12 +234,18 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
       )
 
       /*
-       * The sidebar is built from the very rights this just wrote, so its cache
-       * has to be dropped or the admin enables a module and does not see it
-       * until they reload. Same invalidation use-role-permissions performs after
-       * saving the rights matrix, and for the same reason.
+       * Clear sessionStorage and invalidate react-query caches immediately so
+       * the sidebar refetches and updates on screen right away.
        */
+      clearSidebarCache()
+      await queryClient.invalidateQueries({ queryKey: ['sidebar-navigation-v3'] })
       await queryClient.invalidateQueries({ queryKey: ['sidebar-navigation'] })
+      await queryClient.refetchQueries({ queryKey: ['sidebar-navigation-v3'] })
+
+      /*
+       * Synchronize serverEnabled so pending changes diff resets to 0.
+       */
+      setServerEnabled(new Set(enabled.map((m) => m.id)))
 
       onSaved?.(enabled.length)
 
@@ -248,6 +257,15 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
       setSaving(false)
     }
   }, [loading, modules, onSaved, queryClient, user])
+
+  const reset = useCallback(() => {
+    setModules((prev) =>
+      prev.map((module) => ({
+        ...module,
+        selected: serverEnabled.has(module.id),
+      })),
+    )
+  }, [serverEnabled])
 
   const enabledCount = modules.filter((module) => module.selected).length
 
@@ -267,9 +285,9 @@ export function ModuleConfiguration({ onReady, onSaved }: ModuleConfigurationPro
   // save is possible. Handing the API up on every relevant change keeps the two
   // in step without the host reaching into this component's state.
   useEffect(() => {
-    onReady?.({ save, loading, saving, enabledCount, turningOff, turningOn })
+    onReady?.({ save, reset, loading, saving, enabledCount, turningOff, turningOn })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- arrays are rebuilt each render; their CONTENT is the dependency
-  }, [onReady, save, loading, saving, enabledCount, turningOff.join(), turningOn.join()])
+  }, [onReady, save, reset, loading, saving, enabledCount, turningOff.join(), turningOn.join()])
 
   // A failed LOAD is almost always the profile:admin guard refusing, so it
   // replaces the screen and explains the rule.

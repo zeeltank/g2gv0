@@ -8,12 +8,19 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { CRM_CAMPAIGNS_ACCESS_LINK } from '@/lib/gtg-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import {
+  chosenProduct, entersClosedLost, isClosedLost, lossReasonPayload, lossReasonProblem, lossReasonView, productPayload, readRefusal,
+} from '@/lib/opportunities/model'
 import { crmService } from '@/services/crm'
 import type { CrmOpportunity, CrmOpportunityPayload, CrmPicklistValue } from '@/types/crm'
 import { useAssignableEmployees } from './lead-employees'
 import { useOrganizationOptions } from './organization-options'
 import { useCampaignOptions } from './campaign-options'
+import { useLossReasons, useProductOptions } from './opportunity-form-options'
+import { LossReasonSelect, OpportunityProductSelect } from './opportunity-parts'
 
 interface Props {
   isOpen: boolean
@@ -43,15 +50,29 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
   const context = useMemo(() => getLaravelContext(), [])
   const employees = useAssignableEmployees(context, isOpen)
   const organizations = useOrganizationOptions(context, isOpen)
-  const campaigns = useCampaignOptions(context, isOpen)
+  // The Campaign box needs the Campaigns list, which has its own right. The person's menu holds that screen's row exactly when they may open it, so without the
+  // row the list is not even asked for (it would only be refused), and the box is left out; a refusal that comes anyway (403 or 404) leaves it out too.
+  const { resolveAccessLink } = useSidebarNavigation()
+  const mayPickCampaign = resolveAccessLink(CRM_CAMPAIGNS_ACCESS_LINK) !== '/dashboard'
+  const { campaigns, unavailable: campaignsRefused } = useCampaignOptions(context, isOpen && mayPickCampaign)
+  const showCampaign = mayPickCampaign && !campaignsRefused
 
   const [seededFrom, setSeededFrom] = useState<CrmOpportunity | null | 'unset'>('unset')
   const [form, setForm] = useState<CrmOpportunityPayload>(emptyForm(defaultOrganizationId, picklists.salesStage))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Slice 11b: the optional Product (an id as text, '' for none) and the coded Reason (a code, '' for none). Each joins the request only when it applies.
+  const productOptions = useProductOptions(context, isOpen)
+  const lossReasons = useLossReasons(context, isOpen)
+  const [productValue, setProductValue] = useState('')
+  const [lossCode, setLossCode] = useState('')
+  const [reasonError, setReasonError] = useState('')
 
   if (isOpen && seededFrom !== opportunity) {
     setSeededFrom(opportunity)
+    setProductValue(opportunity?.product ? String(opportunity.product.id) : '')
+    setLossCode(opportunity?.lossReason?.code ?? '')
+    setReasonError('')
     setForm(opportunity
       ? {
           name: opportunity.name, organizationId: opportunity.organizationId, campaignId: opportunity.campaignId,
@@ -59,7 +80,8 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
           salesStage: opportunity.salesStage ?? '', probability: opportunity.probability,
           leadSource: opportunity.leadSource ?? '', potentialType: opportunity.potentialType ?? '',
           nextStep: opportunity.nextStep ?? '', forecastCategory: opportunity.forecastCategory ?? '',
-          description: opportunity.description ?? '', closeReason: opportunity.closeReason ?? '', assignedTo: opportunity.assignedTo ?? '',
+          // The person's own words only: when the free text is just the coded reason's label (the server copies it there), the box starts empty, so a changed code is not contradicted by a stale label.
+          description: opportunity.description ?? '', closeReason: lossReasonView(opportunity.lossReason, opportunity.closeReason)?.note ?? '', assignedTo: opportunity.assignedTo ?? '',
         }
       : emptyForm(defaultOrganizationId, picklists.salesStage))
     setError('')
@@ -74,9 +96,13 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
       setError('Opportunity Name and Assigned To are required.')
       return
     }
-    if (form.salesStage === 'Closed Lost' && opportunity?.salesStage !== 'Closed Lost' && !form.closeReason?.trim()) {
-      setError('Say why this opportunity was lost - it is the only way the pipeline learns from it.')
-      return
+    if (entersClosedLost(opportunity?.salesStage, form.salesStage)) {
+      const problem = lossReasonProblem(lossReasons, lossCode, form.closeReason ?? '')
+      if (problem) {
+        // Next to the Reason box when there is one, else the message it has always been.
+        if (lossReasons.length > 0) { setError(''); setReasonError(problem) } else setError(problem)
+        return
+      }
     }
     if (!isLaravelContextReady(context)) {
       setError('Your ERP session is unavailable. Please sign in again.')
@@ -85,14 +111,22 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
 
     setSubmitting(true)
     setError('')
+    setReasonError('')
     try {
+      const payload: CrmOpportunityPayload = {
+        ...form,
+        ...productPayload(opportunity?.product?.id ?? null, chosenProduct(productValue), opportunity !== null),
+        ...lossReasonPayload(form.salesStage, lossCode, opportunity?.lossReason?.code ?? null, opportunity !== null),
+      }
       const response = opportunity
-        ? await crmService.updateOpportunity(context, opportunity.id, form)
-        : await crmService.createOpportunity(context, form)
+        ? await crmService.updateOpportunity(context, opportunity.id, payload)
+        : await crmService.createOpportunity(context, payload)
       onSaved(response.message)
       onClose()
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to save that opportunity.')
+      const refusal = readRefusal(reason, 'Unable to save that opportunity.')
+      if (refusal.onReason && lossReasons.length > 0) setReasonError(refusal.message)
+      else setError(refusal.message)
     } finally {
       setSubmitting(false)
     }
@@ -122,16 +156,20 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
                 placeholder="No organization"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Campaign</Label>
-              <SearchableSelect
-                value={form.campaignId ?? ''}
-                onChange={(v) => set('campaignId', v || null)}
-                options={campaigns.map((c) => ({ value: c.id, label: c.name }))}
-                placeholder="No campaign"
-              />
-            </div>
+            {showCampaign && (
+              <div className="space-y-1.5" data-opportunity-campaign-field>
+                <Label>Campaign</Label>
+                <SearchableSelect
+                  value={form.campaignId ?? ''}
+                  onChange={(v) => set('campaignId', v || null)}
+                  options={campaigns.map((c) => ({ value: c.id, label: c.name }))}
+                  placeholder="No campaign"
+                />
+              </div>
+            )}
           </div>
+
+          <OpportunityProductSelect options={productOptions} current={opportunity?.product ?? null} value={productValue} onChange={setProductValue} />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
@@ -163,16 +201,27 @@ export function CreateOpportunityModal({ isOpen, onClose, onSaved, opportunity, 
             </div>
           </div>
 
-          {form.salesStage === 'Closed Lost' && (
-            <div className="space-y-1.5">
-              <Label htmlFor="opp-close-reason">Reason Lost *</Label>
-              <Textarea
-                id="opp-close-reason"
-                rows={2}
-                value={form.closeReason ?? ''}
-                onChange={(e) => set('closeReason', e.target.value)}
-                placeholder="Why did this opportunity not close? (price, timing, competitor, no budget…)"
-              />
+          {isClosedLost(form.salesStage) && (
+            <div className="space-y-4" data-opportunity-reason-fields>
+              {lossReasons.length > 0 && (
+                <LossReasonSelect
+                  reasons={lossReasons}
+                  current={opportunity?.lossReason ?? null}
+                  value={lossCode}
+                  onChange={(code) => { setLossCode(code); setReasonError('') }}
+                  error={reasonError || null}
+                />
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="opp-close-reason">{lossReasons.length > 0 ? 'More detail (optional)' : 'Reason Lost *'}</Label>
+                <Textarea
+                  id="opp-close-reason"
+                  rows={2}
+                  value={form.closeReason ?? ''}
+                  onChange={(e) => set('closeReason', e.target.value)}
+                  placeholder="Why did this opportunity not close? (price, timing, competitor, no budget…)"
+                />
+              </div>
             </div>
           )}
 

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -24,6 +25,10 @@ import {
  * `description` is required rather than optional: "Are you sure?" adds a
  * click and no information — what a person needs is the actual consequence
  * ("12 reports in this folder will be removed too"), stated plainly.
+ *
+ * `tone` is the look of the confirm button: 'destructive' (the default, and what every question that removes something wants) or 'default' for a
+ * question whose answer destroys nothing ("Create the CRM organisation?"), where a red button would mislead. Cancel is rendered through
+ * AlertDialogCancel so the dialog has something to focus when it opens.
  */
 export function ConfirmDialog({
   open,
@@ -32,6 +37,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   busy,
+  tone = 'destructive',
   onConfirm,
 }: {
   open: boolean
@@ -40,6 +46,7 @@ export function ConfirmDialog({
   description: ReactNode
   confirmLabel: string
   busy?: boolean
+  tone?: 'destructive' | 'default'
   onConfirm: () => void
 }) {
   return (
@@ -50,16 +57,17 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+          <AlertDialogCancel asChild>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+          </AlertDialogCancel>
           <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
+            variant={tone === 'default' ? 'default' : 'destructive'}
             className="w-full sm:w-auto"
             onClick={onConfirm}
             disabled={busy}

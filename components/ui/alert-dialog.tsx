@@ -85,6 +85,16 @@ const AlertDialogFooter = ({
 )
 AlertDialogFooter.displayName = 'AlertDialogFooter'
 
+/**
+ * The control that dismisses the question. Radix FOCUSES it when the dialog opens (the safe answer to an alert), and when there is none it focuses
+ * nothing, so focus stays on the page behind the dialog. Render the Cancel button through it with `asChild`; it adds no styling of its own.
+ */
+const AlertDialogCancel = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
+>((props, ref) => <AlertDialogPrimitive.Cancel ref={ref} {...props} />)
+AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
+
 export {
   AlertDialog,
   AlertDialogPortal,
@@ -95,4 +105,5 @@ export {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
+  AlertDialogCancel,
 }

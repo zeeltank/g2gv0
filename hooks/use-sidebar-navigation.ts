@@ -128,6 +128,21 @@ export interface SidebarNavigationResult {
 }
 
 /**
+ * Clears any cached sidebar navigation data from sessionStorage.
+ * Used whenever permissions or enabled modules are updated.
+ */
+export function clearSidebarCache() {
+  if (typeof window !== 'undefined') {
+    for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+      const k = window.sessionStorage.key(i)
+      if (k && k.startsWith('gtg-sidebar-cache-v3')) {
+        window.sessionStorage.removeItem(k)
+      }
+    }
+  }
+}
+
+/**
  * Loads Modules -> Menus -> Submenus from tblmenumaster_g2g (via
  * ajax_sidebar_menu_g2g), already filtered server-side to the caller's
  * profile rights. Cached by react-query so every consumer (GtgAppShell,
@@ -139,7 +154,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   const ready = isLaravelContextReady(context)
 
   const cacheKey = context.subInstituteId && context.profileId
-    ? `gtg-sidebar-cache:${context.subInstituteId}:${context.profileId}`
+    ? `gtg-sidebar-cache-v3:${context.subInstituteId}:${context.profileId}`
     : null
 
   const initialData = useMemo(() => {
@@ -156,7 +171,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   }, [cacheKey])
 
   const query = useQuery({
-    queryKey: ['sidebar-navigation', context.token, context.subInstituteId, context.profileId],
+    queryKey: ['sidebar-navigation-v3', context.token, context.subInstituteId, context.profileId],
     queryFn: async () => {
       const res = await sidebarService.getMenu(context)
       if (cacheKey && res?.data && typeof window !== 'undefined') {

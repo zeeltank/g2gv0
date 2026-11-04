@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,8 @@ import {
   type GtmAccount, type GtmContact, type OutreachAttempt, type OutreachEventType, type OutreachMessage, type OutreachReadiness, type Suppression,
 } from '@/services/gtm/gtm'
 import { GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { attemptNote, gateRefusalMessage, isCheckable, messageProductId, messageSignature } from '@/lib/outreach/model'
+import { OutreachChecks, type GateRefusal } from './outreach-checks'
 
 const TEXTAREA = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
@@ -280,6 +282,9 @@ function MessageDialog({ message: m, sendReady, onClose, onChanged }: { message:
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [attempts, setAttempts] = useState<OutreachAttempt[] | null>(null)
+  // A send the outreach checks refused (slice 10b): shown inside the Checks section as the same list, not as the generic red line.
+  const [refusal, setRefusal] = useState<GateRefusal | null>(null)
+  const refusals = useRef(0)
 
   const messageId = m?.id ?? null
   const loadAttempts = useCallback(async () => {
@@ -296,12 +301,15 @@ function MessageDialog({ message: m, sendReady, onClose, onChanged }: { message:
     setBusy(true)
     setError(null)
     setInfo(null)
+    setRefusal(null)
     try {
       await fn()
       onChanged()
       if (closeAfter) onClose()
     } catch (e) {
-      setError(errMsg(e))
+      const refused = gateRefusalMessage(e)
+      if (refused) setRefusal({ seq: ++refusals.current, message: refused })
+      else setError(errMsg(e))
       onChanged()
     } finally {
       setBusy(false)
@@ -372,6 +380,8 @@ function MessageDialog({ message: m, sendReady, onClose, onChanged }: { message:
             {m.status === 'approved' && !sendReady && <p className="text-xs text-muted-foreground">Approved, but sending is switched off, so it is waiting. See the panel at the top for what to change.</p>}
             {m.sent_at && <p className="text-xs text-muted-foreground">Sent {fmtDate(m.sent_at, true)}.</p>}
 
+            {isCheckable(m.status) && <OutreachChecks messageId={m.id} signature={messageSignature(m)} dirty={dirty} productId={messageProductId(m)} refusal={refusal} />}
+
             {m.sequence_key && <SequencePanel sequenceKey={m.sequence_key} busy={busy} run={run} />}
             {m.status === 'sent' && <OutcomePanel message={m} busy={busy} run={run} onDone={setInfo} />}
 
@@ -384,6 +394,7 @@ function MessageDialog({ message: m, sendReady, onClose, onChanged }: { message:
                       <span className="w-28 shrink-0 text-muted-foreground">{fmtDate(a.created_at, true)}</span>
                       <Badge variant="outline">#{a.attempt} {a.outcome}</Badge>
                       {a.code && <span className="text-muted-foreground">{a.code}</span>}
+                      {attemptNote(a.code) && <span data-gate-blocked>{attemptNote(a.code)}</span>}
                       <span>{a.detail}</span>
                       <span className="text-muted-foreground">{a.scheduled ? 'by the scheduler' : 'by a person'}</span>
                     </li>

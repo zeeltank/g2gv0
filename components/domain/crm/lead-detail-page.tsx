@@ -10,9 +10,14 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { NOTICE_TONE } from '@/lib/org-accounts/tones'
+import { cn } from '@/lib/utils'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
+import { leadPatch } from '@/lib/leads/model'
 import { crmService } from '@/services/crm'
+import type { FactsApi } from '@/services/facts/api-types'
+import type { Fact } from '@/services/facts/types'
 import type { Lead } from '@/types/crm'
 import { CreateLeadModal } from './create-lead-modal'
 import { ConvertLeadDialog } from './convert-lead-dialog'
@@ -24,6 +29,8 @@ import { CrmHistoryTab } from './crm-history-tab'
 import { CrmActivityTimeline } from './crm-activity-timeline'
 import { CrmAiAssistant } from './crm-ai-assistant'
 import { LEAD_SCORING_FIELD_LABEL, LEAD_SCORING_OPERATOR_LABEL } from './lead-scoring-labels'
+import { LeadEvidenceTab } from './lead-evidence-tab'
+import { LeadContextLine } from './lead-parts'
 import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmPicklistValue } from '@/types/crm'
 
 interface Props {
@@ -34,11 +41,14 @@ interface Props {
     leadStatus: CrmPicklistValue[]; leadSource: CrmPicklistValue[]
     industry: CrmPicklistValue[]; rating: CrmPicklistValue[]
   }
+  /** For tests: the Evidence tab reads the facts API through it (the page itself passes nothing). */
+  factsService?: FactsApi
 }
 
-type Tab = 'details' | 'activity' | 'comments' | 'documents' | 'emails' | 'history' | 'custom'
+type Tab = 'details' | 'evidence' | 'activity' | 'comments' | 'documents' | 'emails' | 'history' | 'custom'
 const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
+  { id: 'evidence', label: 'Evidence' },
   { id: 'activity', label: 'Activity' },
   { id: 'comments', label: 'Comments' },
   { id: 'documents', label: 'Documents' },
@@ -55,7 +65,15 @@ function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React
   )
 }
 
-export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
+export function LeadDetailPage({ lead: leadProp, onSaved, onBack, picklists, factsService }: Props) {
+  // A fact accepted in the Evidence tab can write one of the lead's own fields. The page shows (and the Edit form starts from) the lead it was given, so it
+  // takes the written value on top of it, until a newer lead arrives: the patch is tied to the object it was made on, so a reload wins.
+  const [patched, setPatched] = useState<{ base: Lead; values: Record<string, string> } | null>(null)
+  const lead = useMemo<Lead>(() => (patched && patched.base === leadProp ? { ...leadProp, ...patched.values } : leadProp), [leadProp, patched])
+  const showWrittenFact = (fact: Fact) => {
+    const values = leadPatch(fact)
+    if (values) setPatched((previous) => ({ base: leadProp, values: { ...(previous && previous.base === leadProp ? previous.values : {}), ...values } }))
+  }
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
@@ -188,6 +206,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
               {lead.leadNo}
               {lead.leadSource && ` · Source: ${lead.leadSource}`}
             </p>
+            <LeadContextLine lead={lead} onOpenEvidence={() => setTab('evidence')} />
           </div>
         </div>
         <div className="flex gap-2">
@@ -221,7 +240,7 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
         </div>
       )}
 
-      {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
+      {notice && <div role="status" data-lead-notice className={cn('rounded-lg border p-3 text-sm', NOTICE_TONE.success)}>{notice}</div>}
 
       {/* Enrichment & Outreach Qualification Status Banner */}
       {lead.isQualifiedForOutreach === false && (
@@ -263,8 +282,8 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
       )}
 
       {lead.converted && convertedTargets.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">
-          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+        <div className={cn('flex items-center gap-2 rounded-lg border p-3 text-sm', NOTICE_TONE.success)} data-lead-converted>
+          <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />
           This lead was converted to {convertedTargets.join(' and ')}.
         </div>
       )}
@@ -379,6 +398,8 @@ export function LeadDetailPage({ lead, onSaved, onBack, picklists }: Props) {
           </SectionCard>
         </div>
       )}
+
+      {tab === 'evidence' && <LeadEvidenceTab lead={lead} onWroteRecord={showWrittenFact} factsService={factsService} />}
 
       {tab === 'activity' && (
         <CrmActivityTimeline entityType="lead" entityId={lead.id} context={context} />

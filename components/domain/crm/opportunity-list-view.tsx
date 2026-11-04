@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { noteProductSeen, opportunityColumnCount } from '@/lib/opportunities/model'
 import { crmService } from '@/services/crm'
 import type { CrmOpportunity, CrmPicklistValue } from '@/types/crm'
 import { CreateOpportunityModal } from './create-opportunity-modal'
@@ -71,6 +72,8 @@ export function OpportunityListView() {
    */
   const [kanbanReloadToken, setKanbanReloadToken] = useState(0)
   const [opportunities, setOpportunities] = useState<CrmOpportunity[]>([])
+  // Slice 11b: the Product column shows once any opportunity the table has loaded has a product, and keeps its place while the person pages.
+  const [productSeen, setProductSeen] = useState(false)
   const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(opportunities)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -97,6 +100,7 @@ export function OpportunityListView() {
         sortBy: sortKey, sortDir: sortAsc ? 'asc' : 'desc',
       })
       setOpportunities(response.data.items)
+      setProductSeen((seen) => noteProductSeen(seen, response.data.items))
       setTotal(response.data.pagination.total)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load opportunities.')
@@ -213,7 +217,7 @@ export function OpportunityListView() {
             <CrmSavedViews module="opportunities" currentConditions={{ search, sortKey, sortAsc }} onApply={handleApplyView} />
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="@container/opportunities overflow-x-auto rounded-lg border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -221,6 +225,8 @@ export function OpportunityListView() {
                     <input type="checkbox" aria-label="Select all opportunities on this page" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
                   </TableHead>
                   <SortHead label="Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+                  {/* The server cannot sort by product, so this head is a plain label. On a narrow screen the product is a line under the name instead. */}
+                  {productSeen && <TableHead className="hidden @md/opportunities:table-cell">Product</TableHead>}
                   <TableHead>Organization</TableHead>
                   <SortHead label="Stage" sortKey="sales_stage" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
                   <SortHead label="Amount" sortKey="amount" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
@@ -229,12 +235,12 @@ export function OpportunityListView() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableRow><TableCell colSpan={opportunityColumnCount(productSeen)} className="py-10 text-center text-sm text-muted-foreground">
                     <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading opportunities…
                   </TableCell></TableRow>
                 )}
                 {!isLoading && opportunities.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableRow><TableCell colSpan={opportunityColumnCount(productSeen)} className="py-10 text-center text-sm text-muted-foreground">
                     No opportunities yet. Click “Add Opportunity” to create one.
                   </TableCell></TableRow>
                 )}
@@ -243,7 +249,13 @@ export function OpportunityListView() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" aria-label={`Select ${opportunity.name}`} checked={selectedIds.has(opportunity.id)} onChange={() => toggle(opportunity.id)} />
                     </TableCell>
-                    <TableCell className="font-medium text-foreground">{opportunity.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {opportunity.name}
+                      {productSeen && opportunity.product && (
+                        <span className="mt-0.5 block break-words text-xs font-normal text-muted-foreground @md/opportunities:hidden" data-opportunity-product-narrow>{opportunity.product.name}</span>
+                      )}
+                    </TableCell>
+                    {productSeen && <TableCell className="hidden @md/opportunities:table-cell" data-opportunity-product>{opportunity.product?.name ?? '—'}</TableCell>}
                     <TableCell>{opportunity.organizationName || '—'}</TableCell>
                     <TableCell>{opportunity.salesStage || '—'}</TableCell>
                     <TableCell>{opportunity.amount !== null ? `${opportunity.currency ?? ''} ${opportunity.amount.toLocaleString()}`.trim() : '—'}</TableCell>

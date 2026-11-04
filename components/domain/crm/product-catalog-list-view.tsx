@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Copy, FileUp, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import type { CrmItemType, CrmPicklistValue, CrmProduct, CrmTaxRate } from '@/types/crm'
+import type { CrmItemType, CrmPicklistValue, CrmProduct, CrmProductLines, CrmTaxRate } from '@/types/crm'
 import { CreateProductModal } from './create-product-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
 import { crmBulkResultMessage } from './crm-bulk-result-message'
@@ -21,6 +21,8 @@ import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
+import { LineColumnCells, LineColumnHeads } from './product-line-columns'
+import { catalogueColumnCount, emptyCatalogueHint, lineRecordHref, showLineColumns } from './product-lines-model'
 
 type SortKey = 'name' | 'category' | 'unit_price' | 'qty_in_stock' | 'created_at'
 
@@ -55,14 +57,27 @@ function SortHead({ label, sortKey, activeKey, asc, onSort, className }: {
  * Shared by both menu entries (Products, Services) - one unified
  * crm_products table. Each thin wrapper (product-list-view.tsx,
  * service-list-view.tsx) just supplies `itemType` + its own route segment.
+ *
+ * Two optional additions from the product lines (agentic CRM slice 1): `scopeSwitch` is drawn under the title (the Products screen passes its
+ * "Catalogue | Product lines" switch), and `onLines` is told what the list says about the product lines (whether they exist on this server, how many).
+ * When some item is tied to a sub-product the list gains Product line, Signals and ICP columns; otherwise it is exactly what it has always been.
  */
-export function ProductCatalogListView({ itemType, routeSegment }: { itemType: CrmItemType; routeSegment: string }) {
+export function ProductCatalogListView({ itemType, routeSegment, scopeSwitch, onLines }: {
+  itemType: CrmItemType
+  routeSegment: string
+  scopeSwitch?: ReactNode
+  onLines?: (lines: CrmProductLines | null) => void
+}) {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const noun = itemType === 'service' ? 'Service' : 'Product'
   const nounPlural = itemType === 'service' ? 'Services' : 'Products'
 
+  const [lines, setLines] = useState<CrmProductLines | null>(null)
+  // Held in a ref so a parent that passes a new function every render does not make the list load again.
+  const onLinesRef = useRef(onLines)
+  useEffect(() => { onLinesRef.current = onLines })
   const [products, setProducts] = useState<CrmProduct[]>([])
   const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(products)
   const [total, setTotal] = useState(0)
@@ -92,6 +107,8 @@ export function ProductCatalogListView({ itemType, routeSegment }: { itemType: C
       })
       setProducts(response.data.items)
       setTotal(response.data.pagination.total)
+      setLines(response.data.lines ?? null)
+      onLinesRef.current?.(response.data.lines ?? null)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : `Unable to load ${nounPlural.toLowerCase()}.`)
     } finally {
@@ -118,6 +135,11 @@ export function ProductCatalogListView({ itemType, routeSegment }: { itemType: C
   }
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const showLines = showLineColumns(lines)
+  const columnCount = catalogueColumnCount(itemType, showLines)
+  const productsHref = resolveAccessLink('/module/crm/sales/products')
+  // The hint points at the other view, so it is drawn only where that view's switch is (the Products screen), and not when a search emptied the list.
+  const emptyHint = itemType === 'product' && scopeSwitch && !search ? emptyCatalogueHint(lines) : null
 
   const handleApplyView = (conditions: Record<string, unknown>) => {
     if (typeof conditions.search === 'string') setSearch(conditions.search)
@@ -166,6 +188,7 @@ export function ProductCatalogListView({ itemType, routeSegment }: { itemType: C
           <p className="text-sm text-muted-foreground">
             {itemType === 'service' ? 'Your sellable service catalog.' : 'Your sellable product catalog.'}
           </p>
+          {scopeSwitch && <div className="mt-3">{scopeSwitch}</div>}
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
@@ -213,17 +236,19 @@ export function ProductCatalogListView({ itemType, routeSegment }: { itemType: C
               <SortHead label="Unit Price" sortKey="unit_price" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               {itemType === 'product' && <SortHead label="Qty In Stock" sortKey="qty_in_stock" activeKey={sortKey} asc={sortAsc} onSort={onSort} />}
               <TableHead>Active</TableHead>
+              {showLines && <LineColumnHeads />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={columnCount} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading {nounPlural.toLowerCase()}…
               </TableCell></TableRow>
             )}
             {!isLoading && products.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={columnCount} className="py-10 text-center text-sm text-muted-foreground">
                 No {nounPlural.toLowerCase()} yet. Click “Add {noun}” to create one.
+                {emptyHint && <span className="mt-1 block">{emptyHint}</span>}
               </TableCell></TableRow>
             )}
             {!isLoading && products.map((product) => (
@@ -241,6 +266,7 @@ export function ProductCatalogListView({ itemType, routeSegment }: { itemType: C
                 <TableCell>{product.unitPrice !== null ? `${product.currency ?? ''} ${product.unitPrice.toFixed(2)}`.trim() : '—'}</TableCell>
                 {itemType === 'product' && <TableCell>{product.qtyInStock ?? '—'}</TableCell>}
                 <TableCell>{product.isActive ? 'Yes' : 'No'}</TableCell>
+                {showLines && <LineColumnCells product={product} lineHref={(lineId) => lineRecordHref(productsHref, lineId)} />}
               </TableRow>
             ))}
           </TableBody>

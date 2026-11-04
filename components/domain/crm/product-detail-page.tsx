@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { KPICard } from '@/components/shared/business/kpi-card'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
@@ -21,6 +22,8 @@ import { crmService } from '@/services/crm'
 import type { CrmAuditEntry, CrmPicklistValue, CrmProduct, CrmProductBundleItem, CrmTaxRate } from '@/types/crm'
 import { CreateProductModal } from './create-product-modal'
 import { CrmHistoryTab } from './crm-history-tab'
+import { detailTabs, type DetailTabId } from './product-lines-model'
+import { ProductExtraPanel } from './product-links-panels'
 
 interface Props {
   product: CrmProduct
@@ -30,8 +33,7 @@ interface Props {
   taxRates: CrmTaxRate[]
 }
 
-type Tab = 'details' | 'bundle' | 'history' | 'custom'
-const BASE_TABS: Array<{ id: Tab; label: string }> = [{ id: 'details', label: 'Details' }]
+type Tab = DetailTabId
 
 /** A label paired with a small muted icon - the inline-icon convention organization-information.tsx uses for ReadField values. */
 function IconValue({ icon: Icon, children }: { icon: typeof Tag; children: React.ReactNode }) {
@@ -128,12 +130,13 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
   const [history, setHistory] = useState<CrmAuditEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
 
-  const tabs = [
-    ...BASE_TABS,
-    ...(isBundleable ? [{ id: 'bundle' as const, label: 'Bundle' }] : []),
-    { id: 'history' as const, label: 'History' },
-    ...(hasCustomFields ? [{ id: 'custom' as const, label: 'Custom Fields' }] : []),
-  ]
+  // An item tied to a sub-product (or recorded as a catalogue item) gains Signals & ICP and Usage; the page is exactly what it was for an item with no record behind it.
+  const { resolveAccessLink } = useSidebarNavigation()
+  const linksHrefs = useMemo(() => ({ products: resolveAccessLink('/module/crm/sales/products'), priceBooks: resolveAccessLink('/module/crm/sales/price-books') }), [resolveAccessLink])
+  // A rename made from the Signals & ICP tab also renames this item (the server does it), so the heading follows it without reading the page again.
+  const [renamedTo, setRenamedTo] = useState<string | null>(null)
+
+  const tabs = detailTabs({ bundleable: isBundleable, hasCustomFields, masterId: product.masterId, masterKind: product.masterKind })
 
   const loadBundleItems = useCallback(async () => {
     if (!isBundleable) return
@@ -239,7 +242,7 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
           </div>
 
           <div>
-            <h1 className="text-xl font-semibold text-foreground">{product.name}</h1>
+            <h1 className="text-xl font-semibold text-foreground">{renamedTo ?? product.name}</h1>
             <p className="text-sm text-muted-foreground">{product.category || noun} · {product.productNo}</p>
           </div>
         </div>
@@ -375,6 +378,8 @@ export function ProductDetailPage({ product, onSaved, onBack, categories, taxRat
           )}
         </SectionCard>
       )}
+
+      <ProductExtraPanel tab={tab} masterId={product.masterId} masterKind={product.masterKind} hrefs={linksHrefs} onRenamed={setRenamedTo} />
 
       {tab === 'history' && <CrmHistoryTab entries={history} loading={historyLoading} />}
 

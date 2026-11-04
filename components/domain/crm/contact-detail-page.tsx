@@ -14,7 +14,10 @@ import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-
 import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
+import { contactPatch } from '@/lib/facts/model'
 import { crmService } from '@/services/crm'
+import type { FactsApi } from '@/services/facts/api-types'
+import type { Fact } from '@/services/facts/types'
 import type { Contact, CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmPicklistValue, CrmQuote } from '@/types/crm'
 import { CreateContactModal } from './create-contact-modal'
 import { SendSmsDialog } from './send-sms-dialog'
@@ -22,6 +25,8 @@ import { useAssignableEmployees } from './lead-employees'
 import { CommentThread } from './comment-thread'
 import { CrmDocumentTab } from './crm-document-tab'
 import { CrmEmailTab } from './crm-email-tab'
+import { ConsentLine } from './fact-consent'
+import { FactEvidenceSection } from './fact-evidence-section'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmHistoryTab } from './crm-history-tab'
 import { CrmScheduleTab } from './crm-schedule-tab'
@@ -31,6 +36,8 @@ interface Props {
   onSaved: () => void
   onBack: () => void
   picklists: { salutation: CrmPicklistValue[]; leadSource: CrmPicklistValue[] }
+  /** For tests: the Evidence and Consent sections read the facts API through it (the page itself passes nothing). */
+  factsService?: FactsApi
 }
 
 type Tab = 'details' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'custom'
@@ -102,8 +109,16 @@ function TransferOwnershipDialog({ isOpen, onClose, onTransferred, contactId }: 
   )
 }
 
-export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props) {
+export function ContactDetailPage({ contact: contactProp, onSaved, onBack, picklists, factsService }: Props) {
   const router = useRouter()
+  // A fact accepted in the Evidence section can write one of the contact's own fields. The page shows (and the Edit form starts from) the contact it was
+  // given, so it takes the written value on top of it, until a newer contact arrives: the patch is tied to the object it was made on, so a reload wins.
+  const [patched, setPatched] = useState<{ base: Contact; values: Record<string, string> } | null>(null)
+  const contact = useMemo<Contact>(() => (patched && patched.base === contactProp ? { ...contactProp, ...patched.values } : contactProp), [contactProp, patched])
+  const showWrittenFact = (fact: Fact) => {
+    const values = contactPatch(fact)
+    if (values) setPatched((previous) => ({ base: contactProp, values: { ...(previous && previous.base === contactProp ? previous.values : {}), ...values } }))
+  }
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
   const [tab, setTab] = useState<Tab>('details')
@@ -314,6 +329,9 @@ export function ContactDetailPage({ contact, onSaved, onBack, picklists }: Props
         <SectionCard title="Description">
           <p className="text-sm text-foreground">{contact.description || '—'}</p>
         </SectionCard>
+
+        <ConsentLine entityType="contact" entityId={contact.id} service={factsService} />
+        <FactEvidenceSection entityType="contact" entityId={contact.id} service={factsService} onWroteRecord={showWrittenFact} />
       </div>
       )}
 

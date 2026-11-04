@@ -11,6 +11,7 @@ import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
+import type { FactsApi } from '@/services/facts/api-types'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateContactModal } from './create-contact-modal'
@@ -21,6 +22,7 @@ import { CrmExportButton } from './crm-export-button'
 import { CrmImportDialog } from './crm-import-dialog'
 import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
+import { ContactScopes } from './fact-scopes'
 import { useAssignableEmployees } from './lead-employees'
 
 type SortKey = 'first_name' | 'last_name' | 'email' | 'title' | 'created_at'
@@ -59,7 +61,8 @@ function SortHead({ label, sortKey, activeKey, asc, onSort, className }: {
   )
 }
 
-export function ContactListView() {
+/** `factsService` is for tests: the Suggestions scope reads the facts API through it (the screen itself passes nothing). */
+export function ContactListView({ factsService }: { factsService?: FactsApi } = {}) {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
@@ -183,6 +186,8 @@ export function ContactListView() {
         </div>
       </div>
 
+      {/* The scope switch: Contacts (the list below, unchanged) | Suggestions (facts an agent or a source found, waiting for a person to accept or dismiss). */}
+      <ContactScopes service={factsService}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative max-w-sm flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -255,6 +260,7 @@ export function ContactListView() {
           <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => setPage((p) => p + 1)}>Next</Button>
         </div>
       </div>
+      </ContactScopes>
 
       <CreateContactModal
         isOpen={modalOpen}
