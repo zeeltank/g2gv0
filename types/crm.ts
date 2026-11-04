@@ -170,7 +170,9 @@ export interface LeadConsent {
 
 export type LeadPayload = Partial<
   Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'organisationAccount' | 'sourceSignalId' | 'sourceSignal' | 'consent'>
->
+> & {
+  productMasterId?: number | null
+}
 
 export interface LeadListResponse {
   status: number
