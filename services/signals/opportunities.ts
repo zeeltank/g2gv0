@@ -5,6 +5,7 @@
 
 import { apiClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { dataConnectorMockApi, isDataConnectorMockModeEnabled } from '@/lib/signals/data-connectors-mock'
 
 export type ReviewStatus = 'New' | 'Reviewed' | 'Follow-up' | 'Dismissed'
 export type Level = 'High' | 'Medium' | 'Low'
@@ -614,6 +615,69 @@ export interface IngestionSourceDetail extends IngestionSourceInfo {
   linked_opportunities?: Opportunity[]
 }
 
+export type ConnectorStatus =
+  | 'connected'
+  | 'disconnected'
+  | 'error'
+  | 'not_configured'
+  | 'permission_required'
+  | 'token_expired'
+  | 'rate_limited'
+
+export interface ConnectorSyncInfo {
+  id: number
+  source_id: number | null
+  status: 'running' | 'queued' | 'completed' | 'partial' | 'failed' | 'skipped'
+  records_fetched: number
+  records_processed: number
+  records_skipped: number
+  records_created: number
+  records_duplicate: number
+  records_failed: number
+  error_message: string | null
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface DataConnectorInfo {
+  id: number
+  type: 'public_web_page' | 'youtube' | 'linkedin' | 'facebook_page' | 'instagram_business'
+  name: string
+  url: string | null
+  external_account_id: string | null
+  account_name: string | null
+  product_key: string
+  offer_id: string | null
+  customer_model: 'b2b' | 'b2c' | 'b2g'
+  regions: { country: string; state: string | null; city: string | null }[] | null
+  connection_status: ConnectorStatus
+  sync_enabled: boolean
+  schedule_enabled: boolean
+  schedule_interval_minutes: number
+  schedule_timezone: string
+  next_sync_at: string | null
+  available_accounts: { id: string; name: string }[]
+  last_sync_at: string | null
+  last_successful_sync_at: string | null
+  last_error: string | null
+  history: ConnectorSyncInfo[]
+}
+
+export interface DataConnectorsResponse {
+  status: number
+  tables_migrated?: boolean
+  notice?: string
+  global_schedule_enabled: boolean
+  available: { key: string; label: string; auth: 'oauth' | 'public_url'; requirements: string[] }[]
+  data: DataConnectorInfo[]
+}
+
+export interface DataConnectorResponse {
+  status: number
+  message?: string
+  data: DataConnectorInfo | ConnectorSyncInfo
+}
+
 function base(context: LaravelContext): Record<string, string> {
   return {
     sub_institute_id: context.subInstituteId,
@@ -698,6 +762,12 @@ export const opportunitiesService = {
   createManual: (c: LaravelContext, body: Record<string, unknown>) =>
     apiClient.post<ManualOpportunityResponse>(`/signals/opportunities/manual?${qs(c)}`, body),
 
+  getLocations: (c: LaravelContext, country?: string, state?: string) =>
+    apiClient.get<{ status: number; data: { default_country: string; countries: string[]; states: string[]; cities: string[] } }>('/signals/locations', { ...base(c), ...(country ? { country } : {}), ...(state ? { state } : {}) }),
+
+  saveLocation: (c: LaravelContext, location: { country: string; state?: string; city?: string }) =>
+    apiClient.post<{ status: number; message: string; data: { id?: number; country: string; state?: string; city?: string } }>(`/signals/locations?${qs(c)}`, location),
+
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }
     if (q.search) params.search = q.search
@@ -751,6 +821,74 @@ export const opportunitiesService = {
     apiClient.post<{ status: number; data: { lead_id: string; created: boolean } }>(`/signals/opportunities/${id}/promote-to-crm?${qs(c)}`, {}),
 
   // ── ingestion ──
+  listConnectors: (c: LaravelContext) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.list(c))
+      : apiClient.get<DataConnectorsResponse>('/signals/ingestion/connectors', base(c)),
+
+  createConnector: (c: LaravelContext, body: {
+    type: DataConnectorInfo['type']; name: string; url?: string; external_account_id?: string; product_key: string
+    offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
+  }) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.create(c, body))
+      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors?${qs(c)}`, body),
+
+  updateConnector: (c: LaravelContext, id: number, body: {
+    name: string; url?: string; external_account_id?: string; product_key: string
+    offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
+  }) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.update(c, id, body))
+      : apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}?${qs(c)}`, body),
+
+  connectConnector: (c: LaravelContext, id: number) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.reject(new Error('A public page cannot be checked or connected in connector mock mode.'))
+      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/connect?${qs(c)}`, {}),
+
+  disconnectConnector: (c: LaravelContext, id: number) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.disconnect(c, id))
+      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {}),
+
+  authorizeConnector: (c: LaravelContext, id: number) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.reject(new Error('OAuth is unavailable in connector mock mode. No provider account is connected.'))
+      : apiClient.post<{ status: number; data: { authorization_url: string } }>(`/signals/ingestion/connectors/${id}/oauth?${qs(c)}`, {}),
+
+  selectConnectorAccount: (c: LaravelContext, id: number, accountId: string) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.reject(new Error('No provider accounts are available in connector mock mode.'))
+      : apiClient.post<{ status: number; data: { id: number; connection_status: ConnectorStatus; account_name: string } }>(
+          `/signals/ingestion/connectors/${id}/accounts?${qs(c)}`, { account_id: accountId },
+        ),
+
+  saveConnectorSchedule: (c: LaravelContext, id: number, body: {
+    sync_enabled: boolean
+    schedule_enabled: boolean
+    schedule_interval_minutes: number
+    schedule_timezone: string
+  }) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.saveSchedule(c, id, body))
+      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/schedule?${qs(c)}`, body),
+
+  configureLinkedInAccount: (c: LaravelContext, id: number, accountId: string) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.configureLinkedInAccount(c, id, accountId))
+      : apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/account?${qs(c)}`, { external_account_id: accountId }),
+
+  syncConnector: (c: LaravelContext, id: number) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.sync(c, id))
+      : apiClient.post<DataConnectorResponse>(`/signals/ingestion/connectors/${id}/sync?${qs(c)}`, {}),
+
+  deleteConnector: (c: LaravelContext, id: number) =>
+    isDataConnectorMockModeEnabled()
+      ? Promise.resolve(dataConnectorMockApi.delete(c, id))
+      : apiClient.delete<{ status: number; message: string }>(`/signals/ingestion/connectors/${id}?${qs(c)}`),
+
   /** `product` lists only the documents added for that product (ones added before products were recorded count as ScholarClone's). */
   listSources: (c: LaravelContext, product?: string) =>
     apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', product ? { ...base(c), product } : base(c)),
