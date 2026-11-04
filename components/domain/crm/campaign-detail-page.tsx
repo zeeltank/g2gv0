@@ -11,6 +11,7 @@ import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
 import type { Campaign, CrmAuditEntry, CrmPicklistValue } from '@/types/crm'
 import { CAMPAIGN_STATUS_VARIANT } from './campaign-list-view'
+import { CampaignFunnelSection, CampaignLinksSection } from './campaign-parts'
 import { CreateCampaignModal } from './create-campaign-modal'
 import { CampaignTargetManager } from './campaign-target-manager'
 import { CrmHistoryTab } from './crm-history-tab'
@@ -147,6 +148,10 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
               <Field label="Closing Date" value={campaign.closingDate} />
             </div>
           </section>
+
+          {/* Slice 9: what the campaign is tied to and how it is doing. Each draws nothing when the server did not send its part (an older server). */}
+          <CampaignLinksSection campaign={campaign} />
+          <CampaignFunnelSection funnel={campaign.funnel} />
 
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-foreground">Expectations &amp; Actuals</h2>

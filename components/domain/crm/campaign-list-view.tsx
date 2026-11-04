@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils'
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { campaignColumnCount, noteProductSeen } from '@/lib/campaigns/model'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { Campaign, CrmPicklistValue } from '@/types/crm'
@@ -66,6 +67,8 @@ export function CampaignListView() {
   const context = useMemo(() => getLaravelContext(), [])
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  // Slice 9: the Product column shows once any campaign the list has loaded has a product, and keeps its place while the person pages.
+  const [productSeen, setProductSeen] = useState(false)
   const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(campaigns)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -90,6 +93,7 @@ export function CampaignListView() {
         sortBy: sortKey, sortDir: sortAsc ? 'asc' : 'desc',
       })
       setCampaigns(response.data.items)
+      setProductSeen((seen) => noteProductSeen(seen, response.data.items))
       setTotal(response.data.pagination.total)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load campaigns.')
@@ -202,6 +206,8 @@ export function CampaignListView() {
                 />
               </TableHead>
               <SortHead label="Name" sortKey="name" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
+              {/* The server cannot sort by product, so this head is a plain label. On a narrow screen the product is a line under the name instead. */}
+              {productSeen && <TableHead className="hidden @md/campaigns:table-cell">Product</TableHead>}
               <SortHead label="Type" sortKey="campaign_type" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/campaigns:table-cell" />
               <SortHead label="Status" sortKey="campaign_status" activeKey={sortKey} asc={sortAsc} onSort={onSort} />
               <SortHead label="Expected Revenue" sortKey="expected_revenue" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/campaigns:table-cell" />
@@ -210,12 +216,12 @@ export function CampaignListView() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={campaignColumnCount(productSeen)} className="py-10 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading campaigns…
               </TableCell></TableRow>
             )}
             {!isLoading && campaigns.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={campaignColumnCount(productSeen)} className="py-10 text-center text-sm text-muted-foreground">
                 No campaigns yet. Click “Add Campaign” to create one.
               </TableCell></TableRow>
             )}
@@ -229,7 +235,13 @@ export function CampaignListView() {
                     onChange={() => toggle(campaign.id)}
                   />
                 </TableCell>
-                <TableCell className="font-medium text-foreground">{campaign.name}</TableCell>
+                <TableCell className="font-medium text-foreground">
+                  {campaign.name}
+                  {productSeen && campaign.product && (
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground @md/campaigns:hidden" data-campaign-product-narrow>{campaign.product.name}</span>
+                  )}
+                </TableCell>
+                {productSeen && <TableCell className="hidden @md/campaigns:table-cell" data-campaign-product>{campaign.product?.name ?? '—'}</TableCell>}
                 <TableCell className="hidden @md/campaigns:table-cell">{campaign.campaignType || '—'}</TableCell>
                 <TableCell>
                   {campaign.campaignStatus

@@ -2,6 +2,7 @@
 
 import { useId } from 'react'
 import { NativeSelect } from '@/components/shared/scaffolds'
+import { leadCampaignName } from '@/lib/campaigns/model'
 import { consentSentence, consentViews, emailConsent, isFromSignal, type Choice, type ConsentView } from '@/lib/leads/model'
 import { CHIP_BASE, LEAD_CHIP } from '@/lib/leads/tones'
 import { cn } from '@/lib/utils'
@@ -59,8 +60,10 @@ export function LeadContextLine({ lead, onOpenEvidence }: { lead: Lead; onOpenEv
   const views = consentViews(lead)
   const product = lead.product ?? null
   const organisation = lead.organisationAccount ?? null
+  // Slice 9: the campaign the lead first came from (the server reads it through the lead's own organisation); nothing for a lead that came from none.
+  const campaign = leadCampaignName(lead.campaign)
   const fromSignal = isFromSignal(lead)
-  if (views.length === 0 && !product && !organisation && !fromSignal) return null
+  if (views.length === 0 && !product && !organisation && !campaign && !fromSignal) return null
 
   const explained = views.filter((view) => view.reason)
   return (
@@ -68,6 +71,7 @@ export function LeadContextLine({ lead, onOpenEvidence }: { lead: Lead; onOpenEv
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
         {product && <span data-lead-product>Product: <span className="font-medium text-foreground">{product.name}</span></span>}
         {organisation && <span data-lead-organisation>Organisation: <span className="font-medium text-foreground">{organisation.name}</span></span>}
+        {campaign && <span className="break-words" data-lead-campaign>Campaign: <span className="font-medium text-foreground">{campaign}</span></span>}
         {views.map((view) => (
           <span key={view.channel} className="inline-flex items-center gap-1.5">
             {view.label}

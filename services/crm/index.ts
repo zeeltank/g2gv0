@@ -10,6 +10,7 @@
 import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLeadExtras } from '@/lib/leads/model'
+import { withCampaignExtras, withLeadCampaign } from '@/lib/campaigns/model'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 import type {
@@ -216,10 +217,10 @@ export const crmService = {
       ...(query.productId && query.productId > 0 ? { product_id: String(query.productId) } : {}),
       ...(query.consent ? { consent: query.consent } : {}),
       ...(query.hasSignal ? { has_signal: '1' } : {}),
-    }).then((response) => ({ ...response, data: { ...response.data, items: response.data.items.map(withLeadExtras) } })),
+    }).then((response) => ({ ...response, data: { ...response.data, items: response.data.items.map((lead) => withLeadCampaign(withLeadExtras(lead))) } })),
 
   getLead: (context: LaravelContext, id: string) =>
-    apiClient.get<LeadResponse>(`/crm/leads/${id}`, baseParams(context)).then((response) => ({ ...response, data: withLeadExtras(response.data) })),
+    apiClient.get<LeadResponse>(`/crm/leads/${id}`, baseParams(context)).then((response) => ({ ...response, data: withLeadCampaign(withLeadExtras(response.data)) })),
 
   createLead: (context: LaravelContext, payload: LeadPayload) =>
     apiClient.post<LeadResponse>('/crm/leads', { ...payload, ...baseParams(context) }),
@@ -404,10 +405,10 @@ export const crmService = {
       ...(query.sortBy ? { sort_by: query.sortBy } : {}),
       ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
       ...(query.campaignStatus ? { campaign_status: query.campaignStatus } : {}),
-    }),
+    }).then((response) => ({ ...response, data: { ...response.data, items: response.data.items.map(withCampaignExtras) } })),
 
   getCampaign: (context: LaravelContext, id: string) =>
-    apiClient.get<CampaignResponse>(`/crm/campaigns/${id}`, baseParams(context)),
+    apiClient.get<CampaignResponse>(`/crm/campaigns/${id}`, baseParams(context)).then((response) => ({ ...response, data: withCampaignExtras(response.data) })),
 
   createCampaign: (context: LaravelContext, payload: CampaignPayload) =>
     apiClient.post<CampaignResponse>('/crm/campaigns', { ...payload, ...baseParams(context) }),

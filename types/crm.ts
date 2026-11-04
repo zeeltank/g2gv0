@@ -112,6 +112,17 @@ export interface Lead {
   sourceSignal?: LeadSourceSignal | null
   /** What the one consent gate says about each channel; the detail answer only. */
   consent?: LeadConsent | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md): the campaign the lead first came from. OPTIONAL like the fields above: a
+   * missing key is an older server, `null` is a lead that came from no campaign. lib/campaigns/model.ts reads it.
+   */
+  campaign?: LeadCampaignRef | null
+}
+
+/** The campaign a lead first came from (read through the lead's own organisation by the server). */
+export interface LeadCampaignRef {
+  id: number
+  name: string
 }
 
 /** The product (a Product Master record) a lead is for. */
@@ -482,9 +493,66 @@ export interface Campaign {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it
+   * (an older one) leaves the key out and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/campaigns/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   * `product` is on the list and the detail answers; the other three on the detail answer only.
+   */
+  product?: CampaignProductRef | null
+  funnel?: CampaignFunnel | null
+  gtmCampaign?: CampaignGtmRef | null
+  leads?: CampaignLeadsRef | null
 }
 
-export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+/** The product (a Product Master record) a campaign is filed under. */
+export interface CampaignProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/**
+ * How a campaign is doing, counted from the touchpoints its targets have recorded. `targets` is how many targets the campaign has; each other number is how
+ * many of them have that touchpoint recorded. A target that replied and booked a meeting counts in both, so a step can be higher than the one before it.
+ */
+export interface CampaignFunnel {
+  targets: number
+  sent: number
+  opened: number
+  replied: number
+  meetings: number
+  converted: number
+  optedOut: number
+}
+
+/** The GTM campaign that is the same campaign as this CRM one. */
+export interface CampaignGtmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** The CRM campaign that is the same campaign as a GTM one (the GTM screen's side of the link). */
+export interface CampaignCrmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** How many of the organisation's leads first came from this campaign. */
+export interface CampaignLeadsRef {
+  count: number
+}
+
+/**
+ * What a create or edit sends. The slice-9 fields the server ANSWERS with are not part of it; the one link a person may set is the product, by the contract's
+ * own name (the server also accepts `productMasterId`). It is left out unless the person chose or changed it, so a form that never touched the product
+ * cannot change it (lib/campaigns/model.ts `productPayload`).
+ */
+export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'funnel' | 'gtmCampaign' | 'leads'>> & {
+  product_master_id?: number | null
+}
 
 export interface CampaignListResponse {
   status: number
