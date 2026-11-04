@@ -15,16 +15,21 @@
  * existing Picklist Admin screen and this board picks it up automatically.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { cn } from '@/lib/utils'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { entersClosedLost, readRefusal, stageChangePayload, type Refusal } from '@/lib/opportunities/model'
 import { crmService } from '@/services/crm'
-import type { CrmOpportunity, CrmOpportunityPipelineResponse } from '@/types/crm'
+import type { CrmOpportunity, CrmOpportunityPipelineResponse, OpportunityLossReasonOption } from '@/types/crm'
+import { LossReasonDialog } from './opportunity-parts'
 
 type PipelineStage = CrmOpportunityPipelineResponse['data']['stages'][number]
+
+/** A card dropped on Closed Lost, waiting for the person to say why. Nothing has moved yet. */
+interface AskingAbout { id: string; name: string; stage: string }
 
 const STAGE_DOT_CLASS: Record<string, string> = {
   success: 'bg-success', warning: 'bg-warning', destructive: 'bg-destructive',
@@ -40,6 +45,12 @@ function OpportunityCard({ opportunity, busy, onClick }: { opportunity: CrmOppor
   return (
     <div
       draggable={!busy}
+      data-opportunity-card={opportunity.id}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick() }
+      }}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = 'move'
         event.dataTransfer.setData('text/crm-opportunity-id', opportunity.id)
@@ -112,6 +123,13 @@ export function OpportunityKanbanView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [movingId, setMovingId] = useState<string | null>(null)
+  // Slice 11b: the coded loss reasons the server lists, the card waiting for its reason, and what the server said to the last attempt.
+  const [lossReasons, setLossReasons] = useState<OpportunityLossReasonOption[]>([])
+  const [asking, setAsking] = useState<AskingAbout | null>(null)
+  const [refusal, setRefusal] = useState<Refusal | null>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
+  const askedId = useRef<string | null>(null)
+  const focusAfterLoad = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
@@ -123,6 +141,7 @@ export function OpportunityKanbanView() {
         crmService.getOpportunities(context, { perPage: 200, sortBy: 'created_at', sortDir: 'desc' }),
       ])
       setStages(pipelineResponse.data.stages)
+      setLossReasons(pipelineResponse.data.lossReasons ?? [])
       setOpportunities(listResponse.data.items)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load the pipeline.')
@@ -165,15 +184,32 @@ export function OpportunityKanbanView() {
     router.push(resolveAccessLink('/module/crm/sales/opportunities') + `/${opportunity.id}`)
   }
 
+  const findCard = (id: string | null): HTMLElement | null => {
+    if (!id) return null
+    const cards = Array.from(boardRef.current?.querySelectorAll<HTMLElement>('[data-opportunity-card]') ?? [])
+    return cards.find((card) => card.getAttribute('data-opportunity-card') === id) ?? null
+  }
+
+  // After a reload the board is drawn again from nothing, so the card that was being moved gets focus back once it is there.
+  useEffect(() => {
+    if (isLoading || focusAfterLoad.current === null) return
+    const card = findCard(focusAfterLoad.current)
+    if (!card) return
+    focusAfterLoad.current = null
+    card.focus()
+  })
+
   const moveOpportunity = async (opportunityId: string, stage: string) => {
     const current = opportunities.find((o) => o.id === opportunityId)
-    if (!current || current.salesStage === stage || movingId) return
+    if (!current || current.salesStage === stage || movingId || asking) return
 
-    let closeReason: string | undefined
-    if (stage === 'Closed Lost') {
-      const reason = window.prompt('Why was this opportunity lost? (required)')
-      if (!reason || !reason.trim()) return
-      closeReason = reason.trim()
+    // A move into Closed Lost asks why first, and nothing moves until the person has answered: Cancel and Escape leave the card where it was.
+    if (entersClosedLost(current.salesStage, stage)) {
+      setError('')
+      setRefusal(null)
+      askedId.current = opportunityId
+      setAsking({ id: opportunityId, name: current.name, stage })
+      return
     }
 
     setMovingId(opportunityId)
@@ -181,7 +217,7 @@ export function OpportunityKanbanView() {
     setOpportunities((prev) => prev.map((o) => (o.id === opportunityId ? { ...o, salesStage: stage } : o)))
 
     try {
-      await crmService.changeOpportunityStage(context, opportunityId, { salesStage: stage, closeReason })
+      await crmService.changeOpportunityStage(context, opportunityId, stageChangePayload(stage))
       void load()
     } catch (reason) {
       setOpportunities((prev) => prev.map((o) => (o.id === opportunityId ? { ...o, salesStage: current.salesStage } : o)))
@@ -191,19 +227,59 @@ export function OpportunityKanbanView() {
     }
   }
 
+  const submitLoss = async (answer: { code: string; note: string }) => {
+    if (!asking || movingId) return
+    const target = asking
+    setMovingId(target.id)
+    setRefusal(null)
+    try {
+      await crmService.changeOpportunityStage(context, target.id, stageChangePayload(target.stage, answer))
+      focusAfterLoad.current = target.id
+      setAsking(null)
+      void load()
+    } catch (reason) {
+      // The dialog stays open with the server's own words, so the person can answer again.
+      setRefusal(readRefusal(reason, 'Unable to move that opportunity.'))
+    } finally {
+      setMovingId(null)
+    }
+  }
+
+  const cancelLoss = () => {
+    setAsking(null)
+    setRefusal(null)
+  }
+
+  const lossDialog = (
+    <LossReasonDialog
+      open={asking !== null}
+      opportunityName={asking?.name ?? ''}
+      reasons={lossReasons}
+      saving={asking !== null && movingId === asking.id}
+      refusal={refusal}
+      onSubmit={(answer) => void submitLoss(answer)}
+      onCancel={cancelLoss}
+      onCloseFocus={() => findCard(askedId.current)?.focus()}
+    />
+  )
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-        Loading pipeline…
-      </div>
+      <>
+        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Loading pipeline…
+        </div>
+        {lossDialog}
+      </>
     )
   }
 
   return (
     <div className="space-y-3">
       {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
-      <div className="overflow-x-auto pb-4">
+      {/* The box scrolls sideways, so a keyboard user must be able to focus it to scroll it; a name and a role say what it is. */}
+      <div ref={boardRef} role="region" aria-label="Opportunity pipeline board" tabIndex={0} className="overflow-x-auto pb-4">
         <div className="flex min-w-max gap-4">
           {stages.map((stage) => (
             <KanbanColumn
@@ -226,6 +302,7 @@ export function OpportunityKanbanView() {
           )}
         </div>
       </div>
+      {lossDialog}
     </div>
   )
 }

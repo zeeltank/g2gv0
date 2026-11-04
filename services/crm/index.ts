@@ -10,6 +10,7 @@
 import { apiClient, buildApiUrl } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLeadExtras } from '@/lib/leads/model'
+import { withOpportunityExtras, withPipelineReasons } from '@/lib/opportunities/model'
 import { withCampaignExtras, withLeadCampaign } from '@/lib/campaigns/model'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
@@ -585,25 +586,25 @@ export const crmService = {
       ...(query.salesStage ? { sales_stage: query.salesStage } : {}),
       ...(query.organizationId ? { organization_id: query.organizationId } : {}),
       ...(query.contactId ? { contact_id: query.contactId } : {}),
-    }),
+    }).then((response) => ({ ...response, data: { ...response.data, items: response.data.items.map(withOpportunityExtras) } })),
 
   getOpportunityPipeline: (context: LaravelContext) =>
-    apiClient.get<CrmOpportunityPipelineResponse>('/crm/opportunities/pipeline', baseParams(context)),
+    apiClient.get<CrmOpportunityPipelineResponse>('/crm/opportunities/pipeline', baseParams(context)).then((response) => ({ ...response, data: withPipelineReasons(response.data) })),
 
   getOpportunity: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmOpportunityResponse>(`/crm/opportunities/${id}`, baseParams(context)),
+    apiClient.get<CrmOpportunityResponse>(`/crm/opportunities/${id}`, baseParams(context)).then((response) => ({ ...response, data: withOpportunityExtras(response.data) })),
 
   createOpportunity: (context: LaravelContext, payload: CrmOpportunityPayload) =>
-    apiClient.post<CrmOpportunityResponse>('/crm/opportunities', { ...payload, ...baseParams(context) }),
+    apiClient.post<CrmOpportunityResponse>('/crm/opportunities', { ...payload, ...baseParams(context) }).then((response) => ({ ...response, data: withOpportunityExtras(response.data) })),
 
   updateOpportunity: (context: LaravelContext, id: string, payload: CrmOpportunityPayload) =>
-    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}`, { ...payload, ...baseParams(context) }),
+    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}`, { ...payload, ...baseParams(context) }).then((response) => ({ ...response, data: withOpportunityExtras(response.data) })),
 
   deleteOpportunity: (context: LaravelContext, id: string) =>
     apiClient.delete<{ status: number; message: string }>(`/crm/opportunities/${id}`, baseParams(context)),
 
   changeOpportunityStage: (context: LaravelContext, id: string, payload: CrmOpportunityStageChangePayload) =>
-    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}/stage`, { ...payload, ...baseParams(context) }),
+    apiClient.put<CrmOpportunityResponse>(`/crm/opportunities/${id}/stage`, { ...payload, ...baseParams(context) }).then((response) => ({ ...response, data: withOpportunityExtras(response.data) })),
 
   getOpportunityStageHistory: (context: LaravelContext, id: string) =>
     apiClient.get<CrmOpportunityStageHistoryResponse>(`/crm/opportunities/${id}/stage-history`, baseParams(context)),

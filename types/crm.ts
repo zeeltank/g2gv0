@@ -980,15 +980,48 @@ export interface CrmOpportunity {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Agentic CRM slice 11 (hp_erp docs/agentic-crm/slices/S11-pipeline-and-forecast.md, "Contract"). Both fields are OPTIONAL: a server that does not send them
+   * (an older one) leaves the key out and the screens render without them. `null` means "none"; a missing key means "this server does not say".
+   * lib/opportunities/model.ts reads them from the server's answer (the contract's `loss_reason` and the presenter-style `lossReason` are both accepted).
+   */
+  product?: OpportunityProductRef | null
+  lossReason?: OpportunityLossReasonRef | null
 }
 
+/** The product (a Product Master record) an opportunity is for. */
+export interface OpportunityProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The coded reason an opportunity was lost: the code that is stored and the plain-English label the server gives it. */
+export interface OpportunityLossReasonRef {
+  code: string
+  label: string
+}
+
+/** One of the loss reasons the server accepts (the pipeline answer's `lossReasons`). */
+export interface OpportunityLossReasonOption {
+  code: string
+  label: string
+}
+
+/**
+ * What a create or edit sends. The slice-11 fields the server ANSWERS with (`product`, `lossReason`) are not part of it; the two a person may set go under the
+ * names the endpoint reads: `productMasterId` and `lossReasonCode`. Each is left out unless the person chose or changed it (lib/opportunities/model.ts).
+ */
 export type CrmOpportunityPayload = Partial<
   Omit<
     CrmOpportunity,
     'id' | 'opportunityNo' | 'organizationName' | 'campaignName' | 'weightedRevenue'
-    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy'
+    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'lossReason'
   >
->
+> & {
+  productMasterId?: number | null
+  lossReasonCode?: string | null
+}
 
 export interface CrmOpportunityListResponse {
   status: number
@@ -1025,6 +1058,8 @@ export interface CrmOpportunityPipelineResponse {
       count: number
       totalAmount: number
     }>
+    /** Slice 11b: the loss-reason codes the server accepts. OPTIONAL: an older server does not send it (the screens then ask for free text only). */
+    lossReasons?: OpportunityLossReasonOption[]
   }
 }
 
@@ -1035,6 +1070,8 @@ export interface CrmOpportunityStageChangePayload {
   closingDate?: string | null
   /** Required when salesStage is "Closed Lost" and the opportunity wasn't already lost. */
   closeReason?: string | null
+  /** Slice 11b: one of the pipeline answer's `lossReasons` codes; sent only with a move into Closed Lost. */
+  lossReasonCode?: string | null
 }
 
 export interface CrmOpportunityStageHistoryEntry {
