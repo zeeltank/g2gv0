@@ -104,3 +104,14 @@ describe('the answers', () => {
     assert.deepEqual(response.data, lead())
   })
 })
+
+describe('the export URL', () => {
+  it('includes active filter parameters in the generated URL', () => {
+    const url = new URL(crmService.leadsExportUrl(context, 'asha', { productId: 12, consent: 'blocked', hasSignal: true }), 'http://test.local')
+    assert.equal(url.searchParams.get('search'), 'asha')
+    assert.equal(url.searchParams.get('product_id'), '12')
+    assert.equal(url.searchParams.get('consent'), 'blocked')
+    assert.equal(url.searchParams.get('has_signal'), '1')
+  })
+})
+

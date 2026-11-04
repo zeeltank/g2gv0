@@ -237,7 +237,7 @@ export function LeadListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
-          <CrmExportButton href={crmService.leadsExportUrl(context, search || undefined)} />
+          <CrmExportButton href={crmService.leadsExportUrl(context, search || undefined, filters)} />
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <FileUp className="mr-1.5 size-4" aria-hidden="true" />
             Import
