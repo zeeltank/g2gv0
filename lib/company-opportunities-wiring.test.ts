@@ -48,6 +48,11 @@ describe('Product Details & ICP link', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
     assert.match(src, /selected\?\.icp_models\?\.\[icpType\]/)
     assert.match(src, /Complete it in Product Portfolio/)
+    assert.match(src, /Needs setup/)
+    assert.match(src, /Setup required/)
+    assert.match(src, /Configure in Product Portfolio/)
+    assert.match(src, /offersHref\(selected\.key\)/)
+    assert.match(src, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
   })
 })
 

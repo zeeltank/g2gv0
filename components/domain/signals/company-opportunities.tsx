@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Plus, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { AlertCircle, Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { choiceOf, splitChoice } from '@/lib/product-selection'
+import { choiceOf, offersHref, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, shiftDay, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -22,7 +23,7 @@ import { useGenerateSignals } from '@/components/domain/signals/use-generate-sig
 import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
 import { viewAfterManualSave } from '@/lib/manual-opportunity'
 import { ManualOpportunityDialog } from '@/components/domain/signals/manual-opportunity-dialog'
-import { opportunitiesService, type ManualOpportunityResponse, type RunDatesResponse } from '@/services/signals/opportunities'
+import { opportunitiesService, type ManualOpportunityResponse, type ResearchRun, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
 
@@ -190,18 +191,48 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-Product</label>
-            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && setChoice(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div className="flex items-center justify-between">
+              <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Sub-Product
+              </label>
+              {offerId && selected && !ready && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  Needs setup
+                </span>
+              )}
+            </div>
+            <select
+              id="sub-product-select"
+              aria-label="Sub-Product"
+              value={offerId ?? ''}
+              onChange={(e) => selected && setChoice(choiceOf(selected.key, e.target.value || null))}
+              disabled={run.running || !selected}
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <option value="">Whole product</option>
-              {selected?.offers.map((offer) => <option key={offer.offer_id} value={offer.offer_id}>{offer.name}</option>)}
+              {selected?.offers.map((offer) => {
+                const subReady = offer.icp_models?.[icpType]?.ready ?? false
+                return (
+                  <option key={offer.offer_id} value={offer.offer_id}>
+                    {offer.name}{!subReady ? ' (Setup required)' : ''}
+                  </option>
+                )
+              })}
             </select>
           </div>
 
           {/* Dropdown 2: ICP Type */}
           <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              ICP Type
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                ICP Type
+              </label>
+              {!ready && selected && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  Needs setup
+                </span>
+              )}
+            </div>
             <select
               id="icp-type-select"
               aria-label="ICP Type"
@@ -215,13 +246,23 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
               ].map((item) => {
+                const modelStatus = offerId
+                  ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[item.key]
+                  : selected?.icp_models?.[item.key]
+                const itemReady = modelStatus ? modelStatus.ready : false
+                const extra = selected && !itemReady ? ' (Setup required)' : ''
                 return (
                   <option key={item.key} value={item.key}>
-                    {item.label}
+                    {item.label}{extra}
                   </option>
                 )
               })}
             </select>
+            {!ready && selected && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                ICP not configured for this customer model
+              </p>
+            )}
           </div>
 
           {/* Dropdown 3: Region */}
@@ -229,21 +270,45 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
         </div>
 
-        <div className="mt-4 flex items-center justify-end border-t border-border/60 pt-4">
-          <span className="sr-only" aria-live="polite">
-            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
-          </span>
-          <Button
-            type="button"
-            size="lg"
-            className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
-            onClick={generate}
-            disabled={!selected || run.running || !ready}
-            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
-          >
-            {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
-            {run.running ? 'Finding Signals…' : 'Generate Signals'}
-          </Button>
+        <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          {!ready && selected ? (
+            <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="flex flex-col gap-0.5">
+                <span className="font-semibold">
+                  {selected.label}{offerId ? ` (${selected.offers.find((o) => o.offer_id === offerId)?.name ?? offerId})` : ''} — {icpType === 'b2c' ? 'B2B Partner Acquisition' : icpType === 'b2g' ? 'B2G — Government' : 'B2B Customer Acquisition'} requires ICP configuration
+                </span>
+                <span className="text-muted-foreground">
+                  {currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}{' '}
+                  <Link
+                    href={offersHref(selected.key)}
+                    className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    Configure in Product Portfolio &rarr;
+                  </Link>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center justify-end">
+            <span className="sr-only" aria-live="polite">
+              {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
+            </span>
+            <Button
+              type="button"
+              size="lg"
+              className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
+              onClick={generate}
+              disabled={!selected || run.running || !ready}
+              title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
+            >
+              {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+              {run.running ? 'Finding Signals…' : 'Generate Signals'}
+            </Button>
+          </div>
         </div>
 
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}

@@ -48,7 +48,7 @@ export function OpportunityAiCoachTab({
         setScoringResult(res.analyses.methodology_score.result as unknown as Record<string, unknown>)
       }
       if (res.analyses.discovery_analysis?.result) {
-        setDiscoveryResult(res.analyses.discovery_analysis.result as Record<string, unknown>)
+        setDiscoveryResult(res.analyses.discovery_analysis.result as unknown as Record<string, unknown>)
       }
       setError(null)
     } catch (e) {
