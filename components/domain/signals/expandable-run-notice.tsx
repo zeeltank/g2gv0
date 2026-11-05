@@ -398,7 +398,7 @@ export function ExpandableRunNotice({
             </div>
 
             {/* Search Input when multiple sources exist */}
-            {sourcesList.length > 4 && (
+            {sourcesList.length > 1 && (
               <div className="relative mt-2.5">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                 <input
@@ -518,7 +518,7 @@ export function ExpandableRunNotice({
                               </Badge>
                             )}
                             <div className="mt-0.5 text-[10px] text-muted-foreground/80">
-                              {isReadInFull ? '1 page read' : 'Excerpt only'}
+                              {isReadInFull ? '1 page read in full' : 'Search snippet only'}
                             </div>
                           </td>
 
