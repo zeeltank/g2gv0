@@ -10,7 +10,7 @@ interface Props {
 
 export function CrmExportButton({ href }: Props) {
   return (
-    <Button variant="outline" onClick={() => { window.location.href = href }}>
+    <Button variant="outline" data-export-href={href} onClick={() => { window.location.href = href }}>
       <Download className="mr-1.5 size-4" aria-hidden="true" />
       Export
     </Button>

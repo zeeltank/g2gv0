@@ -268,6 +268,20 @@ describe('the Leads screen: product, consent and signal', () => {
     assert.deepEqual(await axeViolations(s.k.w.document.body), [])
     s.restore()
   })
+
+  it('passes active filters (product, consent, origin) to the Export CSV button', async () => {
+    const s = await open({ options, leads: [withProduct()] })
+    await s.choose('Product', '4')
+    await s.choose('Consent', 'blocked')
+    await s.choose('Origin', '1')
+    const exportBtn = s.k.one('button[data-export-href]')
+    assert.ok(exportBtn, 'Export button is present')
+    const href = exportBtn.getAttribute('data-export-href')!
+    assert.ok(href.includes('product_id=4'), `href includes product_id: ${href}`)
+    assert.ok(href.includes('consent=blocked'), `href includes consent: ${href}`)
+    assert.ok(href.includes('has_signal=1'), `href includes has_signal: ${href}`)
+    s.restore()
+  })
 })
 
 describe('the Leads screen: saved views keep the filters', () => {

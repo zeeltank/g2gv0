@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { crmService } from '@/services/crm'
 import type { LaravelContext } from '@/lib/laravel-context'
-import type { ProspectingResult, OutreachDraft, DealCoachResult } from '@/types/crm'
+import type { ProspectingResult, OutreachDraft, DealCoachResult, AgentRun } from '@/types/crm'
 
 function ThinkingDots() {
   return (
@@ -75,8 +75,8 @@ export function CrmAiAssistant({ entityType, entityId, entityData, context, onCl
       }
       try {
         const res = await crmService.getAgentRun(context, runId)
-        const raw = res.status === 1 ? res.data : null
-        const run = raw && 'run' in (raw as object) ? (raw as unknown as { run: typeof raw }).run : raw
+        const raw = res.status === 1 ? (res.data as unknown as { run?: AgentRun } | AgentRun) : null
+        const run: AgentRun | null = raw ? ('run' in raw && raw.run ? raw.run : (raw as AgentRun)) : null
         if (!run || run.status === 'running') {
           timerRef.current = setTimeout(tick, POLL_INTERVAL)
           return

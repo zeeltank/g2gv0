@@ -51,13 +51,14 @@ export function catalogueColumnCount(itemType: PmItemType, showLines: boolean): 
 }
 
 /** What an empty catalogue says about the product lines, when there are some: the catalogue is empty but the organisation is not. Null when there is nothing to add. */
-export function emptyCatalogueHint(lines: CrmProductLines | null | undefined): string | null {
+export function emptyCatalogueHint(lines: CrmProductLines | null | undefined, explainCatalogue: boolean = false): string | null {
   if (!lines?.available) return null
   const lineCount = lines.productLines
   const subCount = lines.subProducts
   if (lineCount + subCount === 0) return null
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-  return `Your product lines are in the other view: ${plural(lineCount, 'product line', 'product lines')} with ${plural(subCount, 'sub-product', 'sub-products')}.`
+  const base = `Your product lines are in the other view: ${plural(lineCount, 'product line', 'product lines')} with ${plural(subCount, 'sub-product', 'sub-products')}.`
+  return explainCatalogue ? `${base} Product Lines contain sellable Catalogue SKUs.` : base
 }
 
 // ---- the state of an ideal-customer profile ----

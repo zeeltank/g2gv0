@@ -139,7 +139,7 @@ export function ProductCatalogListView({ itemType, routeSegment, scopeSwitch, on
   const columnCount = catalogueColumnCount(itemType, showLines)
   const productsHref = resolveAccessLink('/module/crm/sales/products')
   // The hint points at the other view, so it is drawn only where that view's switch is (the Products screen), and not when a search emptied the list.
-  const emptyHint = itemType === 'product' && scopeSwitch && !search ? emptyCatalogueHint(lines) : null
+  const emptyHint = itemType === 'product' && scopeSwitch && !search ? emptyCatalogueHint(lines, true) : null
 
   const handleApplyView = (conditions: Record<string, unknown>) => {
     if (typeof conditions.search === 'string') setSearch(conditions.search)

@@ -71,8 +71,7 @@ export function OpportunityAiCoachTab({
     setError(null)
     try {
       const res = await dealService.score(dealId, selectedMethodology || undefined)
-      const scored = res.data as unknown as Record<string, unknown>
-      setScoringResult(('result' in scored && scored.result ? (scored.result as Record<string, unknown>) : scored))
+      setScoringResult(((res.data as unknown as { result?: unknown }).result ?? res.data) as unknown as Record<string, unknown>)
       await load()
     } catch (e) {
       setError(errMsg(e, 'Failed to score deal with AI.'))

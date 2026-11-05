@@ -251,8 +251,14 @@ export const crmService = {
       survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
     }),
 
-  leadsExportUrl: (context: LaravelContext, search?: string) =>
-    buildApiUrl('/crm/leads/export', { ...baseParams(context), ...(search ? { search } : {}) }),
+  leadsExportUrl: (context: LaravelContext, search?: string, filters?: { productId?: number | null; consent?: string | null; hasSignal?: boolean | null }) =>
+    buildApiUrl('/crm/leads/export', {
+      ...baseParams(context),
+      ...(search ? { search } : {}),
+      ...(filters?.productId && filters.productId > 0 ? { product_id: String(filters.productId) } : {}),
+      ...(filters?.consent ? { consent: filters.consent } : {}),
+      ...(filters?.hasSignal ? { has_signal: '1' } : {}),
+    }),
 
   importLeads: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/leads/import', { rows, ...baseParams(context) }),
@@ -504,6 +510,9 @@ export const crmService = {
     apiClient.put<CrmTaxRateResponse>(`/crm/tax-rates/${id}`, { ...payload, ...baseParams(context) }),
 
   // ── Products & Services (one table, item_type discriminates) ───────
+  getProductLines: () =>
+    apiClient.get<{ status: number; data: { id: number; key: string; name: string }[] }>('/product-master/lines'),
+
   getProducts: (context: LaravelContext, itemType: CrmItemType, query: CrmProductListQuery = {}) =>
     apiClient.get<CrmProductListResponse>('/crm/products', {
       ...baseParams(context),
