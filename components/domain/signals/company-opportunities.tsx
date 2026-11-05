@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
-import { AlertCircle, Loader2, Plus, Sparkles } from 'lucide-react'
+import { Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -119,14 +118,6 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const currentModelStatus = offerId
     ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[icpType]
     : selected?.icp_models?.[icpType]
-
-  const isModelReady = currentModelStatus
-    ? currentModelStatus.ready
-    : (icpType === 'b2b' ? Boolean(selected?.ready) : false)
-
-  const ready = offerId
-    ? (currentModelStatus ? currentModelStatus.ready : icpType === 'b2b' && selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_ready === true)
-    : isModelReady
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -191,16 +182,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Sub-Product
-              </label>
-              {offerId && selected && !ready && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                  Needs setup
-                </span>
-              )}
-            </div>
+            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Sub-Product
+            </label>
             <select
               id="sub-product-select"
               aria-label="Sub-Product"
@@ -210,29 +194,19 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">Whole product</option>
-              {selected?.offers.map((offer) => {
-                const subReady = offer.icp_models?.[icpType]?.ready ?? false
-                return (
-                  <option key={offer.offer_id} value={offer.offer_id}>
-                    {offer.name}{!subReady ? ' (Setup required)' : ''}
-                  </option>
-                )
-              })}
+              {selected?.offers.map((offer) => (
+                <option key={offer.offer_id} value={offer.offer_id}>
+                  {offer.name}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Dropdown 2: ICP Type */}
           <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                ICP Type
-              </label>
-              {!ready && selected && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                  Needs setup
-                </span>
-              )}
-            </div>
+            <label htmlFor="icp-type-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              ICP Type
+            </label>
             <select
               id="icp-type-select"
               aria-label="ICP Type"
@@ -245,24 +219,12 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 { key: 'b2b' as const, label: 'B2B Customer Acquisition' },
                 { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
-              ].map((item) => {
-                const modelStatus = offerId
-                  ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[item.key]
-                  : selected?.icp_models?.[item.key]
-                const itemReady = modelStatus ? modelStatus.ready : false
-                const extra = selected && !itemReady ? ' (Setup required)' : ''
-                return (
-                  <option key={item.key} value={item.key}>
-                    {item.label}{extra}
-                  </option>
-                )
-              })}
+              ].map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
             </select>
-            {!ready && selected && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                ICP not configured for this customer model
-              </p>
-            )}
           </div>
 
           {/* Dropdown 3: Region */}
@@ -270,40 +232,14 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          {!ready && selected ? (
-            <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold">
-                  {selected.label}{offerId ? ` (${selected.offers.find((o) => o.offer_id === offerId)?.name ?? offerId})` : ''} — {icpType === 'b2c' ? 'B2B Partner Acquisition' : icpType === 'b2g' ? 'B2G — Government' : 'B2B Customer Acquisition'} requires ICP configuration
-                </span>
-                <span className="text-muted-foreground">
-                  {currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}{' '}
-                  <Link
-                    href={offersHref(selected.key)}
-                    className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
-                  >
-                    Configure in Product Portfolio &rarr;
-                  </Link>
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div />
-          )}
-
+        <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-end">
           <div className="flex items-center justify-end">
-            <span className="sr-only" aria-live="polite">
-              {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
-            </span>
             <Button
               type="button"
               size="lg"
               className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
               onClick={generate}
-              disabled={!selected || run.running || !ready}
-              title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
+              disabled={!selected || run.running}
             >
               {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
               {run.running ? 'Finding Signals…' : 'Generate Signals'}
@@ -314,7 +250,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
 
         {/* The run's real progress appears directly below the selectors after generation starts. */}
-        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
+        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running} />}
         {run.notice && (
           <div className="mt-3">
             <ExpandableRunNotice

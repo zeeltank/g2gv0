@@ -44,15 +44,11 @@ describe('Product Details & ICP link', () => {
     assert.equal(subProductIcpState([ready]).label, 'ICP configured for all 1 sub-product')
   })
 
-  it('shows the selected product ICP readiness on the Company opportunities screen', () => {
+  it('enables universal signal generation on Company opportunities without blocking ICP requirements', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /selected\?\.icp_models\?\.\[icpType\]/)
-    assert.match(src, /Complete it in Product Portfolio/)
-    assert.match(src, /Needs setup/)
-    assert.match(src, /Setup required/)
-    assert.match(src, /Configure in Product Portfolio/)
-    assert.match(src, /offersHref\(selected\.key\)/)
-    assert.match(src, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
+    assert.match(src, /disabled=\{!selected \|\| run\.running\}/)
+    assert.doesNotMatch(src, /Needs setup/)
+    assert.doesNotMatch(src, /Configure in Product Portfolio/)
   })
 })
 
