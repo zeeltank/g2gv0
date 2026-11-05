@@ -10,6 +10,7 @@ import { choiceOf, splitChoice } from '@/lib/product-selection'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, shiftDay, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
+import { ExpandableRunNotice } from '@/components/domain/signals/expandable-run-notice'
 import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
 import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
@@ -251,11 +252,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
         {run.notice && (
           <div className="mt-3">
-            <Notice tone={run.notice.tone === 'success' ? 'info' : run.notice.tone}>
-              <span>{run.notice.text}</span>
-              {run.notice.missing && run.notice.missing.length > 0 && <ul className="mt-1 list-disc pl-5">{run.notice.missing.map((m) => <li key={m}>{m}</li>)}</ul>}
-              {run.notice.nextStep && <span className="mt-1 block">{run.notice.nextStep}</span>}
-            </Notice>
+            <ExpandableRunNotice
+              notice={run.notice}
+              run={run.activeRun ?? (run.notice.runId ? ({ id: run.notice.runId } as ResearchRun) : null) ?? run.status?.latest_run ?? null}
+              context={context}
+            />
           </div>
         )}
       </section>
