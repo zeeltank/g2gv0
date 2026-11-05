@@ -40,6 +40,8 @@ import { useProducts } from '@/components/domain/signals/product-selector'
 import { configureHref, offersHref } from '@/lib/product-selection'
 import { NewProductDialog } from './new-product-dialog'
 import { ProductFormDialog } from './product-form-dialog'
+import { MainProductFormDialog } from './main-product-form-dialog'
+import { MainProductDeleteDialog } from './main-product-delete-dialog'
 import { deleteConfirmation, deleteProductConfirmation } from '@/lib/product-form'
 import { productIcpService } from '@/services/signals/product-icp'
 import { apiErrorText } from '@/lib/api-messages'
@@ -62,6 +64,8 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
   const [createOpen, setCreateOpen] = useState(false)
   // A NEW top-level product (its own ICP), as opposed to createOpen, which adds an offer inside an existing product group.
   const [newProductOpen, setNewProductOpen] = useState(false)
+  const [editMainProductOpen, setEditMainProductOpen] = useState(false)
+  const [deleteMainProductOpen, setDeleteMainProductOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
 
@@ -294,52 +298,114 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
               ))}
             </select>
           )}
-          {isAdmin && p?.custom && <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label={`Delete ${p.label}`} onClick={() => void handleDeleteProduct(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>}
+          <span className="hidden">
+            {isAdmin && p?.custom && <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label={`Delete ${p.label}`} onClick={() => void handleDeleteProduct(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isAdmin && (
             <Button size="sm" onClick={() => setNewProductOpen(true)} title="Create a separate product with its own ideal customer profile">
               <Plus className="mr-1.5 size-3.5" />
               New Product
             </Button>
           )}
+          {selectedParent && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditMainProductOpen(true)}
+              title={`Edit ${selectedParent.label}`}
+            >
+              <Edit2 className="mr-1.5 size-3.5" />
+              Edit Product
+            </Button>
+          )}
+          {selectedParent && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteMainProductOpen(true)}
+              title={`Delete ${selectedParent.label}`}
+            >
+              <Trash2 className="mr-1.5 size-3.5" />
+              Delete Product
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={refreshing || loading}
+            onClick={handleRefresh}
+            title="Refresh portfolio"
+          >
+            <RefreshCw className={`mr-1.5 size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
+
+      {/* Selected Product Overview Card */}
+      {selectedParent && (
+        <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Package className="size-4 text-primary shrink-0" />
+                <h2 className="text-base font-bold text-foreground truncate">{selectedParent.label}</h2>
+                <Badge
+                  variant={selectedParent.status === 'inactive' ? 'outline' : 'success'}
+                  className="text-[10px] font-semibold"
+                >
+                  {selectedParent.status === 'inactive' ? 'Inactive' : 'Active'}
+                </Badge>
+                {selectedParent.category && (
+                  <Badge variant="muted" className="text-[10px]">
+                    {selectedParent.category}
+                  </Badge>
+                )}
+                {selectedParent.custom ? (
+                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                    Custom Product
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                    Core Product
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl">
+                {selectedParent.description || 'No description recorded. Click Edit Product to set category and details.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground border-l border-border/60 pl-4 shrink-0">
+              <div className="text-center">
+                <span className="block font-bold text-foreground text-sm">{selectedOffers.length}</span>
+                <span>Offers</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section id="portfolio-sub-products" aria-live="polite" aria-busy={loading} className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Offers</h3>
+            <p className="text-xs text-muted-foreground">
+              Specific offerings and packages delivered under {selectedParent?.label ?? 'the selected product'}.
+            </p>
+          </div>
           {canManage && (
-            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} title="Add an offer to a product group">
+            <Button size="sm" variant="default" onClick={() => setCreateOpen(true)} title="Add Product offer to this line">
               <Plus className="mr-1.5 size-3.5" />
               Add Product
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Portfolio actions"><MoreHorizontal className="size-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled={refreshing || loading} onSelect={handleRefresh}>
-                <RefreshCw className={`mr-2 size-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-              </DropdownMenuItem>
-              {canManage && (
-                <DropdownMenuItem disabled={importing} onSelect={() => void handleTriggerImport()} title="Sync from G2G_Foundation_Data_Portfolio_Partners.xlsx">
-                  <DownloadCloud className={`mr-2 size-4 ${importing ? 'animate-spin' : ''}`} /> {importing ? 'Syncing...' : 'Sync Excel'}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
-      </div>
-
-      {importMsg && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary flex items-center justify-between">
-          <span>{importMsg}</span>
-          <button type="button" onClick={() => setImportMsg(null)} aria-label="Dismiss" className="text-xs font-bold ml-2">
-            ×
-          </button>
-        </div>
-      )}
-
-      {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
-
-      <section id="portfolio-sub-products" aria-live="polite" aria-busy={loading} className="space-y-4">
         {/* Offers Grid */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -682,6 +748,30 @@ export function PortfolioView({ context, canManage = true }: { context: LaravelC
         open={createOpen || editOffer !== null}
         onClose={() => { setCreateOpen(false); setEditOffer(null) }}
         onSaved={handleSaved}
+      />
+      <MainProductFormDialog
+        context={context}
+        open={editMainProductOpen}
+        mode="edit"
+        product={selectedParent}
+        onClose={() => setEditMainProductOpen(false)}
+        onSaved={() => {
+          reloadProducts()
+          setEditMainProductOpen(false)
+        }}
+      />
+      <MainProductDeleteDialog
+        context={context}
+        open={deleteMainProductOpen}
+        product={selectedParent}
+        onClose={() => setDeleteMainProductOpen(false)}
+        onDeleted={(deletedKey) => {
+          reloadProducts()
+          setDeleteMainProductOpen(false)
+          if (selectedParentKey === deletedKey) {
+            setSelectedParentKey(null)
+          }
+        }}
       />
     </div>
   )
