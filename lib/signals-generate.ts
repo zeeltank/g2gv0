@@ -62,23 +62,6 @@ export function decideGenerate(
   if (!product) return { ok: false, outcome: refuse('unknown_product', 'That product is not available.') }
   if (running) return { ok: false, outcome: refuse('running', 'A run is already in progress.') }
 
-  const modelUpper = customerModel.toUpperCase()
-  const prodModel = product.icp_models?.[customerModel]
-  const prodReady = prodModel ? prodModel.ready : (customerModel === 'b2b' ? product.ready : false)
-  if (!prodReady && !sub) {
-    const missing = prodModel?.missing ?? product.missing
-    return { ok: false, outcome: refuse('not_ready', `${product.label} is not ready: its ${modelUpper} ICP must be configured and active first.`, missing, product.next_step ?? null) }
-  }
-
-  if (sub) {
-    const subModel = sub.icp_models?.[customerModel]
-    const subReady = subModel ? subModel.ready : (customerModel === 'b2b' ? sub.ready : false)
-    if (!subReady) {
-      const missing = subModel?.missing ?? sub.missing
-      return { ok: false, outcome: refuse('not_ready', `${sub.name} is not ready: its ${modelUpper} ICP must be completed first.`, missing, 'Edit the product in Product Portfolio and complete its Individual ICP.') }
-    }
-  }
-
   return { ok: true, product }
 }
 
@@ -106,8 +89,8 @@ export async function generateSignals(args: {
 
   const status = (await args.service.getStatus(args.context, product.key, customerModel, args.sub?.offer_id ?? null, args.regions)).data
   if (status.running) return refuse('running', 'A run is already in progress.')
-  if (!status.product || status.product.key !== product.key || (!args.sub && !status.product.ready)) {
-    return refuse('not_ready', `${product.label} is not ready for discovery.`, status.product?.missing ?? product.missing, product.next_step ?? null)
+  if (!status.product || status.product.key !== product.key) {
+    return refuse('unknown_product', `${product.label} is not available.`)
   }
   if (!status.requirements.search_configured || !status.requirements.ai_configured) {
     return refuse('providers', !status.requirements.search_configured

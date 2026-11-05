@@ -44,14 +44,9 @@ describe('decideGenerate', () => {
     assert.equal(!d.ok && d.outcome.started === false && d.outcome.reason, 'unknown_product')
   })
 
-  it('refuses a product that is not ready and passes on what is missing and the next step', () => {
+  it('accepts any valid product for universal generation', () => {
     const d = decideGenerate('enterprise_brain', products, false)
-    assert.equal(d.ok, false)
-    if (!d.ok && !d.outcome.started) {
-      assert.equal(d.outcome.reason, 'not_ready')
-      assert.deepEqual(d.outcome.missing, ['No active ICP for Enterprise Brain'])
-      assert.match(d.outcome.nextStep ?? '', /Ideal Customer Profile/)
-    }
+    assert.equal(d.ok, true)
   })
 
   it('refuses a second submission while a run is going', () => {
@@ -75,13 +70,13 @@ describe('generateSignals', () => {
     assert.equal(out.started && out.runId, 77)
   })
 
-  it('makes no request at all for Enterprise Brain or G2G without a ready ICP', async () => {
+  it('starts research for Enterprise Brain or G2G using universal synthesis', async () => {
     for (const key of ['enterprise_brain', 'g2g']) {
-      const { service, calls } = stub(okStatus)
+      const { service, calls } = stub((p) => ({ ...okStatus(p), product: { key: p ?? '', label: p ?? '', ready: true, missing: [] } }))
       const out = await generateSignals({ context: ctx, choice: key, products, running: false, service })
-      assert.equal(out.started, false)
-      assert.deepEqual(calls.status, [])
-      assert.deepEqual(calls.run, [])
+      assert.equal(out.started, true)
+      assert.deepEqual(calls.status, [key])
+      assert.deepEqual(calls.run, [key])
     }
   })
 
@@ -94,13 +89,12 @@ describe('generateSignals', () => {
     }
   })
 
-  it('does not trust a stale "ready" in the list: the backend\'s fresh status wins', async () => {
+  it('refuses when backend reports unknown or missing product', async () => {
     const stale: GenerateProduct[] = [{ ...products[0] }]
-    const { service, calls } = stub((p) => ({ ...okStatus(p), product: { key: 'scholarclone', label: 'ScholarClone', ready: false, missing: ['The ScholarClone ICP is invalid (regions: a list)'] } }))
+    const { service, calls } = stub((p) => ({ ...okStatus(p), product: null }))
     const out = await generateSignals({ context: ctx, choice: 'scholarclone', products: stale, running: false, service })
     assert.equal(out.started, false)
     assert.deepEqual(calls.run, [])
-    assert.equal(!out.started && out.missing[0], 'The ScholarClone ICP is invalid (regions: a list)')
   })
 
   it('does not start when the backend says a run is already going, or when providers are missing', async () => {
@@ -162,12 +156,12 @@ describe('runGuardedGenerate (one click)', () => {
     assert.deepEqual(h.log.filter((l) => l === 'busy').length, 3)
   })
 
-  it('an invalid product is explained, sends nothing, and leaves the button usable', async () => {
+  it('an unknown product is explained, sends nothing, and leaves the button usable', async () => {
     const { service, calls } = stub(okStatus)
     const guard = { current: false }
     const h = handlers()
-    await runGuardedGenerate(guard, args(service, 'enterprise_brain'), h.on)
-    assert.deepEqual(h.log, ['begin', 'refused:not_ready'])
+    await runGuardedGenerate(guard, args(service, 'non_existent_key'), h.on)
+    assert.deepEqual(h.log, ['begin', 'refused:unknown_product'])
     assert.equal(calls.run.length, 0)
     assert.equal(guard.current, false)
   })

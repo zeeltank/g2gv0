@@ -31,29 +31,19 @@ describe('Choosing one sub-product of a product', () => {
 
   const gp = [{ key: 'scholarclone', label: 'ScholarClone', ready: true, missing: [] as string[] }]
 
-  it('refuses a sub-product whose own ICP is not ready, with what is missing, and starts nothing', () => {
-    const r = decideGenerate('scholarclone', gp, false, { offer_id: 'SCH-02', name: 'Scholar Core', ready: false, missing: ['no Individual ICP is saved for this sub-product'] })
-    assert.equal(r.ok, false)
-    if (!r.ok && !r.outcome.started) {
-      assert.equal(r.outcome.reason, 'not_ready')
-      assert.match(r.outcome.message, /Scholar Core is not ready/)
-      assert.deepEqual(r.outcome.missing, ['no Individual ICP is saved for this sub-product'])
-    }
+  it('accepts any sub-product for universal generation', () => {
+    const r = decideGenerate('scholarclone', gp, false, { offer_id: 'SCH-02', name: 'Scholar Core', ready: false, missing: [] })
+    assert.equal(r.ok, true)
     assert.equal(decideGenerate('scholarclone', gp, false, { offer_id: 'SCH-11', name: 'Scholar Learn', ready: true, missing: [] }).ok, true)
     assert.equal(decideGenerate('scholarclone', gp, false, null).ok, true, 'no sub-product: the whole product, as before')
   })
 
-  it('does not borrow B2B child readiness for a B2C or B2G run', () => {
-    const sub = { offer_id: 'SCH-11', name: 'Scholar Learn', ready: true, missing: [], icp_models: {
-      b2b: { ready: true, missing: [], configured: true },
-      b2c: { ready: false, missing: ['no B2C ICP'], configured: false },
-      b2g: { ready: false, missing: ['no B2G ICP'], configured: false },
-    } }
+  it('allows selecting any customer model (b2c, b2g, b2b) universally', () => {
+    const sub = { offer_id: 'SCH-11', name: 'Scholar Learn', ready: true, missing: [] }
     const b2c = decideGenerate('scholarclone', gp, false, sub, 'b2c')
-    assert.equal(b2c.ok, false)
-    if (!b2c.ok && !b2c.outcome.started) assert.deepEqual(b2c.outcome.missing, ['no B2C ICP'])
+    assert.equal(b2c.ok, true)
     const b2g = decideGenerate('scholarclone', gp, false, sub, 'b2g')
-    assert.equal(b2g.ok, false)
+    assert.equal(b2g.ok, true)
   })
 
   it('sends the Offer ID with the product to the run, and nothing extra for the whole product', async () => {
