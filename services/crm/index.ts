@@ -510,6 +510,9 @@ export const crmService = {
     apiClient.put<CrmTaxRateResponse>(`/crm/tax-rates/${id}`, { ...payload, ...baseParams(context) }),
 
   // ── Products & Services (one table, item_type discriminates) ───────
+  getProductLines: () =>
+    apiClient.get<{ status: number; data: { id: number; key: string; name: string }[] }>('/product-master/lines'),
+
   getProducts: (context: LaravelContext, itemType: CrmItemType, query: CrmProductListQuery = {}) =>
     apiClient.get<CrmProductListResponse>('/crm/products', {
       ...baseParams(context),

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Pencil, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -41,6 +42,7 @@ function Field({ label, value }: { label: string; value: string | number | null 
 }
 
 export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Props) {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
@@ -176,7 +178,21 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
       )}
 
       {tab === 'targets' && (
-        <div className="rounded-lg border border-border p-4">
+        <div className="space-y-4 rounded-lg border border-border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3.5 text-sm">
+            <div>
+              <p className="font-medium text-foreground">GTM Cadence &amp; Playbook Execution</p>
+              <p className="text-xs text-muted-foreground">Engage your segmented targets through automated multi-channel sequences and outreach cadences.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => router.push('/gtm/playbooks')}>
+                Open Playbooks
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => router.push('/gtm/outreach')}>
+                Outreach Queue
+              </Button>
+            </div>
+          </div>
           <CampaignTargetManager campaignId={campaign.id} />
         </div>
       )}

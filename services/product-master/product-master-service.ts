@@ -20,6 +20,11 @@ export const productMasterService = {
     return apiClient.get('/product-master/options')
   },
 
+  /** Active product lines for pickers. */
+  lines(): Promise<PmEnvelope<{ id: number; key: string; name: string }[]>> {
+    return apiClient.get('/product-master/lines')
+  },
+
   /** The choices a form may offer and what the caller may do. */
   meta(): Promise<PmEnvelope<PmMeta>> {
     return apiClient.get('/product-master/meta')

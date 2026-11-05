@@ -80,6 +80,7 @@ describe('the extra columns of the catalogue list', () => {
     assert.equal(emptyCatalogueHint(lines({ productLines: 5, subProducts: 25 })), 'Your product lines are in the other view: 5 product lines with 25 sub-products.')
     assert.equal(emptyCatalogueHint(lines({ productLines: 1, subProducts: 1 })), 'Your product lines are in the other view: 1 product line with 1 sub-product.')
     assert.equal(emptyCatalogueHint(lines({ productLines: 3, subProducts: 0 })), 'Your product lines are in the other view: 3 product lines with 0 sub-products.')
+    assert.equal(emptyCatalogueHint(lines({ productLines: 5, subProducts: 25 }), true), 'Your product lines are in the other view: 5 product lines with 25 sub-products. Product Lines contain sellable Catalogue SKUs.')
   })
 
   it('say nothing when there is nothing to point to', () => {
