@@ -75,7 +75,8 @@ export function CrmAiAssistant({ entityType, entityId, entityData, context, onCl
       }
       try {
         const res = await crmService.getAgentRun(context, runId)
-        const run = res.status === 1 ? res.data.run : null
+        const raw = res.status === 1 ? res.data : null
+        const run = raw && 'run' in (raw as object) ? (raw as unknown as { run: typeof raw }).run : raw
         if (!run || run.status === 'running') {
           timerRef.current = setTimeout(tick, POLL_INTERVAL)
           return
@@ -107,7 +108,7 @@ export function CrmAiAssistant({ entityType, entityId, entityData, context, onCl
       if (res.status === 1) {
         const d = res.data as (ProspectingResult & { runId?: string }) | null
         if (d?.runId) {
-          await pollRun<ProspectingResult>(d.runId, setProspecting, run => run.result as ProspectingResult | null, 'Research failed.')
+          await pollRun<ProspectingResult>(d.runId, setProspecting, run => ((run.outputData ?? (run as unknown as { result?: unknown }).result) as ProspectingResult | null), 'Research failed.')
         } else {
           setProspecting({ status: 'done', result: d as ProspectingResult })
         }
@@ -130,7 +131,7 @@ export function CrmAiAssistant({ entityType, entityId, entityData, context, onCl
       if (res.status === 1) {
         const d = res.data as (OutreachDraft & { runId?: string }) | null
         if (d?.runId) {
-          await pollRun<OutreachDraft>(d.runId, setOutreach, run => run.result as OutreachDraft | null, 'Draft failed.')
+          await pollRun<OutreachDraft>(d.runId, setOutreach, run => ((run.outputData ?? (run as unknown as { result?: unknown }).result) as OutreachDraft | null), 'Draft failed.')
         } else {
           setOutreach({ status: 'done', result: d as OutreachDraft })
         }
@@ -150,7 +151,7 @@ export function CrmAiAssistant({ entityType, entityId, entityData, context, onCl
       if (res.status === 1) {
         const d = res.data as (DealCoachResult & { runId?: string }) | null
         if (d?.runId) {
-          await pollRun<DealCoachResult>(d.runId, setDealCoach, run => run.result as DealCoachResult | null, 'Coaching failed.')
+          await pollRun<DealCoachResult>(d.runId, setDealCoach, run => ((run.outputData ?? (run as unknown as { result?: unknown }).result) as DealCoachResult | null), 'Coaching failed.')
         } else {
           setDealCoach({ status: 'done', result: d as DealCoachResult })
         }

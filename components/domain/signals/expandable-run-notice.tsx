@@ -104,6 +104,7 @@ export function ExpandableRunNotice({
   // Refetch if the run ID changes while expanded
   useEffect(() => {
     if (isExpanded && runId && (!sourcesData || sourcesData.run?.id !== runId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadSources()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

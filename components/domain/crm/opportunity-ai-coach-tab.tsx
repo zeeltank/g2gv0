@@ -45,10 +45,10 @@ export function OpportunityAiCoachTab({
       setDealDetail(res)
       setSelectedMethodology(res.deal.methodology_slug || '')
       if (res.analyses.methodology_score?.result) {
-        setScoringResult(res.analyses.methodology_score.result as Record<string, unknown>)
+        setScoringResult(res.analyses.methodology_score.result as unknown as Record<string, unknown>)
       }
       if (res.analyses.discovery_analysis?.result) {
-        setDiscoveryResult(res.analyses.discovery_analysis.result as Record<string, unknown>)
+        setDiscoveryResult(res.analyses.discovery_analysis.result as unknown as Record<string, unknown>)
       }
       setError(null)
     } catch (e) {
@@ -71,7 +71,8 @@ export function OpportunityAiCoachTab({
     setError(null)
     try {
       const res = await dealService.score(dealId, selectedMethodology || undefined)
-      setScoringResult(res.data.result as Record<string, unknown>)
+      const scored = res.data as unknown as Record<string, unknown>
+      setScoringResult(('result' in scored && scored.result ? (scored.result as Record<string, unknown>) : scored))
       await load()
     } catch (e) {
       setError(errMsg(e, 'Failed to score deal with AI.'))
