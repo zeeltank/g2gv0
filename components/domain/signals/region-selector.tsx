@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Globe2, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Globe2, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -222,6 +222,7 @@ export function RegionSelector({
                 <span className="text-muted-foreground"> · {draft.country || '…'} (not added)</span>
               )}
             </span>
+            <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-88 sm:w-96 space-y-3.5 p-4 shadow-lg rounded-2xl border border-border/80">
