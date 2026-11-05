@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,7 @@ const EMPTY: CrmProductPayload = {
   name: '', sku: '', category: '', glAccount: '', description: '', unitPrice: null, costPrice: null,
   commissionRate: null, currency: '', taxRateId: null, isActive: true, vendor: '', qtyInStock: null,
   qtyInDemand: null, reorderLevel: null, weight: null, usageUnit: '', assignedTo: '',
+  productMasterId: null,
 }
 
 /**
@@ -43,8 +44,31 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
 
   const [seededFrom, setSeededFrom] = useState<CrmProduct | null | 'unset'>('unset')
   const [form, setForm] = useState<CrmProductPayload>(EMPTY)
+  const [productLines, setProductLines] = useState<{ id: number; key: string; name: string }[]>([])
+  const [loadingLines, setLoadingLines] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!isOpen) return
+    let active = true
+    setLoadingLines(true)
+    crmService.getProductLines()
+      .then((res) => {
+        if (active && Array.isArray(res?.data)) {
+          setProductLines(res.data)
+        }
+      })
+      .catch(() => {
+        // Product master lines unavailable
+      })
+      .finally(() => {
+        if (active) setLoadingLines(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [isOpen])
 
   if (isOpen && seededFrom !== product) {
     setSeededFrom(product)
@@ -58,6 +82,7 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
           qtyInStock: product.qtyInStock, qtyInDemand: product.qtyInDemand, reorderLevel: product.reorderLevel,
           weight: product.weight, usageUnit: product.usageUnit ?? '',
           assignedTo: product.assignedTo ?? '',
+          productMasterId: product.productMasterId ?? product.productLine?.id ?? null,
         }
       : EMPTY)
     setError('')
@@ -71,6 +96,16 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
     if (!form.name?.trim() || !form.assignedTo) {
       setError(`Name and Assigned To are required.`)
       return
+    }
+    if (itemType === 'product') {
+      if (loadingLines) {
+        setError('Please wait for product lines to finish loading.')
+        return
+      }
+      if (productLines.length > 0 && (!form.productMasterId || Number(form.productMasterId) <= 0)) {
+        setError('Product Line is required.')
+        return
+      }
     }
     if (!isLaravelContextReady(context)) {
       setError('Your ERP session is unavailable. Please sign in again.')
@@ -107,6 +142,22 @@ export function CreateProductModal({ isOpen, onClose, onSaved, itemType, product
             <Label htmlFor="prod-name">{noun} Name *</Label>
             <Input id="prod-name" value={form.name ?? ''} onChange={(e) => set('name', e.target.value)} autoFocus />
           </div>
+
+          {itemType === 'product' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-line">Product Line *</Label>
+              <Select
+                id="prod-line"
+                disabled={loadingLines}
+                value={form.productMasterId ? String(form.productMasterId) : 'none'}
+                onChange={(v) => set('productMasterId', v === 'none' ? null : Number(v))}
+                options={[
+                  { label: loadingLines ? 'Loading product lines…' : 'Select a Product Line…', value: 'none' },
+                  ...productLines.map((l) => ({ label: l.name, value: String(l.id) })),
+                ]}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {itemType === 'product' && (

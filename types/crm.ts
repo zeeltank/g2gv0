@@ -887,6 +887,7 @@ export interface CrmProduct {
   usageUnit: string | null
   imageUrl: string | null
   assignedTo: string | null
+  productMasterId?: number | null
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null

@@ -187,6 +187,9 @@ export function CampaignListView() {
         </div>
         <div className="flex items-center gap-2">
           <CrmRecycleBinLink />
+          <Button variant="outline" onClick={() => router.push('/gtm/playbooks')}>
+            Execution Playbooks
+          </Button>
           <CrmExportButton href={crmService.campaignsExportUrl(context, search || undefined)} />
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <FileUp className="mr-1.5 size-4" aria-hidden="true" />
