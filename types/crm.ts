@@ -921,7 +921,10 @@ export interface CrmProductLines {
 export type CrmProductPayload = Partial<
   Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'
   | 'masterId' | 'masterKind' | 'masterStatus' | 'productLine' | 'offerId' | 'signalsFound' | 'icp'>
->
+> & {
+  productLineName?: string | null
+  newProductLineName?: string | null
+}
 
 export interface CrmProductBundleItem {
   id: string

@@ -22,7 +22,7 @@ import { useGenerateSignals } from '@/components/domain/signals/use-generate-sig
 import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
 import { viewAfterManualSave } from '@/lib/manual-opportunity'
 import { ManualOpportunityDialog } from '@/components/domain/signals/manual-opportunity-dialog'
-import { opportunitiesService, type ManualOpportunityResponse, type RunDatesResponse } from '@/services/signals/opportunities'
+import { opportunitiesService, type ManualOpportunityResponse, type ResearchRun, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
 
