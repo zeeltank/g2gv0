@@ -1,6 +1,13 @@
 import type { ResearchRun } from '@/services/signals/opportunities'
 
-export type RunNotice = { tone: 'error' | 'info' | 'warning' | 'success'; text: string; missing?: string[]; nextStep?: string | null }
+export type RunNotice = {
+  tone: 'error' | 'info' | 'warning' | 'success'
+  text: string
+  missing?: string[]
+  nextStep?: string | null
+  runId?: number | null
+  run?: ResearchRun | null
+}
 
 /**
  * What a finished run honestly says, from the run row the backend holds (never from invented results).
@@ -55,6 +62,8 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
       tone: 'warning',
       text: `Finished with limits: ${run.stage_message ?? 'some searches or sources could not be read.'} ${run.opportunities_qualified} qualified (${run.opportunities_new} new).${region}${breakdown}${failures}${registry}${direct}${named}`,
       nextStep: stats?.next_action ?? null,
+      runId: run.id,
+      run,
     }
   }
   if (run.opportunities_qualified === 0 && stats?.completion === 'incomplete') {
@@ -63,6 +72,8 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
       tone: 'warning',
       text: `The research did not finish everything it set out to do (${(stats.completion_reasons ?? []).join(', ').replace(/_/g, ' ') || 'a limit was reached'}), so no signal qualified yet.${region}${breakdown}${failures}${registry}${direct}${named}`,
       nextStep: stats.next_action ?? null,
+      runId: run.id,
+      run,
     }
   }
   if (run.opportunities_qualified === 0) {
@@ -73,12 +84,16 @@ export function describeFinishedRun(run: ResearchRun): RunNotice {
       tone: 'info',
       text: `Finished: ${run.sources_found} sources found, but no opportunity had enough evidence to qualify.${region}${breakdown}${failures}${registry}${direct}${named}${why ? ` Why: ${why}` : ''}`,
       nextStep: stats?.next_action ?? null,
+      runId: run.id,
+      run,
     }
   }
 
   return {
     tone: 'success',
     text: `Finished: ${run.opportunities_qualified} qualified (${run.opportunities_new} new${stats ? `, ${stats.outcome.updated} updated, ${stats.outcome.unchanged_existing} unchanged` : ''}) from ${run.sources_found} sources.${registry}${direct}${named}`,
+    runId: run.id,
+    run,
   }
 }
 

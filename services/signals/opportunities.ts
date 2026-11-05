@@ -517,14 +517,47 @@ export interface ProvidersResponse {
 }
 
 export interface ResearchSourceInfo {
+  id?: number
   url: string
   title: string
+  source_name?: string
   domain: string | null
+  source_type?: string
   snippet: string | null
+  content_finding?: string | null
   published_at: string | null
   retrieved_at: string | null
   page_fetched: boolean
+  pages_searched?: number
   cited: boolean
+  exploration_status?: 'Discovered' | 'Opened' | 'Read' | 'Failed' | 'Skipped' | 'Qualified' | 'Rejected' | string
+  qualification_result?: 'Qualified' | 'Not qualified' | 'Pending' | string
+  rejection_reason?: string | null
+  search_query?: string | null
+}
+
+export interface RunSourcesResponse {
+  status: number
+  data: ResearchSourceInfo[]
+  metrics?: {
+    sources_found: number
+    queries_run: number
+    queries_failed: number
+    queries_attempted: number
+    queries_succeeded?: number
+    queries_with_results: number | null
+    queries_empty: number | null
+    results_returned: number
+    pages_read_in_full: number
+    registry_searched: number | null
+    registry_selected: number | null
+    opportunities_qualified: number
+    opportunities_rejected: number
+    opportunities_new: number
+  }
+  zero_reasons?: { code: string; label: string; count: number }[]
+  next_action?: string | null
+  run?: ResearchRun
 }
 
 export interface IngestionRun {
@@ -753,7 +786,7 @@ export const opportunitiesService = {
     apiClient.get<{ status: number; data: ResearchRun }>(`/signals/research/runs/${runId}`, base(c)),
 
   getRunSources: (c: LaravelContext, runId: number) =>
-    apiClient.get<{ status: number; data: ResearchSourceInfo[] }>(`/signals/research/runs/${runId}/sources`, base(c)),
+    apiClient.get<RunSourcesResponse>(`/signals/research/runs/${runId}/sources`, base(c)),
 
   runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') =>
     apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
