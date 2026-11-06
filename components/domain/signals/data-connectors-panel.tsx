@@ -245,9 +245,24 @@ export function DataConnectorsPanel({
         await opportunitiesService.connectConnector(context, connector.id)
         setNotice(`Connected ${connector.name}`)
       } else {
-        await opportunitiesService.authorizeConnector(context, connector.id)
+        const res = await opportunitiesService.authorizeConnector(context, connector.id)
+        const authUrl = res && 'data' in res && typeof res.data === 'object' && res.data && 'authorization_url' in res.data
+          ? (res.data.authorization_url as string)
+          : null
+        if (authUrl) {
+          window.location.href = authUrl
+          return
+        }
         setNotice(`Authorized and connected ${connector.name}`)
       }
+      // Optimistically update connector status in UI
+      setConnectors((prev) =>
+        prev.map((c) =>
+          c.id === connector.id
+            ? { ...c, connection_status: 'connected', last_error: null }
+            : c,
+        ),
+      )
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not connect this provider.'))
