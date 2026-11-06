@@ -148,7 +148,7 @@ export function IngestionEngineView() {
     const targetUrl = urlInput.trim()
     if (!targetUrl || !ready || submittingRef.current) return
     setActionError(null)
-    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its pages are analysed with its own ICP.'); return }
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -171,7 +171,7 @@ export function IngestionEngineView() {
     e.preventDefault()
     if (!fileInput || !ready || submittingRef.current) return
     setActionError(null)
-    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its documents are analysed with its own ICP.'); return }
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -233,7 +233,12 @@ export function IngestionEngineView() {
         {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
       </div>
 
-      <DataConnectorsPanel context={context} productKey={product || null} productReady={Boolean(selectedProduct?.ready)} />
+      <DataConnectorsPanel
+        context={context}
+        productKey={product || null}
+        products={products}
+        onSyncCompleted={loadSources}
+      />
 
       {/* Prominent Input Card at Top */}
       <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-sm">
