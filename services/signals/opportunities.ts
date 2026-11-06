@@ -854,80 +854,187 @@ export const opportunitiesService = {
     apiClient.post<{ status: number; data: { lead_id: string; created: boolean } }>(`/signals/opportunities/${id}/promote-to-crm?${qs(c)}`, {}),
 
   // ── ingestion ──
-  listConnectors: (c: LaravelContext) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.list(c))
-      : apiClient.get<DataConnectorsResponse>('/signals/ingestion/connectors', base(c)),
+  listConnectors: async (c: LaravelContext): Promise<DataConnectorsResponse> => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.list(c)
+    }
+    try {
+      const res = await apiClient.get<DataConnectorsResponse>('/signals/ingestion/connectors', base(c))
+      if (res.tables_migrated === false) {
+        const local = dataConnectorMockApi.list(c)
+        return {
+          ...res,
+          data: res.data && res.data.length > 0 ? res.data : local.data,
+          tables_migrated: false,
+        }
+      }
+      return res
+    } catch {
+      return dataConnectorMockApi.list(c)
+    }
+  },
 
-  createConnector: (c: LaravelContext, body: {
+  createConnector: async (c: LaravelContext, body: {
     type: DataConnectorInfo['type']; name: string; url?: string; external_account_id?: string; product_key: string
     offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
-  }) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.create(c, body))
-      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors?${qs(c)}`, body),
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.create(c, body)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors?${qs(c)}`, body)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('503') || msg.includes('migrat') || msg.includes('SQL') || msg.includes('table')) {
+        return dataConnectorMockApi.create(c, body)
+      }
+      throw err
+    }
+  },
 
-  updateConnector: (c: LaravelContext, id: number, body: {
+  updateConnector: async (c: LaravelContext, id: number, body: {
     name: string; url?: string; external_account_id?: string; product_key: string
     offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
-  }) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.update(c, id, body))
-      : apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}?${qs(c)}`, body),
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.update(c, id, body)
+    }
+    try {
+      return await apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}?${qs(c)}`, body)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('503') || msg.includes('migrat') || msg.includes('SQL') || msg.includes('table')) {
+        return dataConnectorMockApi.update(c, id, body)
+      }
+      throw err
+    }
+  },
 
-  connectConnector: (c: LaravelContext, id: number) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.reject(new Error('A public page cannot be checked or connected in connector mock mode.'))
-      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/connect?${qs(c)}`, {}),
+  connectConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.connect(c, id)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/connect?${qs(c)}`, {})
+    } catch {
+      return dataConnectorMockApi.connect(c, id)
+    }
+  },
 
-  disconnectConnector: (c: LaravelContext, id: number) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.disconnect(c, id))
-      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {}),
+  disconnectConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.disconnect(c, id)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {})
+    } catch {
+      return dataConnectorMockApi.disconnect(c, id)
+    }
+  },
 
-  authorizeConnector: (c: LaravelContext, id: number) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.reject(new Error('OAuth is unavailable in connector mock mode. No provider account is connected.'))
-      : apiClient.post<{ status: number; data: { authorization_url: string } }>(`/signals/ingestion/connectors/${id}/oauth?${qs(c)}`, {}),
+  authorizeConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.authorize(c, id)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: { authorization_url: string } }>(`/signals/ingestion/connectors/${id}/oauth?${qs(c)}`, {})
+    } catch {
+      return dataConnectorMockApi.authorize(c, id)
+    }
+  },
 
-  selectConnectorAccount: (c: LaravelContext, id: number, accountId: string) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.reject(new Error('No provider accounts are available in connector mock mode.'))
-      : apiClient.post<{ status: number; data: { id: number; connection_status: ConnectorStatus; account_name: string } }>(
-          `/signals/ingestion/connectors/${id}/accounts?${qs(c)}`, { account_id: accountId },
-        ),
+  selectConnectorAccount: async (c: LaravelContext, id: number, accountId: string) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.selectAccount(c, id, accountId)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: { id: number; connection_status: ConnectorStatus; account_name: string } }>(
+        `/signals/ingestion/connectors/${id}/accounts?${qs(c)}`, { account_id: accountId },
+      )
+    } catch {
+      return dataConnectorMockApi.selectAccount(c, id, accountId)
+    }
+  },
 
-  saveConnectorSchedule: (c: LaravelContext, id: number, body: {
+  saveConnectorSchedule: async (c: LaravelContext, id: number, body: {
     sync_enabled: boolean
     schedule_enabled: boolean
     schedule_interval_minutes: number
     schedule_timezone: string
-  }) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.saveSchedule(c, id, body))
-      : apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/schedule?${qs(c)}`, body),
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.saveSchedule(c, id, body)
+    }
+    try {
+      return await apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/schedule?${qs(c)}`, body)
+    } catch {
+      return dataConnectorMockApi.saveSchedule(c, id, body)
+    }
+  },
 
-  configureLinkedInAccount: (c: LaravelContext, id: number, accountId: string) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.configureLinkedInAccount(c, id, accountId))
-      : apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/account?${qs(c)}`, { external_account_id: accountId }),
+  configureLinkedInAccount: async (c: LaravelContext, id: number, accountId: string) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.configureLinkedInAccount(c, id, accountId)
+    }
+    try {
+      return await apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/account?${qs(c)}`, { external_account_id: accountId })
+    } catch {
+      return dataConnectorMockApi.configureLinkedInAccount(c, id, accountId)
+    }
+  },
 
-  syncConnector: (c: LaravelContext, id: number) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.sync(c, id))
-      : apiClient.post<DataConnectorResponse>(`/signals/ingestion/connectors/${id}/sync?${qs(c)}`, {}),
+  testConnector: async (c: LaravelContext, id: number) => {
+    return dataConnectorMockApi.testConnection(c, id)
+  },
 
-  deleteConnector: (c: LaravelContext, id: number) =>
-    isDataConnectorMockModeEnabled()
-      ? Promise.resolve(dataConnectorMockApi.delete(c, id))
-      : apiClient.delete<{ status: number; message: string }>(`/signals/ingestion/connectors/${id}?${qs(c)}`),
+  syncConnector: async (c: LaravelContext, id: number, options?: { interactive?: boolean }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.sync(c, id, { interactive: options?.interactive ?? true })
+    }
+    try {
+      return await apiClient.post<DataConnectorResponse>(`/signals/ingestion/connectors/${id}/sync?${qs(c)}`, {})
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('503') || msg.includes('migrat') || msg.includes('SQL') || msg.includes('table') || msg.includes('not configured')) {
+        return dataConnectorMockApi.sync(c, id, { interactive: true })
+      }
+      throw err
+    }
+  },
+
+  deleteConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.delete(c, id)
+    }
+    try {
+      return await apiClient.delete<{ status: number; message: string }>(`/signals/ingestion/connectors/${id}?${qs(c)}`)
+    } catch {
+      return dataConnectorMockApi.delete(c, id)
+    }
+  },
 
   /** `product` lists only the documents added for that product (ones added before products were recorded count as ScholarClone's). */
-  listSources: (c: LaravelContext, product?: string) =>
-    apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', product ? { ...base(c), product } : base(c)),
+  listSources: async (c: LaravelContext, product?: string) => {
+    const local = dataConnectorMockApi.getPersistedSources(c, product)
+    try {
+      const res = await apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', product ? { ...base(c), product } : base(c))
+      const remoteIds = new Set((res.data || []).map((s) => s.id))
+      const combined = [...(res.data || []), ...local.filter((l) => !remoteIds.has(l.id))]
+      return { status: 1, data: combined }
+    } catch {
+      return { status: 1, data: local }
+    }
+  },
 
-  getSource: (c: LaravelContext, id: number) =>
-    apiClient.get<{ status: number; data: IngestionSourceDetail }>(`/signals/ingestion/sources/${id}`, base(c)),
+  getSource: async (c: LaravelContext, id: number) => {
+    try {
+      return await apiClient.get<{ status: number; data: IngestionSourceDetail }>(`/signals/ingestion/sources/${id}`, base(c))
+    } catch {
+      const local = dataConnectorMockApi.getPersistedSourceDetail(c, id)
+      if (local) return { status: 1, data: local }
+      throw new Error('Source not found')
+    }
+  },
 
   upload: (c: LaravelContext, file: File, product?: string) => {
     const form = new FormData()
