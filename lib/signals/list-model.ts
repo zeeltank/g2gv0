@@ -19,6 +19,11 @@ export interface Choice {
 /** URL word -> stored `review_status`. The URL says "contacted"; the server stores `Follow-up`. */
 const STATUS_BY_URL: Record<string, ReviewStatus | null> = { all: null, new: 'New', contacted: 'Follow-up', reviewed: 'Reviewed', dismissed: 'Dismissed' }
 
+/** The stored `review_status` for a status word of the address ("contacted" is stored as "Follow-up"); null for "all" and for any word that is not one. */
+export function reviewStatusOf(word: string | null | undefined): ReviewStatus | null {
+  return typeof word === 'string' && Object.prototype.hasOwnProperty.call(STATUS_BY_URL, word) ? STATUS_BY_URL[word] : null
+}
+
 export const STATUS_CHOICES: Choice[] = [
   { value: 'all', label: 'All' },
   ...(['new', 'contacted', 'reviewed', 'dismissed'] as const).map((value) => ({ value, label: statusChip(STATUS_BY_URL[value] as ReviewStatus).label })),

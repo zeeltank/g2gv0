@@ -1,9 +1,9 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { fitScoreModel, type FitModel, type OfferView, type ScoreModel } from '@/lib/signals/fit-score'
-import type { ProductFilterOption, SignalRow } from '@/services/signal-review/signal-types'
-import { Fact, SignalProductChip } from './signal-review-parts'
+import { fitScoreModel, type FitModel, type FitScoreSignal, type OfferView, type ScoreModel } from '@/lib/signals/fit-score'
+import type { ProductFilterOption } from '@/services/signal-review/signal-types'
+import { Fact, SignalProductChip } from './signal-parts'
 
 const HEADING = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 const NOT_RECORDED = <span className="text-muted-foreground">Not recorded</span>
@@ -63,16 +63,17 @@ function OfferItem({ offer }: { offer: OfferView }) {
 }
 
 /**
- * The drawer's "Fit and score" tab: why this signal fits the product and how it scored. Every line comes from a field the API sends; a part the server
- * did not record says so, and no strength word is invented (the band shown is the server's own).
+ * "Fit and score": why this signal fits the product and how it scored. Every line comes from a field the API sends; a part the server did not record says
+ * so, and no strength word is invented (the band shown is the server's own). It sits in the Signal Review drawer's "Fit and score" tab and in the
+ * "Evidence and details" of a Company Opportunities card. `idPrefix` makes the headings' ids unique where several of these are on one page (one per card).
  */
-export function SignalFitScore({ signal, products }: { signal: SignalRow; products?: readonly ProductFilterOption[] }) {
+export function SignalFitScore({ signal, products, idPrefix = 'sr' }: { signal: FitScoreSignal; products?: readonly ProductFilterOption[]; idPrefix?: string }) {
   const m = fitScoreModel(signal, products)
 
   return (
     <div className="space-y-5">
-      <section aria-labelledby="sr-fit-heading" className="space-y-2">
-        <h3 id="sr-fit-heading" className={HEADING}>Fit with the product</h3>
+      <section aria-labelledby={`${idPrefix}-fit-heading`} className="space-y-2">
+        <h3 id={`${idPrefix}-fit-heading`} className={HEADING}>Fit with the product</h3>
         <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
           <Fact label="Product">
             <SignalProductChip name={m.product} />
@@ -95,14 +96,14 @@ export function SignalFitScore({ signal, products }: { signal: SignalRow; produc
         {m.fit ? <FitParts fit={m.fit} /> : <p className="text-sm text-muted-foreground">No fit assessment was recorded for this signal.</p>}
       </section>
 
-      <section aria-labelledby="sr-score-heading" className="space-y-2">
-        <h3 id="sr-score-heading" className={HEADING}>Score</h3>
+      <section aria-labelledby={`${idPrefix}-score-heading`} className="space-y-2">
+        <h3 id={`${idPrefix}-score-heading`} className={HEADING}>Score</h3>
         {m.score ? <ScoreParts score={m.score} /> : <p className="text-sm text-muted-foreground">This signal was not scored.</p>}
         <p className={cn('text-sm', !m.reasoning && 'text-muted-foreground')}>{m.reasoning ?? 'No reasoning was recorded for the score.'}</p>
       </section>
 
-      <section aria-labelledby="sr-needs-heading" className="space-y-2">
-        <h3 id="sr-needs-heading" className={HEADING}>Needs and matched offers</h3>
+      <section aria-labelledby={`${idPrefix}-needs-heading`} className="space-y-2">
+        <h3 id={`${idPrefix}-needs-heading`} className={HEADING}>Needs and matched offers</h3>
         <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
           <Fact label="Need codes">{m.needCodes.length > 0 ? m.needCodes.join(', ') : NOT_RECORDED}</Fact>
         </dl>

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 import { color, dark, light, MIN, ratio, token } from '../theme-contrast'
@@ -28,11 +28,19 @@ describe('contrast of the Signal Review screens', () => {
 })
 
 describe('the Signal Review components keep to those looks (a scan, because the bug was a class string)', () => {
-  const dir = path.resolve('components/domain/crm')
-  const files = readdirSync(dir).filter((name) => name.startsWith('signal-review-') && name.endsWith('.tsx')).map((name) => path.join(dir, name))
+  // The Signal Review screen's own files (still in the CRM folder until step 1.7 removes that screen) ...
+  const reviewDir = path.resolve('components/domain/crm')
+  const reviewFiles = readdirSync(reviewDir).filter((name) => name.startsWith('signal-review-') && name.endsWith('.tsx')).map((name) => path.join(reviewDir, name))
+  // ... and the parts Company Opportunities shares with it or added for it, which live with the Signals screen now (the chips, the fit tab, the lead action,
+  // the decision dialog, the history list, the card's actions and the list with its counts and filters). Each name is listed, so a rename cannot drop one.
+  const signalsDir = path.resolve('components/domain/signals')
+  const SHARED = ['signal-parts', 'signal-fit', 'signal-lead', 'signal-decision-dialog', 'signal-history-list', 'signal-card-actions', 'signal-list']
+  const sharedFiles = SHARED.map((name) => path.join(signalsDir, `${name}.tsx`))
+  const files = [...reviewFiles, ...sharedFiles]
 
   it('finds the components it scans', () => {
-    assert.ok(files.length >= 5, `found ${files.length} files`)
+    assert.ok(reviewFiles.length >= 4, `found ${reviewFiles.length} Signal Review files`)
+    for (const file of sharedFiles) assert.ok(existsSync(file), `${file} exists`)
   })
 
   it('uses no status colour as TEXT (an icon, which is aria-hidden, may be coloured)', () => {

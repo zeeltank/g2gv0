@@ -48,7 +48,7 @@ export function leadIdFrom(result: { data?: { lead_id?: unknown } } | null | und
  * The signal with its lead. The answer names only the lead's id, so a number or status kept from before is dropped when it belongs to another lead
  * and kept when it is the same one (a second press that found the lead already there).
  */
-export function withLead(signal: SignalRow, leadId: string): SignalRow {
+export function withLead<T extends Pick<SignalRow, 'promoted_lead_id' | 'promoted_lead_no' | 'promoted_lead_status'>>(signal: T, leadId: string): T {
   if (signal.promoted_lead_id === leadId) return signal
   return { ...signal, promoted_lead_id: leadId, promoted_lead_no: null, promoted_lead_status: null }
 }

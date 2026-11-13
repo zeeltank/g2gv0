@@ -1,12 +1,18 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useListQuery } from '@/components/shared/scaffolds/use-list-query'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { choiceOf, splitChoice } from '@/lib/product-selection'
+import { productChoices } from '@/lib/signals/list-model'
+import { asksTheList, clearOpportunityFiltersPatch, OPPORTUNITIES_QUERY, resolveProductScope } from '@/lib/signals/opportunity-query'
+import { signalReviewService } from '@/services/signal-review/signal-review-service'
+import type { PmOption } from '@/services/product-master/types'
 import { formatRunDate } from '@/lib/run-dates'
 import { isPickableDay, recentDays, relativeLabel, shiftDay, todayIn } from '@/lib/signal-dates'
 import { Notice } from '@/components/domain/organization/department-management/signals-ui'
@@ -15,9 +21,9 @@ import { AdvancedTools } from '@/components/domain/signals/advanced-tools'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
 import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
 import { DEFAULT_REGIONS, loadSavedRegions, persistSavedRegions } from '@/lib/location-repository'
-import { useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
+import { readRemembered, rememberProduct, useProducts } from '@/components/domain/signals/product-selector'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
-import { SignalList } from '@/components/domain/signals/signal-list'
+import { SignalList, type SignalListControls } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
 import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
 import { viewAfterManualSave } from '@/lib/manual-opportunity'
@@ -28,17 +34,61 @@ type RunDate = RunDatesResponse['data']['dates'][number]
 
 /**
  * Company Opportunities: pick a product, press Generate Signals (its progress shows right below), then read what that product's research saved
- * for a day: today and the two days before it by default, any older day from the calendar. One explicit product is always selected. Choosing a
- * product or a day only reads stored rows; research starts only from the Generate Signals button. Product details and the ICP are edited in
- * Product Portfolio.
+ * for a day: today and the two days before it by default, any older day from the calendar. Choosing a product or a day only reads stored rows;
+ * research starts only from the Generate Signals button. Product details and the ICP are edited in Product Portfolio.
+ *
+ * It is also where a signal is reviewed (the Signal Review screen's abilities): All products, and the search, Status, Freshness, Fit, Sort, page and page
+ * size, are kept in the address under the Review's own names (`q`, `status`, `freshness`, `fit`, `sort`, `page`, `product`, plus `per`), so a link made for
+ * the Review opens the same view here. A link that only searches or filters (`?status=all&q=…`) opens on All products, because the signal it points at may
+ * belong to any product. All products has no run to start: Generate Signals, the sub-product, the ICP type and the places belong to one product.
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const { products, loading } = useProducts(context)
-  // A run covers the selected master product and its configured product line.
-  const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
+  const list = useListQuery(OPPORTUNITIES_QUERY)
+  const { query } = list
+  const searchParams = useSearchParams()
+  const remembered = useMemo(() => readRemembered(context), [context])
+  // What the screen is about: one product (a run covers it and its configured product line), every product, or one Product Master record.
+  const scope = resolveProductScope({ product: query.filters.product ?? '', asksTheList: asksTheList(searchParams), remembered, products })
+  const choice = scope?.kind === 'product' ? scope.choice : null
   const { productKey: product, offerId } = splitChoice(choice)
   const selected = products?.find((p) => p.key === product) ?? null
   const runLabel = selected?.label ?? ''
+  const everyProduct = scope?.kind === 'all' || scope?.kind === 'master'
+  const masterId = scope?.kind === 'master' ? scope.id : null
+  // A number in `product` names a Product Master record; its name comes from the same options the Signal Review's Product filter used.
+  const [masterOptions, setMasterOptions] = useState<PmOption[]>([])
+  useEffect(() => {
+    if (masterId === null) return
+    let live = true
+    signalReviewService.productOptions().then((res) => { if (live) setMasterOptions(res.data) }).catch(() => undefined)
+    return () => { live = false }
+  }, [masterId])
+  const masterLabel = masterId === null ? '' : (productChoices(masterOptions, String(masterId)).find((c) => c.value === String(masterId))?.label ?? `Product #${masterId}`)
+  const listKey = selected?.key ?? 'all'
+  const listLabel = selected?.label ?? (masterId !== null ? masterLabel : 'All products')
+
+  // A link that only searches opened on All products: the address says so from now on, so clearing the search does not move the screen to another product.
+  const { setQuery, setFilter } = list
+  const productInAddress = query.filters.product ?? ''
+  const pageInAddress = query.page
+  useEffect(() => {
+    if (scope?.kind === 'all' && productInAddress === '') setQuery({ filters: { product: 'all' }, page: pageInAddress })
+  }, [scope?.kind, productInAddress, pageInAddress, setQuery])
+
+  // Choosing a product writes it to the address (so the view can be shared and survives a refresh); a product, not "all", is also remembered here.
+  const select = (next: string) => {
+    if (next !== 'all' && !/^[1-9]\d*$/.test(next)) rememberProduct(context, next)
+    setFilter('product', next)
+  }
+  const controls: SignalListControls = {
+    query,
+    setSearch: list.setSearch,
+    setFilter,
+    setSort: (sort) => setQuery({ sort }),
+    setPage: list.setPage,
+    clearFilters: () => setQuery(clearOpportunityFiltersPatch()),
+  }
   const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
   const [regions, setRegions] = useState<RegionSelection[]>(DEFAULT_REGIONS)
   const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
@@ -171,28 +221,30 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             <select
               id="main-product-select"
               aria-label="Main Product"
-              value={selected?.key ?? ''}
+              value={scope?.kind === 'all' ? 'all' : masterId !== null ? String(masterId) : (selected?.key ?? '')}
               onChange={(e) => {
                 const nextKey = e.target.value
                 if (!nextKey) return
                 setIcpType('b2b')
-                setChoice(nextKey)
+                select(nextKey)
               }}
               disabled={run.running || loading || !products}
               className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
+              <option value="all">All products</option>
               {products?.map((p) => (
                 <option key={p.key} value={p.key}>
                   {p.label}
                 </option>
               ))}
+              {masterId !== null && <option value={String(masterId)}>{masterLabel}</option>}
             </select>
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-Product</label>
-            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && setChoice(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <option value="">Whole product</option>
+            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && select(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">{selected ? 'Whole product' : '—'}</option>
               {selected?.offers.map((offer) => <option key={offer.offer_id} value={offer.offer_id}>{offer.name}</option>)}
             </select>
           </div>
@@ -231,7 +283,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
         <div className="mt-4 flex items-center justify-end border-t border-border/60 pt-4">
           <span className="sr-only" aria-live="polite">
-            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : ''}
+            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : (everyProduct ? 'Choose one product to generate signals for it.' : '')}
           </span>
           <Button
             type="button"
@@ -239,7 +291,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
             onClick={generate}
             disabled={!selected || run.running || !ready}
-            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : undefined}
+            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : (everyProduct ? 'Choose one product to generate signals for it.' : undefined)}
           >
             {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
             {run.running ? 'Finding Signals…' : 'Generate Signals'}
@@ -261,8 +313,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         )}
       </section>
 
-      {selected && (
-        <section aria-label={`${selected.label} signals`} className="space-y-4">
+      {(selected || everyProduct) && (
+        <section aria-label={`${listLabel} signals`} className="space-y-4">
+          {selected && (
           <div className="flex flex-wrap items-center gap-2.5">
             {/* 1. Today Filter */}
             <Button
@@ -355,32 +408,32 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               Add Opportunity Manually
             </Button>
           </div>
+          )}
 
           {manualNotice && <Notice tone="info"><span>{manualNotice}</span></Notice>}
 
-          {dates === null && !datesError ? (
+          {selected && dates === null && !datesError ? (
             <Skeleton className="h-40 w-full rounded-2xl" aria-label="Loading" />
           ) : (
             <SignalList
-              key={`${selected.key}-${allSignals ? 'all-signals' : 'scoped'}-${datePreset}-${dateRange ? `${dateRange.from}-${dateRange.to}` : (activeDate ?? 'default')}`}
+              key={everyProduct ? `${listKey}-${masterId ?? 'every'}` : `${listKey}-${allSignals ? 'all-signals' : 'scoped'}-${datePreset}-${dateRange ? `${dateRange.from}-${dateRange.to}` : (activeDate ?? 'default')}`}
               context={context}
-              productKey={selected.key}
+              productKey={listKey}
+              productMasterId={masterId}
               offerId={offerId}
               customerModel={icpType}
               regions={regions}
-              productLabel={selected.label}
-              runDate={datePreset === 'all' && !dateRange && !picked ? null : (dateRange ? null : activeDate)}
-              dateFrom={dateRange?.from}
-              dateTo={dateRange?.to}
-              allDates={datePreset === 'all' && !dateRange && !picked}
-              allSignals={allSignals || !offerId}
+              productLabel={listLabel}
+              runDate={everyProduct || (datePreset === 'all' && !dateRange && !picked) ? null : (dateRange ? null : activeDate)}
+              dateFrom={everyProduct ? undefined : dateRange?.from}
+              dateTo={everyProduct ? undefined : dateRange?.to}
+              allDates={everyProduct || (datePreset === 'all' && !dateRange && !picked)}
+              allSignals={everyProduct || allSignals || !offerId}
               runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
               dayInfo={dayRun}
-              today={today}
-              timezone={timezone}
-              onAddManual={() => { setManualNotice(null); setManualOpen(true) }}
+              controls={controls}
             />
           )}
         </section>

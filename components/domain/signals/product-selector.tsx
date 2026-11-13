@@ -26,6 +26,20 @@ function readStored(c: LaravelContext): string | null {
   }
 }
 
+/** The product (or `product::SUB-ID`) this browser remembers for this organisation. Never the address: a screen that keeps its product in the address reads that itself. */
+export function readRemembered(c: LaravelContext): string | null {
+  try {
+    return window.localStorage.getItem(storageKey(c))
+  } catch {
+    return null
+  }
+}
+
+/** Remembers a product choice for this organisation, under the same key `useSelectedProduct` uses. */
+export function rememberProduct(c: LaravelContext, choice: string): void {
+  try { window.localStorage.setItem(storageKey(c), choice) } catch { /* private mode: the choice just is not remembered */ }
+}
+
 /** The products as stored in the Product Portfolio, with what each is missing for discovery. */
 export function useProducts(context: LaravelContext) {
   const [data, setData] = useState<ProductsResponse['data'] | null>(null)

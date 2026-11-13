@@ -141,7 +141,15 @@ export interface FitScoreModel {
   offers: OfferView[]
 }
 
-export function fitScoreModel(signal: SignalRow, products?: readonly ProductFilterOption[]): FitScoreModel {
+/**
+ * The fields of a signal this tab reads. A Signal Review row has them all, and so does a Company Opportunities row (the same API sends both), so the tab
+ * takes either without a copy of the row being made.
+ */
+export type FitScoreSignal = Partial<Pick<SignalRow,
+  'business_fit' | 'product_master_name' | 'relevant_offer_name' | 'assessment' | 'scores' | 'score_reasoning' | 'strength_reason' | 'confidence' | 'claim_level' | 'candidate_need_codes' | 'matched_offers'
+>>
+
+export function fitScoreModel(signal: FitScoreSignal, products?: readonly ProductFilterOption[]): FitScoreModel {
   const business = text(signal.business_fit)
   return {
     product: text(signal.product_master_name),

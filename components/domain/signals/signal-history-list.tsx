@@ -6,6 +6,8 @@ import { statusBadgeVariants } from '@/components/ui/status-badge'
 import {
   decidedByText, decisionLabel, formatDateTime, reasonText, relativeTime, statusLabel, statusTone, viaTag, type StatusTone,
 } from '@/lib/signals/format'
+import { BANNER_TONE } from '@/lib/signals/tones'
+import { cn } from '@/lib/utils'
 import type { HistoryListProps, ReviewHistoryEntry, ReviewStatus } from '@/services/signal-review/types'
 
 const TONE_VARIANT = { neutral: 'default', success: 'success', warning: 'warning', error: 'error' } as const satisfies Record<StatusTone, string>
@@ -46,8 +48,8 @@ export function SignalHistoryList({ entries, loading, error, onRetry, now }: His
 
   if (error) {
     return (
-      <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-        <p className="font-medium text-destructive">The history could not be loaded.</p>
+      <div role="alert" className={cn('space-y-2 rounded-lg border p-3 text-sm', BANNER_TONE.error)}>
+        <p className="font-medium">The history could not be loaded.</p>
         <p className="text-muted-foreground">{error}</p>
         <Button type="button" size="sm" variant="outline" onClick={onRetry}>Retry</Button>
       </div>

@@ -14,7 +14,7 @@ function entry(over: Record<string, unknown> = {}) {
 
 async function setup(props: Record<string, unknown> = {}) {
   const k = await kit()
-  const { SignalHistoryList } = await import('../../components/domain/crm/signal-history-list')
+  const { SignalHistoryList } = await import('../../components/domain/signals/signal-history-list')
   const retries = { count: 0 }
   const show = (patch: Record<string, unknown> = {}) => k.render(k.h(SignalHistoryList, {
     entries: [entry()], loading: false, error: null, onRetry: () => { retries.count += 1 }, now: NOW, ...props, ...patch,

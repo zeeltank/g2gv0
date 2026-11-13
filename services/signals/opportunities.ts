@@ -6,6 +6,8 @@
 import { apiClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { dataConnectorMockApi, isDataConnectorMockModeEnabled } from '@/lib/signals/data-connectors-mock'
+import type { ProductFilterOption } from '@/services/signal-review/signal-types'
+import type { DateInfo, ReasonOption } from '@/services/signal-review/types'
 
 export type ReviewStatus = 'New' | 'Reviewed' | 'Follow-up' | 'Dismissed'
 export type Level = 'High' | 'Medium' | 'Low'
@@ -256,6 +258,10 @@ export interface Opportunity {
   promoted_lead_id?: string | null
   promoted_lead_no?: string | null
   promoted_lead_status?: string | null
+  /** The Product Master record the signal is filed under (null when it has none) and how old its evidence really is: the list endpoint sends both. */
+  product_master_id?: number | null
+  product_master_name?: string | null
+  date_info?: DateInfo
   crm_qualification?: {
     can_promote: boolean
     promotion_requirements_met: boolean
@@ -303,6 +309,9 @@ export interface OpportunityListResponse {
     fetch_levels?: FetchLevel[]
     business_fits?: string[]
     pipeline_statuses?: PipelineStatus[]
+    /** Product definitions (a `business_fit` code to the product's own name) and the reasons a person can give for "Not relevant": the decision dialog and the Fit filter read them. */
+    products?: ProductFilterOption[]
+    review_reasons?: ReasonOption[]
   }
 }
 
@@ -434,8 +443,15 @@ export interface RunDatesResponse {
 export interface OpportunityQuery {
   /** Only the signals saved by this research run (exact run, not just its day). */
   runId?: number
-  /** The order: `priority` (High first) or `qualification` (settled findings first). Absent or `default` is the usual order. */
-  sort?: 'default' | 'priority' | 'qualification'
+  /**
+   * The order: `priority` (High first), `qualification` (settled findings first) or `recent` (newest evidence date first, undated last: the Signal
+   * Review's order). Absent or `default` is the usual order.
+   */
+  sort?: 'default' | 'recent' | 'priority' | 'qualification'
+  /** How old the evidence is (its event date, else its source's publication date): the Signal Review's Freshness filter. */
+  freshness?: 'last_30_days' | 'last_90_days' | 'older' | 'undated'
+  /** Only the signals filed under this Product Master record: the Signal Review's Product filter (a number in the address, not a product key). */
+  productMasterId?: number
   /** The newest research day that has saved signals, instead of a chosen day (the screen's fallback). Reads stored rows only. */
   latestSaved?: boolean
   search?: string
@@ -824,6 +840,8 @@ export const opportunitiesService = {
     if (q.runDate) params.run_date = q.runDate
     if (q.runId) params.run_id = String(q.runId)
     if (q.sort && q.sort !== 'default') params.sort = q.sort
+    if (q.freshness) params.freshness = q.freshness
+    if (q.productMasterId) params.product_master_id = String(q.productMasterId)
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
     if (q.allSignals) params.all_signals = '1'

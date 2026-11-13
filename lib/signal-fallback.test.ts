@@ -27,6 +27,8 @@ describe('wantsFallback', () => {
     assert.equal(wantsFallback({ ...base, search: 'podar' }), false)
     assert.equal(wantsFallback({ ...base, view: 'watchlist' }), false)
     assert.equal(wantsFallback({ ...base, status: 'New' }), false)
+    assert.equal(wantsFallback({ ...base, narrowed: true }), false, 'a freshness or fit that matched nothing is not an empty day either')
+    assert.equal(wantsFallback({ ...base, narrowed: false }), true)
   })
 })
 

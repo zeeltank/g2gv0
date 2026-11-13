@@ -33,7 +33,7 @@ function holdClosedContent() {
 /** The real dialog (Radix Dialog) in a fake browser, with the calls the screen would receive recorded. */
 async function setup(over: Record<string, unknown> = {}) {
   const k = await kit()
-  const { SignalDecisionDialog } = await import('../../components/domain/crm/signal-decision-dialog')
+  const { SignalDecisionDialog } = await import('../../components/domain/signals/signal-decision-dialog')
   const calls = { submitted: [] as unknown[], resolved: [] as unknown[], closed: 0 }
   const props = {
     open: true, mode: 'dismissed', signalTitle: 'District office invites bids for a school management system', currentStatus: 'New',

@@ -3,9 +3,12 @@
  * section, each keeping its own research date. They are never counted for the chosen date and never copied.
  */
 
-/** The fallback is only looked for on the plain, unfiltered view of a date that has no signals: a filter that matches nothing is not an empty day. */
-export function wantsFallback(args: { itemCount: number; search: string; view: string; status: string; loaded: boolean }): boolean {
-  return args.loaded && args.itemCount === 0 && !args.search && args.view === 'all' && !args.status
+/**
+ * The fallback is only looked for on the plain, unfiltered view of a date that has no signals: a filter that matches nothing is not an empty day.
+ * `narrowed` is a facet other than the search and the status (the freshness or the fit) that the person has chosen.
+ */
+export function wantsFallback(args: { itemCount: number; search: string; view: string; status: string; loaded: boolean; narrowed?: boolean }): boolean {
+  return args.loaded && args.itemCount === 0 && !args.search && args.view === 'all' && !args.status && !args.narrowed
 }
 
 /** The label above the fallback. `original` is the already formatted original research date. */
