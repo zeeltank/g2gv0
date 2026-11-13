@@ -107,7 +107,7 @@ describe('money, numbers and time', () => {
 describe('evidence: only a path inside this application is ever a link', () => {
   it('accepts a path from the root and nothing else', () => {
     assert.equal(safeInternalPath('/module/crm/marketing/organizations/135'), '/module/crm/marketing/organizations/135')
-    assert.equal(safeInternalPath('/module/crm/signal-review?status=all&q=Hillcrest%20School'), '/module/crm/signal-review?status=all&q=Hillcrest%20School')
+    assert.equal(safeInternalPath('/signals?status=all&q=Hillcrest%20School'), '/signals?status=all&q=Hillcrest%20School')
     for (const bad of ['https://evil.example/x', 'http://evil.example', '//evil.example/x', '/\\evil.example', 'javascript:alert(1)', 'JAVASCRIPT:alert(1)', 'data:text/html,<script>', 'module/crm', '', ' /x', '/x y', '/x\ny', null, undefined, 5, {}]) {
       assert.equal(safeInternalPath(bad), null, `not a link: ${String(bad)}`)
     }
@@ -117,7 +117,7 @@ describe('evidence: only a path inside this application is ever a link', () => {
     const items = evidenceItems([SIGNAL, CRM_ORG, DEAL, SELF, PAIR])
     assert.equal(DEAL.url, '/gtm/deals/125', 'the fixture is what a run stored before the server stopped sending an address for a deal')
     assert.deepEqual(items.map((i) => [i.typeLabel, i.href]), [
-      ['Signal', '/module/crm/signal-review?status=all&q=Hillcrest'], ['CRM organisation', '/module/crm/marketing/organizations/135'], ['Deal', null],
+      ['Signal', '/signals?status=all&q=Hillcrest'], ['CRM organisation', '/module/crm/marketing/organizations/135'], ['Deal', null],
       ['This organisation', null], ['Possible link', null],
     ])
     assert.equal(evidenceItems([{ type: 'crm_opportunity', id: '256', label: 'Opp', url: '/module/crm/sales/opportunities/256' }])[0].href, '/module/crm/sales/opportunities/256', 'an opportunity has a page')

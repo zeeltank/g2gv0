@@ -35,7 +35,7 @@ function SourceSignal({ evidence }: { evidence: SignalEvidence }) {
   const titleId = useId()
   const { resolveAccessLink } = useSidebarNavigation()
   const links = useMemo(() => buildLinks(resolveAccessLink), [resolveAccessLink])
-  // Signal Review, narrowed to this signal's title; null when the person's menu has no Signal Review row (no link is drawn rather than a broken one).
+  // Company Opportunities (/signals), narrowed to this signal's title; null when the Signals screen cannot be resolved (no link is drawn rather than a broken one).
   const reviewHref = evidence.kind === 'signal' ? signalReviewHref(links, evidence.title) : null
 
   return (
@@ -100,7 +100,7 @@ function SourceSignal({ evidence }: { evidence: SignalEvidence }) {
             {reviewHref && (
               <p className="text-sm">
                 <Link href={reviewHref} className="text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-signal-review-link>
-                  Open this signal in Signal Review
+                  Open this signal in Company Opportunities
                 </Link>
               </p>
             )}

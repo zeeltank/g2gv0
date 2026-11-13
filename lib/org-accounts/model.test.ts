@@ -232,19 +232,33 @@ describe('where the links go', () => {
     assert.equal(links.contacts, null)
   })
 
-  it('finds Signal Review under the access_link its menu row really has, `/signal-review`, and under the other spelling too', () => {
-    // The first version asked only for /module/crm/signal-review, which the menu never holds on the dev database (row 506 is /signal-review): no link was drawn.
-    assert.equal(buildLinks(menu(['/signal-review'])).signalReview, '/signal-review')
-    assert.equal(buildLinks(menu(['/module/crm/signal-review'])).signalReview, '/module/crm/signal-review')
-    assert.equal(buildLinks(menu(['/signal-review', '/module/crm/signal-review'])).signalReview, '/signal-review', 'the real row wins')
-    assert.equal(buildLinks(menu([])).signalReview, null)
+  it('looks for no Signal Review menu row at all: that screen was merged into Company Opportunities on 13 Nov 2026', () => {
+    const asked: string[] = []
+    const links = buildLinks((accessLink) => { asked.push(accessLink); return accessLink })
+    assert.deepEqual(asked.filter((accessLink) => accessLink.includes('review')), [], 'the retired row is not asked for, under either spelling')
+    assert.ok(asked.includes(ACCESS_LINKS.signals), 'the Signals screen is asked for')
+    assert.deepEqual(Object.keys(links).sort(), ['contacts', 'crmOrganisations', 'gtm', 'opportunities', 'signals'], 'there is no separate Signal Review link left to draw or to hide')
+    assert.deepEqual(Object.keys(DEFAULT_LINKS).sort(), Object.keys(links).sort())
   })
 
-  it('opens Signal Review on one signal with every status and the title in the search, and nothing without the screen', () => {
-    assert.equal(signalReviewHref(DEFAULT_LINKS, 'Tender & bids'), '/signal-review?status=all&q=Tender%20%26%20bids')
-    assert.equal(signalReviewHref({ signalReview: null }, 'x'), null)
+  it('opens one signal in Company Opportunities with every status and the title in the search, and nothing without the Signals screen', () => {
+    assert.equal(signalReviewHref(DEFAULT_LINKS, 'Tender & bids'), '/signals?status=all&q=Tender%20%26%20bids')
+    assert.equal(signalReviewHref({ signals: null }, 'x'), null)
+    assert.equal(signalReviewHref(buildLinks(menu(['/signals'])), 'Tender'), '/signals?status=all&q=Tender', 'it follows the Signals link the person has')
+    assert.equal(signalReviewHref(buildLinks(menu([])), 'Tender'), null, 'and draws nothing when that link is not there')
     assert.equal(recordHref('/module/crm/sales/opportunities', 72), '/module/crm/sales/opportunities/72')
     assert.equal(recordHref(null, 72), null)
+  })
+
+  it('keeps a title whole in the search: spaces, ampersands, a question mark, a hash, a plus and non-Latin letters survive a round trip', () => {
+    for (const title of ['A & B plan', 'Why? #1 pick', '50% off + free', 'विद्यालय का नया परिसर', "O'Neil (Pvt) Ltd*"]) {
+      const href = signalReviewHref(DEFAULT_LINKS, title)!
+      const url = new URL(href, 'http://test.local')
+      assert.equal(url.pathname, '/signals')
+      assert.equal(url.searchParams.get('status'), 'all')
+      assert.equal(url.searchParams.get('q'), title, title)
+      assert.equal(url.hash, '', 'a hash in the title does not cut the address short')
+    }
   })
 })
 

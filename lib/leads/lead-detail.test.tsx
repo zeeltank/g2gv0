@@ -194,17 +194,19 @@ describe('a lead\'s page: the Evidence tab', () => {
     s.restore()
   })
 
-  it('links to Signal Review for that signal when the person\'s menu has it, and draws no link when it does not', async () => {
-    const withReview = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) })
-    await withReview.openTab('Evidence')
-    assert.equal(withReview.k.one('[data-signal-review-link]')!.getAttribute('href'), '/signal-review?status=all&q=A%20%26%20B%20plan')
-    withReview.restore()
+  it('links to Company Opportunities for that signal, narrowed by its title, whether or not the person\'s menu still holds the retired Signal Review row', async () => {
+    const withRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) })
+    await withRow.openTab('Evidence')
+    const link = withRow.k.one('[data-signal-review-link]')!
+    assert.equal(link.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan')
+    assert.equal(link.textContent!.trim(), 'Open this signal in Company Opportunities')
+    withRow.restore()
     await disposeAll()
-    const without = await open({ sourceSignalId: 77, sourceSignal: signal() }, { signalReview: false })
-    await without.openTab('Evidence')
-    absent(without.k.one('[data-signal-review-link]'), 'no Signal Review row in the menu, no link')
-    assert.ok(without.k.one('[data-signal-title]'), 'the rest of the card is there')
-    without.restore()
+    const withoutRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) }, { signalReview: false })
+    await withoutRow.openTab('Evidence')
+    assert.equal(withoutRow.k.one('[data-signal-review-link]')!.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan', 'the link does not depend on a Signal Review menu row')
+    assert.ok(withoutRow.k.one('[data-signal-title]'), 'the rest of the card is there')
+    withoutRow.restore()
   })
 
   it('a lead that says it came from a signal the server did not send says so honestly, with the number', async () => {

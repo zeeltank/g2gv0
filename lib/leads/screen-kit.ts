@@ -23,7 +23,10 @@ export type Responder = (call: Call) => unknown | Promise<unknown>
 const PROFILE = 16
 const TENANT = 1
 
-/** Sales & Marketing with Leads and Signal Review, at the access links the real menu holds. */
+/**
+ * Sales & Marketing with Leads and, optionally, the retired Signal Review row (506), at the access links the real menu holds. The row keeps `status 1` in the
+ * database (a Role & Permissions save deletes the rights of any other row), so a person's menu can still contain it; nothing may depend on it any more.
+ */
 export function menu(withSignalReview = true) {
   return [{
     id: 199, label: 'Sales & Marketing', icon: null, access_link: '/module/crm', page_type: null, sort_order: 1, parent_id: null,
