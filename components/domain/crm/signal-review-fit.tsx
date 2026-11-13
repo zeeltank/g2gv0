@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { fitScoreModel, type FitModel, type OfferView, type ScoreModel } from '@/lib/signal-review/fit-score'
+import { fitScoreModel, type FitModel, type OfferView, type ScoreModel } from '@/lib/signals/fit-score'
 import type { ProductFilterOption, SignalRow } from '@/services/signal-review/signal-types'
 import { Fact, SignalProductChip } from './signal-review-parts'
 

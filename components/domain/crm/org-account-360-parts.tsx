@@ -14,7 +14,7 @@ import {
 import { recordHref, signalReviewHref, type OrgLinks } from '@/lib/org-accounts/links'
 import { CONFIRM_LABEL, REJECT_LABEL, type LinkAction } from '@/lib/org-accounts/suggestions'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
-import { formatDay, safeHttpUrl } from '@/lib/signal-review/signal-display'
+import { formatDay, safeHttpUrl } from '@/lib/signals/signal-display'
 import { cn } from '@/lib/utils'
 import type { Org360, OrgSuggestion } from '@/services/org-accounts/types'
 import { LifecycleChip, SignalDatePill, SignalStateChip, SourceTag } from './org-account-parts'

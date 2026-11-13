@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { ReactElement } from 'react'
 import { kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import type { AgentApi } from '../../services/agent/api-types'
 import { fakeAgentService } from './fake-service'
 

@@ -8,7 +8,7 @@ import { Field, NativeSelect } from '@/components/shared/scaffolds/form-field'
 import { FormErrorSummary, FormLayout } from '@/components/shared/scaffolds/form-layout'
 import {
   decisionLabel, dialogTitle, formatDateTime, reasonText, relativeTime, statusLabel, submitLabel,
-} from '@/lib/signal-review/format'
+} from '@/lib/signals/format'
 import type { DecisionDialogProps, ReviewHistoryEntry } from '@/services/signal-review/types'
 
 /** The server's cap on a note (config signals.review.note_max). The box stops here, so a note is never cut by the server. */

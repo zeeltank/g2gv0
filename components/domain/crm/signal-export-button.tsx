@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { buildCsv, collectSignals, csvFileName, EXPORT_CAP, ExportCancelled } from '@/lib/signal-review/export-csv'
+import { buildCsv, collectSignals, csvFileName, EXPORT_CAP, ExportCancelled } from '@/lib/signals/export-csv'
 import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import type { SignalListParams } from '@/services/signal-review/signal-types'
 

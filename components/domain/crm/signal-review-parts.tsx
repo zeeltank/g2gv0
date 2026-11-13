@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils'
 import {
   claimLevelText, dateBadge, dateExplanation, dateProvenance, evidenceQuote, firstSeenText, sourceLink, statusChip,
   type StatusChipTone,
-} from '@/lib/signal-review/signal-display'
-import { fitSummary } from '@/lib/signal-review/list-model'
-import { DATE_BASE, DATE_LOOK, PRODUCT_CHIP_TONE, STATUS_TONE } from '@/lib/signal-review/tones'
+} from '@/lib/signals/signal-display'
+import { fitSummary } from '@/lib/signals/list-model'
+import { DATE_BASE, DATE_LOOK, PRODUCT_CHIP_TONE, STATUS_TONE } from '@/lib/signals/tones'
 import type { ProductFilterOption, SignalRow } from '@/services/signal-review/signal-types'
 import type { DateInfo, ReviewStatus } from '@/services/signal-review/types'
 

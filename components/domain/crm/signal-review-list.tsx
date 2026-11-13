@@ -14,7 +14,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   applyStatusChange, clearFiltersPatch, fitChoices, fitSummary, FRESHNESS_CHOICES, listScreenState, productChoices, queryToParams, rangeText,
   SIGNAL_LIST_QUERY, SORT_CHOICES, STATUS_CHOICES, summaryTiles, type Choice,
-} from '@/lib/signal-review/list-model'
+} from '@/lib/signals/list-model'
 import { cn } from '@/lib/utils'
 import type { PmOption } from '@/services/product-master/types'
 import { signalReviewService, type SignalReviewApi } from '@/services/signal-review/signal-review-service'

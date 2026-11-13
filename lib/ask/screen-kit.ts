@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import type { AskApi } from '../../services/agent/ask-types'
 import type { ChatEngine } from './engine'
 import { fakeAskService } from './fake-service'

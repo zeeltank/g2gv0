@@ -1,6 +1,6 @@
 import type { ListQueryConfig } from '@/components/shared/scaffolds/list-query'
-import { fitLabel } from '@/lib/signal-review/list-model'
-import { formatDay, safeHttpUrl } from '@/lib/signal-review/signal-display'
+import { fitLabel } from '@/lib/signals/list-model'
+import { formatDay, safeHttpUrl } from '@/lib/signals/signal-display'
 import type { Fact } from '@/services/facts/types'
 import type { PmOption } from '@/services/product-master/types'
 import type {

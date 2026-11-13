@@ -4,7 +4,7 @@
  * A real browser's axe run on 4 Nov 2026 measured the date pills at 2.03:1: the status colour as TEXT on a tint of itself (`text-success` on `bg-success/10`,
  * `text-primary` on `bg-primary/10`) reads far below 4.5:1, and the same pattern was in the status chips, the product chip, three notices and the danger
  * button. The look is the Organisation 360 parts' own (lib/org-accounts/tones.ts): the WORD carries the meaning, the text is `text-foreground` (or
- * `text-muted-foreground` on the muted surface) on a SOLID theme surface, and only the border takes the status colour. lib/signal-review/contrast.test.ts
+ * `text-muted-foreground` on the muted surface) on a SOLID theme surface, and only the border takes the status colour. lib/signals/contrast.test.ts
  * computes the real ratios from app/globals.css, light and dark, and scans the Signal Review components for the patterns that failed.
  *
  * Class names are written out in full so Tailwind finds them.

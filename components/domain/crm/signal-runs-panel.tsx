@@ -8,7 +8,7 @@ import { statusBadgeVariants } from '@/components/ui/status-badge'
 import {
   formatCount, formatDateTime, formatDuration, formatMoney, NO_VALUE, relativeTime, runNeedsReason, runReason, runStatusLabel, runStatusTone,
   sortRunsNewestFirst, summariseRuns, totalTokens, type CostSummary, type KnownSum, type RunsSummary,
-} from '@/lib/signal-review/format'
+} from '@/lib/signals/format'
 import { ApiError } from '@/services/core'
 import { signalRunsService, type SignalRun } from '@/services/signal-review/runs-service'
 

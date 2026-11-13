@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { statusBadgeVariants } from '@/components/ui/status-badge'
 import {
   decidedByText, decisionLabel, formatDateTime, reasonText, relativeTime, statusLabel, statusTone, viaTag, type StatusTone,
-} from '@/lib/signal-review/format'
+} from '@/lib/signals/format'
 import type { HistoryListProps, ReviewHistoryEntry, ReviewStatus } from '@/services/signal-review/types'
 
 const TONE_VARIANT = { neutral: 'default', success: 'success', warning: 'warning', error: 'error' } as const satisfies Record<StatusTone, string>

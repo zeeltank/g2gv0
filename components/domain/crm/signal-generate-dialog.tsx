@@ -11,7 +11,7 @@ import { offersHref } from '@/lib/product-selection'
 import {
   CUSTOMER_MODELS, describeStartFailure, EMPTY_FORM, failedRunText, failureContext, nextPollStep, onlyProduct, POLL_MS, productOptions, progressLines,
   runGoneFailure, subProductOptions, toRequest, validateGenerate, type GenerateForm, type StartFailure, type Timers,
-} from '@/lib/signal-review/generate-model'
+} from '@/lib/signals/generate-model'
 import type { ProductInfo } from '@/services/portfolio/types'
 import { signalRunService, type CustomerModel, type RunSnapshot, type SignalRunApi } from '@/services/signal-review/signal-run-service'
 

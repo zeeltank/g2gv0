@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildDecisionRequest } from '@/lib/signal-review/decision-actions'
-import { classifyDecisionFailure } from '@/lib/signal-review/decision-failure'
+import { buildDecisionRequest } from '@/lib/signals/decision-actions'
+import { classifyDecisionFailure } from '@/lib/signals/decision-failure'
 import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import type { SignalDecisionResponse, SignalRow } from '@/services/signal-review/signal-types'
 import type { DecisionDialogProps, DecisionDialogSubmit, ReviewDecisionCode, ReviewHistoryEntry, ReviewStatus } from '@/services/signal-review/types'

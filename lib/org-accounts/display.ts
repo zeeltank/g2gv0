@@ -1,4 +1,4 @@
-import { formatDay } from '@/lib/signal-review/signal-display'
+import { formatDay } from '@/lib/signals/signal-display'
 import type { Org360, OrgAccountItem, OrgLifecycle, OrgLinkBasis, OrgMeta, OrgSourcePointer, OrgSourceType, OrgSuggestion } from '@/services/org-accounts/types'
 
 /**
